@@ -11,8 +11,10 @@ import { type arc, query, type Synnax } from "@synnaxlabs/client";
 import { verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "directory";
+const PLURAL_RESOURCE_NAME = "directories";
 
 export type RetrieveRootQuery = Record<string, never>;
 
@@ -23,6 +25,14 @@ export const { use: useRootKey } = Flux.createRetrieve<
 >({
   name: "root directory",
   retrieve: async ({ client }) => (await client.arcs.directories.retrieveRoot()).key,
+});
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  arc.directory.RetrieveMultipleParams,
+  arc.directory.Directory[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.arcs.directories.watch(query)),
 });
 
 export type RetrieveAncestorsQuery = { keys: arc.directory.Key[] };

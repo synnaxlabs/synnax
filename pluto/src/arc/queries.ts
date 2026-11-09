@@ -15,6 +15,7 @@ import z from "zod";
 import { Node } from "@/arc/graph/node";
 import { Scope } from "@/arc/scope";
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { Task } from "@/task";
 import { type Diagram } from "@/vis/diagram";
 
@@ -60,6 +61,14 @@ export const {
 });
 
 export const useResultType = createResultSelector(({ type }) => type);
+
+export const { useResult: useResultList } = Flux.createRetrieve<
+  arc.RetrieveMultipleParams,
+  arc.Arc[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  ...flux.listReads(({ client, query }) => client.arcs.watch(query)),
+});
 
 // graphOf returns the graph of a graph-mode Arc. Only the graph editor reads it, and it
 // renders only for a graph-mode Arc.

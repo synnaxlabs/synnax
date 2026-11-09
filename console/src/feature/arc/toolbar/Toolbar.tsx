@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
+import { arc, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Explorer } from "@/feature/arc/explorer";
+import { useSearch } from "@/feature/arc/toolbar/search";
 import { RootContextMenu } from "@/feature/arc/tree";
 import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
@@ -37,49 +38,57 @@ const EmptyContent = ({ onCreate }: EmptyContentProps) => {
 };
 
 const Content = (): ReactElement => {
+  const rootKey = Arc.Directory.useRootKey({});
+  return <Loaded root={arc.directory.resourceID(rootKey)} />;
+};
+
+interface LoadedProps {
+  root: resource.ID;
+}
+
+const Loaded = ({ root }: LoadedProps): ReactElement => {
   const create = PlatformArc.useCreate();
+  const search = useSearch(root);
   return (
     <Toolbar.Content className={CSS.B("arc-toolbar")}>
       <Toolbar.Header>
-        <Toolbar.Title>
-          <Icon.Arc />
-          Arcs
-        </Toolbar.Title>
-        <Actions handleCreate={create} />
+        {search.open ? (
+          <Tree.SearchField search={search} />
+        ) : (
+          <>
+            <Toolbar.Title>
+              <Icon.Arc />
+              Arcs
+            </Toolbar.Title>
+            <Actions search={search} handleCreate={create} />
+          </>
+        )}
       </Toolbar.Header>
       <Toolbar.Body>
-        <Body onCreate={create} />
+        <Tree.Tree
+          root={root}
+          emptyContent={<EmptyContent onCreate={create} />}
+          rootContextMenu={RootContextMenu}
+          search={search}
+        />
       </Toolbar.Body>
     </Toolbar.Content>
   );
 };
 
-interface BodyProps {
-  onCreate: () => void;
-}
-
-const Body = ({ onCreate }: BodyProps): ReactElement => {
-  const rootKey = Arc.Directory.useRootKey({});
-  return (
-    <Tree.Tree
-      root={arc.directory.resourceID(rootKey)}
-      emptyContent={<EmptyContent onCreate={onCreate} />}
-      rootContextMenu={RootContextMenu}
-    />
-  );
-};
-
 interface ActionsProps {
+  search: Tree.Search;
   handleCreate: () => void;
 }
 
-const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
+const Actions = ({ search, handleCreate }: ActionsProps): ReactElement | null => {
   const openExplorer = Explorer.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
+      <Tree.SearchAction search={search} />
       {hasRetrievePermission && (
         <Toolbar.Action tooltip="Open Arc explorer" onClick={openExplorer}>
           <Icon.Explore />

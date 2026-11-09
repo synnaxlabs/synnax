@@ -82,6 +82,23 @@ describe("Arc.Directory", () => {
     await expect(retrieveDirectories(d.key)).rejects.toSatisfy(NotFoundError.matches);
   });
 
+  describe("useResultList", () => {
+    it("should find a directory by its name", async () => {
+      const d = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const { result } = renderHook(
+        () => Arc.Directory.useResultList({ searchTerm: d.name }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.map(({ key }) => key)).toContain(d.key);
+      });
+    });
+  });
+
   describe("useResultAncestors", () => {
     it("should keep the directories and the directories above them live", async () => {
       const mid = await client.arcs.directories.create({

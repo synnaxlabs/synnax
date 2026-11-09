@@ -159,6 +159,19 @@ describe("Arc queries", () => {
     });
   });
 
+  describe("useResultList", () => {
+    it("finds an arc by its name", async () => {
+      const a = await createTestArc();
+      const { result } = renderHook(() => Arc.useResultList({ searchTerm: a.name }), {
+        wrapper,
+      });
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.map(({ key }) => key)).toContain(a.key);
+      });
+    });
+  });
+
   describe("useDelete", () => {
     it("should delete a single arc", async () => {
       const testArc = await client.arcs.create({

@@ -22,8 +22,10 @@ import { Tree } from "@/platform/tree";
 import {
   expandTreeRow,
   findTreeRow,
+  itemName,
   openTreeRootContextMenu,
   openTreeRowContextMenu,
+  searchTree,
 } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
@@ -35,13 +37,14 @@ import {
   resolveFocusedTab,
   type TestStore,
   uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const createArc = async () =>
+const createArc = async (name: string = uniqueName("arc")) =>
   await client.arcs.create({
-    name: uniqueName("arc"),
+    name,
     type: "automation",
     source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
@@ -172,6 +175,48 @@ describe("arc/Toolbar", () => {
         expect(children.some((r) => r.name === name)).toBe(true);
       });
     });
+  });
+});
+
+describe("arc/Toolbar search", () => {
+  it("finds an Arc by name and shows its directory", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_arc`;
+    const arcsID = await retrieveRootDirectoryID(client);
+    const dir = await createDirectory(arcsID);
+    const arc = await createArc(name);
+    await client.arcs.directories.move(
+      arcsID,
+      clientArc.directory.resourceID(dir.key),
+      clientArc.resourceID(arc.key),
+    );
+    await renderToolbar();
+    searchTree(tok);
+    const row = await findTreeRow(itemName(name));
+    expect(row.querySelector("mark")?.textContent).toBe(tok);
+    expect(row.textContent).toContain(dir.name);
+  });
+
+  it("finds a directory by name", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_dir`;
+    await client.arcs.directories.create({
+      parent: (await retrieveRootDirectoryID(client)).key,
+      name,
+    });
+    await renderToolbar();
+    searchTree(tok);
+    expect(await findTreeRow(itemName(name))).toBeTruthy();
+  });
+
+  it("opens the arc editor from a search result on double click", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_arc`;
+    const arc = await createArc(name);
+    const { store } = await renderToolbar();
+    searchTree(tok);
+    fireEvent.doubleClick(await findTreeRow(itemName(name)));
+    expect(await focusedResourceKey(store)).toBe(arc.key);
   });
 });
 
