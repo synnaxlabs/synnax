@@ -10,6 +10,7 @@
 import { device, NotFoundError, query, status } from "@synnaxlabs/client";
 import {
   createTestClient,
+  createTestClientWithRole,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -986,6 +987,32 @@ describe("queries", () => {
           expect(moved.name).toBe("Device to Move");
           expect(moved.properties).toEqual({ port: 1 });
         });
+      });
+
+      it("should keep the typed values and show the error when the Core refuses the save", async () => {
+        const rack = await client.racks.create({ name: "test refused save rack" });
+        const testDevice = await client.devices.create({
+          key: id.create(),
+          rack: rack.key,
+          name: "Refused Device",
+          make: "make",
+          model: "model",
+          location: "Lab6",
+          properties: {},
+        });
+        const viewer = await createTestClientWithRole(client, "Viewer");
+        const { result } = await renderHookSuspended(
+          () => Device.useForm({ query: { key: testDevice.key } }),
+          { wrapper: await createAsyncSynnaxWrapper({ client: viewer }) },
+        );
+        act(() => result.current.form.set(path.name, "Typed Name"));
+        let saved = true;
+        await act(async () => {
+          saved = await result.current.saveAsync();
+        });
+        expect(saved).toBe(false);
+        expect(result.current.variant).toBe("error");
+        expect(result.current.form.value().name).toBe("Typed Name");
       });
 
       it("should sync streamed status updates into the form", async () => {

@@ -8,7 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -157,6 +160,27 @@ describe("Symbol queries", () => {
       const stored = await createTestClient().schematics.symbols.retrieve(key);
       expect(stored.name).toBe("renamed-symbol");
       expect(stored.data.svg).toBe("<svg>remote</svg>");
+    });
+
+    it("should keep the typed values and show the error when the Core refuses the save", async () => {
+      const parent = await client.groups.create({
+        scope: "schematic_symbol",
+        name: "test-symbol-refused",
+      });
+      const symbol = await client.schematics.symbols.create({
+        name: "refused-symbol",
+        group: parent.key,
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+      });
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      const { result } = await renderHookSuspended(
+        () => Symbol.useForm({ query: { key: symbol.key } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: viewer }) },
+      );
+      act(() => result.current.form.set(path.name, "typed-symbol"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.form.value().name).toEqual("typed-symbol");
     });
 
     it("should serve a warm symbol from the cache without suspending", async () => {
