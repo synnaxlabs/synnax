@@ -17,6 +17,7 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/device/actions.gen.h"
 #include "client/cpp/device/json.gen.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
@@ -47,6 +48,9 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::device::DeleteRequest, google::protobuf::Empty>;
 
+using DispatchClient = freighter::
+    UnaryClient<grpc::device::DispatchRequest, google::protobuf::Empty>;
+
 /// @brief Creates a map of device keys to devices.
 /// @param devices The devices to map.
 /// @returns A map from device keys to devices.
@@ -66,10 +70,12 @@ public:
     /// @param device_create_client Client for creating devices.
     /// @param device_retrieve_client Client for retrieving devices.
     /// @param device_delete_client Client for deleting devices.
+    /// @param device_dispatch_client Client for dispatching actions to devices.
     Client(
         std::unique_ptr<CreateClient> device_create_client,
         std::unique_ptr<RetrieveClient> device_retrieve_client,
-        std::unique_ptr<DeleteClient> device_delete_client
+        std::unique_ptr<DeleteClient> device_delete_client,
+        std::unique_ptr<DispatchClient> device_dispatch_client
     );
 
     /// @brief retrieves the device with the given key.
@@ -124,6 +130,15 @@ public:
     [[nodiscard]]
     x::errors::Error create(const std::vector<Device> &devs) const;
 
+    /// @brief applies the actions to the device with the given key in order, as one
+    /// atomic edit.
+    /// @param key the key of the device.
+    /// @param actions the actions to apply.
+    /// @returns an error that matches NOT_FOUND when no device has the key, or
+    /// VALIDATION when the device cannot hold an action.
+    [[nodiscard]]
+    x::errors::Error dispatch(const Key &key, const std::vector<Action> &actions) const;
+
     /// @brief Deletes a device by its key.
     /// @param key The key of the device to delete.
     /// @returns An error if the deletion failed.
@@ -143,6 +158,8 @@ private:
     std::unique_ptr<RetrieveClient> device_retrieve_client;
     /// @brief Device deletion transport.
     std::unique_ptr<DeleteClient> device_delete_client;
+    /// @brief Device dispatch transport.
+    std::unique_ptr<DispatchClient> device_dispatch_client;
 };
 
 }
