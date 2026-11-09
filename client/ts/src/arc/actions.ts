@@ -21,6 +21,7 @@ import {
   removeEdge,
   removeNode,
   rename,
+  setDirectory,
   setNode,
   setNodeInputs,
   setNodePosition,
@@ -203,6 +204,14 @@ const handlers: Handlers = {
     text.doc.inserts = text.doc.inserts.filter((i) => !forget.has(idToString(i.id)));
     text.doc.deletes = text.doc.deletes.filter((d) => !forget.has(idToString(d.id)));
     return { inverse: [], targets: [] };
+  },
+  setDirectory: (state, payload) => {
+    const oldDirectory = state.directory;
+    state.directory = payload.directory;
+    return {
+      inverse: oldDirectory == null ? [] : [setDirectory({ directory: oldDirectory })],
+      targets: [state.key],
+    };
   },
   ...actions.createPathHandlers(applyPath),
 };

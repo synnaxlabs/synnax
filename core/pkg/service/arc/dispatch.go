@@ -12,6 +12,7 @@ package arc
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
@@ -31,6 +32,9 @@ import (
 // When the transaction of w commits, the Arc's task config gets a debounced rewrite, so
 // a burst of edits produces one rewrite instead of one per edit. A text edit moves the
 // Arc's last edit time only when the transaction commits.
+//
+// Apply returns a validation error when a rename or a move leaves a name that the
+// directory of the Arc cannot hold.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	var sweep []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
@@ -41,14 +45,19 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if isText && w.sweeper.quiet(key) {
 				dead = w.sweeper.forgettable(src.Text.Doc)
 			}
-			name := a.Base().Name
+			prev := a.Base()
 			a, err := Reduce(a, acts...)
 			if err != nil {
 				return a, err
 			}
-			if renamed := a.Base().Name; renamed != name {
-				if err = w.validateName(
-					ctx, ResourceID(key), renamed, a.Type() == TypeModule,
+			if next := a.Base(); next.Directory != nil && (next.Name != prev.Name ||
+				*next.Directory != lo.FromPtr(prev.Directory)) {
+				if err = w.validateEntry(
+					ctx,
+					*next.Directory,
+					ResourceID(key),
+					next.Name,
+					a.Type() == TypeModule,
 				); err != nil {
 					return Arc{}, err
 				}
