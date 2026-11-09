@@ -51,7 +51,7 @@ func (p *Plugin) chainFiles(req *plugin.Request) ([]plugin.File, error) {
 				continue
 			}
 			file, ok, err := chainFile(
-				ctx, req, origPath, cp.LivePath, cp.Numbers[i-1], k,
+				ctx, req, origPath, cp.LivePath, cp.Numbers[i-1], k, k == cp.Current,
 			)
 			if err != nil {
 				return nil, err
@@ -70,6 +70,7 @@ func chainFile(
 	req *plugin.Request,
 	origPath, livePath string,
 	prev, k int,
+	current bool,
 ) (plugin.File, bool, error) {
 	oldTable, oldNS, err := gotypes.ChainFrozenTable(
 		ctx, req, origPath, livePath, prev,
@@ -87,9 +88,13 @@ func chainFile(
 	if err != nil {
 		return plugin.File{}, false, err
 	}
-	// A chain may span several Go outputs (task and task/config); this file
-	// belongs to origPath, so members living in another output stay out of it.
-	foreign := foreignOutputs(req, livePath, origPath)
+	// A current package may span several Go outputs; this file belongs to origPath,
+	// so members living in another output stay out of it. A frozen package declares
+	// every member, so nothing is foreign to it.
+	foreign := make(set.Set[string])
+	if current {
+		foreign = foreignOutputs(req, livePath, origPath)
+	}
 	var oldEntries []resolution.Type
 	for _, t := range oldTable.TypesInNamespace(oldNS) {
 		if domain.HasExprFromType(t, "go", "migrate") && !foreign.Contains(t.Name) {

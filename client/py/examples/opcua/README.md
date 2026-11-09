@@ -165,7 +165,7 @@ uv run python examples/opcua/read_task_array.py --tls-auth
 This example:
 
 - Creates channels for two array variables (my_array_0, my_array_1)
-- Configures a read task in **array mode** with `array_size=5`
+- Configures a read task with array sampling, with `ArraySampling(size=5)`
 - Each sample contains an entire array of 5 float values
 - Displays live array values
 - Press Ctrl+C to stop
@@ -300,7 +300,8 @@ OPC UA supports many data types. Common mappings to Synnax:
 - Reads entire arrays from OPC UA nodes
 - Each sample contains multiple values (fixed array size)
 - Best for: High-speed data acquisition, waveforms, batched readings
-- Example: `ReadTask(sample_rate=10*sy.Rate.HZ, array_mode=True, array_size=5, ...)`
+- Example:
+  `ReadTask(sample_rate=10*sy.Rate.HZ, sampling=sy.opcua.ArraySampling(size=5), ...)`
 
 **Performance**: Array mode is more efficient for high-rate data when the server
 provides arrays.
@@ -396,7 +397,7 @@ sampling, which is more efficient than polling.
 ### Array reads fail
 
 - Verify the node actually contains an array
-- Check `array_size` matches the server's array length
+- Check the array sampling `size` matches the server's array length
 - Ensure the node's data type supports arrays
 - Some servers require specific subscription settings for arrays
 

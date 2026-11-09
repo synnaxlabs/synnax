@@ -19,11 +19,8 @@ import {
 } from "@/icd/actions.gen";
 import { type ICD, icdZ } from "@/icd/types.gen";
 
-const applyPath = (state: Draft<ICD>, action: patch.Action): HandlerResult => {
-  const inverse = actions.applyPath(state, action, icdZ);
-  if (inverse.length === 0) return actions.NO_OP_RESULT;
-  return { inverse, targets: [patch.pathOf(action).join(".")] };
-};
+const applyPath = (state: Draft<ICD>, action: patch.Action): HandlerResult =>
+  actions.applyPath(state, action, icdZ);
 
 const handlers: Handlers = {
   create: (state, { icd }) => {

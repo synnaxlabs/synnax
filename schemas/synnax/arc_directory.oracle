@@ -11,6 +11,7 @@ import "schemas/x/filter"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/arc/directory"
+@py output "client/py/synnax/arc/directory"
 @ts output "client/ts/src/arc/directory"
 
 Key = uuid {
@@ -26,6 +27,7 @@ Directory struct {
         @doc value         """
             is the name of the directory, one segment of an import path.
         """
+        @index sorted
         @search
         @validate required
     }

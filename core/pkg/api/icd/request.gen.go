@@ -16,6 +16,7 @@ import (
 	"encoding/json/v2"
 
 	serviceicd "github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/vmihailenco/msgpack/v5"
 )
@@ -37,7 +38,19 @@ func ApplyRetrieve(r RetrieveRequest, q serviceicd.Retrieve) (serviceicd.Retriev
 		q = q.Where(f)
 	}
 	if r.SearchTerm != "" {
+		if r.After != nil {
+			return serviceicd.Retrieve{}, validate.PathedError(
+				errors.Wrap(
+					validate.ErrValidation,
+					"a search cannot resume after a position",
+				),
+				"after",
+			)
+		}
 		q = q.Where(serviceicd.MatchSearch(r.SearchTerm))
+	}
+	if r.After != nil {
+		q = q.After(r.After.Key)
 	}
 	if r.Limit != nil {
 		// Gorp reads a zero limit as no limit, and an empty key set matches no record.
@@ -46,10 +59,8 @@ func ApplyRetrieve(r RetrieveRequest, q serviceicd.Retrieve) (serviceicd.Retriev
 		}
 		q = q.Limit(int(*r.Limit))
 	}
-	return q.Offset(int(r.Offset)), nil
-}
-
-// UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
+	return q, nil
+} // UnmarshalJSONFrom decodes the request and rejects a member that it does not declare,
 // at any depth, so a client that sends a field the Core removed fails.
 func (r *RetrieveRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	type plain RetrieveRequest

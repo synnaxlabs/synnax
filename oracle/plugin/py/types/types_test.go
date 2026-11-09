@@ -83,10 +83,16 @@ var _ = Describe("Python Types Plugin", func() {
 
 		It("Should keep the defaults of a filter request", func(ctx SpecContext) {
 			AddFilterSchema(loader)
-			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			source := strings.Replace(
+				ThingFilter,
+				"name string",
+				"name string { @search }",
+				1,
+			)
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
 			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				`search_term: str = ""`,
 				"limit: int | None = Field(default=None, ge=0, le=4294967295)",
-				"offset: int = Field(default=0, ge=0, le=4294967295)",
 			)
 		})
 

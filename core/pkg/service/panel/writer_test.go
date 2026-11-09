@@ -324,7 +324,9 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				key := create(ctx, leafNode())
 				Expect(dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewRenameAction(panel.RenamePayload{}),
+					panel.NewSetAction(
+						panel.SetPayload{Path: []string{"name"}, Value: ""},
+					),
 				})).To(MatchError(ContainSubstring("name: required")))
 				Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
 			},
@@ -333,7 +335,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
 			Expect(dispatch(ctx, key, "d1", []panel.Action{
-				{Type: panel.ActionTypeRename},
+				{Type: panel.ActionTypeSet},
 			})).To(MatchError(union.ErrMissingPayload))
 			Expect(retrieve(ctx, db, key).Name).To(Equal("test"))
 		})
@@ -362,10 +364,12 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
+		It("Should apply a set of the name and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())
 			Expect(dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewRenameAction(panel.RenamePayload{Name: "renamed"}),
+				panel.NewSetAction(
+					panel.SetPayload{Path: []string{"name"}, Value: "renamed"},
+				),
 			})).To(Succeed())
 			Expect(retrieve(ctx, db, key).Name).To(Equal("renamed"))
 		})
@@ -393,7 +397,9 @@ var _ = Describe("Writer", func() {
 			tabKey := uuid.New()
 			key := create(ctx, leafNode())
 			Expect(dispatch(ctx, key, "d1", []panel.Action{
-				panel.NewRenameAction(panel.RenamePayload{Name: "batched"}),
+				panel.NewSetAction(
+					panel.SetPayload{Path: []string{"name"}, Value: "batched"},
+				),
 				panel.NewInsertTabsAction(
 					panel.InsertTabsPayload{
 						Tabs:       []panel.Tab{tab(tabKey)},
@@ -411,7 +417,9 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				key := create(ctx, leafNode())
 				Expect(dispatch(ctx, key, "d1", []panel.Action{
-					panel.NewRenameAction(panel.RenamePayload{Name: "after"}),
+					panel.NewSetAction(
+						panel.SetPayload{Path: []string{"name"}, Value: "after"},
+					),
 					panel.NewMoveTabAction(
 						panel.MoveTabPayload{
 							Key:        uuid.New(),
@@ -453,7 +461,12 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
 					dispatch(ctx, key, "client-xyz", []panel.Action{
-						panel.NewRenameAction(panel.RenamePayload{Name: "broadcast"}),
+						panel.NewSetAction(
+							panel.SetPayload{
+								Path:  []string{"name"},
+								Value: "broadcast",
+							},
+						),
 					}),
 				).To(Succeed())
 				seen := rec.Snapshot()
@@ -461,7 +474,7 @@ var _ = Describe("Writer", func() {
 				Expect(seen[0].Key).To(Equal(key))
 				Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 				Expect(seen[0].Actions).To(HaveLen(1))
-				Expect(seen[0].Actions[0].Type).To(Equal(panel.ActionTypeRename))
+				Expect(seen[0].Actions[0].Type).To(Equal(panel.ActionTypeSet))
 			},
 		)
 
@@ -473,7 +486,9 @@ var _ = Describe("Writer", func() {
 				DeferCleanup(svc.OnAction(rec.Record))
 				for _, name := range []string{"a", "b", "c"} {
 					Expect(dispatch(ctx, key, "d", []panel.Action{
-						panel.NewRenameAction(panel.RenamePayload{Name: name}),
+						panel.NewSetAction(
+							panel.SetPayload{Path: []string{"name"}, Value: name},
+						),
 					})).To(Succeed())
 				}
 				seen := rec.Snapshot()

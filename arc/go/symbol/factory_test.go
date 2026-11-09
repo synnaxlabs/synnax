@@ -101,6 +101,19 @@ var _ = Describe("Factories", func() {
 			lonely := &symbol.Symbol{Name: "orphan"}
 			Expect(lonely.QualifiedName()).To(Equal("orphan"))
 		})
+
+		It(
+			"Should prefix the path for a member of a user module under analysis",
+			func(bCtx SpecContext) {
+				rootScope := symbol.NewRoot(nil, nil)
+				rootScope.Name, rootScope.UserDefined = "lib.m", true
+				sym := MustSucceed(rootScope.Add(
+					bCtx,
+					symbol.Symbol{Name: "f", Kind: symbol.KindFunction},
+				))
+				Expect(sym.QualifiedName()).To(Equal("lib.m.f"))
+			},
+		)
 	})
 
 	Describe("AutoImportModules", func() {
@@ -305,3 +318,53 @@ func (r *recordingResolver) Search(
 	r.searchCalls++
 	return nil, nil
 }
+
+var _ = Describe("IsComputed", func() {
+	src := 7
+	DescribeTable("classify a value variable by its initializer",
+		func(sym symbol.Symbol, computed bool) {
+			Expect(sym.IsComputed()).To(Equal(computed))
+		},
+		Entry("computed := variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.I32()}, true),
+		Entry("computed $= variable",
+			symbol.Symbol{Kind: symbol.KindStatefulVariable, Type: types.I32()}, true),
+		Entry("folded literal",
+			symbol.Symbol{
+				Kind: symbol.KindVariable, Type: types.I32(), DefaultValue: int32(5),
+			}, false),
+		Entry("channel alias",
+			symbol.Symbol{
+				Kind:     symbol.KindVariable,
+				Type:     types.Chan(types.F32()),
+				SourceID: &src,
+			}, false),
+		Entry("reactive variable",
+			symbol.Symbol{Kind: symbol.KindVariable, Type: types.ReadChan(types.F32())},
+			false),
+		Entry(
+			"channel",
+			symbol.Symbol{
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.F32()),
+			},
+			false,
+		),
+	)
+
+	It(
+		"Should not classify a function-body variable as computed",
+		func(ctx SpecContext) {
+			root := symbol.NewRoot(nil, nil)
+			fn := MustSucceed(root.Add(ctx, symbol.Symbol{
+				Name: "f",
+				Kind: symbol.KindFunction,
+				Type: types.Function(types.FunctionProperties{}),
+			}))
+			v := MustSucceed(fn.Add(ctx, symbol.Symbol{
+				Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+			}))
+			Expect(v.IsComputed()).To(BeFalse())
+		},
+	)
+})

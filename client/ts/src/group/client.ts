@@ -12,6 +12,8 @@ import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
+import { type MemberType } from "@/group/members.gen";
+import { isMember } from "@/group/move";
 import {
   type Group,
   groupZ,
@@ -21,7 +23,14 @@ import {
   retrieveResponseZ,
 } from "@/group/types.gen";
 import { LINES } from "@/group/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/group/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/group/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -58,6 +67,11 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  /**
+   * Builds a request that moves records of each type into a group, or out of their
+   * group when it is undefined.
+   */
+  setGroup: Record<MemberType, (keys: string[], to?: Key) => batch.Request>;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Group> {
@@ -81,6 +95,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (g, req) => matches(LINES, g, req.where),
@@ -93,12 +108,17 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
 
   /**
    * Builds a request that creates a group. The Core derives the scope from the parent;
-   * a group with no parent needs a scope.
+   * a group with no parent needs a scope. A request with a key and a scope writes the
+   * group to the cache.
    */
   createRequest(params: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
+    const payload = zod.parse(createReqZ, params, { label: "group create request" });
+    const { key, name, scope, parent } = payload;
+    if (key == null || scope == null) return { endpoint: "/group/create", payload };
     return {
       endpoint: "/group/create",
-      payload: zod.parse(createReqZ, params, { label: "group create request" }),
+      payload,
+      apply: () => this.store.set({ key, name, scope, parent }),
     };
   }
 
@@ -152,16 +172,40 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
+   * Builds the requests that move resources under a parent: a group, project, or rack,
+   * or the top of their tree when the parent is undefined. A group takes the parent as
+   * its parent. Any other resource joins the parent when it is a group, and leaves its
+   * group when it is not.
+   * @throws {Error} if a resource is of a type that cannot sit in a group.
+   */
+  moveRequests(ids: resource.ID[], parent?: resource.ID): batch.Request[] {
+    const byType = new Map<resource.Type, string[]>();
+    ids.forEach(({ type, key }) =>
+      byType.set(type, [...(byType.get(type) ?? []), key]),
+    );
+    const to = parent?.type === "group" ? parent.key : undefined;
+    return [...byType].map(([type, keys]) => {
+      if (type === "group") return this.setParentRequest(keys, parent);
+      if (!isMember(type)) throw new Error(`a ${type} cannot sit in a group`);
+      return this.cfg.setGroup[type](keys, to);
+    });
+  }
+
+  /**
    * Creates a group. Give a parent to nest it under a group, project, or rack, or a
    * scope to create a top-level group.
    * @throws {ValidationError} if neither a parent nor a scope is given, or if the scope
    * does not match the parent.
    */
   async create(params: CreateParams): Promise<Group> {
-    const { endpoint, payload } = this.createRequest(params);
-    const res = await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ);
-    this.store.set(res.group);
-    return res.group;
+    const { endpoint, payload, apply } = this.createRequest(params);
+    const { group } = await query.optimistic({
+      rollbacks: apply == null ? [] : [apply()],
+      commit: async () =>
+        await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ),
+    });
+    this.store.set(group);
+    return group;
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -196,15 +240,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
    * chain stops at a project or rack, which the topmost group names as its parent.
    */
   async retrieveAncestors(keys: Key | Key[]): Promise<Group[]> {
-    const since = this.store.stamp();
-    const { groups } = await this.cfg.unary.send(
-      "/group/retrieve-ancestors",
-      { keys: array.toArray(keys) },
-      retrieveAncestorsReqZ,
-      retrieveResponseZ,
-    );
-    this.store.ingest(groups, { since });
-    return groups;
+    return await this.store.track(async (since) => {
+      const { groups } = await this.cfg.unary.send(
+        "/group/retrieve-ancestors",
+        { keys: array.toArray(keys) },
+        retrieveAncestorsReqZ,
+        retrieveResponseZ,
+      );
+      this.store.ingest(groups, { since });
+      return groups;
+    });
   }
 
   /**

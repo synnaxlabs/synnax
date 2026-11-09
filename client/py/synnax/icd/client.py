@@ -16,6 +16,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.icd.types_gen import (
     ICD,
+    Cursor,
     Key,
     Message,
     RetrieveRequest,
@@ -228,7 +229,7 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[ICD]: ...
 
@@ -239,7 +240,7 @@ class Client:
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> ICD | list[ICD]:
@@ -256,22 +257,23 @@ class Client:
         :param keys: Keeps ICDs with one of these keys.
         :param search_term: A fuzzy search term matched against ICD names.
         :param limit: The maximum number of ICDs to retrieve.
-        :param offset: The number of ICDs to skip.
+        :param after: Retrieves the ICDs past this position in key order: the key of
+            the last ICD of the page before.
         :param one: Returns one ICD for any filter.
         :returns: One ICD for a plain ``key`` or when ``one`` is set, otherwise a list
             of ICDs. The list leaves out keys that do not exist.
         :raises NotFoundError: If one ICD is wanted and none matches.
         :raises MultipleFoundError: If one ICD is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one ICD is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            after=after,
         )
         res = self._client.send("/icd/retrieve", req, RetrieveResponse)
         return sole("ICD", req, res.icds) if single else res.icds

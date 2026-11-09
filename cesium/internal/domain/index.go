@@ -186,16 +186,27 @@ func (idx *index) beforeFirst(ts telem.TimeStamp) bool {
 	return ts.Before(idx.mu.pointers[0].Start)
 }
 
-func (idx *index) searchLE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchLE returns the position of the domain that contains ts, or else of the closest
+// domain before ts, and that domain. ok is false when there is none. One lock covers
+// both, so a concurrent insert cannot shift the position off the domain.
+func (idx *index) searchLE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchLE")
 	idx.read(func() {
 		i, _ = idx.unprotectedSearch(ts.SpanRange(0))
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
-func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
+// searchGE is searchLE for the closest domain after ts.
+func (idx *index) searchGE(
+	ctx context.Context,
+	ts telem.TimeStamp,
+) (i int, ptr pointer, ok bool) {
 	_, span := idx.T.Bench(ctx, "domain/index.searchGE")
 	idx.read(func() {
 		var exact bool
@@ -207,9 +218,10 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 				i += 1
 			}
 		}
+		ptr, ok = idx.unprotectedGet(i)
 	})
 	span.End()
-	return i
+	return i, ptr, ok
 }
 
 // unprotectedSearch returns the position in the index of a domain that overlaps with
@@ -238,15 +250,41 @@ func (idx *index) unprotectedSearch(tr telem.TimeRange) (int, bool) {
 	return end, false
 }
 
-func (idx *index) get(i int) (pointer, bool) {
-	idx.mu.RLock()
+// next returns the first domain that starts at or after end, the end of the current
+// domain, and its position. It finds both under one lock, so a concurrent insert
+// cannot shift one off the other. A delete can trim the start of the current domain but
+// not its end.
+func (idx *index) next(end telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		var exact bool
+		i, exact = idx.unprotectedSearch(end.SpanRange(0))
+		if !exact || idx.mu.pointers[i].Start != end {
+			i++
+		}
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
+}
+
+// prev returns the last domain that starts before start, the start of the current
+// domain, and its position. A delete can trim the end of the current domain but not its
+// start.
+func (idx *index) prev(start telem.TimeStamp) (i int, ptr pointer, ok bool) {
+	idx.read(func() {
+		var exact bool
+		if i, exact = idx.unprotectedSearch(start.SpanRange(0)); exact {
+			i--
+		}
+		ptr, ok = idx.unprotectedGet(i)
+	})
+	return i, ptr, ok
+}
+
+func (idx *index) unprotectedGet(i int) (pointer, bool) {
 	if i < 0 || i >= len(idx.mu.pointers) {
-		idx.mu.RUnlock()
 		return pointer{}, false
 	}
-	v := idx.mu.pointers[i]
-	idx.mu.RUnlock()
-	return v, true
+	return idx.mu.pointers[i], true
 }
 
 func (idx *index) read(f func()) {

@@ -30,8 +30,9 @@ export const { use, useResult, useEnsure, useTombstone, createSelector } =
   Flux.createRetrieve<RetrieveQuery, icd.ICD>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.icds.retrieve(query.key),
-    onChange: ({ client, query }, handler) => client.icds.onChange(query.key, handler),
-    getCached: ({ client, query }) => client.icds.getCached(query.key),
+    onChange: ({ client, query }, handler) =>
+      client.icds.watch(query.key).onChange(handler),
+    getCached: ({ client, query }) => client.icds.watch(query.key).getCached(),
     awaitCreation: true,
   });
 
@@ -39,14 +40,10 @@ export const useName = createSelector(({ name }) => name);
 
 export type ListQuery = icd.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, icd.Key, icd.ICD>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.icds.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.icds.retrieve({ key }),
-  onChange: ({ client, query }, handler) => client.icds.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.icds.onChange({ key }, handler),
-  getCached: ({ client, query }) => client.icds.getCached(query),
-});
+export const useList = (
+  params: Omit<Flux.UseListParams<ListQuery, icd.ICD>, "itemQuery" | "name"> = {},
+): Flux.UseListReturn<icd.Key, icd.ICD> =>
+  Flux.useList((client) => client.icds, { ...params, name: PLURAL_RESOURCE_NAME });
 
 export interface CreateParams extends icd.New {}
 

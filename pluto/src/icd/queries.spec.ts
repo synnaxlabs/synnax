@@ -50,18 +50,27 @@ describe("ICD queries", () => {
   describe("useList", () => {
     it("should list ICDs by key", async () => {
       const [a, b] = await Promise.all([createICD(), createICD()]);
-      const { result } = renderHook(() => ICD.useList(), { wrapper });
-      act(() => result.current.retrieve({ where: { key: { in: [a.key, b.key] } } }));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect([...result.current.data].sort()).toEqual([a.key, b.key].sort());
+      const { result } = renderHook(
+        () => ICD.useList({ query: { where: { key: { in: [a.key, b.key] } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() =>
+        expect([...result.current.data].sort()).toEqual([a.key, b.key].sort()),
+      );
     });
 
     it("should add an ICD created after the list loads", async () => {
-      const { result } = renderHook(() => ICD.useList(), { wrapper });
-      act(() => result.current.retrieve({}));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const ic = await createICD();
-      await waitFor(() => expect(result.current.data).toContain(ic.key));
+      const key = uuid.create();
+      const { result } = renderHook(
+        () => ICD.useList({ query: { where: { key: { in: [key] } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.answered).toBe(true));
+      expect(result.current.data).toEqual([]);
+      await client.icds.create({ key, name: `icd-${id.create()}` });
+      await waitFor(() => expect(result.current.data).toEqual([key]));
     });
   });
 

@@ -10,6 +10,8 @@
 package expression_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -398,6 +400,18 @@ var _ = Describe("Identifier Compilation", func() {
 				int64(3),
 				[]any{OpF32Const, float32(3)},
 			),
+			Entry(
+				"stored f32 infinity",
+				types.F32(),
+				"Infinity",
+				[]any{OpF32Const, float32(math.Inf(1))},
+			),
+			Entry(
+				"stored f64 negative infinity",
+				types.F64(),
+				"-Infinity",
+				[]any{OpF64Const, math.Inf(-1)},
+			),
 			Entry("bool true", types.Bool(), true, []any{OpI32Const, int32(1)}),
 			Entry("bool false", types.Bool(), false, []any{OpI32Const, int32(0)}),
 		)
@@ -425,6 +439,20 @@ var _ = Describe("Identifier Compilation", func() {
 				5,
 				"cannot fold",
 			),
+		)
+
+		It(
+			"Should keep float text in a string variable as text",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name: "label", Kind: symbol.KindVariable, Type: types.String(),
+					DefaultValue: "NaN",
+				}))
+				byteCode, exprType := compileWithCtx(ctx, "label")
+				Expect(exprType).To(Equal(types.String()))
+				Expect(byteCode).ToNot(ContainElement(byte(OpF64Const)))
+			},
 		)
 
 		It(
@@ -817,5 +845,75 @@ var _ = Describe("Identifier Compilation", func() {
 				Expect(exprType).To(Equal(types.F64()))
 			},
 		)
+	})
+})
+
+var _ = Describe("Channel keys", func() {
+	Describe("SameFunction", func() {
+		It(
+			"Should match symbols of one function or of the module level",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				root := ctx.Scope.Root()
+				local := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "l", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				top := MustSucceed(root.Add(ctx, symbol.Symbol{
+					Name: "t", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				other := MustSucceed(root.Add(ctx, symbol.Symbol{
+					Name: "g", Kind: symbol.KindFunction,
+				}))
+				otherLocal := MustSucceed(other.Add(ctx, symbol.Symbol{
+					Name: "o", Kind: symbol.KindVariable, Type: types.I32(),
+				}))
+				Expect(expression.SameFunction(ctx.Scope, local)).To(BeTrue())
+				Expect(expression.SameFunction(ctx.Scope, top)).To(BeFalse())
+				Expect(expression.SameFunction(local, otherLocal)).To(BeFalse())
+				Expect(expression.SameFunction(top, root)).To(BeTrue())
+			},
+		)
+	})
+
+	Describe("EmitChannelKey", func() {
+		It(
+			"Should load the key of a channel variable of the function from its local",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				a := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "a", Kind: symbol.KindVariable, Type: types.Chan(types.U8()),
+				}))
+				expression.EmitChannelKey(ctx, a)
+				Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpLocalGet, a.ID))
+			},
+		)
+
+		It(
+			"Should push the key of an alias declared outside the function",
+			func(bCtx SpecContext) {
+				ctx := NewContext(bCtx)
+				key := 7
+				alias := MustSucceed(ctx.Scope.Root().Add(ctx, symbol.Symbol{
+					Name:     "a",
+					Kind:     symbol.KindVariable,
+					Type:     types.Chan(types.U8()),
+					SourceID: &key,
+				}))
+				expression.EmitChannelKey(ctx, alias)
+				Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpI32Const, int32(7)))
+			},
+		)
+
+		It("Should push the key of a channel", func(bCtx SpecContext) {
+			ctx := NewContext(bCtx)
+			ch := &symbol.Symbol{
+				Name: "ch",
+				Kind: symbol.KindChannel,
+				ID:   42,
+				Type: types.Chan(types.U8()),
+			}
+			expression.EmitChannelKey(ctx, ch)
+			Expect(ctx.Writer.Bytes()).To(MatchOpcodes(OpI32Const, int32(42)))
+		})
 	})
 })

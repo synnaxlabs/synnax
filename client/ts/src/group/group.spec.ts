@@ -10,10 +10,12 @@
 import { destructor, id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { channel } from "@/channel";
 import { group } from "@/group";
 import { NotFoundError } from "@/index";
+import { query } from "@/query";
 import { type resource } from "@/resource";
-import { createTestClient } from "@/testutil";
+import { createTestClient, newVirtualChannel } from "@/testutil";
 
 const client = createTestClient();
 
@@ -42,6 +44,35 @@ describe("Group", () => {
         endpoint: "/group/create",
         payload: { name: "Pumps", parent: RACK },
       });
+    });
+    it("should write a group with a key to the cache, and roll the write back", () => {
+      const key = uuid.create();
+      const { apply } = client.groups.createRequest({
+        key,
+        name: "Pumps",
+        scope: "device",
+        parent: RACK,
+      });
+      const rollback = apply?.();
+      expect(client.groups.watch(key).getCached()).toEqual({
+        key,
+        name: "Pumps",
+        scope: "device",
+        parent: RACK,
+      });
+      rollback?.();
+      expect(query.isLive(client.groups.watch(key).getCached())).toBe(false);
+    });
+    it("should not write a group with no scope to the cache", () => {
+      expect(
+        client.groups.createRequest({ key: uuid.create(), name: "Pumps", parent: RACK })
+          .apply,
+      ).toBeUndefined();
+    });
+    it("should not write a group with no key to the cache", () => {
+      expect(
+        client.groups.createRequest({ name: "Pumps", scope: "channel" }).apply,
+      ).toBeUndefined();
     });
     it("should build a rename request", () => {
       expect(client.groups.renameRequest(KEY, "Valves")).toMatchObject({
@@ -84,6 +115,13 @@ describe("Group", () => {
         client.groups.create({ name: `group-${id.create()}` }),
       ).rejects.toThrow("scope: invalid scope");
     });
+    it("should drop the cached group when the Core rejects the create", async () => {
+      const key = uuid.create();
+      await expect(
+        client.groups.create({ key, name: "", scope: "channel" }),
+      ).rejects.toThrow("name: required");
+      expect(query.isLive(client.groups.watch(key).getCached())).toBe(false);
+    });
     it("should update an existing group", async () => {
       const g = await createTopLevel();
       await client.groups.create({
@@ -118,16 +156,16 @@ describe("Group", () => {
     });
     it("should keep a parent query live as a matching group lands", async () => {
       const parent = await createTopLevel();
-      const params = { parents: [group.resourceID(parent.key)] };
+      const list = client.groups.watch({ parents: [group.resourceID(parent.key)] });
       const handler = vi.fn();
-      const stop = client.groups.onChange(params, handler);
-      expect(await client.groups.retrieve(params)).toEqual([]);
+      const stop = list.onChange(handler);
+      expect((await list.retrieve()).records).toEqual([]);
       const child = await client.groups.create({
         name: "child",
         parent: group.resourceID(parent.key),
       });
       await expect
-        .poll(() => client.groups.getCached(params))
+        .poll(() => list.getCached()?.records)
         .toEqual([expect.objectContaining({ key: child.key })]);
       stop();
     });
@@ -255,9 +293,39 @@ describe("Group", () => {
       await expect(
         client.groups.setParent(parent.key, group.resourceID(child.key)),
       ).rejects.toThrow("would form a cycle");
-      expect(client.groups.getCached(parent.key)).toEqual(
+      expect(client.groups.watch(parent.key).getCached()).toEqual(
         expect.objectContaining({ parent: undefined }),
       );
+    });
+  });
+  describe("moveRequests", () => {
+    it("should move records and groups under a group", async () => {
+      const [parent, child, ch] = await Promise.all([
+        createTopLevel(),
+        createTopLevel(),
+        newVirtualChannel(client),
+      ]);
+      await client.batch.send(
+        client.groups.moveRequests(
+          [channel.resourceID(ch.key), group.resourceID(child.key)],
+          group.resourceID(parent.key),
+        ),
+      );
+      expect((await client.channels.retrieve(ch.key)).group).toEqual(parent.key);
+      expect((await client.groups.retrieve({ key: child.key })).parent).toEqual(
+        group.resourceID(parent.key),
+      );
+    });
+    it("should move records out of their group when the parent is not a group", async () => {
+      const [g, ch] = await Promise.all([createTopLevel(), newVirtualChannel(client)]);
+      await client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
+      await client.batch.send(client.groups.moveRequests([channel.resourceID(ch.key)]));
+      expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
+    });
+    it("should throw for a type that cannot sit in a group", () => {
+      expect(() =>
+        client.groups.moveRequests([{ type: "label", key: id.create() }]),
+      ).toThrow("a label cannot sit in a group");
     });
   });
   describe("delete", () => {
@@ -313,7 +381,7 @@ describe("Group", () => {
         virtual: true,
       });
       const sent = client.batch.send([client.channels.setGroupRequest(ch.key, g.key)]);
-      expect(client.channels.getCached(ch.key)).toEqual(
+      expect(client.channels.watch(ch.key).getCached()).toEqual(
         expect.objectContaining({ group: g.key }),
       );
       await sent;
@@ -339,7 +407,7 @@ describe("Group", () => {
           client.groups.setParentRequest(g.key, group.resourceID(g.key)),
         ]),
       ).rejects.toThrow("would form a cycle");
-      expect(client.channels.getCached(ch.key)).toEqual(
+      expect(client.channels.watch(ch.key).getCached()).toEqual(
         expect.objectContaining({ group: undefined }),
       );
     });

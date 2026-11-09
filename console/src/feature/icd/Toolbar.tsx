@@ -129,8 +129,7 @@ const Content = (): ReactElement => {
   const openTab = Panel.useOpenTab();
   const create = useCreate();
   const canCreate = Access.useCreateGranted(icd.TYPE_RESOURCE_ID);
-  const { data, getItem, subscribe, retrieve, answered } = ICD.useList({});
-  const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
+  const { data, getItem, subscribe, more, answered } = ICD.useList({ pageSize: 1000 });
   const handleOpen = (key: icd.Key) =>
     openTab({ variant: "resource", resource: icd.resourceID(key) });
   const menu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
@@ -158,7 +157,7 @@ const Content = (): ReactElement => {
             subscribe={subscribe}
             value={selected}
             onChange={setSelected}
-            onFetchMore={fetchMore}
+            onFetchMore={more}
             replaceOnSingle
           >
             <List.Scroll full="y" onContextMenu={menuProps.open}>

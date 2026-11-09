@@ -167,6 +167,15 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish bytes as base64", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.BytesT)
+			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
+			})
+		})
+
 		It("Should publish a timestamp as ISO 8601 when no time format is set",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)

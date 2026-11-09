@@ -18,16 +18,22 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Cursor is a position in an order of icds: the sort value and the key of a icd.
+type Cursor struct {
+	// Key is the key of the icd at the position.
+	Key serviceicd.Key `json:"key" msgpack:"key"`
+}
+
 // RetrieveRequest is a request to retrieve icds.
 type RetrieveRequest struct {
 	// Where selects the icds to retrieve. An absent where selects all of them.
 	Where *serviceicd.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the icds that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// After starts the icds strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most icds to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching icds to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
 }
 
 // RetrieveResponse holds the icds a RetrieveRequest selects.

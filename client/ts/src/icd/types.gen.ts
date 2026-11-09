@@ -61,6 +61,13 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   key: filter.setZ(keyZ).optional(),
 });
 
+/** Cursor is a position in an order of icds: the sort value and the key of a icd. */
+export const cursorZ = z.object({
+  /** key is the key of the icd at the position. */
+  key: keyZ,
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /** BaseField carries the parts every message field shares. */
 export const baseFieldZ = z.object({
   /** key is the unique identifier for the field within its message. */
@@ -139,10 +146,10 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the icds that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** after starts the icds strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most icds to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching icds to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

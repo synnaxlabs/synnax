@@ -78,6 +78,16 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of icds: the sort value and the key of a icd.
+
+    Attributes:
+        key: Is the key of the icd at the position.
+    """
+
+    key: Key
+
+
 class BaseField(BaseModel):
     """Carries the parts every message field shares.
 
@@ -134,16 +144,16 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the icds to retrieve. An absent where selects all of them.
         search_term: Keeps the icds that match the term, closest match first.
+        after: Starts the icds strictly past this position in their order.
         limit: Is the most icds to return.
-        offset: Is the number of matching icds to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class BinaryField(BaseField):

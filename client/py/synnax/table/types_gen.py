@@ -21,6 +21,11 @@ from synnax.resource import ID
 from x import color, filter, notation as notation_, text
 from x.filter import shorthand
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
 FLEX_ALIGNMENT_CENTER: Literal["center"] = "center"
@@ -60,6 +65,18 @@ class Column(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     size: float = Field(default=72, ge=1)
+
+
+class Order(BaseModel):
+    """Is a sort of tables.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class TextCellConfig(BaseModel):
@@ -148,6 +165,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of tables: the sort value and the key of a table.
+
+    Attributes:
+        key: Is the key of the table at the position.
+        name: Is the name of the table at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class Cell(BaseModel):
     """Is a keyed cell configuration used by actions that address cells explicitly.
     Inside the table state itself, cell configurations are stored in the cells map keyed
@@ -201,16 +230,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the tables to retrieve. An absent where selects all of them.
         search_term: Keeps the tables that match the term, closest match first.
+        order: Sorts the tables. An absent order sorts them by key.
+        after: Starts the tables strictly past this position in their order.
         limit: Is the most tables to return.
-        offset: Is the number of matching tables to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class RetrieveResponse(BaseModel):

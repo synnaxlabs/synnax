@@ -30,7 +30,13 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/icd/types.gen";
-import { matches, retrieveInputZ, serverComputed } from "@/icd/where.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/icd/where.gen";
 import { query } from "@/query";
 
 export const ACTION_CHANNEL_NAME = "sy_icd_action_set";
@@ -134,6 +140,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
       name: "icd",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (icd, req) => matches(icd, req.where),

@@ -18,7 +18,6 @@ export * from "@/feature/icd/commands";
 export * from "@/feature/icd/link";
 export * from "@/feature/icd/search";
 export * from "@/feature/icd/Toolbar";
-export * from "@/feature/icd/tree";
 export * from "@/feature/icd/useCreate";
 export * from "@/feature/icd/useImport";
 
@@ -36,7 +35,7 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, resource }) => {
     await client.icds.create(
-      query.requireCorpse(client.icds.getCached({ key: resource.key })),
+      query.requireCorpse(client.icds.watch(resource.key).getCached()),
     );
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
