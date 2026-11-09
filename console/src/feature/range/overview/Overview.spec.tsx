@@ -271,7 +271,9 @@ describe("range/overview tab", () => {
     await client.ranges.retrieve(rng.key);
     await client.ranges.delete(rng.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.ranges.getCached(rng.key))).toBe(true),
+      expect(query.Deleted.matches(client.ranges.watch(rng.key).getCached())).toBe(
+        true,
+      ),
     );
 
     const project = await client.projects.create({
@@ -281,7 +283,7 @@ describe("range/overview tab", () => {
 
     // The tab heals off the cache going live again, not off the create call.
     await waitFor(() =>
-      expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true),
+      expect(query.isLive(client.ranges.watch(rng.key).getCached())).toBe(true),
     );
     // Read back through a second client: the restoring client write-throughs its own
     // cache, so retrieving on it would pass even if the Core never got it.

@@ -30,7 +30,15 @@ import {
   retrieveRequestZ,
   retrieveResponseZ,
 } from "@/label/types.gen";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/label/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/label/where.gen";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -103,6 +111,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     // Every write to a label reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Label, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/label/dispatch", dispatchReqZ, dispatchResZ),
@@ -116,6 +125,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (label, req) => matches(label, req.where),

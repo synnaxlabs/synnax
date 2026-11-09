@@ -108,7 +108,7 @@ Operation struct {
 Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
-        @index lookup
+        @index sorted
         @search
     }
     leaseholder node.Key            {
@@ -161,6 +161,7 @@ Channel struct {
     }
     group       group.Key?          {
         @doc value     "is the group the channel sits in, if any."
+        @group scope   channel
         @ref kind      place
         @ref on_delete detach
     }

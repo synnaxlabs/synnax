@@ -57,15 +57,6 @@ describe("Resource", () => {
         .toEqual([l]);
     });
 
-    it("should page through the matches with a limit and an offset", async () => {
-      const token = randomToken();
-      for (const suffix of ["a", "b", "c"]) await createGroup(`${token} ${suffix}`);
-      const page = async (offset: number): Promise<number> =>
-        (await client.resources.search({ searchTerm: token, limit: 2, offset })).length;
-      await expect.poll(async () => await page(0)).toEqual(2);
-      expect(await page(2)).toEqual(1);
-    });
-
     it("should list the resources of the given types for an empty term", async () => {
       await createLabel(randomToken());
       await createLabel(randomToken());
@@ -78,12 +69,9 @@ describe("Resource", () => {
       expect(page.every((r) => r.id.type === "label")).toBe(true);
     });
 
-    it.each([
-      ["limit", { limit: -1 }],
-      ["offset", { offset: -1 }],
-    ])("should refuse a negative %s", async (_, bounds) => {
+    it("should refuse a negative limit", async () => {
       await expect(
-        client.resources.search({ searchTerm: "pump", ...bounds }),
+        client.resources.search({ searchTerm: "pump", limit: -1 }),
       ).rejects.toSatisfy(ValidationError.matches);
     });
 
@@ -98,19 +86,16 @@ describe("Resource", () => {
     });
   });
 
-  describe("onChange", () => {
-    // Subscribes before the first read, so the answer is maintained from its first
+  describe("watch a search", () => {
+    // Subscribes before the first read, so the window is maintained from its first
     // fetch and only change channels can move it afterward.
     const subscribe = async (
       params: resource.SearchParams,
     ): Promise<() => resource.Resource[] | undefined> => {
-      let latest: resource.Resource[] | undefined;
-      const off = client.resources.onChange(params, (answer) => {
-        if (query.isLive(answer)) latest = answer;
-      });
-      onTestFinished(off);
-      latest = await client.resources.search(params);
-      return () => latest;
+      const list = client.resources.watch(params);
+      onTestFinished(list.onChange(() => {}));
+      await list.retrieve();
+      return () => list.getCached()?.records;
     };
 
     // The Core holds groups from other specs, so the list takes the most it can.
@@ -132,8 +117,12 @@ describe("Resource", () => {
     };
 
     it("should leave a retrieved internal channel out of a subscribed list", async () => {
-      const read = await subscribe({ searchTerm: "", types: ["channel"], limit: 1000 });
-      expect(read()?.length).toBeLessThan(1000);
+      // The term names the channel, so it would rank first if the list took it.
+      const read = await subscribe({
+        searchTerm: channel.SET_CHANNEL_NAME,
+        types: ["channel"],
+        limit: 50,
+      });
       const internal = await client.channels.retrieve(channel.SET_CHANNEL_NAME);
       const id = channel.resourceID(internal.key);
       await client.resources.retrieve(id);
@@ -170,10 +159,14 @@ describe("Resource", () => {
     // Two seconds stays inside the five second grace window after an unsubscribe.
     const GRACE_POLL = { timeout: 2_000 };
 
-    const subscribeThenLeave = async (params: resource.SearchParams): Promise<void> => {
-      const off = client.resources.onChange(params, () => {});
-      await client.resources.search(params);
+    const subscribeThenLeave = async (
+      params: resource.SearchParams,
+    ): Promise<query.List<resource.Resource, string>> => {
+      const list = client.resources.watch(params);
+      const off = list.onChange(() => {});
+      await list.retrieve();
       off();
+      return list;
     };
 
     it("should show a rename made after the last unsubscribe", async () => {
@@ -182,23 +175,20 @@ describe("Resource", () => {
       const plot = await client.lineplots.create({ project: proj.key, name: token });
       await awaitIndexed(token, 1);
       const params: resource.SearchParams = { searchTerm: token, types: ["lineplot"] };
-      await subscribeThenLeave(params);
+      const list = await subscribeThenLeave(params);
       await client.lineplots.rename(plot.key, `${token} renamed`);
       await expect
-        .poll(async () => (await client.resources.search(params))[0]?.name, GRACE_POLL)
+        .poll(async () => (await list.retrieve()).records[0]?.name, GRACE_POLL)
         .toEqual(`${token} renamed`);
     });
 
     it("should show a resource created after the last unsubscribe", async () => {
       const token = randomToken();
       const params: resource.SearchParams = { searchTerm: token, types: ["label"] };
-      await subscribeThenLeave(params);
+      const list = await subscribeThenLeave(params);
       const l = await createLabel(token);
       await expect
-        .poll(
-          async () => (await client.resources.search(params)).map((r) => r.id),
-          GRACE_POLL,
-        )
+        .poll(async () => (await list.retrieve()).records.map((r) => r.id), GRACE_POLL)
         .toEqual([l]);
     });
 
@@ -214,23 +204,24 @@ describe("Resource", () => {
   });
 
   describe("getCached", () => {
-    it("should return the answer of a search read before", async () => {
+    it("should return the window of a search read before", async () => {
       const token = randomToken();
       const l = await createLabel(token);
-      const params: resource.SearchParams = { searchTerm: token, types: ["label"] };
+      const list = client.resources.watch({ searchTerm: token, types: ["label"] });
       await expect
-        .poll(async () => (await client.resources.search(params)).map((r) => r.id))
+        .poll(async () => (await list.retrieve()).records.map((r) => r.id))
         .toEqual([l]);
-      const cached = client.resources.getCached(params);
-      expect(query.isLive(cached) && cached.map((r) => r.id)).toEqual([l]);
+      expect(list.getCached()?.records.map((r) => r.id)).toEqual([l]);
     });
 
     it("should return undefined for a search never read", () => {
-      expect(client.resources.getCached({ searchTerm: randomToken() })).toBeUndefined();
+      expect(
+        client.resources.watch({ searchTerm: randomToken() }).getCached(),
+      ).toBeUndefined();
     });
   });
 
-  describe("onChange by ID", () => {
+  describe("watch an ID", () => {
     it("should call the handler with the new name of a renamed resource", async () => {
       const proj = await client.projects.create({ name: randomToken() });
       const plot = await client.lineplots.create({
@@ -239,7 +230,7 @@ describe("Resource", () => {
       });
       const id = lineplot.resourceID(plot.key);
       let latest: resource.Resource | undefined;
-      const off = client.resources.onChange(id, (answer) => {
+      const off = client.resources.watch(id).onChange((answer) => {
         if (query.isLive(answer)) latest = answer;
       });
       onTestFinished(off);
@@ -269,7 +260,7 @@ describe("Resource", () => {
       const id = status.resourceID(key);
       await client.resources.retrieve(id);
       let deleted = false;
-      const off = client.resources.onChange(id, (answer) => {
+      const off = client.resources.watch(id).onChange((answer) => {
         deleted = !query.isLive(answer);
       });
       onTestFinished(off);

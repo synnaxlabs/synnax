@@ -44,6 +44,9 @@ type Change struct {
 	Added []Link
 	// Removed holds the links that the transaction removed from the record.
 	Removed []Link
+	// Links holds every link of the record after the transaction, or before it for a
+	// delete.
+	Links []Link
 }
 
 // Changes is what a transaction changed, one Change per record.
@@ -167,6 +170,10 @@ func (l *changeList) list() Changes {
 		if kind == 0 {
 			continue
 		}
+		links := e.after
+		if kind == ChangeDelete {
+			links = e.before
+		}
 		out = append(out, Change{
 			Record:  e.record,
 			Kind:    kind,
@@ -174,6 +181,7 @@ func (l *changeList) list() Changes {
 			Value:   e.value,
 			Added:   subtract(e.after, e.before),
 			Removed: subtract(e.before, e.after),
+			Links:   subtract(links, nil),
 		})
 	}
 	return out
