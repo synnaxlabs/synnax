@@ -206,6 +206,17 @@ class ArcCase(SimDaqCase, TestCase):
             )
         )
 
+    def overwrite_automation(self, name: str, source: str) -> None:
+        """Replace the text of the automation named name, which load_arc created."""
+        self.log(f"Overwriting Arc: {name}")
+        self.client.arcs.create(
+            sy.arc.Automation(
+                key=self._arc(name).arc_key,
+                name=name,
+                source=sy.arc.TextSource(text=sy.Text(raw=source)),
+            )
+        )
+
     def wait_for_module_status(
         self, path: str, variant: Variant, timeout: sy.CrudeTimeSpan
     ) -> sy.Status:
@@ -260,12 +271,15 @@ class ArcCase(SimDaqCase, TestCase):
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
 
-    def task_key(self, name: str) -> sy.task.Key:
-        """Return the task key for a tracked Arc loaded via load_arc."""
+    def _arc(self, name: str) -> ArcTaskHandle:
         for handle in self._arcs:
             if handle.name == name:
-                return handle.task.key
+                return handle
         raise KeyError(f"no tracked arc named {name!r}")
+
+    def task_key(self, name: str) -> sy.task.Key:
+        """Return the task key for a tracked Arc loaded via load_arc."""
+        return self._arc(name).task.key
 
     def remove_arc(self, name: str) -> None:
         """Stop tracking the arc named name so teardown does not delete it.
