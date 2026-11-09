@@ -15,6 +15,7 @@ from pydantic import ValidationError
 import synnax as sy
 from synnax import log
 from synnax.exceptions import NotFoundError
+from x.strings import random_name
 
 
 class TestLog:
@@ -301,7 +302,9 @@ class TestClient:
     ) -> None:
         """Should replace a channel and keep its display configuration."""
         other = client.channels.create(
-            name=f"test_{uuid4()}_swap", virtual=True, data_type=sy.DataType.FLOAT64
+            name=f"test_{random_name()}_swap",
+            virtual=True,
+            data_type=sy.DataType.FLOAT64,
         )
         log = client.logs.create(name="Swap", project=project.key)
         client.logs.add_channel(log.key, virtual_channel.key)
