@@ -385,9 +385,79 @@ var _ = Describe("Go Filter Plugin", func() {
 					"if *r.Limit == 0 {",
 					"return q.Where(MatchKeys()), nil",
 					"q = q.Limit(int(*r.Limit))",
-					"return q.Offset(int(r.Offset)), nil",
+					"return q, nil",
+					`"a search cannot resume after a position",`,
+					"q = q.After(r.After.Key)",
 				).
-				ToPreserveOrder("r.Where", "r.SearchTerm", "r.Limit", "r.Offset")
+				ToNotContain("r.Order", "func (r RetrieveRequest) order()", "errors.New(").
+				ToPreserveOrder("r.Where", "r.SearchTerm", "r.After", "r.Limit")
+		})
+
+		It(
+			"Should apply an order and its cursor to the Retrieve",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key  uuid   {
+						@key
+					}
+					name string {
+						@index sorted
+						@search
+					}
+					span Span   { @index sorted start }
+					@retrieve
+				}
+				Where filter Thing {
+					key
+				}
+			`, "thing", loader, p)
+				ExpectContent(resp, "request.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						`errors.Wrap(validate.ErrValidation, "a search sorts by relevance")`,
+						"o, err := r.order()",
+						"q = q.OrderBy(o)",
+						"} else if r.After != nil {",
+						"func (r RetrieveRequest) order() (Order, error) {",
+						"case OrderFieldName:",
+						"return OrderByName(dir), nil",
+						"if r.After.Name == nil {",
+						"return OrderByNameAfter(\n\t\t\tdir,\n\t\t\t*r.After.Name,\n\t\t\t"+
+							"r.After.Key,\n\t\t), nil",
+						"case OrderFieldSpanStart:",
+						`"is required to resume an order by span_start",`,
+						"return OrderBySpanStartAfter(",
+						`"%q is not a field to sort by",`,
+					).
+					ToNotContain("errors.New(")
+			},
+		)
+
+		It("Should take no cursor for a target with no key", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+
+				Thing struct {
+					name string
+					@retrieve
+				}
+				Where filter Thing {
+					name
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "request.gen.go").
+				ToBeValidGoSource().
+				ToNotContain("r.After", "r.Order")
 		})
 
 		It("Should generate the request functions at the request output", func(

@@ -85,7 +85,7 @@ var _ = Describe("Directories", func() {
 	Describe("Root", func() {
 		It("Should reject renaming the root", func(ctx SpecContext) {
 			Expect(w.RenameDirectory(ctx, root, "Automations")).
-				To(MatchError(ContainSubstring("root Arcs directory cannot be renamed")))
+				To(MatchError(ContainSubstring("root Arcs directory cannot be changed")))
 		})
 		It("Should reject moving the root", func(ctx SpecContext) {
 			lib := createDirectory(ctx, "lib", root)
@@ -364,7 +364,9 @@ var _ = Describe("Dispatched Arc names", func() {
 			})).To(Succeed())
 		})
 		Expect(dispatch(ctx, renamed.Base().Key, "", []arc.Action{
-			arc.NewRenameAction(arc.RenamePayload{Name: "dispatch_taken"}),
+			arc.NewSetAction(
+				arc.SetPayload{Path: []string{"name"}, Value: "dispatch_taken"},
+			),
 		})).To(MatchError(ContainSubstring("already used")))
 	})
 })

@@ -184,12 +184,15 @@ func (f *tableFeed[K, E]) append(
 	return fr
 }
 
-func (f *tableFeed[K, E]) records() map[channel.Key]RecordOf {
-	records := map[channel.Key]RecordOf{
-		f.del.Key(): recordOf(unmarshalKeySample[K], f.cfg.Resource),
+func (f *tableFeed[K, E]) records() map[channel.Key]Record {
+	records := map[channel.Key]Record{
+		f.del.Key(): {
+			Of:      recordOf(unmarshalKeySample[K], f.cfg.Resource),
+			Deleted: true,
+		},
 	}
 	if f.set != nil {
-		records[f.set.Key()] = recordOf(f.cfg.SetKey, f.cfg.Resource)
+		records[f.set.Key()] = Record{Of: recordOf(f.cfg.SetKey, f.cfg.Resource)}
 	}
 	return records
 }

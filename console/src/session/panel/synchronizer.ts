@@ -62,7 +62,7 @@ const applyMembership = (
   // A retrieve can race a delete and return an already-deleted panel; the
   // local tombstone is authoritative.
   const live = candidates.filter(
-    ({ key }) => !query.Deleted.matches(client.panels.getCached(key)),
+    ({ key }) => !query.Deleted.matches(client.panels.watch(key).getCached()),
   );
   store.dispatch(
     reconcileOrder({ panels: live.map(({ key, name }) => ({ key, name })) }),
@@ -86,9 +86,9 @@ const repairMembership = async (params: Params): Promise<void> => {
   const { client, store } = params;
   const projectKey = store.getState().project.selected;
   if (projectKey == null) return;
-  const panels = await client.panels.retrieve({ projects: [projectKey] });
+  const { records } = await client.panels.watch({ projects: [projectKey] }).retrieve();
   if (store.getState().project.selected !== projectKey) return;
-  applyMembership(params, panels);
+  applyMembership(params, records);
 };
 
 // The session's strip order and selection both follow the project's live membership:
@@ -109,10 +109,12 @@ const membership: Synchronizer.Callbacks<RequiredStoreState, RequiredAction> = {
       removeQuery?.();
       removeQuery = undefined;
       if (projectKey == null) return;
-      removeQuery = client.panels.onChange({ projects: [projectKey] }, (result) => {
-        if (!query.isLive(result)) return repair();
-        applyMembership(params, result);
-      });
+      removeQuery = client.panels
+        .watch({ projects: [projectKey] })
+        .onChange((window) => {
+          if (window == null) return repair();
+          applyMembership(params, window.records);
+        });
     };
     subscribeProject(store.getState().project.selected);
     const unwatchProject = Synchronizer.watch(
@@ -142,7 +144,7 @@ const syncTitle = ({ client, store }: Params): void => {
   let name: string | undefined;
   const selected = selectSelected(state);
   if (selected != null) {
-    const cached = client.panels.getCached(selected);
+    const cached = client.panels.watch(selected).getCached();
     if (query.isLive(cached)) name = cached.name;
   }
   let title: string;
@@ -214,7 +216,7 @@ const createTabSelections = (
     // the selection change itself reconciles against the cached tree.
     const unwatchSelected = Synchronizer.watch(store, selectSelected, (selected) => {
       if (selected == null) return;
-      const cached = client.panels.getCached(selected);
+      const cached = client.panels.watch(selected).getCached();
       if (!query.isLive(cached)) return;
       reconcileTabs(store, leafGroups, cached);
     });
