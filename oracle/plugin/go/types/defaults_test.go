@@ -1438,6 +1438,9 @@ var _ = Describe("Decode-time default generation", func() {
 
 			Base struct { rate float64 = 0.2 }
 			Cfg struct extends Base { mode string = "auto" }
+			Bases = Base[]
+			BaseMap = map<string, Base>
+			DistinctBases Base[]
 			Outer struct { ` + field + ` }
 		`
 			table, diag := Analyze(ctx, source, "x", loader)
@@ -1451,6 +1454,9 @@ var _ = Describe("Decode-time default generation", func() {
 		Entry("in a slice", "items Base[]"),
 		Entry("in a map value", "items map<string, Base>"),
 		Entry("in an optional field", "items Base?"),
+		Entry("in a named slice", "items Bases"),
+		Entry("in a named map", "items BaseMap"),
+		Entry("in a distinct slice", "items DistinctBases"),
 	)
 
 	DescribeTable(

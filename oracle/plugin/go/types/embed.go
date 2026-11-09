@@ -143,7 +143,7 @@ func resolvedAndDealiased(
 // defaults in a slice, a map value, or an optional field. An embedded type takes no
 // decode hooks, so a decode leaves the defaults of such a value unset.
 func checkHeldEmbedded(owner string, field resolution.Field, data *templateData) error {
-	for _, ref := range heldRefs(field.Type, field.Optional) {
+	for _, ref := range heldRefs(field.Type, field.Optional, data.table) {
 		for _, t := range resolvedAndDealiased(ref, data.table) {
 			key := embedKey(output.GetPath(t, "go"), naming.GetGoName(t))
 			if data.embedded.Contains(key) &&
@@ -160,15 +160,56 @@ func checkHeldEmbedded(owner string, field resolution.Field, data *templateData)
 }
 
 // heldRefs returns the types that ref holds in slices and map values, and ref itself
-// when the field is optional.
-func heldRefs(ref resolution.TypeRef, optional bool) []resolution.TypeRef {
+// when the field is optional. It looks through aliases and distinct types to the
+// collection they name.
+func heldRefs(
+	ref resolution.TypeRef,
+	optional bool,
+	table *resolution.Table,
+) []resolution.TypeRef {
 	switch {
 	case ref.Name == "Array" && len(ref.TypeArgs) == 1:
-		return heldRefs(ref.TypeArgs[0], true)
+		return heldRefs(ref.TypeArgs[0], true, table)
 	case ref.Name == "Map" && len(ref.TypeArgs) == 2:
-		return heldRefs(ref.TypeArgs[1], true)
-	case optional:
+		return heldRefs(ref.TypeArgs[1], true, table)
+	}
+	if coll, ok := namedCollection(ref, table); ok {
+		return heldRefs(coll, optional, table)
+	}
+	if optional {
 		return []resolution.TypeRef{ref}
 	}
 	return nil
+}
+
+// namedCollection returns the slice or map type that ref names through aliases and
+// distinct types.
+func namedCollection(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	visited := set.New[string]()
+	for !ref.IsTypeParam() && !visited.Contains(ref.Name) {
+		if ref.Name == "Array" || ref.Name == "Map" {
+			return ref, true
+		}
+		visited.Add(ref.Name)
+		t, ok := ref.Resolve(table)
+		if !ok {
+			break
+		}
+		switch form := t.Form.(type) {
+		case resolution.AliasForm:
+			ref = resolution.SubstituteTypeRef(
+				form.Target, resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
+			)
+		case resolution.DistinctForm:
+			ref = resolution.SubstituteTypeRef(
+				form.Base, resolution.TypeArgMap(form.TypeParams, ref.TypeArgs),
+			)
+		default:
+			return resolution.TypeRef{}, false
+		}
+	}
+	return resolution.TypeRef{}, false
 }
