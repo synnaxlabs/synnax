@@ -52,7 +52,13 @@ const Internal: Panel.Content = () => {
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action
-          message={hasChannels ? "No data received yet" : "No channels configured"}
+          message={
+            !hasChannels
+              ? "No channels configured"
+              : search.filtered
+                ? "No matching lines"
+                : "No data received yet"
+          }
           action={hasChannels ? undefined : "Configure channels"}
           onClick={hasChannels ? handleDoubleClick : handleConfigureChannels}
         />
