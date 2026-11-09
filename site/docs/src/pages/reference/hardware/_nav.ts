@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Nav } from "@/components/nav";
-import { enabled } from "@/flags";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
 import { LABJACK_NAV } from "@/pages/reference/hardware/labjack/_nav";
@@ -45,13 +44,12 @@ export const HARDWARE_NAV: Nav.PageNavNode = {
     HTTP_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
-    ...(enabled("mqtt") ? [MQTT_NAV] : []),
+    MQTT_NAV,
     NI_NAV,
     OPC_UA_NAV,
     {
       href: "/reference/hardware/custom",
       name: "Custom devices",
-      edition: "enterprise",
     },
   ],
 };
