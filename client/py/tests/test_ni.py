@@ -13,8 +13,6 @@ import pytest
 from pydantic import ValidationError
 
 import synnax as sy
-import synnax.ni.chassis
-import synnax.ni.device
 
 
 @pytest.mark.ni
