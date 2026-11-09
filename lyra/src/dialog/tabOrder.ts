@@ -13,13 +13,9 @@ import { FOCUSABLE } from "@/util";
 export const follows = (a: Node, b: Node): boolean =>
   (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
 
-/** Whether Tab can stop on the element. */
-export const isTabbable = (el: HTMLElement): boolean =>
-  el.matches(FOCUSABLE) &&
-  el.tabIndex >= 0 &&
-  !el.matches(":disabled") &&
-  el.getClientRects().length > 0;
-
 /** @returns the elements in root that Tab can stop on, in document order. */
 export const tabbable = (root: HTMLElement): HTMLElement[] =>
-  Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(isTabbable);
+  Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+    (el) =>
+      el.tabIndex >= 0 && !el.matches(":disabled") && el.getClientRects().length > 0,
+  );

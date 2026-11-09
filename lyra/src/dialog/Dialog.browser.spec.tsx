@@ -118,6 +118,26 @@ const Pick = (): ReactElement => {
 
 const SEARCH = <input aria-label="Search" autoFocus />;
 
+/** A dropdown holding another, whose button closes both in one render. */
+const Nested = (): ReactElement => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <Triggers.Provider>
+      <Dialog.Frame visible={visible} onVisibleChange={setVisible}>
+        <Dialog.Trigger>Menu</Dialog.Trigger>
+        <Dialog.Dialog>
+          <Dialog.Frame>
+            <Dialog.Trigger>Inner</Dialog.Trigger>
+            <Dialog.Dialog>
+              <button onClick={() => setVisible(false)}>Done</button>
+            </Dialog.Dialog>
+          </Dialog.Frame>
+        </Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>
+  );
+};
+
 /** A modal holding a dropdown between two fields. */
 const DROPDOWN_FIELDS = (
   <>
@@ -254,6 +274,60 @@ describe("Dialog", () => {
         await userEvent.click(page.getByText("Pick"));
         await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
         expect(document.activeElement).toBe(trigger);
+      });
+
+      it("should go on in the outer dropdown when Tab leaves an inner one", async () => {
+        await openDropdown(
+          <>
+            {SEARCH}
+            <Dialog.Frame>
+              <Dialog.Trigger>Inner</Dialog.Trigger>
+              <Dialog.Dialog>
+                <input aria-label="Inner search" autoFocus />
+              </Dialog.Dialog>
+            </Dialog.Frame>
+            <button>Add</button>
+          </>,
+        );
+        button("Inner").focus();
+        await userEvent.keyboard("{Enter}");
+        await expect.element(page.getByLabelText("Inner search")).toHaveFocus();
+        await userEvent.tab();
+        await expect
+          .element(page.getByLabelText("Inner search"))
+          .not.toBeInTheDocument();
+        expect(document.activeElement).toBe(button("Add"));
+      });
+
+      it("should focus the outer trigger when both dropdowns close at once", async () => {
+        await renderThemed(<Nested />);
+        const trigger = button("Menu");
+        trigger.focus();
+        await userEvent.keyboard("{Enter}");
+        button("Inner").focus();
+        await userEvent.keyboard("{Enter}");
+        button("Done").focus();
+        await userEvent.keyboard("{Enter}");
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(trigger);
+      });
+
+      it("should leave Tab in a modal opened from it to the modal", async () => {
+        await openDropdown(
+          <>
+            {SEARCH}
+            <Dialog.Frame variant="modal">
+              <Dialog.Trigger>Details</Dialog.Trigger>
+              <Dialog.Dialog>{FIELDS}</Dialog.Dialog>
+            </Dialog.Frame>
+          </>,
+        );
+        button("Details").focus();
+        await userEvent.keyboard("{Enter}");
+        field("Last").focus();
+        await userEvent.tab();
+        expect(document.activeElement).toBe(field("First"));
+        expect(page.getByLabelText("Search").query()).not.toBeNull();
       });
 
       it("should leave the focus where a click outside puts it", async () => {

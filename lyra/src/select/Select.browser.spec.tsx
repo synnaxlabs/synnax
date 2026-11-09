@@ -226,16 +226,35 @@ const renderDescribedOptions = async (
     });
 };
 
+const LEVELS = [
+  <Select.Item key="low" itemKey="low">
+    Low
+  </Select.Item>,
+  <Select.Item key="high" itemKey="high">
+    High
+  </Select.Item>,
+];
+
 /** Opens a select from the keyboard, inside a modal. */
-const openInModal = async (): Promise<HTMLElement> => {
+const openInModal = async (multiple = false): Promise<HTMLElement> => {
   await renderThemed(
     <Triggers.Provider>
       <Dialog.Frame variant="modal" initialVisible>
         <Dialog.Dialog>
-          <Select.Simple<string> resourceName="level" value="low" onChange={() => {}}>
-            <Select.Item itemKey="low">Low</Select.Item>
-            <Select.Item itemKey="high">High</Select.Item>
-          </Select.Simple>
+          {multiple ? (
+            <Select.Simple<string>
+              resourceName="level"
+              multiple
+              value={["low"]}
+              onChange={() => {}}
+            >
+              {LEVELS}
+            </Select.Simple>
+          ) : (
+            <Select.Simple<string> resourceName="level" value="low" onChange={() => {}}>
+              {LEVELS}
+            </Select.Simple>
+          )}
         </Dialog.Dialog>
       </Dialog.Frame>
     </Triggers.Provider>,
@@ -342,6 +361,15 @@ describe("Select", () => {
     it("should focus the trigger when Enter picks an option", async () => {
       const trigger = await openInModal();
       await userEvent.keyboard("{ArrowDown}{Enter}");
+      await expect
+        .element(page.getByPlaceholder("Search levels..."))
+        .not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("should focus the trigger of a multiple select on Escape", async () => {
+      const trigger = await openInModal(true);
+      await userEvent.keyboard("{Escape}");
       await expect
         .element(page.getByPlaceholder("Search levels..."))
         .not.toBeInTheDocument();

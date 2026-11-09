@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type KeyboardEvent, type RefCallback } from "react";
+import { type KeyboardEvent, type RefCallback, type RefObject } from "react";
 
-import { follows, isTabbable, tabbable } from "@/dialog/tabOrder";
+import { follows, tabbable } from "@/dialog/tabOrder";
+import { contains } from "@/dialog/useClickOutside";
 import { useSyncedRef } from "@/hooks";
 
 /** Props for the surface of a dropdown that {@link useDropdownFocus} manages. */
@@ -18,39 +19,31 @@ export interface DropdownFocusProps {
   onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
 }
 
-/** @returns the last tab stop in the target, the stop just before the dropdown. */
-const triggerOf = (target: HTMLElement): HTMLElement | undefined =>
-  tabbable(target).at(-1) ?? (isTabbable(target) ? target : undefined);
-
 /**
  * Gives a dropdown, which portals to the end of the page, the place right after its
  * trigger in the tab order. Tab past its last stop closes it and goes on from the
  * trigger. Shift+Tab past its first stop closes it and focuses the trigger. A close
- * while it holds the focus gives the focus to the trigger.
+ * while it, or a dropdown opened from it, holds the focus gives the focus to the
+ * trigger. A dropdown with no trigger leaves the focus to the browser.
  *
  * @param enabled - Whether the hook acts.
- * @param getTarget - Returns the element that holds the trigger, or is the trigger.
+ * @param trigger - The element that opens the dropdown.
  * @param close - Closes the dropdown.
  * @returns props for the dropdown surface.
  */
 export const useDropdownFocus = (
   enabled: boolean,
-  getTarget: () => HTMLElement | null,
+  trigger: RefObject<HTMLElement | null>,
   close: () => void,
 ): DropdownFocusProps => {
   const enabledRef = useSyncedRef(enabled);
-  const getTargetRef = useSyncedRef(getTarget);
-  const getTrigger = (): HTMLElement | undefined => {
-    const target = getTargetRef.current();
-    return target == null ? undefined : triggerOf(target);
-  };
 
   // React detaches the ref before it removes the surface, so the focus is still there.
   const ref = (surface: HTMLElement | null) => {
     if (surface == null) return;
     return () => {
-      if (enabledRef.current && surface.contains(document.activeElement))
-        getTrigger()?.focus({ preventScroll: true });
+      if (enabledRef.current && contains(surface, document.activeElement))
+        trigger.current?.focus({ preventScroll: true });
     };
   };
 
@@ -78,11 +71,11 @@ export const useDropdownFocus = (
       next.focus();
       return;
     }
-    const trigger = getTrigger();
-    if (trigger == null) return;
+    const el = trigger.current;
+    if (el == null) return;
     // Tab goes on from the trigger, by default or by the focus trap of a modal.
     if (e.shiftKey) e.preventDefault();
-    trigger.focus();
+    el.focus();
     close();
   };
 

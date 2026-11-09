@@ -127,7 +127,7 @@ export const MultipleTrigger = <
   const value = useSelected<K>();
   const { setSelected } = useContext<K>();
   const { getItem } = List.useUtilContext<K, E>();
-  const { toggle, visible } = Dialog.useContext();
+  const { toggle, visible, triggerRef } = Dialog.useContext();
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, array.toArray(value), disabled);
   const { startDrag, ...dropProps } = Haul.useDragAndDrop({
@@ -179,6 +179,7 @@ export const MultipleTrigger = <
 
   return (
     <Tag.Tags
+      ref={showAddButton ? undefined : triggerRef}
       full="x"
       // The chassis is a div, so it needs a role and a tab stop to act as a button.
       role="button"
@@ -226,7 +227,7 @@ export const MultipleTrigger = <
         />
       )}
       {showAddButton && (
-        <Button.Button variant={variant} onClick={toggle}>
+        <Button.Button ref={triggerRef} variant={variant} onClick={toggle}>
           <Icon.Add color={9} />
         </Button.Button>
       )}

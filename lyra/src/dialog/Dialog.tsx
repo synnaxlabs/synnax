@@ -47,13 +47,13 @@ export const Dialog = ({
     dialogCorner,
     style: ctxStyle,
     modalPosition,
-    getTarget,
+    trigger,
   } = useInternalContext("Dialog.Dialog");
   const { visible, variant, close } = useContext();
   const modal = variant === "modal";
   const surfaceRef = useRef<HTMLDivElement>(null);
   const trap = useFocusTrap(surfaceRef, modal && visible);
-  const dropdown = useDropdownFocus(!modal, getTarget, close);
+  const dropdown = useDropdownFocus(!modal, trigger, close);
   const combinedRef = useCombinedRefs(ref, surfaceRef, dropdown.ref);
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     onKeyDown?.(e);

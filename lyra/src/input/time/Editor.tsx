@@ -192,6 +192,8 @@ export const Editor = <V,>({
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === "Enter") {
+      // An Enter that closes the editor must not also press the trigger it focuses.
+      e.preventDefault();
       if (!unread && problem == null) finish();
     } else if (e.key === "Escape") close();
     else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
