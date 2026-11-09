@@ -164,9 +164,8 @@ const isAtEnd = (el: HTMLElement): boolean =>
 
 const holdsSelection = (el: HTMLElement): boolean => {
   const selection = getSelection();
-  return (
-    selection != null && !selection.isCollapsed && el.contains(selection.anchorNode)
-  );
+  if (selection == null || selection.isCollapsed) return false;
+  return selection.getRangeAt(0).intersectsNode(el);
 };
 
 interface LogProps {
@@ -181,25 +180,29 @@ const Log = ({ log }: LogProps): ReactElement => {
   const ref = useRef<HTMLPreElement>(null);
   const [held, setHeld] = useState<string | null>(null);
   const shown = held ?? log;
+  // A hold keeps the lines on screen, which can be newer than a handler's closure.
+  const shownRef = useRef(shown);
   useLayoutEffect(() => {
+    shownRef.current = shown;
     const el = ref.current;
     if (held == null && el != null) el.scrollTop = el.scrollHeight;
   }, [shown, held]);
+  const hold = (): void => setHeld((prev) => prev ?? shownRef.current);
   useEffect(() => {
     const handleSelectionChange = (): void => {
       const el = ref.current;
       if (el == null) return;
-      if (holdsSelection(el)) setHeld((prev) => prev ?? log);
+      if (holdsSelection(el)) hold();
       else if (isAtEnd(el)) setHeld(null);
     };
     document.addEventListener("selectionchange", handleSelectionChange);
     return () => document.removeEventListener("selectionchange", handleSelectionChange);
-  }, [log]);
+  }, []);
   const handleScroll = (): void => {
     const el = ref.current;
     if (el == null) return;
     if (isAtEnd(el) && !holdsSelection(el)) setHeld(null);
-    else setHeld((prev) => prev ?? log);
+    else hold();
   };
   return (
     <div className={CSS.BE("diagnostics", "log-frame")}>

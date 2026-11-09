@@ -84,12 +84,16 @@ const LOG = [
     caller: "api/open.go:42",
     msg: "failed to open the store",
     error: "permission denied",
+    errorVerbose: "permission denied\n(1) attached stack trace",
     stacktrace: "main.open\n\tapi/open.go:42",
   }),
   "panic: not a structured line",
 ].join("\n");
 
 const NEW_LINE = JSON.stringify({ level: "info", ts: 1790014520, msg: "a new line" });
+
+// The dialog reads the log tail again every 2 seconds.
+const REFRESH_MS = 2000;
 
 const LINK = {
   secret: "shh",
@@ -184,6 +188,29 @@ describe("Embedded diagnostics", () => {
     );
   });
 
+  it("should quote a field value that a reader could take for another type", async () => {
+    const line = JSON.stringify({
+      level: "info",
+      ts: 1790014509,
+      msg: "opened",
+      name: "store",
+      count: 3,
+      digits: "3",
+      flag: "true",
+      empty: "",
+      text: "has space",
+      color: "\u001b[31mred\u001b[0m",
+      nested: { a: 1 },
+    });
+    await openDiagnostics(RUNNING, { supervisor_log_tail: () => line });
+    const log = await screen.findByLabelText("Log");
+    await waitFor(() =>
+      expect(log.textContent).toMatch(
+        /opened name=store count=3 digits="3" flag="true" empty="" text="has space" color=red nested=\{"a":1\}$/,
+      ),
+    );
+  });
+
   it("should mark warnings and errors", async () => {
     await openDiagnostics(RUNNING);
     const [info, warn, error, panic] = await findLines();
@@ -216,24 +243,47 @@ describe("Embedded diagnostics", () => {
   });
 
   describe("following new lines", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
     const openGrowingLog = async () => {
       let tail = LOG;
-      const supervisor = await openDiagnostics(RUNNING, {
-        supervisor_log_tail: () => tail,
+      let reads = 0;
+      await openDiagnostics(RUNNING, {
+        supervisor_log_tail: () => {
+          reads++;
+          return tail;
+        },
       });
       await findLines();
       const log = screen.getByLabelText("Log");
       stubScrolling(log);
       const grow = async (): Promise<void> => {
         tail = `${LOG}\n${NEW_LINE}`;
-        const reads = supervisor.commands.mock.calls.length;
-        await waitFor(
-          () =>
-            expect(supervisor.commands.mock.calls.length).toBeGreaterThan(reads + 1),
-          { timeout: 5000 },
-        );
+        const before = reads;
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(REFRESH_MS);
+        });
+        expect(reads).toBe(before + 1);
       };
       return { log, grow };
+    };
+
+    /** Selects from before start to after end, as a drag across them does. */
+    const select = (start: Node, end: Node): void => {
+      const range = document.createRange();
+      range.setStartBefore(start);
+      range.setEndAfter(end);
+      getSelection()?.removeAllRanges();
+      getSelection()?.addRange(range);
+      onTestFinished(() => getSelection()?.removeAllRanges());
+      act(() => {
+        document.dispatchEvent(new Event("selectionchange"));
+      });
     };
 
     it("should hold the lines while the person reads above the end", async () => {
@@ -244,24 +294,29 @@ describe("Embedded diagnostics", () => {
       await grow();
       expect(log.textContent).not.toContain("a new line");
       fireEvent.click(latest);
-      await waitFor(() => expect(log.textContent).toContain("a new line"));
+      expect(log.textContent).toContain("a new line");
       expect(log.scrollTop).toBe(1000);
       expect(screen.queryByRole("button", { name: "Jump to latest" })).toBeNull();
     });
 
     it("should hold the lines while the person selects text in them", async () => {
       const { log, grow } = await openGrowingLog();
-      const range = document.createRange();
-      range.selectNodeContents(log.children[0]);
-      getSelection()?.removeAllRanges();
-      getSelection()?.addRange(range);
-      onTestFinished(() => getSelection()?.removeAllRanges());
-      act(() => {
-        document.dispatchEvent(new Event("selectionchange"));
-      });
-      await screen.findByRole("button", { name: "Jump to latest" });
+      select(log.children[0], log.children[0]);
+      const latest = await screen.findByRole("button", { name: "Jump to latest" });
       await grow();
       expect(log.textContent).not.toContain("a new line");
+      fireEvent.click(latest);
+      expect(log.textContent).toContain("a new line");
+    });
+
+    it("should hold the lines for a selection that starts outside the log", async () => {
+      const { log, grow } = await openGrowingLog();
+      select(screen.getByText("2 in this session"), log.children[0]);
+      const latest = await screen.findByRole("button", { name: "Jump to latest" });
+      await grow();
+      expect(log.textContent).not.toContain("a new line");
+      fireEvent.click(latest);
+      expect(log.textContent).toContain("a new line");
     });
 
     it("should show new lines at the end while the view is there", async () => {

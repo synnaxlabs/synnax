@@ -18,13 +18,18 @@ const entryZ = z.looseObject({
   msg: z.string(),
 });
 
-// The caller and the stack trace fill the dialog without helping a reader. The export
-// keeps them.
+// The caller and the stack traces fill the dialog without helping a reader. zap writes
+// an error's stack as <key>Verbose. The export keeps them all.
 const HIDDEN_FIELDS = new Set(["level", "ts", "logger", "msg", "caller", "stacktrace"]);
+const isHidden = (key: string): boolean =>
+  HIDDEN_FIELDS.has(key) || key.endsWith("Verbose");
 
 // The Core colors some messages for a terminal.
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
+
+const PLAIN_VALUE = /^[\w./:@+-]+$/;
+const JSON_LITERAL = /^(-?\d+(\.\d+)?([eE][+-]?\d+)?|true|false|null)$/;
 
 /** One line of the Core log. A line that is not a structured entry keeps only text. */
 export interface Entry {
@@ -36,8 +41,14 @@ export interface Entry {
   text: string;
 }
 
-const formatValue = (value: unknown): string =>
-  typeof value === "string" && /^[^\s"=]+$/.test(value) ? value : JSON.stringify(value);
+// A string goes bare only when a reader cannot take it for another type.
+const formatValue = (value: unknown): string => {
+  if (typeof value !== "string") return JSON.stringify(value);
+  const text = value.replace(ANSI_PATTERN, "");
+  return PLAIN_VALUE.test(text) && !JSON_LITERAL.test(text)
+    ? text
+    : JSON.stringify(text);
+};
 
 const parseLine = (line: string): Entry => {
   let parsed: z.infer<typeof entryZ>;
@@ -49,7 +60,7 @@ const parseLine = (line: string): Entry => {
   }
   const { level, ts, logger = "", msg } = parsed;
   const fields = Object.entries(parsed)
-    .filter(([key]) => !HIDDEN_FIELDS.has(key))
+    .filter(([key]) => !isHidden(key))
     .map(([key, value]) => `${key}=${formatValue(value)}`);
   const text = [msg.replace(ANSI_PATTERN, "").trim(), ...fields].join(" ");
   return { level, time: TimeStamp.milliseconds(ts * 1000), logger, text };
