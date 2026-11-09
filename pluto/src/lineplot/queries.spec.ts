@@ -278,7 +278,7 @@ describe("lineplot queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.rename({ name: "after_dispatch" })],
+          actions: [lineplotClient.set({ path: ["name"], value: "after_dispatch" })],
         });
       });
       await waitFor(() =>

@@ -12,6 +12,7 @@ import { array, type optional, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 
 export const RESOURCE_NAME = "task";
 const PLURAL_RESOURCE_NAME = "tasks";
@@ -66,12 +67,15 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
       await client.tasks.retrieve({ ...query, schemas }),
     onChange: ({ client, query }, handler) =>
       parse == null
-        ? client.tasks.onChange(query, handler as query.ChangeHandler<task.Task>)
-        : client.tasks.onChange(query, (cached) => handler(parse(client, cached))),
+        ? client.tasks.watch(query).onChange(handler as query.ChangeHandler<task.Task>)
+        : client.tasks
+            .watch(query)
+            .onChange((cached) => handler(parse(client, cached))),
     getCached: ({ client, query }) =>
       parse == null
-        ? (client.tasks.getCached(query) as query.Cached<task.Task<S>> | undefined)
-        : parse(client, client.tasks.getCached(query)),
+        ? (client.tasks.watch(query).getCached() as
+            query.Cached<task.Task<S>> | undefined)
+        : parse(client, client.tasks.watch(query).getCached()),
   });
 };
 
@@ -88,20 +92,30 @@ export const useRange = createSelector(({ range }) => range);
 
 export type ListQuery = task.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, task.Key, task.Task>({
-  name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({
-    ...BASE_QUERY,
-    ...query,
-    where: { internal: { eq: false }, ...query.where },
-  }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  retrieveByKey: async ({ client, key }) =>
-    await client.tasks.retrieve({ ...BASE_QUERY, key }),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.tasks.onChange(key, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
-});
+/**
+ * Lists tasks with their statuses, also for a task outside the list. The list leaves
+ * out internal tasks unless the query sets `where.internal`.
+ */
+export const useList = ({
+  query,
+  ...rest
+}: Omit<
+  Flux.UseListParams<ListQuery, task.Task>,
+  "itemQuery" | "name"
+> = {}): Flux.UseListReturn<task.Key, task.Task> =>
+  Flux.useList((client) => client.tasks, {
+    ...rest,
+    name: PLURAL_RESOURCE_NAME,
+    query:
+      query === null
+        ? null
+        : {
+            ...BASE_QUERY,
+            ...query,
+            where: { internal: { eq: false }, ...query?.where },
+          },
+    itemQuery: (key) => ({ ...BASE_QUERY, key }),
+  });
 
 export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
   ListQuery,
@@ -109,9 +123,7 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
 >({
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
-  retrieve: async ({ client, query }) => await client.tasks.retrieve(query),
-  onChange: ({ client, query }, handler) => client.tasks.onChange(query, handler),
-  getCached: ({ client, query }) => client.tasks.getCached(query),
+  ...flux.listReads(({ client, query }) => client.tasks.watch(query)),
 });
 
 const createFormSchema = <S extends task.Schemas = task.Schemas>(

@@ -310,16 +310,72 @@ var _ = Describe("Writer", func() {
 		)
 
 		Describe("per-action semantics", func() {
-			It("Should apply Rename", func(ctx SpecContext) {
+			It("Should apply a set of the name", func(ctx SpecContext) {
 				l := log.Log{Project: &proj.Key, Name: "original"}
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
 				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewRenameAction(log.RenamePayload{Name: "renamed"}),
+					log.NewSetAction(
+						log.SetPayload{Path: []string{"name"}, Value: "renamed"},
+					),
 				})).To(Succeed())
 				Expect(retrieve(ctx, l.Key).Name).To(Equal("renamed"))
 			})
+
+			It("Should reject an empty name", func(ctx SpecContext) {
+				l := log.Log{Project: &proj.Key, Name: "original"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &l)
+				})).To(Succeed())
+				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
+					log.NewSetAction(log.SetPayload{Path: []string{"name"}, Value: ""}),
+				})).To(MatchError(ContainSubstring("name: required")))
+				Expect(retrieve(ctx, l.Key).Name).To(Equal("original"))
+			})
+
+			DescribeTable(
+				"Should reject a path action that does not set the name",
+				func(ctx SpecContext, action log.Action, msg string) {
+					l := log.Log{Project: &proj.Key, Name: "test"}
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &l)
+					})).To(Succeed())
+					Expect(dispatch(ctx, l.Key, "d1", []log.Action{action})).
+						To(SatisfyAll(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(msg)),
+						))
+				},
+				Entry(
+					"a set of another field",
+					log.NewSetAction(log.SetPayload{
+						Path:  []string{"time_zone"},
+						Value: "UTC",
+					}),
+					`unknown object member name "time_zone"`,
+				),
+				Entry(
+					"a remove of the name",
+					log.NewRemoveAction(log.RemovePayload{Key: "name"}),
+					"[name]: the document requires a value",
+				),
+				Entry(
+					"an insert into the name",
+					log.NewInsertAction(log.InsertPayload{
+						Path:  []string{"name"},
+						Value: map[string]any{"key": "a"},
+					}),
+					"[name]: the value is not a list",
+				),
+				Entry(
+					"a move in the name",
+					log.NewMoveAction(
+						log.MovePayload{Path: []string{"name"}, Key: "a"},
+					),
+					"[name]: the value is not a list",
+				),
+			)
 
 			It(
 				"Should append a default channel entry via AddChannel",
@@ -625,7 +681,7 @@ var _ = Describe("Writer", func() {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
 				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-					{Type: log.ActionTypeRename},
+					{Type: log.ActionTypeSet},
 				})).To(MatchError(union.ErrMissingPayload))
 				Expect(retrieve(ctx, l.Key).Name).To(Equal("test"))
 			})
@@ -735,7 +791,9 @@ var _ = Describe("Writer", func() {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
 				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewRenameAction(log.RenamePayload{Name: "batched"}),
+					log.NewSetAction(
+						log.SetPayload{Path: []string{"name"}, Value: "batched"},
+					),
 					log.NewAddChannelAction(log.AddChannelPayload{Channel: ch10}),
 					log.NewSetTimestampPrecisionAction(log.SetTimestampPrecisionPayload{
 						TimestampPrecision: 2,
@@ -755,7 +813,9 @@ var _ = Describe("Writer", func() {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
 					Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-						log.NewRenameAction(log.RenamePayload{Name: "after"}),
+						log.NewSetAction(
+							log.SetPayload{Path: []string{"name"}, Value: "after"},
+						),
 						log.NewSetTimestampPrecisionAction(
 							log.SetTimestampPrecisionPayload{
 								TimestampPrecision: 99,
@@ -776,7 +836,9 @@ var _ = Describe("Writer", func() {
 					rec := &Recorder[log.Key, log.Action]{}
 					DeferCleanup(svc.OnAction(rec.Record))
 					actions := []log.Action{
-						log.NewRenameAction(log.RenamePayload{Name: "broadcast"}),
+						log.NewSetAction(
+							log.SetPayload{Path: []string{"name"}, Value: "broadcast"},
+						),
 						log.NewAddChannelAction(log.AddChannelPayload{Channel: ch5}),
 					}
 					Expect(
@@ -788,7 +850,7 @@ var _ = Describe("Writer", func() {
 					Expect(seen[0].Key).To(Equal(l.Key))
 					Expect(seen[0].DispatchKey).To(Equal("client-xyz"))
 					Expect(seen[0].Actions).To(HaveLen(2))
-					Expect(seen[0].Actions[0].Type).To(Equal(log.ActionTypeRename))
+					Expect(seen[0].Actions[0].Type).To(Equal(log.ActionTypeSet))
 					Expect(seen[0].Actions[1].Type).To(Equal(log.ActionTypeAddChannel))
 				},
 			)
@@ -804,7 +866,9 @@ var _ = Describe("Writer", func() {
 					DeferCleanup(svc.OnAction(rec.Record))
 					for _, name := range []string{"a", "b", "c"} {
 						Expect(dispatch(ctx, l.Key, "d", []log.Action{
-							log.NewRenameAction(log.RenamePayload{Name: name}),
+							log.NewSetAction(
+								log.SetPayload{Path: []string{"name"}, Value: name},
+							),
 						})).To(Succeed())
 					}
 					seen := rec.Snapshot()

@@ -37,6 +37,10 @@ export const PAGE_TYPES = ["schematic", "lineplot", "log", "table"] as const;
 export const pageTypeZ = z.enum(PAGE_TYPES);
 export type PageType = z.infer<typeof pageTypeZ>;
 
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
 export const COMPONENT_SIZES = ["tiny", "small", "medium", "large", "huge"] as const;
 export const componentSizeZ = z.enum(COMPONENT_SIZES);
 export type ComponentSize = z.infer<typeof componentSizeZ>;
@@ -184,6 +188,15 @@ export const scaledConfigZ = z.object({
 });
 export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
 
+/** Order is a sort of schematics. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -274,6 +287,18 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   /** ranges matches the schematics owned by any of the given ranges. */
   ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
+
+/**
+ * Cursor is a position in an order of schematics: the sort value and the key of a
+ * schematic.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the schematic at the position. */
+  key: keyZ,
+  /** name is the name of the schematic at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -389,10 +414,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the schematics that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the schematics. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the schematics strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most schematics to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching schematics to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 

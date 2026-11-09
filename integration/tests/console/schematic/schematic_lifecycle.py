@@ -292,9 +292,9 @@ class SchematicLifecycle(ConsoleCase):
         )
         self.ctx_schematic_name = new_name
 
-        self.log("Testing copy schematic via context menu")
+        self.log("Testing duplicate schematic via context menu")
         copy_name = f"Copied Schematic {self.suffix}"
-        self.console.pages.copy(self.ctx_schematic_name, copy_name)
+        self.console.pages.duplicate(self.ctx_schematic_name, copy_name)
         assert self.console.pages.exists(copy_name), (
             f"Copied schematic '{copy_name}' should exist"
         )
@@ -304,7 +304,7 @@ class SchematicLifecycle(ConsoleCase):
         self.ctx_schematic_copy_name = copy_name
 
     def test_multi_schematic_operations(self) -> None:
-        """Test multi-select operations: copy multiple, then delete multiple."""
+        """Test multi-select operations: duplicate multiple, then delete multiple."""
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
@@ -314,8 +314,8 @@ class SchematicLifecycle(ConsoleCase):
             schematic_names.append(schematic.page_name)
             schematic.close()
 
-        self.log("Testing copy multiple schematics via context menu")
-        self.console.pages.copy_many(schematic_names)
+        self.log("Testing duplicate multiple schematics via context menu")
+        self.console.pages.duplicate_many(schematic_names)
 
         copy_names = [f"{name} (copy)" for name in schematic_names]
         for copy_name in copy_names:

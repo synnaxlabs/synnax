@@ -50,6 +50,7 @@ cc_library(
     deps = [
         ":ecrt_official",
         ":igh_api",
+        "//driver/ethercat/coe",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
         "//driver/ethercat/master",
@@ -57,6 +58,8 @@ cc_library(
         "//driver/ethercat/telem",
         "//x/cpp/errors",
         "//x/cpp/lib",
+        "//x/cpp/loop",
+        "//x/cpp/telem",
         "@abseil-cpp//absl/log",
     ],
 )
@@ -70,6 +73,8 @@ cc_test(
         ":mock_api",
         "//driver/ethercat/errors",
         "//driver/ethercat/esi",
+        "//driver/ethercat/master:contract",
+        "//x/cpp/loop/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
+	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	apistatus "github.com/synnaxlabs/synnax/pkg/api/status"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -95,7 +96,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apistatus.NewService(apistatus.ServiceConfig{
 		Status: statusSvc,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	setStatuses = bind.Write(binder, apiSvc.Set)
 	del = bind.Write(binder, apiSvc.Delete)
 	rename = bind.Write(binder, apiSvc.Rename)

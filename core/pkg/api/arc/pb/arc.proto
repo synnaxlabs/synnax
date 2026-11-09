@@ -17,18 +17,41 @@ import "core/pkg/service/arc/pb/arc.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/api/arc/pb";
 
+// OrderField is a field that arcs can be sorted by.
+enum OrderField {
+  ORDER_FIELD_NAME = 0;
+}
+
+// Cursor is a position in an order of arcs: the sort value and the key of a arc.
+message Cursor {
+  // key is the key of the arc at the position.
+  string key = 1;
+  // name is the name of the arc at the position, when the order sorts by it.
+  optional string name = 2;
+}
+
+// Order is a sort of arcs.
+message Order {
+  // field is the field to sort by. Records with equal values sort by key.
+  OrderField field = 1;
+  // descending sorts from the greatest value to the least.
+  bool descending = 2;
+}
+
 // RetrieveRequest is a request to retrieve arcs.
 message RetrieveRequest {
   // where selects the arcs to retrieve. An absent where selects all of them.
   optional .service.arc.pb.Where where = 1;
   // search_term keeps the arcs that match the term, closest match first.
   string search_term = 2;
+  // order sorts the arcs. An absent order sorts them by key.
+  optional Order order = 3;
+  // after starts the arcs strictly past this position in their order.
+  optional Cursor after = 4;
   // limit is the most arcs to return.
-  optional uint32 limit = 3;
-  // offset is the number of matching arcs to skip.
-  uint32 offset = 4;
+  optional uint32 limit = 5;
   // include_program includes the program of each record.
-  bool include_program = 5;
+  bool include_program = 6;
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

@@ -72,6 +72,41 @@ var _ = Describe("Set", func() {
 	)
 })
 
+var _ = Describe("Dispatch", func() {
+	var (
+		u    user.User
+		r    ranger.Range
+		pair kv.Pair
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		r = createRange(ctx)
+		pair = kv.Pair{Range: r.Key, Key: "k", Value: "stored"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.KV.NewWriter(tx).SetMany(ctx, []kv.Pair{pair})
+		})).To(Succeed())
+	})
+	dispatchAs := func(ctx SpecContext, value string) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apikv.DispatchRequest{
+			Key: pair.GorpKey(),
+			Actions: []kv.Action{kv.NewSetAction(
+				kv.SetPayload{Path: []string{"value"}, Value: value},
+			)},
+		})
+	}
+	It("Should change the value with update on the range", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, r.ResourceID())
+		MustSucceed(dispatchAs(ctx, "changed"))
+		Expect(listPairs(ctx, r)).
+			To(Equal([]kv.Pair{{Range: r.Key, Key: "k", Value: "changed"}}))
+	})
+	It("Should refuse a change without update on the range", func(ctx SpecContext) {
+		Expect(dispatchAs(ctx, "changed")).Error().
+			To(denied(u, access.ActionUpdate, r.ResourceID()))
+		Expect(listPairs(ctx, r)).To(Equal([]kv.Pair{pair}))
+	})
+})
+
 var _ = Describe("Delete", func() {
 	var (
 		u user.User

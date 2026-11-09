@@ -12,12 +12,12 @@ import "@/feature/channel/tree.css";
 import {
   channel,
   isCalculated,
+  query,
   ranger,
   resource,
   status,
   type Synnax,
 } from "@synnaxlabs/client";
-import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -44,18 +44,16 @@ import { Range } from "@/platform/range";
 import { Tree } from "@/platform/tree";
 import { Session } from "@/session";
 
-const haulItems = ({ name, id: { key }, data }: Tree.Resource): Haul.Item[] => {
-  const items = [
+const haulItems: Tree.HaulItems = ({ name, id: { key } }, client) => {
+  const ch = client.channels.watch(Number(key)).getCached();
+  if (!query.isLive(ch) || !ch.internal) return [PChannel.createHaulItem(Number(key))];
+  return [
     PSchematic.createHaulItem({
       key: id.create(),
       config: { variant: "value", label: { label: name }, channel: Number(key) },
     }),
   ];
-  if (data?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(key))];
 };
-
-const allowRename: Tree.AllowRename = ({ data }) => data?.internal !== true;
 
 const useDelete = Tree.createUseDelete({
   type: "Channel",
@@ -116,6 +114,9 @@ const useEditCalculated = () => {
   };
 };
 
+const retrieve: Tree.Retrieve = async (c, key) =>
+  (await c.channels.retrieve(Number(key))).payload;
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids, rootID, parentID },
@@ -152,8 +153,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleLink = Core.useCopyLinkToClipboard();
   const openCalculated = useEditCalculated();
   const singleResource = resources.length === 1;
-
-  const isCalc = singleResource && isCalculated(resources[0].data as channel.Payload);
+  const firstChannel = channels.find(({ key }) => key === channelKeys[0]);
+  const isCalc =
+    singleResource && firstChannel != null && isCalculated(firstChannel.payload);
+  const renamable = firstChannel?.internal !== true;
 
   return (
     <ContextMenu.Menu>
@@ -164,7 +167,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         </Menu.Item>
       )}
       <Menu.Divider />
-      {singleResource && hasUpdatePermission && allowRename(first) && (
+      {singleResource && hasUpdatePermission && renamable && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       {hasUpdatePermission && (
@@ -182,7 +185,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         (singleResource || showDeleteAlias) &&
         (hasAliasCreatePermission || hasAliasDeletePermission) && (
           <>
-            {singleResource && hasAliasCreatePermission && allowRename(first) && (
+            {singleResource && hasAliasCreatePermission && renamable && (
               <Menu.Item itemKey="alias" onClick={handleSetAlias}>
                 <Icon.Rename />
                 Set alias under {activeRange.name}
@@ -197,12 +200,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           </>
         )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <>
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -215,12 +219,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 
 const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
   const activeRange = Range.useResolve();
-  const query = { key: Number(resource.id.key), rangeKey: activeRange?.key };
-  const { data: alias } = PChannel.useResultAlias(query);
-  const { data: chStatus } = PChannel.useResultStatus(query);
+  const params = { key: Number(resource.id.key), rangeKey: activeRange?.key };
+  const { data: alias } = PChannel.useResultAlias(params);
+  const { data: chStatus } = PChannel.useResultStatus(params);
+  const { data: kind } = PChannel.useResultKind(params);
   const name = alias ?? resource.name;
-  const data = resource.data as channel.Payload;
-  const DataTypeIcon = PChannel.resolveIcon(data);
+  const DataTypeIcon = kind?.icon ?? Icon.Channel;
   const statusVariant = status.keepVariants(chStatus?.variant, ["error", "warning"]);
   const highlight = Tree.useHighlight();
   return (
@@ -233,7 +237,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
         overflow="fade"
         className={CSS.BE("channel-tree-item", "name")}
         grow
-        disabled={!allowRename(resource)}
+        disabled={kind?.internal === true}
         onChange
         highlight={highlight}
       />
@@ -246,7 +250,7 @@ const Content = ({ resource, icon: _, ...rest }: Tree.ContentProps) => {
           <Status.Indicator variant={statusVariant} />
         </Tooltip.Dialog>
       )}
-      {data.virtual && <Icon.Virtual color={9} />}
+      {kind?.virtual === true && <Icon.Virtual color={9} />}
     </PTree.Item>
   );
 };
@@ -276,7 +280,7 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
 ];
 
 const TreeItem = Tree.createItem({
-  type: "channel",
+  linkable: true,
   icon: <Icon.Channel />,
   useOnSelect: useOpen,
   haulItems,
