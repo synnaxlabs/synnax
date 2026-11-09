@@ -29,6 +29,8 @@ import {
   type Where,
 } from "@/access/policy/types.gen";
 import {
+  compareCursors,
+  cursor,
   type Lines,
   matches,
   retrieveInputZ,
@@ -106,12 +108,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
       name: "policy",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (policy, req) => matches(LINES, policy, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [
-          query.watch(cfg.users.store, ({ key }, req: RetrieveRequest) =>
+        triggers: [
+          query.trigger(cfg.users.store, ({ key }, req: RetrieveRequest) =>
             namesUser(req.where, key) ? "refetch" : null,
           ),
         ],

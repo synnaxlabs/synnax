@@ -16,18 +16,6 @@ import { Flux } from "@/flux";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "view";
-const PLURAL_RESOURCE_NAME = "views";
-
-export type ListQuery = view.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListQuery, view.Key, view.View>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.views.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.views.retrieve(key),
-  onChange: ({ client, query }, handler) => client.views.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.views.onChange(key, handler),
-  getCached: ({ client, query }) => client.views.getCached(query),
-});
 
 export const { useUpdate: useCreate } = Flux.createUpdate<view.New>({
   name: RESOURCE_NAME,
@@ -69,7 +57,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   initialValues: ZERO_VALUES,
   retrieve: async ({ client, query: { key } }) => await client.views.retrieve(key),
   getCached: ({ client, query: { key } }) => {
-    const cached = client.views.getCached(key);
+    const cached = client.views.watch(key).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset, stored }) => {
@@ -82,7 +70,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     if (edits.length > 0) await client.views.dispatch(values.key, edits);
   },
   mountListeners: ({ client, query: { key }, reset }) =>
-    client.views.onChange(key, (result) => {
+    client.views.watch(key).onChange((result) => {
       if (query.isLive(result)) reset(result);
     }),
 });

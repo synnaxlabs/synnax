@@ -36,7 +36,14 @@ import {
   type User,
   userZ,
 } from "@/user/types.gen";
-import { type Lines, matches, retrieveInputZ, serverComputed } from "@/user/where.gen";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/user/where.gen";
 
 const retrieveMultiParamsZ = z.union([
   query.keysRequestZ(keyZ),
@@ -129,14 +136,14 @@ export class Client extends query.Retriever<
     const single = cache.queries<SingleParams, User, Key, User>({
       name: "user",
       table: store,
-      fetch: async (params) => {
-        // A user written after since keeps that write, since the fetch predates it.
-        const since = store.stamp();
-        const users = await this.execRetrieve(params);
-        checkSingle(params, users);
-        store.ingest(users, { since });
-        return users.map((u) => u.key);
-      },
+      // A user written after since keeps that write, since the fetch predates it.
+      fetch: async (params) =>
+        await store.track(async (since) => {
+          const users = await this.execRetrieve(params);
+          checkSingle(params, users);
+          store.ingest(users, { since });
+          return users.map((u) => u.key);
+        }),
       compose: (records) => records[0],
       keyOf: (params) => ("key" in params ? params.key : null),
       single: true,
@@ -145,6 +152,7 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => matches(LINES, u, req.where),

@@ -165,7 +165,7 @@ describe("group tree item", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
 
-  it("should offer rename and delete for a top-level group", async () => {
+  it("should offer rename and ungroup for a closed top-level group", async () => {
     const g = await createGroup();
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
@@ -173,7 +173,7 @@ describe("group tree item", () => {
       resources: [groupResource(g)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
-    expect(screen.getByText("Delete")).toBeTruthy();
+    expect(screen.getByText("Ungroup")).toBeTruthy();
     expect(screen.getByText("Copy properties")).toBeTruthy();
   });
 
@@ -193,10 +193,6 @@ describe("group tree item", () => {
         ],
       },
     ];
-    const shape = PTree.flatten({
-      nodes,
-      expanded: [nodeKey(parent), nodeKey(child)],
-    });
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
@@ -207,7 +203,7 @@ describe("group tree item", () => {
       ],
       selected: [group.resourceID(child.key)],
       parentID: group.resourceID(parent.key),
-      stateOverrides: { nodes, shape },
+      stateOverrides: { nodes, expanded: [nodeKey(parent), nodeKey(child)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
@@ -230,17 +226,13 @@ describe("group tree item", () => {
         children: [{ key: nodeKey(child), children: [{ key: nodeKey(shown) }] }],
       },
     ];
-    const shape = PTree.flatten({
-      nodes,
-      expanded: [nodeKey(parent), nodeKey(child)],
-    });
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(parent), groupResource(child), groupResource(shown)],
       selected: [group.resourceID(child.key)],
       parentID: group.resourceID(parent.key),
-      stateOverrides: { nodes, shape },
+      stateOverrides: { nodes, expanded: [nodeKey(parent), nodeKey(child)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
@@ -258,14 +250,13 @@ describe("group tree item", () => {
     const nodes: PTree.Node<string>[] = [
       { key: nodeKey(child), children: [{ key: nodeKey(grandchild) }] },
     ];
-    const shape = PTree.flatten({ nodes, expanded: [nodeKey(child)] });
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(child), groupResource(grandchild)],
       selected: [group.resourceID(child.key)],
       parentID: group.resourceID(parent.key),
-      stateOverrides: { nodes, shape },
+      stateOverrides: { nodes, expanded: [nodeKey(child)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
@@ -285,13 +276,12 @@ describe("group tree item", () => {
         children: [{ key: nodeKey(child) }, { key: `channel:${ch.key}` }],
       },
     ];
-    const shape = PTree.flatten({ nodes, expanded: [nodeKey(parent)] });
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(parent), groupResource(child)],
       selected: [group.resourceID(parent.key)],
-      stateOverrides: { nodes, shape },
+      stateOverrides: { nodes, expanded: [nodeKey(parent)] },
     });
     fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
@@ -300,19 +290,18 @@ describe("group tree item", () => {
     expect((await client.channels.retrieve(ch.key)).group).toBeUndefined();
   });
 
-  it("should label ungroup as delete for a childless nested group", async () => {
+  it("should label ungroup as delete for an open, childless nested group", async () => {
     const parent = await createGroup();
     const child = await createGroup(parent.key);
     const nodes: PTree.Node<string>[] = [
-      { key: nodeKey(parent), children: [{ key: nodeKey(child) }] },
+      { key: nodeKey(parent), children: [{ key: nodeKey(child), children: [] }] },
     ];
-    const shape = PTree.flatten({ nodes, expanded: [nodeKey(parent)] });
     assertDefined(Item.ContextMenu);
     await renderTreeContextMenu(Item.ContextMenu, {
       client,
       resources: [groupResource(parent), groupResource(child)],
       selected: [group.resourceID(child.key)],
-      stateOverrides: { nodes, shape },
+      stateOverrides: { nodes, expanded: [nodeKey(parent), nodeKey(child)] },
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(screen.getByText("Delete")).toBeTruthy();
@@ -321,9 +310,6 @@ describe("group tree item", () => {
 });
 
 describe("a group and its child selected in flat search results", () => {
-  // The item reads Delete until the group loads its children.
-  const UNGROUP = /^(Ungroup|Delete)$/;
-
   const childKeysOf = async (key: group.Key): Promise<string[]> =>
     await retrieveChildGroupKeys(client, group.resourceID(key));
 
@@ -365,7 +351,7 @@ describe("a group and its child selected in flat search results", () => {
   it("should offer to group and ungroup the selection", async () => {
     await openMenu();
     expect(await screen.findByText("Group selection")).toBeTruthy();
-    expect(screen.getByText(UNGROUP)).toBeTruthy();
+    expect(screen.getByText("Ungroup")).toBeTruthy();
   });
 
   it("should move the group alone into a new group", async () => {
@@ -390,7 +376,7 @@ describe("a group and its child selected in flat search results", () => {
 
   it("should move what is left of the group to its parent", async () => {
     const { root, sibling } = await openMenu();
-    fireEvent.click(await screen.findByText(UNGROUP));
+    fireEvent.click(await screen.findByText("Ungroup"));
     await waitFor(async () =>
       expect(await childKeysOf(root.key)).toEqual([sibling.key]),
     );

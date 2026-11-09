@@ -62,7 +62,15 @@ import {
   type Where,
 } from "@/task/types.gen";
 import { LINES } from "@/task/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/task/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/task/where.gen";
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
@@ -417,6 +425,7 @@ export class Client extends query.Retriever<
     // Every write to a task reaches the client as actions, the config hash included.
     const dispatcher = new actions.Controller<Key, Omit<Task, "status">, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
@@ -475,8 +484,9 @@ export class Client extends query.Retriever<
       source: store,
       compose: (record) => this.compose(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [query.deriveWatch(statusStore, (event) => affectedKeys(event))],
+      triggers: [query.deriveTrigger(statusStore, (event) => affectedKeys(event))],
     });
+    statuses.holdOwned(store, resourceID);
     const single = cache.queries<SingleRequest, Task, Key, Task>({
       name: "task",
       table: composed,
@@ -491,11 +501,16 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchThrough(req),
         matches: (t, req) => matches(LINES, t, req.where),
         serverComputed: (req) => serverComputed(LINES, req.where),
-        watch: [query.watch(statusStore, (event) => affectedKeys(event))],
+        triggers: [
+          query.trigger(statusStore, (event) => affectedKeys(event), {
+            contentOnly: true,
+          }),
+        ],
       },
       compose: (record) => this.compose(record),
       single: { schema: singleQueryZ, space: single },
@@ -679,10 +694,6 @@ export class Client extends query.Retriever<
     return sugared;
   }
 
-  async list(rack?: RackKey): Promise<Task[]> {
-    return await this.retrieve({ internal: false, ...(rack != null && { rack }) });
-  }
-
   private async execRetrieve<S extends Schemas = Schemas>(
     params: RetrieveParams | OneParams | FilterParams,
     schemas?: S,
@@ -816,13 +827,15 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
+    const { store: statuses } = this.cfg.statuses;
     // A status that streams in during the fetch is newer than the fetched one.
-    const since = this.cfg.statuses.store.stamp();
-    const tasks = await this.execRetrieve({ ...req, includeStatus: true });
-    tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statuses.store.ingest(t.status, { since });
+    return await statuses.track(async (since) => {
+      const tasks = await this.execRetrieve({ ...req, includeStatus: true });
+      tasks.forEach((t) => {
+        if (t.status != null) statuses.ingest(t.status, { since });
+      });
+      return tasks;
     });
-    return tasks;
   }
 
   private async fetchSingle(q: SingleRequest): Promise<Task> {
@@ -843,13 +856,16 @@ export class Client extends query.Retriever<
       );
       return this.compose(tasks[0]);
     }
-    const since = this.store.stamp();
-    const statusSince = this.cfg.statuses.store.stamp();
     const where = singleWhere(q);
-    const tasks = await this.execRetrieve({ where, includeStatus: true });
-    checkForMultipleOrNoResults("task", { where }, tasks, true);
-    this.hydrate(tasks[0], since, statusSince);
-    return tasks[0];
+    return await this.store.track(
+      async (since) =>
+        await this.cfg.statuses.store.track(async (statusSince) => {
+          const tasks = await this.execRetrieve({ where, includeStatus: true });
+          checkForMultipleOrNoResults("task", { where }, tasks, true);
+          this.hydrate(tasks[0], since, statusSince);
+          return tasks[0];
+        }),
+    );
   }
 
   sugar<S extends Schemas = Schemas>(payloads: Payload<S>[], schemas?: S): Task<S>[];

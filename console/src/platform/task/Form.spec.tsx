@@ -519,10 +519,9 @@ describe("wrapForm", () => {
       await renderTaskFormTab(Renderer, { client, taskKey: tsk.key });
       await waitFor(() => expect(screen.getByText(`rack:${rack.key}`)).toBeTruthy());
       const seen = vi.fn();
-      const off = client.devices.onChange(
-        { key: deviceKey, includeStatus: true },
-        seen,
-      );
+      const off = client.devices
+        .watch({ key: deviceKey, includeStatus: true })
+        .onChange(seen);
       // Let the one-time setup renders settle, the permission grant among them, so the
       // count reflects only what the status change causes.
       await act(async () => await new Promise((resolve) => setTimeout(resolve, 30)));

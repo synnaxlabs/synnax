@@ -89,36 +89,60 @@ export interface ChangeHandler<D extends Data> {
   (result: Cached<D> | undefined): void;
 }
 
+/** The answer of one query, kept current while a handler is subscribed. */
+export interface Live<D extends Data> {
+  /**
+   * Returns the answer. Serves the cache while the answer is fresh, and fetches
+   * otherwise.
+   */
+  retrieve: (options?: FetchOptions) => Promise<D>;
+  /**
+   * Returns the cached answer without touching the network, or undefined when nothing
+   * is cached. May be stale while no handler is subscribed.
+   */
+  getCached: () => Cached<D> | undefined;
+  /**
+   * Calls the handler with each new answer. The answer stays current while a handler is
+   * subscribed, and for a grace period after the last one leaves. Returns a destructor
+   * that unsubscribes.
+   */
+  onChange: (handler: ChangeHandler<D>) => destructor.Destructor;
+}
+
 /**
- * The read surface of one query space: fetch, subscribe, snapshot. The public
- * face of every answer space, including the named spaces domain clients
- * expose (children, parents, kv).
+ * The read surface of one query space: fetch once, or watch. The public face of every
+ * answer space, including the named spaces domain clients expose (parent, kv).
  */
 export interface Retrieves<P extends Params, D extends Data> {
   retrieve: (params: P, options?: FetchOptions) => Promise<D>;
-  onChange: (params: P, handler: ChangeHandler<D>) => destructor.Destructor;
-  getCached: (params: P) => Cached<D> | undefined;
+  watch: (params: P) => Live<D>;
 }
 
 /**
  * A foreign-table subscription for an answer space: projects that table's
- * events onto the space's primary keys. Build with {@link watch}.
+ * events onto the space's primary keys. Build with {@link trigger}.
  */
-export interface Watch<P extends Params, K extends record.Key> {
+export interface Trigger<P extends Params, K extends record.Key> {
   attach: (
     params: P,
     onEvent: (result: K[] | "refetch") => void,
   ) => destructor.Destructor;
-  /** The watched table's {@link Table.version}. */
+  /** The foreign table's {@link Table.version}. */
   version: () => number;
+  /**
+   * Whether the table's changes leave the matches of every query as they were, so a
+   * change composes the members again instead of fetching the matches.
+   */
+  contentOnly?: boolean;
 }
 
 /**
  * Declares that events on the given table affect answers in this space.
  * `affects` maps an event to the primary keys whose membership or content it
- * touches, "refetch" to invalidate wholesale, or null when unaffected.
+ * touches, "refetch" to invalidate wholesale, or null when unaffected. Set
+ * `contentOnly` when no query matches on the table's records.
  */
-export const watch = <
+export const trigger = <
   P extends Params,
   K extends record.Key,
   ForeignKey extends record.Key,
@@ -129,7 +153,8 @@ export const watch = <
     event: TableEvent<ForeignKey, ForeignValue>,
     params: P,
   ) => K[] | "refetch" | null,
-): Watch<P, K> => ({
+  { contentOnly = false }: { contentOnly?: boolean } = {},
+): Trigger<P, K> => ({
   attach: (params, onEvent) =>
     // Batched so one foreign write fires onEvent once: a refetch verdict for any event
     // supersedes the batch's keys, which otherwise union.
@@ -144,6 +169,7 @@ export const watch = <
       if (keys.length > 0) onEvent(keys);
     }),
   version: () => table.version(),
+  contentOnly,
 });
 
 /**
@@ -199,7 +225,7 @@ export interface SpaceConfig<
    */
   matches?: (record: V, params: P) => boolean | null;
   /**
-   * Query fields only the server can evaluate (searchTerm, limit, offset).
+   * Query fields only the server can evaluate (searchTerm, limit).
    * A query instance with any of them set is maintained by rule 3, except a
    * positive `limit` alone (see rule 2).
    */
@@ -207,7 +233,7 @@ export interface SpaceConfig<
   /** Rule 3: whether only the server can evaluate the query, such as a regex. */
   serverComputed?: (params: P) => boolean;
   /** Foreign tables whose events affect this space's answers. */
-  watch?: Watch<P, K>[];
+  triggers?: Trigger<P, K>[];
   /**
    * Marks a space whose answer addresses one record and cannot compose an empty
    * membership: rule-2 eviction of the last member flips the query to deleted (when the
@@ -246,8 +272,28 @@ export interface SpaceHooks {
   teardownGrace?: TimeSpan;
 }
 
-const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
-const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+export const DEFAULT_DEBOUNCE = TimeSpan.milliseconds(100);
+export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
+
+/**
+ * Opens change delivery in the background, since a streaming failure must never block
+ * a read. Never rejects. A denial or a missing license belongs to the connection, which
+ * reports it once, so only other failures go to report.
+ */
+export const startStreaming = async (
+  hooks: SpaceHooks,
+  report: (exc: unknown) => void,
+): Promise<void> => {
+  try {
+    await hooks.ensureStreaming?.();
+  } catch (exc) {
+    if (AccessDeniedError.matches(exc)) return;
+    // The connection opens the stream once a license applies, and the epoch bump that
+    // follows refetches maintained answers.
+    if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
+    report(exc);
+  }
+};
 
 /** What a fetch answers against, taken when it starts. */
 interface Basis {
@@ -279,6 +325,10 @@ interface Query<
   teardown?: destructor.Destructor[];
   /** Keys whose membership a fetch in flight deferred; drained on settle. */
   pendingRechecks?: Set<K>;
+  /** Counts fetches and resets. A refetch applies only while it is the newest. */
+  generation: number;
+  /** Keys rechecked while a refetch was in flight, replayed over its answer. */
+  refetchRechecks?: Set<K>;
   /** Set when a full limited answer lost a member: it may leave out matches until a
    *  server answer replaces it. */
   vacated?: boolean;
@@ -327,6 +377,7 @@ export class Space<
     onError: NonNullable<SpaceHooks["onError"]>;
   };
   private readonly detachEpoch?: destructor.Destructor;
+  private readonly release: destructor.Destructor;
   private readonly grace: TimeSpan;
   private sweepTimer?: ReturnType<typeof setTimeout>;
   /** Counts stale marks. */
@@ -336,6 +387,10 @@ export class Space<
     this.config = config;
     this.hooks = { ...hooks, onError: hooks.onError ?? console.error };
     this.grace = hooks.teardownGrace ?? DEFAULT_TEARDOWN_GRACE;
+    this.release = config.table.hold({
+      held: () => this.held(),
+      drop: (keys) => this.drop(keys),
+    });
     this.detachEpoch = hooks.onEpoch?.((epoch) => {
       // 0 is a return to cold (cluster replacement): the fresh stream's own
       // epoch bump refetches, not the reset itself.
@@ -369,7 +424,7 @@ export class Space<
         case "deleted":
           return Promise.reject(new NotFoundError(`${this.config.name} was deleted`));
       }
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     return this.fetch(query, options);
   }
 
@@ -427,6 +482,15 @@ export class Space<
     return members;
   }
 
+  /** Returns the live answer of the query. The handle holds no state of its own. */
+  watch(params: P): Live<D> {
+    return {
+      retrieve: async (options) => await this.retrieve(params, options),
+      getCached: () => this.getCached(params),
+      onChange: (handler) => this.onChange(params, handler),
+    };
+  }
+
   /**
    * Subscribes to changes in the query's cached answer. The handler fires with the new
    * answer on every change or deletion. Maintenance for the query runs while at least
@@ -434,7 +498,7 @@ export class Space<
    * quick remount skips the reconfirm refetch. Returns a destructor that unsubscribes.
    */
   onChange(params: P, handler: ChangeHandler<D>): destructor.Destructor {
-    void this.startStreaming();
+    void startStreaming(this.hooks, (exc) => this.report(exc));
     const query = this.ensure(params);
     query.handlers.add(handler);
     query.idleSince = undefined;
@@ -473,6 +537,7 @@ export class Space<
         query.refetchTimer = undefined;
       }
       query.state = { variant: "unfetched" };
+      query.generation++;
       query.handlers.forEach((handler) => {
         try {
           handler(undefined);
@@ -486,6 +551,7 @@ export class Space<
   /** Detaches the epoch subscription. Queries and handlers are dropped. */
   close(): void {
     this.detachEpoch?.();
+    this.release();
     if (this.sweepTimer != null) {
       clearTimeout(this.sweepTimer);
       this.sweepTimer = undefined;
@@ -495,6 +561,26 @@ export class Space<
       if (query.refetchTimer != null) clearTimeout(query.refetchTimer);
     });
     this.queries.clear();
+  }
+
+  /** The members of every maintained answer. */
+  private *held(): Iterable<K> {
+    for (const { teardown, state } of this.queries.values()) {
+      if (teardown == null) continue;
+      if (state.variant === "ready") yield* state.keys;
+      else if (state.variant === "deleted") yield state.key;
+    }
+  }
+
+  /** Forgets each unmaintained answer that a dropped record answered. */
+  private drop(keys: ReadonlySet<K>): void {
+    this.queries.forEach((query) => {
+      const { state, teardown } = query;
+      if (teardown != null || state.variant !== "ready") return;
+      if (!state.keys.some((key) => keys.has(key))) return;
+      query.state = { variant: "unfetched" };
+      query.composed = undefined;
+    });
   }
 
   private teardownQuery(query: Query<P, K, D, V>): void {
@@ -540,25 +626,15 @@ export class Space<
     const hashed = hash(params);
     let query = this.queries.get(hashed);
     if (query == null) {
-      query = { params, state: { variant: "unfetched" }, handlers: new Set() };
+      query = {
+        params,
+        state: { variant: "unfetched" },
+        handlers: new Set(),
+        generation: 0,
+      };
       this.queries.set(hashed, query);
     }
     return query;
-  }
-
-  // Streaming failure must never block reads, so the change stream opens in the
-  // background rather than being awaited. A denial belongs to the connection, which
-  // reports it once, not to every query that reads. Never rejects.
-  private async startStreaming(): Promise<void> {
-    try {
-      await this.hooks.ensureStreaming?.();
-    } catch (exc) {
-      if (AccessDeniedError.matches(exc)) return;
-      // An unlicensed Core refuses the stream. The connection opens it once a license
-      // applies, and the epoch bump that follows refetches maintained answers.
-      if (MissingLicenseError.matches(exc) || ExpiredLicenseError.matches(exc)) return;
-      this.report(exc);
-    }
   }
 
   private report(
@@ -641,7 +717,7 @@ export class Space<
 
   /** Notifies every subscriber with the query's current answer. */
   private touch(query: Query<P, K, D, V>): void {
-    // A watched foreign table is an input the records do not carry, so an
+    // A trigger's foreign table is an input the records do not carry, so an
     // event is the only signal that a composed answer changed.
     query.composed = undefined;
     if (query.handlers.size === 0) return;
@@ -710,6 +786,7 @@ export class Space<
       query.refetchTimer = undefined;
     }
     const basis = this.basis();
+    query.generation++;
     const promise = this.config.fetch(query.params, options).then(
       (keys) => {
         const { table, single, name } = this.config;
@@ -760,22 +837,27 @@ export class Space<
       return;
     }
     const basis = this.basis();
-    const before = query.state;
+    const generation = ++query.generation;
+    const rechecks = new Set<K>();
+    query.refetchRechecks = rechecks;
     let keys: K[];
     try {
       keys = await this.config.fetch(query.params);
     } catch (reason) {
-      if (query.state !== before) return;
+      if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
+      if (query.generation !== generation) return;
       // A refetch revalidates an answer the caller already has. Failing to
       // confirm it is not grounds for taking it away, but reads stop trusting it.
-      if (before.variant === "ready") return this.markStale(query);
+      if (query.state.variant === "ready") return this.markStale(query);
       query.state = { variant: "error", error: errors.fromUnknown(reason) };
       return;
     }
-    // Only apply if maintenance hasn't been torn down and no newer fetch
-    // superseded this one.
-    if (query.state !== before) return;
+    if (query.refetchRechecks === rechecks) query.refetchRechecks = undefined;
+    if (query.generation !== generation) return;
     this.confirm(query, { variant: "ready", keys }, basis);
+    // The answer is as of when the Core ran the fetch, so a change that raced it
+    // applies again.
+    this.applyRechecks(query, rechecks);
     this.touch(query);
   }
 
@@ -787,8 +869,8 @@ export class Space<
   }
 
   private basis(): Basis {
-    const { table, watch: watches = [] } = this.config;
-    const versions = [table.version(), ...watches.map((w) => w.version())];
+    const { table, triggers = [] } = this.config;
+    const versions = [table.version(), ...triggers.map((t) => t.version())];
     return { epoch: this.liveEpoch(), versions, mark: this.marks };
   }
 
@@ -864,7 +946,7 @@ export class Space<
   private maintain(query: Query<P, K, D, V>): void {
     const teardown: destructor.Destructor[] = [];
     query.teardown = teardown;
-    const { table, keyOf, matches, watch: watches } = this.config;
+    const { table, keyOf, matches, triggers } = this.config;
     const { params } = query;
     // Rules 2 and 3 build membership from events, and none reached the answer or the
     // fetch in flight before now, so it is reconfirmed when one may have. Rule 1
@@ -909,11 +991,12 @@ export class Space<
           );
         }),
       );
-      watches?.forEach((w) =>
+      triggers?.forEach((t) =>
         teardown.push(
-          w.attach(params, (result) => {
-            this.scheduleRefetch(query);
-            if (result !== "refetch") this.touchMembers(query, result);
+          t.attach(params, (result) => {
+            if (result === "refetch") return this.scheduleRefetch(query);
+            if (t.contentOnly !== true) this.scheduleRefetch(query);
+            this.touchMembers(query, result);
           }),
         ),
       );
@@ -957,9 +1040,9 @@ export class Space<
           this.touch(query);
         }, key),
       );
-      watches?.forEach((w) =>
+      triggers?.forEach((t) =>
         teardown.push(
-          w.attach(params, (result) => {
+          t.attach(params, (result) => {
             if (result === "refetch") return this.scheduleRefetch(query);
             if (result.includes(key) && query.state.variant === "ready")
               this.touch(query);
@@ -978,9 +1061,9 @@ export class Space<
         ),
       ),
     );
-    watches?.forEach((w) =>
+    triggers?.forEach((t) =>
       teardown.push(
-        w.attach(params, (result) => {
+        t.attach(params, (result) => {
           if (result === "refetch") return this.scheduleRefetch(query);
           void this.recheckMany(query, result);
         }),
@@ -1004,6 +1087,8 @@ export class Space<
       return false;
     }
     if (state.variant !== "ready" && state.variant !== "deleted") return false;
+    const changed = new Set(keys);
+    changed.forEach((key) => query.refetchRechecks?.add(key));
     const { table, matches, single } = this.config;
     const members = state.variant === "ready" ? state.keys : [];
     const memberSet = new Set(members);
@@ -1011,7 +1096,7 @@ export class Space<
     let lastEvicted: K | null = null;
     let touched = false;
     let undecided = false;
-    for (const key of new Set(keys)) {
+    for (const key of changed) {
       const entry = table.get(key);
       const matched = entry == null ? false : matches!(entry, query.params);
       if (matched == null) {
