@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
-	fgorp "github.com/synnaxlabs/freighter/gorp"
 	"github.com/synnaxlabs/gorp"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
@@ -27,11 +26,13 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -78,6 +79,131 @@ func retrieveChannel(ctx SpecContext, key channel.Key) channel.Channel {
 }
 
 var _ = Describe("Service", func() {
+	Describe("Create", func() {
+		var (
+			u              user.User
+			public, secret channel.Channel
+		)
+		calculate := func(input string) apichannel.Channel {
+			return apichannel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Float32T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return %s * 2", input),
+			}
+		}
+		create := func(
+			ctx SpecContext,
+			channels ...apichannel.Channel,
+		) (apichannel.CreateResponse, error) {
+			return createChannels(
+				AuthedCtx(ctx, u),
+				apichannel.CreateRequest{Channels: channels},
+			)
+		}
+		BeforeEach(func(ctx SpecContext) {
+			u = MustSucceed(rbactestutil.CreateUser(
+				ctx,
+				db,
+				rbacSvc,
+				userSvc,
+				user.User{Name: "calculations-" + uuid.New().String()},
+			))
+			public = createChannel(ctx, telem.Float32T)
+			secret = createChannel(ctx, telem.Float32T)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionCreate},
+				resource.ID{Type: resource.TypeChannel},
+			)
+			grantOn(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionRetrieve},
+				framer.ResourceIDs(channel.Keys{public.Key()})...,
+			)
+		})
+		It(
+			"Should refuse a calculation that reads a channel the subject cannot read",
+			func(ctx SpecContext) {
+				Expect(create(ctx, calculate(secret.Name))).
+					Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a calculation reading an unreadable channel listed with it",
+			func(ctx SpecContext) {
+				listed := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				Expect(create(ctx, listed, calculate(listed.Name))).
+					Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse a calculation reading an unreadable channel through a decoy",
+			func(ctx SpecContext) {
+				decoy := apichannel.Channel{
+					Name:       secret.Name,
+					DataType:   telem.Float32T,
+					Virtual:    true,
+					Expression: "return 1",
+				}
+				Expect(createChannels(
+					AuthedCtx(ctx, u),
+					apichannel.CreateRequest{
+						Channels: []apichannel.Channel{
+							decoy,
+							calculate(secret.Name),
+						},
+						RetrieveIfNameExists: true,
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+			},
+		)
+		It(
+			"Should refuse an edit that reads an unreadable channel through a stored one",
+			func(ctx SpecContext) {
+				stored := channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float32T,
+					Expression: fmt.Sprintf("return %s * 2", secret.Name),
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &stored)
+				})).To(Succeed())
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					framer.ResourceIDs(channel.Keys{stored.Key()})...,
+				)
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				plain := apichannel.Channel{
+					Key:         stored.Key(),
+					Name:        stored.Name,
+					Leaseholder: stored.Leaseholder,
+					DataType:    telem.Float32T,
+					Virtual:     true,
+				}
+				calc.Expression = fmt.Sprintf("return %s * 2", stored.Name)
+				Expect(create(ctx, plain, calc)).
+					Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, calc.Key).Expression).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+		It(
+			"Should refuse an edit that makes a calculation read an unreadable channel",
+			func(ctx SpecContext) {
+				calc := MustSucceed(create(ctx, calculate(public.Name))).Channels[0]
+				calc.Expression = fmt.Sprintf("return %s * 2", secret.Name)
+				Expect(create(ctx, calc)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, calc.Key).Expression).
+					To(Equal(fmt.Sprintf("return %s * 2", public.Name)))
+			},
+		)
+	})
+
 	Describe("Group", func() {
 		It(
 			"Should create a channel in a group and return the group on retrieve",
@@ -98,7 +224,7 @@ var _ = Describe("Service", func() {
 					[]access.Action{access.ActionUpdate},
 					group.ResourceID(g.Key),
 				)
-				created := MustSucceed(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
+				created := MustSucceed(createChannels(
 					AuthedCtx(ctx, author),
 					apichannel.CreateRequest{Channels: []apichannel.Channel{{
 						Name:     UniqueChannelName(),
@@ -131,7 +257,7 @@ var _ = Describe("Service", func() {
 					resource.ID{Type: resource.TypeChannel},
 				)
 				g := createChannelGroup(ctx, "Create denied")
-				Expect(fgorp.CreateWriteUnaryHandler(db, apiSvc.Create)(
+				Expect(createChannels(
 					AuthedCtx(ctx, author),
 					apichannel.CreateRequest{Channels: []apichannel.Channel{{
 						Name:     UniqueChannelName(),
@@ -142,6 +268,198 @@ var _ = Describe("Service", func() {
 				)).Error().To(MatchError(access.ErrDenied))
 			},
 		)
+	})
+	Describe("RetrieveIfNameExists", func() {
+		var (
+			existing channel.Channel
+			u        user.User
+			create   = func(ctx SpecContext) (apichannel.CreateResponse, error) {
+				return createChannels(AuthedCtx(ctx, u), apichannel.CreateRequest{
+					Channels: []apichannel.Channel{{
+						Name:     existing.Name,
+						DataType: existing.DataType,
+						Virtual:  true,
+					}},
+					RetrieveIfNameExists: true,
+				})
+			}
+		)
+		BeforeEach(func(ctx SpecContext) {
+			existing = createChannel(ctx, telem.Float32T)
+			u = MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+		})
+
+		It(
+			"Should deny an existing channel that the subject cannot retrieve",
+			func(ctx SpecContext) {
+				Expect(create(ctx)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						"%s cannot %s %s",
+						u.ResourceID(),
+						access.ActionRetrieve,
+						existing.ResourceID(),
+					)),
+				))
+			},
+		)
+		It(
+			"Should return an existing channel that the subject can retrieve",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					existing.ResourceID(),
+				)
+				res := MustSucceed(create(ctx))
+				Expect(res.Channels).To(HaveLen(1))
+				Expect(res.Channels[0].Key).To(Equal(existing.Key()))
+			},
+		)
+	})
+
+	Describe("Storage", func() {
+		var (
+			ch       channel.Channel
+			outsider user.User
+			start    = 10 * telem.SecondTS
+		)
+		BeforeEach(func(ctx SpecContext) {
+			ch = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
+			Expect(dist.Storage.TS.WriteSeries(
+				ctx,
+				ch.Key().StorageKey(),
+				start,
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+			)).To(Succeed())
+			outsider = MustSucceed(rbactestutil.CreateUser(
+				ctx, db, rbacSvc, userSvc, user.User{Name: uuid.New().String()},
+			))
+		})
+		stored := func(ctx SpecContext) ts.Channel {
+			GinkgoHelper()
+			return MustSucceed(
+				dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
+			)
+		}
+
+		It(
+			"Should keep the channel and its data when the subject cannot delete it",
+			func(ctx SpecContext) {
+				Expect(deleteChannels(
+					AuthedCtx(ctx, outsider),
+					apichannel.DeleteRequest{Keys: channel.Keys{ch.Key()}},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
+				frame := MustSucceed(dist.Storage.TS.Read(
+					ctx,
+					telem.TimeRangeMax,
+					ch.Key().StorageKey(),
+				))
+				Expect(frame.Len()).To(Equal(int64(3)))
+			},
+		)
+		It(
+			"Should delete the channel and its storage when the subject can delete it",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionDelete},
+					channel.ResourceID(ch.Key()),
+				)
+				MustSucceed(deleteChannels(
+					AuthedCtx(ctx, outsider),
+					apichannel.DeleteRequest{Names: []string{ch.Name}},
+				))
+				Expect(channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Exists(ctx, db)).To(BeFalse())
+				Expect(dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey())).
+					Error().To(MatchError(ts.ErrChannelNotFound))
+			},
+		)
+		It(
+			"Should keep both names when the subject cannot update the channel",
+			func(ctx SpecContext) {
+				Expect(renameChannels(
+					AuthedCtx(ctx, outsider),
+					apichannel.RenameRequest{
+						Keys:  channel.Keys{ch.Key()},
+						Names: []string{UniqueChannelName()},
+					},
+				)).Error().To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
+			},
+		)
+		It(
+			"Should rename the channel in both stores when the subject can update it",
+			func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				name := UniqueChannelName()
+				MustSucceed(renameChannels(
+					AuthedCtx(ctx, outsider),
+					apichannel.RenameRequest{
+						Keys:  channel.Keys{ch.Key()},
+						Names: []string{name},
+					},
+				))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(name))
+			},
+		)
+		Describe("Dispatch", func() {
+			renameTo := func(name string) apichannel.DispatchRequest {
+				return apichannel.DispatchRequest{
+					Key: ch.Key(),
+					Actions: []channel.Action{
+						channel.NewRenameAction(channel.RenamePayload{Name: name}),
+					},
+				}
+			}
+			It("Should refuse the actions without update on the channel", func(
+				ctx SpecContext,
+			) {
+				Expect(
+					dispatch(AuthedCtx(ctx, outsider), renameTo(UniqueChannelName())),
+				).
+					Error().
+					To(MatchError(access.ErrDenied))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
+				Expect(stored(ctx).Name).To(Equal(ch.Name))
+			})
+			It("Should rename the channel in both stores with update on it", func(
+				ctx SpecContext,
+			) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				name := UniqueChannelName()
+				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
+					To(Equal(apichannel.DispatchResponse{}))
+				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
+				Expect(stored(ctx).Name).To(Equal(name))
+			})
+		})
 	})
 	Describe("SetGroup", func() {
 		// denied matches an error that denies the subject the action on object.
