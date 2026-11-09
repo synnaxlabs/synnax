@@ -1922,6 +1922,51 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should set a restated literal's groups after its members",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			MinMax struct {
+				min_val float64 = 0 { @default group "range" }
+				max_val float64 = 1 { @default group "range" }
+				label   string  = "signal"
+			}
+			Parent struct { range MinMax = {} }
+			Child struct extends Parent { range MinMax = { min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"\t\tv0 := MinMax{}\n\t\tv0.SetUngroupedDefaults()\n" +
+					"\t\tv0.MinVal = -10\n\t\tv0.DefaultGroups()\n\t\tc.Range = v0\n",
+			)
+		},
+	)
+
+	It(
+		"Should set a union literal's groups after its members",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Scale union on type {
+				map {
+					min_val float64 = 0 { @default group "range" }
+					max_val float64 = 1 { @default group "range" }
+				}
+				none {}
+			}
+			Cfg struct { scale Scale = { type = "map", min_val = -10 } }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain(
+				"v0 := MapScale{}\n\t\tv0.SetUngroupedDefaults()\n" +
+					"\t\tv0.MinVal = -10\n\t\tv0.DefaultGroups()\n",
+			)
+		},
+	)
+
+	It(
 		"Should clear a list that an enclosing default filled",
 		func(ctx SpecContext) {
 			source := `
