@@ -174,6 +174,40 @@ describe("Secret", () => {
       }
     });
 
+    it("should read fresh uses in a list for a secret created again", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      await list.retrieve();
+      const usesOf = (key: secret.Key) =>
+        list.getCached()?.records.find((r) => r.key === key)?.uses;
+      try {
+        const c = await client.certificates.create({
+          name: "Recreated key",
+          source: "stored",
+          pem: PEM,
+          privateKeyPem: PRIVATE_KEY,
+        });
+        assert(c.source === "stored" && c.privateKey != null);
+        const { privateKey } = c;
+        await expect
+          .poll(() => usesOf(privateKey))
+          .toEqual([{ type: "certificate", key: c.key }]);
+        await client.certificates.delete(c.key);
+        await expect.poll(() => usesOf(privateKey)).toBeUndefined();
+        await client.secrets.create({
+          key: privateKey,
+          name: "Recreated key",
+          source: "stored",
+          value: "abc",
+        });
+        await expect.poll(() => usesOf(privateKey)).toEqual([]);
+      } finally {
+        off();
+      }
+    });
+
     it("should page a list that reads uses with a cursor", async () => {
       const client = createTestClient();
       const prefix = id.create();
@@ -344,6 +378,35 @@ describe("Secret", () => {
         off();
         offUses();
       }
+    });
+
+    it("should report no error for a uses refetch that a close stops", async () => {
+      const internal: Error[] = [];
+      const client = createTestClient({
+        onInternalError: (error) => internal.push(error),
+      });
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.create({
+        name: "Closed routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const q = { key: s.key, includeUses: true };
+      client.secrets.watch(q).onChange(() => {});
+      await client.secrets.retrieve(q);
+      const held = holdResponses(client, "/secret/retrieve");
+      const r = await client.racks.create({ name: "Closed uses" });
+      await r.createTask({
+        name: "Alerts",
+        type: "pagerduty_alert",
+        config: { routingKey: s.key },
+      });
+      await held.responded;
+      await client.close();
+      held.release();
+      // Long enough for the refetch to fail.
+      await sleep.sleep(TimeSpan.milliseconds(500));
+      expect(internal).toEqual([]);
     });
 
     it("should search for secrets by name", async () => {

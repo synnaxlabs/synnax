@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter, sync } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { NotFoundError } from "@/errors";
+import { isConnectionError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import {
@@ -138,6 +138,10 @@ export class Client extends query.Retriever<
           await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
         ).map(toUses),
     });
+    // A secret created again under a deleted key reads its uses again.
+    store.subscribe((event) => {
+      if (event.variant === "delete") usesStore.evict(event.key);
+    });
     // The Core announces no change to uses. Refetches run outside the change stream and
     // one at a time, so an older reply cannot overwrite a newer one. A change that
     // arrives while a refetch waits joins it.
@@ -150,9 +154,11 @@ export class Client extends query.Retriever<
           refetchMu.waiting = false;
           await usesStore.reconcile();
         })
-        .catch((exc: unknown) =>
-          cache.onError(new Error("failed to refetch secret uses", { cause: exc })),
-        );
+        .catch((exc: unknown) => {
+          // The reconcile after the next reconnect fetches the uses again.
+          if (isConnectionError(exc)) return;
+          cache.onError(new Error("failed to refetch secret uses", { cause: exc }));
+        });
     };
     cfg.usesChannels.forEach((channel) =>
       cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
