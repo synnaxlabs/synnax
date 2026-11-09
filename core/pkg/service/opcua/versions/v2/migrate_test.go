@@ -33,6 +33,7 @@ var _ = Describe("Migration", func() {
 		ctx SpecContext,
 		stored v1.ReadConfig,
 	) (v2.ReadConfig, *observer.ObservedLogs) {
+		GinkgoHelper()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		MustSucceed(
 			gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v1.ReadConfig]{DB: db}),
