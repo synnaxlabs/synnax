@@ -11,7 +11,8 @@ import { type channel, DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement, Suspense } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -103,7 +104,7 @@ describe("Log", () => {
       const project = await client.projects.create({ name: `log_${uuid.create()}` });
       const created = await client.logs.create({ project: project.key, name: "drop" });
       const ch = await client.channels.create({
-        name: `ch_${uuid.create()}`,
+        name: id.create(),
         dataType: DataType.FLOAT32,
         virtual: true,
       });
@@ -133,8 +134,9 @@ describe("Log", () => {
 
     it("should not add a dropped channel to a log that is not editable", async () => {
       const { key } = await dropChannel(false);
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      expect((await client.logs.retrieve(key)).channels).toEqual([]);
+      await expectAlways(async () => {
+        expect((await client.logs.retrieve(key)).channels).toEqual([]);
+      });
     });
   });
 });

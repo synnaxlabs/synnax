@@ -8,17 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import {
+  access,
   channel as channelClient,
   DataType,
   lineplot,
   log,
+  panel,
+  project,
   type resource,
   type Synnax,
+  user,
 } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithPolicy,
+} from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type Status } from "@synnaxlabs/lyra/status";
 import { uuid } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
@@ -28,7 +34,6 @@ import { Channel } from "@/feature/channel";
 import { createResource } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
-  CaptureStatuses,
   createConsoleWrapper,
   resolveFocusedTab,
   type TestStore,
@@ -36,7 +41,6 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
-const roles = new RoleClients(client);
 
 const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
   await client.channels.create({
@@ -49,11 +53,7 @@ const createChannel = async (overrides: Partial<channelClient.New> = {}) =>
 const SearchListItem = Channel.SEARCH_LIST_ITEMS.channel;
 if (SearchListItem == null) throw new Error("channel SearchListItem is not defined");
 
-const renderSearchItem = async (
-  item: resource.Resource,
-  as: Synnax = client,
-  onStatuses: (statuses: Status.NotificationSpec[]) => void = () => {},
-) => {
+const renderSearchItem = async (item: resource.Resource, as: Synnax = client) => {
   const Harness = (): ReactElement => {
     const staticProps = List.useStaticData<string, resource.Resource>({
       data: [item],
@@ -65,7 +65,6 @@ const renderSearchItem = async (
         onChange={() => {}}
       >
         <SearchListItem key={item.key} itemKey={item.key} index={0} />
-        <CaptureStatuses onStatuses={onStatuses} />
       </Select.Frame>
     );
   };
@@ -194,18 +193,44 @@ describe("channel/search", () => {
     await waitFor(async () => expect(await channelsOf(key)).toContain(ch.key));
   });
 
-  it("does not add a channel to a focused log the user cannot edit", async () => {
+  it("opens a line plot when the user cannot edit the focused log", async () => {
     const ch = await createChannel();
-    let messages: string[] = [];
+    const editor = await createTestClientWithPolicy(client, [
+      {
+        name: uniqueName("policy"),
+        objects: [
+          channelClient.TYPE_RESOURCE_ID,
+          log.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve"],
+      },
+      {
+        name: uniqueName("policy"),
+        objects: [
+          lineplot.TYPE_RESOURCE_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+        ],
+        actions: ["retrieve", "create", "update"],
+      },
+    ]);
     const store = await renderSearchItem(
       createResource(channelClient.resourceID(ch.key), ch.name),
-      await roles.get("Viewer"),
-      (statuses) => (messages = statuses.map((s) => s.message)),
+      editor,
     );
     const key = await focusLog(store);
     fireEvent.click(await screen.findByText(ch.name), { detail: 0 });
-    // A viewer cannot create the line plot it falls back to either.
-    await waitFor(() => expect(messages).toContain("Failed to open channel"));
+    const tab = await resolveFocusedTab(
+      store,
+      client,
+      (t) => t.variant === "resource" && t.resource.type === "lineplot",
+    );
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    const plot = await client.lineplots.retrieve(tab.resource.key);
+    expect(plot.channels.y1).toContain(ch.key);
     expect(await channelsOf(key)).toEqual([]);
   });
 
