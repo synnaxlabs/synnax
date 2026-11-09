@@ -88,6 +88,7 @@ Base struct {
     }
     name string {
         @doc value         "is a human-readable name for the view."
+        @index sorted
         @search
         @validate required
     }

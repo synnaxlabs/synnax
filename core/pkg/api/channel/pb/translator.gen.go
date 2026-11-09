@@ -21,6 +21,7 @@ import (
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -140,16 +141,138 @@ func ChannelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
 	return result, nil
 }
 
+// CursorToPB converts Cursor to Cursor.
+func CursorToPB(r channel.Cursor) (*Cursor, error) {
+	pb := &Cursor{
+		Key: uint32(r.Key),
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
+	}
+	return pb, nil
+}
+
+// CursorFromPB converts Cursor to Cursor.
+func CursorFromPB(pb *Cursor) (channel.Cursor, error) {
+	var r channel.Cursor
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = servicechannel.Key(pb.Key)
+	if pb.Name != nil {
+		r.Name = pb.Name
+	}
+	return r, nil
+}
+
+// CursorsToPB converts a slice of Cursor to Cursor.
+func CursorsToPB(rs []channel.Cursor) ([]*Cursor, error) {
+	result := make([]*Cursor, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CursorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CursorsFromPB converts a slice of Cursor to Cursor.
+func CursorsFromPB(pbs []*Cursor) ([]channel.Cursor, error) {
+	result := make([]channel.Cursor, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CursorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrderToPB converts Order to Order.
+func OrderToPB(r channel.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func OrderFromPB(pb *Order) (channel.Order, error) {
+	var r channel.Order
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return channel.Order{}, err
+	}
+	r.Descending = pb.Descending
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []channel.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]channel.Order, error) {
+	result := make([]channel.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
 		IncludeStatus: r.IncludeStatus,
 	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = channelpb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.After != nil {
+		var err error
+		pb.After, err = CursorToPB(*r.After)
 		if err != nil {
 			return nil, err
 		}
@@ -171,7 +294,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 	}
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := channelpb.WhereFromPB(pb.Where)
@@ -179,6 +301,20 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error)
 			return channel.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return channel.RetrieveRequest{}, err
+		}
+		r.Order = &val
+	}
+	if pb.After != nil {
+		val, err := CursorFromPB(pb.After)
+		if err != nil {
+			return channel.RetrieveRequest{}, err
+		}
+		r.After = &val
 	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
@@ -263,4 +399,24 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]channel.RetrieveRespons
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts channel.OrderField to OrderField.
+func OrderFieldToPB(v channel.OrderField) (OrderField, error) {
+	switch v {
+	case channel.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	default:
+		return 0, errors.Newf("unrecognized channel.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to channel.OrderField.
+func OrderFieldFromPB(v OrderField) (channel.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return channel.OrderFieldName, nil
+	default:
+		return channel.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }

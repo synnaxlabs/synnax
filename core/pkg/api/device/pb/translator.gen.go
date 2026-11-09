@@ -15,18 +15,141 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	devicepb "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb"
 	"github.com/synnaxlabs/x/defaults"
+	"github.com/synnaxlabs/x/errors"
 )
+
+// CursorToPB converts Cursor to Cursor.
+func CursorToPB(r device.Cursor) (*Cursor, error) {
+	pb := &Cursor{
+		Key: r.Key,
+	}
+	if r.Name != nil {
+		pb.Name = r.Name
+	}
+	return pb, nil
+}
+
+// CursorFromPB converts Cursor to Cursor.
+func CursorFromPB(pb *Cursor) (device.Cursor, error) {
+	var r device.Cursor
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = pb.Key
+	if pb.Name != nil {
+		r.Name = pb.Name
+	}
+	return r, nil
+}
+
+// CursorsToPB converts a slice of Cursor to Cursor.
+func CursorsToPB(rs []device.Cursor) ([]*Cursor, error) {
+	result := make([]*Cursor, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CursorToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CursorsFromPB converts a slice of Cursor to Cursor.
+func CursorsFromPB(pbs []*Cursor) ([]device.Cursor, error) {
+	result := make([]device.Cursor, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CursorFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrderToPB converts Order to Order.
+func OrderToPB(r device.Order) (*Order, error) {
+	fieldVal, err := OrderFieldToPB(r.Field)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Order{
+		Descending: r.Descending,
+		Field:      fieldVal,
+	}
+	return pb, nil
+}
+
+// OrderFromPB converts Order to Order.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func OrderFromPB(pb *Order) (device.Order, error) {
+	var r device.Order
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Field, err = OrderFieldFromPB(pb.Field)
+	if err != nil {
+		return device.Order{}, err
+	}
+	r.Descending = pb.Descending
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// OrdersToPB converts a slice of Order to Order.
+func OrdersToPB(rs []device.Order) ([]*Order, error) {
+	result := make([]*Order, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = OrderToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// OrdersFromPB converts a slice of Order to Order.
+func OrdersFromPB(pbs []*Order) ([]device.Order, error) {
+	result := make([]device.Order, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = OrderFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
 
 // RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
 func RetrieveRequestToPB(r device.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:    r.SearchTerm,
-		Offset:        r.Offset,
 		IncludeStatus: r.IncludeStatus,
 	}
 	if r.Where != nil {
 		var err error
 		pb.Where, err = devicepb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Order != nil {
+		var err error
+		pb.Order, err = OrderToPB(*r.Order)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.After != nil {
+		var err error
+		pb.After, err = CursorToPB(*r.After)
 		if err != nil {
 			return nil, err
 		}
@@ -48,7 +171,6 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) 
 	}
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
-	r.Offset = pb.Offset
 	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := devicepb.WhereFromPB(pb.Where)
@@ -56,6 +178,20 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (device.RetrieveRequest, error) 
 			return device.RetrieveRequest{}, err
 		}
 		r.Where = &val
+	}
+	if pb.Order != nil {
+		val, err := OrderFromPB(pb.Order)
+		if err != nil {
+			return device.RetrieveRequest{}, err
+		}
+		r.Order = &val
+	}
+	if pb.After != nil {
+		val, err := CursorFromPB(pb.After)
+		if err != nil {
+			return device.RetrieveRequest{}, err
+		}
+		r.After = &val
 	}
 	if pb.Limit != nil {
 		r.Limit = pb.Limit
@@ -140,4 +276,24 @@ func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]device.RetrieveResponse
 		}
 	}
 	return result, nil
+}
+
+// OrderFieldToPB converts device.OrderField to OrderField.
+func OrderFieldToPB(v device.OrderField) (OrderField, error) {
+	switch v {
+	case device.OrderFieldName:
+		return OrderField_ORDER_FIELD_NAME, nil
+	default:
+		return 0, errors.Newf("unrecognized device.OrderField value: %v", v)
+	}
+}
+
+// OrderFieldFromPB converts OrderField to device.OrderField.
+func OrderFieldFromPB(v OrderField) (device.OrderField, error) {
+	switch v {
+	case OrderField_ORDER_FIELD_NAME:
+		return device.OrderFieldName, nil
+	default:
+		return device.OrderField(""), errors.Newf("unrecognized OrderField value: %v", v)
+	}
 }

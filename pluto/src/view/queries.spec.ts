@@ -14,6 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { Flux } from "@/flux";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { View } from "@/view";
 
@@ -30,73 +31,28 @@ describe("View queries", () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
   });
 
-  describe("useList", () => {
-    it("should retrieve a list of views", async () => {
-      const view1 = await client.views.create({
-        name: "View 1",
-        type: "range",
-      });
-      const view2 = await client.views.create({
-        name: "View 2",
-        type: "status",
-        where: { variant: { in: ["error"] } },
-      });
-
-      const { result } = renderHook(() => View.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(view1.key);
-      expect(result.current.data).toContain(view2.key);
-    });
-
-    it("should retrieve a list of views by type", async () => {
-      const views = await client.views.create([
-        { name: "View 1", type: "range" },
-        { name: "View 2", type: "status" },
+  describe("list", () => {
+    it("should list the views of a type", async () => {
+      const prefix = uuid.create();
+      const [range, status] = await client.views.create([
+        { name: `${prefix}-range`, type: "range" },
+        { name: `${prefix}-status`, type: "status" },
       ]);
-      const keys = views.map((v) => v.key);
-      const { result } = renderHook(() => View.useList(), { wrapper });
-      act(() => {
-        result.current.retrieve({
-          where: { key: { in: keys }, type: { eq: "status" } },
-        });
+      const { result } = renderHook(
+        () =>
+          Flux.useList((c) => c.views, {
+            name: "views",
+            query: {
+              where: { name: { in: [range.name, status.name] }, type: { eq: "range" } },
+            },
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data).toEqual([range.key]);
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toEqual([views[1].key]);
-    });
-
-    it("should retrieve views that already exist before the hook is mounted", async () => {
-      const views = await client.views.create([
-        { name: "View 1", type: "range" },
-        { name: "View 2", type: "range" },
-        { name: "Solo View", type: "status" },
-      ]);
-      const keys = views.map((v) => v.key);
-      const where = { key: { in: keys } };
-      const { result } = renderHook(() => View.useList({ query: { where } }), {
-        wrapper,
-      });
-      await act(async () => {
-        await result.current.retrieveAsync({ where });
-      });
-      expect(result.current.data.length).toBe(3);
-      keys.forEach((key) => expect(result.current.data).toContain(key));
-    });
-
-    it("should update the list when a view is created", async () => {
-      const { result } = renderHook(() => View.useList({}), { wrapper });
-      act(() => {
-        result.current.retrieve({ where: { type: { eq: "status" } } });
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      const newView = await client.views.create({
-        name: "New View",
-        type: "status",
-      });
-      await waitFor(() => expect(result.current.data).toContain(newView.key));
     });
   });
   describe("useDelete", () => {

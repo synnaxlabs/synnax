@@ -77,24 +77,6 @@ func (CreatePayload) Handle(Table) (Table, error) {
 	return Table{}, actions.CoreOnlyError("a table create")
 }
 
-// Handle rejects a client dispatch. The Core moves a table into a group through its
-// writer and emits this action itself.
-func (SetGroupPayload) Handle(Table) (Table, error) {
-	return Table{}, actions.CoreOnlyError("a table group change")
-}
-
-// Handle rejects a client dispatch. The Core moves a table into a project through its
-// writer and emits this action itself.
-func (SetProjectPayload) Handle(Table) (Table, error) {
-	return Table{}, actions.CoreOnlyError("a table project change")
-}
-
-// Handle replaces the table's name.
-func (p RenamePayload) Handle(state Table) (Table, error) {
-	state.Name = p.Name
-	return state, nil
-}
-
 // Handle inserts a row with the given key at the given index. When CellTemplate is
 // non-nil it replaces Cells with one replica per existing column (or one when the table
 // is empty, which also creates a default column keyed from the row's key). When both
@@ -343,29 +325,43 @@ func (p EraseCellsPayload) Handle(state Table) (Table, error) {
 	return state, nil
 }
 
-// Handle applies the set to the table's cells.
+// Handle applies the set to the table's name or cells.
 func (p SetPayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Set(p))
 }
 
-// Handle applies the remove to the table's cells.
+// Handle applies the remove to the table's name or cells.
 func (p RemovePayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Remove(p))
 }
 
-// Handle applies the insert to the table's cells.
+// Handle applies the insert to the table's name or cells.
 func (p InsertPayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Insert(p))
 }
 
-// Handle applies the move to the table's cells.
+// Handle applies the move to the table's name or cells.
 func (p MovePayload) Handle(state Table) (Table, error) {
 	return edit(state, patch.Move(p))
 }
 
-// edit applies a path action to the cell config that its path names. A cell config that
-// names no variant or fails its schema is rejected.
+// document is the part of a table, outside its cells, that path actions edit.
+type document struct {
+	Name string `json:"name"`
+}
+
+// edit applies a path action to the table's name or to the cell config that its path
+// names. A cell config that names no variant or fails its schema is rejected, as is a
+// path to another field, such as the group.
 func edit(state Table, a patch.Action) (Table, error) {
+	if patch.Field(a) != "cells" {
+		d, err := patch.Edit(document{Name: state.Name}, a.Apply)
+		if err != nil {
+			return Table{}, err
+		}
+		state.Name = d.Name
+		return state, nil
+	}
 	cells, err := patch.EditMap(state.Cells, []string{"cells"}, a, checkCell)
 	if err != nil {
 		return Table{}, err

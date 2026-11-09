@@ -28,7 +28,7 @@ BLINK_SOURCE = """
 func blink() {count u32} u8 {
     return u8((count / 50) % 2)
 }
-hitl_ethercat_bufcounter -> blink() -> hitl_ethercat_do_cmd_1
+hitl_ethercat_bufcounter_2 -> blink() -> hitl_ethercat_do_cmd_1
 """
 
 
@@ -56,7 +56,7 @@ class EtherCATArc(ArcCase):
         )
         read = create_read_task(
             self.client,
-            slaves[STGS[0]],
+            [slaves[STGS[0]]],
             name="HITL EtherCAT Arc Read",
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
