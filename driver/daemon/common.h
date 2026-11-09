@@ -19,8 +19,8 @@ namespace driver::daemon {
 /// @brief creates the synnax system user the service runs as, if it does not exist.
 x::errors::Error create_system_user();
 
-/// @brief copies the binary at src to dst with mode 0755, owned by uid and gid. Skips
-/// the copy when src is already dst. Requires root.
+/// @brief copies the binary at src to dst with mode 0755, owned by uid and gid. It
+/// never follows a link in the folder of dst, and src may be dst.
 x::errors::Error install_binary(
     const std::filesystem::path &src,
     const std::filesystem::path &dst,
