@@ -13,6 +13,7 @@ import { type Locator, page, userEvent } from "vitest/browser";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
+import { Menu } from "@/menu";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Triggers } from "@/triggers";
 
@@ -117,6 +118,16 @@ const Pick = (): ReactElement => {
 };
 
 const SEARCH = <input aria-label="Search" autoFocus />;
+
+/** A field that opens a context menu, which takes the focus. */
+const MenuTarget = (): ReactElement => {
+  const ctx = Menu.useContextMenu();
+  return (
+    <Menu.ContextMenu menu={() => <Menu.Item itemKey="copy">Copy</Menu.Item>} {...ctx}>
+      <input aria-label="Search" autoFocus onContextMenu={ctx.open} />
+    </Menu.ContextMenu>
+  );
+};
 
 /** A dropdown holding another, whose button closes both in one render. */
 const Nested = (): ReactElement => {
@@ -328,6 +339,29 @@ describe("Dialog", () => {
         await userEvent.tab();
         expect(document.activeElement).toBe(field("First"));
         expect(page.getByLabelText("Search").query()).not.toBeNull();
+      });
+
+      it("should close when Tab moves the focus on from its trigger", async () => {
+        const trigger = await openDropdown(SEARCH);
+        trigger.focus();
+        await userEvent.tab();
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+        expect(document.activeElement).toBe(field("After"));
+      });
+
+      it("should close when a click on its trigger toggles it", async () => {
+        const trigger = await openDropdown(SEARCH);
+        await userEvent.click(trigger);
+        await expect.element(page.getByRole("dialog")).not.toBeInTheDocument();
+      });
+
+      it("should stay open while its context menu holds the focus", async () => {
+        await openDropdown(<MenuTarget />);
+        await userEvent.click(page.getByLabelText("Search"), { button: "right" });
+        await expect.element(page.getByRole("menu")).toHaveFocus();
+        await userEvent.keyboard("{Escape}");
+        await expect.element(page.getByLabelText("Search")).toHaveFocus();
+        expect(page.getByRole("dialog").query()).not.toBeNull();
       });
 
       it("should leave the focus where a click outside puts it", async () => {
