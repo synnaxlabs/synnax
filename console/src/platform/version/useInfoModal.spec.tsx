@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -73,6 +74,29 @@ const installed = (ipc: IPC): boolean =>
 
 const restarted = (ipc: IPC): boolean =>
   callsOf(ipc, "plugin:process|restart").length > 0;
+
+type SetStatus = (status: connection.Status) => void;
+
+/**
+ * Renders a Provider and its badge for a Core at 1.5.0, then opens the modal from the
+ * badge.
+ */
+const renderBadge = async (client: Client | null = null): Promise<SetStatus> => {
+  const core = createCore("Local");
+  const { setStatus } = await renderWithStatus(
+    <Version.Provider>
+      <Version.Badge />
+      <Modals.Stack />
+    </Version.Provider>,
+    {
+      client,
+      status: createStatus("1.5.0"),
+      preloadedState: createCoreState([core], core.key),
+    },
+  );
+  fireEvent.click(await screen.findByText("Update available"));
+  return setStatus;
+};
 
 describe("version useInfoModal", () => {
   beforeEach(() => {
@@ -172,30 +196,26 @@ describe("version useInfoModal", () => {
   describe("when the Core changes during an install", () => {
     const startInstall = async (
       download: Promise<void>,
+      recheckFails: boolean = false,
     ): Promise<{ ipc: IPC; rid: unknown }> => {
       const ipc = mockUpdater({
         served: "1.4.2",
         download: async () => await download,
       });
-      const core = createCore("Local");
-      const { setStatus } = await renderWithStatus(
-        <Version.Provider>
-          <Version.Badge />
-          <Modals.Stack />
-        </Version.Provider>,
-        {
-          client: null,
-          status: createStatus("1.5.0"),
-          preloadedState: createCoreState([core], core.key),
-        },
-      );
-      fireEvent.click(await screen.findByText("Update available"));
+      const setStatus = await renderBadge();
       await clickUpdate();
       await waitFor(() =>
         expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(1),
       );
       const [[, args]] = callsOf(ipc, "plugin:updater|download");
       const { rid } = args as { rid: unknown };
+      if (recheckFails) {
+        const answer = ipc.getMockImplementation();
+        ipc.mockImplementation(async (cmd, cmdArgs) => {
+          if (cmd === "updater_check") throw new Error("Core unreachable");
+          return await answer?.(cmd, cmdArgs);
+        });
+      }
       setStatus(createStatus("1.5.1"));
       await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(2));
       return { ipc, rid };
@@ -233,6 +253,13 @@ describe("version useInfoModal", () => {
       await waitFor(() => expect(closed(ipc)).toContain(rid));
       expect(installed(ipc)).toBe(false);
     });
+
+    it("should keep the progress when the new check fails", async () => {
+      await startInstall(new Promise<void>(() => {}), true);
+      await act(async () => {});
+      expect(screen.getByText("Downloading update")).toBeTruthy();
+      expect(screen.queryByText("Failed to check for updates")).toBeNull();
+    });
   });
 
   describe("newest release past the Core", () => {
@@ -265,6 +292,25 @@ describe("version useInfoModal", () => {
         ).toBeNull(),
       );
       await act(async () => {});
+      expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
+    });
+
+    it("should not download it when the Core changes before the user confirms", async () => {
+      const granted = await createTestClientWithGrants(client, {
+        update: [VERSION_RESOURCE_ID],
+      });
+      const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
+      const setStatus = await renderBadge(granted);
+      await clickUpdate("1.6.0");
+      await screen.findByText("Console 1.6.0 cannot work with Core 1.5.0");
+      setStatus(createStatus("1.5.1"));
+      await waitFor(() => expect(callsOf(ipc, "plugin:updater|check")).toHaveLength(2));
+      fireEvent.click(screen.getByRole("button", { name: "Update Console" }));
+      expect(
+        await screen.findByText(
+          "The Core changed before the update started. Close this dialog and update again.",
+        ),
+      ).toBeTruthy();
       expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
     });
   });

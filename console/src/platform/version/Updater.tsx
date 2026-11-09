@@ -39,7 +39,8 @@ export type Check =
 
 /**
  * Downloads and installs an update that the Provider found, and sends the download
- * events to onEvent. Rejects when the download or the install fails.
+ * events to onEvent. Rejects when the checks started again after they found the update,
+ * or when the download or the install fails.
  */
 export type Install = (
   update: Update,
@@ -76,6 +77,7 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   const installMiddleware = useInstallMiddleware();
   const target = useTarget();
   const [check, setCheck] = useState<Check>({ variant: "loading" });
+  const held = useRef<Update | null>(null);
   const installing = useRef<Installing | null>(null);
   useAsyncEffect(
     async (signal) => {
@@ -105,6 +107,7 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
           return;
         }
         found = next;
+        held.current = next.update;
         addStatus({
           key: `${STATUS_KEY_PREFIX}-${id.create()}`,
           variant: "info",
@@ -115,6 +118,7 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
       return () => {
         clearTimeout(timer);
         if (found == null) return;
+        held.current = null;
         if (installing.current?.update === found.update)
           installing.current.released = true;
         else found.update.close().catch(console.error);
@@ -123,15 +127,24 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
     [target?.endpoint, target?.version, target?.latestGranted],
   );
   const install: Install = async (update, onEvent) => {
+    if (held.current !== update)
+      throw new Error(
+        "The Core changed before the update started. Close this dialog and update again.",
+      );
     const current: Installing = { update, released: false };
     installing.current = current;
-    await update
-      .download(onEvent)
-      .then(async () => await installMiddleware(async () => await update.install()))
-      .finally(async () => {
-        installing.current = null;
-        if (current.released) await update.close().catch(console.error);
-      });
+    let failed = false;
+    let error: unknown;
+    try {
+      await update.download(onEvent);
+      await installMiddleware(async () => await update.install());
+    } catch (e) {
+      failed = true;
+      error = e;
+    }
+    installing.current = null;
+    if (current.released) await update.close().catch(console.error);
+    if (failed) throw error instanceof Error ? error : new Error(String(error));
   };
   return <Context value={{ check, install }}>{children}</Context>;
 };

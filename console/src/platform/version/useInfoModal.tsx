@@ -112,9 +112,7 @@ const Info = () => {
       Checking for updates
     </Status.Summary>
   );
-  if (check.variant === "error")
-    updateContent = <Status.Summary level="h4" status={check.status} />;
-  else if (download.variant === "error" && download.status != null)
+  if (download.variant === "error" && download.status != null)
     updateContent = <Status.Summary level="h4" status={download.status} />;
   else if (download.variant === "loading")
     if (progressPercent === 100)
@@ -143,6 +141,8 @@ const Info = () => {
           </Flex.Box>
         </Flex.Box>
       );
+  else if (check.variant === "error")
+    updateContent = <Status.Summary level="h4" status={check.status} />;
   else if (check.variant === "success")
     if (check.available != null) {
       const found = check.available;
