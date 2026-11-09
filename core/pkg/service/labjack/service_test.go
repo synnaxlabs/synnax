@@ -129,5 +129,19 @@ var _ = Describe("Service", func() {
 				}},
 			})).Error().To(MatchError(ContainSubstring("invalid thermocouple_type: BOGUS")))
 		})
+
+		It("Should reject a negative channel past AIN127", func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "analog", "neg_chan": 199}},
+			})).Error().To(MatchError(ContainSubstring("neg_chan")))
+		})
+
+		It("Should reject a scan backlog count of 0", func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"device_scan_backlog_warn_on_count": 0,
+			})).Error().To(MatchError(ContainSubstring(
+				"device_scan_backlog_warn_on_count",
+			)))
+		})
 	})
 })

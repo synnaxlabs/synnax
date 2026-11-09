@@ -14,7 +14,6 @@ import {
   AIN_PORT_REGEX,
   DAC_PORT_REGEX,
   DIO_PORT_REGEX,
-  GROUND_CHANNEL,
   negativeChannelOf,
 } from "@/feature/labjack/device/types";
 import { Task } from "@/platform/task";
@@ -82,9 +81,9 @@ const readConfigZ = labjack.readConfigZ;
 const validateNegativeChannel = ({
   value: { port, negChan },
   issues,
-}: z.core.ParsePayload<{ port: string; negChan: number }>) => {
+}: z.core.ParsePayload<{ port: string; negChan?: number }>) => {
   const pair = negativeChannelOf(port);
-  if (negChan === GROUND_CHANNEL || negChan === pair) return;
+  if (negChan == null || negChan === pair) return;
   issues.push({
     code: "custom",
     message:

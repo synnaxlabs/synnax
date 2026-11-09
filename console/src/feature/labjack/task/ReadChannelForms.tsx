@@ -14,7 +14,6 @@ import { type FC } from "react";
 
 import {
   AI_PORT_TYPE,
-  GROUND_CHANNEL,
   type Model,
   negativeChannelOf,
   PORTS,
@@ -104,24 +103,33 @@ interface FormProps {
 
 interface NegativeChannelFieldProps {
   port: deep.Path<string>;
-  negChan: deep.Path<number>;
+  negChan: deep.Path<number | undefined>;
 }
 
-/** The negative input of a T7 channel: ground, or the port's differential pair. */
+type NegativeInput = "ground" | "pair";
+
+/**
+ * The negative input of a T7 channel: ground, which leaves the channel's negative
+ * channel absent, or the port's differential pair.
+ */
 const NegativeChannelField = ({ port, negChan }: NegativeChannelFieldProps) => {
   const pair = negativeChannelOf(PForm.useFieldValue(port));
   return (
-    <PForm.Field path={negChan} label="Negative channel">
+    <PForm.Field<number | undefined> path={negChan} label="Negative channel">
       {({ value, onChange, preview }) => (
-        <Select.Simple<number>
+        <Select.Simple<NegativeInput>
           allowNone={false}
-          value={value}
-          onChange={onChange}
+          value={value == null ? "ground" : "pair"}
+          onChange={(next: NegativeInput) =>
+            onChange(next === "pair" ? (pair ?? undefined) : undefined)
+          }
           preview={preview}
           resourceName="negative channel"
         >
-          <Select.Item itemKey={GROUND_CHANNEL}>Ground</Select.Item>
-          {pair != null && <Select.Item itemKey={pair}>{`AIN${pair}`}</Select.Item>}
+          <Select.Item<NegativeInput> itemKey="ground">Ground</Select.Item>
+          {pair != null && (
+            <Select.Item<NegativeInput> itemKey="pair">{`AIN${pair}`}</Select.Item>
+          )}
         </Select.Simple>
       )}
     </PForm.Field>
