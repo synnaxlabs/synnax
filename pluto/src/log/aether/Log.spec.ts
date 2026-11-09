@@ -478,6 +478,23 @@ describe("log/aether/Log", () => {
       expect(source.filter?.search).toBeNull();
     });
 
+    it("should hand the source the format each channel draws with", () => {
+      const { source, updateState } = setup();
+      const channels = [
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision: 2 }),
+      ];
+      const channelDataTypes = { "1": "float64" };
+      updateState({
+        channels,
+        channelDataTypes,
+        search: { text: "1.50", filtered: true },
+      });
+      expect(source.filter.formats["1"]).toMatchObject({
+        precision: 2,
+        dataType: "float64",
+      });
+    });
+
     it("should filter nothing with an invalid regex", () => {
       const { source, updateState } = setup();
       updateState({ search: { text: "(", mode: "regex", filtered: true } });
@@ -544,6 +561,25 @@ describe("log/aether/Log", () => {
       const on = highlights("abc", { text: "b", filtered: true });
       expect(on).toEqual(off);
       expect(off).toHaveLength(1);
+    });
+
+    it("should highlight the number as the log draws it at its precision", () => {
+      const drawn = highlights(
+        "3.14159",
+        { text: "3.14$", mode: "regex" },
+        {
+          ...BARE,
+          channels: [
+            clientLog.channelEntryZ.parse({
+              channel: 1,
+              color: color.ZERO,
+              precision: 2,
+            }),
+          ],
+          channelDataTypes: { "1": "float64" },
+        },
+      );
+      expect(drawn.map(({ column, columns }) => [column, columns])).toEqual([[0, 4]]);
     });
 
     it("should highlight nothing for an invalid regex", () => {
@@ -623,6 +659,34 @@ describe("log/aether/Log", () => {
       jumpTo(updateState, "next", 3);
       log.render();
       expect(log.state.rowEntries).toContain(150);
+    });
+
+    it("should match the number as the log draws it at its precision", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 150 ? "3.14159" : "2.71828",
+      }));
+      const drawn = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channels: [
+          clientLog.channelEntryZ.parse({
+            channel: 1,
+            color: color.ZERO,
+            precision: 2,
+          }),
+        ],
+        channelDataTypes: { "1": "float64" },
+      };
+      const { log, updateState } = setup(numbers, REGION_500, drawn);
+      updateState({
+        ...drawn,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      });
+      log.render();
+      expect(log.state.rowEntries).toContain(150);
+      expect(log.state.jumpStatus).toBe("");
     });
 
     it("should read older lines until it finds a match", () => {
@@ -1972,6 +2036,47 @@ describe("log/aether/Log", () => {
       expect(hitAt(["-123"], 0, 0.2)).toEqual({ entry: 0, char: 1 });
     });
 
+    it("should hit the last row for a pointer below it", () => {
+      expect(hitAt(["abc", "def"], 30, 1.2)).toEqual({ entry: 1, char: 1 });
+    });
+
+    it("should hit the start of the entry under a day row", () => {
+      const dated = { timestampsHidden: false, channelNamesHidden: true };
+      expect(hitAt(["abc"], 0, 4, dated)).toEqual({ entry: 0, char: 0 });
+    });
+
+    it("should hit the entries that arrived since the last render", () => {
+      const { log, source } = setup(valued("abc", "def"), NARROW, BARE);
+      log.render();
+      source.setEntries(valued("ghi"));
+      source.notify();
+      const point = log.hit({
+        x: PADDING + 1.2 * CHAR,
+        y: PADDING + 1.5 * log.lineHeight,
+      });
+      expect(point).toEqual({ entry: 0, char: 1 });
+    });
+
+    it("should start a selection at the oldest line when its start is evicted", () => {
+      const entries = valued("abcdef", "ghijkl", "mnopqr");
+      const { log, source } = setup(entries, NARROW, {
+        ...BARE,
+        selectionStart: 0,
+        selectionStartChar: 4,
+        selectionEnd: 2,
+        selectionEndChar: 2,
+      });
+      source.setEntries(entries.slice(1));
+      source.notify();
+      expect(log.state).toMatchObject({
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 1,
+        selectionEndChar: 2,
+      });
+      expect(log.selectedLines().map(({ text }) => text)).toEqual(["ghijkl", "mn"]);
+    });
+
     const copied = (
       values: string[],
       selection: Record<string, number>,
@@ -2003,6 +2108,28 @@ describe("log/aether/Log", () => {
         "ghij",
         "kl",
       ]);
+    });
+
+    it("should leave out a last line the selection ends at the start of", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 2,
+        selectionEnd: 1,
+        selectionEndChar: 0,
+      };
+      const shown = { timestampsHidden: false, channelNamesHidden: true };
+      expect(copied(["abcdef", "ghij"], selection, shown)).toHaveLength(1);
+      expect(copied(["abcdef", "ghij"], selection)).toEqual(["cdef"]);
+    });
+
+    it("should copy nothing for an empty cut", () => {
+      const selection = {
+        selectionStart: 0,
+        selectionStartChar: 0,
+        selectionEnd: 0,
+        selectionEndChar: 0,
+      };
+      expect(copied(["abc"], selection)).toEqual([]);
     });
 
     it("should keep the date of a line cut only at its end", () => {

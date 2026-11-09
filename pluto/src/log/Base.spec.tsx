@@ -433,6 +433,57 @@ describe("log/Base", () => {
       expect(hit).toHaveBeenCalledTimes(1);
     });
 
+    it("should not drag after a release that comes before the hit", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      let resolve: (point: { entry: number; char: number }) => void = () => {};
+      hit.mockReturnValueOnce(new Promise((r) => (resolve = r)));
+      const { container } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      fireEvent.mouseUp(div);
+      resolve({ entry: 2, char: 5 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      fireEvent.mouseMove(div, { clientY: 80 });
+      expect(hit).toHaveBeenCalledTimes(1);
+    });
+
+    it("should return to the pressed line when a drag comes back to its start", async () => {
+      const { setState, hit } = setupAether({ empty: false });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      hit.mockResolvedValueOnce({ entry: 3, char: 2 });
+      hit.mockResolvedValueOnce({ entry: 1, char: 4 });
+      const { container, rerender } = renderLog();
+      const div = getLogDiv(container);
+      fireEvent.mouseDown(div, { button: 0 });
+      await waitFor(() => expect(setState).toHaveBeenCalled());
+      // The press selected line 1, and the log renders it.
+      mockAetherUse.mockReturnValue([
+        "test-key",
+        {
+          ...DEFAULT_STATE,
+          empty: false,
+          selectionStart: 1,
+          selectionEnd: 1,
+          ...WHOLE,
+        },
+        setState,
+        { selectedLines: vi.fn(), hit },
+      ]);
+      rerender(<Base />);
+      fireEvent.mouseMove(div, { clientY: 90 });
+      await waitFor(() =>
+        expect(lastState(setState)).toMatchObject({ selectionEndChar: 2 }),
+      );
+      fireEvent.mouseMove(div, { clientY: 30 });
+      await waitFor(() =>
+        expect(lastState(setState)).toMatchObject({
+          selectionStart: 1,
+          selectionEnd: 1,
+          ...WHOLE,
+        }),
+      );
+    });
+
     it("should extend the selection by whole lines on a shift-click", async () => {
       const { setState, hit } = setupAether({ empty: false });
       hit.mockResolvedValue({ entry: 4, char: 3 });

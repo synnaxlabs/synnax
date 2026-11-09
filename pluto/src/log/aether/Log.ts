@@ -13,10 +13,8 @@ import {
   bounds,
   box,
   color,
-  DataType,
   deep,
   type destructor,
-  notation,
   text,
   TimeStamp,
   type TimeZone,
@@ -25,7 +23,8 @@ import {
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { compile, searchZ } from "@/log/aether/search";
+import { type Format, formatsOf, textOf } from "@/log/aether/format";
+import { compile, find, searchZ } from "@/log/aether/search";
 import { noopLogSourceSpec } from "@/log/aether/telem/noop";
 import {
   type Filter,
@@ -143,7 +142,7 @@ interface InternalState {
   render: render.Context;
   draw2d: Draw2D;
   telem: telem.MemoizedSource<LogEntry[], LogSource>;
-  configs: Record<string, log.ChannelEntry>;
+  formats: Record<string, Format>;
   textColor: color.Color;
   prefixColors: Record<string, color.Color>;
   defaultPrefixColor: color.Color;
@@ -271,36 +270,18 @@ const wrapStarts = (value: string, columns: number): number[] => {
   return starts;
 };
 
-const INTEGER = /^-?\d+$/;
-
-// Returns the sample in the number format of its channel. A sample shows as it arrives
-// when the channel holds no numbers, its data type has not loaded, or a calculated
-// channel changed type after the sample arrived.
-const formatNumber = (
-  value: string,
-  dataType: string | undefined,
-  { precision, notation: valueNotation }: log.ChannelEntry,
-): string => {
-  if (dataType == null) return value;
-  const type = new DataType(dataType);
-  if (type.isInteger && INTEGER.test(value))
-    return notation.stringifyNumber(BigInt(value), precision, valueNotation);
-  if (!type.isFloat || value.trim() === "") return value;
-  const number = Number(value);
-  if (Number.isNaN(number)) return value;
-  return notation.stringifyNumber(number, precision, valueNotation);
-};
-
-// Returns the filter of the source. An invalid regex filters nothing.
+// Returns the filter of the source. An invalid regex filters nothing. A search matches
+// the text the log draws, so it holds the format of each channel.
 const filterOf = ({
   hiddenChannels,
+  channels,
+  channelDataTypes,
   search: { text, mode, filtered },
 }: z.infer<typeof logStateZ>): Filter => {
   const search = { text, mode };
-  return {
-    hiddenChannels,
-    search: filtered && compile(search) != null ? search : null,
-  };
+  if (!filtered || compile(search) == null)
+    return { hiddenChannels, search: null, formats: {} };
+  return { hiddenChannels, search, formats: formatsOf(channels, channelDataTypes) };
 };
 
 const sameEntries = (a: number[], b: number[]): boolean =>
@@ -335,8 +316,6 @@ export class Log
   private cursor: LogEntry | null = null;
   // The direction of a jump that waits for reads.
   private jumping: Direction | null = null;
-  // The rows of the last render, top to bottom.
-  private rows: Row[] = [];
   private readonly wideRows = new WeakMap<
     LogEntry,
     { columns: number; starts: number[] }
@@ -401,7 +380,7 @@ export class Log
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
-    i.configs = configs;
+    i.formats = formatsOf(channelEntries, this.state.channelDataTypes);
 
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
     i.matchColor = color.setAlpha(i.theme.colors.warning.z, 0.4);
@@ -525,10 +504,8 @@ export class Log
         : this.state.scrolling
           ? this.scrollState.offset - (direction === "next" ? 1 : 0)
           : entries.length;
-    const matches = (i: number): boolean => {
-      pattern.lastIndex = 0;
-      return pattern.test(this.formatEntry(entries[i]).value);
-    };
+    const matches = (i: number): boolean =>
+      find(pattern, this.formatEntry(entries[i]).value).length > 0;
     const step = direction === "next" ? 1 : -1;
     let i = from + step;
     while (i >= 0 && i < entries.length && !matches(i)) i += step;
@@ -768,6 +745,14 @@ export class Log
     return rows.reverse();
   }
 
+  // Returns the rows of the view over the current entries.
+  private viewRows(): Row[] {
+    const { scrolling } = this.state;
+    const end = scrolling ? this.scrollState.offset : this.entries.length;
+    const tail = scrolling ? this.scrollState.tail : 0;
+    return this.layoutRows(end, tail, this.internal.lineHeight);
+  }
+
   // The top row always names the day of the rows below it.
   private layoutRows(end: number, tail: number, lh: number): Row[] {
     const capacity = this.calcRowCapacity(lh);
@@ -786,9 +771,7 @@ export class Log
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
     const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;
-    const tail = this.state.scrolling ? this.scrollState.tail : 0;
-    const rows = this.layoutRows(end, tail, lh);
-    this.rows = rows;
+    const rows = this.viewRows();
     const rowEntries = rows.map((row) => row.entry);
     const shown = this.seeking ?? this.entries[end - 1]?.timestamp.valueOf() ?? "";
     const position = this.state.scrolling ? shown.toString() : "";
@@ -932,7 +915,8 @@ export class Log
       this.moveView(0, this.internal.lineHeight);
       this.anchors.scroll = this.entries[this.scrollState.offset - 1];
     }
-    const { selectionStart, selectionEnd } = this.state;
+    const { selectionStart, selectionEnd, selectionStartChar, selectionEndChar } =
+      this.state;
     if (selectionStart < 0 || selectionEnd < 0 || (start == null && end == null))
       return;
     const newStart = start == null ? selectionStart : this.locate(start);
@@ -944,8 +928,27 @@ export class Log
     }
     const [nextStart, nextEnd] = [Math.max(0, newStart), Math.max(0, newEnd)];
     this.setAnchors(nextStart, nextEnd);
-    if (nextStart === selectionStart && nextEnd === selectionEnd) return;
-    this.setState((s) => ({ ...s, selectionStart: nextStart, selectionEnd: nextEnd }));
+    // An evicted point moves to the start of the oldest line.
+    const charOf = (located: number, char: number): number =>
+      located < 0 && char > 0 ? 0 : char;
+    const [startChar, endChar] = [
+      charOf(newStart, selectionStartChar),
+      charOf(newEnd, selectionEndChar),
+    ];
+    if (
+      nextStart === selectionStart &&
+      nextEnd === selectionEnd &&
+      startChar === selectionStartChar &&
+      endChar === selectionEndChar
+    )
+      return;
+    this.setState((s) => ({
+      ...s,
+      selectionStart: nextStart,
+      selectionEnd: nextEnd,
+      selectionStartChar: startChar,
+      selectionEndChar: endChar,
+    }));
   }
 
   // Waits at the oldest entry while older pages can still reach the time. When no
@@ -1068,9 +1071,7 @@ export class Log
       let held = matches.get(row.entry);
       if (held == null) {
         const { value } = this.formatEntry(this.entries[row.entry]);
-        held = [...value.matchAll(pattern)]
-          .filter((m) => m[0].length > 0)
-          .map((m): [number, number] => [m.index, m.index + m[0].length]);
+        held = find(pattern, value);
         matches.set(row.entry, held);
       }
       const end = row.start + row.value.length;
@@ -1101,28 +1102,13 @@ export class Log
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, timestampsHidden, channelDataTypes, timeZone } =
-      this.state;
-    const { tsLen, configs } = this.internal;
+    const { channelNamesHidden, timestampsHidden, timeZone } = this.state;
+    const { tsLen, formats } = this.internal;
     const chKeyStr = String(entry.channelKey);
-    const cfg = configs[chKeyStr];
     const ts = !timestampsHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", timeZone).slice(0, tsLen)
       : "";
-    let value = entry.value;
-    const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
-    if (isTimestampChannel) {
-      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
-        format: "preciseDate",
-        timeZone: "local",
-      };
-      try {
-        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
-      } catch {
-        // Leave value as-is if it can't be parsed as a bigint.
-      }
-    } else if (cfg != null && (cfg.precision != null || cfg.notation !== "standard"))
-      value = formatNumber(value, channelDataTypes[chKeyStr], cfg);
+    const value = textOf(entry.value, formats[chKeyStr]);
     const { displayNames, namePadding } = this.internal;
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
@@ -1140,15 +1126,17 @@ export class Log
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
-  // A line cut at its start leaves out the date that a copy adds.
+  // A line cut at its start leaves out the date that a copy adds. A line the selection
+  // holds no character of is left out.
   selectedLines(): Line[] {
     const selection = this.selection();
     if (selection == null) return [];
     const { start, end } = selection;
     const { valueColors } = this.internal;
-    return this.entries.slice(start.entry, end.entry + 1).map((entry, i) => {
+    return this.entries.slice(start.entry, end.entry + 1).flatMap((entry, i) => {
       const from = i === 0 ? start.char : 0;
       const to = start.entry + i === end.entry ? end.char : Infinity;
+      if (to <= from) return [];
       const dated = this.formatEntry(entry, true);
       let text = dated.line;
       if (from > 0) text = this.formatEntry(entry).line.slice(from, to);
@@ -1158,12 +1146,13 @@ export class Log
           to + dated.prefix.length - this.formatEntry(entry).prefix.length,
         );
       const lineColor = valueColors[dated.channelKey];
-      return { text, color: lineColor == null ? "" : color.hex(lineColor) };
+      return [{ text, color: lineColor == null ? "" : color.hex(lineColor) }];
     });
   }
 
+  // Lays the rows out again, since the entries can change between renders.
   hit({ x, y }: xy.XY): Point {
-    const { rows } = this;
+    const rows = this.viewRows();
     const { lineHeight, charWidth } = this.internal;
     const reg = this.state.region;
     if (rows.length === 0) return { entry: 0, char: 0 };

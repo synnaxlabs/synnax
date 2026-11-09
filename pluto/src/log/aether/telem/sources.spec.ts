@@ -20,6 +20,7 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { Rate, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import { formatZ, textOf as drawnTextOf } from "@/log/aether/format";
 import {
   StreamMultiChannelLog,
   type StreamMultiChannelLogProps,
@@ -569,6 +570,25 @@ describe("StreamMultiChannelLog", () => {
       expect(valuesOf(entriesOf(log), a)).toEqual(matches);
     });
 
+    it("should match the number as the log draws it at its precision", async () => {
+      const core = createCore();
+      const [a] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      const format = formatZ.parse({ precision: 2, dataType: "float32" });
+      log.setFilter({
+        ...ZERO_FILTER,
+        search: { text: "\\.91$", mode: "regex" },
+        formats: { [a]: format },
+      });
+      const raw = textOf(core, a, HISTORY);
+      const matches = raw.filter((v) => /\.91$/.test(drawnTextOf(v, format)));
+      expect(matches.length).toBeGreaterThan(0);
+      expect(raw.some((v) => /\.91$/.test(v))).toBe(false);
+      await settle(log, matches.length);
+      expect(valuesOf(entriesOf(log), a)).toEqual(matches);
+    });
+
     it("should hold a matched line of a sample as its first line", async () => {
       const core = createCore({ text: (i) => `head ${i}\nmatch ${i}` });
       const [a] = core.data.map((c) => c.key);
@@ -806,12 +826,16 @@ describe("StreamMultiChannelLog", () => {
       const errors = textOf(core, a, STORED).filter((v) => v.startsWith("ERROR"));
       await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
       const reached = log.reached?.valueOf();
+      assert(reached != null);
+      log.loadOlder();
+      await expect.poll(() => log.reached?.valueOf() ?? 0n, POLL).toBeLessThan(reached);
       await until(
         () => log.loadOlder(),
         () => log.exhausted,
       );
       expect(valuesOf(entriesOf(log), a)).toEqual(errors);
-      expect(log.reached?.valueOf()).toBeLessThan(reached ?? 0n);
+      // A channel whose reads hold its oldest sample leaves nothing to search back to.
+      expect(log.reached).toBeNull();
     });
 
     it("should read no older pages of a hidden channel", async () => {
