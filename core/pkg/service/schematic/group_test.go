@@ -239,7 +239,7 @@ var _ = Describe("SetGroup", func() {
 
 var _ = Describe("Writer in concurrent transactions", func() {
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -284,9 +284,14 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := created
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							return svc.NewWriter(tx).Apply(
+								ctx,
+								created.Key,
+								schematic.NewRenameAction(
+									schematic.RenamePayload{Name: "renamed"},
+								),
+							)
 						})).
 							To(Succeed())
 					}

@@ -75,7 +75,8 @@ type CreateResponse struct {
 	Views []View `json:"views" msgpack:"views"`
 }
 
-// Create creates the views, and overwrites each one whose key exists.
+// Create creates the views. It returns an error wrapping validate.ErrValidation when a
+// view with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

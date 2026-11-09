@@ -169,80 +169,38 @@ var _ = Describe("Create", func() {
 		Entry("without create on the rack", 0, rack.NewKey(1, 60100)),
 		Entry("without retrieve on the Driver role", 2, rack.NewKey(1, 60102)),
 	)
-	It(
-		"Should leave out the status of a rack the caller can only update",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			hidden := createRackWithStatus(ctx, "Hidden")
-			grant(ctx, access.ActionUpdate, u.ResourceID(), hidden.ResourceID())
-			res := MustSucceed(create(
-				AuthedCtx(ctx, u),
-				apirack.CreateRequest{Racks: []rack.Rack{hidden}},
-			))
-			Expect(res.Racks).To(HaveLen(1))
-			Expect(res.Racks[0].Status).To(BeNil())
-		},
-	)
 	It("Should check read access on each rack in a batch", func(ctx SpecContext) {
 		u := createUser(ctx)
-		readable := createRackWithStatus(ctx, "Readable")
-		hidden := createRackWithStatus(ctx, "Hidden")
-		grant(
-			ctx, access.ActionUpdate, u.ResourceID(),
-			readable.ResourceID(), hidden.ResourceID(),
-		)
+		readable := rack.Rack{Key: rack.NewKey(1, 60110), Name: "Readable"}
+		hidden := rack.Rack{Key: rack.NewKey(1, 60111), Name: "Hidden"}
+		grantAll(ctx, u, newRackNeeds(rackType)...)
 		grant(ctx, access.ActionRetrieve, u.ResourceID(), readable.ResourceID())
 		res := MustSucceed(create(
 			AuthedCtx(ctx, u),
 			apirack.CreateRequest{Racks: []rack.Rack{readable, hidden}},
 		))
 		Expect(res.Racks).To(HaveLen(2))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
+		Expect(res.Racks[0].Status.Owner).To(HaveValue(Equal(readable.ResourceID())))
+		Expect(res.Racks[0].Status.Message).To(Equal("Rack status unknown"))
 		Expect(res.Racks[1].Status).To(BeNil())
 	})
-	It("Should reply with the live status of an existing rack", func(ctx SpecContext) {
-		r := createRackWithStatus(ctx, "Existing")
-		res := MustSucceed(create(
-			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
-	})
-	It("Should reply with the new name of a renamed rack", func(ctx SpecContext) {
-		r := createRackWithStatus(ctx, "Old")
-		r.Name = "New"
-		res := MustSucceed(create(
-			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		))
-		Expect(res.Racks[0].Status.Name).To(Equal("New"))
-		Expect(res.Racks[0].Status.Message).To(Equal("Rack is running"))
-	})
-	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
+	It("Should let a rack with the Driver role edit itself", func(ctx SpecContext) {
 		r := rack.Rack{Name: "Self"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Rack.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
-		r.Integrations = []string{"ni"}
-		MustSucceed(create(
+		MustSucceed(dispatch(
 			SubjectCtx(ctx, r.ResourceID()),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
+			apirack.DispatchRequest{
+				Key: r.Key,
+				Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{
+					Path:  []string{"integrations"},
+					Value: []string{"ni"},
+				})},
+			},
 		))
 		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
 	})
-	It(
-		"Should let a rack with the Driver role save itself twice",
-		func(ctx SpecContext) {
-			r := rack.Rack{Name: "Self"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Rack.NewWriter(tx).Create(ctx, &r)
-			})).To(Succeed())
-			MustSucceed(create(
-				SubjectCtx(ctx, r.ResourceID()),
-				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
-			))
-		},
-	)
 	It(
 		"Should not let a rack with the Driver role create a rack",
 		func(ctx SpecContext) {
@@ -259,17 +217,27 @@ var _ = Describe("Create", func() {
 			))
 		},
 	)
-	It("Should require update to save an existing rack", func(ctx SpecContext) {
+	It("Should refuse a rack whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
-		grant(ctx, access.ActionCreate, u.ResourceID(), rackType)
-		r := rack.Rack{Name: "Existing"}
-		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Rack.NewWriter(tx).Create(ctx, &r)
-		})).To(Succeed())
+		grantAll(ctx, u, newRackNeeds(rackType)...)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), rackType)
+		r := createRackWithStatus(ctx, "Existing")
+		edited := r
+		edited.Name = "Edited"
 		Expect(create(
 			AuthedCtx(ctx, u),
-			apirack.CreateRequest{Racks: []rack.Rack{r}},
-		)).Error().To(denied(u, access.ActionUpdate, r.ResourceID()))
+			apirack.CreateRequest{Racks: []rack.Rack{edited}},
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("rack %d already exists", r.Key)),
+		))
+		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("Existing"))
+		var st rack.Status
+		Expect(svc.Status.NewRetrieve[struct{}]().
+			Where(status.MatchOwners[struct{}](r.ResourceID())).
+			Entry(&st).
+			Exec(ctx, db)).To(Succeed())
+		Expect(st.Message).To(Equal("Rack is running"))
 	})
 })
 
@@ -526,11 +494,6 @@ var _ = Describe("Retrieve", func() {
 				},
 			))
 			Expect(retrieved.Racks[0].Status.Message).To(Equal("Rack is running"))
-			created := MustSucceed(create(
-				AuthedCtx(ctx, u),
-				apirack.CreateRequest{Racks: []rack.Rack{r}},
-			))
-			Expect(created.Racks[0].Status.Message).To(Equal("Rack is running"))
 		},
 	)
 })

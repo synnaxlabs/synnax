@@ -84,7 +84,8 @@ type (
 	CreateResponse = CreateRequest
 )
 
-// Create creates the projects, and overwrites each one whose key exists.
+// Create creates the projects. It returns an error wrapping validate.ErrValidation when
+// a project with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

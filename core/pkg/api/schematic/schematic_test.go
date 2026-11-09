@@ -619,28 +619,6 @@ var _ = Describe("Create in a group", func() {
 			)).Error().To(MatchError(access.ErrDenied))
 		},
 	)
-	It(
-		"Should keep an existing schematic in its group without update on a group",
-		func(ctx SpecContext) {
-			g := createGroup(ctx, "Create keeps group")
-			sc := schematic.Schematic{Project: &proj.Key, Name: "Kept", Group: &g.Key}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return schematicSvc.NewWriter(tx).Create(ctx, &sc)
-			})).To(Succeed())
-			ignored := createGroup(ctx, "Create ignores group")
-			sc.Name, sc.Group = "Renamed", &ignored.Key
-			grantUpdateOn(ctx, author.ResourceID(), sc.ResourceID())
-			Expect(create(
-				AuthedCtx(ctx, author),
-				apischematic.CreateRequest{
-					Schematics: []schematic.Schematic{sc},
-				},
-			)).Error().ToNot(HaveOccurred())
-			stored := retrieveSchematic(ctx, sc.Key)
-			Expect(stored.Name).To(Equal("Renamed"))
-			Expect(stored.Group).To(Equal(&g.Key))
-		},
-	)
 	It("Should create the schematic with update on the group", func(ctx SpecContext) {
 		g := createGroup(ctx, "Create granted")
 		grantUpdateOn(
@@ -747,9 +725,7 @@ var _ = Describe("Owner access", func() {
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
 
-	It("Should refuse to overwrite a schematic without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a schematic whose key exists", func(ctx SpecContext) {
 		u := newUser(ctx)
 		grantOn(
 			ctx,
@@ -762,7 +738,10 @@ var _ = Describe("Owner access", func() {
 			Schematics: []schematic.Schematic{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
 			},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("schematic %s already exists", stored.Key)),
+		))
 		Expect(retrieveSchematic(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 

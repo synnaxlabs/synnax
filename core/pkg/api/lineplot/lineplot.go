@@ -75,7 +75,8 @@ type CreateResponse struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
 }
 
-// Create creates the line plots, and overwrites each one whose key exists.
+// Create creates the line plots. It returns an error wrapping validate.ErrValidation
+// when a line plot with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -113,14 +114,15 @@ var _ = Describe("Create", func() {
 			Entry(&log.Log{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
-	It("Should refuse to overwrite a log without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a log whose key exists", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		stored := createLog(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
 			Logs: []log.Log{{Key: stored.Key, Name: "Overwritten", Project: &proj.Key}},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("log %s already exists", stored.Key)),
+		))
 		Expect(retrieveLog(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 	It("Should require retrieve on each channel the log displays", func(

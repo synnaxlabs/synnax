@@ -133,41 +133,6 @@ var _ = Describe("Create", func() {
 		Expect(policyExists(ctx, res.Policies[0].Key)).To(BeTrue())
 	})
 
-	It("Should refuse to move a policy off a role the subject cannot update", func(
-		ctx SpecContext,
-	) {
-		from, to := createRole(ctx), createRole(ctx)
-		p := createPolicy(ctx, from.Key)
-		u := createEditor(ctx, access.ActionUpdate, to.Key)
-		p.Role = to.Key
-		Expect(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
-			Policies: []policy.Policy{p},
-		})).Error().To(denied(u, access.ActionUpdate, role.ResourceID(from.Key)))
-		var stored policy.Policy
-		Expect(svc.RBAC.Policy.NewRetrieve().
-			Where(policy.MatchKeys(p.Key)).
-			Entry(&stored).
-			Exec(ctx, db)).To(Succeed())
-		Expect(stored.Role).To(Equal(from.Key))
-	})
-
-	It("Should overwrite a policy that keeps its role with update on the policy", func(
-		ctx SpecContext,
-	) {
-		p := createPolicy(ctx, createRole(ctx).Key)
-		u := createEditor(ctx, access.ActionUpdate)
-		p.Name = "renamed-" + p.Name
-		MustSucceed(create(AuthedCtx(ctx, u), apipolicy.CreateRequest{
-			Policies: []policy.Policy{p},
-		}))
-		var stored policy.Policy
-		Expect(svc.RBAC.Policy.NewRetrieve().
-			Where(policy.MatchKeys(p.Key)).
-			Entry(&stored).
-			Exec(ctx, db)).To(Succeed())
-		Expect(stored.Name).To(Equal(p.Name))
-	})
-
 	It("Should refuse a policy of a built-in role, even for the root user", func(
 		ctx SpecContext,
 	) {
@@ -181,16 +146,19 @@ var _ = Describe("Create", func() {
 		))
 	})
 
-	It("Should refuse to overwrite a policy of a built-in role", func(
+	It("Should refuse a policy whose key exists, even for the root user", func(
 		ctx SpecContext,
 	) {
+		stored := builtinPolicy(ctx)
 		overwrite := newPolicy(createRole(ctx).Key)
-		overwrite.Key = builtinPolicy(ctx).Key
+		overwrite.Key = stored.Key
 		Expect(create(AuthedCtx(ctx, root), apipolicy.CreateRequest{
 			Policies: []policy.Policy{overwrite},
-		})).Error().To(MatchError(ContainSubstring(
-			"cannot change the policies of built-in role Viewer",
-		)))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("policy %s already exists", stored.Key)),
+		))
+		Expect(builtinPolicy(ctx)).To(Equal(stored))
 	})
 })
 

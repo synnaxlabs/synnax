@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
@@ -129,33 +130,27 @@ var _ = Describe("Group", func() {
 			},
 		)
 
-		It(
-			"Should need update access to overwrite an existing group",
-			func(ctx SpecContext) {
-				g := newGroup(ctx, resource.TypeChannel, nil)
-				u := newUser(ctx, grant(createAction, groups))
-				Expect(create(
-					AuthedCtx(ctx, u),
-					apigroup.CreateRequest{Key: g.Key, Name: "renamed"},
-				)).Error().To(denied(u, access.ActionUpdate, g.ResourceID()))
-			},
-		)
-
-		It(
-			"Should keep the parent of an existing group that it overwrites",
-			func(ctx SpecContext) {
-				parent := newGroup(ctx, resource.TypeChannel, nil)
-				g := newGroup(ctx, resource.TypeChannel, &parent)
-				u := newUser(ctx, grant(update, g.ResourceID()))
-				res := MustSucceed(create(
-					AuthedCtx(ctx, u),
-					apigroup.CreateRequest{Key: g.Key, Name: g.Name},
-				))
-				Expect(res.Group.Parent).To(Equal(new(parent.ResourceID())))
-				Expect(retrieve(ctx, g.Key).Parent).
-					To(Equal(new(parent.ResourceID())))
-			},
-		)
+		It("Should refuse a group whose key exists", func(ctx SpecContext) {
+			parent := newGroup(ctx, resource.TypeChannel, nil)
+			g := newGroup(ctx, resource.TypeChannel, &parent)
+			u := newUser(
+				ctx,
+				grant(createAction, groups),
+				grant(update, g.ResourceID()),
+			)
+			Expect(create(
+				AuthedCtx(ctx, u),
+				apigroup.CreateRequest{
+					Key:   g.Key,
+					Name:  "renamed",
+					Scope: resource.TypeChannel,
+				},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group %s already exists", g.Key)),
+			))
+			Expect(retrieve(ctx, g.Key)).To(Equal(g))
+		})
 	})
 
 	Describe("Delete", func() {

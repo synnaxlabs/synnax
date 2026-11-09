@@ -79,7 +79,8 @@ type (
 	}
 )
 
-// Create creates the symbols in req, and overwrites each one whose key exists.
+// Create creates the symbols in req. It returns an error wrapping
+// validate.ErrValidation when a symbol with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

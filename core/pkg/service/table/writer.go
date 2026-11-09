@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -41,46 +40,30 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given table, assigning a new key when t.Key is zero. The table
-// must belong to exactly one of a project and a range. An existing table keeps its
-// group, project, and range. A new table in a group belongs to the project that holds
-// the group.
+// must belong to exactly one of a project and a range. A table in a group belongs to
+// the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a table with t.Key exists.
 func (w Writer) Create(ctx context.Context, t *Table) error {
-	var (
-		exists bool
-		err    error
-	)
 	if t.Key == uuid.Nil() {
 		t.Key = uuid.New()
-	} else {
-		var stored Table
-		err = w.tbl.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Table](t.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			t.Group, t.Project, t.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && t.Group != nil {
+	if t.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, t.Group, resource.TypeTable)
 		if err != nil {
 			return err
 		}
 		t.Project = proj
 	}
-	if err = t.Validate(); err != nil {
+	if err := t.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(t.Project, t.Range); err != nil {
+	if err := project.ValidateOwner(t.Project, t.Range); err != nil {
 		return err
 	}
-	if err = validateUniqueKeys(*t); err != nil {
+	if err := validateUniqueKeys(*t); err != nil {
 		return err
 	}
-	if err = w.tbl.NewCreate().Entry(t).Exec(ctx, w.tx); err != nil {
+	if err := w.tbl.NewCreate().Exclusive().Entry(t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -157,8 +140,8 @@ func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	}
 }
 
-// CreateMany creates the given tables. If tables with the same key already exist, they
-// will be overwritten.
+// CreateMany creates the given tables. It returns an error wrapping
+// validate.ErrValidation when a table with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, tables *[]Table) error {
 	for i := range *tables {
 		if err := w.Create(ctx, &(*tables)[i]); err != nil {

@@ -107,8 +107,9 @@ type (
 	}
 )
 
-// Create creates or updates the racks. The response holds the status of each rack that
-// the subject can retrieve.
+// Create creates the racks. It returns an error wrapping validate.ErrValidation when a
+// rack with the key of one exists. The response holds the status of each rack that the
+// subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -136,7 +137,7 @@ func (s *Service) attachReadableStatuses(
 			Action:  access.ActionRetrieve,
 			Objects: []resource.ID{racks[i].ResourceID()},
 		})
-		// Create accepts update access, which does not grant read access.
+		// Create access does not grant read access.
 		if errors.Is(err, access.ErrDenied) {
 			racks[i].Status = nil
 			continue

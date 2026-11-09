@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -90,20 +91,21 @@ var _ = Describe("Create", func() {
 		})).Error().To(denied(u, access.ActionCreate, v.ResourceID()))
 		Expect(exists(ctx, v.GorpKey())).To(BeFalse())
 	})
-	It("Should need update on a stored view that it overwrites", func(ctx SpecContext) {
+	It("Should refuse a view whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		v := createView(ctx)
 		grantOn(ctx, u.ResourceID(), access.ActionCreate, resource.ID{
 			Type: resource.TypeView,
 		})
-		v.SetBase(view.Base{Key: v.GorpKey(), Name: "After"})
-		req := apiview.CreateRequest{Views: []view.View{v}}
-		Expect(create(AuthedCtx(ctx, u), req)).Error().
-			To(denied(u, access.ActionUpdate, v.ResourceID()))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
-		MustSucceed(create(AuthedCtx(ctx, u), req))
-		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
+		v.SetBase(view.Base{Key: v.GorpKey(), Name: "After"})
+		Expect(create(AuthedCtx(ctx, u), apiview.CreateRequest{
+			Views: []view.View{v},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("view %s already exists", v.GorpKey())),
+		))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("Before"))
 	})
 })
 

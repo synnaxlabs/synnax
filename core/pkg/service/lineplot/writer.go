@@ -19,8 +19,6 @@ import (
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -37,30 +35,14 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given line plot, assigning a new key when lp.Key is zero. The line
-// plot must belong to exactly one of a project and a range. An existing line plot keeps
-// its group, project, and range. A new line plot in a group belongs to the project that
-// holds the group.
+// plot must belong to exactly one of a project and a range. A line plot in a group
+// belongs to the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a line plot with lp.Key exists.
 func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
-	var (
-		exists bool
-		err    error
-	)
 	if lp.Key == uuid.Nil() {
 		lp.Key = uuid.New()
-	} else {
-		var stored LinePlot
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, LinePlot](lp.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			lp.Group, lp.Project, lp.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && lp.Group != nil {
+	if lp.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, lp.Group, resource.TypeLineplot)
 		if err != nil {
 			return err
@@ -74,10 +56,10 @@ func (w Writer) Create(ctx context.Context, lp *LinePlot) error {
 	if err := lp.Validate(); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(lp.Project, lp.Range); err != nil {
+	if err := project.ValidateOwner(lp.Project, lp.Range); err != nil {
 		return err
 	}
-	if err := w.table.NewCreate().Entry(lp).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(lp).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -154,8 +136,8 @@ func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	}
 }
 
-// CreateMany creates the given line plots. If line plots with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given line plots. It returns an error wrapping
+// validate.ErrValidation when a line plot with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, plots *[]LinePlot) error {
 	for i := range *plots {
 		if err := w.Create(ctx, &(*plots)[i]); err != nil {

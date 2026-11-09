@@ -388,9 +388,7 @@ var _ = Describe("Create", func() {
 		Expect(rangeExists(ctx, r.Key)).To(BeFalse())
 	})
 
-	It("Should refuse to overwrite a range without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a range whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
 		grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{
 			Type: resource.TypeRange,
@@ -400,7 +398,10 @@ var _ = Describe("Create", func() {
 		overwrite.Name = "Overwritten"
 		Expect(create(AuthedCtx(ctx, u), apiranger.CreateRequest{
 			Ranges: []ranger.Range{overwrite},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("range %s already exists", stored.Key)),
+		))
 		Expect(retrieveRange(ctx, stored.Key).Name).To(Equal("Hot fire"))
 	})
 

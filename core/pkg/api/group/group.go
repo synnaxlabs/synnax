@@ -76,8 +76,8 @@ type (
 	}
 )
 
-// Create creates a group. An existing group with the key keeps its stored parent and
-// scope.
+// Create creates a group. It returns an error wrapping validate.ErrValidation when a
+// group with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

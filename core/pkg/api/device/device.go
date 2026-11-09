@@ -93,7 +93,8 @@ type (
 	}
 )
 
-// Create creates or updates the devices. The response holds the status of each device
+// Create creates the devices. It returns an error wrapping validate.ErrValidation when
+// a device with the key of one exists. The response holds the status of each device
 // that the subject can retrieve.
 func (s *Service) Create(
 	ctx context.Context,

@@ -130,7 +130,8 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. An existing snapshot keeps its range.
+// Create creates the tasks. It returns an error wrapping validate.ErrValidation when a
+// task with the key of one exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -134,14 +134,17 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(create(ctx, "second")).To(exists)
 			Expect(stored(ctx).Data).To(Equal("first"))
 		})
-		It("Should create an entry that the transaction deleted", func(ctx SpecContext) {
-			Expect(create(ctx, "first")).To(Succeed())
-			Expect(gorp.NewDelete[int32, entry]().
-				Where(gorp.MatchKeys[int32, entry](7)).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(create(ctx, "second")).To(Succeed())
-			Expect(stored(ctx).Data).To(Equal("second"))
-		})
+		It(
+			"Should create an entry that the transaction deleted",
+			func(ctx SpecContext) {
+				Expect(create(ctx, "first")).To(Succeed())
+				Expect(gorp.NewDelete[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](7)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(create(ctx, "second")).To(Succeed())
+				Expect(stored(ctx).Data).To(Equal("second"))
+			},
+		)
 		It("Should overwrite an entry without the option", func(ctx SpecContext) {
 			Expect(create(ctx, "first")).To(Succeed())
 			Expect(gorp.NewCreate[int32, entry]().

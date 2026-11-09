@@ -80,6 +80,18 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should refuse a table whose key exists", func(ctx SpecContext) {
+			stored := seed(ctx)
+			again := table.Table{Key: stored.Key, Project: &proj.Key, Name: "refused"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &again)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("table %s already exists", stored.Key)),
+			))
+			Expect(retrieve(ctx, stored.Key)).To(Equal(stored))
+		})
+
 		It(
 			"Should reject a table with neither a project nor a range",
 			func(ctx SpecContext) {

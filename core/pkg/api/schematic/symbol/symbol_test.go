@@ -117,23 +117,29 @@ var _ = Describe("Create", func() {
 		})).Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
 		Expect(groupSymbols(ctx, g.Key)).To(BeEmpty())
 	})
-	It("Should need update on a stored symbol that it overwrites", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a symbol whose key exists", func(ctx SpecContext) {
 		u := createUser(ctx)
-		g := createGroup(ctx, "overwritten")
-		sym := createSymbol(ctx, g, "Inlet")
+		g := createGroup(ctx, "refused")
+		stored := createSymbol(ctx, g, "Inlet")
 		grantCreateOn(ctx, u.ResourceID(), symbolType)
-		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
-		sym.Name = "Outlet"
-		req := apisymbol.CreateRequest{Symbols: []symbol.Symbol{sym}}
-		Expect(create(AuthedCtx(ctx, u), req)).Error().To(denied(
-			u.ResourceID(),
-			access.ActionUpdate,
-			symbol.ResourceID(sym.Key),
+		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID(), stored.ResourceID())
+		again := stored
+		again.Name = "Outlet"
+		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
+			Symbols: []symbol.Symbol{again},
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				"schematic_symbol %s already exists",
+				stored.Key,
+			)),
 		))
-		grantUpdateOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
-		MustSucceed(create(AuthedCtx(ctx, u), req))
+		var res symbol.Symbol
+		Expect(symbolSvc.NewRetrieve().
+			Where(symbol.MatchKeys(stored.Key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(res.Name).To(Equal("Inlet"))
 	})
 })
 
