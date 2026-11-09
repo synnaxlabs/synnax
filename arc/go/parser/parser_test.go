@@ -2481,8 +2481,18 @@ var _ = Describe("Limits", func() {
 		Entry("a long chain of binary operators", strings.Repeat("1 - ", 10_000)+"1"),
 	)
 
-	It("Should return a diagnostic for source past MaxSourceSize", func() {
-		Expect(parser.Parse(strings.Repeat(" ", parser.MaxSourceSize+1))).Error().
+	It("Should parse nesting at the depth bound and stop one level past it", func() {
+		MustSucceed(parser.ParseExpression(nested("(", ")", 226)))
+		Expect(parser.ParseExpression(nested("(", ")", 227))).Error().
+			To(MatchError(ContainSubstring(tooDeep)))
+	})
+
+	It("Should parse source of exactly 1 MiB", func() {
+		MustSucceed(parser.Parse(strings.Repeat(" ", 1<<20)))
+	})
+
+	It("Should return a diagnostic for source past 1 MiB", func() {
+		Expect(parser.Parse(strings.Repeat(" ", 1<<20+1))).Error().
 			To(MatchError(ContainSubstring("more than the limit")))
 	})
 })

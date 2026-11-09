@@ -18,17 +18,17 @@ import (
 )
 
 const (
-	// MaxSourceSize is the most bytes of source that a parse accepts.
-	MaxSourceSize = 1 << 20
-	// MaxDepth is the deepest that grammar rules can nest in a parse. Each level of
+	// maxSourceSize is the most bytes of source that a parse accepts.
+	maxSourceSize = 1 << 20
+	// maxDepth is the deepest that grammar rules can nest in a parse. Each level of
 	// parentheses in an expression nests about 11 rules.
-	MaxDepth = 2500
+	maxDepth = 2500
 )
 
 // depthExceeded is the panic value of depthLimit. The parse entry recovers it.
 type depthExceeded struct{ token antlr.Token }
 
-// depthLimit aborts a parse whose rules nest deeper than MaxDepth. The parser recurses
+// depthLimit aborts a parse whose rules nest deeper than maxDepth. The parser recurses
 // once for each rule, and a Go stack overflow ends the process, so the parse must stop
 // before the stack does.
 type depthLimit struct {
@@ -37,7 +37,7 @@ type depthLimit struct {
 }
 
 func (l *depthLimit) EnterEveryRule(ctx antlr.ParserRuleContext) {
-	if l.depth++; l.depth > MaxDepth {
+	if l.depth++; l.depth > maxDepth {
 		panic(depthExceeded{token: ctx.GetStart()})
 	}
 }
@@ -50,7 +50,7 @@ func sizeDiagnostic(source string) diagnostics.Diagnostic {
 		Message: fmt.Sprintf(
 			"source is %d bytes, more than the limit of %d",
 			len(source),
-			MaxSourceSize,
+			maxSourceSize,
 		),
 	}
 }

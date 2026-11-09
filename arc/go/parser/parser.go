@@ -178,7 +178,7 @@ func parseWithContext[T any](
 	parseFn func(*ArcParser) T,
 ) (result T, _ *diagnostics.Diagnostics) {
 	diag := &diagnostics.Diagnostics{}
-	if len(source) > MaxSourceSize {
+	if len(source) > maxSourceSize {
 		diag.Add(sizeDiagnostic(source))
 		return result, diag
 	}
