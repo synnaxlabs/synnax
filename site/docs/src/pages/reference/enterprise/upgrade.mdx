@@ -60,7 +60,9 @@ The command downloads the new Core and checks its signature. It stops the servic
 the new binary in place of the old one, and starts the service. It then waits up to 10
 minutes for the new Core to commit the update. To change the wait, add `--timeout`, such
 as `--timeout 30m`. If the new Core fails, the command puts the old Core back and starts
-it. The old binary stays next to the new one, with an `.old` extension.
+it. The old binary stays next to the new one, with an `.old` extension. If the wait ends
+first, the command fails and leaves the new Core to finish. If that Core then undoes the
+update, run `synnax update undo` to put the old Core back.
 
 An older Core cannot download an update, so the command fails. Then download the new
 binary and update with it:
@@ -229,8 +231,9 @@ To go back, undo the update:
    with `sudo`. Otherwise, add the same `--data` flag as `synnax start`.
 
    The command restores the backup of the last update and prints the Core version to
-   run. It refuses if the last update is already undone. If `synnax update` installed
-   the new binary, the undo also puts the old binary back.
+   run. If `synnax update` installed the new binary, the undo also puts the old binary
+   back. If the Core already undid the update, the undo only puts the old binary back.
+   With no old binary to put back, it refuses.
 
 3. If the undo did not put the old binary back, install that version of the Core. Then
    start the Core.

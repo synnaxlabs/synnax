@@ -213,9 +213,11 @@ func (c current) apply(
 		)
 	default:
 		return errors.Newf(
-			"Core %s did not finish the update within %s. Check the Core log.",
+			"Core %s did not finish the update within %s. Check the Core log. If the "+
+				"Core undoes the update, run `synnax update undo` to put back Core %s.",
 			to,
 			timeout,
+			c.version,
 		)
 	}
 }

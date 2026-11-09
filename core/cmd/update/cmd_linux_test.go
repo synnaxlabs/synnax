@@ -170,7 +170,9 @@ var _ = Describe("Update with a Core service", func() {
 
 		It("Should stop waiting at the timeout", func() {
 			Expect(run("--file", next, "--timeout", "500ms")).To(MatchError(
-				"Core 0.61.0 did not finish the update within 500ms. Check the Core log.",
+				"Core 0.61.0 did not finish the update within 500ms. Check the Core log. " +
+					"If the Core undoes the update, run `synnax update undo` to put back " +
+					"Core 0.60.0.",
 			))
 			Expect(coreAt(binary)).To(ContainSubstring("0.61.0"))
 		})
@@ -345,6 +347,24 @@ var _ = Describe("Update with a Core service", func() {
 			))
 			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
 			Expect(coreAt(binary + ".old")).To(ContainSubstring("0.61.0"))
+		})
+
+		It("Should put back the binary after the Core undid the update", func() {
+			createBackup(data, "0000000001-0.60.0")
+			Expect(os.WriteFile(
+				filepath.Join(data, "VERSION"),
+				[]byte("0.60.0"),
+				0o600,
+			)).To(Succeed())
+			Expect(run(
+				"undo",
+				"--log-file-path", filepath.Join(data, "logs", "synnax.log"),
+			)).To(Succeed())
+			Expect(out.String()).To(Equal(
+				"The Core already undid the update.\n" +
+					"Put back Core 0.60.0 at " + binary + ". Start the Core.\n",
+			))
+			Expect(coreAt(binary)).To(ContainSubstring("0.60.0"))
 		})
 
 		It("Should keep a replaced binary of another version", func() {

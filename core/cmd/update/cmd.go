@@ -176,12 +176,17 @@ func undo(
 	if err != nil {
 		return err
 	}
+	// Without a Core service, or with one that uses dir, the binary belongs to dir.
+	owned := !installed || filepath.Clean(inst.Data) == dir
 	var res storage.Restored
 	if len(args) == 1 {
 		if res, err = backups.Restore(args[0]); err != nil {
 			return errors.Wrapf(err, "failed to restore backup %s", args[0])
 		}
-	} else if res, err = backups.Undo(); err != nil {
+	} else if res, err = backups.Undo(); errors.Is(err, storage.ErrUndone) && owned {
+		// The Core undid the update after synnax update stopped waiting for it.
+		return putBackUndone(ctx, w, backups, inst.Binary, err)
+	} else if err != nil {
 		return err
 	}
 	if err = matchOwner(dir); err != nil {
@@ -203,7 +208,7 @@ func undo(
 		return err
 	}
 	run := fmt.Sprintf("Run Core %s on the data.", res.Backup.Version)
-	if installed && filepath.Clean(inst.Data) != dir {
+	if !owned {
 		return printLines(w, run)
 	}
 	putBack, err := putBackOld(ctx, inst.Binary, res.Backup.Version)
@@ -221,6 +226,32 @@ func undo(
 		))
 	}
 	return printLines(w, run)
+}
+
+// putBackUndone puts back the binary that an already undone update replaced, when that
+// binary is the Core version of the newest backup. Without such a binary, it returns
+// undone.
+func putBackUndone(
+	ctx context.Context,
+	w io.Writer,
+	backups *storage.Backups,
+	binary string,
+	undone error,
+) error {
+	all, err := backups.List()
+	if err != nil {
+		return errors.Combine(undone, err)
+	}
+	version := all[len(all)-1].Version
+	putBack, err := putBackOld(ctx, binary, version)
+	if err != nil || !putBack {
+		return errors.Combine(undone, err)
+	}
+	return printLines(
+		w,
+		"The Core already undid the update.",
+		fmt.Sprintf("Put back Core %s at %s. Start the Core.", version, binary),
+	)
 }
 
 func history(w io.Writer, backups *storage.Backups) error {
