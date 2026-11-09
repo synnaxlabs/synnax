@@ -2655,7 +2655,6 @@ func analyzeSequence(
 				ctx.Child(single).WithScope(seqScope),
 				kg,
 				shell,
-				false,
 			)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
@@ -2799,7 +2798,7 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell, true)
+			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
@@ -2835,20 +2834,16 @@ func analyzeStage(
 }
 
 // analyzeSingleInvocation lowers a bare call or expression step, with its node last. A
-// reactive call fires on the implicit triggers of a flow head.
+// call fires on the implicit triggers of a flow head.
 func analyzeSingleInvocation(
 	ctx acontext.Context[parser.ISingleInvocationContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-	reactive bool,
 ) ([]ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
-		var triggers []nodeResult
-		if reactive {
-			var ok bool
-			if triggers, ok = implicitTriggers(ctx, kg, shell, fn); !ok {
-				return nil, false
-			}
+		triggers, ok := implicitTriggers(ctx, kg, shell, fn)
+		if !ok {
+			return nil, false
 		}
 		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, len(triggers) > 0)
 		if !ok {

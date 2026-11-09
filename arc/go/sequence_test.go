@@ -6314,7 +6314,52 @@ var _ = Describe("Sequence", func() {
 				}`, 5, 7)).To(Equal([]int64{3}))
 			})
 
-			It("Keeps a bare call in a sequence step one-shot", func(ctx SpecContext) {
+			DescribeTable(
+				"Waits in a sequence step for a raw sample after the step starts",
+				func(ctx SpecContext, program string, expected int64) {
+					h := newRuntimeHarness(
+						ctx, record+program+"\ntrig => main", resolver, digests...,
+					)
+					defer h.Close(ctx)
+					h.Ingest(100, telem.NewSeriesV[int64](3))
+					advance(h, ctx, telem.Millisecond)
+					trigger(h, ctx, 99)
+					out, _ := h.Flush()
+					Expect(drainI64(out, 102)).To(BeEmpty())
+					for _, v := range []int64{5, 7} {
+						h.Ingest(100, telem.NewSeriesV(v))
+						advance(h, ctx, telem.Millisecond)
+					}
+					out, _ = h.Flush()
+					Expect(drainI64(out, 102)).To(Equal([]int64{expected, 9}))
+				},
+				Entry("a computed channel input", `
+				sequence main {
+				    record(raw * 2)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a named input", `
+				sequence main {
+				    record(v=raw * 2)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a reactive variable declared in the sequence", `
+				sequence main {
+				    s := raw * 2
+				    record(s)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a later function that reads the channel", `
+				sequence main {
+				    record(rd())
+				    9 -> out
+				}
+				func rd() i64 {
+				    return raw
+				}`, int64(5)),
+			)
+
+			It("Waits in a step until raw has a sample", func(ctx SpecContext) {
 				h := newRuntimeHarness(ctx, record+`
 				sequence main {
 				    record(raw * 2)
@@ -6322,16 +6367,28 @@ var _ = Describe("Sequence", func() {
 				}
 				trig => main`, resolver, digests...)
 				defer h.Close(ctx)
-
-				h.Ingest(100, telem.NewSeriesV[int64](3))
-				advance(h, ctx, telem.Millisecond)
 				trigger(h, ctx, 99)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty())
 				for _, v := range []int64{5, 7} {
 					h.Ingest(100, telem.NewSeriesV(v))
 					advance(h, ctx, telem.Millisecond)
 				}
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{10, 9}))
+			})
+
+			It("Runs a step with no channel input at once", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, record+`
+				sequence main {
+				    record(2 + 1)
+				    9 -> out
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+				trigger(h, ctx, 99)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 102)).To(Equal([]int64{6, 9}))
+				Expect(drainI64(out, 102)).To(Equal([]int64{3, 9}))
 			})
 		})
 	})
