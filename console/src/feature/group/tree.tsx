@@ -10,7 +10,6 @@
 import { group, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Flux, Group } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
@@ -24,58 +23,6 @@ const useRename = Tree.createUseRename({
   resourceID: group.resourceID,
   convertKey: String,
 });
-
-const parentOf = ({ parentID }: Tree.ContextMenuProps["selection"]): resource.ID => {
-  if (parentID == null)
-    throw new Error("Cannot ungroup groups that sit under more than one parent");
-  return parentID;
-};
-
-interface UngroupParams extends Tree.ContextMenuProps {
-  prevNodes?: PTree.Node<string>[];
-}
-
-const beforeUngroup = async ({ data }: Flux.BeforeUpdateParams<UngroupParams>) => {
-  const {
-    selection,
-    state: { shape, nodes, setNodes },
-  } = data;
-  const parentKey = resource.idToString(parentOf(selection));
-  // Flat search results do not show the real parent, so the children move to the top.
-  const destination =
-    PTree.findNode({ tree: nodes, key: parentKey }) == null ? null : parentKey;
-  // Sort the groups by depth that way deeper nested groups are ungrouped first.
-  const byDepth = PTree.compareDepth(shape);
-  selection.ids.sort((a, b) => byDepth(resource.idToString(a), resource.idToString(b)));
-  const prevNodes = PTree.deepCopy(nodes);
-  const nextNodes = [
-    ...selection.ids.reduce(
-      (acc, id) => {
-        const key = resource.idToString(id);
-        const children = PTree.findNode({ tree: nodes, key })?.children ?? [];
-        acc = PTree.moveNode({
-          tree: acc,
-          destination,
-          keys: children.map((c) => c.key),
-        });
-        acc = PTree.removeNode({ tree: acc, keys: key });
-        return [...acc];
-      },
-      [...nodes],
-    ),
-  ];
-  setNodes(nextNodes);
-  return { ...data, prevNodes };
-};
-
-const afterUngroupFailure = async ({
-  data: {
-    prevNodes,
-    state: { setNodes },
-  },
-}: Flux.AfterFailureParams<UngroupParams>) => {
-  if (prevNodes != null) setNodes(prevNodes);
-};
 
 /**
  * Returns the tree items of groups. A group lists its child groups and the members of
@@ -94,7 +41,7 @@ export const createTreeItems = (
     ...membersOf(root).map((m) => m.children(client, id.key)),
   ];
 
-  const ungroup = Flux.createUpdate<UngroupParams>({
+  const ungroup = Flux.createUpdate<Tree.ContextMenuProps>({
     name: "resources",
     verbs: {
       present: "ungroup",
@@ -107,21 +54,15 @@ export const createTreeItems = (
     },
   });
 
-  const useUngroup = () =>
-    ungroup.useUpdate({
-      beforeUpdate: beforeUngroup,
-      afterFailure: afterUngroupFailure,
-    });
-
   const TreeContextMenu: Tree.ContextMenu = (props) => {
     const {
       selection: { ids, rootID, parentID },
       state,
     } = props;
-    const { getResource, nodes, shape } = state;
+    const { getResource, getChildren, shape } = state;
     const hasUpdatePermission = Access.useUpdateGranted(ids);
     const hasDeletePermission = Access.useDeleteGranted(ids);
-    const { update: handleUngroup } = useUngroup();
+    const { update: handleUngroup } = ungroup.useUpdate();
     const createEmptyGroup = PlatformGroup.useCreateEmpty({
       parent: ids[0],
       state,
@@ -132,10 +73,10 @@ export const createTreeItems = (
     const firstID = ids[0];
     const rename = useRename(props);
     const isSingle = ids.length === 1;
-    const isDelete = ids.every((id) => {
-      const node = PTree.findNode({ tree: nodes, key: resource.idToString(id) });
-      return node?.children == null || node?.children.length === 0;
-    });
+    // A closed group has unknown children, so it shows "Ungroup".
+    const isDelete = ids.every(
+      (id) => getChildren(resource.idToString(id))?.length === 0,
+    );
     const ungroupIcon = isDelete ? <Icon.Delete /> : <Icon.Group />;
     return (
       <ContextMenu.Menu>

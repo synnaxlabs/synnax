@@ -18,17 +18,6 @@ import { Synnax } from "@/synnax";
 const RESOURCE_NAME = "status";
 const PLURAL_RESOURCE_NAME = "statuses";
 
-export type ListParams = status.RetrieveMultipleParams;
-
-export const useList = Flux.createList<ListParams, status.Key, status.Status>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.statuses.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.statuses.retrieve(key),
-  onChange: ({ client, query }, handler) => client.statuses.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.statuses.onChange(key, handler),
-  getCached: ({ client, query }) => client.statuses.getCached(query),
-});
-
 export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Key[]>({
   name: RESOURCE_NAME,
   verbs: verbs.DELETE,
@@ -36,20 +25,6 @@ export const { useUpdate: useDelete } = Flux.createUpdate<status.Key | status.Ke
     await client.statuses.delete(data, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
-    return data;
-  },
-});
-
-export interface SetParams {
-  statuses: status.New | status.New[];
-}
-
-export const { useUpdate: useSet } = Flux.createUpdate<SetParams>({
-  name: RESOURCE_NAME,
-  verbs: verbs.SET,
-  update: async ({ client, data, data: { statuses }, onOptimisticComplete }) => {
-    const onOptimistic = async () => await onOptimisticComplete(data);
-    await client.statuses.set(statuses, { onOptimistic });
     return data;
   },
 });
@@ -66,9 +41,11 @@ export const createRetrieve = <DetailsSchema extends z.ZodType = z.ZodNever>(
     retrieve: async ({ client, query }) =>
       await client.statuses.retrieve({ ...query, detailsSchema }),
     onChange: ({ client, query }, handler) =>
-      client.statuses.onChange(query, handler as query.ChangeHandler<status.Status>),
+      client.statuses
+        .watch(query)
+        .onChange(handler as query.ChangeHandler<status.Status>),
     getCached: ({ client, query }) =>
-      client.statuses.getCached(query) as
+      client.statuses.watch(query).getCached() as
         query.Cached<status.Status<DetailsSchema>> | undefined,
   });
 
@@ -84,8 +61,8 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   retrieve: async ({ client, query: { keys } }) =>
     await client.statuses.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.statuses.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.statuses.getCached(keys),
+    client.statuses.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.statuses.watch(keys).getCached(),
 });
 
 export const { use, useResult } = createRetrieve();
@@ -131,7 +108,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     set(formPath.key, v.key);
   },
   mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.statuses.onChange(key, (result) => {
+    client.statuses.watch(key).onChange((result) => {
       if (query.Deleted.matches(result)) abandon();
       else if (query.isLive(result)) reset(result);
     }),

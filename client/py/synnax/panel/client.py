@@ -14,7 +14,9 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax import group as group_, project as project_, ranger
 from synnax.panel.types_gen import (
+    Cursor,
     Key,
+    Order,
     Panel,
     RetrieveRequest,
     RetrieveResponse,
@@ -38,19 +40,20 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenamePayload(BaseModel):
-    name: str
+class _SetPayload(BaseModel):
+    path: list[str]
+    value: Any
 
 
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
+class _SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: _SetPayload
 
 
 class _DispatchRequest(BaseModel):
     key: Key
     dispatch_key: str = ""
-    actions: list[_RenameAction]
+    actions: list[_SetAction]
 
 
 class Client:
@@ -112,7 +115,7 @@ class Client:
         :param name: The new name for the panel.
         """
         req = _DispatchRequest(
-            key=key, actions=[_RenameAction(rename=_RenamePayload(name=name))]
+            key=key, actions=[_SetAction(set=_SetPayload(path=["name"], value=name))]
         )
         self._client.send("/panel/dispatch", req, Empty)
 
@@ -167,7 +170,8 @@ class Client:
         keys: list[Key] | None = ...,
         search_term: str = ...,
         limit: int | None = ...,
-        offset: int = ...,
+        order: Order | None = ...,
+        after: Cursor | None = ...,
         one: Literal[False] = ...,
     ) -> list[Panel]: ...
 
@@ -178,7 +182,8 @@ class Client:
         where: Where | None = None,
         search_term: str = "",
         limit: int | None = None,
-        offset: int = 0,
+        order: Order | None = None,
+        after: Cursor | None = None,
         one: bool = False,
         **fields: Any,
     ) -> Panel | list[Panel]:
@@ -200,22 +205,25 @@ class Client:
             group when False.
         :param search_term: A fuzzy search term matched against panel names.
         :param limit: The maximum number of panels to retrieve.
-        :param offset: The number of panels to skip.
+        :param order: The order of the panels. Defaults to key order.
+        :param after: Retrieves the panels past this position in the order: the key of
+            the last panel of the page before, and its value of the order field.
         :param one: Returns one panel for any filter.
         :returns: One panel for a plain ``key`` or when ``one`` is set, otherwise a list
             of panels. The list leaves out keys that do not exist.
         :raises NotFoundError: If one panel is wanted and none matches.
         :raises MultipleFoundError: If one panel is wanted and more than one matches.
         :raises ValidationError: If a filter field is None, or if one panel is wanted
-            beside a limit or an offset.
+            beside a limit or a cursor.
         """
-        single = returns_one(fields, one, limit, offset)
+        single = returns_one(fields, one, limit=limit, after=after)
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
         req = RetrieveRequest(
             where=request_where(Where, filter.merge(where, flat), fields),
             search_term=search_term,
             limit=limit,
-            offset=offset,
+            order=order,
+            after=after,
         )
         res = self._client.send("/panel/retrieve", req, RetrieveResponse)
         return sole("panel", req, res.panels) if single else res.panels

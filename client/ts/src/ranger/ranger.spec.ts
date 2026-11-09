@@ -185,11 +185,13 @@ describe("range", () => {
       await responded;
       await client.labels.label(rng.resourceID, [lbl.key]);
       await expect
-        .poll(() => expectLive(local.ranges.getCached(rng.key)).labels)
+        .poll(() => expectLive(local.ranges.watch(rng.key).getCached()).labels)
         .toContain(lbl.key);
       release();
       await creating;
-      expect(expectLive(local.ranges.getCached(rng.key)).labels).toContain(lbl.key);
+      expect(expectLive(local.ranges.watch(rng.key).getCached()).labels).toContain(
+        lbl.key,
+      );
     });
   });
 
@@ -424,7 +426,9 @@ describe("range", () => {
         child.key,
         ranger.remove({ path: [], key: "parent" }),
       );
-      expect(expectLive(client.ranges.getCached(child.key)).parent).toBeUndefined();
+      expect(
+        expectLive(client.ranges.watch(child.key).getCached()).parent,
+      ).toBeUndefined();
       const stored = await createTestClient().ranges.retrieve(child.key);
       expect(stored.parent).toBeUndefined();
     });
@@ -550,7 +554,7 @@ describe("range", () => {
         let duringWrite: query.Cached<ranger.Range> | undefined;
         await client.ranges.delete(rng.key, {
           onOptimistic: () => {
-            duringWrite = client.ranges.getCached(rng.key);
+            duringWrite = client.ranges.watch(rng.key).getCached();
           },
         });
         expect(query.isLive(duringWrite)).toBe(false);
@@ -561,7 +565,9 @@ describe("range", () => {
         await expect(
           client.ranges.delete(rng.key, { onOptimistic: fail }),
         ).rejects.toBe(WRITE_FAILED);
-        expect(expectLive(client.ranges.getCached(rng.key)).name).toEqual(rng.name);
+        expect(expectLive(client.ranges.watch(rng.key).getCached()).name).toEqual(
+          rng.name,
+        );
       });
 
       it("should restore the range in its parent's children when the write fails", async () => {
@@ -571,13 +577,17 @@ describe("range", () => {
           timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
           parent: parent.key,
         });
-        const children = { parents: [parent.key] };
-        expect(await client.ranges.retrieve(children)).toHaveLength(1);
-        await expect(
-          client.ranges.delete(child.key, { onOptimistic: fail }),
-        ).rejects.toBe(WRITE_FAILED);
-        const cached = expectLive(client.ranges.getCached(children));
-        expect(cached.map((c) => c.key)).toEqual([child.key]);
+        const list = client.ranges.watch({ parents: [parent.key] });
+        const off = list.onChange(() => {});
+        try {
+          expect((await list.retrieve()).records).toHaveLength(1);
+          await expect(
+            client.ranges.delete(child.key, { onOptimistic: fail }),
+          ).rejects.toBe(WRITE_FAILED);
+          expect(list.getCached()?.records.map((c) => c.key)).toEqual([child.key]);
+        } finally {
+          off();
+        }
       });
     });
 
@@ -637,13 +647,13 @@ describe("range", () => {
 
     describe("kv", () => {
       const cachedPairs = (key: ranger.Key): ranger.kv.Pair[] =>
-        expectLive(client.ranges.kv.getCached(key));
+        expectLive(client.ranges.kv.watch(key).getCached());
 
       // An unsubscribed query never patches its membership, so every spec here
       // holds a subscription for as long as it reads the cached pairs.
       const openRange = async () => {
         const rng = await createRange();
-        const off = client.ranges.kv.onChange(rng.key, vi.fn());
+        const off = client.ranges.kv.watch(rng.key).onChange(vi.fn());
         await client.ranges.kv.retrieve(rng.key);
         return { rng, off };
       };
@@ -805,7 +815,7 @@ describe("cached reads", () => {
 
   describe("writes during a fetch", () => {
     const cachedName = (c: Synnax, key: ranger.Key): string | undefined => {
-      const cached = c.ranges.getCached(key);
+      const cached = c.ranges.watch(key).getCached();
       return query.isLive(cached) ? cached.name : undefined;
     };
 
@@ -844,7 +854,7 @@ describe("cached reads", () => {
   describe("getCached", () => {
     it("serves a key query straight from the record written by create", async () => {
       const rng = await createRange();
-      const cached = expectLive(client.ranges.getCached(rng.key));
+      const cached = expectLive(client.ranges.watch(rng.key).getCached());
       expect(cached.name).toEqual(rng.name);
     });
   });
@@ -853,14 +863,14 @@ describe("cached reads", () => {
     it("delivers a remote rename to a subscribed single query", async () => {
       const rng = await createRange();
       const handler = vi.fn();
-      const off = client.ranges.onChange(rng.key, handler);
+      const off = client.ranges.watch(rng.key).onChange(handler);
       try {
         await client.ranges.retrieve(rng.key);
         const renamed = `qry-renamed-${id.create()}`;
         await remote.ranges.rename(rng.key, renamed);
         await expect
           .poll(() => {
-            const cached = client.ranges.getCached(rng.key);
+            const cached = client.ranges.watch(rng.key).getCached();
             return query.isLive(cached) && cached.name === renamed;
           })
           .toBe(true);
@@ -873,12 +883,12 @@ describe("cached reads", () => {
     it("delivers a remote delete as a deleted result carrying the corpse", async () => {
       const rng = await createRange();
       const results: Array<query.Cached<ranger.Range> | undefined> = [];
-      const off = client.ranges.onChange(rng.key, (r) => results.push(r));
+      const off = client.ranges.watch(rng.key).onChange((r) => results.push(r));
       try {
         await client.ranges.retrieve(rng.key);
         await remote.ranges.delete(rng.key);
         await expect
-          .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+          .poll(() => query.Deleted.matches(client.ranges.watch(rng.key).getCached()))
           .toBe(true);
         const last = expectDeleted(results.at(-1));
         expect(last.corpse.name).toEqual(rng.name);
@@ -891,12 +901,12 @@ describe("cached reads", () => {
     it("delivers the delete of a nested range that a remote delete cascades to", async () => {
       const parent = await createRange();
       const child = await createRange(client, { parent: parent.key });
-      const off = client.ranges.onChange(child.key, vi.fn());
+      const off = client.ranges.watch(child.key).onChange(vi.fn());
       try {
         await client.ranges.retrieve(child.key);
         await remote.ranges.delete(parent.key);
         await expect
-          .poll(() => query.Deleted.matches(client.ranges.getCached(child.key)))
+          .poll(() => query.Deleted.matches(client.ranges.watch(child.key).getCached()))
           .toBe(true);
       } finally {
         off();
@@ -905,11 +915,11 @@ describe("cached reads", () => {
 
     it("serves a record recreated while nothing subscribed to its delete", async () => {
       const rng = await createRange();
-      const off = client.ranges.onChange(rng.key, () => {});
+      const off = client.ranges.watch(rng.key).onChange(() => {});
       await client.ranges.retrieve(rng.key);
       await remote.ranges.delete(rng.key);
       await expect
-        .poll(() => query.Deleted.matches(client.ranges.getCached(rng.key)))
+        .poll(() => query.Deleted.matches(client.ranges.watch(rng.key).getCached()))
         .toBe(true);
       // A surface that tombstones drops its subscriptions, so the recreate
       // lands with nothing listening and the resubscribe follows it.
@@ -919,9 +929,9 @@ describe("cached reads", () => {
         name: rng.name,
         timeRange: rng.timeRange,
       });
-      const off2 = client.ranges.onChange(rng.key, () => {});
+      const off2 = client.ranges.watch(rng.key).onChange(() => {});
       try {
-        expect(query.isLive(client.ranges.getCached(rng.key))).toBe(true);
+        expect(query.isLive(client.ranges.watch(rng.key).getCached())).toBe(true);
         expect((await client.ranges.retrieve(rng.key)).name).toEqual(rng.name);
       } finally {
         off2();
@@ -934,13 +944,13 @@ describe("cached reads", () => {
         name: `qry-label-${id.create()}`,
         color: "#E774D0",
       });
-      const off = client.ranges.onChange(rng.key, vi.fn());
+      const off = client.ranges.watch(rng.key).onChange(vi.fn());
       try {
         await client.ranges.retrieve(rng.key);
         await remote.labels.label(rng.resourceID, [lbl.key]);
         await expect
           .poll(() => {
-            const cached = client.ranges.getCached(rng.key);
+            const cached = client.ranges.watch(rng.key).getCached();
             return query.isLive(cached) && cached.labels.includes(lbl.key);
           })
           .toBe(true);
@@ -955,13 +965,13 @@ describe("cached reads", () => {
         { name: `qry-deleted-${id.create()}`, color: "#E774D0" },
       ]);
       const rng = await createRange(client, { labels: [kept.key, deleted.key] });
-      const off = client.ranges.onChange(rng.key, vi.fn());
+      const off = client.ranges.watch(rng.key).onChange(vi.fn());
       try {
         await client.ranges.retrieve(rng.key);
         await remote.labels.delete(deleted.key);
         await expect
           .poll(() => {
-            const cached = client.ranges.getCached(rng.key);
+            const cached = client.ranges.watch(rng.key).getCached();
             return query.isLive(cached) && cached.labels;
           })
           .toEqual([kept.key]);
@@ -975,24 +985,21 @@ describe("cached reads", () => {
     it("retrieves children and appends a remotely created child while subscribed", async () => {
       const parent = await createRange();
       const child = await createRange(client, { parent: parent.key });
-      const params = { parents: [parent.key] };
-      const off = client.ranges.onChange(params, vi.fn());
+      const list = client.ranges.watch({ parents: [parent.key] });
+      const off = list.onChange(vi.fn());
       try {
-        const children = await client.ranges.retrieve(params);
-        expect(children.map((c) => c.key)).toContain(child.key);
+        const children = await list.retrieve();
+        expect(children.records.map((c) => c.key)).toContain(child.key);
         const second = await createRange(remote, { parent: parent.key });
         await expect
-          .poll(() => {
-            const cached = client.ranges.getCached(params);
-            return query.isLive(cached) && cached.some((c) => c.key === second.key);
-          })
+          .poll(() => list.getCached()?.records.some((c) => c.key === second.key))
           .toBe(true);
       } finally {
         off();
       }
     });
 
-    it("pages children with limit and offset in a stable order", async () => {
+    it("pages children with a limit and a cursor in a stable order", async () => {
       const parent = await createRange();
       await Promise.all(
         Array.from({ length: 5 }, () => createRange(client, { parent: parent.key })),
@@ -1000,8 +1007,12 @@ describe("cached reads", () => {
       const parents = [parent.key];
       const all = await client.ranges.retrieve({ parents });
       expect(all).toHaveLength(5);
-      const first = await client.ranges.retrieve({ parents, limit: 3, offset: 0 });
-      const second = await client.ranges.retrieve({ parents, limit: 3, offset: 3 });
+      const first = await client.ranges.retrieve({ parents, limit: 3 });
+      const second = await client.ranges.retrieve({
+        parents,
+        limit: 3,
+        after: { key: first[2].key },
+      });
       expect(first).toHaveLength(3);
       expect(second).toHaveLength(2);
       const paged = [...first, ...second].map((r) => r.key).sort();
@@ -1036,9 +1047,9 @@ describe("cached reads", () => {
       const res = await client.ranges.retrieveParent(child.key);
       expect(res?.key).toEqual(parent.key);
       expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(parent.key);
-      expect(expectLive(client.ranges.parent.getCached(child.key))?.key).toEqual(
-        parent.key,
-      );
+      expect(
+        expectLive(client.ranges.parent.watch(child.key).getCached())?.key,
+      ).toEqual(parent.key);
     });
 
     it("throws a NotFoundError for a range that does not exist", async () => {
@@ -1050,7 +1061,7 @@ describe("cached reads", () => {
     it("moves a subscribed parent answer when the child moves", async () => {
       const [first, second] = await Promise.all([createRange(), createRange()]);
       const child = await createRange(client, { parent: first.key });
-      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      const off = client.ranges.parent.watch(child.key).onChange(vi.fn());
       try {
         expect((await client.ranges.parent.retrieve(child.key))?.key).toEqual(
           first.key,
@@ -1061,7 +1072,7 @@ describe("cached reads", () => {
         );
         await expect
           .poll(() => {
-            const cached = client.ranges.parent.getCached(child.key);
+            const cached = client.ranges.parent.watch(child.key).getCached();
             return query.isLive(cached) ? cached?.key : undefined;
           })
           .toEqual(second.key);
@@ -1073,14 +1084,14 @@ describe("cached reads", () => {
     it("updates a subscribed parent answer when the parent is renamed", async () => {
       const parent = await createRange();
       const child = await createRange(client, { parent: parent.key });
-      const off = client.ranges.parent.onChange(child.key, vi.fn());
+      const off = client.ranges.parent.watch(child.key).onChange(vi.fn());
       try {
         await client.ranges.parent.retrieve(child.key);
         const name = `renamed-${id.create()}`;
         await client.ranges.rename(parent.key, name);
         await expect
           .poll(() => {
-            const cached = client.ranges.parent.getCached(child.key);
+            const cached = client.ranges.parent.watch(child.key).getCached();
             return query.isLive(cached) ? cached?.name : undefined;
           })
           .toEqual(name);
@@ -1099,25 +1110,19 @@ describe("cached reads", () => {
       const labeled = await createRange();
       await client.labels.label(ranger.resourceID(labeled.key), [lbl.key]);
       const handler = vi.fn();
-      const params = { where: { labels: [lbl.key] } };
-      const off = client.ranges.onChange(params, handler);
+      const list = client.ranges.watch({ where: { labels: [lbl.key] } });
+      const off = list.onChange(handler);
       try {
-        const initial = await client.ranges.retrieve(params);
-        expect(initial.map((r) => r.key)).toEqual([labeled.key]);
+        const initial = await list.retrieve();
+        expect(initial.records.map((r) => r.key)).toEqual([labeled.key]);
         const late = await createRange();
         await client.labels.label(ranger.resourceID(late.key), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.ranges.getCached(params);
-            return query.isLive(cached) && cached.some((r) => r.key === late.key);
-          })
+          .poll(() => list.getCached()?.records.some((r) => r.key === late.key))
           .toBe(true);
         await client.labels.remove(ranger.resourceID(labeled.key), [lbl.key]);
         await expect
-          .poll(() => {
-            const cached = client.ranges.getCached(params);
-            return query.isLive(cached) && cached.every((r) => r.key !== labeled.key);
-          })
+          .poll(() => list.getCached()?.records.every((r) => r.key !== labeled.key))
           .toBe(true);
       } finally {
         off();
@@ -1130,7 +1135,7 @@ describe("cached reads", () => {
       const rng = await createRange();
       await rng.kv.set("foo", "bar");
       const handler = vi.fn();
-      const off = client.ranges.kv.onChange(rng.key, handler);
+      const off = client.ranges.kv.watch(rng.key).onChange(handler);
       try {
         const pairs = await client.ranges.kv.retrieve(rng.key);
         expect(pairs).toEqual([{ range: rng.key, key: "foo", value: "bar" }]);
@@ -1138,7 +1143,7 @@ describe("cached reads", () => {
         await remoteRng.kv.set("baz", "qux");
         await expect
           .poll(() => {
-            const cached = client.ranges.kv.getCached(rng.key);
+            const cached = client.ranges.kv.watch(rng.key).getCached();
             return (
               query.isLive(cached) &&
               cached.some((p) => p.key === "baz" && p.value === "qux")
@@ -1148,7 +1153,7 @@ describe("cached reads", () => {
         await remoteRng.kv.delete("foo");
         await expect
           .poll(() => {
-            const cached = client.ranges.kv.getCached(rng.key);
+            const cached = client.ranges.kv.watch(rng.key).getCached();
             return query.isLive(cached) && cached.every((p) => p.key !== "foo");
           })
           .toBe(true);
@@ -1165,15 +1170,15 @@ describe("store", () => {
     const range = await createRange();
     await expect
       .poll(() => {
-        const cached = client.ranges.getCached(range.key);
+        const cached = client.ranges.watch(range.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toEqual(range.name);
     await client.ranges.delete(range.key);
     await expect
-      .poll(() => query.Deleted.matches(client.ranges.getCached(range.key)))
+      .poll(() => query.Deleted.matches(client.ranges.watch(range.key).getCached()))
       .toBe(true);
-    const cached = expectDeleted(client.ranges.getCached(range.key));
+    const cached = expectDeleted(client.ranges.watch(range.key).getCached());
     expect(cached.corpse.name).toEqual(range.name);
   });
 });
@@ -1197,7 +1202,7 @@ describe("dispatch", () => {
     const stored = await createTestClient().ranges.retrieve(rng.key);
     expect(stored.name).toBe("Cold flow");
     expect(stored.timeRange.end).toEqual(end);
-    const cached = expectLive(client.ranges.getCached(rng.key));
+    const cached = expectLive(client.ranges.watch(rng.key).getCached());
     expect(cached.name).toBe("Cold flow");
     expect(cached.timeRange.end).toEqual(end);
   });
@@ -1214,11 +1219,11 @@ describe("dispatch", () => {
     await responded;
     await remote.ranges.dispatch(rng.key, rename("Cold flow"));
     await expect
-      .poll(() => expectLive(local.ranges.getCached(rng.key)).name)
+      .poll(() => expectLive(local.ranges.watch(rng.key).getCached()).name)
       .toBe("Cold flow");
     release();
     await fetching;
-    expect(expectLive(local.ranges.getCached(rng.key)).name).toBe("Cold flow");
+    expect(expectLive(local.ranges.watch(rng.key).getCached()).name).toBe("Cold flow");
   });
 
   it("should return false without a send when the range is not cached", async () => {
@@ -1237,7 +1242,7 @@ describe("dispatch", () => {
         ranger.set({ path: ["timeRange", "start"], value: "0" }),
       ]),
     ).rejects.toThrow("time_range.start");
-    const cached = expectLive(client.ranges.getCached(rng.key));
+    const cached = expectLive(client.ranges.watch(rng.key).getCached());
     expect(cached.name).toBe(rng.name);
     expect(cached.timeRange).toEqual(rng.timeRange);
   });
@@ -1249,7 +1254,7 @@ describe("dispatch", () => {
       client.ranges.dispatch(rng.key, ranger.set({ path: ["key"], value: "k" })),
     ).rejects.toThrow("Failed to parse range");
     expect(send).not.toHaveBeenCalled();
-    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe(rng.name);
+    expect(expectLive(client.ranges.watch(rng.key).getCached()).name).toBe(rng.name);
   });
 
   it("should reopen a range with an end that a number cannot hold", async () => {
@@ -1274,7 +1279,7 @@ describe("dispatch", () => {
     const tx = client.ranges.beginTransaction(rng.key);
     tx.add(rename("Cold flow"));
     tx.add(ranger.set({ path: ["color"], value: "#ff0000" }));
-    expect(expectLive(client.ranges.getCached(rng.key)).name).toBe("Cold flow");
+    expect(expectLive(client.ranges.watch(rng.key).getCached()).name).toBe("Cold flow");
     expect(await tx.commit()).toBe(true);
     expect(
       send.mock.calls.filter(([target]) => target === "/range/dispatch"),
@@ -1290,7 +1295,7 @@ describe("dispatch", () => {
     await client.ranges.dispatch(rng.key, rename("Cold flow"));
     await expect
       .poll(() => {
-        const cached = remote.ranges.getCached(rng.key);
+        const cached = remote.ranges.watch(rng.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toBe("Cold flow");
@@ -1300,7 +1305,7 @@ describe("dispatch", () => {
     const rng = await createRange(remote);
     await expect
       .poll(() => {
-        const cached = client.ranges.getCached(rng.key);
+        const cached = client.ranges.watch(rng.key).getCached();
         return query.isLive(cached) ? cached.name : undefined;
       })
       .toBe(rng.name);

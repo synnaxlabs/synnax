@@ -21,8 +21,8 @@ import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
-  rename as renameAction,
   scopedActionZ,
+  set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
@@ -37,7 +37,15 @@ import {
   retrieveResponseZ,
 } from "@/arc/types.gen";
 import { LINES } from "@/arc/where";
-import { matches, retrieveInputZ, serverComputed, shortcutZ } from "@/arc/where.gen";
+import {
+  compareCursors,
+  cursor,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/arc/where.gen";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { type status } from "@/status";
@@ -154,6 +162,7 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, Arc, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
@@ -178,6 +187,7 @@ export class Client extends query.Retriever<
       table: store,
       shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>
           (await this.execRetrieve(req)).map((a) => this.hydrate(a)),
@@ -195,8 +205,8 @@ export class Client extends query.Retriever<
       source: this.cfg.tasks.store,
       compose: (record) => this.composeTask(record),
       equal: (a, b) => deep.equal(a.payload, b.payload),
-      watch: [
-        query.deriveWatch(this.cfg.statuses.store, (event) =>
+      triggers: [
+        query.deriveTrigger(this.cfg.statuses.store, (event) =>
           this.cfg.statuses.ownerKeys(event, "task"),
         ),
       ],
@@ -280,7 +290,7 @@ export class Client extends query.Retriever<
       rollback();
       throw errors.fromUnknown(e);
     }
-    await this.dispatcher.send(key, [renameAction({ name })], {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
       rollback,
       reapply: rename,
     });
