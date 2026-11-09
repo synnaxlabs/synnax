@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
+import { RootContextMenu } from "@/platform/group/RootContextMenu";
+import { SelectionContextMenu } from "@/platform/group/SelectionContextMenu";
+import { type Tree } from "@/platform/tree";
 
-import { Tree } from "@/platform/tree";
-
-const TreeItem = Tree.createItem({
-  type: "schematic_symbol",
-  icon: <Icon.Schematic />,
-});
-
-export const TREE_ITEMS = { schematic_symbol: TreeItem } satisfies Tree.Items;
+/** The tree menus that create groups. */
+export const TREE_CONTEXT_MENUS: Tree.ContextMenus = {
+  root: RootContextMenu,
+  mixed: SelectionContextMenu,
+};

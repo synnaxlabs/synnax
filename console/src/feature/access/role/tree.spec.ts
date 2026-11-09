@@ -33,13 +33,12 @@ const client = createTestClient();
 const roles = new RoleClients(client);
 
 const RoleItem = Access.Role.TREE_ITEMS.role;
-const PolicyItem = Access.Policy.TREE_ITEMS.policy;
 
 const createRole = async () =>
   await client.access.roles.create({ name: uniqueName("role") });
 
-const roleResource = (key: string, name: string, internal: boolean) =>
-  createResource(access.role.resourceID(key), name, { internal });
+const roleResource = ({ key, name }: Pick<access.role.Role, "key" | "name">) =>
+  createResource(access.role.resourceID(key), name);
 
 describe("role tree item", () => {
   it("should expose rename and delete for a non-internal role", async () => {
@@ -47,7 +46,7 @@ describe("role tree item", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role)],
     });
     expect(await screen.findByText("Rename")).toBeTruthy();
     expect(await screen.findByText("Delete")).toBeTruthy();
@@ -59,7 +58,7 @@ describe("role tree item", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role)],
     });
     expect(await screen.findByText("Reload Console")).toBeTruthy();
   });
@@ -70,7 +69,7 @@ describe("role tree item", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client: viewer,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -78,11 +77,11 @@ describe("role tree item", () => {
   });
 
   it("should hide rename and delete for internal roles", async () => {
-    const role = await createRole();
+    const [role] = await client.access.roles.retrieve({ internal: true });
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, true)],
+      resources: [roleResource(role)],
     });
     expect(await screen.findByText("Copy properties")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
@@ -94,7 +93,7 @@ describe("role tree item", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role)],
     });
     fireEvent.click(await screen.findByText("Delete"));
     await screen.findByText(`Are you sure you want to delete ${role.name}?`);
@@ -117,7 +116,7 @@ describe("role tree item", () => {
     assertDefined(RoleItem.ContextMenu);
     await renderTreeContextMenu(RoleItem.ContextMenu, {
       client,
-      resources: [roleResource(role.key, role.name, false)],
+      resources: [roleResource(role)],
       extra: createElement(CaptureStatuses, {
         onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
       }),
@@ -141,7 +140,7 @@ describe("role tree item", () => {
 
   describe("drop", () => {
     const source: Haul.Item = { key: "tree", type: Tree.HAUL_TYPE };
-    const destination = roleResource("r1", "role", false);
+    const destination = roleResource({ key: "r1", name: "role" });
     const root = access.role.TYPE_RESOURCE_ID;
     const canDrop = (items: Haul.Item[]): boolean =>
       RoleItem.canDrop({
@@ -217,15 +216,5 @@ describe("role tree item", () => {
     ];
     for (const [name, icon] of cases)
       expect(queryIcon(await findTreeRow(name), icon), name).toBeTruthy();
-  });
-});
-
-describe("policy tree item", () => {
-  it("should stay hidden in the tree and declare no children", () => {
-    expect(PolicyItem.type).toBe("policy");
-    expect(
-      PolicyItem.visible?.(createResource(access.policy.resourceID("p1"), "p1")),
-    ).toBe(false);
-    expect(PolicyItem.hasChildren).toBe(false);
   });
 });

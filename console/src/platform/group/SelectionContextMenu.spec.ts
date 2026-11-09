@@ -18,6 +18,7 @@ import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Group } from "@/platform/group";
 import { createScopeTree, getTreeRow, renderLiveTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
@@ -54,6 +55,7 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
     client: as,
     projectClient: client,
     root: channel.TYPE_RESOURCE_ID,
+    contextMenus: Group.TREE_CONTEXT_MENUS,
     ...createScopeTree(container.key),
   });
   await screen.findByText(child.name);
@@ -64,7 +66,7 @@ const setupMixedSelection = async (as: Client = client): Promise<MixedSelection>
   return { child, ch };
 };
 
-describe("Tree.MultipleSelectionContextMenu", () => {
+describe("Group.SelectionContextMenu", () => {
   it("should offer grouping and reload for a mixed-type selection", async () => {
     await setupMixedSelection();
     await screen.findByText("Group selection");
@@ -93,7 +95,7 @@ describe("Tree.MultipleSelectionContextMenu", () => {
   });
 });
 
-describe("Tree.MultipleSelectionContextMenu permissions", () => {
+describe("Group.SelectionContextMenu permissions", () => {
   it("should withhold grouping from a viewer", async () => {
     await setupMixedSelection(await roles.get("Viewer"));
     await screen.findByText("Reload Console");

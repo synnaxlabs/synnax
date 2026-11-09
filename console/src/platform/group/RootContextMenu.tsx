@@ -7,30 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, type resource } from "@synnaxlabs/client";
+import { group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
-import { Group } from "@/platform/group";
-import { type TreeState } from "@/platform/tree/types";
+import { isScope } from "@/platform/group/member";
+import { useCreateEmpty } from "@/platform/group/useCreateEmpty";
+import { type Tree } from "@/platform/tree";
 
-export interface DefaultContextMenuProps {
-  root: resource.ID;
-  state: TreeState;
-}
-
-export const DefaultContextMenu = ({
+/** The menu for a right-click on the empty space of a tree. */
+export const RootContextMenu = ({
   root,
   state,
-}: DefaultContextMenuProps): ReactElement => {
-  const createGroup = Group.useCreateEmpty({ parent: root, state, root });
+}: Tree.RootContextMenuProps): ReactElement => {
+  const createGroup = useCreateEmpty({ parent: root, state, root });
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_RESOURCE_ID);
   return (
     <ContextMenu.Menu>
-      {hasCreatePermission && Group.isScope(root.type) && (
+      {hasCreatePermission && isScope(root.type) && (
         <Menu.Item itemKey="newGroup" onClick={createGroup}>
           <Icon.Group />
           New group

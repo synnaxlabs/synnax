@@ -19,6 +19,7 @@ import { Channel } from "@/feature/channel";
 import { Device } from "@/feature/device";
 import { Group } from "@/feature/group";
 import { Rack } from "@/feature/rack";
+import { Group as PlatformGroup } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 import {
   createResource,
@@ -58,7 +59,7 @@ const createChannel = async (g: group.Key) =>
   });
 
 const groupResource = (g: group.Group) =>
-  createResource(group.resourceID(g.key), g.name, { ...g });
+  createResource(group.resourceID(g.key), g.name);
 
 const nodeKey = (g: group.Group) => resource.idToString(group.resourceID(g.key));
 
@@ -79,7 +80,7 @@ describe("group tree item", () => {
     expect(canDrop(`group:${uuid.create()}`)).toBe(true);
     expect(canDrop("channel:1")).toBe(true);
     expect(canDrop("device:d1")).toBe(false);
-    expect(Item.haulItems(res)).toEqual([res.id]);
+    expect(Item.haulItems(res, client)).toEqual([res.id]);
   });
 
   it("should refuse a rack into a group under a rack", () => {
@@ -188,6 +189,40 @@ describe("group tree item", () => {
     );
   });
 
+  it("should move every page of the members of an ungrouped group", async () => {
+    // One past the most children that a tree list fetches at a time.
+    const count = 1001;
+    const parent = await createGroup();
+    const child = await createGroup(parent.key);
+    await client.channels.create(
+      Array.from({ length: count }, () => ({
+        name: uniqueName("ch"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        group: child.key,
+      })),
+    );
+    const nodes: PTree.Node<string>[] = [
+      { key: nodeKey(parent), children: [{ key: nodeKey(child) }] },
+    ];
+    assertDefined(Item.ContextMenu);
+    await renderTreeContextMenu(Item.ContextMenu, {
+      client,
+      resources: [groupResource(parent), groupResource(child)],
+      selected: [group.resourceID(child.key)],
+      parentID: group.resourceID(parent.key),
+      stateOverrides: { nodes, expanded: [nodeKey(parent)] },
+    });
+    fireEvent.click(await screen.findByText("Ungroup"));
+    await waitFor(
+      async () =>
+        expect(
+          await client.channels.retrieve({ where: { groups: [parent.key] } }),
+        ).toHaveLength(count),
+      { timeout: 10_000 },
+    );
+  });
+
   it("should ungroup a nested group shown at the top of flat search results", async () => {
     const parent = await createGroup();
     const child = await createGroup(parent.key);
@@ -274,7 +309,11 @@ describe("a group and its child selected in flat search results", () => {
       root: channel.TYPE_RESOURCE_ID,
       items: { group: Item },
       listRoot: createScopeTree(root.key).listRoot,
-      search: Tree.createSearch({ noun: "groups" }),
+      search: Tree.createSearch({
+        noun: "groups",
+        useMatches: PlatformGroup.useMatches,
+        usePlacement: PlatformGroup.usePlacement,
+      }),
     });
     searchTree(tok);
     const innerRow = await findTreeRow(itemName(inner.name));

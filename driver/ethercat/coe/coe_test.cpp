@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <map>
+#include <optional>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -66,6 +68,30 @@ Objects with(Objects objects, const Objects &changes) {
 Objects without(Objects objects, const std::pair<uint16_t, uint8_t> &key) {
     objects.erase(key);
     return objects;
+}
+
+using WholeObjects = std::map<uint16_t, std::vector<uint8_t>>;
+
+/// @brief the objects of LAYOUT as complete access reads return them.
+const WholeObjects WHOLE_LAYOUT{
+    {0x1C00, {4, 0, 1, 2, 3, 4}},
+    {0x1C12, {1, 0, 0x00, 0x16}},
+    {0x1600, {1, 0, 0x10, 0x01, 0x00, 0x70}},
+    {0x1C13, {1, 0, 0x00, 0x1A}},
+    {0x1A00,
+     {3, 0, 0x01, 0x01, 0x00, 0x60, 0x07, 0x00, 0x00, 0x00, 0x10, 0x11, 0x00, 0x60}},
+};
+
+/// @brief returns a read of whole objects that answers from wholes and fails for any
+/// other object. Counts the reads of each object in calls.
+ReadAll whole_reader(const WholeObjects &wholes, std::map<uint16_t, int> &calls) {
+    return
+        [wholes, &calls](const uint16_t index) -> std::optional<std::vector<uint8_t>> {
+            calls[index]++;
+            if (const auto it = wholes.find(index); it != wholes.end())
+                return it->second;
+            return std::nullopt;
+        };
 }
 }
 
@@ -319,6 +345,92 @@ TEST(ReadLayoutTest, FailsOnTooManyAssignedPDOs) {
         res.second.data,
         "0x1C13:00 counts 255 entries, above the maximum of 254"
     );
+}
+
+/// @brief it should read the layout from one complete access read of each object.
+TEST(CompleteAccessTest, ReadsTheLayoutFromWholeObjects) {
+    std::map<uint16_t, int> calls;
+    const auto syncs = ASSERT_NIL_P(read_layout(
+        with_complete_access(reader({}), whole_reader(WHOLE_LAYOUT, calls)),
+        8,
+        OnError::FAIL
+    ));
+    ASSERT_EQ(syncs.size(), 2);
+    ASSERT_EQ(syncs[0].pdos.size(), 1);
+    EXPECT_EQ(syncs[0].pdos[0].index, 0x1600);
+    ASSERT_EQ(syncs[0].pdos[0].entries.size(), 1);
+    EXPECT_EQ(syncs[0].pdos[0].entries[0].index, 0x7000);
+    EXPECT_EQ(syncs[0].pdos[0].entries[0].bit_length, 16);
+    ASSERT_EQ(syncs[1].pdos.size(), 1);
+    const auto &entries = syncs[1].pdos[0].entries;
+    ASSERT_EQ(entries.size(), 3);
+    EXPECT_EQ(entries[1].index, 0);
+    EXPECT_EQ(entries[1].bit_length, 7);
+    EXPECT_EQ(entries[2].sub_index, 17);
+}
+
+/// @brief it should read each object of the layout with one complete access read.
+TEST(CompleteAccessTest, ReadsEachObjectOnce) {
+    std::map<uint16_t, int> calls;
+    ASSERT_NIL_P(read_layout(
+        with_complete_access(reader({}), whole_reader(WHOLE_LAYOUT, calls)),
+        8,
+        OnError::FAIL
+    ));
+    EXPECT_EQ(
+        calls,
+        (std::map<uint16_t, int>{
+            {0x1C00, 1},
+            {0x1C12, 1},
+            {0x1600, 1},
+            {0x1C13, 1},
+            {0x1A00, 1},
+        })
+    );
+}
+
+/// @brief it should read each sub-index of an object whose complete access read fails.
+TEST(CompleteAccessTest, ReadsEachSubIndexWhenTheWholeReadFails) {
+    std::map<uint16_t, int> calls;
+    auto wholes = WHOLE_LAYOUT;
+    wholes.erase(0x1A00);
+    const auto syncs = ASSERT_NIL_P(read_layout(
+        with_complete_access(reader(LAYOUT), whole_reader(wholes, calls)),
+        8,
+        OnError::FAIL
+    ));
+    ASSERT_EQ(syncs.size(), 2);
+    ASSERT_EQ(syncs[1].pdos.size(), 1);
+    ASSERT_EQ(syncs[1].pdos[0].entries.size(), 3);
+    EXPECT_EQ(syncs[1].pdos[0].entries[2].sub_index, 17);
+}
+
+/// @brief it should read an object that is not part of a PDO layout one sub-index at a
+/// time.
+TEST(CompleteAccessTest, ReadsOtherObjectsOneSubIndexAtATime) {
+    std::map<uint16_t, int> calls;
+    const auto read = with_complete_access(
+        reader({{{0x1C32, 1}, 2}}),
+        whole_reader({{0x1C32, {1, 0, 9, 0}}}, calls)
+    );
+    EXPECT_EQ(ASSERT_NIL_P(read(0x1C32, 1)), 2);
+    EXPECT_TRUE(calls.empty());
+}
+
+/// @brief it should read each sub-index of an object whose complete access read is too
+/// short for its count.
+TEST(CompleteAccessTest, ReadsEachSubIndexWhenTheWholeReadIsShort) {
+    std::map<uint16_t, int> calls;
+    auto wholes = WHOLE_LAYOUT;
+    wholes[0x1A00].resize(10);
+    const auto syncs = ASSERT_NIL_P(read_layout(
+        with_complete_access(reader(LAYOUT), whole_reader(wholes, calls)),
+        8,
+        OnError::FAIL
+    ));
+    ASSERT_EQ(syncs.size(), 2);
+    ASSERT_EQ(syncs[1].pdos[0].entries.size(), 3);
+    EXPECT_EQ(syncs[1].pdos[0].entries[2].sub_index, 17);
 }
 
 /// @brief it should report a read that got no answer as a read error, not as a missing

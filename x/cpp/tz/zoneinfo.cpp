@@ -7,4 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Node from "@/feature/node/tree";
+#include "x/cpp/tz/zoneinfo.h"
+
+namespace x::tz::zoneinfo {
+namespace {
+#include "x/cpp/tz/zoneinfo.inc"
+}
+
+std::string_view data() {
+    return {reinterpret_cast<const char *>(DATA), sizeof(DATA)};
+}
+
+std::span<const Entry> entries() {
+    return ENTRIES;
+}
+
+}
