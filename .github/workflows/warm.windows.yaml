@@ -27,12 +27,6 @@ on:
     - cron: "23 * * * *"
   workflow_dispatch:
 
-# A new pending run replaces an older one in its group, so the hourly runs wait apart
-# from the runs that warm without a check.
-concurrency:
-  group: warm-windows-${{ github.event_name == 'schedule' && 'schedule' || 'change' }}
-  cancel-in-progress: false
-
 permissions:
   contents: read
 
@@ -87,6 +81,11 @@ jobs:
     if:
       ${{ !cancelled() && (needs.check.result == 'skipped' ||
       needs.check.outputs.missing == 'true') }}
+    # A pending job replaces an older one in its group. On the job, the group holds only
+    # runs that warm, so an hourly run never takes a pending warm's place and skips it.
+    concurrency:
+      group: warm-windows
+      cancel-in-progress: false
     runs-on: windows-build-bot
     timeout-minutes: 30
     steps:
