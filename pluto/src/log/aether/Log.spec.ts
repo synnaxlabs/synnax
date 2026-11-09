@@ -883,6 +883,50 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("seek", () => {
+    const entries = Array.from({ length: 200 }, (_, i) => makeEntry(i));
+    const timeOf = (i: number): string => TimeStamp.seconds(i).valueOf().toString();
+    const paused = (held: LogEntry[] = entries) => {
+      const handle = setup(held);
+      handle.h.setState((s) => ({ ...s, scrolling: true }));
+      return handle;
+    };
+
+    it("should move the source and the view to the time", () => {
+      const { log, source } = paused();
+      log.seek(timeOf(120));
+      expect(source.seeks.map((t) => t.valueOf().toString())).toEqual([timeOf(120)]);
+      expect(log.scrollState).toMatchObject({ offset: 121, tail: 0 });
+      log.render();
+      expect(log.state.position).toBe(timeOf(120));
+    });
+
+    it("should wait for older entries that reach the time", () => {
+      const { log, source } = paused(entries.slice(150));
+      log.seek(timeOf(100));
+      expect(source.loadOlderCalls).toBeGreaterThan(0);
+      source.setEntries([...entries]);
+      source.notify();
+      expect(log.scrollState.offset).toBe(101);
+    });
+
+    it("should go to the oldest entry for a time before the first sample", () => {
+      const { log, source } = paused();
+      source.exhausted = true;
+      log.seek(timeOf(-50));
+      log.render();
+      expect(log.state.rowEntries[0]).toBe(0);
+    });
+
+    it("should go to the newest entry for a time after the last sample", () => {
+      const { log } = paused();
+      log.seek(timeOf(500));
+      log.render();
+      expect(log.state.rowEntries.at(-1)).toBe(199);
+      expect(log.state.scrolling).toBe(true);
+    });
+  });
+
   describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);

@@ -35,6 +35,8 @@ export interface LogSource extends Source<LogEntry[]> {
   readonly exhausted?: boolean;
   /** Whether the entries end at the newest samples. A source without it is live. */
   readonly live?: boolean;
+  /** Moves the entries to the stored samples at the time. */
+  seek?: (time: TimeStamp) => void;
   /** Moves a source that is not live back to the newest samples. */
   resume?: () => void;
 }

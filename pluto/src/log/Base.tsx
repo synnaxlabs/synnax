@@ -10,13 +10,14 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
+import { context } from "@synnaxlabs/lyra/context";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { box, strings } from "@synnaxlabs/x";
+import { box, strings, type TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
 import { CSS } from "@/css";
@@ -37,6 +38,14 @@ const TRIGGER_CONFIG: Triggers.ModeConfig<Mode> = {
     default: [],
   },
 };
+
+const [SeekContext, useSeekContext] = context.create<(time: TimeStamp) => void>({
+  displayName: "Log.SeekContext",
+  providerName: "Log.Base",
+});
+
+/** Returns a function that pauses the enclosing log at a time. */
+export const useSeek = (): ((time: TimeStamp) => void) => useSeekContext("Log.useSeek");
 
 const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
@@ -126,6 +135,11 @@ export const Base = ({
   const setHold = (hold: boolean) => {
     setState((s) => ({ ...s, scrolling: hold }));
     onHold?.(hold);
+  };
+
+  const seek = (time: TimeStamp) => {
+    if (!scrolling) setHold(true);
+    methods.seek(time.valueOf().toString());
   };
 
   const resizeRef = Canvas.useRegion((b) => setState((s) => ({ ...s, region: b })));
@@ -276,7 +290,7 @@ export const Base = ({
         {loading && !blank && (
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
-        {empty ? emptyContent : children}
+        <SeekContext value={seek}>{empty ? emptyContent : children}</SeekContext>
       </div>
     </Menu.ContextMenu>
   );

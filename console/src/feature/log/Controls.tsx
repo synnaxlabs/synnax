@@ -8,16 +8,75 @@
 // included in the file licenses/APL.txt.
 
 import { Button } from "@synnaxlabs/lyra/button";
+import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { Log as Base } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
-import { memo, type ReactElement } from "react";
+import { location, TimeStamp } from "@synnaxlabs/x";
+import { memo, type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Vis } from "@/platform/vis";
 import { Session } from "@/session";
+
+const TIME_PLACEHOLDER = "2026-08-23 14:05:00";
+
+const GoToTime = (): ReactElement => {
+  const key = Base.useKey();
+  const { timeZone } = Base.use({ key });
+  const seek = Base.useSeek();
+  const [visible, setVisible] = useState(false);
+  const [text, setText] = useState("");
+  const [invalid, setInvalid] = useState(false);
+  const handleChange = (text: string): void => {
+    setText(text);
+    setInvalid(false);
+  };
+  const commit = (): void => {
+    const time = TimeStamp.parse(text, timeZone);
+    if (time == null) return setInvalid(true);
+    seek(time);
+    setVisible(false);
+  };
+  return (
+    <Dialog.Frame
+      visible={visible}
+      onVisibleChange={setVisible}
+      location={location.BOTTOM_LEFT}
+    >
+      <Dialog.Trigger
+        hideCaret
+        size="small"
+        aria-label="Go to a time"
+        tooltipLocation={location.BOTTOM_LEFT}
+        tooltip={
+          <Text.Text level="small" color={11}>
+            Go to a time
+          </Text.Text>
+        }
+      >
+        <Icon.Time />
+      </Dialog.Trigger>
+      <Dialog.Dialog bordered borderColor={7}>
+        <Input.Text
+          autoFocus
+          size="small"
+          aria-label="Time"
+          value={text}
+          onChange={handleChange}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+          }}
+          placeholder={TIME_PLACEHOLDER}
+          status={invalid ? "error" : undefined}
+          tooltip={invalid ? "Not a time" : undefined}
+        />
+      </Dialog.Dialog>
+    </Dialog.Frame>
+  );
+};
 
 export const Controls = memo((): ReactElement => {
   const key = Base.useKey();
@@ -28,6 +87,7 @@ export const Controls = memo((): ReactElement => {
   };
   return (
     <Vis.Controls>
+      <GoToTime />
       <Button.Toggle
         value={hold}
         onChange={handleHoldChange}

@@ -1450,6 +1450,71 @@ describe("StreamMultiChannelLog", () => {
       expectRun(core, a, log);
     });
 
+    describe("seek", () => {
+      it("should read the stored samples around an older time, then go live", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+        await settle(log, 1_800);
+        const time = timesOf(core, STORED)[1_000];
+        log.seek(new TimeStamp(time));
+        expect(log.live).toBe(false);
+        expect(entriesOf(log)).toEqual([]);
+        await until(
+          () => log.loadOlder(),
+          () => entriesOf(log).length > 0,
+        );
+        expect(stampsOf(entriesOf(log)).at(-1)).toBe(time);
+        await until(
+          () => log.loadNewer(),
+          () => stampsOf(entriesOf(log)).at(-1)! > time,
+        );
+        expectRun(core, a, log);
+        await until(
+          () => log.loadNewer(),
+          () => log.live,
+        );
+        expect(valuesOf(entriesOf(log), a).at(-1)).toBe(textOf(core, a, 1)[0]);
+      });
+
+      it("should keep the entries for a time they reach", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] });
+        await settle(log, PAGE);
+        const before = entriesOf(log);
+        log.seek(new TimeStamp(stampsOf(before)[100]));
+        expect(log.live).toBe(true);
+        expect(entriesOf(log)).toBe(before);
+      });
+
+      it("should keep the entries for a time before the first sample", async () => {
+        const core = createCore();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] });
+        await settle(log, HISTORY);
+        const before = entriesOf(log);
+        log.seek(START.sub(TimeSpan.seconds(10)));
+        expect(entriesOf(log)).toBe(before);
+      });
+
+      it("should return to the newest samples for a time past them", async () => {
+        const core = deep();
+        const [a] = core.data.map((c) => c.key);
+        const log = open(core, connect(core), { channels: [a] }, undefined, 2_000);
+        await settle(log, 1_800);
+        await until(
+          () => log.loadOlder(),
+          () => !log.live,
+        );
+        log.seek(NOW.add(TimeSpan.days(1)));
+        expect(log.live).toBe(true);
+        await expect
+          .poll(() => valuesOf(entriesOf(log), a).at(-1), POLL)
+          .toBe(textOf(core, a, 1)[0]);
+      });
+    });
+
     it("should report loading while a page reads", async () => {
       const core = deep();
       const [a] = core.data.map((c) => c.key);
