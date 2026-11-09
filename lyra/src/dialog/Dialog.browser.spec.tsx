@@ -119,6 +119,19 @@ const Pick = (): ReactElement => {
 
 const SEARCH = <input aria-label="Search" autoFocus />;
 
+/** A dropdown that opens on a button it does not wrap. */
+const Anchored = (): ReactElement => {
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <Triggers.Provider>
+      <button ref={setAnchor}>Anchor</button>
+      <Dialog.Frame id="anchored" anchor={anchor}>
+        <Dialog.Dialog>{SEARCH}</Dialog.Dialog>
+      </Dialog.Frame>
+    </Triggers.Provider>
+  );
+};
+
 /** A field that opens a context menu, which takes the focus. */
 const MenuTarget = (): ReactElement => {
   const ctx = Menu.useContextMenu();
@@ -383,6 +396,18 @@ describe("Dialog", () => {
         before.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
         await userEvent.keyboard("{Shift}");
         expect(button("Menu").getAttribute("aria-expanded")).toBe("true");
+      });
+
+      it("should stay open while its anchor holds the focus", async () => {
+        await renderThemed(<Anchored />);
+        Dialog.open("anchored");
+        await expect.element(page.getByLabelText("Search")).toHaveFocus();
+        const dialog = page.getByRole("dialog").element();
+        await expect.poll(() => computed(dialog, "opacity")).toBe("1");
+        button("Anchor").focus();
+        await userEvent.keyboard("{Shift}");
+        const frame = document.getElementById("anchored");
+        expect(frame?.classList.contains(CSS.visible(true))).toBe(true);
       });
 
       it("should leave the focus where a click outside puts it", async () => {
