@@ -1,0 +1,570 @@
+{
+  "doc": {
+    "name": "Hot fire",
+    "group": "Tests",
+    "config": {
+      "rate": 10,
+      "channels": [
+        { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+        { "key": "c2", "type": "di", "port": 1, "line": 3 }
+      ]
+    },
+    "limits": { "low": 0, "high": 100 },
+    "tags": ["a", "b"]
+  },
+  "cases": [
+    {
+      "name": "an absent field does not change",
+      "update": { "value": {} },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a value sets a scalar",
+      "update": { "value": { "name": "Cold flow" } },
+      "expected": {
+        "name": "Cold flow",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a zero value sets a scalar",
+      "update": { "value": { "name": "" } },
+      "expected": {
+        "name": "",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "null clears an optional scalar",
+      "update": { "value": { "group": null } },
+      "expected": {
+        "name": "Hot fire",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "null fails on a required scalar",
+      "update": { "value": { "name": null } },
+      "error": { "kind": "validation", "message": "a required field cannot be cleared" }
+    },
+    {
+      "name": "a partial merges into a struct",
+      "update": { "value": { "config": { "rate": 20 } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 20,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "set replaces a struct",
+      "update": { "value": { "config": { "set": { "rate": 1, "channels": [] } } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": { "rate": 1, "channels": [] },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a partial merges into an optional struct",
+      "update": { "value": { "limits": { "high": 50 } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 50 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "null clears an optional struct",
+      "update": { "value": { "limits": null } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "set fills an absent optional struct",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "tags": ["a", "b"]
+      },
+      "update": { "value": { "limits": { "set": { "low": 1, "high": 2 } } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 1, "high": 2 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a merge into an absent optional struct is stale",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "tags": ["a", "b"]
+      },
+      "update": { "value": { "limits": { "high": 2 } } },
+      "error": { "kind": "stale", "message": "the struct to merge into is absent" }
+    },
+    {
+      "name": "set replaces a value list",
+      "update": { "value": { "tags": { "set": [] } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": []
+      }
+    },
+    {
+      "name": "value list operators apply as remove, insert, then move",
+      "update": {
+        "value": {
+          "tags": { "move": [{ "key": "c" }], "insert": ["c", "a"], "remove": ["a"] }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["c", "b", "a"]
+      }
+    },
+    {
+      "name": "a value list insert of an existing value fails",
+      "update": { "value": { "tags": { "insert": ["b"] } } },
+      "error": { "kind": "unique", "message": "b already exists" }
+    },
+    {
+      "name": "a value list remove of a missing value is stale",
+      "update": { "value": { "tags": { "remove": ["z"] } } },
+      "error": { "kind": "stale", "message": "z not found" }
+    },
+    {
+      "name": "set beside another operator fails",
+      "update": { "value": { "tags": { "set": ["x"], "insert": ["y"] } } },
+      "error": {
+        "kind": "validation",
+        "message": "set cannot be combined with other operators"
+      }
+    },
+    {
+      "name": "a remove removes an entry by key",
+      "update": { "value": { "config": { "channels": { "remove": ["c1"] } } } },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [{ "key": "c2", "type": "di", "port": 1, "line": 3 }]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a remove of a missing key is stale",
+      "update": { "value": { "config": { "channels": { "remove": ["c9"] } } } },
+      "error": { "kind": "stale", "message": "c9 not found" }
+    },
+    {
+      "name": "an update merges into an entry of the same variant",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "update": [{ "key": "c1", "type": "ai", "port": 4, "units": "mA" }]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 4, "range": 10, "units": "mA" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "an update of a missing key is stale",
+      "update": {
+        "value": {
+          "config": {
+            "channels": { "update": [{ "key": "c9", "type": "ai", "port": 1 }] }
+          }
+        }
+      },
+      "error": { "kind": "stale", "message": "c9 not found" }
+    },
+    {
+      "name": "a new variant keeps the base fields and fills defaults",
+      "update": {
+        "value": {
+          "config": { "channels": { "update": [{ "key": "c2", "type": "ai" }] } }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "ai", "port": 1, "range": 10, "units": "V" }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a new variant takes the fields given",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "update": [{ "key": "c1", "type": "di", "port": 9, "line": 7 }]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "di", "port": 9, "line": 7 },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a new variant without a field that has no default fails",
+      "update": {
+        "value": {
+          "config": { "channels": { "update": [{ "key": "c1", "type": "di" }] } }
+        }
+      },
+      "error": { "kind": "validation", "message": "line is required" }
+    },
+    {
+      "name": "an insert adds entries at the end",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "insert": [{ "key": "c3", "type": "di", "port": 2, "line": 0 }]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 },
+            { "key": "c3", "type": "di", "port": 2, "line": 0 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "an insert of an existing key fails",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "insert": [{ "key": "c2", "type": "di", "port": 5, "line": 1 }]
+            }
+          }
+        }
+      },
+      "error": { "kind": "unique", "message": "c2 already exists" }
+    },
+    {
+      "name": "a remove applies before an insert of the same key",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "insert": [{ "key": "c1", "type": "di", "port": 2, "line": 0 }],
+              "remove": ["c1"]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c2", "type": "di", "port": 1, "line": 3 },
+            { "key": "c1", "type": "di", "port": 2, "line": 0 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a move without after puts the entry first",
+      "update": {
+        "value": { "config": { "channels": { "move": [{ "key": "c2" }] } } }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c2", "type": "di", "port": 1, "line": 3 },
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a move puts the entry after another",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "insert": [{ "key": "c3", "type": "di", "port": 2, "line": 0 }],
+              "move": [{ "key": "c3", "after": "c1" }]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c3", "type": "di", "port": 2, "line": 0 },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a move after a missing key is stale",
+      "update": {
+        "value": {
+          "config": { "channels": { "move": [{ "key": "c1", "after": "c9" }] } }
+        }
+      },
+      "error": { "kind": "stale", "message": "c9 not found" }
+    },
+    {
+      "name": "a move after itself fails",
+      "update": {
+        "value": {
+          "config": { "channels": { "move": [{ "key": "c1", "after": "c1" }] } }
+        }
+      },
+      "error": { "kind": "validation", "message": "c1 cannot move after itself" }
+    },
+    {
+      "name": "operators apply as remove, update, insert, then move",
+      "update": {
+        "value": {
+          "config": {
+            "channels": {
+              "move": [{ "key": "c3" }, { "key": "c2", "after": "c3" }],
+              "insert": [{ "key": "c3", "type": "di", "port": 2, "line": 0 }],
+              "update": [{ "key": "c2", "type": "di", "line": 4 }],
+              "remove": ["c1"]
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c3", "type": "di", "port": 2, "line": 0 },
+            { "key": "c2", "type": "di", "port": 1, "line": 4 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "an update applies when its guards hold",
+      "update": {
+        "value": { "name": "Cold flow" },
+        "guards": [{ "path": ["config", "channels", "c1", "type"], "value": "ai" }]
+      },
+      "expected": {
+        "name": "Cold flow",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"]
+      }
+    },
+    {
+      "name": "a guard that does not hold is stale",
+      "update": {
+        "value": { "name": "Cold flow" },
+        "guards": [{ "path": ["config", "channels", "c1", "type"], "value": "di" }]
+      },
+      "error": { "kind": "stale", "message": "[config, channels, c1, type] is not di" }
+    },
+    {
+      "name": "fields of the record change together",
+      "update": {
+        "value": {
+          "name": "Cold flow",
+          "group": null,
+          "config": { "rate": 5, "channels": { "remove": ["c2"] } },
+          "limits": { "set": { "low": -1, "high": 1 } },
+          "tags": { "insert": ["c"] }
+        }
+      },
+      "expected": {
+        "name": "Cold flow",
+        "config": {
+          "rate": 5,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" }
+          ]
+        },
+        "limits": { "low": -1, "high": 1 },
+        "tags": ["a", "b", "c"]
+      }
+    }
+  ]
+}
