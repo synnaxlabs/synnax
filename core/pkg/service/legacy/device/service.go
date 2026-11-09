@@ -13,10 +13,10 @@ package device
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -86,6 +86,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, Device]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -96,7 +97,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, indexes: newIndexes()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
@@ -114,31 +119,47 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigString(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, Device]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
+			return nil, err
+		}
+		// The Driver reads sy_device_set as devices, so actions take their own channel.
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_device_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
+func (s *Service) OnAction(
+	handler func(context.Context, actions.Scoped[Key, Action]),
+) observe.Disconnect {
+	return s.state.OnChange(handler)
+}
+
 // Close closes the device service and releases any resources that it may have acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a new Writer to create, update, and delete devices. If tx is not nil,
-// the writer will use that transaction. If tx is nil, the writer will execute
-// operations directly against the underlying gorp.DB.
+// NewWriter opens a new Writer to create, update, and delete devices in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		svc:      s,
-		tx:       tx,
-		status:   s.cfg.Status.NewWriter(tx),
-		statuses: s.cfg.Status,
-		table:    s.table,
+		tx:         tx,
+		status:     s.cfg.Status.NewWriter(tx),
+		statuses:   s.cfg.Status,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
 
@@ -146,7 +167,6 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
 }
@@ -162,9 +182,12 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error
 		return err
 	}
 	var devices []Device
-	if err := s.NewRetrieve().Where(MatchRacks(rackKey)).
-		Entries(&devices).
-		Exec(ctx, nil); err != nil {
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.NewRetrieve().
+			Where(MatchRacks(rackKey)).
+			Entries(&devices).
+			Exec(ctx, snap)
+	}); err != nil {
 		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
 	}
 	statuses := make([]Status, len(devices))

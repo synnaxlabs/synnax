@@ -10,12 +10,8 @@
 package certificate
 
 import (
-	"encoding/json/v2"
-
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Resources returns the resource.Provider of certificates.
@@ -45,28 +41,4 @@ func ResourceIDsFromCertificates(certs []Certificate) []resource.ID {
 		certs,
 		func(c Certificate, _ int) resource.ID { return c.ResourceID() },
 	)
-}
-
-// SetRecord returns the resource ID of the certificate that a sample of the set channel
-// carries.
-func SetRecord(sample []byte) (resource.ID, error) {
-	var c Certificate
-	if err := json.Unmarshal(sample, &c); err != nil {
-		return resource.ID{}, err
-	}
-	return c.ResourceID(), nil
-}
-
-// DeleteRecord returns the resource ID of the certificate that a sample of the delete
-// channel names. It returns a validation error when the sample is not a key.
-func DeleteRecord(sample []byte) (resource.ID, error) {
-	if len(sample) != len(Key{}) {
-		return resource.ID{}, errors.Wrapf(
-			validate.ErrValidation,
-			"certificate delete sample is %d bytes, not %d",
-			len(sample),
-			len(Key{}),
-		)
-	}
-	return ResourceID(Key(sample)), nil
 }

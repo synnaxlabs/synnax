@@ -16,7 +16,7 @@ import (
 	"encoding/json/v2"
 	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"

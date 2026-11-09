@@ -10,6 +10,7 @@
 import "schemas/synnax/group"
 import "schemas/x/color"
 import "schemas/x/filter"
+import "schemas/x/patch"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/schematic/symbol"
@@ -127,7 +128,35 @@ Symbol struct {
     }
     group group.Key? {
         @doc value     "is the group the symbol sits in, if any."
+        @ref kind      place
         @ref on_delete detach
+    }
+
+    action Create {
+        symbol Symbol
+
+        @doc value """
+            replaces the symbol with the given created state. Emitted by the Core when a
+            symbol is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the symbol."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the symbol.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the symbol."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the symbol."
     }
 
     @create

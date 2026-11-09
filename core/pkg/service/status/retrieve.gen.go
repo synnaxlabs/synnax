@@ -42,6 +42,7 @@ func newIndexes() indexes {
 			Name:     "labels",
 			Table:    "label",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Use,
 			Targets: func(e *Status[any]) []label.Key {
 				return e.Labels
 			},
@@ -55,6 +56,7 @@ func newIndexes() indexes {
 			Name:     "owner",
 			Tables:   []string{"rack", "task", "device", "channel", "certificate"},
 			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
 			Unique:   true,
 			Targets: func(e *Status[any]) []gorp.Target {
 				if e.Owner == nil {

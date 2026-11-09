@@ -199,22 +199,23 @@ func (r Retrieve[K, E]) keysRequired() bool {
 	return r.IsBareKeys() && !r.missingKeysSkipped
 }
 
-// Exec executes the query against the provided transaction.
+// Exec executes the query against the provided snapshot. Through a Tx, it sees the
+// writes of the transaction.
 //
 // When the filter is exactly Where(MatchKeys(...)) and SkipMissingKeys is not set, Exec
 // returns query.ErrNotFound, joined with any other error, if a requested key has no
 // entry. Otherwise a missing key is a non-match. A query bound to a single entry with
 // no result returns query.ErrNotFound for any filter shape.
-func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("Retriever.Exec", tx)
-	if err := r.resolveFilter(ctx, tx); err != nil {
+func (r Retrieve[K, E]) Exec(ctx context.Context, snap Snapshot) error {
+	checkForNilTx("Retriever.Exec", snap)
+	if err := r.resolveFilter(ctx, snap); err != nil {
 		return err
 	}
 	if r.hasOrderBy() {
-		return r.execOrdered(ctx, tx)
+		return r.execOrdered(ctx, snap)
 	}
 	if r.HasFilterKeys() {
-		notFound, err := r.execKeys(ctx, tx)
+		notFound, err := r.execKeys(ctx, snap)
 		if r.keysRequired() && len(notFound) > 0 {
 			return errors.Join(err, errors.Wrapf(
 				query.ErrNotFound,
@@ -235,17 +236,17 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 		}
 		return nil
 	}
-	return r.execFilter(ctx, tx)
+	return r.execFilter(ctx, snap)
 }
 
-// resolveFilter materializes the filter's deferred resolver against
-// the open tx, merging committed index state with any per-tx staged
-// mutations. No-op when the filter has no resolver.
-func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
+// resolveFilter materializes the filter's deferred resolver against snap, merging
+// committed index state with any per-tx staged mutations. No-op when the filter has no
+// resolver.
+func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, snap Snapshot) error {
 	if r.filter.resolve == nil {
 		return nil
 	}
-	res, err := r.filter.resolve(ctx, tx)
+	res, err := r.filter.resolve(ctx, snap)
 	if err != nil {
 		return err
 	}
@@ -261,8 +262,9 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 
 // Exists returns true if any record passes the filter. When every requested key must
 // have an entry (see SkipMissingKeys), it returns true only if every key exists.
-func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
-	if err := r.resolveFilter(ctx, tx); err != nil {
+func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error) {
+	checkForNilTx("Retriever.Exists", snap)
+	if err := r.resolveFilter(ctx, snap); err != nil {
 		return false, err
 	}
 	if r.HasFilterKeys() {
@@ -272,7 +274,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 		}
 		e := make([]E, 0, len(keys))
 		r.entries.bindMultiple(&e)
-		if _, err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		if _, err := r.execKeys(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 			return false, err
 		}
 		if r.keysRequired() {
@@ -282,23 +284,26 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	}
 	e := make([]E, 0, 1)
 	r.entries.bindMultiple(&e)
-	if err := r.execFilter(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+	if err := r.execFilter(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
 	return len(e) > 0, nil
 }
 
 // Count returns the number of records matching the query.
-func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
-	checkForNilTx("Retriever.Count", tx)
-	if err := r.resolveFilter(ctx, tx); err != nil {
+func (r Retrieve[K, E]) Count(
+	ctx context.Context,
+	snap Snapshot,
+) (count int, err error) {
+	checkForNilTx("Retriever.Count", snap)
+	if err := r.resolveFilter(ctx, snap); err != nil {
 		return 0, err
 	}
 	if r.HasFilterKeys() {
 		r.entries.bindMultiple(new(make([]E, 0, len(r.filter.keys.Keys()))))
 		if _, err := r.execKeys(
 			ctx,
-			tx,
+			snap,
 		); err != nil &&
 			!errors.Is(err, query.ErrNotFound) {
 			return 0, err
@@ -306,7 +311,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return len(r.entries.All()), nil
 	}
 
-	reader := wrapReader[K, E](tx, r.keyPrefix)
+	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return 0, err
@@ -314,7 +319,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
-	gorpCtx := Context{Context: ctx, Tx: tx}
+	gorpCtx := newContext(ctx, snap)
 	var matched []E
 	if len(r.validators) > 0 {
 		matched = make([]E, 0)
@@ -384,13 +389,13 @@ func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 // decides whether to surface that as query.ErrNotFound. Unless the filter
 // is bare keys, execKeys stops at the limit, so it reports only the keys
 // it fetched.
-func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
+func (r *Retrieve[K, E]) execKeys(ctx context.Context, snap Snapshot) ([]K, error) {
 	var (
 		keys       = r.filter.keys.Keys()
-		reader     = wrapReader[K, E](tx, r.keyPrefix)
+		reader     = wrapReader[K, E](snap, r.keyPrefix)
 		notFound   []K
 		validCount int
-		gorpCtx    = Context{Context: ctx, Tx: tx}
+		gorpCtx    = newContext(ctx, snap)
 		e          E
 		zero       E
 		capacity   = len(keys)
@@ -466,13 +471,13 @@ func storageOrder[K Key](keys []K) []K {
 	return sorted
 }
 
-func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
+func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 	var (
 		validCount int
 		match      bool
-		gorpCtx    = Context{Context: ctx, Tx: tx}
+		gorpCtx    = newContext(ctx, snap)
 	)
-	reader := wrapReader[K, E](tx, r.keyPrefix)
+	reader := wrapReader[K, E](snap, r.keyPrefix)
 	iter, err := reader.OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
@@ -525,7 +530,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 // execOrdered walks the configured OrderQuery, fetching entries per-key
 // in walk order. Any Where filter is applied as a post-filter against
 // each fetched entry.
-func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
+func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 	if r.orderBy == nil {
 		return nil
 	}
@@ -545,9 +550,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 		)
 	}
 	var (
-		reader   = wrapReader[K, E](tx, r.keyPrefix)
+		reader   = wrapReader[K, E](snap, r.keyPrefix)
 		filtered = make([]E, 0, len(keys))
-		gorpCtx  = Context{Context: ctx, Tx: tx}
+		gorpCtx  = newContext(ctx, snap)
 		e        E
 		zero     E
 	)

@@ -97,7 +97,7 @@ var _ = Describe("JSON", func() {
 			sigs := MustSucceed(signals.New(signals.Config{
 				DB:      db,
 				Channel: channelSvc,
-				Framer:  framerSvc,
+				Framer:  nodeFramer,
 			}))
 			obs = observe.New[jsonPayload]()
 			MustOpen(sigs.PublishJSON(
@@ -110,7 +110,7 @@ var _ = Describe("JSON", func() {
 			Expect(channelSvc.NewRetrieve().
 				Where(channel.MatchNames(jsonSetChannelName)).
 				Entry(&ch).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 			).To(Succeed())
 			streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 				Keys:        channel.Keys{ch.Key()},

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
+	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
@@ -57,11 +58,15 @@ func authed(ctx context.Context, token string) freighter.Context {
 func createUser(ctx context.Context, username, pwd string) user.User {
 	GinkgoHelper()
 	u := MustSucceed(
-		rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{Name: username}),
+		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: username}),
 	)
-	Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), auth.Credentials{
-		Username: username,
-		Password: pwd,
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return passwordSvc.NewWriter(tx).Set(
+			ctx,
+			u.ResourceID(),
+			username,
+			MustSucceed(passwordSvc.Hash(pwd)),
+		)
 	})).To(Succeed())
 	return u
 }
@@ -89,8 +94,8 @@ var _ = Describe("Login", func() {
 			Expect(res.User.Key).To(Equal(root.Key))
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.ResourceID()))
-			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Cluster.Key().String()))
-			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Cluster.HostKey()))
+			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Identity.Key.String()))
+			Expect(res.ClusterInfo.NodeKey).To(Equal(node.Identity.HostKey))
 			Expect(res.ClusterInfo.NodeTime).ToNot(BeZero())
 		},
 	)
@@ -109,68 +114,66 @@ var _ = Describe("Login", func() {
 })
 
 var _ = Describe("ChangePassword", func() {
-	var own auth.Credentials
-	BeforeEach(func(ctx SpecContext) {
-		own = auth.Credentials{Username: uuid.New().String(), Password: "old"}
-		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
-			Name: own.Username,
-		}))
-		Expect(passwordSvc.NewWriter(nil).Set(ctx, u.ResourceID(), own)).To(Succeed())
-	})
-	It(
-		"Should replace the password when the current one is right",
-		func(ctx SpecContext) {
-			Expect(
-				apiSvc.ChangePassword(
-					requestCtx(ctx),
-					nil,
-					apiauth.ChangePasswordRequest{
-						Credentials: own,
-						NewPassword: "new",
-					},
-				),
-			).Error().
-				ToNot(HaveOccurred())
-			MustSucceed(
-				apiSvc.Login(requestCtx(ctx), request(own.Username, "new")),
-			)
-			Expect(
-				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
-			).Error().
-				To(MatchError(auth.ErrInvalidCredentials))
-		},
+	var (
+		own      auth.Credentials
+		ownToken string
 	)
-	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
-		creds := auth.Credentials{Username: own.Username, Password: "wrong"}
+	change := func(
+		ctx context.Context,
+		token string,
+		creds auth.Credentials,
+	) error {
+		_, err := changePassword(
+			authed(ctx, token),
+			apiauth.ChangePasswordRequest{Credentials: creds, NewPassword: "new"},
+		)
+		return err
+	}
+	BeforeEach(func(ctx SpecContext) {
+		own = auth.Credentials{Username: "own-" + uuid.New().String(), Password: "old"}
+		createUser(ctx, own.Username, own.Password)
+		ownToken = MustSucceed(
+			apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
+		).Token
+	})
+	It("Should replace the password when the current one is right", func(
+		ctx SpecContext,
+	) {
+		Expect(change(ctx, ownToken, own)).To(Succeed())
+		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, "new")))
 		Expect(
-			apiSvc.ChangePassword(requestCtx(ctx), nil, apiauth.ChangePasswordRequest{
-				Credentials: creds,
-				NewPassword: "new",
-			}),
+			apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 		).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should keep the password when the current one is wrong", func(ctx SpecContext) {
+		wrong := auth.Credentials{Username: own.Username, Password: "wrong"}
+		Expect(change(ctx, ownToken, wrong)).To(MatchError(auth.ErrInvalidCredentials))
 		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
 	})
 	It(
 		"Should end every session the password opened, the caller's included",
 		func(ctx SpecContext) {
-			caller := MustSucceed(
-				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
-			)
 			other := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
-			Expect(apiSvc.ChangePassword(
-				authed(ctx, caller.Token),
-				nil,
-				apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
-			)).Error().ToNot(HaveOccurred())
-			for _, token := range []string{caller.Token, other.Token} {
+			Expect(change(ctx, ownToken, own)).To(Succeed())
+			for _, token := range []string{ownToken, other.Token} {
 				Expect(authSvc.Authenticate(ctx, token)).Error().
 					To(MatchError(auth.ErrInvalidToken))
 			}
 		},
 	)
+	It("Should deny a caller that may not update the user of the credentials", func(
+		ctx SpecContext,
+	) {
+		bob := createUser(ctx, "bob-"+uuid.New().String(), "p")
+		bobToken := MustSucceed(
+			apiSvc.Login(requestCtx(ctx), request(bob.Name, "p")),
+		).Token
+		Expect(change(ctx, bobToken, own)).To(MatchError(access.ErrDenied))
+		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
+	})
 })
 
 var _ = Describe("SetPassword", func() {
@@ -191,7 +194,7 @@ var _ = Describe("SetPassword", func() {
 		token string,
 		req apiauth.PasswordSetRequest,
 	) (apiauth.PasswordSetResponse, error) {
-		return apiSvc.SetPassword(authed(ctx, token), nil, req)
+		return setPassword(authed(ctx, token), req)
 	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "old")
@@ -219,7 +222,7 @@ var _ = Describe("SetPassword", func() {
 		ctx SpecContext,
 	) {
 		fctx := authed(ctx, bobToken)
-		res := MustSucceed(apiSvc.SetPassword(fctx, nil, apiauth.PasswordSetRequest{
+		res := MustSucceed(setPassword(fctx, apiauth.PasswordSetRequest{
 			Password:        "new",
 			CurrentPassword: "old",
 			Cookie:          true,
@@ -231,9 +234,8 @@ var _ = Describe("SetPassword", func() {
 	It("Should open no session for a caller logged in with an API key", func(
 		ctx SpecContext,
 	) {
-		key := MustSucceed(apiSvc.CreateKey(
+		key := MustSucceed(createKey(
 			authed(ctx, bobToken),
-			nil,
 			apiauth.KeyCreateRequest{Name: "spec"},
 		))
 		keyToken := MustSucceed(apiSvc.CreateSession(
@@ -275,6 +277,39 @@ var _ = Describe("SetPassword", func() {
 		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
 	})
+	It(
+		"Should let a caller that may update a signed-out user set its password",
+		func(ctx SpecContext) {
+			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+				Subject:  eng.ResourceID(),
+				Password: "new",
+			})).To(Equal(apiauth.PasswordSetResponse{}))
+			login(ctx, eng.Name, "new")
+		},
+	)
+	It(
+		"Should require delete on a signed-in user to set its password",
+		func(ctx SpecContext) {
+			eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+			engToken := login(ctx, eng.Name, "p")
+			grant(ctx, bob.Key, access.ActionUpdate, eng.ResourceID())
+			req := apiauth.PasswordSetRequest{
+				Subject:  eng.ResourceID(),
+				Password: "new",
+			}
+			Expect(set(ctx, bobToken, req)).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring("cannot delete %s", eng.ResourceID())),
+			))
+			MustSucceed(authSvc.Authenticate(ctx, engToken))
+			grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
+			Expect(set(ctx, bobToken, req)).To(Equal(apiauth.PasswordSetResponse{}))
+			Expect(authSvc.Authenticate(ctx, engToken)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		},
+	)
 	It("Should deny a user setting another user's password", func(ctx SpecContext) {
 		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
 			Subject:  root.ResourceID(),
@@ -288,7 +323,7 @@ var _ = Describe("SetPassword", func() {
 		})).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should report a user with no password as not found", func(ctx SpecContext) {
-		u := MustSucceed(rbactestutil.CreateUser(ctx, rbacSvc, userSvc, user.User{
+		u := MustSucceed(rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{
 			Name: "nopass-" + uuid.New().String(),
 		}))
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
@@ -485,7 +520,7 @@ var _ = Describe("Session cookie", func() {
 			},
 		))
 		fctx := authed(ctx, created.Token)
-		MustSucceed(apiSvc.DeleteSessions(fctx, apiauth.SessionDeleteRequest{
+		MustSucceed(deleteSessions(fctx, apiauth.SessionDeleteRequest{
 			Keys: []auth.SessionKey{created.Session.Key},
 		}))
 		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).
@@ -505,7 +540,7 @@ var _ = Describe("Session cookie", func() {
 			},
 		))
 		fctx := authed(ctx, created.Token)
-		MustSucceed(apiSvc.DeleteSessions(fctx, apiauth.SessionDeleteRequest{
+		MustSucceed(deleteSessions(fctx, apiauth.SessionDeleteRequest{
 			Keys: []auth.SessionKey{other.Session.Key},
 		}))
 		Expect(MustBeOk(fctx.Get(apiauth.SessionCookieParam))).
@@ -533,7 +568,7 @@ var _ = Describe("Sessions", func() {
 	})
 	Describe("RetrieveSessions", func() {
 		It("Should list the caller's own sessions by default", func(ctx SpecContext) {
-			res := MustSucceed(apiSvc.RetrieveSessions(
+			res := MustSucceed(retrieveSessions(
 				authed(ctx, bobToken),
 				apiauth.SessionRetrieveRequest{},
 			))
@@ -543,7 +578,7 @@ var _ = Describe("Sessions", func() {
 		It(
 			"Should let the owner list another subject's sessions",
 			func(ctx SpecContext) {
-				res := MustSucceed(apiSvc.RetrieveSessions(
+				res := MustSucceed(retrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{bob.ResourceID()},
@@ -557,7 +592,7 @@ var _ = Describe("Sessions", func() {
 			"Should return an empty list for a subject with no sessions",
 			func(ctx SpecContext) {
 				idle := createUser(ctx, "idle-"+uuid.New().String(), "p")
-				res := MustSucceed(apiSvc.RetrieveSessions(
+				res := MustSucceed(retrieveSessions(
 					authed(ctx, rootToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{idle.ResourceID()},
@@ -570,7 +605,7 @@ var _ = Describe("Sessions", func() {
 		It(
 			"Should deny a user listing another subject's sessions",
 			func(ctx SpecContext) {
-				Expect(apiSvc.RetrieveSessions(
+				Expect(retrieveSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionRetrieveRequest{
 						Subjects: []resource.ID{root.ResourceID()},
@@ -582,7 +617,7 @@ var _ = Describe("Sessions", func() {
 	Describe("DeleteSessions", func() {
 		It("Should end the caller's own session", func(ctx SpecContext) {
 			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
-			Expect(apiSvc.DeleteSessions(
+			Expect(deleteSessions(
 				authed(ctx, bobToken),
 				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
 			)).Error().ToNot(HaveOccurred())
@@ -593,16 +628,31 @@ var _ = Describe("Sessions", func() {
 			"Should deny a user ending another subject's session",
 			func(ctx SpecContext) {
 				key := MustSucceed(authSvc.Authenticate(ctx, rootToken)).Key
-				Expect(apiSvc.DeleteSessions(
+				Expect(deleteSessions(
 					authed(ctx, bobToken),
 					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
 				)).Error().To(MatchError(access.ErrDenied))
 				MustSucceed(authSvc.Authenticate(ctx, rootToken))
 			},
 		)
+		It(
+			"Should let a caller that may delete on a subject end its session",
+			func(ctx SpecContext) {
+				eng := createUser(ctx, "eng-"+uuid.New().String(), "p")
+				engToken := login(ctx, eng.Name, "p").Token
+				key := MustSucceed(authSvc.Authenticate(ctx, engToken)).Key
+				grant(ctx, bob.Key, access.ActionDelete, eng.ResourceID())
+				Expect(deleteSessions(
+					authed(ctx, bobToken),
+					apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
+				)).Error().ToNot(HaveOccurred())
+				Expect(authSvc.Authenticate(ctx, engToken)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			},
+		)
 		It("Should let the owner end another subject's session", func(ctx SpecContext) {
 			key := MustSucceed(authSvc.Authenticate(ctx, bobToken)).Key
-			Expect(apiSvc.DeleteSessions(
+			Expect(deleteSessions(
 				authed(ctx, rootToken),
 				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{key}},
 			)).Error().ToNot(HaveOccurred())
@@ -610,7 +660,7 @@ var _ = Describe("Sessions", func() {
 				To(MatchError(auth.ErrInvalidToken))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(apiSvc.DeleteSessions(
+			Expect(deleteSessions(
 				authed(ctx, bobToken),
 				apiauth.SessionDeleteRequest{Keys: []auth.SessionKey{uuid.New()}},
 			)).Error().ToNot(HaveOccurred())

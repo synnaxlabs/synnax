@@ -15,10 +15,10 @@ package user
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
@@ -75,6 +75,7 @@ type Service struct {
 	closer  xio.MultiCloser
 	table   *gorp.Table[Key, User]
 	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService opens a new [Service] with the given context and configurations.
@@ -86,7 +87,11 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, indexes: newIndexes()}
+	s := &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, User]{
@@ -100,11 +105,13 @@ func OpenService(
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(
+		if err = cfg.Signals.PublishTable(
 			ctx,
-			signals.GorpPublisherConfigUUID(s.table.Observe()),
-		); !ok(err, sig) {
+			signals.TableConfig[Key, User]{
+				Changes:  s.table.Changes,
+				Resource: ResourceID,
+			},
+		); !ok(err, nil) {
 			return nil, err
 		}
 	}
@@ -115,17 +122,20 @@ func OpenService(
 // The [Writer] operates within the given transaction [gorp.Tx].
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:    gorp.OverrideTx(s.cfg.DB, tx),
-		svc:   s,
-		table: s.table,
+		tx:         tx,
+		svc:        s,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		gorp:     s.table.NewRetrieve(),
-		baseTX:   s.cfg.DB,
 		indexes:  s.indexes,
 		password: s.cfg.Password,
 	}

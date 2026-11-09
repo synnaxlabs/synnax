@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -423,7 +424,9 @@ var _ = Describe("Writer broadcasts", func() {
 		GinkgoHelper()
 		Expect(tx.Commit(ctx)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(db).Delete(ctx, keys...)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, keys...)
+			})).To(Succeed())
 		})
 	}
 	newRange := func() *ranger.Range {
@@ -457,7 +460,9 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(rec.Snapshot()).To(BeEmpty())
 		commit(ctx, parent.Key, r.Key)
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(labelSvc.NewWriter(db).Delete(ctx, l.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Delete(ctx, l.Key)
+			})).To(Succeed())
 		})
 		created := framesOf(rec, r.Key)
 		Expect(created).To(HaveLen(1))
@@ -486,7 +491,9 @@ var _ = Describe("Writer broadcasts", func() {
 		Expect(w.AddLabels(ctx, r.Key, []label.Key{l.Key})).To(Succeed())
 		commit(ctx, r.Key)
 		DeferCleanup(func(ctx SpecContext) {
-			Expect(labelSvc.NewWriter(db).Delete(ctx, l.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Delete(ctx, l.Key)
+			})).To(Succeed())
 		})
 		frames := framesOf(rec, r.Key)
 		Expect(frames).To(HaveLen(2))
@@ -507,11 +514,15 @@ var _ = Describe("Writer broadcasts", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 			commit(ctx, r.Key)
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(labelSvc.NewWriter(db).Delete(ctx, kept.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Delete(ctx, kept.Key)
+				})).To(Succeed())
 			})
 			rec := &Recorder[ranger.Key, ranger.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
-			Expect(labelSvc.NewWriter(db).Delete(ctx, deleted.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return labelSvc.NewWriter(tx).Delete(ctx, deleted.Key)
+			})).To(Succeed())
 			frames := framesOf(rec, r.Key)
 			Expect(frames).To(HaveLen(1))
 			Expect(frames[0].Actions).To(Equal([]ranger.Action{
@@ -533,18 +544,22 @@ var _ = Describe("Writer broadcasts", func() {
 	})
 })
 
-var _ = Describe("Writer with no transaction", func() {
+var _ = Describe("Writer in concurrent transactions", func() {
 	It(
 		"Should keep the labels that adds write during concurrent creates",
 		func(ctx SpecContext) {
 			labels := make([]label.Key, 20)
 			for i := range labels {
 				l := label.Label{Name: fmt.Sprintf("Concurrent %d", i)}
-				Expect(labelSvc.NewWriter(nil).Create(ctx, &l)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Create(ctx, &l)
+				})).To(Succeed())
 				labels[i] = l.Key
 			}
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(labelSvc.NewWriter(nil).Delete(ctx, labels...)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return labelSvc.NewWriter(tx).Delete(ctx, labels...)
+				})).To(Succeed())
 			})
 			r := ranger.Range{
 				Name: "Concurrent",
@@ -553,26 +568,34 @@ var _ = Describe("Writer with no transaction", func() {
 					End:   telem.TimeStamp(10 * telem.Second),
 				},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(svc.NewWriter(nil).Delete(ctx, r.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, r.Key)
+				})).To(Succeed())
 			})
 			var wg sync.WaitGroup
 			wg.Go(func() {
 				defer GinkgoRecover()
 				for range 100 {
 					update := r
-					Expect(svc.NewWriter(nil).Create(ctx, &update)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).Create(ctx, &update)
+					})).To(Succeed())
 				}
 			})
 			wg.Go(func() {
 				defer GinkgoRecover()
 				for _, l := range labels {
-					Expect(svc.NewWriter(nil).AddLabels(
-						ctx,
-						r.Key,
-						[]label.Key{l},
-					)).To(Succeed())
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return svc.NewWriter(tx).AddLabels(
+							ctx,
+							r.Key,
+							[]label.Key{l},
+						)
+					})).To(Succeed())
 				}
 			})
 			wg.Wait()

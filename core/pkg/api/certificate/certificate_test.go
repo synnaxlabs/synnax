@@ -22,10 +22,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apicertificate "github.com/synnaxlabs/synnax/pkg/api/certificate"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/certificate"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/secret"
@@ -37,7 +37,8 @@ import (
 var (
 	certificateType = resource.ID{Type: resource.TypeCertificate}
 	secretType      = resource.ID{Type: resource.TypeSecret}
-	create          = []access.Action{access.ActionCreate}
+	statusType      = resource.ID{Type: resource.TypeStatus}
+	creates         = []access.Action{access.ActionCreate}
 )
 
 // newPair returns a PEM certificate and its PEM private key.
@@ -70,7 +71,9 @@ func createCertificate(ctx SpecContext, name string) certificate.Certificate {
 		Base: certificate.Base{Name: name},
 		Pem:  certPEM,
 	}}
-	Expect(svc.Certificate.NewWriter(nil).Create(ctx, &c, nil)).To(Succeed())
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		return svc.Certificate.NewWriter(tx).Create(ctx, &c, nil)
+	})).To(Succeed())
 	return c
 }
 
@@ -80,16 +83,13 @@ func retrieveCertificate(ctx SpecContext, key certificate.Key) certificate.Certi
 	Expect(svc.Certificate.NewRetrieve().
 		Where(certificate.MatchKeys(key)).
 		Entry(&c).
-		Exec(ctx, nil)).To(Succeed())
+		Exec(ctx, db)).To(Succeed())
 	return c
 }
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apicertificate.ServiceConfig {
-		return apicertificate.ServiceConfig{
-			Certificate: &certificate.Service{},
-			RBAC:        &rbac.Service{},
-		}
+		return apicertificate.ServiceConfig{Certificate: &certificate.Service{}}
 	}
 	DescribeTable("Should fail when a service is missing",
 		func(clear func(*apicertificate.ServiceConfig), msg string) {
@@ -100,15 +100,12 @@ var _ = Describe("ServiceConfig", func() {
 		Entry("certificate",
 			func(c *apicertificate.ServiceConfig) { c.Certificate = nil },
 			"certificate: must be non-nil"),
-		Entry("rbac", func(c *apicertificate.ServiceConfig) { c.RBAC = nil },
-			"rbac: must be non-nil"),
 	)
 	It("Should take the other config's services when set", func() {
 		cfg := full()
 		Expect(cfg.Validate()).To(Succeed())
 		merged := apicertificate.ServiceConfig{}.Override(cfg)
 		Expect(merged.Certificate).To(BeIdenticalTo(cfg.Certificate))
-		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 	})
 })
 
@@ -118,9 +115,16 @@ var _ = Describe("Service", func() {
 			"Should create a stored certificate with its private key",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType, secretType)
+				grant(
+					ctx,
+					u.ResourceID(),
+					creates,
+					certificateType,
+					secretType,
+					statusType,
+				)
 				certPEM, keyPEM := newPair()
-				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				res := MustSucceed(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 						Source:     secret.SourceStored,
 						Name:       "Plant",
@@ -136,9 +140,9 @@ var _ = Describe("Service", func() {
 		It("Should create a file certificate with the details it is given",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
+				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
 				keyPath := "/etc/plant/key.pem"
-				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				res := MustSucceed(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 						Source:          secret.SourceFile,
 						Name:            "Plant",
@@ -155,7 +159,7 @@ var _ = Describe("Service", func() {
 		)
 		It("Should deny a user without create access", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+			Expect(create(AuthedCtx(ctx, u),
 				apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 					Source:          secret.SourceFile,
 					Name:            "Plant",
@@ -166,9 +170,9 @@ var _ = Describe("Service", func() {
 		It("Should require create access on secrets for a private key",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
+				grant(ctx, u.ResourceID(), creates, certificateType, statusType)
 				certPEM, keyPEM := newPair()
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				Expect(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 						Source:     secret.SourceStored,
 						Name:       "Plant",
@@ -181,9 +185,9 @@ var _ = Describe("Service", func() {
 		It("Should create a certificate at an unused key without update access",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
+				grant(ctx, u.ResourceID(), creates, certificateType)
 				key := uuid.New()
-				res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				res := MustSucceed(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 						Key:             key,
 						Source:          secret.SourceFile,
@@ -198,9 +202,9 @@ var _ = Describe("Service", func() {
 		It("Should deny replacing a certificate without update access",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
+				grant(ctx, u.ResourceID(), creates, certificateType)
 				c := createCertificate(ctx, "Plant")
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				Expect(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 						Key:             c.Base().Key,
 						Source:          secret.SourceFile,
@@ -218,9 +222,9 @@ var _ = Describe("Service", func() {
 		It("Should deny a request that also replaces a certificate",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
+				grant(ctx, u.ResourceID(), creates, certificateType)
 				c := createCertificate(ctx, "Plant")
-				Expect(apiSvc.Create(AuthedCtx(ctx, u), nil,
+				Expect(create(AuthedCtx(ctx, u),
 					apicertificate.CreateRequest{Certificates: []apicertificate.Input{
 						{
 							Key:             uuid.New(),
@@ -245,14 +249,12 @@ var _ = Describe("Service", func() {
 		)
 		It("Should let an Owner replace a certificate", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(svc.User.NewWriter(nil).SetRole(
-				ctx,
-				svc.RBAC.Builtin.OwnerKey,
-				nil,
-				u.Key,
-			)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.User.NewWriter(tx).
+					SetRole(ctx, svc.RBAC.Builtin.OwnerKey, u.Key)
+			})).To(Succeed())
 			c := createCertificate(ctx, "Plant")
-			MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil,
+			MustSucceed(create(AuthedCtx(ctx, u),
 				apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
 					Key:             c.Base().Key,
 					Source:          secret.SourceFile,
@@ -267,10 +269,9 @@ var _ = Describe("Service", func() {
 		DescribeTable("Should reject an invalid input",
 			func(ctx SpecContext, in apicertificate.Input, msg string) {
 				u := createUser(ctx)
-				grant(ctx, u.ResourceID(), create, certificateType)
-				Expect(apiSvc.Create(
+				grant(ctx, u.ResourceID(), creates, certificateType)
+				Expect(create(
 					AuthedCtx(ctx, u),
-					nil,
 					apicertificate.CreateRequest{
 						Certificates: []apicertificate.Input{in},
 					},
@@ -314,7 +315,7 @@ var _ = Describe("Service", func() {
 			)
 			c := createCertificate(ctx, "Plant")
 			res := MustSucceed(
-				apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key)),
+				retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key)),
 			)
 			Expect(res.Certificates).To(HaveLen(1))
 			Expect(res.Certificates[0].Base().Name).To(Equal("Plant"))
@@ -328,7 +329,7 @@ var _ = Describe("Service", func() {
 				certificateType,
 			)
 			c := createCertificate(ctx, "Plant")
-			res := MustSucceed(apiSvc.Retrieve(
+			res := MustSucceed(retrieve(
 				AuthedCtx(ctx, u),
 				whereKeys(c.Base().Key, uuid.New()),
 			))
@@ -338,8 +339,69 @@ var _ = Describe("Service", func() {
 		It("Should deny a user without retrieve access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Plant")
-			Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key))).
+			Expect(retrieve(AuthedCtx(ctx, u), whereKeys(c.Base().Key))).
 				Error().To(MatchError(access.ErrDenied))
+		})
+		It(
+			"Should leave out the certificates a user cannot retrieve",
+			func(ctx SpecContext) {
+				u := createUser(ctx)
+				a := createCertificate(ctx, "A")
+				b := createCertificate(ctx, "B")
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionRetrieve},
+					a.ResourceID(),
+				)
+				res := MustSucceed(
+					retrieve(AuthedCtx(ctx, u), apicertificate.RetrieveRequest{}),
+				)
+				keys := make([]certificate.Key, len(res.Certificates))
+				for i, c := range res.Certificates {
+					keys[i] = c.Base().Key
+				}
+				Expect(keys).To(ContainElement(a.Base().Key))
+				Expect(keys).NotTo(ContainElement(b.Base().Key))
+			},
+		)
+	})
+
+	Describe("Dispatch", func() {
+		setName := func(key certificate.Key) apicertificate.DispatchRequest {
+			return apicertificate.DispatchRequest{
+				Key: key,
+				Actions: []certificate.Action{certificate.NewSetAction(
+					certificate.SetPayload{Path: []string{"name"}, Value: "After"},
+				)},
+			}
+		}
+		It("Should apply the actions when update is granted", func(ctx SpecContext) {
+			u := createUser(ctx)
+			c := createCertificate(ctx, "Before")
+			grant(
+				ctx,
+				u.ResourceID(),
+				[]access.Action{access.ActionUpdate},
+				c.ResourceID(),
+				statusType,
+			)
+			MustSucceed(dispatch(AuthedCtx(ctx, u), setName(c.Base().Key)))
+			Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+				To(Equal("After"))
+		})
+		It("Should deny a user without update access", func(ctx SpecContext) {
+			u := createUser(ctx)
+			c := createCertificate(ctx, "Before")
+			Expect(dispatch(AuthedCtx(ctx, u), setName(c.Base().Key))).
+				Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					u.ResourceID().String()+" cannot update "+c.ResourceID().String(),
+				)),
+			))
+			Expect(retrieveCertificate(ctx, c.Base().Key).Base().Name).
+				To(Equal("Before"))
 		})
 	})
 
@@ -354,8 +416,9 @@ var _ = Describe("Service", func() {
 					u.ResourceID(),
 					[]access.Action{access.ActionUpdate},
 					c.ResourceID(),
+					statusType,
 				)
-				MustSucceed(apiSvc.Rename(AuthedCtx(ctx, u), nil,
+				MustSucceed(rename(AuthedCtx(ctx, u),
 					apicertificate.RenameRequest{Key: c.Base().Key, Name: "After"},
 				))
 				Expect(
@@ -366,7 +429,7 @@ var _ = Describe("Service", func() {
 		It("Should deny a user without update access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Before")
-			Expect(apiSvc.Rename(AuthedCtx(ctx, u), nil,
+			Expect(rename(AuthedCtx(ctx, u),
 				apicertificate.RenameRequest{Key: c.Base().Key, Name: "After"},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
@@ -383,19 +446,63 @@ var _ = Describe("Service", func() {
 					u.ResourceID(),
 					[]access.Action{access.ActionDelete},
 					c.ResourceID(),
+					statusType,
 				)
-				MustSucceed(apiSvc.Delete(AuthedCtx(ctx, u), nil,
+				MustSucceed(del(AuthedCtx(ctx, u),
 					apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
 				))
 				Expect(svc.Certificate.NewRetrieve().
 					Where(certificate.MatchKeys(c.Base().Key)).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			},
+		)
+		It(
+			"Should require delete access on the secret of a private key",
+			func(ctx SpecContext) {
+				owner := createUser(ctx)
+				grant(
+					ctx,
+					owner.ResourceID(),
+					creates,
+					certificateType,
+					secretType,
+					statusType,
+				)
+				certPEM, keyPEM := newPair()
+				res := MustSucceed(create(AuthedCtx(ctx, owner),
+					apicertificate.CreateRequest{Certificates: []apicertificate.Input{{
+						Source:     secret.SourceStored,
+						Name:       "Plant",
+						Pem:        certPEM,
+						PrivateKey: keyPEM,
+					}}},
+				))
+				c := res.Certificates[0]
+				key := *c.Variant.(certificate.StoredCertificate).PrivateKey
+				u := createUser(ctx)
+				grant(
+					ctx,
+					u.ResourceID(),
+					[]access.Action{access.ActionDelete},
+					c.ResourceID(),
+					statusType,
+				)
+				Expect(del(AuthedCtx(ctx, u),
+					apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
+				)).Error().To(SatisfyAll(
+					MatchError(access.ErrDenied),
+					MatchError(ContainSubstring(
+						u.ResourceID().String()+" cannot delete "+
+							secret.ResourceID(key).String(),
+					)),
+				))
+				Expect(retrieveCertificate(ctx, c.Base().Key)).To(Equal(c))
 			},
 		)
 		It("Should deny a user without delete access", func(ctx SpecContext) {
 			u := createUser(ctx)
 			c := createCertificate(ctx, "Plant")
-			Expect(apiSvc.Delete(AuthedCtx(ctx, u), nil,
+			Expect(del(AuthedCtx(ctx, u),
 				apicertificate.DeleteRequest{Keys: []certificate.Key{c.Base().Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
