@@ -47,12 +47,15 @@ type Writer struct {
 	sweeper     textSweeper
 	resyncs     *gorp.Attachment[Key]
 	deletes     *gorp.Attachment[Key]
+	// directoryDispatcher attaches the actions that change directories.
+	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
 // broadcasts it emits, so the client that sent the write recognizes its own echo.
 func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	w.directoryDispatcher = w.directoryDispatcher.WithDispatchKey(dispatchKey)
 	return w
 }
 

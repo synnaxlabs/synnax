@@ -315,7 +315,9 @@ var _ = Describe("Rack", Ordered, func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(Equal(*r))
+			expected := *r
+			expected.Status = nil
+			Expect(res).To(Equal(expected))
 		})
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
@@ -773,6 +775,19 @@ var _ = Describe("Rack", Ordered, func() {
 			Expect(res.Name).To(Equal("renamed-integ-rack"))
 			Expect(res.Integrations).To(Equal([]string{"ni"}))
 		})
+		It("Should write the default status when the rack has none", func(
+			ctx SpecContext,
+		) {
+			openTx()
+			r := &rack.Rack{Name: "rename-no-status-rack"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(stat.NewWriter(tx).DeleteOwned(ctx, r.ResourceID())).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "renamed-no-status-rack")).To(Succeed())
+			s := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+			Expect(s.Name).To(Equal("renamed-no-status-rack"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Rack status unknown"))
+		})
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
 			openTx()
 			r := &rack.Rack{Name: "rename-empty-rack"}
@@ -1093,6 +1108,32 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, &renamed)).To(Succeed())
 
 				Expect(retrieve()).To(Equal(expected))
+			},
+		)
+
+		It(
+			"Should keep the live status when a set action renames a rack",
+			func(ctx SpecContext) {
+				openTx()
+				r := rack.Rack{
+					Name: "starting rack",
+					Status: &rack.Status{
+						Variant: status.VariantWarning,
+						Message: "Rack is starting",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
+				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+				live.Variant = status.VariantSuccess
+				live.Message = "Rack is connected"
+				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
+				expected := live
+				expected.Name = "connected rack"
+
+				Expect(writer.Rename(ctx, r.Key, "connected rack")).To(Succeed())
+
+				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).To(Equal(expected))
 			},
 		)
 

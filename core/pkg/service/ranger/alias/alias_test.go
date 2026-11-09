@@ -20,6 +20,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -100,6 +102,92 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
+		})
+	})
+
+	Describe("Dispatch", func() {
+		type frame = actions.Scoped[string, alias.Action]
+		var (
+			r   ranger.Range
+			ch  channel.Channel
+			key string
+		)
+		write := func(ctx context.Context, fn func(alias.Writer) error) error {
+			return db.WithTx(ctx, func(tx gorp.Tx) error {
+				return fn(aliasSvc.NewWriter(tx).WithDispatchKey("dk"))
+			})
+		}
+		BeforeEach(func(ctx SpecContext) {
+			ch = createChannel(ctx)
+			r = ranger.Range{Name: "Range", TimeRange: telem.NewRangeSeconds(5, 10)}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangerSvc.NewWriter(tx).Create(ctx, &r)
+			})).To(Succeed())
+			Expect(write(ctx, func(w alias.Writer) error {
+				return w.Set(ctx, r.Key, ch.Key(), "Before")
+			})).To(Succeed())
+			key = alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey()
+		})
+		set := func(path string, value any) alias.Action {
+			return alias.NewSetAction(
+				alias.SetPayload{Path: []string{path}, Value: value},
+			)
+		}
+		apply := func(ctx context.Context, key string, acts ...alias.Action) error {
+			return write(ctx, func(w alias.Writer) error {
+				return w.Apply(ctx, key, acts...)
+			})
+		}
+		retrieve := func(ctx context.Context) string {
+			GinkgoHelper()
+			return MustSucceed(aliasSvc.NewReader(db).Retrieve(ctx, r.Key, ch.Key()))
+		}
+
+		It("Should store the edited alias", func(ctx SpecContext) {
+			Expect(apply(ctx, key, set("alias", "After"))).To(Succeed())
+			Expect(retrieve(ctx)).To(Equal("After"))
+		})
+
+		It("Should refuse a path outside the editable fields", func(ctx SpecContext) {
+			err := apply(ctx, key, set("channel", 1))
+			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).
+				To(MatchError(ContainSubstring(`unknown object member name "channel"`)))
+			Expect(retrieve(ctx)).To(Equal("Before"))
+		})
+
+		It("Should refuse an alias that does not exist", func(ctx SpecContext) {
+			other := alias.Alias{Range: r.Key, Channel: createChannel(ctx).Key()}
+			Expect(apply(ctx, other.GorpKey(), set("alias", "After"))).
+				To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should broadcast a set and an applied batch", func(ctx SpecContext) {
+			rec := &Recorder[string, alias.Action]{}
+			DeferCleanup(aliasSvc.Actions().OnChange(rec.Record))
+			other := createChannel(ctx)
+			Expect(write(ctx, func(w alias.Writer) error {
+				return w.Set(ctx, r.Key, other.Key(), "Created")
+			})).To(Succeed())
+			Expect(apply(ctx, key, set("alias", "After"))).To(Succeed())
+			frames := rec.Snapshot()
+			created := alias.Alias{Range: r.Key, Channel: other.Key(), Alias: "Created"}
+			Expect(frames).To(Equal([]frame{
+				{
+					Key:         created.GorpKey(),
+					DispatchKey: "dk",
+					Seq:         frames[0].Seq,
+					Actions: []alias.Action{
+						alias.NewCreateAction(alias.CreatePayload{Alias: created}),
+					},
+				},
+				{
+					Key:         key,
+					DispatchKey: "dk",
+					Seq:         frames[1].Seq,
+					Actions:     []alias.Action{set("alias", "After")},
+				},
+			}))
 		})
 	})
 
