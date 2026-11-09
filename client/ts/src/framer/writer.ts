@@ -141,12 +141,15 @@ const resZ = z.object({
 
 /** The result of a commit. */
 export interface CommitResult {
-  /** The end of the committed time range. Only valid when `authorized` is true. */
+  /**
+   * The end of the committed time range. Zero if the commit lacked control or if the
+   * writer writes only virtual channels.
+   */
   end: TimeStamp;
   /**
-   * Whether the writer had control of every channel it writes at the commit. When
-   * false, other channels may have committed. The writer stays open so that it can
-   * regain control.
+   * False if the writer lacked control of a channel with samples to commit, or if the
+   * Core refused a write since the last commit. Each refused write is reported at one
+   * commit only. The writer stays open so that it can regain control.
    */
   authorized: boolean;
 }
@@ -297,7 +300,7 @@ export class Writer {
   }
 
   /**
-   * Commits like `commit`, and also reports whether the writer had control.
+   * Commits like `commit`, and also reports whether the Core refused data.
    * @returns the result of the commit.
    * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
    * before the commit.
