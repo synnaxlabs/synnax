@@ -101,7 +101,7 @@ func migrateUsers(ctx context.Context, tx gorp.Tx, cfg MigrationConfig) error {
 	}
 	w := cfg.User.NewWriter(tx)
 	for r, keys := range byRole {
-		if err = w.SetRole(ctx, r, nil, keys...); err != nil {
+		if err = w.SetRole(ctx, r, keys...); err != nil {
 			return err
 		}
 	}
