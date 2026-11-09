@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { TimeStamp, uuid } from "@synnaxlabs/x";
+import { uuid } from "@synnaxlabs/x";
 import { act, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, Suspense } from "react";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -19,37 +19,18 @@ import { Log } from "@/log";
 import { log } from "@/log/aether";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
-// Stands in for the worker-side log and keeps each state and seek the Log sends it.
+// Stands in for the worker-side log and keeps each state the Log sends it.
 const createRecorder = () => {
   const states: unknown[] = [];
-  const seeks: string[] = [];
-  class Recorder
-    extends aether.Leaf<typeof log.logStateZ, {}, typeof log.methodsZ>
-    implements aether.HandlersFromSchema<typeof log.methodsZ>
-  {
+  class Recorder extends aether.Leaf<typeof log.logStateZ> {
     static readonly TYPE = log.Log.TYPE;
     schema = log.logStateZ;
-    methods = log.methodsZ;
 
     afterUpdate(): void {
       states.push(this.state);
     }
-
-    selectedLines(): log.Line[] {
-      return [];
-    }
-
-    seek(time: string): void {
-      seeks.push(time);
-    }
-
-    seekProgress(): void {}
   }
-  return {
-    registry: { [Recorder.TYPE]: Recorder },
-    last: () => states.at(-1),
-    seeks,
-  };
+  return { registry: { [Recorder.TYPE]: Recorder }, last: () => states.at(-1) };
 };
 
 const client = createTestClient();
@@ -97,29 +78,5 @@ describe("Log", () => {
         channels: [],
       }),
     );
-  });
-
-  it("should open a range log paused at the start of the range", async () => {
-    const [start, end] = [TimeStamp.seconds(10), TimeStamp.seconds(20)];
-    const range = await client.ranges.create({
-      name: `log_${uuid.create()}`,
-      timeRange: { start, end },
-    });
-    const created = await client.logs.create({ range: range.key, name: "range" });
-    await act(async () => {
-      render(
-        <Suspense>
-          <Log.Suspended logKey={created.key}>
-            <Log.Log />
-          </Log.Suspended>
-        </Suspense>,
-        { wrapper },
-      );
-    });
-    const shown = { start: start.valueOf().toString(), end: end.valueOf().toString() };
-    await waitFor(() => {
-      expect(recorder.last()).toMatchObject({ range: shown, scrolling: true });
-      expect(recorder.seeks).toEqual([shown.start]);
-    });
   });
 });

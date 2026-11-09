@@ -20,7 +20,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Ranger } from "@synnaxlabs/pluto";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -174,6 +174,16 @@ describe("range/Toolbar", () => {
       }),
     );
     expect(await screen.findByText(rng.name)).toBeTruthy();
+  });
+
+  it("keeps a local range that is dragged onto its own list", async () => {
+    const local = createLocalRangeState(uniqueRangeName("local"));
+    const { store } = await renderToolbar({ ranges: [local] });
+    const item = await screen.findByText(local.name);
+    fireEvent.dragStart(item);
+    fireEvent.drop(item);
+    await act(async () => {});
+    expect(Session.Range.selectState(store.getState(), local.key)).toEqual(local);
   });
 
   describe("context menu", () => {

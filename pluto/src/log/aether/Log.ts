@@ -79,7 +79,7 @@ export const logStateZ = log.logZ
     thumb: thumbZ.nullable().default(null),
     // Where a dragged thumb sits on its track, from 0 at the top to 1, or -1.
     dragProgress: z.number().default(-1),
-    // The times of the range that owns the log, as decimal counts of nanoseconds.
+    // The times of a range to shade, as decimal counts of nanoseconds.
     range: z.object({ start: z.string(), end: z.string() }).nullable().default(null),
   });
 
@@ -803,7 +803,7 @@ export class Log
     return { top, height };
   }
 
-  // Shades the owning range on the track where the middle of a dropped thumb of height
+  // Shades the range on the track where the middle of a dropped thumb of height
   // seeks into it, for a view that shows span of the stored times. A range outside the
   // stored times shades nothing.
   private drawRange(

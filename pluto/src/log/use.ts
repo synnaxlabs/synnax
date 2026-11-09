@@ -50,8 +50,7 @@ export interface UseProps
     >,
     Aether.ComponentProps {
   channels?: clientLog.ChannelEntry[];
-  /** The range that owns the log. The scrollbar shades it, and a log that mounts
-   * live opens paused at its start. */
+  /** A range that the scrollbar shades. */
   range?: TimeRange;
   /** Controlled pause state. When set, the log pauses scrolling while true. */
   hold?: boolean;

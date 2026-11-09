@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Log as Base, Panel as PPanel } from "@synnaxlabs/pluto";
+import { TimeRange } from "@synnaxlabs/x";
 
 import { Controls } from "@/feature/log/Controls";
 import { ContextMenu } from "@/platform/context-menu";
@@ -24,6 +25,7 @@ const Internal: Panel.Content = () => {
   const hasChannels = Base.useChannelKeys().length > 0;
   const hold = Session.Log.useSelectHold();
   const position = Session.Log.useSelectPosition();
+  const range = Session.Log.useSelectRange();
 
   const handleDoubleClick = () => {
     dispatch(Session.Nav.showBottom({}));
@@ -37,6 +39,13 @@ const Internal: Panel.Content = () => {
   const handleHold = (hold: boolean) => dispatch(Session.Log.setHold({ key, hold }));
   const handleLeave = (position: string) =>
     dispatch(Session.Log.setPosition({ key, position }));
+  const handleDropRange = ({ start, end }: TimeRange) =>
+    dispatch(
+      Session.Log.setRange({
+        key,
+        range: { start: start.valueOf().toString(), end: end.valueOf().toString() },
+      }),
+    );
 
   return (
     <Base.Log
@@ -45,6 +54,12 @@ const Internal: Panel.Content = () => {
       onHold={handleHold}
       position={position}
       onLeave={handleLeave}
+      range={
+        range == null
+          ? undefined
+          : new TimeRange(BigInt(range.start), BigInt(range.end))
+      }
+      onDropRange={handleDropRange}
       extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <Empty.Action
