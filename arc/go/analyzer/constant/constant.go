@@ -278,9 +278,8 @@ func (e evaluator) cast(node parser.ITypeCastContext) result {
 	expr := node.Expression()
 	t, err := atypes.InferFromTypeContext(node.Type_())
 	integer := err == nil && isInteger(t)
-	if lit := parser.GetLiteral(expr); integer && lit != nil {
-		v, ok := literalValue(lit, parser.IsNegatedLiteral(expr))
-		if ok && fits(v, t) {
+	if lit, negate, ok := signedLiteral(expr); integer && ok {
+		if v, ok := literalValue(lit, negate); ok && fits(v, t) {
 			return result{value: v, typ: t}
 		}
 	}
@@ -289,6 +288,24 @@ func (e evaluator) cast(node parser.ITypeCastContext) result {
 		return result{failed: inner.failed}
 	}
 	return result{value: inner.value, typ: t}
+}
+
+// signedLiteral returns the literal of expr when expr is a literal or a literal with
+// one minus sign, and whether the sign is present.
+func signedLiteral(
+	expr parser.IExpressionContext,
+) (lit parser.ILiteralContext, negate, ok bool) {
+	lit = parser.GetLiteral(expr)
+	if lit == nil {
+		return nil, false, false
+	}
+	switch expr.GetText() {
+	case lit.GetText():
+		return lit, false, true
+	case "-" + lit.GetText():
+		return lit, true, true
+	}
+	return nil, false, false
 }
 
 // literal evaluates lit, negated when negate is true, and reports an overflow at node.
