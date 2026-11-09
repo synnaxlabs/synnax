@@ -47,11 +47,11 @@ type Store interface {
 	) (Record, error)
 	// Edit applies the path actions at cursors to the record stored under key, then
 	// prepares the result as Prepare does. Each cursor is past the segment that names
-	// the config. A value that an action removes or sets to null takes its default.
-	// Edit returns the record to write, and whether it differs from the result of the
-	// actions alone, such as by a filled default. It returns an error wrapping
-	// query.ErrNotFound when no record exists, or validate.ErrValidation when an action
-	// or the result is not valid.
+	// the config. A value that an action removes or sets to null takes its default, and
+	// a value set to zero stays zero. Edit returns the record to write, and whether it
+	// differs from the result of the actions alone, such as by a filled default. It
+	// returns an error wrapping query.ErrNotFound when no record exists, or
+	// validate.ErrValidation when an action or the result is not valid.
 	Edit(
 		ctx context.Context,
 		snap gorp.Snapshot,
@@ -310,7 +310,7 @@ func (s *Service[E]) Edit(
 		if err != nil {
 			return Record{}, false, err
 		}
-		if e, err = s.refill(e, r.Emptied); err != nil {
+		if e, err = refill(e, r.Emptied); err != nil {
 			return Record{}, false, err
 		}
 		filled = filled || r.Filled
@@ -325,33 +325,46 @@ func (s *Service[E]) Edit(
 
 // refill drops the members at paths from the JSON form of e and decodes the result, so
 // a removed or nulled value takes its default. An empty path drops the whole config.
-func (s *Service[E]) refill(e E, paths [][]string) (E, error) {
-	var next E
+func refill[E any](e E, paths [][]string) (E, error) {
 	if len(paths) == 0 {
 		return e, nil
 	}
+	return redecode(e, func(data msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		for _, p := range paths {
+			if len(p) == 0 {
+				data = msgpack.EncodedJSON{}
+				continue
+			}
+			last := len(p) - 1
+			remove := patch.Remove{Path: p[:last], Key: p[last]}
+			if err := remove.Apply(data); err != nil {
+				return nil, err
+			}
+		}
+		return data, nil
+	})
+}
+
+// redecode decodes the result of drop on the JSON form of e, so each member that drop
+// deletes takes its schema default.
+func redecode[E any](
+	e E,
+	drop func(msgpack.EncodedJSON) (msgpack.EncodedJSON, error),
+) (E, error) {
+	var next E
 	data, err := encode(e)
 	if err != nil {
 		return next, err
 	}
-	for _, p := range paths {
-		if len(p) == 0 {
-			data = msgpack.EncodedJSON{}
-			continue
-		}
-		last := len(p) - 1
-		if err = (patch.Remove{Path: p[:last], Key: p[last]}).Apply(data); err != nil {
-			return next, err
-		}
+	if data, err = drop(data); err != nil {
+		return next, err
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
 		return next, err
 	}
 	if err = json.Unmarshal(b, &next); err != nil {
-		return *new(E), errors.Wrapf(
-			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
-		)
+		return *new(E), errors.Wrapf(validate.ErrValidation, "decoding config: %s", err)
 	}
 	return next, nil
 }
@@ -485,18 +498,10 @@ func (s *Service[E]) Normalize(
 // source version lacks as a zero, while a member that in carries keeps the value the
 // lift gave it, zero or not.
 func withInputDefaults[E any](e E, in msgpack.EncodedJSON) (E, error) {
-	var filled E
-	out, err := encode(e)
-	if err != nil {
-		return filled, err
-	}
-	dropOmittedZeros(out, in)
-	b, err := json.Marshal(out)
-	if err != nil {
-		return filled, err
-	}
-	err = json.Unmarshal(b, &filled)
-	return filled, err
+	return redecode(e, func(out msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		dropOmittedZeros(out, in)
+		return out, nil
+	})
 }
 
 // dropOmittedZeros deletes from out every member, at any object depth, that in omits
