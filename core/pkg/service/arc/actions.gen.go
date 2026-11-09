@@ -266,7 +266,7 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 			state, err = a.ForgetChars.Handle(state)
 		case ActionTypeSetDirectory:
 			if a.SetDirectory == nil {
-				return state, union.MissingPayload(a.Type)
+				return Arc{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetDirectory.Handle(state)
 		case ActionTypeSet:
