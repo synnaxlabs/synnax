@@ -1016,7 +1016,7 @@ var _ = Describe("File Controller", Ordered, func() {
 			}))
 			Expect(db.OpenWriter(ctx, domain.WriterConfig{
 				Start: 10 * telem.SecondTS,
-			})).Error().To(MatchError(ContainSubstring("maximum of 65535 files")))
+			})).Error().To(MatchError(domain.ErrFileLimit))
 		})
 	})
 })
