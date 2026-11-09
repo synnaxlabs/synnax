@@ -338,7 +338,7 @@ export const useSelectTab = (panelKey?: panel.Key) => {
   return (key: panel.TabKey, overridePanelKey?: panel.Key) => {
     const resolvedPanelKey = overridePanelKey ?? scopedPanelKey;
     if (resolvedPanelKey == null) return;
-    const cached = client?.panels.getCached(resolvedPanelKey);
+    const cached = client?.panels.watch(resolvedPanelKey).getCached();
     if (!query.isLive(cached))
       throw new NotFoundError(`Panel with key ${resolvedPanelKey} not found`);
     const leaf = panel.findTabLeaf(cached.root, key);

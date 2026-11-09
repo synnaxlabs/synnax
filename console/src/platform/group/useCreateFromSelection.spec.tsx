@@ -41,7 +41,11 @@ const GroupSelectionMenu = (props: Tree.ContextMenuProps): ReactElement => {
   return <button onClick={() => createFromSelection(props)}>group selection</button>;
 };
 
-const useGroupSearch = Tree.createSearch({ noun: "groups" });
+const useGroupSearch = Tree.createSearch({
+  noun: "groups",
+  useMatches: Group.useMatches,
+  usePlacement: Group.usePlacement,
+});
 
 const createContainer = async () =>
   await client.groups.create({ scope: "channel", name: uniqueName("container") });

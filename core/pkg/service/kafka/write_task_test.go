@@ -202,6 +202,35 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
+	It("Should encode a generated timestamp field with no time format as ISO 8601",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			startTask(ctx, kafka.WriteConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Record: kafka.Record{
+					ValuePointer: "/value",
+					Fields: []http.WriteField{{Variant: http.GeneratedWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key:     "sent",
+							Pointer: "/sent",
+						},
+						Generator: http.GeneratorTypeTimestamp,
+					}}},
+				},
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(20 * telem.Second)},
+				telem.NewSeriesV[float64](1.5),
+			)
+			recs := consume(ctx, topic, 1)
+			Expect(decode(recs[0])).To(HaveKeyWithValue("sent", "1970-01-01T00:00:20Z"))
+		},
+	)
+
 	It("Should produce every series a free channel carries in one frame",
 		func(ctx SpecContext) {
 			ch := channel.Channel{

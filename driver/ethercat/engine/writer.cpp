@@ -48,11 +48,4 @@ x::errors::Error Engine::Writer::Transaction::write(
 Engine::Writer::Transaction Engine::Writer::open_tx() const {
     return Transaction(*this);
 }
-
-x::errors::Error Engine::Writer::write(
-    const size_t pdo_index,
-    const x::telem::SampleValue &value
-) const {
-    return this->open_tx().write(pdo_index, value);
-}
 }

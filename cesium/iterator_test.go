@@ -447,7 +447,7 @@ var _ = Describe("Iterator Behavior", func() {
 							telem.NewSeriesV[int64](0, 1, 2, 3, 4),
 						},
 					)))
-					MustSucceed(w.Commit())
+					MustCommit(w)
 					Expect(w.Close()).To(Succeed())
 				})
 
@@ -682,7 +682,7 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(
@@ -825,7 +825,7 @@ var _ = Describe("Iterator Behavior", func() {
 							[]cesium.ChannelKey{idxKey, dataKey},
 							[]telem.Series{ts, vals},
 						)))
-						MustSucceed(w.Commit())
+						MustCommit(w)
 						Expect(w.Close()).To(Succeed())
 					}
 					write(

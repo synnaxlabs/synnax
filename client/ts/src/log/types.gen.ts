@@ -18,14 +18,27 @@ import { project } from "@/project";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 
-/** TimestampConfig is per-channel timestamp display configuration. */
+export const ORDER_FIELDS = ["name"] as const;
+export const orderFieldZ = z.enum(ORDER_FIELDS);
+export type OrderField = z.infer<typeof orderFieldZ>;
+
+/** TimestampConfig is how a timestamp channel shows its values. */
 export const timestampConfigZ = z.object({
-  /** format controls how channel timestamps are rendered. */
+  /** format is the format of the values of a timestamp channel. */
   format: telem.timestampFormatZ,
-  /** tz is the time zone used when rendering timestamps. */
-  tz: telem.timeZoneZ,
+  /** timeZone is the time zone of the values of a timestamp channel. */
+  timeZone: telem.timeZoneZ,
 });
 export interface TimestampConfig extends z.infer<typeof timestampConfigZ> {}
+
+/** Order is a sort of logs. */
+export const orderZ = z.object({
+  /** field is the field to sort by. Records with equal values sort by key. */
+  field: orderFieldZ,
+  /** descending sorts from the greatest value to the least. */
+  descending: z.boolean().default(false),
+});
+export interface Order extends z.infer<typeof orderZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -39,14 +52,20 @@ export const channelEntryZ = z.object({
   /** notation is the numeric notation used to render samples. */
   notation: notation.notationZ.default("standard"),
   /**
-   * precision is the number of decimal digits to display. Absent shows each sample as
-   * it arrives; 17 is the maximum significant digits for a float64.
+   * precision is the number of digits after the decimal point, from 0 to 17. Absent
+   * shows each sample as it arrives.
    */
   precision: zod.uint8.max(17).optional(),
   /** alias is a human-readable alias displayed in place of the channel name. */
   alias: z.string().check(zod.maxLength(64)).default(""),
-  /** timestamp is the per-channel timestamp display configuration. */
-  timestamp: timestampConfigZ.prefault({ format: "preciseDate", tz: "local" }),
+  /**
+   * timestampConfig formats the values of a timestamp channel. It has no effect on line
+   * times.
+   */
+  timestampConfig: timestampConfigZ.prefault({
+    format: "preciseDate",
+    timeZone: "local",
+  }),
 });
 export interface ChannelEntry extends z.infer<typeof channelEntryZ> {}
 
@@ -86,6 +105,15 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   ranges: zod.nullToUndefined(ranger.keyZ.array()),
 });
 
+/** Cursor is a position in an order of logs: the sort value and the key of a log. */
+export const cursorZ = z.object({
+  /** key is the key of the log at the position. */
+  key: keyZ,
+  /** name is the name of the log at the position, when the order sorts by it. */
+  name: z.string().optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
 /**
  * Log is a visualization that shows the samples of its channels as text, one line per
  * sample, in time order.
@@ -95,7 +123,7 @@ export const logZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the log. */
   name: z.string().min(1, "name is required"),
-  /** channels are the channels displayed in this log, in order. */
+  /** channels are the channels displayed in this log. */
   channels: channelEntryZ.array().default(() => []),
   /** timestampPrecision is the precision of displayed timestamps (0-3). */
   timestampPrecision: zod.uint8.max(3).default(0),
@@ -126,10 +154,12 @@ export const retrieveRequestZ = z.strictObject({
   where: whereZ.optional(),
   /** searchTerm keeps the logs that match the term, closest match first. */
   searchTerm: z.string().optional(),
+  /** order sorts the logs. An absent order sorts them by key. */
+  order: orderZ.optional(),
+  /** after starts the logs strictly past this position in their order. */
+  after: cursorZ.optional(),
   /** limit is the most logs to return. */
   limit: z.uint32().optional(),
-  /** offset is the number of matching logs to skip. */
-  offset: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 export interface New extends z.input<typeof logZ> {}

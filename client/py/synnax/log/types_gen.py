@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, TypeAlias, TypedDict, override as _override
+from typing import Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -21,19 +21,36 @@ from synnax.resource import ID
 from x import color as color_, filter, notation as notation_, telem
 from x.filter import shorthand
 
+ORDER_FIELD_NAME: Literal["name"] = "name"
+
+
+OrderField = Literal["name"]
+
 Key: TypeAlias = UUID
 
 
 class TimestampConfig(BaseModel):
-    """Is per-channel timestamp display configuration.
+    """Is how a timestamp channel shows its values.
 
     Attributes:
-        format: Controls how channel timestamps are rendered.
-        tz: Is the time zone used when rendering timestamps.
+        format: Is the format of the values of a timestamp channel.
+        time_zone: Is the time zone of the values of a timestamp channel.
     """
 
     format: telem.TimestampFormat
-    tz: telem.TimeZone
+    time_zone: telem.TimeZone
+
+
+class Order(BaseModel):
+    """Is a sort of logs.
+
+    Attributes:
+        field: Is the field to sort by. Records with equal values sort by key.
+        descending: Sorts from the greatest value to the least.
+    """
+
+    field: OrderField
+    descending: bool = False
 
 
 class Where(BaseModel):
@@ -85,6 +102,18 @@ WhereInput = TypedDict(
 )
 
 
+class Cursor(BaseModel):
+    """Is a position in an order of logs: the sort value and the key of a log.
+
+    Attributes:
+        key: Is the key of the log at the position.
+        name: Is the name of the log at the position, when the order sorts by it.
+    """
+
+    key: Key
+    name: str | None = None
+
+
 class ChannelEntry(BaseModel):
     """Is a per-channel display configuration entry within a log.
 
@@ -92,10 +121,11 @@ class ChannelEntry(BaseModel):
         channel: Is the channel this entry references.
         color: Is the display color for the channel.
         notation: Is the numeric notation used to render samples.
-        precision: Is the number of decimal digits to display. Absent shows each sample
-            as it arrives; 17 is the maximum significant digits for a float64.
+        precision: Is the number of digits after the decimal point, from 0 to 17. Absent
+            shows each sample as it arrives.
         alias: Is a human-readable alias displayed in place of the channel name.
-        timestamp: Is the per-channel timestamp display configuration.
+        timestamp_config: Formats the values of a timestamp channel. It has no effect on
+            line times.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -103,8 +133,8 @@ class ChannelEntry(BaseModel):
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
-    timestamp: TimestampConfig = Field(
-        default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
+    timestamp_config: TimestampConfig = Field(
+        default_factory=lambda: TimestampConfig(format="preciseDate", time_zone="local")
     )
 
 
@@ -114,16 +144,18 @@ class RetrieveRequest(BaseModel):
     Attributes:
         where: Selects the logs to retrieve. An absent where selects all of them.
         search_term: Keeps the logs that match the term, closest match first.
+        order: Sorts the logs. An absent order sorts them by key.
+        after: Starts the logs strictly past this position in their order.
         limit: Is the most logs to return.
-        offset: Is the number of matching logs to skip.
     """
 
     model_config = ConfigDict(extra="forbid")
 
     where: Where | None = None
     search_term: str = ""
+    order: Order | None = None
+    after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
-    offset: int = Field(default=0, ge=0, le=4294967295)
 
 
 class Log(BaseModel):
@@ -133,7 +165,7 @@ class Log(BaseModel):
     Attributes:
         key: Is the unique identifier for this log.
         name: Is a human-readable name for the log.
-        channels: Are the channels displayed in this log, in order.
+        channels: Are the channels displayed in this log.
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.

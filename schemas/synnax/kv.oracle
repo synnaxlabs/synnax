@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/ranger"
+import "schemas/x/patch"
 
 @go output "core/pkg/service/ranger/kv"
 @pb
@@ -26,6 +27,33 @@ Pair struct {
     }
     value string     {
         @doc value "is the metadata value stored as a string for flexibility."
+    }
+
+    action Create {
+        pair Pair
+
+        @doc value """
+            replaces the pair with the given created state. Emitted by the Core when a
+            pair is created or overwritten whole; clients never dispatch it.
+        """
+    }
+
+    action Set extends patch.Set {
+        @doc value "replaces the value at a path in the pair."
+    }
+
+    action Remove extends patch.Remove {
+        @doc value """
+            removes an entry from a list or a field from an object in the pair.
+        """
+    }
+
+    action Insert extends patch.Insert {
+        @doc value "adds an entry to a list in the pair."
+    }
+
+    action Move extends patch.Move {
+        @doc value "moves an entry in a list in the pair."
     }
 
     @doc value        """
