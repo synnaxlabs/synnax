@@ -39,7 +39,7 @@ Sampling union on type {
     }
     array {
         size uint32 = 1 {
-            @doc value     "is the number of samples in each array the node returns."
+            @doc value    "is the number of samples in each array the node returns."
             @validate min 1
         }
 
