@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <map>
+#include <memory>
 
 #include "driver/ethercat/coe/coe.h"
 
@@ -15,6 +17,10 @@ namespace driver::ethercat::coe {
 namespace {
 constexpr uint16_t SM_TYPE_INDEX = 0x1C00;
 constexpr uint16_t PDO_ASSIGN_INDEX = 0x1C10;
+/// @brief the first index past the PDO assign objects.
+constexpr uint16_t PDO_ASSIGN_END = 0x1C30;
+/// @brief complete access sends sub-index 0 as 16 bits.
+constexpr size_t COMPLETE_ACCESS_HEADER = 2;
 constexpr uint32_t SM_TYPE_MAILBOX_IN = 2;
 constexpr uint32_t SM_TYPE_OUTPUTS = 3;
 constexpr uint32_t SM_TYPE_INPUTS = 4;
@@ -23,6 +29,51 @@ constexpr uint32_t FIRST_PROCESS_DATA_SM = 2;
 /// @brief the most PDOs an assign object, or objects a PDO, can count.
 constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
+
+/// @brief returns the size in bytes of each entry of an object that read_layout reads:
+/// the sync manager types, a PDO assign object, or a PDO mapping object.
+size_t entry_size(const uint16_t index) {
+    if (index == SM_TYPE_INDEX) return 1;
+    if (index >= PDO_ASSIGN_INDEX && index < PDO_ASSIGN_END) return 2;
+    return 4;
+}
+
+/// @brief returns the entries of an object read with complete access, or nullopt when
+/// bytes are too short for the count in sub-index 0.
+std::optional<std::vector<uint32_t>>
+parse_entries(const std::vector<uint8_t> &bytes, const size_t size) {
+    if (bytes.size() < COMPLETE_ACCESS_HEADER) return std::nullopt;
+    const size_t count = bytes[0];
+    if (bytes.size() < COMPLETE_ACCESS_HEADER + (count * size)) return std::nullopt;
+    std::vector<uint32_t> entries(count);
+    for (size_t i = 0; i < count; i++) {
+        const size_t start = COMPLETE_ACCESS_HEADER + (i * size);
+        for (size_t b = 0; b < size; b++)
+            entries[i] |= static_cast<uint32_t>(bytes[start + b]) << (8 * b);
+    }
+    return entries;
+}
+}
+
+Read with_complete_access(Read read, ReadAll read_all) {
+    auto objects = std::make_shared<
+        std::map<uint16_t, std::optional<std::vector<uint32_t>>>>();
+    return [read = std::move(read), read_all = std::move(read_all), objects](
+               const uint16_t index,
+               const uint8_t sub_index
+           ) -> std::pair<uint32_t, x::errors::Error> {
+        auto [it, added] = objects->try_emplace(index);
+        if (added)
+            if (const auto bytes = read_all(index))
+                it->second = parse_entries(*bytes, entry_size(index));
+        if (const auto &entries = it->second; entries && sub_index <= entries->size())
+            return {
+                sub_index == 0 ? static_cast<uint32_t>(entries->size())
+                               : (*entries)[sub_index - 1],
+                x::errors::NIL
+            };
+        return read(index, sub_index);
+    };
 }
 
 x::errors::Error

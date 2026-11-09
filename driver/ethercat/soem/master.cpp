@@ -61,6 +61,9 @@ const int RECOVERY_TIMEOUT = static_cast<int>(
 );
 /// Timeout for one SDO (Service Data Object) read or write in microseconds.
 const int SDO_TIMEOUT = static_cast<int>((x::telem::MILLISECOND * 700).microseconds());
+/// The largest object a complete access read returns: sub-index 0 as 16 bits, then 255
+/// entries of four bytes.
+constexpr size_t MAX_OBJECT_SIZE = 2 + (255 * 4);
 
 /// Time from the read of a slave's DC system time to its first SYNC0 event, so the
 /// slave takes the start time before the event passes.
@@ -607,18 +610,40 @@ Master::read_sdo(const uint16_t pos, const uint16_t index, const uint8_t sub_ind
     };
 }
 
+std::optional<std::vector<uint8_t>>
+Master::read_object(const uint16_t pos, const uint16_t index) {
+    std::vector<uint8_t> bytes(MAX_OBJECT_SIZE);
+    int size = static_cast<int>(bytes.size());
+    if (this->api->SDOread(pos, index, 0, TRUE, &size, bytes.data(), SDO_TIMEOUT) <=
+        0) {
+        pop_sdo_abort(*this->api, pos, index, 0);
+        return std::nullopt;
+    }
+    bytes.resize(static_cast<size_t>(size));
+    return bytes;
+}
+
+Master::Description &Master::description(const uint16_t pos) {
+    const auto &rec = this->record(pos);
+    return this->descriptions[{rec.eep_man, rec.eep_id, rec.eep_rev}];
+}
+
 void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     const auto pos = props.position;
     x::errors::Error layout_err;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) != 0) {
-        auto [syncs, err] = coe::read_layout(
-            [this, pos](const uint16_t index, const uint8_t sub_index) {
-                return this->read_sdo(pos, index, sub_index);
-            },
-            EC_MAXSM,
-            coe::OnError::SKIP
-        );
+        coe::Read read = [this, pos](const uint16_t index, const uint8_t sub_index) {
+            return this->read_sdo(pos, index, sub_index);
+        };
+        if ((this->record(pos).CoEdetails & ECT_COEDET_SDOCA) != 0)
+            read = coe::with_complete_access(
+                std::move(read),
+                [this, pos](const uint16_t index) {
+                    return this->read_object(pos, index);
+                }
+            );
+        auto [syncs, err] = coe::read_layout(read, EC_MAXSM, coe::OnError::SKIP);
         layout_err = err;
         for (auto &sync: syncs)
             for (auto &pdo: sync.pdos) {
@@ -722,22 +747,26 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
 constexpr uint16_t SII_DC_CATEGORY = 60;
 
 std::vector<dc::OpMode> Master::read_op_modes(const uint16_t pos) {
-    auto modes = sii::parse_op_modes(
+    auto &modes = this->description(pos).op_modes;
+    if (modes) return *modes;
+    modes = sii::parse_op_modes(
         this->read_sii_category(pos, SII_DC_CATEGORY),
         this->sii_strings(pos)
     );
     this->api->eeprom2pdi(pos);
-    return modes;
+    return *modes;
 }
 
 std::optional<std::string>
 Master::read_object_name(const uint16_t slave_pos, const uint16_t index) {
+    auto &names = this->description(slave_pos).object_names;
+    if (const auto it = names.find(index); it != names.end()) return it->second;
     ec_ODlistt od_list{};
     od_list.Slave = slave_pos;
     od_list.Index[0] = index;
     od_list.Entries = 1;
     if (this->api->readODdescription(0, &od_list) > 0 && od_list.Name[0][0] != '\0')
-        return std::string(od_list.Name[0]);
+        return names[index] = std::string(od_list.Name[0]);
     return std::nullopt;
 }
 
@@ -746,6 +775,9 @@ std::pair<std::string, telem::DataType> Master::read_object_entry(
     const uint16_t index,
     const uint8_t sub_index
 ) {
+    auto &entries = this->description(slave_pos).entries;
+    if (const auto it = entries.find({index, sub_index}); it != entries.end())
+        return it->second;
     ec_ODlistt od_list{};
     od_list.Slave = slave_pos;
     od_list.Index[0] = index;
@@ -755,9 +787,9 @@ std::pair<std::string, telem::DataType> Master::read_object_entry(
     if (this->api->readOEsingle(0, sub_index, &od_list, &oe_list) <= 0 ||
         oe_list.Entries == 0)
         return {"", telem::DataType::EC_UNKNOWN};
-    return {
-        std::string(oe_list.Name[sub_index]),
-        static_cast<telem::DataType>(oe_list.DataType[sub_index])
+    return entries[{index, sub_index}] = {
+               std::string(oe_list.Name[sub_index]),
+               static_cast<telem::DataType>(oe_list.DataType[sub_index])
     };
 }
 
