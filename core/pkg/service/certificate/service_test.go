@@ -175,6 +175,17 @@ func (e *env) resolveKey(ctx SpecContext, c certificate.Certificate) []byte {
 	return MustSucceed(e.secrets.Resolve(ctx, rk, g, key))[key]
 }
 
+// keyName returns the name of the private key secret of c.
+func (e *env) keyName(ctx SpecContext, c certificate.Certificate) string {
+	GinkgoHelper()
+	var s secret.Secret
+	Expect(e.secrets.NewRetrieve().
+		Where(secret.MatchKeys(*c.Variant.(certificate.StoredCertificate).PrivateKey)).
+		Entry(&s).
+		Exec(ctx, e.db)).To(Succeed())
+	return s.Base().Name
+}
+
 var _ = Describe("Service", func() {
 	It("Should require the secret and status services", func(ctx SpecContext) {
 		Expect(certificate.OpenService(ctx, certificate.ServiceConfig{})).Error().

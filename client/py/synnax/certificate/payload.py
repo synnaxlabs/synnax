@@ -21,15 +21,15 @@ class NewStored(BaseModel):
 
     :param key: Replaces the certificate with this key when it exists.
     :param pem: The certificate chain as PEM, leaf first.
-    :param private_key: The private key as PEM. The Core checks that it matches the
-        certificate and saves it as a secret.
+    :param private_key_pem: The private key as PEM. The Core checks that it matches
+        the certificate and saves it as a secret.
     """
 
     key: Key = Field(default_factory=uuid4)
     name: str
     source: Literal["stored"] = "stored"
     pem: str
-    private_key: str | None = None
+    private_key_pem: str | None = None
 
 
 New = Annotated[NewStored | FileCertificate, Field(discriminator="source")]
