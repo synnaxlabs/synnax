@@ -326,6 +326,56 @@ Log union on type extends Base {
 			},
 		)
 
+		It(
+			"Should delete every imex file when the type drops @go imex",
+			func(ctx SpecContext) {
+				tmpDir := GinkgoT().TempDir()
+				for _, dir := range []string{"v1", "v2"} {
+					Expect(os.MkdirAll(
+						filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
+						0o755,
+					)).To(Succeed())
+				}
+				live := `
+@go output "core/pkg/service/log"
+
+Log struct {
+	key  uuid @key
+	name string
+}
+`
+				req := chainRequest(ctx, tmpDir, live, map[int]string{
+					1: logChain(true),
+					2: logChain(false),
+				})
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(BeEmpty())
+				Expect(resp.Deletions).To(ConsistOf(
+					"core/pkg/service/log/imex.gen.go",
+					"core/pkg/service/log/versions/imex.gen.go",
+					"core/pkg/service/log/versions/v1/imex.gen.go",
+					"core/pkg/service/log/versions/v2/imex.gen.go",
+				))
+			},
+		)
+
+		It("Should keep every imex file it still emits", func(ctx SpecContext) {
+			tmpDir := GinkgoT().TempDir()
+			for _, dir := range []string{"v1", "v2"} {
+				Expect(os.MkdirAll(
+					filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
+					0o755,
+				)).To(Succeed())
+			}
+			req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				1: logChain(true),
+				2: "Log = v1.Log\n",
+			})
+			resp := MustSucceed(p.Generate(req))
+			Expect(resp.Files).To(HaveLen(4))
+			Expect(resp.Deletions).To(BeEmpty())
+		})
+
 		It("Should derive packages from a nested output path", func(ctx SpecContext) {
 			live := `
 @go output "core/pkg/service/schematic/symbol"
