@@ -12,7 +12,7 @@ import Inline from "@/components/code/Inline.astro";
 // target is "service" to update a Core service, or "binary" to replace the binary.
 const { os, target } = Astro.props;
 
-const version = await Astro.locals.releases.latest("core");
+const version = await Astro.locals.releases.documented("core");
 const file = `./synnax-v${version}-${os.toLowerCase()}`;
 const code =
     target === "service"
