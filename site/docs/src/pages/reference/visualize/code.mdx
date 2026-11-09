@@ -25,7 +25,8 @@ The examples use a client that is connected to a Synnax Core. See
 
 ## Create a project
 
-Each visualization that a script creates belongs to a project.
+Each visualization that a script creates belongs to a project, or to a range when it is
+a snapshot.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -165,7 +166,9 @@ Draw a schematic in the Console, then copy it from a script. A common job is to 
 
 ```python
 schematics = client.schematics.retrieve(projects=project.key)
-pid = next(s for s in schematics if s.name == "Stand 2 P&ID")
+pid = next((s for s in schematics if s.name == "Stand 2 P&ID"), None)
+if pid is None:
+    raise ValueError("No schematic is named Stand 2 P&ID")
 burn = client.ranges.retrieve(name="Burn 2")
 
 client.schematics.copy(
@@ -284,8 +287,9 @@ plots = client.line_plots.retrieve(projects=project.key)
 for plot in plots:
     print(plot.key, plot.name)
 
-client.line_plots.rename(plots[0].key, "Burn 2 tank pressures")
-client.line_plots.delete(plots[0].key)
+if plots:
+    client.line_plots.rename(plots[0].key, "Burn 2 tank pressures")
+    client.line_plots.delete(plots[0].key)
 ```
 
 Pass `key` to retrieve one visualization. To find a project by its name, pass
@@ -300,8 +304,10 @@ matches first.
 const plots = await client.lineplots.retrieve({ projects: [project.key] });
 for (const plot of plots) console.log(plot.key, plot.name);
 
-await client.lineplots.rename(plots[0].key, "Burn 2 tank pressures");
-await client.lineplots.delete(plots[0].key);
+if (plots.length > 0) {
+  await client.lineplots.rename(plots[0].key, "Burn 2 tank pressures");
+  await client.lineplots.delete(plots[0].key);
+}
 ```
 
 Pass one key to retrieve one visualization. To find a project by its name, pass
