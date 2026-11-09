@@ -870,9 +870,12 @@ export class Log
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
-      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      const { format, timeZone: valueTimeZone } = cfg?.timestampConfig ?? {
+        format: "preciseDate",
+        timeZone: "local",
+      };
       try {
-        value = new TimeStamp(BigInt(value)).toString(format, tz);
+        value = new TimeStamp(BigInt(value)).toString(format, valueTimeZone);
       } catch {
         // Leave value as-is if it can't be parsed as a bigint.
       }
