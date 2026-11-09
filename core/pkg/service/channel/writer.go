@@ -389,9 +389,8 @@ func (w Writer) create(
 
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index). Synthesis
-	// happens before the overwrite and retrieve-existing steps so the auto-created
-	// index names flow through the same name-collision machinery as caller-provided
-	// channels.
+	// runs before the overwrite step so the auto-created index names flow through the
+	// same name-collision machinery as caller-provided channels.
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
