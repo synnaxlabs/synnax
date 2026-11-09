@@ -61,7 +61,7 @@ var _ = Describe("Grant", func() {
 		))
 		Expect(rbacSvc.NewEnforcer(db).Enforce(ctx, access.Request{
 			Subject: u.ResourceID(),
-			Action:  access.ActionRetrieve,
+			Action:  access.ActionUpdate,
 			Objects: []resource.ID{u.ResourceID()},
 		})).To(MatchError(access.ErrDenied))
 	})

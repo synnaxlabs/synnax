@@ -46,7 +46,7 @@ func openVirtual(
 			Virtual:     true,
 		}
 	}
-	channels = xtestutil.MustSucceed(dist.Channel.Create(b.Context(), channels))
+	channels = xtestutil.MustSucceed(dist.CreateChannels(b.Context(), channels))
 	return dist, channel.KeysFromChannels(channels)
 }
 
