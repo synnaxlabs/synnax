@@ -2070,7 +2070,7 @@ var _ = Describe("Task", Ordered, func() {
 				Eventually(func(g Gomega) {
 					g.Expect(rangerSvc.NewRetrieve().
 						Where(ranger.MatchNames(name)).
-						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+						Entry(&rng).Exec(ctx, db)).To(Succeed())
 				}).Should(Succeed())
 				expected := rng.Key.String()
 
