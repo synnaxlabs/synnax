@@ -744,12 +744,15 @@ export class Space<
 
   /**
    * Starts a fetch that subscribers have no caller for and that reads join. A not-found
-   * is no failure: the table delivers the deletion to subscribers.
+   * for a key that the table holds as deleted is no failure: the table delivers the
+   * deletion to subscribers.
    */
   private fetchUncovered(query: Query<P, K, D, V>): void {
     if (query.state.variant === "loading") return;
     this.fetch(query).catch((exc: unknown) => {
-      if (!NotFoundError.matches(exc)) this.report(exc);
+      const key = this.config.keyOf?.(query.params);
+      const deleted = key != null && this.config.table.status(key) === "tombstoned";
+      if (!(deleted && NotFoundError.matches(exc))) this.report(exc);
     });
   }
 

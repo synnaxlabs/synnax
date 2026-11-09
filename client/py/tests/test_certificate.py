@@ -60,7 +60,7 @@ class TestCertificate:
     def test_create_with_private_key(self, client: sy.Synnax) -> None:
         """Should save a private key as a secret."""
         c = client.certificates.create(
-            certificate.NewStored(name="Client", pem=PEM, private_key=PRIVATE_KEY)
+            certificate.NewStored(name="Client", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)
         assert c.private_key is not None
@@ -70,7 +70,7 @@ class TestCertificate:
     def test_private_key_use(self, client: sy.Synnax) -> None:
         """Should be a use of its private key secret."""
         c = client.certificates.create(
-            certificate.NewStored(name="Used key", pem=PEM, private_key=PRIVATE_KEY)
+            certificate.NewStored(name="Used key", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)
         assert c.private_key is not None
@@ -81,11 +81,14 @@ class TestCertificate:
         """Should reject a private key that does not match the certificate."""
         with pytest.raises(
             sy.PathError,
-            match=r"^private_key: does not match the certificate: validation error$",
+            match=(
+                r"^private_key_pem: does not match the certificate: "
+                r"validation error$"
+            ),
         ):
             client.certificates.create(
                 certificate.NewStored(
-                    name="Mismatched", pem=PEM, private_key=OTHER_PRIVATE_KEY
+                    name="Mismatched", pem=PEM, private_key_pem=OTHER_PRIVATE_KEY
                 )
             )
 
@@ -137,7 +140,7 @@ class TestCertificate:
     def test_delete_used_private_key(self, client: sy.Synnax) -> None:
         """Should refuse to delete a private key that a certificate uses."""
         c = client.certificates.create(
-            certificate.NewStored(name="In use", pem=PEM, private_key=PRIVATE_KEY)
+            certificate.NewStored(name="In use", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)
         assert c.private_key is not None
