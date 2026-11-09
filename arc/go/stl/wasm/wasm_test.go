@@ -115,7 +115,7 @@ func newHarness(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	MustSucceed(stltime.NewHost(ctx, wasmRT))
+	MustSucceed(stltime.NewHost(ctx, wasmRT, stringsState, discardReport))
 	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
@@ -245,7 +245,7 @@ func newTextHarness(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, wasmRT, stringsState, nil))
 	mathMod := MustSucceed(stlmath.NewHost(ctx, wasmRT))
 	errorsMod := MustSucceed(stlerrors.NewHost(ctx, wasmRT, nil))
-	MustSucceed(stltime.NewHost(ctx, wasmRT))
+	MustSucceed(stltime.NewHost(ctx, wasmRT, stringsState, discardReport))
 	channelMod := MustSucceed(channels.NewHost(ctx, wasmRT, channelState, stringsState))
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
@@ -1048,6 +1048,51 @@ var _ = Describe("WASM", func() {
 			Expect(
 				h.Output("scale", 0).Unmarshal[float64](),
 			).To(Equal([]float64{25.0, 50.0}))
+		})
+
+		It("Should decode a stored non-finite parameter", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "scale",
+						Inputs: types.Params{
+							{Name: "value", Type: types.F64()},
+							{Name: "factor", Type: types.F64(), Value: "-Infinity"},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{ return value * factor }`},
+					},
+					{
+						Key: "value",
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+						Body: ir.Body{Raw: `{ return 1.0 }`},
+					},
+				},
+				Nodes: []graph.Node{{Key: "value"}, {Key: "scale"}},
+				Inputs: map[string]msgpack.EncodedJSON{
+					"value": {"type": "value"},
+					"scale": {"type": "scale"},
+				},
+				Edges: graph.Edges{
+					{
+						Source: ir.Handle{
+							Node:  "value",
+							Param: ir.DefaultOutputParam,
+						},
+						Target: ir.Handle{Node: "scale", Param: "value"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+			h.SetInput("value", 0, telem.NewSeriesV(2.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "scale")
+			Expect(h.Output("scale", 0).Unmarshal[float64]()).
+				To(Equal([]float64{math.Inf(-1)}))
 		})
 
 		It(

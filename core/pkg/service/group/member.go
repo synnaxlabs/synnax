@@ -21,29 +21,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// memberRule says which groups can hold a record of one type.
-type memberRule struct {
-	// scope is the scope of the groups that hold the type.
-	scope resource.Type
-	// pinned is true when the top parent of the group must be the one CheckMember gets.
-	pinned bool
-}
-
-// memberRules holds the rule of each type that can sit in a group. A rack or project
-// sits only in a group with no top parent, so no group can sit under its own member.
-var memberRules = map[resource.Type]memberRule{
-	resource.TypeChannel:         {scope: resource.TypeChannel},
-	resource.TypeRack:            {scope: resource.TypeDevice, pinned: true},
-	resource.TypeDevice:          {scope: resource.TypeDevice, pinned: true},
-	resource.TypeProject:         {scope: resource.TypeProject, pinned: true},
-	resource.TypeSchematic:       {scope: resource.TypeProject},
-	resource.TypeLineplot:        {scope: resource.TypeProject},
-	resource.TypeLog:             {scope: resource.TypeProject},
-	resource.TypeTable:           {scope: resource.TypeProject},
-	resource.TypePanel:           {scope: resource.TypeProject},
-	resource.TypeSchematicSymbol: {scope: resource.TypeSchematicSymbol},
-}
-
 // CheckMember returns a validation error when a record of type t cannot sit in the
 // group with key, as seen by tx. The group's scope must hold t. holder is the record
 // that holds a device: its parent device, or else its rack. A device sits only in a

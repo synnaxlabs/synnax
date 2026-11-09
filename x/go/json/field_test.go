@@ -102,6 +102,11 @@ var _ = Describe("Field", func() {
 				text(`1e999`)),
 			Entry("a UUID", xjson.Field{DataType: telem.UUIDT}, `"`+id.String()+`"`,
 				id[:]),
+			Entry("bytes as base64", xjson.Field{DataType: telem.BytesT}, `"AP8/"`,
+				telem.MarshalVariableSample([]byte{0x00, 0xff, 0x3f})),
+			Entry("base64 with an escaped slash", xjson.Field{DataType: telem.BytesT},
+				`"AP8\/"`, telem.MarshalVariableSample([]byte{0x00, 0xff, 0x3f})),
+			Entry("empty bytes", xjson.Field{DataType: telem.BytesT}, `""`, text("")),
 			Entry(
 				"an ISO 8601 timestamp",
 				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
@@ -194,15 +199,25 @@ var _ = Describe("Field", func() {
 				`1e12`, "1e12 is out of range for a unix_sec timestamp"),
 			Entry("JSON with a repeated member", xjson.Field{DataType: telem.JSONT},
 				`{"a":1,"a":2}`, "duplicate object member name"),
+			Entry("a number into bytes", xjson.Field{DataType: telem.BytesT}, `1`,
+				"expected a base64 string, got a number"),
+			Entry("text that is not base64", xjson.Field{DataType: telem.BytesT},
+				`"a*b="`, "illegal base64 data at input byte 1"),
+			Entry("base64 without padding", xjson.Field{DataType: telem.BytesT},
+				`"YQ"`, "illegal base64 data at input byte 0"),
+			Entry("base64 with padding bits set", xjson.Field{DataType: telem.BytesT},
+				`"YR=="`, "illegal base64 data at input byte 2"),
+			Entry("base64 with a line feed", xjson.Field{DataType: telem.BytesT},
+				`"Y\nQ=="`, "base64 must not hold a line break"),
+			Entry("base64 with a carriage return", xjson.Field{DataType: telem.BytesT},
+				`"YQ==\r"`, "base64 must not hold a line break"),
 		)
 
 		It("Should reject a data type that no JSON value converts to", func() {
-			Expect(xjson.NewDecoder(xjson.Field{DataType: telem.BytesT})).Error().
+			Expect(xjson.NewDecoder(xjson.Field{DataType: telem.UnknownT})).Error().
 				To(SatisfyAll(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring(
-						"cannot convert a JSON value to bytes",
-					)),
+					MatchError(ContainSubstring("cannot convert a JSON value to")),
 				))
 		})
 
@@ -247,6 +262,12 @@ var _ = Describe("Field", func() {
 				[]byte("a\"b"), `"a\"b"`),
 			Entry("a UUID", xjson.Field{DataType: telem.UUIDT, Type: xjson.String},
 				id[:], `"`+id.String()+`"`),
+			Entry("bytes as base64",
+				xjson.Field{DataType: telem.BytesT, Type: xjson.String},
+				[]byte{0x00, 0xff, 0x3f}, `"AP8/"`),
+			Entry("empty bytes",
+				xjson.Field{DataType: telem.BytesT, Type: xjson.String},
+				[]byte{}, `""`),
 			Entry("an ISO 8601 timestamp",
 				xjson.Field{DataType: telem.TimestampT, TimeFormat: xjson.ISO8601},
 				sample(telem.TimeStamp(1500000006)),
@@ -299,6 +320,18 @@ var _ = Describe("Field", func() {
 			Entry("a string as a number", telem.StringT, xjson.Number),
 			Entry("a UUID as a boolean", telem.UUIDT, xjson.Boolean),
 			Entry("JSON as a number", telem.JSONT, xjson.Number),
+			Entry("bytes as a number", telem.BytesT, xjson.Number),
 		)
+	})
+
+	It("Should round trip bytes through base64", func() {
+		f := xjson.Field{DataType: telem.BytesT, Type: xjson.String}
+		data := make([]byte, 256)
+		for i := range data {
+			data[i] = byte(i)
+		}
+		raw := MustSucceed(MustSucceed(xjson.NewEncoder(f)).Append(nil, data))
+		Expect(MustSucceed(xjson.NewDecoder(f)).Append(nil, jsontext.Value(raw))).
+			To(Equal(telem.MarshalVariableSample(data)))
 	})
 })

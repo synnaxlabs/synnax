@@ -113,7 +113,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:     rbacSvc,
 		Identity: node.Identity,
 	}))
-	binder := MustSucceed(bind.NewService(bind.ServiceConfig{DB: db, RBAC: rbacSvc}))
+	binder := MustSucceed(bind.NewService(bind.ServiceConfig{
+		DB:   db,
+		RBAC: rbacSvc,
+		Held: apiauth.HeldTables(),
+	}))
 	changePassword = bind.WritePrepared(
 		binder,
 		apiSvc.PrepareChangePassword,
