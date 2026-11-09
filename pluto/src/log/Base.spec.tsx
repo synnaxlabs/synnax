@@ -129,6 +129,11 @@ describe("log/Base", () => {
       expect(screen.queryByText(/Searched back to/)).toBeNull();
     });
 
+    it("should expose the log role", () => {
+      renderLog();
+      expect(screen.getByRole("log")).toBeDefined();
+    });
+
     it("should show the loading symbol only while loading", () => {
       setupAether({ empty: false, loading: true });
       const { rerender } = renderLog();
