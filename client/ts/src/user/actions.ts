@@ -20,8 +20,8 @@ import {
 } from "@/user/actions.gen";
 import { type User } from "@/user/types.gen";
 
-// The fields that path actions edit, checked for shape only. The Core validates them,
-// and sets root_user itself.
+// The fields that path actions edit, checked for shape only. The Core validates them.
+// Only the Core sets root_user.
 const documentZ = z.object({
   name: z.string(),
   role: z.string(),
@@ -39,8 +39,8 @@ const handlers: Handlers = {
 };
 
 /**
- * Applies actions to a user in order. Path actions edit only the user's name, role, and
- * root flag.
+ * Applies actions to a user in order. Path actions edit only the user's name and role,
+ * and the root flag that only the Core sets.
  * @throws {Error} if the user cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);
