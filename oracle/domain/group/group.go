@@ -145,9 +145,6 @@ func newMember(
 					"@group needs one value for scope, not %d", len(expr.Values),
 				)
 			}
-			if m.Scope.Name != "" {
-				return Member{}, errors.New("@group has more than one scope")
-			}
 			scope, ok := enumMember(data.Enum, valueOf(expr.Values[0]))
 			if !ok {
 				return Member{}, errors.Newf(
