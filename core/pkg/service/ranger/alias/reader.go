@@ -144,7 +144,9 @@ func (r Reader) List(
 			return false, err
 		}
 		for _, a := range aliases {
-			res[a.Channel] = a.Alias
+			if _, ok := res[a.Channel]; !ok {
+				res[a.Channel] = a.Alias
+			}
 		}
 		return false, nil
 	}); err != nil {

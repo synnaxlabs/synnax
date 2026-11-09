@@ -774,6 +774,20 @@ var _ = Describe("Alias", Ordered, func() {
 			Expect(aliases).To(HaveKeyWithValue(ch.Key(), "Alias"))
 		})
 
+		It("Should list the alias of the range over the alias of its parent", func(
+			ctx SpecContext,
+		) {
+			ch := createChannel(ctx)
+			tx := DeferClose(db.OpenTx())
+			parent := createRange(ctx, tx, nil)
+			child := createRange(ctx, tx, &parent)
+			w := aliasSvc.NewWriter(tx)
+			Expect(w.Set(ctx, parent, ch.Key(), "parent")).To(Succeed())
+			Expect(w.Set(ctx, child, ch.Key(), "child")).To(Succeed())
+			Expect(aliasSvc.NewReader(tx).List(ctx, child)).
+				To(Equal(map[channel.Key]string{ch.Key(): "child"}))
+		})
+
 		It("Should list the aliases on a range and its parent", func(ctx SpecContext) {
 			ch := createChannel(ctx)
 			tx := DeferClose(db.OpenTx())

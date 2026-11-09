@@ -136,6 +136,33 @@ var _ = Describe("Set", func() {
 		Expect(retrieveAlias(ctx, r, ch)).Error().To(MatchError(query.ErrNotFound))
 		Expect(retrieveAlias(ctx, r, other)).Error().To(MatchError(query.ErrNotFound))
 	})
+	Context("Alias held by another channel", func() {
+		var other channel.Channel
+		BeforeEach(func(ctx SpecContext) {
+			other = createChannel(ctx)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Alias.NewWriter(tx).Set(ctx, r.Key, other.Key(), "x")
+			})).To(Succeed())
+			grant(ctx, u, access.ActionCreate, aliasID())
+			grant(ctx, u, access.ActionUpdate, rangeID())
+		})
+		otherID := func() resource.ID { return alias.ResourceID(r.Key, other.Key()) }
+		It("Should refuse the move without delete on the old alias", func(
+			ctx SpecContext,
+		) {
+			Expect(setAs(ctx, "x")).Error().
+				To(denied(u, access.ActionDelete, otherID()))
+			Expect(retrieveAlias(ctx, r, other)).To(Equal("x"))
+			Expect(retrieveAlias(ctx, r, ch)).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should move the alias with delete on the old alias", func(ctx SpecContext) {
+			grant(ctx, u, access.ActionDelete, otherID())
+			MustSucceed(setAs(ctx, "x"))
+			Expect(retrieveAlias(ctx, r, ch)).To(Equal("x"))
+			Expect(retrieveAlias(ctx, r, other)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
 	It("Should refuse to change an alias without update on it", func(ctx SpecContext) {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
@@ -276,6 +303,23 @@ var _ = Describe("Read", func() {
 			}))
 		},
 	)
+	It("Should refuse to resolve an alias that two channels hold", func(
+		ctx SpecContext,
+	) {
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Apply(
+				ctx,
+				alias.Alias{Range: r.Key, Channel: blocked.Key()}.GorpKey(),
+				alias.NewSetAction(
+					alias.SetPayload{Path: []string{"alias"}, Value: "allowed"},
+				),
+			)
+		})).To(Succeed())
+		Expect(resolve(AuthedCtx(ctx, u), apialias.ResolveRequest{
+			Range:   r.Key,
+			Aliases: []string{"allowed"},
+		})).Error().To(MatchError(alias.ErrAmbiguous))
+	})
 	It("Should list only the aliases the subject can retrieve", func(ctx SpecContext) {
 		Expect(list(AuthedCtx(ctx, u), apialias.ListRequest{Range: r.Key})).
 			To(Equal(apialias.ListResponse{
