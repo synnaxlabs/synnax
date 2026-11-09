@@ -10,8 +10,8 @@
 #pragma once
 
 #include <algorithm>
-#include <iterator>
 #include <mutex>
+#include <optional>
 #include <ranges>
 #include <set>
 #include <string>
@@ -228,10 +228,18 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
-    /// @brief the actions that the last save of each device failed to apply. dev_states
-    /// already holds their changes, so the next scan sends them again.
-    std::unordered_map<std::string, std::vector<synnax::device::Action>> unsaved;
     std::string log_prefix;
+
+    /// @brief the changes that a scan saves to one device.
+    struct Update {
+        /// @brief the device as the scan saves it.
+        synnax::device::Device scanned;
+        /// @brief the copy of the device that dev_states held before the scan. Absent
+        /// when the scan looked the device up.
+        std::optional<synnax::device::Device> tracked;
+        /// @brief the actions that save the changes.
+        std::vector<synnax::device::Action> actions;
+    };
 
     // Signal monitoring infrastructure
     synnax::channel::Channel device_set_channel;
@@ -357,15 +365,24 @@ class ScanTask final : public task::Task, public pipeline::Base {
         return x::errors::NIL;
     }
 
-    /// @brief applies the actions of each device in updates. A device whose update
-    /// fails keeps its actions in unsaved. Returns the first error.
-    x::errors::Error update(
-        std::vector<std::pair<std::string, std::vector<synnax::device::Action>>>
-            &updates
+    /// @brief returns whether a and b hold the same fields that a scan saves.
+    static bool same_saved_fields(
+        const synnax::device::Device &a,
+        const synnax::device::Device &b
     ) {
+        return a.location == b.location && a.model == b.model && a.rack == b.rack &&
+               a.parent == b.parent && a.properties == b.properties;
+    }
+
+    /// @brief sends each update. When one fails, the device in dev_states goes back to
+    /// its state before the scan, so the next scan finds the changes again. A device
+    /// that the Core does not hold, or that the scan looked up, drops from dev_states,
+    /// so the next scan looks it up. Returns the first error.
+    x::errors::Error update(const std::vector<Update> &updates) {
         x::errors::Error first_err;
-        for (auto &[key, actions]: updates) {
-            const auto err = this->client->dispatch_device(key, actions);
+        for (const auto &u: updates) {
+            const auto &key = u.scanned.key;
+            const auto err = this->client->dispatch_device(key, u.actions);
             if (!err) {
                 LOG(INFO) << this->log_prefix << "successfully updated device " << key;
                 continue;
@@ -374,7 +391,20 @@ class ScanTask final : public task::Task, public pipeline::Base {
                          << ": " << err;
             if (!first_err) first_err = err;
             std::lock_guard lock(this->mu);
-            this->unsaved[key] = std::move(actions);
+            // A delete signal can drop the device while the update runs.
+            const auto it = this->dev_states.find(key);
+            if (it == this->dev_states.end()) continue;
+            if (err.matches(x::errors::NOT_FOUND) || !u.tracked.has_value()) {
+                this->dev_states.erase(it);
+                continue;
+            }
+            // Keep a newer device that a set signal stored.
+            if (!same_saved_fields(it->second, u.scanned)) continue;
+            it->second.location = u.tracked->location;
+            it->second.model = u.tracked->model;
+            it->second.rack = u.tracked->rack;
+            it->second.parent = u.tracked->parent;
+            it->second.properties = u.tracked->properties;
         }
         return first_err;
     }
@@ -455,7 +485,6 @@ class ScanTask final : public task::Task, public pipeline::Base {
                     for (const auto &dev_key: series.strings()) {
                         std::lock_guard lock(this->mu);
                         this->dev_states.erase(dev_key);
-                        this->unsaved.erase(dev_key);
                     }
             }
         } while (true);
@@ -612,8 +641,7 @@ public:
     x::errors::Error scan() {
         x::errors::Error scan_err;
         std::vector<synnax::device::Device> to_create;
-        std::vector<std::pair<std::string, std::vector<synnax::device::Action>>>
-            to_update;
+        std::vector<Update> to_update;
         std::vector<synnax::device::Status> statuses;
         {
             std::lock_guard lock(this->mu);
@@ -660,14 +688,11 @@ public:
                 // be configured. No exceptions.
                 dev.configured = false;
                 std::vector<synnax::device::Action> actions;
+                std::optional<synnax::device::Device> tracked;
                 if (const auto iter = this->dev_states.find(dev.key);
                     iter != this->dev_states.end()) {
-                    if (auto node = this->unsaved.extract(dev.key))
-                        actions = std::move(node.mapped());
-                    std::ranges::move(
-                        this->changes(dev, iter->second),
-                        std::back_inserter(actions)
-                    );
+                    actions = this->changes(dev, iter->second);
+                    if (!actions.empty()) tracked = iter->second;
                 } else if (
                     const auto found = stored.find(dev.key); found != stored.end()
                 ) {
@@ -679,10 +704,14 @@ public:
                     this->dev_states[dev.key] = dev;
                     continue;
                 }
-                if (!actions.empty())
-                    to_update.emplace_back(dev.key, std::move(actions));
                 if (!dev.status.has_value()) dev.status = synnax::device::Status{};
                 dev.status->time = last_available;
+                if (!actions.empty())
+                    to_update.push_back({
+                        .scanned = dev,
+                        .tracked = std::move(tracked),
+                        .actions = std::move(actions),
+                    });
                 this->dev_states[dev.key] = dev;
             }
 
