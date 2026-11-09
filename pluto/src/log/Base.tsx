@@ -128,6 +128,7 @@ export const Base = ({
   const stateRef = useSyncedRef(state);
   const pointerYRef = useRef(0);
   const frameRef = useRef<number | null>(null);
+  const pastEdgeRef = useRef(false);
   const stopDragRef = useRef<(() => void) | null>(null);
   useEffect(() => () => stopDragRef.current?.(), []);
 
@@ -145,18 +146,30 @@ export const Base = ({
     const y = pointerYRef.current;
     const { region, scrolling } = stateRef.current;
     const past = Math.min(0, y - box.top(region)) + Math.max(0, y - box.bottom(region));
+    pastEdgeRef.current = past !== 0;
     if (past === 0) return;
     if (past < 0 && !scrolling) setHold(true);
-    setState((s) => ({
-      ...s,
-      wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE,
-      selectionEnd: mouseYToEntryIndex(y),
-    }));
+    setState((s) => ({ ...s, wheelPos: s.wheelPos - past * EDGE_SCROLL_RATE }));
     frameRef.current = requestAnimationFrame(scrollPastEdge);
   };
 
-  const startDrag = () => {
+  // The worker sends the rows an edge scroll reveals after the scroll, so the
+  // selection catches up to the pointer here.
+  useEffect(() => {
+    if (!pastEdgeRef.current) return;
+    const idx = mouseYToEntryIndex(pointerYRef.current);
+    if (idx !== stateRef.current.selectionEnd)
+      setState((s) => ({ ...s, selectionEnd: idx }));
+  }, [rowEntries]);
+
+  const startDrag = (clientY: number) => {
+    pointerYRef.current = clientY;
     const handleMove = (e: MouseEvent) => {
+      // A release outside the window sends no mouseup.
+      if ((e.buttons & 1) === 0) {
+        stop();
+        return;
+      }
       pointerYRef.current = e.clientY;
       setState((s) => ({ ...s, selectionEnd: mouseYToEntryIndex(e.clientY) }));
       if (frameRef.current == null)
@@ -165,20 +178,23 @@ export const Base = ({
     const stop = () => {
       window.removeEventListener("mousemove", handleMove);
       window.removeEventListener("mouseup", stop);
+      window.removeEventListener("blur", stop);
       if (frameRef.current != null) cancelAnimationFrame(frameRef.current);
       frameRef.current = null;
+      pastEdgeRef.current = false;
       stopDragRef.current = null;
     };
     stopDragRef.current?.();
     stopDragRef.current = stop;
     window.addEventListener("mousemove", handleMove);
     window.addEventListener("mouseup", stop);
+    window.addEventListener("blur", stop);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
     const idx = mouseYToEntryIndex(e.clientY);
-    startDrag();
+    startDrag(e.clientY);
     if (e.shiftKey) setState((s) => ({ ...s, selectionEnd: idx }));
     else
       setState((s) => {

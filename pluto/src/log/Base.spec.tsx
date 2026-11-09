@@ -372,7 +372,7 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 50 });
       const callsAfterDown = setState.mock.calls.length;
-      fireEvent.mouseMove(window, { clientY: 80 });
+      fireEvent.mouseMove(window, { clientY: 80, buttons: 1 });
       expect(setState.mock.calls.length).toBeGreaterThan(callsAfterDown);
     });
 
@@ -382,7 +382,7 @@ describe("log/Base", () => {
       fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 50 });
       fireEvent.mouseUp(window);
       const callsAfterUp = setState.mock.calls.length;
-      fireEvent.mouseMove(window, { clientY: 80 });
+      fireEvent.mouseMove(window, { clientY: 80, buttons: 1 });
       expect(setState.mock.calls.length).toBe(callsAfterUp);
     });
 
@@ -417,24 +417,49 @@ describe("log/Base", () => {
       vi.useRealTimers();
     });
 
+    const applyCalls = (
+      setState: ReturnType<typeof vi.fn>,
+      from: number,
+      state: Record<string, unknown>,
+    ): Record<string, unknown> =>
+      setState.mock.calls
+        .slice(from)
+        .reduce(
+          (s: Record<string, unknown>, [set]) =>
+            typeof set === "function" ? set(s) : set,
+          state,
+        );
+
+    const showRows = (
+      setState: ReturnType<typeof vi.fn>,
+      state: Record<string, unknown>,
+      rowEntries: number[],
+    ) => {
+      const last = mockAetherUse.mock.results[mockAetherUse.mock.results.length - 1];
+      mockAetherUse.mockReturnValue([
+        "test-key",
+        { ...state, rowEntries },
+        setState,
+        last.value[3],
+      ]);
+    };
+
+    const advanceFrames = (frames: number) => {
+      for (let i = 0; i < frames; i++)
+        act(() => {
+          vi.advanceTimersToNextFrame();
+        });
+    };
+
     // Applies the state updates the log made from the drag on, in order.
     const dragTo = (clientY: number, frames: number, props = {}) => {
       const { setState, state } = setupAether(ROWS);
       const { container } = renderLog(props);
       const before = setState.mock.calls.length;
       fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      fireEvent.mouseMove(window, { clientY });
-      for (let i = 0; i < frames; i++)
-        act(() => {
-          vi.advanceTimersToNextFrame();
-        });
-      return setState.mock.calls
-        .slice(before)
-        .reduce(
-          (s: Record<string, unknown>, [set]) =>
-            typeof set === "function" ? set(s) : set,
-          state,
-        );
+      fireEvent.mouseMove(window, { clientY, buttons: 1 });
+      advanceFrames(frames);
+      return applyCalls(setState, before, state);
     };
 
     it("should scroll up and select the top row above the log", () => {
@@ -470,13 +495,60 @@ describe("log/Base", () => {
       const { setState } = setupAether(ROWS);
       const { container } = renderLog();
       fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
-      fireEvent.mouseMove(window, { clientY: -50 });
+      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
       fireEvent.mouseUp(window);
       const callsAfterUp = setState.mock.calls.length;
       act(() => {
         vi.advanceTimersToNextFrame();
       });
       expect(setState.mock.calls.length).toBe(callsAfterUp);
+    });
+
+    it("should stop scrolling when a move arrives with no button held", () => {
+      const { setState } = setupAether(ROWS);
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
+      fireEvent.mouseMove(window, { clientY: -60, buttons: 0 });
+      const callsAfterRelease = setState.mock.calls.length;
+      advanceFrames(1);
+      fireEvent.mouseMove(window, { clientY: 80, buttons: 1 });
+      expect(setState.mock.calls.length).toBe(callsAfterRelease);
+    });
+
+    it("should stop scrolling when the window loses focus", () => {
+      const { setState } = setupAether(ROWS);
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
+      fireEvent.blur(window);
+      const callsAfterBlur = setState.mock.calls.length;
+      advanceFrames(1);
+      expect(setState.mock.calls.length).toBe(callsAfterBlur);
+    });
+
+    it("should select the edge row the scroll reveals", () => {
+      const { setState, state } = setupAether(ROWS);
+      const { container, rerender } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: -50, buttons: 1 });
+      advanceFrames(1);
+      const beforeRows = setState.mock.calls.length;
+      showRows(setState, state, [9, 10, 11]);
+      rerender(<Base />);
+      expect(applyCalls(setState, beforeRows, state).selectionEnd).toBe(9);
+    });
+
+    it("should not move the selection when rows change inside the log", () => {
+      const { setState, state } = setupAether(ROWS);
+      const { container, rerender } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      fireEvent.mouseMove(window, { clientY: 100, buttons: 1 });
+      advanceFrames(1);
+      const beforeRows = setState.mock.calls.length;
+      showRows(setState, state, [11, 12, 13]);
+      rerender(<Base />);
+      expect(setState.mock.calls.length).toBe(beforeRows);
     });
   });
 
