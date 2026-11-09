@@ -294,9 +294,9 @@ var _ = Describe("Writer", func() {
 				Channel:  ch,
 				Alias:    alias,
 				Notation: notation.NotationStandard,
-				Timestamp: log.TimestampConfig{
-					Format: telem.TimestampFormatPreciseDate,
-					Tz:     telem.TimeZoneLocal,
+				TimestampConfig: log.TimestampConfig{
+					Format:   telem.TimestampFormatPreciseDate,
+					TimeZone: telem.TimeZoneLocal,
 				},
 			}
 		}
@@ -412,9 +412,11 @@ var _ = Describe("Writer", func() {
 					Expect(entry.Notation).To(Equal(notation.NotationStandard))
 					Expect(entry.Precision).To(BeNil())
 					Expect(
-						entry.Timestamp.Format,
+						entry.TimestampConfig.Format,
 					).To(Equal(telem.TimestampFormatPreciseDate))
-					Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneLocal))
+					Expect(
+						entry.TimestampConfig.TimeZone,
+					).To(Equal(telem.TimeZoneLocal))
 				},
 			)
 
@@ -503,10 +505,10 @@ var _ = Describe("Writer", func() {
 								Format:  telem.TimestampFormatTime,
 							},
 						),
-						log.NewSetChannelTimestampTzAction(
-							log.SetChannelTimestampTzPayload{
-								Channel: ch5,
-								Tz:      telem.TimeZoneUTC,
+						log.NewSetChannelTimestampTimeZoneAction(
+							log.SetChannelTimestampTimeZonePayload{
+								Channel:  ch5,
+								TimeZone: telem.TimeZoneUTC,
 							},
 						),
 					})).To(Succeed())
@@ -515,8 +517,10 @@ var _ = Describe("Writer", func() {
 					Expect(entry.Notation).To(Equal(notation.NotationScientific))
 					Expect(entry.Precision).To(Equal(new(uint8(4))))
 					Expect(entry.Alias).To(Equal("volts"))
-					Expect(entry.Timestamp.Format).To(Equal(telem.TimestampFormatTime))
-					Expect(entry.Timestamp.Tz).To(Equal(telem.TimeZoneUTC))
+					Expect(
+						entry.TimestampConfig.Format,
+					).To(Equal(telem.TimestampFormatTime))
+					Expect(entry.TimestampConfig.TimeZone).To(Equal(telem.TimeZoneUTC))
 				},
 			)
 
@@ -580,26 +584,6 @@ var _ = Describe("Writer", func() {
 				},
 				Entry("above maximum", uint8(18)),
 			)
-
-			It("Should replace the whole list via SetChannels", func(ctx SpecContext) {
-				l := defaults.Fill(log.Log{
-					Project:  &proj.Key,
-					Name:     "test",
-					Channels: []log.ChannelEntry{{Channel: ch1}},
-				})
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &l)
-				})).To(Succeed())
-				Expect(dispatch(ctx, l.Key, "d1", []log.Action{
-					log.NewSetChannelsAction(log.SetChannelsPayload{
-						Channels: []log.ChannelEntry{entry(ch2, ""), entry(ch3, "")},
-					}),
-				})).To(Succeed())
-				res := retrieve(ctx, l.Key)
-				Expect(res.Channels).To(HaveLen(2))
-				Expect(res.Channels[0].Channel).To(Equal(ch2))
-				Expect(res.Channels[1].Channel).To(Equal(ch3))
-			})
 
 			It(
 				"Should repoint a channel in place via SwapChannel, keeping position and config",
@@ -742,16 +726,16 @@ var _ = Describe("Writer", func() {
 							log.SetChannelTimestampFormatPayload{Channel: ch5},
 						)
 					},
-					"channels.0.timestamp.format",
+					"channels.0.timestamp_config.format",
 				),
 				Entry(
 					"empty time zone",
 					func() log.Action {
-						return log.NewSetChannelTimestampTzAction(
-							log.SetChannelTimestampTzPayload{Channel: ch5},
+						return log.NewSetChannelTimestampTimeZoneAction(
+							log.SetChannelTimestampTimeZonePayload{Channel: ch5},
 						)
 					},
-					"channels.0.timestamp.tz",
+					"channels.0.timestamp_config.time_zone",
 				),
 				Entry(
 					"entry with no timestamp",
@@ -760,7 +744,7 @@ var _ = Describe("Writer", func() {
 							Entry: log.ChannelEntry{Channel: ch5},
 						})
 					},
-					"channels.0.timestamp",
+					"channels.0.timestamp_config",
 				),
 				Entry(
 					"added channel of 0",
@@ -770,27 +754,6 @@ var _ = Describe("Writer", func() {
 						)
 					},
 					"channels.1.channel",
-				),
-				Entry(
-					"channels that repeat one channel",
-					func() log.Action {
-						return log.NewSetChannelsAction(log.SetChannelsPayload{
-							Channels: []log.ChannelEntry{
-								entry(ch5, ""),
-								entry(ch5, ""),
-							},
-						})
-					},
-					"channels.1.channel",
-				),
-				Entry(
-					"channels with no timestamp",
-					func() log.Action {
-						return log.NewSetChannelsAction(log.SetChannelsPayload{
-							Channels: []log.ChannelEntry{{Channel: ch5}},
-						})
-					},
-					"channels.0.timestamp",
 				),
 			)
 

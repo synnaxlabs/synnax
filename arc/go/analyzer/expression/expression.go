@@ -12,7 +12,10 @@
 package expression
 
 import (
+	"math"
+
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -300,6 +303,47 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		types.InferRelational,
 		isAny,
 	)
+	checkNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
+}
+
+// checkNaNComparison rejects a comparison with operator op that has the NaN constant as
+// one of the operands the compiler runs, the first two of a chain. Such a comparison
+// always has the same result. The error names the constant as the code wrote it, and
+// the module's is_nan when the module has one.
+func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+	ctx context.Context[T],
+	operands []O,
+	op string,
+) {
+	if len(operands) < 2 {
+		return
+	}
+	for _, operand := range operands[:2] {
+		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
+			continue
+		}
+		primary, _ := parser.SoleOperand(operand)
+		qid := primary.QualifiedIdentifier()
+		head, _ := parser.QualifiedNameParts(qid)
+		check := "is_nan from the math module"
+		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
+			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
+				check = head + ".is_nan"
+			}
+		}
+		if op == "!=" {
+			check = "not " + check
+		}
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"%s with %s is always %t, use %s instead",
+			op,
+			qid.GetText(),
+			op == "!=",
+			check,
+		).WithCode(codes.NaNComparison))
+		return
+	}
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
@@ -314,6 +358,7 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 		types.InferAdditive,
 		isNumeric,
 	)
+	checkNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
 }
 
 func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
@@ -464,7 +509,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 		ctx,
 		scope,
 		funcName,
-		scope.Type,
+		basetypes.Freshen(scope.Type, ctx.ScopedKey("call", funcCalls[0])),
 		symbol.CallArguments(funcCalls[0]),
 		funcCalls[0],
 	)
@@ -602,6 +647,15 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							targetType,
 						),
 					)
+					return
+				}
+				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						ctx.AST,
+						"cannot cast %s to %s: NaN and infinity have no integer value",
+						expr.GetText(),
+						targetType,
+					))
 					return
 				}
 				if sourceType.Kind == basetypes.KindBool &&

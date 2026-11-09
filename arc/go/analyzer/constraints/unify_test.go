@@ -49,6 +49,35 @@ var _ = Describe("Type Unification", func() {
 		})
 	})
 
+	Describe("Untyped float and integer literals", func() {
+		var (
+			floatConstraint = types.FloatConstraint()
+			intConstraint   = types.IntegerConstraint()
+			float           = types.Variable("float", &floatConstraint)
+			integer         = types.Variable("integer", &intConstraint)
+		)
+
+		DescribeTable("Should take the float's type in either order",
+			func(left, right types.Type) {
+				system := constraints.New()
+				Expect(system.AddCompatible(left, right, nil, "test")).To(Succeed())
+				Expect(system.Unify()).To(Succeed())
+				Expect(system.ApplySubstitutions(float)).To(Equal(types.F64()))
+				Expect(system.ApplySubstitutions(integer)).To(Equal(types.F64()))
+			},
+			Entry("float first", float, integer),
+			Entry("integer first", integer, float),
+		)
+
+		It("Should take a concrete f32 through the float", func() {
+			system := constraints.New()
+			Expect(system.AddCompatible(float, integer, nil, "test")).To(Succeed())
+			Expect(system.AddEquality(float, types.F32(), nil, "test")).To(Succeed())
+			Expect(system.Unify()).To(Succeed())
+			Expect(system.ApplySubstitutions(integer)).To(Equal(types.F32()))
+		})
+	})
+
 	Describe("Transitive Unification", func() {
 		It("should unify through chains of type variables", func() {
 			var (

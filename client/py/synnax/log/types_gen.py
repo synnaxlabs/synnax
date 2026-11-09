@@ -30,15 +30,15 @@ Key: TypeAlias = UUID
 
 
 class TimestampConfig(BaseModel):
-    """Is per-channel timestamp display configuration.
+    """Is how a timestamp channel shows its values.
 
     Attributes:
-        format: Controls how channel timestamps are rendered.
-        tz: Is the time zone used when rendering timestamps.
+        format: Is the format of the values of a timestamp channel.
+        time_zone: Is the time zone of the values of a timestamp channel.
     """
 
     format: telem.TimestampFormat
-    tz: telem.TimeZone
+    time_zone: telem.TimeZone
 
 
 class Order(BaseModel):
@@ -121,10 +121,11 @@ class ChannelEntry(BaseModel):
         channel: Is the channel this entry references.
         color: Is the display color for the channel.
         notation: Is the numeric notation used to render samples.
-        precision: Is the number of decimal digits to display. Absent shows each sample
-            as it arrives; 17 is the maximum significant digits for a float64.
+        precision: Is the number of digits after the decimal point, from 0 to 17. Absent
+            shows each sample as it arrives.
         alias: Is a human-readable alias displayed in place of the channel name.
-        timestamp: Is the per-channel timestamp display configuration.
+        timestamp_config: Formats the values of a timestamp channel. It has no effect on
+            line times.
     """
 
     channel: channel_.Key = Field(ge=0, le=4294967295)
@@ -132,8 +133,8 @@ class ChannelEntry(BaseModel):
     notation: notation_.Notation = "standard"
     precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = Field(max_length=64, default="")
-    timestamp: TimestampConfig = Field(
-        default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")
+    timestamp_config: TimestampConfig = Field(
+        default_factory=lambda: TimestampConfig(format="preciseDate", time_zone="local")
     )
 
 
@@ -164,7 +165,7 @@ class Log(BaseModel):
     Attributes:
         key: Is the unique identifier for this log.
         name: Is a human-readable name for the log.
-        channels: Are the channels displayed in this log, in order.
+        channels: Are the channels displayed in this log.
         timestamp_precision: Is the precision of displayed timestamps (0-3).
         channel_names_hidden: Is true when channel names are hidden.
         timestamps_hidden: Is true when entry timestamps are hidden.
