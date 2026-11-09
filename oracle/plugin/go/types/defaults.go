@@ -597,6 +597,9 @@ func goConstraintChecks(
 		if rules.Min != nil {
 			checks = append(checks, check("ge", numberLiteral(rules.Min)))
 		}
+		if rules.GT != nil {
+			checks = append(checks, check("gt", numberLiteral(rules.GT)))
+		}
 		if rules.Max != nil {
 			checks = append(checks, check("le", numberLiteral(rules.Max)))
 		}
