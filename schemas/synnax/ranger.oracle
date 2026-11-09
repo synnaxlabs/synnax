@@ -32,6 +32,7 @@ Range struct {
         @doc value           "is a human-readable name for the range."
         @filter
         @index sorted
+        @patch
         @search
         @validate min_length 1
     }
@@ -40,6 +41,7 @@ Range struct {
             is the temporal extent of the range, defining its start and end timestamps.
         """
         @index sorted start
+        @patch
         @ts type      telem.TimeRangeBounded
     }
     color      color.Color?    {
@@ -47,9 +49,11 @@ Range struct {
             is an optional display color for visual identification of the range in user
             interfaces.
         """
+        @patch
     }
     labels     label.Key[] = [] {
         @doc value     "are the keys of the labels attached to the range."
+        @ref kind      use
         @ref on_delete detach
     }
     parent     Key?            {
@@ -57,7 +61,9 @@ Range struct {
             is the key of the range this range is nested in. Empty for a top-level
             range.
         """
+        @patch
         @ref acyclic
+        @ref kind      place
         @ref on_delete cascade
     }
 

@@ -1151,6 +1151,36 @@ describe("schematic queries", () => {
       });
     });
 
+    it("should show the last of two variant changes to an edge", async () => {
+      const schem = await client.schematics.create({
+        project: proj.key,
+        name: "edge_variants",
+        nodes: [
+          { key: "n1", position: { x: 0, y: 0 } },
+          { key: "n2", position: { x: 10, y: 10 } },
+        ],
+        edges: [
+          {
+            key: "e1",
+            source: { node: "n1", param: "out" },
+            target: { node: "n2", param: "in" },
+          },
+        ],
+        configs: {
+          n1: { variant: "tank" },
+          n2: { variant: "tank" },
+          e1: { variant: "pipe", segments: [] },
+        },
+      });
+      const { result } = await renderHookSuspended(
+        () => Schematic.useConfigForm({ key: schem.key, elKey: "e1" }),
+        { wrapper: Wrapper },
+      );
+      act(() => result.current.form.set(element.variant, "electric"));
+      act(() => result.current.form.set(element.variant, "secondary"));
+      expect(result.current.form.get(element.variant).value).toBe("secondary");
+    });
+
     it("should send an edit as a path action into the element's config", async () => {
       const schem = await createTestSchematic(proj.key);
       const { result } = await renderForm(schem.key);

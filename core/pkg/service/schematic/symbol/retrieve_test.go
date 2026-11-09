@@ -110,24 +110,25 @@ var _ = Describe("Retrieve", func() {
 		})
 
 		It("Should execute without transaction", func(ctx SpecContext) {
-			// Create a symbol without transaction
 			symNoTx := symbol.Symbol{
 				Name: "no-tx-symbol",
 				Data: symbol.Spec{SVG: "<svg>no-tx</svg>", Variant: "valve"},
 			}
-			Expect(
-				svc.NewWriter(nil).Create(ctx, &symNoTx),
-			).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &symNoTx)
+			})).To(Succeed())
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
 				Where(symbol.MatchKeys(symNoTx.Key)).
 				Entry(&retrieved).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(symNoTx.Key))
 
 			// Clean up
-			Expect(svc.NewWriter(nil).Delete(ctx, symNoTx.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, symNoTx.Key)
+			})).To(Succeed())
 		})
 	})
 
