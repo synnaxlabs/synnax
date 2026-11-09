@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
 	"io"
 	"iter"
@@ -79,6 +80,9 @@ type IterOptions struct {
 	// (appended to the entry-type prefix). Nil scans all entries of
 	// type E.
 	prefix []byte
+	// after starts the scan strictly past this encoded key. Nil starts at the first
+	// key.
+	after []byte
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
@@ -89,7 +93,18 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 	if len(opts.prefix) > 0 {
 		prefix = slices.Concat(prefix, opts.prefix)
 	}
-	base, err := r.snap.OpenIterator(kv.IterPrefix(prefix))
+	bounds := kv.IterPrefix(prefix)
+	if opts.after != nil {
+		// A key followed by a zero byte is the least bound past the key.
+		lower := slices.Concat(r.keyCodec.Prefix(), opts.after, []byte{0})
+		if bytes.Compare(lower, bounds.LowerBound) > 0 {
+			bounds.LowerBound = lower
+		}
+		if bytes.Compare(bounds.LowerBound, bounds.UpperBound) > 0 {
+			bounds.LowerBound = bounds.UpperBound
+		}
+	}
+	base, err := r.snap.OpenIterator(bounds)
 	return &Iterator[E]{Iterator: base, decoder: r.snap}, err
 }
 

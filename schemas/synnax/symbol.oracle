@@ -120,6 +120,7 @@ Symbol struct {
     }
     name  string     {
         @doc value           "is a human-readable name for the symbol."
+        @index sorted
         @search
         @validate min_length 1
     }

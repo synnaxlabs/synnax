@@ -10,7 +10,6 @@
 import { group, resource } from "@synnaxlabs/client";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Flux, Group } from "@synnaxlabs/pluto";
 import { uuid, verbs } from "@synnaxlabs/x";
 
@@ -39,47 +38,37 @@ const base = Flux.createUpdate<CreateParams>({
   },
 });
 
-const beforeUpdate = async ({
-  data,
-  rollbacks,
-}: Flux.BeforeUpdateParams<CreateParams>) => {
-  const {
-    selection: { top },
-    state: { nodes, setNodes, setSelection, setResource },
-    group: { key },
-  } = data;
-  const newID = group.resourceID(key);
-  const newIDString = resource.idToString(newID);
-  const prevNodes = PTree.deepCopy(nodes);
-  rollbacks.push(() => setNodes(prevNodes));
-  const res: Tree.Resource = { key: newIDString, id: newID, name: "" };
-  setResource(res);
-  // The new group shows where the selection shows. In flat search results, that is the
-  // top of the tree, while the real parent is a group.
-  const destination =
-    PTree.findNodeParent({
-      tree: nodes,
-      key: resource.idToString(top[0]),
-    })?.key ?? null;
-  let nextNodes = PTree.setNode({
-    tree: nodes,
-    destination,
-    additions: { key: newIDString, children: [] },
-  });
-  nextNodes = PTree.moveNode({
-    tree: nextNodes,
-    destination: newIDString,
-    keys: top.map((id) => resource.idToString(id)),
-  });
-  setNodes([...nextNodes]);
-  setSelection([newIDString]);
-  const [groupName, renamed] = await Text.asyncEdit(List.itemNameID(newIDString));
+const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<CreateParams>) => {
+  const key = resource.idToString(group.resourceID(data.group.key));
+  const [name, renamed] = await Text.asyncEdit(List.itemNameID(key));
   if (!renamed) return false;
-  return { ...data, group: { ...data.group, name: groupName } };
+  return { ...data, group: { ...data.group, name } };
 };
 
+/**
+ * Returns a function that shows a draft group holding the top of the selection, where
+ * the selection shows, and creates the group once the user names it.
+ */
 export const useCreateFromSelection = () => {
-  const { update } = base.useUpdate({ beforeUpdate });
-  return (props: Tree.ContextMenuProps) =>
-    update({ ...props, group: { key: uuid.create(), name: "" } });
+  const { updateAsync } = base.useUpdate({ beforeUpdate });
+  return (props: Tree.ContextMenuProps) => {
+    const {
+      selection: { top },
+      state: { addDraft, getParent, setSelection },
+    } = props;
+    const groupKey = uuid.create();
+    const id = group.resourceID(groupKey);
+    const key = resource.idToString(id);
+    const children = resource.idToString(top);
+    // In flat search results the selection shows at the top of the tree, while its real
+    // parent is a group.
+    const parent = getParent(children[0]);
+    if (parent == null) throw new Error(`${children[0]} does not show in the tree`);
+    const done = addDraft({ resource: { key, id, name: "" }, parent, children });
+    setSelection([key]);
+    void (async () => {
+      await updateAsync({ ...props, group: { key: groupKey, name: "" } });
+      done();
+    })();
+  };
 };

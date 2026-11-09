@@ -34,7 +34,9 @@ describe("LinePlot.TABS restore", () => {
     await client.lineplots.retrieve(created.key);
     await client.lineplots.delete(created.key);
     await waitFor(() =>
-      expect(query.Deleted.matches(client.lineplots.getCached(created.key))).toBe(true),
+      expect(
+        query.Deleted.matches(client.lineplots.watch(created.key).getCached()),
+      ).toBe(true),
     );
     await restore({
       client,

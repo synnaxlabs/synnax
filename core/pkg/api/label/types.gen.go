@@ -18,16 +18,69 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Cursor is a position in an order of labels: the sort value and the key of a label.
+type Cursor struct {
+	// Key is the key of the label at the position.
+	Key servicelabel.Key `json:"key" msgpack:"key"`
+	// Name is the name of the label at the position, when the order sorts by it.
+	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+}
+
+// OrderField is a field that labels can be sorted by.
+type OrderField string
+
+// OrderFieldName sorts the labels by name.
+const OrderFieldName OrderField = "name"
+
+// IsValid reports whether o is one of the defined OrderField
+// values.
+func (o OrderField) IsValid() bool {
+	switch o {
+	case OrderFieldName:
+		return true
+	default:
+		return false
+	}
+}
+
+// Order is a sort of labels.
+type Order struct {
+	// Field is the field to sort by. Records with equal values sort by key.
+	Field OrderField `json:"field" msgpack:"field"`
+	// Descending sorts from the greatest value to the least.
+	Descending bool `json:"descending" msgpack:"descending"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o Order) Validate() error {
+	v := validate.New("Order")
+	v.Ternaryf("field", !o.Field.IsValid(), "invalid field: %v", o.Field)
+	return v.Error()
+}
+
 // RetrieveRequest is a request to retrieve labels.
 type RetrieveRequest struct {
 	// Where selects the labels to retrieve. An absent where selects all of them.
 	Where *servicelabel.Where `json:"where,omitzero" msgpack:"where,omitempty"`
 	// SearchTerm keeps the labels that match the term, closest match first.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Order sorts the labels. An absent order sorts them by key.
+	Order *Order `json:"order,omitzero" msgpack:"order,omitempty"`
+	// After starts the labels strictly past this position in their order.
+	After *Cursor `json:"after,omitzero" msgpack:"after,omitempty"`
 	// Limit is the most labels to return.
 	Limit *uint32 `json:"limit,omitzero" msgpack:"limit,omitempty"`
-	// Offset is the number of matching labels to skip.
-	Offset uint32 `json:"offset" msgpack:"offset"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RetrieveRequest) Validate() error {
+	v := validate.New("RetrieveRequest")
+	if r.Order != nil {
+		v.Exec(func() error { return validate.PathedError(r.Order.Validate(), "order") })
+	}
+	return v.Error()
 }
 
 // RetrieveResponse holds the labels a RetrieveRequest selects.
