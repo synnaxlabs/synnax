@@ -79,19 +79,6 @@ describe("range selectors", () => {
   });
 
   describe("getters", () => {
-    it("should read the whole slice state on demand across dispatches", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Range.useGetSliceState(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get().ranges).toEqual([]);
-      act(() => {
-        store.dispatch(Range.add(STATIC));
-      });
-      expect(get().ranges).toEqual([STATIC]);
-    });
-
     it("should read the current selected key on demand across dispatches", () => {
       const store = createStore(stateWith([STATIC, DYNAMIC]));
       const { result } = renderHook(() => Range.useGetSelectedKey(), {

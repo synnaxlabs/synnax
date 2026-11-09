@@ -30,8 +30,9 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
 >({
   name: RESOURCE_NAME,
   retrieve: async ({ client, query }) => await client.tables.retrieve(query.key),
-  onChange: ({ client, query }, handler) => client.tables.onChange(query.key, handler),
-  getCached: ({ client, query }) => client.tables.getCached(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.tables.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.tables.watch(query.key).getCached(),
   awaitCreation: true,
 });
 

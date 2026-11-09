@@ -128,6 +128,42 @@ var _ = Describe("Set", func() {
 	})
 })
 
+var _ = Describe("Dispatch", func() {
+	var (
+		u  user.User
+		r  ranger.Range
+		ch channel.Channel
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		r = createRange(ctx)
+		ch = createChannel(ctx)
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
+		})).To(Succeed())
+	})
+	dispatchAs := func(ctx SpecContext, name string) (struct{}, error) {
+		return dispatch(AuthedCtx(ctx, u), apialias.DispatchRequest{
+			Key: alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey(),
+			Actions: []alias.Action{alias.NewSetAction(
+				alias.SetPayload{Path: []string{"alias"}, Value: name},
+			)},
+		})
+	}
+	aliasID := func() resource.ID { return alias.ResourceID(r.Key, ch.Key()) }
+	It("Should change the alias with update on it", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, aliasID())
+		MustSucceed(dispatchAs(ctx, "changed"))
+		Expect(retrieveAlias(ctx, r, ch)).To(Equal("changed"))
+	})
+	It("Should refuse a change without update on the alias", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, r.ResourceID())
+		Expect(dispatchAs(ctx, "changed")).Error().
+			To(denied(u, access.ActionUpdate, aliasID()))
+		Expect(retrieveAlias(ctx, r, ch)).To(Equal("stored"))
+	})
+})
+
 var _ = Describe("Delete", func() {
 	var (
 		u  user.User

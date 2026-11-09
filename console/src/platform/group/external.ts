@@ -9,5 +9,8 @@
 
 export * from "@/platform/group/ContextMenuItem";
 export * from "@/platform/group/move";
+export * from "@/platform/group/RootContextMenu";
+export * from "@/platform/group/search";
+export * from "@/platform/group/treeContextMenus";
 export * from "@/platform/group/useCreateEmpty";
 export * from "@/platform/group/useCreateFromSelection";
