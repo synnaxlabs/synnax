@@ -34,7 +34,7 @@ const diZ = z.object({
 });
 const channelZ = z.discriminatedUnion("type", [aiZ, diZ]);
 const configZ = z.object({ rate: z.number(), channels: channelZ.array() });
-const limitsZ = z.object({ low: z.number(), high: z.number() });
+const limitsZ = z.object({ low: z.number().default(0), high: z.number() });
 const docZ = z.object({
   name: z.string(),
   group: z.string().optional(),

@@ -133,8 +133,10 @@ const merge = (
   partial: record.Unknown,
 ): record.Unknown => {
   const union = unionOf(u);
-  if (union == null)
+  if (union == null) {
+    if (current == null) return build(shapeOf(u), shapeOf(t), {}, partial);
     return mergeObject(shapeOf(u), shapeOf(t), asObject(current), partial);
+  }
   const records = recordUnionOf(t);
   const { discriminator } = union;
   const type = partial[discriminator];
@@ -142,26 +144,34 @@ const merge = (
   const updateShape = shapeOf(optionOf(union, type));
   const recordShape = shapeOf(optionOf(records, type));
   const base = asObject(current);
-  if (base[discriminator] === type)
+  if (current != null && base[discriminator] === type)
     return mergeObject(updateShape, recordShape, base, fields);
-  const start: record.Unknown = { [discriminator]: type };
+  const seed: record.Unknown = { [discriminator]: type };
   baseFields(records).forEach((k) => {
-    if (base[k] !== undefined) start[k] = base[k];
+    if (base[k] !== undefined) seed[k] = base[k];
   });
-  return fillDefaults(
-    recordShape,
-    mergeObject(updateShape, recordShape, start, fields),
-  );
+  return build(updateShape, recordShape, seed, fields);
 };
 
-const fillDefaults = (shape: Shape, value: record.Unknown): record.Unknown => {
-  Object.entries(shape).forEach(([k, field]) => {
-    if (value[k] !== undefined) return;
-    if (field._zod.optin == null) throw new Error(`${k} is required`);
+// Builds a value from the defaults of recordShape and seed, merged with partial.
+const build = (
+  updateShape: Shape,
+  recordShape: Shape,
+  seed: record.Unknown,
+  partial: record.Unknown,
+): record.Unknown => {
+  const start: record.Unknown = {};
+  Object.entries(recordShape).forEach(([k, field]) => {
+    if (field._zod.optin == null) return;
     const fallback = field.parse(undefined);
-    if (fallback !== undefined) value[k] = fallback;
+    if (fallback !== undefined) start[k] = fallback;
   });
-  return value;
+  const next = mergeObject(updateShape, recordShape, { ...start, ...seed }, partial);
+  Object.entries(recordShape).forEach(([k, field]) => {
+    if (next[k] === undefined && field._zod.optin == null)
+      throw new Error(`${k} is required`);
+  });
+  return next;
 };
 
 const mergeObject = (
@@ -212,11 +222,10 @@ const applyField = (
   }
 };
 
-const applyStruct = (kind: StructKind, current: unknown, change: unknown): unknown => {
-  if (replaces(change)) return change[SET];
-  if (current == null) throw new StaleError("the struct to merge into is absent");
-  return merge(kind.update, kind.full, current, change as record.Unknown);
-};
+const applyStruct = (kind: StructKind, current: unknown, change: unknown): unknown =>
+  replaces(change)
+    ? change[SET]
+    : merge(kind.update, kind.full, current, change as record.Unknown);
 
 const applyList = (
   current: unknown,
@@ -276,15 +285,16 @@ export interface AppliedUpdate<U extends z.ZodType, T extends z.ZodType> {
 }
 
 /**
- * Applies an update to a record without changing the record. A union that changes its
- * discriminator keeps the fields that every variant holds, and fills absent variant
- * fields with their defaults.
+ * Applies an update to a record without changing the record. A merge into an absent
+ * struct starts from its defaults. A union that changes its discriminator keeps the
+ * fields that every variant holds, and fills absent variant fields with their
+ * defaults.
  *
  * @param schemas - The schema of the update value, and the record schema for defaults.
- * @throws {StaleError} if a guard does not hold, a list key is missing, or a merge
- * goes into an absent struct.
+ * @throws {StaleError} if a guard does not hold or a list key is missing.
  * @throws {Error} if the update clears a required field, combines set with another
- * operator, inserts a key that exists, or leaves out a variant field with no default.
+ * operator, inserts a key that exists, or leaves out a field with no default of a new
+ * struct or variant.
  */
 export const applyUpdate = <U extends z.ZodType, T extends z.ZodType>(
   { u, t }: StructSchemas<U, T>,

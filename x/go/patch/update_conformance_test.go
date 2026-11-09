@@ -29,7 +29,7 @@ const updateVectorsPath = "../../testdata/update/vectors.json"
 
 // testDoc and its update stand for a generated record and its generated Apply. A
 // channel is a union on type: "ai" has a range and units with defaults, and "di" has a
-// line without one.
+// line without one. Limits have a low with a default, and a high without one.
 type testDoc struct {
 	Name   string      `json:"name"`
 	Group  *string     `json:"group,omitzero"`
@@ -98,6 +98,7 @@ func (u testDocUpdate) apply(d *testDoc) error {
 		&d.Limits,
 		u.Limits,
 		mergeTestLimits,
+		testLimitsDefaults,
 	); err != nil {
 		return err
 	}
@@ -115,6 +116,13 @@ func mergeTestConfig(c *testConfig, u testConfigUpdate) error {
 		func(u testChannelUpdate) string { return u.Key },
 		mergeTestChannel,
 	)
+}
+
+func testLimitsDefaults(u testLimitsUpdate) (testLimits, error) {
+	if u.High.IsZero() {
+		return testLimits{}, errors.Wrap(validate.ErrValidation, "high is required")
+	}
+	return testLimits{Low: 0}, nil
 }
 
 func mergeTestLimits(l *testLimits, u testLimitsUpdate) error {
