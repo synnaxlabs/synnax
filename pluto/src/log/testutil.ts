@@ -30,6 +30,7 @@ export const DEFAULT_STATE = {
   visibleStart: 0,
   computedLineHeight: 16,
   rowEntries: [],
+  newLines: 0,
 };
 
 const LINES = [

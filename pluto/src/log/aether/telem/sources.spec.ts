@@ -148,6 +148,17 @@ describe("StreamMultiChannelLog", () => {
     expect(stampsOf(live)).toEqual(timesOf(core, 10));
   });
 
+  it("should count the lines that stream in after the first read", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    expect(log.streamedLines).toBe(0);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(log.streamedLines).toBe(10);
+  });
+
   it("should show stored samples of any age", async () => {
     const core = createCore({ now: START.add(TimeSpan.days(2)), rate: Rate.hz(0.01) });
     const [a] = core.data.map((c) => c.key);

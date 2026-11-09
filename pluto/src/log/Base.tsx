@@ -10,6 +10,7 @@
 import "@/log/Log.css";
 
 import { clipboard } from "@synnaxlabs/lyra/clipboard";
+import { context } from "@synnaxlabs/lyra/context";
 import type { Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -42,6 +43,13 @@ const FLATTENED_TRIGGERS = Triggers.flattenConfig(TRIGGER_CONFIG);
 
 // Pixels the log scrolls per frame for each pixel a selection drag is past its edge.
 const EDGE_SCROLL_RATE = 0.2;
+
+// Holds the count of lines that streamed in since the enclosing log paused.
+const [NewLinesContext, useNewLines] = context.create({
+  defaultValue: 0,
+  displayName: "Log.NewLines",
+});
+export { useNewLines };
 
 const toText = (lines: log.Line[]): string => lines.map((l) => l.text).join("\n");
 
@@ -116,8 +124,16 @@ export const Base = ({
     onLeave,
   });
 
-  const { scrolling, empty, loading, blank, selectionStart, selectionEnd, rowEntries } =
-    state;
+  const {
+    scrolling,
+    empty,
+    loading,
+    blank,
+    selectionStart,
+    selectionEnd,
+    rowEntries,
+    newLines,
+  } = state;
 
   const setHold = (hold: boolean) => {
     setState((s) => ({ ...s, scrolling: hold }));
@@ -323,7 +339,9 @@ export const Base = ({
         {loading && !blank && (
           <Icon.Loading aria-label="Loading" className={CSS.BE("log", "loading")} />
         )}
-        {empty ? emptyContent : children}
+        <NewLinesContext value={newLines}>
+          {empty ? emptyContent : children}
+        </NewLinesContext>
       </div>
     </Menu.ContextMenu>
   );
