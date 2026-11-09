@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 
+	compilerwasm "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
@@ -144,7 +145,11 @@ func Open(ctx context.Context, cfgs ...Config) (_ *Calculator, err error) {
 		var statefulMod *stateful.Host
 		var stringsMod *stlstrings.Host
 		var errorsMod *stlerrors.Host
-		wasmRT := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		wasmRT := wazero.NewRuntimeWithConfig(
+			ctx,
+			wazero.NewRuntimeConfigCompiler().
+				WithMemoryLimitPages(compilerwasm.MaxMemoryPages),
+		)
 		closers = append(closers, io.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))

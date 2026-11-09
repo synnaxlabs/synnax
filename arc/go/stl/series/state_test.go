@@ -134,6 +134,32 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
+	Describe("Limits", func() {
+		It("Should panic with ErrLimit past MaxHandles", func() {
+			ser := telem.NewSeriesV[uint8](1)
+			for range series.MaxHandles {
+				s.Store(ser)
+			}
+			Expect(func() { s.Store(ser) }).To(PanicWith(series.ErrLimit))
+		})
+
+		It("Should panic with ErrLimit past MaxBytes", func() {
+			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2)
+			s.Store(half)
+			s.Store(half)
+			Expect(func() { s.Store(telem.NewSeriesV[uint8](1)) }).
+				To(PanicWith(series.ErrLimit))
+		})
+
+		It("Should accept series again after Clear", func() {
+			half := telem.MakeSeries(telem.Uint8T, series.MaxBytes/2)
+			s.Store(half)
+			s.Store(half)
+			s.Clear()
+			Expect(s.Store(telem.NewSeriesV[uint8](1))).To(Equal(uint32(1)))
+		})
+	})
+
 	Describe("Clear", func() {
 		It("Should remove all stored series", func() {
 			h := s.Store(telem.NewSeriesV[float32](1.0))

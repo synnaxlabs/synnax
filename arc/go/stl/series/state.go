@@ -9,7 +9,22 @@
 
 package series
 
-import "github.com/synnaxlabs/x/telem"
+import (
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
+)
+
+const (
+	// MaxHandles is the most series a ProgramState holds between two calls to Clear.
+	MaxHandles = 1 << 16
+	// MaxBytes is the most bytes of series data a ProgramState holds between two calls
+	// to Clear.
+	MaxBytes = 64 << 20
+)
+
+// ErrLimit is the panic value of Store when a series would pass MaxHandles or
+// MaxBytes. A host function that panics traps the guest call that made it.
+var ErrLimit = errors.New("program made too many series in one cycle")
 
 // ProgramState manages transient series handles.
 // Handles are short-lived references used within a single execution cycle
@@ -17,6 +32,7 @@ import "github.com/synnaxlabs/x/telem"
 type ProgramState struct {
 	series  map[uint32]telem.Series
 	counter uint32
+	bytes   int64
 }
 
 // NewProgramState creates a new ProgramState.
@@ -27,10 +43,16 @@ func NewProgramState() *ProgramState {
 	}
 }
 
-// Store stores a series and returns a handle for later retrieval.
+// Store stores a series and returns a handle for later retrieval. It panics with
+// ErrLimit when the series would pass MaxHandles or MaxBytes.
 func (s *ProgramState) Store(series telem.Series) uint32 {
+	size := int64(series.Size())
+	if s.counter > MaxHandles || s.bytes+size > MaxBytes {
+		panic(ErrLimit)
+	}
 	handle := s.counter
 	s.counter++
+	s.bytes += size
 	s.series[handle] = series
 	return handle
 }
@@ -45,4 +67,5 @@ func (s *ProgramState) Get(handle uint32) (telem.Series, bool) {
 func (s *ProgramState) Clear() {
 	clear(s.series)
 	s.counter = 1
+	s.bytes = 0
 }

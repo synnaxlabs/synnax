@@ -9,6 +9,21 @@
 
 package strings
 
+import "github.com/synnaxlabs/x/errors"
+
+const (
+	// MaxHandles is the most transient strings a ProgramState holds between two calls
+	// to Clear.
+	MaxHandles = 1 << 16
+	// MaxBytes is the most bytes of transient strings a ProgramState holds between two
+	// calls to Clear.
+	MaxBytes = 16 << 20
+)
+
+// ErrLimit is the panic value of Create when a string would pass MaxHandles or
+// MaxBytes. A host function that panics traps the guest call that made it.
+var ErrLimit = errors.New("program made too many strings in one cycle")
+
 // literalHandleBase is the starting value for literal string handles.
 // Literal string handles are stable for the ProgramState lifetime and are never
 // cleared by Clear. Using a high base value ensures they cannot collide with
@@ -23,6 +38,7 @@ const literalHandleBase uint32 = 1 << 24
 type ProgramState struct {
 	strings              map[uint32]string
 	counter              uint32
+	bytes                int
 	literalStrings       map[uint32]string
 	literalStringCounter uint32
 }
@@ -41,13 +57,18 @@ func NewProgramState() *ProgramState {
 	}
 }
 
-// Create stores a string and returns a transient handle for later retrieval.
+// Create stores a string and returns a transient handle for later retrieval. It panics
+// with ErrLimit when the string would pass MaxHandles or MaxBytes.
 func (s *ProgramState) Create(str string) uint32 {
 	if str == "" {
 		return 0
 	}
+	if s.counter > MaxHandles || s.bytes+len(str) > MaxBytes {
+		panic(ErrLimit)
+	}
 	handle := s.counter
 	s.counter++
+	s.bytes += len(str)
 	s.strings[handle] = str
 	return handle
 }
@@ -84,4 +105,5 @@ func (s *ProgramState) Get(handle uint32) (string, bool) {
 func (s *ProgramState) Clear() {
 	clear(s.strings)
 	s.counter = 1
+	s.bytes = 0
 }

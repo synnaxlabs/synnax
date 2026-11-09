@@ -161,6 +161,26 @@ var _ = Describe("ProgramState", func() {
 		)
 	})
 
+	Describe("Limits", func() {
+		It("Should panic with ErrLimit past MaxHandles", func() {
+			for range stlstrings.MaxHandles {
+				s.Create("a")
+			}
+			Expect(func() { s.Create("a") }).To(PanicWith(stlstrings.ErrLimit))
+		})
+
+		It("Should panic with ErrLimit past MaxBytes", func() {
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes))
+			Expect(func() { s.Create("a") }).To(PanicWith(stlstrings.ErrLimit))
+		})
+
+		It("Should accept strings again after Clear", func() {
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes))
+			s.Clear()
+			Expect(s.Create("a")).To(Equal(uint32(1)))
+		})
+	})
+
 	Describe("Clear", func() {
 		It("Should remove transient strings", func() {
 			h := s.Create("ephemeral")

@@ -15,6 +15,7 @@ import (
 	"io"
 	stdtime "time"
 
+	compilerwasm "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
@@ -180,7 +181,11 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	var wasmRT wazero.Runtime
 	if len(t.prog.Program.WASM) > 0 {
-		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+		wasmRT = wazero.NewRuntimeWithConfig(
+			ctx,
+			wazero.NewRuntimeConfigCompiler().
+				WithMemoryLimitPages(compilerwasm.MaxMemoryPages),
+		)
 		closers = append(closers, xio.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
