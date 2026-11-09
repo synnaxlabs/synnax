@@ -25,6 +25,18 @@ release workflows redeploy the docs after each stable release. The updater route
 five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
 limit; the site works without it.
 
+## Versions
+
+`DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
+for `main`. The newest train with a stable Core release is the latest and lives at
+`docs.synnaxlabs.com`. An earlier train lives at `v0-60.docs.synnaxlabs.com`, and `next`
+at `next.docs.synnaxlabs.com`. Old and next builds show a banner, ask search engines not
+to index them, and send the blog, release notes, reliability, and legal pages to the
+root. Download links keep to the build's train. Each version has its own search index. A
+build without `DOCS_VERSION`, such as a dev server or a preview, shows no menu.
+
+To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
+
 ## Feature flags
 
 A flag is a static build-time boolean that hides unfinished docs in production. Flags

@@ -17,6 +17,7 @@ import { describe, expect, it } from "vitest";
 
 import Header from "@/components/layout/Header.astro";
 import { type Release, Releases } from "@/util/releases";
+import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
   node.children.flatMap((child) =>
@@ -35,7 +36,7 @@ const RELEASES: Release[] = [
   { tag_name: "core/v0.60.0", prerelease: false, draft: false },
 ];
 
-const render = async (): Promise<Element[]> => {
+const render = async (version: Version | null = null): Promise<Element[]> => {
   const container = await experimental_AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
   const releases = new Releases({
@@ -43,12 +44,56 @@ const render = async (): Promise<Element[]> => {
   });
   const html = await container.renderToString(Header, {
     locals: { releases },
+    props: { version },
     request: new Request("https://docs.synnaxlabs.com/reference/"),
   });
   return elements(fromHtml(html, { fragment: true }));
 };
 
+const hrefs = (nodes: Element[], name: string): unknown[] =>
+  nodes
+    .filter(({ tagName }) => tagName === "a")
+    .filter((node) => text(node) === name)
+    .map(({ properties: { href } }) => href);
+
+const classed = (nodes: Element[], name: string): Element[] =>
+  nodes.filter(({ properties: { className } }) =>
+    Array.isArray(className) ? className.includes(name) : false,
+  );
+
 describe("Header", () => {
+  it("should show the newest Core train when the build has no version", async () => {
+    const nodes = await render();
+    expect(classed(nodes, "version").map(text)).toEqual(["0.60"]);
+    expect(classed(nodes, "version-menu")).toEqual([]);
+  });
+
+  it("should link each version at the current path", async () => {
+    const nodes = await render(resolve("0.59", ["0.60", "0.59"]));
+    const links = classed(nodes, "version-menu__list").flatMap(elements);
+    expect(
+      links
+        .filter(({ tagName }) => tagName === "a")
+        .map(({ properties: { href } }) => href),
+    ).toEqual([
+      "https://next.docs.synnaxlabs.com/reference/",
+      `${ROOT}/reference/`,
+      "https://v0-59.docs.synnaxlabs.com/reference/",
+    ]);
+    expect(classed(nodes, "version").map(text)).toEqual([]);
+  });
+
+  it("should send the pages no version owns to the root", async () => {
+    expect(hrefs(await render(resolve("next", ["0.60"])), "Blog")).toEqual([
+      `${ROOT}/blog/`,
+      `${ROOT}/blog/`,
+    ]);
+    expect(hrefs(await render(resolve("0.60", ["0.60"])), "Blog")).toEqual([
+      "/blog/",
+      "/blog/",
+    ]);
+  });
+
   it("should link Log in to the sign-in page of the portal", async () => {
     const logins = (await render()).filter(({ properties: { className } }) =>
       Array.isArray(className) ? className.includes("login-button") : false,

@@ -26,6 +26,8 @@ import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
+import { Releases } from "./src/util/releases";
+import { parse, resolve } from "./src/util/version";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
@@ -35,6 +37,17 @@ const RELEASE_REDIRECTS = Object.fromEntries(
     `/releases/#${anchor}`,
   ]),
 );
+
+// One resolution serves every page, so a deployment never mixes statuses, and a page
+// that renders per request never asks GitHub for its version.
+const versionName = parse(process.env.DOCS_VERSION);
+const version =
+  versionName == null
+    ? null
+    : resolve(
+        versionName,
+        await new Releases({ token: process.env.DOCS_GITHUB_TOKEN }).trains("core"),
+      );
 
 // A page behind a flag renders per request, so it can answer 404 while the flag is off.
 const flaggedPages: AstroIntegration = {
@@ -57,6 +70,7 @@ export default defineConfig({
   env: { schema },
   adapter: vercel(),
   vite: {
+    define: { __DOCS_VERSION__: JSON.stringify(version) },
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },

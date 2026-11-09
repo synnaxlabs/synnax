@@ -15,12 +15,28 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import Search from "@/components/search/Search.astro";
 import { Page } from "@/components/nav/Page";
+import VersionMenu from "@/components/version/Menu.astro";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+import { rootOf, type Version } from "@/util/version";
 import Drawer from "@synnaxlabs/site-common/Drawer.astro";
 import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
+
+interface Props {
+    /** The docs version of the build, or null for an unversioned build. */
+    version: Version | null;
+}
+
+const { version } = Astro.props;
 const url = Astro.url.pathname;
-const version = await Astro.locals.releases.latest("core").catch(() => null);
-const label = version?.split(".").slice(0, -1).join(".");
+// An unversioned build shows the newest Core train beside the GitHub link.
+const label =
+    version == null
+        ? (await Astro.locals.releases.latest("core").catch(() => null))
+              ?.split(".")
+              .slice(0, -1)
+              .join(".")
+        : undefined;
+const root = rootOf(version);
 ---
 
 <Flex.Box className="main-header" justify="center" align="center" el="header" empty>
@@ -46,21 +62,21 @@ const label = version?.split(".").slice(0, -1).join(".");
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("blog") ? "nav-link--active" : ""}`}
-                        href="/blog/"
+                        href={`${root}/blog/`}
                     >
                         Blog
                     </Button.Button>
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("releases") ? "nav-link--active" : ""}`}
-                        href="/releases/"
+                        href={`${root}/releases/`}
                     >
                         Releases
                     </Button.Button>
                     <Button.Button
                         variant="text"
                         className={`nav-link ${url.includes("reliability") ? "nav-link--active" : ""}`}
-                        href="/reliability/"
+                        href={`${root}/reliability/`}
                     >
                         Reliability
                     </Button.Button>
@@ -68,12 +84,14 @@ const label = version?.split(".").slice(0, -1).join(".");
             </Flex.Box>
             <Flex.Box direction="x" align="center" gap="small">
                 <Search />
+                {version != null && <VersionMenu version={version} />}
                 <Button.Button
                     className="version-button"
                     variant="outlined"
                     href="https://github.com/synnaxlabs/synnax"
+                    aria-label={label == null ? "GitHub" : undefined}
                 >
-                    <p class="version">{label}</p>
+                    {label != null && <p class="version">{label}</p>}
                     <Icon.Logo.Github />
                 </Button.Button>
                 <Button.Button
@@ -89,13 +107,13 @@ const label = version?.split(".").slice(0, -1).join(".");
                         <a href="/reference/" class="mobile-drawer-link">
                             Reference
                         </a>
-                        <a href="/blog/" class="mobile-drawer-link">
+                        <a href={`${root}/blog/`} class="mobile-drawer-link">
                             Blog
                         </a>
-                        <a href="/releases/" class="mobile-drawer-link">
+                        <a href={`${root}/releases/`} class="mobile-drawer-link">
                             Releases
                         </a>
-                        <a href="/reliability/" class="mobile-drawer-link">
+                        <a href={`${root}/reliability/`} class="mobile-drawer-link">
                             Reliability
                         </a>
                         <Divider.Divider x className="mobile-drawer-divider" />
@@ -259,7 +277,8 @@ const label = version?.split(".").slice(0, -1).join(".");
                 display: none;
             }
 
-            .version-button {
+            .version-button,
+            .version-menu {
                 display: none;
             }
 
