@@ -13,10 +13,10 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -25,7 +25,7 @@ import (
 
 // ServiceConfig is the configuration for the role API service.
 type ServiceConfig struct {
-	// RBAC enforces access control on every request.
+	// RBAC stores and retrieves roles.
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -75,19 +75,12 @@ type (
 	}
 )
 
-// Create creates the roles in the request.
+// Create creates or overwrites the roles in the request.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: []resource.ID{{Type: resource.TypeRole}},
-		Action:  access.ActionCreate,
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	if err := w.CreateMany(ctx, &req.Roles); err != nil {
 		return CreateResponse{}, err
@@ -95,9 +88,38 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-// Retrieve retrieves the roles that the request selects.
+// DispatchRequest carries an action sequence to apply to a single role. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[rbacrole.Key, rbacrole.Action]
+
+// Dispatch applies the action sequence to the target role atomically. Subscribers to
+// the role action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+}
+
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the roles that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, rbacrole.ResourceID)
+}
+
+// Retrieve returns the roles that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
@@ -105,14 +127,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := q.Exec(ctx, nil); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err := s.internal.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: rbacrole.ResourceIDsFromRoles(res.Roles),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, rbacrole.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil
@@ -123,19 +138,12 @@ type DeleteRequest struct {
 	Keys []rbacrole.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete deletes the roles in the request.
+// Delete deletes the roles in the request and their policies.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.internal.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Objects: rbacrole.ResourceIDs(req.Keys),
-		Action:  access.ActionDelete,
-	}); err != nil {
-		return struct{}{}, err
-	}
 	w := s.internal.Role.NewWriter(tx, allowInternal)
 	for _, key := range req.Keys {
 		if err := w.Delete(ctx, key); err != nil {

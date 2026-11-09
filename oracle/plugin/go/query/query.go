@@ -808,8 +808,7 @@ const tableName = "{{$ret.TableName}}"
 // Retrieve is used to retrieve {{$ret.GoName}} records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX gorp.Tx
-	gorp   gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
+	gorp gorp.Retrieve[{{$ret.KeyType}}, {{$ret.GoName}}]
 {{- if $ret.HasIndexes}}
 	indexes    indexes
 {{- end}}
@@ -856,6 +855,7 @@ func newIndexes() indexes {
 			Name:     "{{$ref.FieldName}}",
 			{{$ref.TablesField}}
 			OnDelete: gorp.{{$ref.OnDelete}},
+			Kind:     gorp.{{$ref.Kind}},
 {{- if $ref.Unique}}
 			Unique:   true,
 {{- end}}
@@ -1214,19 +1214,21 @@ func (r Retrieve) SkipMissingKeys() Retrieve {
 	return r
 }
 {{- end}}
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Count returns the number of {{$ret.GoName | toLower | pluralize}} matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of {{$ret.GoName | toLower | pluralize}} in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
 }
 
-// Exists checks whether any {{$ret.GoName | toLower | pluralize}} match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exists checks whether any {{$ret.GoName | toLower | pluralize}} in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }
 {{- end}}
 {{end}}
@@ -1244,6 +1246,7 @@ func {{$root.FuncName}}() []gorp.Reference[{{$root.KeyType}}, {{$root.GoName}}] 
 			Name:     "{{.FieldName}}",
 			{{.TablesField}}
 			OnDelete: gorp.{{.OnDelete}},
+			Kind:     gorp.{{.Kind}},
 {{- if .Unique}}
 			Unique:   true,
 {{- end}}

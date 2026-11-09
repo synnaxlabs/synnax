@@ -22,12 +22,13 @@ import (
 
 var _ = Describe("Service", func() {
 	var (
+		db    *gorp.DB
 		svc   *pd.Service
 		tasks *tasktestutil.Tasks
 	)
 	BeforeEach(func(ctx SpecContext) {
 		// The suite's DB holds a task table of its own.
-		db := DeferClose(gorp.Wrap(memkv.New()))
+		db = DeferClose(gorp.Wrap(memkv.New()))
 		svc = MustOpen(pd.OpenService(ctx, pd.ServiceConfig{
 			DB: db,
 		}))
@@ -67,7 +68,7 @@ var _ = Describe("Service", func() {
 					"status": "status-1",
 				}},
 			}))
-			data := MustSucceed(svc.Alert.Read(ctx, nil, key))
+			data := MustSucceed(svc.Alert.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["routing_key"]).To(Equal("rk-1"))
 			Expect(data["auto_start"]).To(BeTrue())

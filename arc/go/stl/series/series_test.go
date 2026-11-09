@@ -1111,6 +1111,41 @@ var _ = Describe("Series", func() {
 		)
 	})
 
+	Describe("create_empty_str", func() {
+		It("Should create an empty string series", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_str", testutil.U32(0))
+			Expect(h).ToNot(BeZero())
+			ser := MustBeOk(ss.Get(h))
+			Expect(ser.DataType).To(Equal(telem.StringT))
+			Expect(ser.Len()).To(BeZero())
+		})
+
+		It("Should ignore the requested length", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_str", testutil.U32(3))
+			res := call(ctx, "len", testutil.U32(h))
+			Expect(testutil.AsU64(res[0])).To(BeZero())
+		})
+
+		It("Should return a distinct handle on each call", func(ctx SpecContext) {
+			h1 := callU32(ctx, "create_empty_str", testutil.U32(0))
+			h2 := callU32(ctx, "create_empty_str", testutil.U32(0))
+			Expect(h1).ToNot(Equal(h2))
+		})
+
+		It("Should return 0 when slicing the empty series", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_str", testutil.U32(0))
+			Expect(
+				callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(0),
+					testutil.U32(1),
+				),
+			).To(BeZero())
+		})
+	})
+
 	Describe("len", func() {
 		It("Should return the series length", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_i32", testutil.U32(5))

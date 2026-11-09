@@ -25,6 +25,7 @@ func taskConfigReferences() []gorp.Reference[uuid.UUID, TaskConfig] {
 			Name:     "alerts.status",
 			Table:    "status",
 			OnDelete: gorp.Detach,
+			Kind:     gorp.Use,
 			Targets: func(e *TaskConfig) []status.Key {
 				var targets []status.Key
 				for _, v1 := range e.Alerts {

@@ -11,7 +11,6 @@ package gorp_test
 
 import (
 	"context"
-	"iter"
 	"math"
 	"sync"
 	"sync/atomic"
@@ -22,7 +21,6 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
@@ -185,7 +183,7 @@ var _ = Describe("Index", func() {
 			byName, byScore = nil, nil
 			disconnect := table.Observe().OnChange(func(
 				ctx context.Context,
-				_ iter.Seq[change.Change[int32, indexedEntry]],
+				_ gorp.TxReader[int32, indexedEntry],
 			) {
 				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
 					GinkgoHelper()
@@ -1071,6 +1069,40 @@ var _ = Describe("Index", func() {
 						Limit(3).
 						Entries(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(scoresOf(res)).To(Equal([]int64{0, 20, 30}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved ahead inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 1, Score: 25}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{0, 2, 1}))
+				},
+			)
+
+			It(
+				"Should sort an entry that moved back inside the page into place",
+				func(ctx SpecContext) {
+					tx := idxDB.OpenTx()
+					defer func() { Expect(tx.Close()).To(Succeed()) }()
+					moved := indexedEntry{ID: 2, Score: 5}
+					Expect(gorp.NewCreate[int32, indexedEntry]().
+						Entry(&moved).Exec(ctx, tx)).To(Succeed())
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
+						Limit(3).
+						Entries(&res).Exec(ctx, tx)).To(Succeed())
+					Expect(idsOf(res)).To(Equal([]int32{0, 2, 1}))
 				},
 			)
 

@@ -447,7 +447,7 @@ export class Lists<
   ): Promise<{ records: V[]; rechecks: Set<K> } | null> {
     const { table, fetch } = this.config;
     const { generation } = entry;
-    const rechecks = new Set<K>();
+    const rechecks = entry.rechecks ?? new Set<K>();
     entry.rechecks = rechecks;
     // A change that lands during the fetch reaches no unmaintained window.
     const before = this.seen();
@@ -606,6 +606,8 @@ export class Lists<
       ),
     ];
     entry.teardown = () => releases.forEach((release) => release());
+    // The first fetch starts later, and its answer may predate a change made before it.
+    if (!entry.fetched) entry.rechecks ??= new Set();
     if (entry.fetched && !unchanged(entry.seen, this.seen())) entry.stale = true;
     if (!entry.stale || !entry.fetched) return;
     // A record deleted while unmaintained leaves its key until the refetch lands.

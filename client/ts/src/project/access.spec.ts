@@ -73,7 +73,7 @@ describe("project", () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
         objects: [project.resourceID("")],
-        actions: ["delete"],
+        actions: ["delete", "retrieve"],
       });
       const randomProject = await client.projects.create({
         name: "test",

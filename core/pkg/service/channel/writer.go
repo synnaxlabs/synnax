@@ -18,6 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -32,14 +33,23 @@ import (
 const calculatedIndexNameSuffix = "_time"
 
 // Writer creates, deletes, and renames channels within a single transaction. It infers
-// DataTypes for calculated channels before persisting, orchestrating key/storage
-// allocation through the distribution-layer allocator and writing channel metadata to
-// the service table. Obtain one from Service.NewWriter. A Writer is not safe for
+// DataTypes for calculated channels before persisting. It changes storage channels when
+// the transaction commits, before the channel records reach the store, and a storage
+// error aborts the commit. A failed commit does not undo the storage changes that ran
+// before the failure. Obtain one from Service.NewWriter. A Writer is not safe for
 // concurrent use.
 type Writer struct {
-	svc      *Service
-	tx       gorp.Tx
-	analyzer *CalculationAnalyzer
+	svc        *Service
+	tx         gorp.Tx
+	analyzer   *CalculationAnalyzer
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 type createOptions struct {
@@ -66,12 +76,81 @@ func OverwriteIfNameExistsAndDifferentProperties() CreateOption {
 	}
 }
 
-// SetGroup moves the channels with keys into g, or out of their group when g is nil.
+// SetGroup applies a set of the group to each channel with keys, moving it into g, or
+// out of its group when g is nil.
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
-	if err := group.CheckMember(ctx, w.tx, g, resource.TypeChannel, nil); err != nil {
-		return err
+	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
+	for _, k := range keys {
+		if _, err := w.Apply(ctx, k, set); err != nil {
+			return err
+		}
 	}
-	return setGroup(w.svc.table, g, keys...).Exec(ctx, w.tx)
+	return nil
+}
+
+// Apply applies the actions to the channel with the given key and attaches them to the
+// transaction of w. An edit of the expression or operations infers the data type again,
+// and Apply attaches and returns a set of a changed data type. A rename reaches storage
+// when the transaction commits. Apply returns an error wrapping validate.ErrValidation
+// for an invalid action or result, and query.ErrNotFound when no channel has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
+	var prev Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](key)).
+		Entry(&prev).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	next, err := Reduce(prev, acts...)
+	if err != nil {
+		return nil, err
+	}
+	if err = next.Validate(); err != nil {
+		return nil, err
+	}
+	if err = group.CheckMember(
+		ctx,
+		w.tx,
+		next.Group,
+		resource.TypeChannel,
+		nil,
+	); err != nil {
+		return nil, err
+	}
+	if next.Expression != prev.Expression ||
+		!slices.Equal(next.Operations, prev.Operations) {
+		if !prev.IsCalculated() || !next.IsCalculated() {
+			return nil, errors.Wrap(
+				validate.ErrValidation,
+				"only a calculated channel can change its expression or operations, "+
+					"and its expression cannot be empty",
+			)
+		}
+		result, err := w.analyzer.Analyze(ctx, next)
+		if err != nil {
+			return nil, err
+		}
+		next.DataType = result.ChanDataType
+	}
+	if next.Name != prev.Name {
+		if err = w.rename(ctx, Keys{key}, []string{next.Name}, false); err != nil {
+			return nil, err
+		}
+	}
+	if err = w.svc.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	var computed []Action
+	if next.DataType != prev.DataType {
+		computed = append(computed, dataTypeAction(next.DataType))
+	}
+	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
+	return computed, nil
+}
+
+// dataTypeAction returns the action that sets the data type of a channel to dt.
+func dataTypeAction(dt telem.DataType) Action {
+	return NewSetAction(SetPayload{Path: []string{"data_type"}, Value: dt})
 }
 
 // Create creates a single channel, inferring the DataType if it is calculated.
@@ -92,13 +171,6 @@ func (w Writer) Create(ctx context.Context, c *Channel, opts ...CreateOption) er
 func (w Writer) CreateMany(
 	ctx context.Context, channels *[]Channel, opts ...CreateOption,
 ) error {
-	if db, ok := w.tx.(*gorp.DB); ok {
-		// A create holds the service lock while it writes, so it takes the gorp write
-		// lock first.
-		return db.WithTx(ctx, func(tx gorp.Tx) error {
-			return w.svc.NewWriter(tx).CreateMany(ctx, channels, opts...)
-		})
-	}
 	if len(*channels) == 0 {
 		return nil
 	}
@@ -126,11 +198,11 @@ func (w Writer) CreateMany(
 // redundant and, for interdependent channels analyzed in one pass against pre-update
 // storage, incorrect. It returns validate.Error if the target channel is not
 // calculated, since a non-calculated channel's DataType is fixed by its persistent
-// storage.
+// storage. It attaches a set of the data type.
 func (w Writer) ChangeDataType(
 	ctx context.Context, key Key, dataType telem.DataType,
 ) error {
-	return w.svc.table.NewUpdate().
+	if err := w.svc.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Channel](key)).
 		ChangeErr(func(_ gorp.Context, c Channel) (Channel, error) {
 			if !c.IsCalculated() {
@@ -143,7 +215,11 @@ func (w Writer) ChangeDataType(
 			c.DataType = dataType
 			return c, nil
 		}).
-		Exec(ctx, w.tx)
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	w.dispatcher.Attach(w.tx, key, dataTypeAction(dataType))
+	return nil
 }
 
 // Delete deletes the channel with the given key, along with its storage. Unless
@@ -183,17 +259,27 @@ func (w Writer) Rename(
 }
 
 // RenameMany renames the channels with the given keys to the corresponding entries in
-// newNames, which must be parallel to keys. Unless allowInternal is true, renaming any
-// internal channel returns an error.
+// newNames, which must be parallel to keys, and attaches a rename action for each one.
+// Unless allowInternal is true, renaming any internal channel returns an error.
 func (w Writer) RenameMany(
 	ctx context.Context, keys []Key, newNames []string, allowInternal bool,
 ) error {
-	return w.rename(ctx, keys, newNames, allowInternal)
+	if err := w.rename(ctx, keys, newNames, allowInternal); err != nil {
+		return err
+	}
+	for i, k := range keys {
+		w.dispatcher.Attach(
+			w.tx,
+			k,
+			NewRenameAction(RenamePayload{Name: newNames[i]}),
+		)
+	}
+	return nil
 }
 
 // create orchestrates channel creation: it validates names, preprocesses calculated
-// channels, resolves existing channels, allocates keys and storage through the
-// distribution allocator, and writes the rich channel records to the table.
+// channels, resolves existing channels, allocates keys through the distribution
+// allocator, and writes the rich channel records to the table.
 func (w Writer) create(
 	ctx context.Context,
 	_channels *[]Channel,
@@ -255,6 +341,7 @@ func (w Writer) create(
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool {
 		return k.LocalKey() != 0
 	})
+	var written Keys
 	if len(existingKeys) != 0 {
 		if err := w.svc.table.NewUpdate().
 			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
@@ -265,6 +352,7 @@ func (w Writer) create(
 					channels[idx] = c
 					return c, nil
 				}
+				written = append(written, c.Key())
 				c.Name = ic.Name
 				if c.IsCalculated() && ic.IsCalculated() {
 					c.Expression = ic.Expression
@@ -401,8 +489,8 @@ func (w Writer) create(
 	}
 
 	// Resolve channels that already exist by name (when RetrieveIfNameExists is set,
-	// reusing their stored records), then allocate local keys and storage for the
-	// remaining new channels through the distribution allocator.
+	// reusing their stored records), then allocate local keys for the remaining new
+	// channels through the distribution allocator.
 	if opts.retrieveIfNameExists {
 		names := Names(channels)
 		var existing []Channel
@@ -431,6 +519,9 @@ func (w Writer) create(
 	if err := w.allocateAndWrite(ctx, channels, newIndices, minimal); err != nil {
 		return err
 	}
+	for _, i := range newIndices {
+		written = append(written, channels[i].Key())
+	}
 
 	// Persist updated LocalIndex links for existing calculated channels (those already
 	// in the table) whose index channel was just created.
@@ -455,16 +546,34 @@ func (w Writer) create(
 			Exec(ctx, w.tx); err != nil {
 			return err
 		}
+		written = append(written, ch.Key())
 	}
 
 	*_channels = channels
+	return w.attachCreates(ctx, lo.Uniq(written))
+}
+
+// attachCreates attaches a create action that holds the stored channel for each key.
+func (w Writer) attachCreates(ctx context.Context, keys Keys) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	var stored []Channel
+	if err := w.svc.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
+		Entries(&stored).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	for _, c := range stored {
+		w.dispatcher.Attach(w.tx, c.Key(), NewCreateAction(CreatePayload{Channel: c}))
+	}
 	return nil
 }
 
-// allocateAndWrite enforces the channel limit, then allocates keys and storage for the
-// new channels, writes them to the table, and records them in the external non-virtual
-// set. It holds the service lock throughout, so a create rejected by the limit
-// allocates nothing and concurrent creates cannot pass the limit together.
+// allocateAndWrite enforces the channel limit, then allocates keys for the new channels
+// and writes them to the table. When the transaction commits, it creates their storage
+// channels and records them in the external non-virtual set.
 func (w Writer) allocateAndWrite(
 	ctx context.Context,
 	channels []Channel,
@@ -477,18 +586,19 @@ func (w Writer) allocateAndWrite(
 			externalNewCount++
 		}
 	}
-	w.svc.mu.Lock()
-	defer w.svc.mu.Unlock()
+	w.svc.mu.RLock()
 	count := w.svc.mu.externalNonVirtualSet.Size()
+	w.svc.mu.RUnlock()
 	if err := w.svc.cfg.Limit(
 		types.Uint20(int(count) + externalNewCount),
 	); err != nil {
 		return err
 	}
 	toCreate := make([]Channel, 0, len(newIndices))
+	var allocated []channel.Channel
 	if len(minimal) != 0 {
-		allocated, err := w.svc.cfg.Channel.Create(ctx, minimal)
-		if err != nil {
+		var err error
+		if allocated, err = w.svc.cfg.Channel.Allocate(ctx, minimal); err != nil {
 			return err
 		}
 		for j, i := range newIndices {
@@ -540,7 +650,15 @@ func (w Writer) allocateAndWrite(
 	if err := w.svc.table.NewCreate().Entries(&toCreate).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		if err := w.svc.cfg.Channel.Create(ctx, allocated); err != nil {
+			return err
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+		w.svc.mu.Unlock()
+		return nil
+	})
 	return nil
 }
 
@@ -634,14 +752,15 @@ func (w Writer) delete(ctx context.Context, keys Keys, allowInternal bool) error
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	// Storage deletion goes last, as it is the only operation that can fail without an
-	// atomic guarantee.
-	if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
-		return err
-	}
-	w.svc.mu.Lock()
-	w.svc.mu.externalNonVirtualSet.Remove(keys...)
-	w.svc.mu.Unlock()
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		if err := w.svc.cfg.Channel.Delete(ctx, keys); err != nil {
+			return err
+		}
+		w.svc.mu.Lock()
+		w.svc.mu.externalNonVirtualSet.Remove(keys...)
+		w.svc.mu.Unlock()
+		return nil
+	})
 	return nil
 }
 
@@ -683,5 +802,8 @@ func (w Writer) rename(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	return w.svc.cfg.Channel.Rename(ctx, renameMap)
+	gorp.BeforeCommit(w.tx, func(ctx context.Context) error {
+		return w.svc.cfg.Channel.Rename(ctx, renameMap)
+	})
+	return nil
 }

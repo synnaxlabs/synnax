@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -36,7 +37,7 @@ var _ = Describe("Signals", func() {
 		GinkgoHelper()
 		var ch channel.Channel
 		Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, db)).To(Succeed())
 		streamer := MustSucceed(framerSvc.NewStreamer(ctx, framer.StreamerConfig{
 			Keys: channel.Keys{ch.Key()},
 		}))
@@ -57,7 +58,7 @@ var _ = Describe("Signals", func() {
 		for _, name := range []string{setChannelName, deleteChannelName} {
 			var ch channel.Channel
 			Expect(channelSvc.NewRetrieve().Where(channel.MatchNames(name)).Entry(&ch).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(ch.Virtual).To(BeTrue())
 			Expect(ch.Internal).To(BeTrue())
 		}
@@ -68,11 +69,15 @@ var _ = Describe("Signals", func() {
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, setChannelName)
 			p := panel.Panel{Name: "sig", Project: &proj.Key}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
 			DeferCleanup(func(ctx SpecContext) {
-				Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Delete(ctx, p.Key)
+				})).To(Succeed())
 			})
-			Expect(svc.Dispatch(ctx, p.Key, "dk-1", []panel.Action{
+			Expect(dispatch(ctx, p.Key, "dk-1", []panel.Action{
 				panel.NewSetAction(
 					panel.SetPayload{Path: []string{"name"}, Value: "renamed"},
 				),
@@ -107,9 +112,9 @@ var _ = Describe("Signals", func() {
 			responses := openStreamer(ctx, setChannelName)
 			missing := uuid.New()
 			p := panel.Panel{Name: "sig-reject", Project: &missing}
-			Expect(
-				writer.Create(ctx, &p),
-			).To(MatchError(ContainSubstring("does not exist")))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(MatchError(ContainSubstring("does not exist")))
 			Consistently(responses.Outlet(), 250*time.Millisecond).ShouldNot(Receive())
 		},
 	)
@@ -119,8 +124,12 @@ var _ = Describe("Signals", func() {
 		func(ctx SpecContext) {
 			responses := openStreamer(ctx, deleteChannelName)
 			p := panel.Panel{Name: "sig-del", Project: &proj.Key}
-			Expect(writer.Create(ctx, &p)).To(Succeed())
-			Expect(writer.Delete(ctx, p.Key)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &p)
+			})).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, p.Key)
+			})).To(Succeed())
 			var res framer.StreamerResponse
 			Eventually(responses.Outlet(), time.Second*5).Should(Receive(&res))
 			var keys []uuid.UUID
