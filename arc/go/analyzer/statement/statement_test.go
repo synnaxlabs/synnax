@@ -10,6 +10,8 @@
 package statement_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -3126,4 +3128,32 @@ var _ = Describe("Flow variables from module constants", func() {
 			"func f() {v f64} f64 {\n limit := math.inf\n return limit\n}",
 		),
 	)
+})
+
+var _ = Describe("Computed initializers", func() {
+	It("Should give each computed initializer node its declared type", func(
+		bCtx SpecContext,
+	) {
+		root := symbol.NewRoot(nil, append(stl.NewSymbols(), &symbol.Symbol{
+			Name: "go", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1,
+		}))
+		ast := MustSucceed(parser.Parse(
+			"sequence main {\n v u8 $= 2 + 3\n w f32 := 1.5 * 2.0\n stage a {\n }\n}\n" +
+				"go => main",
+		))
+		ctx := context.NewRoot(bCtx, ast, root)
+		analyzer.AnalyzeProgram(ctx)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		var outputs []types.Type
+		for _, c := range root.Children() {
+			if c.Kind != symbol.KindFunction ||
+				!strings.HasPrefix(c.Name, "expression_") {
+				continue
+			}
+			out, ok := c.Type.Outputs.Get(ir.DefaultOutputParam)
+			Expect(ok).To(BeTrue())
+			outputs = append(outputs, ctx.Constraints.ApplySubstitutions(out.Type))
+		}
+		Expect(outputs).To(ConsistOf(types.U8(), types.F32()))
+	})
 })

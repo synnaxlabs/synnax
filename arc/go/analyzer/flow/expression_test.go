@@ -805,3 +805,51 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 		}
 	})
 })
+
+var _ = Describe("BindOutput", func() {
+	var root *symbol.Symbol
+	BeforeEach(func(bCtx SpecContext) {
+		root = NewRoot(nil)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+	})
+
+	It("Should bind the untyped output of a node to the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.F32())
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		synth := MustSucceed(root.GetChildByParserRule(expr))
+		out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+		Expect(ok).To(BeTrue())
+		Expect(ctx.Constraints.ApplySubstitutions(out.Type)).To(Equal(types.F32()))
+	})
+
+	It("Should report an output that does not fit the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.Bool())
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("assignment"))
+	})
+
+	DescribeTable("Should do nothing",
+		func(bCtx SpecContext, source string, registered bool) {
+			expr := MustSucceed(parser.ParseExpression(source))
+			ctx := context.NewRoot(bCtx, expr, root)
+			if registered {
+				flow.AnalyzeSingleExpression(ctx)
+			}
+			before := len(ctx.Constraints.Constraints)
+			flow.BindOutput(ctx, expr, types.F32())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(ctx.Constraints.Constraints).To(HaveLen(before))
+		},
+		Entry("with no registered node", "1.5 * 2.0", false),
+		Entry("with a concrete output", "x + x", true),
+	)
+})
