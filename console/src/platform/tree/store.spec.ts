@@ -61,7 +61,6 @@ const createStore = (
     root: ROOT,
     list: (id) => sources[resource.idToString(id)] ?? [],
     hasChildren: (type) => type === "group",
-    visible: () => true,
     onError: vi.fn(),
     ...config,
   });
@@ -114,20 +113,6 @@ describe("tree store", () => {
       });
       store.start();
       await expect.poll(() => keysOf(store)).toEqual(["group:a"]);
-    });
-
-    it("should leave out the records the tree does not show", async () => {
-      const hidden = res("channel", "1", "hidden");
-      const store = createStore(
-        {
-          [ROOT_KEY]: [
-            createMemorySource(listed(hidden, res("channel", "2", "shown"))),
-          ],
-        },
-        { visible: (r) => r !== hidden },
-      );
-      store.start();
-      await expect.poll(() => keysOf(store)).toEqual(["channel:2"]);
     });
 
     it("should follow a change to a list", async () => {

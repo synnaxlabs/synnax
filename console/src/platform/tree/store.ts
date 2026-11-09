@@ -43,7 +43,6 @@ export interface StoreConfig {
   /** Lists the children of a node. */
   list: (id: resource.ID) => Source[];
   hasChildren: (type: resource.Type) => boolean;
-  visible: (resource: Resource) => boolean;
   /** Receives the error of each list fetch that fails. */
   onError: (error: unknown) => void;
   results?: Results;
@@ -76,7 +75,7 @@ interface Segment {
 
 // A record past the least last record of a window with more can sort before a match
 // that window has not fetched, so it waits.
-const segment = (windows: Window[], visible: (r: Resource) => boolean): Segment => {
+const segment = (windows: Window[]): Segment => {
   let cut: string | undefined;
   windows.forEach(({ resources, more }) => {
     const last = resources.at(-1);
@@ -85,23 +84,20 @@ const segment = (windows: Window[], visible: (r: Resource) => boolean): Segment 
   });
   const keys = windows
     .flatMap(({ resources }) => resources)
-    .filter((r) => visible(r) && (cut == null || compare.text(r.name, cut) <= 0))
+    .filter((r) => cut == null || compare.text(r.name, cut) <= 0)
     .toSorted(byName)
     .map(({ key }) => key);
   return { keys, more: cut != null };
 };
 
 // Folders show first, so a folder list with more hides the other records.
-const merge = (
-  windows: Array<Window | undefined>,
-  visible: (r: Resource) => boolean,
-): string[] | undefined => {
+const merge = (windows: Array<Window | undefined>): string[] | undefined => {
   if (!windows.every((w): w is Window => w != null)) return undefined;
   const folders = windows.filter(({ resources }) => resources.some(isFolder));
-  const head = segment(folders, visible);
+  const head = segment(folders);
   if (head.more) return head.keys;
   const rest = windows.filter((w) => !folders.includes(w));
-  return [...head.keys, ...segment(rest, visible).keys];
+  return [...head.keys, ...segment(rest).keys];
 };
 
 const mapsEqual = (a: Map<string, string[]>, b: Map<string, string[]>): boolean =>
@@ -312,7 +308,7 @@ export class Store {
     const { merged, windows } = folder;
     if (merged != null && compare.arraysEqual(merged.windows, windows))
       return merged.keys;
-    const keys = merge(windows, this.config.visible);
+    const keys = merge(windows);
     folder.merged = { windows: [...windows], keys };
     return keys;
   }

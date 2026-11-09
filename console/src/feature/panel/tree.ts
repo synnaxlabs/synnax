@@ -27,6 +27,6 @@ export const GROUP_MEMBER: Group.Member = {
     Tree.createSource(client.panels, { groups: [key] }, Tree.toResource("panel")),
 };
 
-const TreeItem = Tree.createItem({ type: "panel", icon });
+const TreeItem = Tree.createItem({ icon });
 
 export const TREE_ITEMS: Tree.Items = { panel: TreeItem };
