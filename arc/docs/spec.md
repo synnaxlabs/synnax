@@ -311,7 +311,7 @@ channel or a variable can use the name `nan` or `inf`.
 
 The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
 literal is read as a float. The constants act like a float literal: they fit `f32` or
-`f64`, and do not fit an integer type.
+`f64`, default to `f64`, and do not fit an integer type.
 
 ```arc
 import math
