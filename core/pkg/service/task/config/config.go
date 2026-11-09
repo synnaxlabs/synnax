@@ -47,11 +47,11 @@ type Store interface {
 	) (Record, error)
 	// Edit applies the path actions at cursors to the record stored under key, then
 	// prepares the result as Prepare does. Each cursor is past the segment that names
-	// the config. A value that an action removes or sets to null takes its default.
-	// Edit returns the record to write, and whether it differs from the result of the
-	// actions alone, such as by a filled default. It returns an error wrapping
-	// query.ErrNotFound when no record exists, or validate.ErrValidation when an action
-	// or the result is not valid.
+	// the config. A value that an action removes or sets to null takes its default, and
+	// a value set to zero stays zero. Edit returns the record to write, and whether it
+	// differs from the result of the actions alone, such as by a filled default. It
+	// returns an error wrapping query.ErrNotFound when no record exists, or
+	// validate.ErrValidation when an action or the result is not valid.
 	Edit(
 		ctx context.Context,
 		snap gorp.Snapshot,
@@ -149,10 +149,6 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// Legacy is the rewrite that converts the type's legacy config shapes. Nil
 	// applies era normalization alone.
 	Legacy *legacy.Rewrite
-	// ApplyEntryDefaults replaces each zero field of an entry with its default, an
-	// explicit zero included, before the entry is stored.
-	// [OPTIONAL] - nil when the entry type has no defaults or its decode fills them.
-	ApplyEntryDefaults func(*E)
 	// ResolveEntry fills fields of a decoded entry from other resources, read through
 	// snap, before the entry is validated and stored.
 	// [OPTIONAL] - nil when the entry depends on no other resource.
@@ -175,7 +171,6 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Ladder = override.If(c.Ladder, other.Ladder, other.Ladder.Decode != nil)
 	c.LegacyVersion = override.Numeric(c.LegacyVersion, other.LegacyVersion)
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
-	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -331,23 +326,38 @@ func (s *Service[E]) Edit(
 // refill drops the members at paths from the JSON form of e and decodes the result, so
 // a removed or nulled value takes its default. An empty path drops the whole config.
 func refill[E any](e E, paths [][]string) (E, error) {
-	var next E
 	if len(paths) == 0 {
 		return e, nil
 	}
+	return redecode(e, func(data msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		for _, p := range paths {
+			if len(p) == 0 {
+				data = msgpack.EncodedJSON{}
+				continue
+			}
+			last := len(p) - 1
+			remove := patch.Remove{Path: p[:last], Key: p[last]}
+			if err := remove.Apply(data); err != nil {
+				return nil, err
+			}
+		}
+		return data, nil
+	})
+}
+
+// redecode decodes the result of drop on the JSON form of e, so each member that drop
+// deletes takes its schema default.
+func redecode[E any](
+	e E,
+	drop func(msgpack.EncodedJSON) (msgpack.EncodedJSON, error),
+) (E, error) {
+	var next E
 	data, err := encode(e)
 	if err != nil {
 		return next, err
 	}
-	for _, p := range paths {
-		if len(p) == 0 {
-			data = msgpack.EncodedJSON{}
-			continue
-		}
-		last := len(p) - 1
-		if err = (patch.Remove{Path: p[:last], Key: p[last]}).Apply(data); err != nil {
-			return next, err
-		}
+	if data, err = drop(data); err != nil {
+		return next, err
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -359,16 +369,13 @@ func refill[E any](e E, paths [][]string) (E, error) {
 	return next, nil
 }
 
-// prepare fills the defaults of e, gives it key, resolves, and validates it.
+// prepare gives e key, then resolves and validates it.
 func (s *Service[E]) prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
 	e *E,
 ) (Record, error) {
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(e)
-	}
 	s.cfg.SetEntryKey(e, key)
 	if s.cfg.ResolveEntry != nil {
 		if err := s.cfg.ResolveEntry(ctx, snap, e); err != nil {
@@ -475,13 +482,74 @@ func (s *Service[E]) Normalize(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	if s.cfg.ApplyEntryDefaults != nil {
-		s.cfg.ApplyEntryDefaults(&e)
+	if version != ladder.Latest {
+		if e, err = withInputDefaults(e, data); err != nil {
+			return nil, err
+		}
 	}
 	if _, err := s.table.DropDangling(ctx, snap, &e); err != nil {
 		return nil, err
 	}
 	return encode(e)
+}
+
+// withInputDefaults returns e, an entry that a ladder lifted from the input blob in,
+// with the schema default in every member that in omits. A lift builds a member its
+// source version lacks as a zero, while a member that in carries keeps the value the
+// lift gave it, zero or not.
+func withInputDefaults[E any](e E, in msgpack.EncodedJSON) (E, error) {
+	return redecode(e, func(out msgpack.EncodedJSON) (msgpack.EncodedJSON, error) {
+		dropOmittedZeros(out, in)
+		return out, nil
+	})
+}
+
+// dropOmittedZeros deletes from out every member, at any object depth, that in omits
+// and that holds a zero JSON value, so a decode of out gives it its default.
+func dropOmittedZeros(out, in map[string]any) {
+	for key, value := range out {
+		given, ok := in[key]
+		if obj, isObj := value.(map[string]any); isObj {
+			inObj, _ := given.(map[string]any)
+			dropOmittedZeros(obj, inObj)
+			if !ok && len(obj) == 0 {
+				delete(out, key)
+			}
+			continue
+		}
+		if arr, isArr := value.([]any); isArr && ok {
+			if inArr, sameLen := given.([]any); sameLen && len(inArr) == len(arr) {
+				for i := range arr {
+					obj, isObj := arr[i].(map[string]any)
+					inObj, inIsObj := inArr[i].(map[string]any)
+					if isObj && inIsObj {
+						dropOmittedZeros(obj, inObj)
+					}
+				}
+			}
+			continue
+		}
+		if !ok && isZeroJSON(value) {
+			delete(out, key)
+		}
+	}
+}
+
+// isZeroJSON reports whether v is the JSON encoding of a zero Go value.
+func isZeroJSON(v any) bool {
+	switch v := v.(type) {
+	case nil:
+		return true
+	case bool:
+		return !v
+	case float64:
+		return v == 0
+	case string:
+		return v == ""
+	case []any:
+		return len(v) == 0
+	}
+	return false
 }
 
 // Version implements Store.
