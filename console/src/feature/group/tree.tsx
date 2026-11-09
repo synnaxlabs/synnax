@@ -37,11 +37,11 @@ const retrieve: Tree.Retrieve = async (c, key) => await c.groups.retrieve({ key 
  * its scope.
  */
 export const createTreeItems = (
-  members: PlatformGroup.Members,
+  members: PlatformGroup.Member[],
 ): { group: Tree.Item } => {
   const membersOf = ({ type }: resource.ID): PlatformGroup.Member[] => {
     if (!PlatformGroup.isScope(type)) throw new Error(`no tree holds ${type} groups`);
-    return members[type];
+    return members.filter((m) => group.MEMBER_RULES[m.type].scope === type);
   };
 
   const children: Tree.Children = ({ client, id, root }) => [
@@ -80,7 +80,7 @@ export const createTreeItems = (
         .filter((id) => !selected.has(resource.idToString(id)));
       const parent = resource.idsEqual(parentID, rootID) ? undefined : parentID;
       await client.batch.send([
-        ...PlatformGroup.moveRequests(client, childIDs, parent),
+        ...client.groups.moveRequests(childIDs, parent),
         client.groups.deleteRequest(ids.map(({ key }) => key)),
       ]);
       return data;
@@ -166,13 +166,12 @@ export const createTreeItems = (
       ]);
       return (
         props.moved.every(({ id }) => types.has(id.type)) &&
-        PlatformGroup.canMove(props)
+        group.canMove({ ...props, destination: props.destination.id })
       );
     },
     drop: async ({ client, destination, items }) => {
       await client.batch.send(
-        PlatformGroup.moveRequests(
-          client,
+        client.groups.moveRequests(
           items.map(({ id }) => id),
           destination.id,
         ),

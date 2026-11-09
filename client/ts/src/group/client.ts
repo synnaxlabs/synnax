@@ -12,6 +12,8 @@ import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { type batch } from "@/batch";
+import { type MemberType } from "@/group/members.gen";
+import { isMember } from "@/group/move";
 import {
   type Group,
   groupZ,
@@ -65,6 +67,11 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  /**
+   * Builds a request that moves records of each type into a group, or out of their
+   * group when it is undefined.
+   */
+  setGroup: Record<MemberType, (keys: string[], to?: Key) => batch.Request>;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Group> {
@@ -162,6 +169,26 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
           );
       },
     };
+  }
+
+  /**
+   * Builds the requests that move resources under a parent: a group, project, or rack,
+   * or the top of their tree when the parent is undefined. A group takes the parent as
+   * its parent. Any other resource joins the parent when it is a group, and leaves its
+   * group when it is not.
+   * @throws {Error} if a resource is of a type that cannot sit in a group.
+   */
+  moveRequests(ids: resource.ID[], parent?: resource.ID): batch.Request[] {
+    const byType = new Map<resource.Type, string[]>();
+    ids.forEach(({ type, key }) =>
+      byType.set(type, [...(byType.get(type) ?? []), key]),
+    );
+    const to = parent?.type === "group" ? parent.key : undefined;
+    return [...byType].map(([type, keys]) => {
+      if (type === "group") return this.setParentRequest(keys, parent);
+      if (!isMember(type)) throw new Error(`a ${type} cannot sit in a group`);
+      return this.cfg.setGroup[type](keys, to);
+    });
   }
 
   /**
