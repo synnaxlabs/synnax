@@ -111,6 +111,11 @@ interface Merged {
 const merge = (windows: Array<Window | undefined>): Merged | undefined => {
   if (!windows.every((w): w is Window => w != null)) return undefined;
   const indices = windows.map((_, i) => i);
+  // Deletes can empty a window with more, and its next page can sort first.
+  const emptied = indices.filter(
+    (i) => windows[i].more && windows[i].resources.length === 0,
+  );
+  if (emptied.length > 0) return { keys: [], pending: emptied };
   const folders = indices.filter((i) => windows[i].resources.some(isFolder));
   const rest = indices.filter((i) => !folders.includes(i));
   const withMore = (of: number[]) => of.filter((i) => windows[i].more);
