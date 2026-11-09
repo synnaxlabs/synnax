@@ -1472,6 +1472,57 @@ var _ = Describe("Decode-time default generation", func() {
 	)
 
 	It(
+		"Should reject an embedded type with defaults that a generic struct extends",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Page struct<T> extends Base { items T[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Page.Base: Base has defaults and another struct embeds it",
+			)))
+		},
+	)
+
+	It(
+		"Should reject a generic struct that instantiates itself without end",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Box struct<T> { item T }
+			Node struct<T> { kids Node<Box<T>>[] }
+		`
+			table, diag := Analyze(ctx, source, "x", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"Node.kids: Node instantiates itself without end",
+			)))
+		},
+	)
+
+	It(
+		"Should accept a generic struct nested in itself",
+		func(ctx SpecContext) {
+			source := `
+			@go output "core/pkg/service/x"
+
+			Base struct { rate float64 = 0.2 }
+			Box struct<T> { item T }
+			Outer struct { items Box<Box<Base>> }
+		`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").ToContain("Items Box[Box[Base]]")
+		},
+	)
+
+	It(
 		"Should reject an embedded type with defaults in a required field of a "+
 			"generic struct",
 		func(ctx SpecContext) {

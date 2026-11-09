@@ -143,7 +143,15 @@ func resolvedAndDealiased(
 // defaults in a slice, a map value, an optional field, or a generic struct. An embedded
 // type takes no decode hooks, so a decode leaves the defaults of such a value unset.
 func checkHeldEmbedded(owner string, field resolution.Field, data *templateData) error {
-	refs := heldRefs(field.Type, field.Optional, data.table, set.New[string]())
+	w := heldWalk{
+		table:   data.table,
+		visited: set.New[string](),
+		path:    map[string]int{},
+	}
+	refs, err := w.refs(field.Type, field.Optional)
+	if err != nil {
+		return errors.Wrapf(err, "%s.%s", owner, field.Name)
+	}
 	for _, ref := range refs {
 		for _, t := range resolvedAndDealiased(ref, data.table) {
 			key := embedKey(output.GetPath(t, "go"), naming.GetGoName(t))
@@ -161,44 +169,65 @@ func checkHeldEmbedded(owner string, field resolution.Field, data *templateData)
 	return nil
 }
 
-// heldRefs returns the types that ref holds in slices, map values, and the fields of a
+// heldWalk collects the types that a field holds.
+type heldWalk struct {
+	table *resolution.Table
+	// visited holds the instantiations of generic structs already walked.
+	visited set.Set[string]
+	// path maps each generic struct being walked to the length of its instance key.
+	path map[string]int
+}
+
+// refs returns the types that ref holds in slices, map values, and the fields of a
 // generic struct, and ref itself when the field is optional. A generic struct sets no
-// defaults, so each of its fields counts as held. heldRefs looks through aliases and
-// distinct types to the collection or generic struct they name.
-func heldRefs(
+// defaults, so each of its fields counts as held. refs looks through aliases and
+// distinct types to the collection or generic struct they name. It returns an error
+// when a generic struct instantiates itself with a larger type argument, which never
+// ends.
+func (w heldWalk) refs(
 	ref resolution.TypeRef,
 	optional bool,
-	table *resolution.Table,
-	visited set.Set[string],
-) []resolution.TypeRef {
-	if under, ok := underlying(ref, table); ok {
+) ([]resolution.TypeRef, error) {
+	if under, ok := underlying(ref, w.table); ok {
 		ref = under
 	}
 	switch {
 	case ref.Name == "Array" && len(ref.TypeArgs) == 1:
-		return heldRefs(ref.TypeArgs[0], true, table, visited)
+		return w.refs(ref.TypeArgs[0], true)
 	case ref.Name == "Map" && len(ref.TypeArgs) == 2:
-		return heldRefs(ref.TypeArgs[1], true, table, visited)
+		return w.refs(ref.TypeArgs[1], true)
 	}
 	var out []resolution.TypeRef
 	if optional {
 		out = append(out, ref)
 	}
-	t, form, ok := genericStruct(ref, table)
-	if !ok || visited.Contains(instanceKey(ref)) {
-		return out
+	t, form, ok := genericStruct(ref, w.table)
+	key := instanceKey(ref)
+	if !ok || w.visited.Contains(key) {
+		return out, nil
 	}
-	visited.Add(instanceKey(ref))
+	if outer, ok := w.path[ref.Name]; ok && len(key) > outer {
+		return nil, errors.Newf("%s instantiates itself without end", t.Name)
+	}
+	w.visited.Add(key)
+	outer, onPath := w.path[ref.Name]
+	w.path[ref.Name] = len(key)
+	defer func() {
+		if onPath {
+			w.path[ref.Name] = outer
+		} else {
+			delete(w.path, ref.Name)
+		}
+	}()
 	args := resolution.TypeArgMap(form.TypeParams, ref.TypeArgs)
-	for _, f := range resolution.UnifiedFields(t, table) {
-		out = append(out, heldRefs(
-			resolution.SubstituteTypeRef(f.Type, args),
-			true,
-			table,
-			visited,
-		)...)
+	for _, f := range resolution.UnifiedFields(t, w.table) {
+		held, err := w.refs(resolution.SubstituteTypeRef(f.Type, args), true)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, held...)
 	}
-	return out
+	return out, nil
 }
 
 // instanceKey identifies ref by its name and its type arguments.

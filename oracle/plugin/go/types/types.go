@@ -833,6 +833,18 @@ func processStruct(entry resolution.Type, data *templateData) (structData, error
 			embedRecurseSteps(embeds, nil, data, validateHasOwn, validateSkip)...,
 		)
 	}
+	if sd.IsGeneric {
+		for _, e := range embeds {
+			parent := resolution.Field{
+				Name:     embedFieldName(e.rendered),
+				Type:     e.ref,
+				Optional: true,
+			}
+			if err := checkHeldEmbedded(entry.Name, parent, data); err != nil {
+				return structData{}, err
+			}
+		}
+	}
 	for _, field := range fields {
 		held := field
 		// A generic struct sets no defaults, so it holds each of its fields.
