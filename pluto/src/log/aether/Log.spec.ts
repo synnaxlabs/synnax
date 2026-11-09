@@ -728,6 +728,34 @@ describe("log/aether/Log", () => {
       expect(log.state.rowEntries).toContain(501);
     });
 
+    it("should match held lines again when their format changes", () => {
+      const numbers = Array.from({ length: 1_000 }, (_, i) => ({
+        ...makeEntry(i),
+        value: i === 900 ? "3.14159" : "2.71828",
+      }));
+      const entry = (precision: number) =>
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision });
+      const base = {
+        ...SEARCH,
+        search: { text: "3.14$", mode: "regex" },
+        channelDataTypes: { "1": "float64" },
+        channels: [entry(4)],
+      };
+      const { log, source, updateState } = setup(numbers, REGION_500, base);
+      const jumping = {
+        ...base,
+        scrolling: true,
+        jump: { direction: "previous", request: 1 },
+      };
+      updateState(jumping);
+      expect(log.state.jumpStatus).toBe("reading");
+      updateState({ ...jumping, channels: [entry(2)], jumpStatus: "reading" });
+      source.notify();
+      log.render();
+      expect(log.state.rowEntries).toContain(900);
+      expect(log.state.jumpStatus).toBe("");
+    });
+
     it("should read older lines until it finds a match", () => {
       const { log, source, updateState } = setup(lines(1_000, []), REGION_500, SEARCH);
       jumpTo(updateState, "previous", 1);

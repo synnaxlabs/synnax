@@ -386,7 +386,10 @@ export class Log
           i.valueColors[key] = color.construct(cfg.color);
         }
     }
-    i.formats = formatsOf(channelEntries, this.state.channelDataTypes);
+    const formats = formatsOf(channelEntries, this.state.channelDataTypes);
+    // A new format changes the text a jump matches, so its verdicts go stale.
+    if (!deep.equal(formats, i.formats)) this.unmatched = new WeakSet();
+    i.formats = formats;
 
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
     i.matchColor = color.setAlpha(i.theme.colors.warning.z, 0.4);
