@@ -105,6 +105,8 @@ interface Meta {
   // The snapshot and the count of appended samples that entries were last read up to.
   snapshot?: framer.Snapshot;
   appended: number;
+  // The appended count that streamedLines already holds the samples before.
+  counted: number;
   // Whether the channel stores samples, so that older pages can read them.
   stored: boolean;
   // Samples that wait for their times, oldest first.
@@ -272,6 +274,7 @@ export class StreamMultiChannelLog
       Object.assign(meta, {
         snapshot: undefined,
         appended: 0,
+        counted: 0,
         pending: [],
         oldest: undefined,
         exhausted: !meta.stored,
@@ -459,6 +462,7 @@ export class StreamMultiChannelLog
     counts.forEach((count, key) => {
       const meta = this.metas.get(key);
       if (meta == null) return;
+      meta.counted = meta.appended - meta.pending.length;
       meta.appended -= count + meta.pending.length;
       meta.pending = [];
     });
@@ -743,14 +747,15 @@ export class StreamMultiChannelLog
       meta.exhausted = true;
     const streamed = meta.snapshot != null;
     let skip = Math.max(0, series.length - appended + meta.appended);
+    let position = appended - series.length + skip;
     for (const s of series.series) {
-      for (let i = skip; i < s.length; i++)
+      for (let i = skip; i < s.length; i++, position++)
         meta.pending.push({
           alignment: alignmentOf(s, i),
           value: s.asString(i, true),
           text: s.dataType.equals(DataType.STRING),
           receivedAt,
-          streamed,
+          streamed: streamed && position >= meta.counted,
         });
       skip = Math.max(0, skip - s.length);
     }
@@ -924,6 +929,7 @@ const toMeta = (ch: channel.Channel): Meta => {
     name: ch.name,
     stored,
     appended: 0,
+    counted: 0,
     pending: [],
     dropWarned: false,
     exhausted: !stored,
