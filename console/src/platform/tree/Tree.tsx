@@ -325,7 +325,7 @@ const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   </Text.Text>
 );
 
-interface ResultsProps extends Pick<
+interface AnswerProps extends Pick<
   Search,
   "noun" | "layout" | "fieldRef" | "resultsRef"
 > {
@@ -334,7 +334,7 @@ interface ResultsProps extends Pick<
   answer: SearchAnswer;
 }
 
-const Results = ({
+const Answer = ({
   client,
   root,
   noun,
@@ -342,7 +342,7 @@ const Results = ({
   answer,
   fieldRef,
   resultsRef,
-}: ResultsProps): ReactElement => {
+}: AnswerProps): ReactElement => {
   // A second Escape, in the field, closes the search.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Escape" || e.target !== e.currentTarget) return;
@@ -407,7 +407,7 @@ export const Tree = ({
       {/* The results come ahead of the hidden tree, so a lookup by item ID, such as
           the start of a rename, finds the result first. */}
       {search?.answer != null && (
-        <Results
+        <Answer
           client={client}
           root={root}
           noun={search.noun}

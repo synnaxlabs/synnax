@@ -352,6 +352,18 @@ export const renderLiveTree = async ({
   return { ...rendered, store };
 };
 
+/** Renders a tree of groups under root that searches with search. */
+export const renderSearchableTree = async (
+  client: Synnax,
+  root: resource.ID,
+  search: Tree.UseSearch,
+): Promise<LiveTreeHandle> =>
+  await renderLiveTree({ client, root, items: { group: createGroupItem() }, search });
+
+/** Returns how many trees an open search hides. */
+export const countHiddenTrees = (): number =>
+  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
+
 const SCROLL_STEP = 200;
 // A search hides the browse tree, so the helpers skip it as a user does.
 const VISIBLE_TREE = ".lyra-tree:not(.console-tree--hidden)";

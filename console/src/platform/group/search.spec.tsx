@@ -17,11 +17,13 @@ import { describe, expect, it, vi } from "vitest";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
 import {
+  countHiddenTrees,
   createGroupItem,
   createSearchTree,
   findTreeRow,
   itemName,
   renderLiveTree,
+  renderSearchableTree,
   retrieveChildGroupKeys,
   searchTree,
 } from "@/platform/tree/testutil";
@@ -29,29 +31,16 @@ import { getIconButton, uniqueName, uniqueToken, withControlHeld } from "@/testu
 
 const client = createTestClient();
 
-const GROUP_ITEMS: Tree.Items = { group: createGroupItem() };
-
 const useGroupSearch = Tree.createSearch({
   noun: "groups",
   useMatches: Group.useMatches,
   usePlacement: Group.usePlacement,
 });
 
-const renderSearchable = async (
-  root: resource.ID,
-  search: Tree.UseSearch = useGroupSearch,
-) => await renderLiveTree({ client, root, items: GROUP_ITEMS, search });
-
-const hiddenTrees = (): number =>
-  document.querySelectorAll(".lyra-tree.console-tree--hidden").length;
-
-const childKeysOf = async (id: resource.ID): Promise<string[]> =>
-  await retrieveChildGroupKeys(client, id);
-
 describe("Group search", () => {
   it("should show each match with its group and hide the tree", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     await findTreeRow(names.echo);
     searchTree(tok);
     const charlie = await findTreeRow(itemName(names.charlie));
@@ -59,7 +48,7 @@ describe("Group search", () => {
     expect(charlie.querySelector("mark")?.textContent).toBe(tok);
     await findTreeRow(itemName(names.alpha));
     await findTreeRow(itemName(names.delta));
-    expect(hiddenTrees()).toBe(1);
+    expect(countHiddenTrees()).toBe(1);
     const results = document.querySelector(".lyra-tree:not(.console-tree--hidden)");
     expect(results?.textContent).not.toContain(names.echo);
   });
@@ -81,7 +70,8 @@ describe("Group search", () => {
         Tree.toMatches(channels, (c) => Tree.toResource("channel")(c.payload)),
       ];
     };
-    await renderSearchable(
+    await renderSearchableTree(
+      client,
       root,
       Tree.createSearch({
         noun: "things",
@@ -97,7 +87,7 @@ describe("Group search", () => {
 
   it("should show the matches inside their groups", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     fireEvent.click(getIconButton(document.body, "tree-view"));
@@ -111,7 +101,7 @@ describe("Group search", () => {
 
   it("should show every child of a matched group, and only the matches of the rest", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     fireEvent.click(getIconButton(document.body, "tree-view"));
@@ -123,7 +113,7 @@ describe("Group search", () => {
 
   it("should drop the other children of a group that stops matching", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     fireEvent.click(getIconButton(document.body, "tree-view"));
@@ -141,7 +131,7 @@ describe("Group search", () => {
 
   it("should show every child of an open group that starts to match", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(names.charlie);
     await findTreeRow(itemName(names.charlie));
     fireEvent.click(getIconButton(document.body, "tree-view"));
@@ -157,7 +147,7 @@ describe("Group search", () => {
 
   it("should show every child of a matched group that matches again", async () => {
     const { root, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     fireEvent.click(getIconButton(document.body, "tree-view"));
@@ -175,7 +165,7 @@ describe("Group search", () => {
 
   it("should show the new name of a group above a match", async () => {
     const { root, bravo, tok, names } = await createSearchTree(client);
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     const renamed = uniqueName("bravo");
@@ -193,7 +183,7 @@ describe("Group search", () => {
       scope: "channel",
       name: uniqueName("other"),
     });
-    await renderSearchable(root);
+    await renderSearchableTree(client, root, useGroupSearch);
     searchTree(tok);
     await findTreeRow(itemName(names.charlie));
     await client.groups.setParent(bravo, group.resourceID(other.key));
@@ -291,9 +281,13 @@ describe("Group search selection", () => {
     fireEvent.dragStart(folderRow);
     fireEvent.drop(await findTreeRow(itemName(dest.name)));
     await waitFor(async () =>
-      expect(await childKeysOf(group.resourceID(dest.key))).toContain(folder.key),
+      expect(
+        await retrieveChildGroupKeys(client, group.resourceID(dest.key)),
+      ).toContain(folder.key),
     );
-    expect(await childKeysOf(group.resourceID(dest.key))).not.toContain(report.key);
-    expect(await childKeysOf(folderID)).toContain(report.key);
+    expect(
+      await retrieveChildGroupKeys(client, group.resourceID(dest.key)),
+    ).not.toContain(report.key);
+    expect(await retrieveChildGroupKeys(client, folderID)).toContain(report.key);
   });
 });
