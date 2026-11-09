@@ -241,6 +241,15 @@ describe("record dispatch", () => {
       await expect.poll(() => rec.cachedName(remote)).toBe(name);
     });
 
+    it("should settle its own echo so a later remote edit shows", async () => {
+      const rec = await create(client);
+      await rec.storedName(remote);
+      await rec.dispatch(client, { path: ["name"], value: uniqueName(), guards: [] });
+      const name = uniqueName();
+      await rec.dispatch(remote, { path: ["name"], value: name, guards: [] });
+      await expect.poll(() => rec.cachedName(client)).toBe(name);
+    });
+
     it("should ingest a record that another client creates", async () => {
       const rec = await create(remote);
       await expect.poll(() => rec.cachedName(client)).toBe(rec.name);
