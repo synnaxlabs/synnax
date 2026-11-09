@@ -20,8 +20,8 @@
 
 namespace x::color {
 
-/// @brief Color is an RGBA color with every component 0-255. The zero Color means no
-/// color.
+/// @brief Color is an RGBA color with every component 0-255. The zero Color is
+/// transparent black.
 struct Color {
     /// @brief r is the red component (0-255).
     std::uint8_t r = 0;
