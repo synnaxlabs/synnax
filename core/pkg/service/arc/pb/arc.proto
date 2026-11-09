@@ -102,11 +102,14 @@ message SourceGraphPayload {
   // graph is the visual dataflow graph representation of the module.
   .arc.graph.pb.Graph graph = 1;
 }
+message ChangeList {
+  repeated Change values = 1;
+}
 message ArcAutomationPayload {
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 1;
   // changes is what changed in the automation since its task was deployed.
-  repeated Change changes = 2;
+  ChangeList changes = 2;
 }
 message ArcModulePayload {
   // status is the result of the module's last compile on the Core.

@@ -128,6 +128,29 @@ var _ = Describe("Service", func() {
 			Expect(stat.Message).To(Equal("Compiled"))
 		})
 
+		It("Should include what changed in a deployed automation", func(
+			ctx SpecContext,
+		) {
+			a := createArc(ctx, "changes_a")
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
+				},
+				IncludeChanges: true,
+			}
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeEmpty())
+			deploy(ctx, a)
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
+				[]arc.Change{{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged}},
+			))
+			req.IncludeChanges = false
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeNil())
+		})
+
 		It(
 			"Should compile the graph of a graph-mode automation",
 			func(ctx SpecContext) {

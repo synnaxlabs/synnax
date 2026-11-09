@@ -251,7 +251,7 @@ struct AutomationArc : public Base {
     /// bytecode.
     std::optional<::arc::program::Program> program;
     /// @brief changes is what changed in the automation since its task was deployed.
-    std::vector<Change> changes;
+    std::optional<std::vector<Change>> changes;
 
     static AutomationArc parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

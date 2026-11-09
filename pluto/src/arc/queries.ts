@@ -324,6 +324,28 @@ export const useModuleStatus = (key: arc.Key): status.Status => {
   return variant !== "success" || data == null ? readStatus : data;
 };
 
+export type RetrieveChangesQuery = {
+  key: arc.Key;
+  /** The task's config hash. The Core rewrites the changes with the task, so a new
+   * hash is what asks again. */
+  configHash: string;
+};
+
+const { useResult: useResultChanges } = Flux.createRetrieve<
+  RetrieveChangesQuery,
+  arc.Change[]
+>({
+  name: "Arc changes",
+  retrieve: async ({ client, query }) => await client.arcs.retrieveChanges(query.key),
+});
+
+/**
+ * What changed in the automation since its task was deployed, as the Core last saw
+ * it. Empty until it loads.
+ */
+export const useChanges = (query: RetrieveChangesQuery): arc.Change[] =>
+  useResultChanges(query).data ?? [];
+
 const notDeployed = (name: string) =>
   status.create({ name, variant: "disabled", message: "Task not deployed" });
 

@@ -144,7 +144,7 @@ export const automationArcZ = baseZ.extend({
   /** program is the compiled module output including IR and WebAssembly bytecode. */
   program: program.programZ.optional(),
   /** changes is what changed in the automation since its task was deployed. */
-  changes: changeZ.array().default(() => []),
+  changes: zod.nullToUndefined(changeZ.array()),
 });
 export interface AutomationArc extends z.infer<typeof automationArcZ> {}
 

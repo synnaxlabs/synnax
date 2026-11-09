@@ -252,6 +252,11 @@ func (s *Service) Retrieve(
 			return RetrieveResponse{}, err
 		}
 	}
+	if req.IncludeChanges {
+		if err = s.includeChanges(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
 }
 
@@ -273,6 +278,34 @@ func (s *Service) Compiled(
 		}
 		return res, nil
 	}
+}
+
+// includeChanges attaches to each automation what changed since its task was
+// deployed. An automation that was never deployed and a module get none.
+func (s *Service) includeChanges(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	records, err := s.internal.RetrieveDrift(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i, a := range arcs {
+		automation, ok := a.Variant.(arc.AutomationArc)
+		if !ok {
+			continue
+		}
+		if rec, ok := records[automation.Key]; ok {
+			automation.Changes = arc.Changes(rec)
+		}
+		arcs[i].Variant = automation
+	}
+	return nil
 }
 
 // includeStatus attaches each module's compile status. An automation has none.

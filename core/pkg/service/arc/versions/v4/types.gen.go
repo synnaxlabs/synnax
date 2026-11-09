@@ -263,7 +263,7 @@ type AutomationArc struct {
 	// Program is the compiled module output including IR and WebAssembly bytecode.
 	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
 	// Changes is what changed in the automation since its task was deployed.
-	Changes []Change `json:"changes" msgpack:"changes"`
+	Changes []Change `json:"changes,omitzero" msgpack:"changes,omitempty"`
 }
 
 func (AutomationArc) isArcVariant() {}

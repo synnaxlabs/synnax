@@ -10,7 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
-import "schemas/synnax/status"
+import "schemas/synnax/versions/status/v2"
 
 Key = v1.Key
 
@@ -101,7 +101,7 @@ Arc union on type Type extends Base {
             """
             @go marshal omit
         }
-        changes Change[]         {
+        changes Change[]?        {
             @doc value  "is what changed in the automation since its task was deployed."
             @go marshal omit
         }

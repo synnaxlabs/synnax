@@ -28,6 +28,20 @@ const RACK_TRIGGER_PROPS = {
 };
 const RACK_DIALOG_PROPS = { className: CSS.BE("rack-select", "dialog") };
 
+const describeChange = ({ type, path, kind }: arc.Change): string =>
+  type === "automation" ? "Automation edited" : `Module ${path} ${kind}`;
+
+/** The redeploy tooltip naming each reason, or undefined when none is known. */
+const redeployTooltip = (
+  changes: arc.Change[],
+  rackChanged: boolean,
+): string | undefined => {
+  const reasons = changes.map(describeChange);
+  if (rackChanged) reasons.push("Rack changed");
+  if (reasons.length === 0) return undefined;
+  return `${reasons.join(". ")}. Redeploy to apply.`;
+};
+
 /** The compile status of a module, which has no task to control. */
 const ModuleControls = () => {
   const key = Arc.useKey();
@@ -49,6 +63,9 @@ const AutomationControls = () => {
   const { running, taskRack, taskPerformance, taskStatus, onStart, onStop } =
     Arc.useTaskControls(key, name, { afterSuccess: captureDeploy });
   const drifted = Arc.useDrifted({ arcKey: key });
+  const tsk = Arc.useResultTask({ arcKey: key }).data;
+  const changes = Arc.useChanges({ key, configHash: tsk?.configHash ?? "" });
+  const rackChanged = tsk != null && tsk.status?.details.rack !== tsk.rack;
   const canControl = Framer.useCanCommand();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
@@ -62,6 +79,7 @@ const AutomationControls = () => {
       status={taskStatus}
       running={running}
       drifted={drifted}
+      redeployTooltip={redeployTooltip(changes, rackChanged)}
       hideActions={!canControl}
       disabled={!bound}
       onDeploy={onStart}

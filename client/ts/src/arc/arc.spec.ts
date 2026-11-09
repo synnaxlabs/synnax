@@ -254,6 +254,27 @@ describe("arc", () => {
     });
   });
 
+  describe("retrieveChanges", () => {
+    it("should name the automation once its task is bound", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`changes-${id.create()}`));
+      expect(await client.arcs.retrieveChanges(created.key)).toEqual([]);
+      await client.arcs.updateTask(created.key, { rack: rack.key });
+      expect(await client.arcs.retrieveChanges(created.key)).toEqual([
+        { type: "automation", path: "", kind: "changed" },
+      ]);
+    });
+
+    it("should return nothing for a module", async () => {
+      const created = await client.arcs.create({
+        name: `changes_module_${id.create()}`,
+        type: "module",
+        source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
+      });
+      expect(await client.arcs.retrieveChanges(created.key)).toEqual([]);
+    });
+  });
+
   describe("updateTask", () => {
     it("creates the task stamped with the arc's hash", async () => {
       const rack = await client.racks.create({ name: `rack-${id.create()}` });

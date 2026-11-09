@@ -408,10 +408,13 @@ AutomationArc::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_program() = v;
     }
-    for (const auto &item: this->changes) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_changes() = v;
+    if (this->changes.has_value()) {
+        auto *wrapper = pb.mutable_changes();
+        for (const auto &item: *this->changes) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
     }
     return {pb, x::errors::NIL};
 }
@@ -424,8 +427,14 @@ AutomationArc::from_proto(const ::service::arc::pb::ArcAutomationPayload &pb) {
         if (err) return {{}, err};
         cpp.program = v;
     }
-    if (auto err = x::pb::from_proto_repeated<Change>(cpp.changes, pb.changes()))
-        return {{}, err};
+    if (pb.has_changes()) {
+        cpp.changes.emplace();
+        if (auto err = x::pb::from_proto_repeated<Change>(
+                *cpp.changes,
+                pb.changes().values()
+            ))
+            return {{}, err};
+    }
     return {cpp, x::errors::NIL};
 }
 

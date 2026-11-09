@@ -29,6 +29,7 @@ import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
   type Arc,
   arcZ,
+  type Change,
   type Key,
   keyZ,
   type New,
@@ -405,6 +406,19 @@ export class Client extends query.Retriever<
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
     return this.dispatcher.transaction(key, kind);
+  }
+
+  /**
+   * The differences between the automation's content and the content its task last
+   * ran, as the Core last saw it. Empty for a module and for an automation that was
+   * never deployed.
+   */
+  async retrieveChanges(key: Key): Promise<Change[]> {
+    const where = { key: { eq: key } };
+    const arcs = await this.execRetrieve({ where, includeChanges: true });
+    checkForMultipleOrNoResults("Arc", { where }, arcs, true);
+    const a = arcs[0];
+    return a.type === "automation" ? (a.changes ?? []) : [];
   }
 
   private async execRetrieve(params: RetrieveParams): Promise<Arc[]> {

@@ -91,7 +91,7 @@ Arc union on type Type extends Base {
             @go marshal omit
             @include
         }
-        changes Change[]         {
+        changes Change[]?        {
             @doc value  "is what changed in the automation since its task was deployed."
             @go marshal omit
             @include

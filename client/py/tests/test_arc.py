@@ -190,6 +190,41 @@ class TestArc:
         assert retrieved.status is not None
         assert retrieved.status.message == "Compiled"
 
+    def test_retrieve_changes(self, client: sy.Synnax) -> None:
+        """Should name the automation's own edit when include_changes is True."""
+        created = client.arcs.create(
+            name=f"test_changes_{uuid4().hex}",
+            mode="text",
+            text=sy.Text(raw="x := 1"),
+        )
+        assert isinstance(created, sy.arc.Automation)
+        retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+        assert isinstance(retrieved, sy.arc.Automation)
+        assert not retrieved.changes
+        client.tasks.create(
+            name=created.name,
+            type="arc",
+            config=sy.arc.Task(name=created.name, arc_key=created.key)
+            .to_payload()
+            .config,
+        )
+        client.arcs.create(
+            sy.arc.Automation(
+                key=created.key,
+                name=created.name,
+                source=sy.arc.TextSource(text=sy.Text(raw="x := 2")),
+            )
+        )
+
+        def check() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+            assert isinstance(retrieved, sy.arc.Automation)
+            assert retrieved.changes == [
+                sy.arc.Change(type="automation", path="", kind="changed")
+            ]
+
+        assert_eventually(check)
+
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when include_program is not set."""
         created = client.arcs.create(
