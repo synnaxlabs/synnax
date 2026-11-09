@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
@@ -685,5 +686,22 @@ var _ = Describe("AnalyzeComputedArgs", func() {
 		Expect(MustSucceed(root.GetChildByParserRule(args[3].Expr))).To(
 			BeIdenticalTo(synths[1]),
 		)
+	})
+
+	It("Should register no synth for a float constant", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		var args []symbol.Argument
+		for _, src := range []string{"math.inf", "f32(-math.inf)", "-math.nan"} {
+			args = append(args, symbol.Argument{
+				Expr: MustSucceed(parser.ParseExpression(src)),
+			})
+		}
+		ctx := context.NewRoot(bCtx, args[0].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		for _, arg := range args {
+			Expect(root.GetChildByParserRule(arg.Expr)).Error().To(HaveOccurred())
+		}
 	})
 })
