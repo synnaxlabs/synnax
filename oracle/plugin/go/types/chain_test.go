@@ -1548,6 +1548,135 @@ Doc struct {
 	)
 })
 
+var _ = Describe("Frozen pins of a dependency's current and frozen versions", func() {
+	It("Should take the live Go name and output only at the current version", func() {
+		root := GinkgoT().TempDir()
+		for rel, content := range map[string]string{
+			"schemas/x/versions/color/v0.oracle": `
+Color struct {
+	r uint8
+
+	@go marshal
+}
+
+Shade struct {
+	r uint8
+}
+`,
+			"schemas/x/versions/color/v1.oracle": `
+Color struct {
+	r uint8
+	g uint8
+
+	@go marshal
+}
+
+Shade = v0.Shade
+`,
+			"schemas/x/color.oracle": `
+@go output "x/go/color"
+
+Color struct {
+	r uint8
+	g uint8
+
+	@go marshal
+	@go name "Tint"
+}
+
+Shade struct {
+	r uint8
+
+	@go output "x/go/shade"
+}
+`,
+			"schemas/synnax/versions/doc/v0.oracle": `
+import "schemas/x/versions/color/v0"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v1.oracle": `
+import "schemas/x/versions/color/v1"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+	name string
+
+	@go marshal
+}
+`,
+			"schemas/synnax/versions/doc/v2.oracle": `
+import "schemas/x/versions/color/v1"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+	name string
+	size int32
+
+	@go marshal
+}
+`,
+			"schemas/synnax/doc.oracle": `
+import "schemas/x/color"
+
+@go output "core/pkg/service/doc"
+
+Doc struct {
+	key uuid @key
+	tint color.Color
+	shade color.Shade
+	name string
+	size int32
+}
+`,
+		} {
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		chains := MustSucceed(versions.Discover(root))
+		loader := analyzer.NewStandardFileLoader(root)
+		table, diag := analyzer.Analyze(
+			GinkgoT().Context(),
+			[]string{"schemas/x/color", "schemas/synnax/doc"},
+			loader,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(
+			&plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    versions.NewResolver(chains, loader),
+			},
+		))
+		const pkg = `"github.com/synnaxlabs/synnax/x/go/`
+		currentPin := generatedFile(
+			resp, "core/pkg/service/doc/versions/v1/types.gen.go",
+		)
+		Expect(currentPin).To(ContainSubstring("Tint color.Tint"))
+		Expect(currentPin).To(ContainSubstring("Shade shade.Shade"))
+		Expect(currentPin).To(ContainSubstring(pkg + `color/versions/v1"`))
+		Expect(currentPin).To(ContainSubstring(pkg + `shade/versions/v1"`))
+		frozenPin := generatedFile(
+			resp, "core/pkg/service/doc/versions/v0/types.gen.go",
+		)
+		Expect(frozenPin).To(ContainSubstring("Tint color.Color"))
+		Expect(frozenPin).To(ContainSubstring("Shade color.Shade"))
+		Expect(frozenPin).To(ContainSubstring(pkg + `color/versions/v0"`))
+		Expect(frozenPin).ToNot(ContainSubstring("x/go/shade"))
+	})
+})
+
 var _ = Describe("Pinned dependency Go names", func() {
 	const colorPkg = `"github.com/synnaxlabs/synnax/x/go/color/versions/`
 	generate := func(liveColor string) *plugin.Response {
