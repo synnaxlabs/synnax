@@ -6,6 +6,10 @@
       "tests": [{ "case": "hitl/ni_cdaq" }]
     },
     {
+      "sequence_name": "EtherCAT",
+      "tests": [{ "case": "hitl/ethercat" }, { "case": "hitl/ethercat_arc" }]
+    },
+    {
       "sequence_name": "cRIO",
       "tests": [{ "case": "hitl/crio_driver" }, { "case": "hitl/crio_arc" }]
     }

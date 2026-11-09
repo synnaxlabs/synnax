@@ -96,7 +96,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			Expect(tasks.CreateDevice(ctx, "dev-1")).To(Succeed())
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"device":      "dev-1",
 				"sample_rate": 25,
@@ -107,7 +107,7 @@ var _ = Describe("Service", func() {
 					"channel": ch,
 				}},
 			}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("dev-1"))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 25))
@@ -117,7 +117,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["sample_rate"]).To(BeNumerically("==", 10))
 			Expect(data["stream_rate"]).To(BeNumerically("==", 5))
 		})
@@ -131,7 +131,7 @@ var _ = Describe("Service", func() {
 					"key":  "chan-1",
 				}},
 			}))
-			data := MustSucceed(svc.Write.Read(ctx, nil, key))
+			data := MustSucceed(svc.Write.Read(ctx, db, key))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("data_type", "uint16"),
 			))
@@ -141,7 +141,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 
@@ -154,7 +154,7 @@ var _ = Describe("Service", func() {
 			) {
 				key := uuid.New()
 				write := func(bit int) error {
-					_, err := store().Prepare(ctx, nil, key, msgpack.EncodedJSON{
+					_, err := store().Prepare(ctx, db, key, msgpack.EncodedJSON{
 						"channels": []any{map[string]any{
 							"type":    channelType,
 							"key":     "chan-1",
@@ -199,7 +199,7 @@ var _ = Describe("Service", func() {
 			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"channels": []any{register(nil)},
 			}))
-			ch := channel(MustSucceed(svc.Read.Read(ctx, nil, key)))
+			ch := channel(MustSucceed(svc.Read.Read(ctx, db, key)))
 			Expect(ch).ToNot(HaveKey("bytes_swapped"))
 			Expect(ch).ToNot(HaveKey("words_swapped"))
 		})
@@ -211,7 +211,7 @@ var _ = Describe("Service", func() {
 					"words_swapped": true,
 				})},
 			}))
-			ch := channel(MustSucceed(svc.Write.Read(ctx, nil, key)))
+			ch := channel(MustSucceed(svc.Write.Read(ctx, db, key)))
 			Expect(ch).To(HaveKeyWithValue("bytes_swapped", false))
 			Expect(ch).To(HaveKeyWithValue("words_swapped", true))
 		})
@@ -219,7 +219,7 @@ var _ = Describe("Service", func() {
 		DescribeTable(
 			"Should make a v1 false follow the device and keep a v1 true",
 			func(ctx SpecContext, store func() config.Store) {
-				ch := channel(MustSucceed(store().Normalize(ctx, nil,
+				ch := channel(MustSucceed(store().Normalize(ctx, db,
 					v1.Version,
 					msgpack.EncodedJSON{"channels": []any{register(map[string]any{
 						"bytes_swapped": false,
@@ -237,7 +237,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			ch := channel(
-				MustSucceed(svc.Read.Normalize(ctx, nil, 0, msgpack.EncodedJSON{
+				MustSucceed(svc.Read.Normalize(ctx, db, 0, msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
 						"type":       "holding_register_input",
 						"key":        "chan-1",
@@ -278,7 +278,7 @@ var _ = Describe("Service", func() {
 			migrated := MustOpen(modbus.OpenService(
 				ctx, modbus.ServiceConfig{DB: stored},
 			))
-			chs := MustSucceed(migrated.Read.Read(ctx, nil, key))["channels"].([]any)
+			chs := MustSucceed(migrated.Read.Read(ctx, stored, key))["channels"].([]any)
 			Expect(chs).To(HaveLen(2))
 			Expect(chs[0]).ToNot(HaveKey("bytes_swapped"))
 			Expect(chs[0]).ToNot(HaveKey("words_swapped"))
@@ -314,8 +314,8 @@ var _ = Describe("Service", func() {
 		It("Should drop the channels and devices that do not exist on normalize", func(
 			ctx SpecContext,
 		) {
-			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
-			out := MustSucceed(svc.Read.Normalize(ctx, nil, svc.Read.Version(),
+			ch := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 1))[0]
+			out := MustSucceed(svc.Read.Normalize(ctx, db, svc.Read.Version(),
 				msgpack.EncodedJSON{
 					"device": "missing",
 					"channels": []any{
@@ -361,7 +361,9 @@ var _ = Describe("Service", func() {
 						Status: statusSvc,
 					}),
 				)
-				ch := MustSucceed(channeltestutil.CreateVirtual(ctx, channelSvc, 1))[0]
+				ch := MustSucceed(
+					channeltestutil.CreateVirtual(ctx, stored.DB, channelSvc, 1),
+				)[0]
 				Expect(targets.CreateDevice(ctx, "kept")).To(Succeed())
 				key := uuid.New()
 				read := modbus.ReadConfig{
@@ -391,13 +393,13 @@ var _ = Describe("Service", func() {
 				opened := MustOpen(
 					modbus.OpenService(ctx, modbus.ServiceConfig{DB: stored.DB}),
 				)
-				data := MustSucceed(opened.Read.Read(ctx, nil, key))
+				data := MustSucceed(opened.Read.Read(ctx, stored.DB, key))
 				Expect(data).To(HaveKeyWithValue("device", ""))
 				Expect(data["channels"]).To(HaveExactElements(
 					HaveKeyWithValue("channel", BeEquivalentTo(0)),
 					HaveKeyWithValue("channel", BeEquivalentTo(ch)),
 				))
-				Expect(MustSucceed(opened.Write.Read(ctx, nil, key))).
+				Expect(MustSucceed(opened.Write.Read(ctx, stored.DB, key))).
 					To(HaveKeyWithValue("device", "kept"))
 			},
 		)

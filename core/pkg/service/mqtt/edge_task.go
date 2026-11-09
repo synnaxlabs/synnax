@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/sparkplug"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -143,6 +142,7 @@ type edgeNode struct {
 	ins alamos.Instrumentation
 	// broker is the key of the broker device, whose edits the edge node follows.
 	broker    device.Key
+	db        *gorp.DB
 	devices   *device.Service
 	newClient clientFactory
 	// command is the topic of the NCMD messages to the edge node.
@@ -279,10 +279,12 @@ func (n *edgeNode) brokerConfig(
 	current clientConfig,
 ) (clientConfig, bool, error) {
 	var dev device.Device
-	if err := n.devices.NewRetrieve().
-		Where(device.MatchKeys(n.broker)).
-		Entry(&dev).
-		Exec(ctx, nil); err != nil {
+	if err := n.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return n.devices.NewRetrieve().
+			Where(device.MatchKeys(n.broker)).
+			Entry(&dev).
+			Exec(ctx, snap)
+	}); err != nil {
 		return clientConfig{}, false, err
 	}
 	props, err := parseProperties(dev)
@@ -312,7 +314,7 @@ func (e *edgeSession) onDeviceChange(
 	r gorp.TxReader[device.Key, device.Device],
 ) {
 	for ch := range r {
-		if ch.Variant != change.VariantSet || ch.Key != e.broker {
+		if ch.Kind == gorp.ChangeDelete || ch.Key != e.broker {
 			continue
 		}
 		select {

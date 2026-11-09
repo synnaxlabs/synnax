@@ -85,6 +85,9 @@ func prefixPath(err error, segments []string) error {
 
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
+// Unwrap returns the error at the path, so errors.Is and errors.As see through p.
+func (p PathError) Unwrap() error { return p.Err }
+
 func NewInvalidTypeError(expected, received string) error {
 	return errors.Wrapf(
 		ErrInvalidType,

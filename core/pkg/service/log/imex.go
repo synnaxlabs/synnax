@@ -56,11 +56,7 @@ func (s *Service) Import(
 		return resource.ID{}, err
 	}
 	l.Group, l.Project, l.Range = nil, nil, nil
-	if _, err = s.table.DropDangling(
-		ctx,
-		gorp.OverrideTx(s.cfg.DB, tx),
-		&l,
-	); err != nil {
+	if _, err = s.table.DropDangling(ctx, tx, &l); err != nil {
 		return resource.ID{}, err
 	}
 	l.Group, l.Project = opts.Group, &proj

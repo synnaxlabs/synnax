@@ -48,13 +48,17 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				DB: db,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
-				DB:         db,
-				HostKey:    1,
-				Status:     stat,
-				DriverRole: MustSucceed(racktestutil.CreateDriverRole(ctx, roleSvc)),
+				DB:      db,
+				HostKey: 1,
+				Status:  stat,
+				DriverRole: MustSucceed(
+					racktestutil.CreateDriverRole(ctx, db, roleSvc),
+				),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
-			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rackSvc.NewWriter(tx).Create(ctx, testRack)
+			})).To(Succeed())
 
 			legacyKey := v0.Key(uint64(testRack.Key)<<32 | 42)
 			legacyRow := gorptestutil.SetPreV54Row(
@@ -87,7 +91,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			Expect(svc.NewRetrieve().
 				Where(task.MatchNames("Ancient Task")).
 				Entry(&migrated).
-				Exec(ctx, nil)).To(Succeed())
+				Exec(ctx, db)).To(Succeed())
 			Expect(migrated.Key).ToNot(Equal(uuid.Nil()))
 			Expect(migrated.Rack).To(Equal(testRack.Key))
 			Expect(migrated.Config).To(HaveKeyWithValue("routing_key", "rk-ancient"))

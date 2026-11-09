@@ -161,9 +161,11 @@ var _ = Describe("Writer", func() {
 			"Should reject an action that leaves the schematic invalid",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewSetAction(schematic.SetPayload{
 							Path:  []string{"name"},
 							Value: "",
@@ -182,9 +184,11 @@ var _ = Describe("Writer", func() {
 		)
 		It("Should reject an action with no payload", func(ctx SpecContext) {
 			s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
 			Expect(
-				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				dispatch(ctx, s.Key, "session-1", []schematic.Action{
 					{Type: schematic.ActionTypeSet},
 				}),
 			).To(MatchError(union.ErrMissingPayload))
@@ -194,10 +198,14 @@ var _ = Describe("Writer", func() {
 			"Should reject a create without changing the schematic it names",
 			func(ctx SpecContext) {
 				target := schematic.Schematic{Project: &proj.Key, Name: "target"}
-				Expect(svc.NewWriter(nil).Create(ctx, &target)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &target)
+				})).To(Succeed())
 				other := schematic.Schematic{Project: &proj.Key, Name: "other"}
-				Expect(svc.NewWriter(nil).Create(ctx, &other)).To(Succeed())
-				Expect(svc.Dispatch(ctx, target.Key, "d1", []schematic.Action{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &other)
+				})).To(Succeed())
+				Expect(dispatch(ctx, target.Key, "d1", []schematic.Action{
 					schematic.NewCreateAction(schematic.CreatePayload{
 						Schematic: schematic.Schematic{
 							Key:  other.Key,
@@ -227,9 +235,11 @@ var _ = Describe("Writer", func() {
 					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
 				},
 			}
-			Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Create(ctx, &s)
+			})).To(Succeed())
 			Expect(
-				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				dispatch(ctx, s.Key, "session-1", []schematic.Action{
 					schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 						Key:      "n1",
 						Position: spatial.XY{X: 100, Y: 200},
@@ -250,9 +260,11 @@ var _ = Describe("Writer", func() {
 			"Should apply a sequence of mixed actions atomically",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "n1",
@@ -289,13 +301,15 @@ var _ = Describe("Writer", func() {
 			"Should reject non-Rename Dispatch on a snapshot schematic",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				var snap schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
+				})).To(Succeed())
 				Expect(
-					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
-				).To(Succeed())
-				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -307,13 +321,15 @@ var _ = Describe("Writer", func() {
 			"Should allow a set of the name on a snapshot schematic",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				var snap schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
+				})).To(Succeed())
 				Expect(
-					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
-				).To(Succeed())
-				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewSetAction(schematic.SetPayload{
 							Path:  []string{"name"},
 							Value: "renamed-snap",
@@ -334,13 +350,15 @@ var _ = Describe("Writer", func() {
 			"Should reject Dispatch on a snapshot when an action does not set the name",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				var snap schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
+				})).To(Succeed())
 				Expect(
-					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
-				).To(Succeed())
-				Expect(
-					svc.Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 						schematic.NewSetAction(schematic.SetPayload{
 							Path:  []string{"name"},
 							Value: "renamed-snap",
@@ -368,9 +386,11 @@ var _ = Describe("Writer", func() {
 			"Should be a no-op when actions reference non-existent keys",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "ghost"},
 						),
@@ -399,7 +419,9 @@ var _ = Describe("Writer", func() {
 					Name:    "drag-storm",
 					Nodes:   []schematic.Node{{Key: "pump"}},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				actions := make([]schematic.Action, 0, 30)
 				for i := range 30 {
 					actions = append(
@@ -413,7 +435,7 @@ var _ = Describe("Writer", func() {
 					)
 				}
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", actions),
+					dispatch(ctx, s.Key, "session-1", actions),
 				).To(Succeed())
 				var res schematic.Schematic
 				Expect(
@@ -430,9 +452,11 @@ var _ = Describe("Writer", func() {
 			"Should build a graph atomically from an empty schematic in one Dispatch",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "graph"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				Expect(
-					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					dispatch(ctx, s.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{
 								Key:      "pump",
@@ -481,7 +505,9 @@ var _ = Describe("Writer", func() {
 			"Should notify subscribers with the dispatched ScopedAction on success",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "observed"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				disconnect := svc.OnAction(rec.Record)
 				DeferCleanup(disconnect)
@@ -495,7 +521,7 @@ var _ = Describe("Writer", func() {
 					}),
 				}
 				Expect(
-					svc.Dispatch(ctx, s.Key, "client-xyz", actions),
+					dispatch(ctx, s.Key, "client-xyz", actions),
 				).To(Succeed())
 				seen := rec.Snapshot()
 				Expect(seen).To(HaveLen(1))
@@ -514,7 +540,9 @@ var _ = Describe("Writer", func() {
 			"Should stamp strictly increasing Seq values onto successive Dispatch broadcasts",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "seq-test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				action := []schematic.Action{
@@ -524,7 +552,7 @@ var _ = Describe("Writer", func() {
 				}
 				for range 3 {
 					Expect(
-						svc.Dispatch(ctx, s.Key, "client-xyz", action),
+						dispatch(ctx, s.Key, "client-xyz", action),
 					).To(Succeed())
 				}
 				seen := rec.Snapshot()
@@ -538,15 +566,17 @@ var _ = Describe("Writer", func() {
 			"Should not notify subscribers when Dispatch is rejected on a snapshot",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "snap-test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				var snap schematic.Schematic
-				Expect(
-					svc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, nil, &snap),
-				).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
+				})).To(Succeed())
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
+					dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -562,7 +592,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[schematic.Key, schematic.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				Expect(
-					svc.Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
+					dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
 						schematic.NewRemoveNodeAction(
 							schematic.RemoveNodePayload{Key: "n1"},
 						),
@@ -644,13 +674,15 @@ var _ = Describe("Writer", func() {
 			"Should copy a Schematic into a snapshot that cannot be modified",
 			func(ctx SpecContext) {
 				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
-				Expect(svc.NewWriter(nil).Create(ctx, &s)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
 				var cpy schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "test2", true, nil, &cpy)
+				})).To(Succeed())
 				Expect(
-					svc.NewWriter(nil).Copy(ctx, s.Key, "test2", true, nil, &cpy),
-				).To(Succeed())
-				Expect(
-					svc.Dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
+					dispatch(ctx, cpy.Key, "session-1", []schematic.Action{
 						schematic.NewSetNodeAction(schematic.SetNodePayload{
 							Node: schematic.Node{Key: "n1"},
 						}),

@@ -11,6 +11,7 @@ package gorp_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,29 @@ var _ = Describe("Retrieve", func() {
 			gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx),
 		).To(Succeed())
 	})
+
+	DescribeTable(
+		"Should panic on a nil snapshot",
+		func(
+			ctx SpecContext,
+			run func(context.Context, gorp.Retrieve[int32, entry]) error,
+		) {
+			Expect(func() {
+				Expect(run(ctx, gorp.NewRetrieve[int32, entry]())).To(Succeed())
+			}).To(PanicWith(ContainSubstring("nil transaction")))
+		},
+		Entry("Exec", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			return r.Exec(ctx, nil)
+		}),
+		Entry("Count", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			_, err := r.Count(ctx, nil)
+			return err
+		}),
+		Entry("Exists", func(ctx context.Context, r gorp.Retrieve[int32, entry]) error {
+			_, err := r.Exists(ctx, nil)
+			return err
+		}),
+	)
 
 	Describe("Query State", func() {
 		Describe("HasLimit", func() {
@@ -848,7 +872,7 @@ var _ = Describe("Retrieve", func() {
 						Where(gorp.Match(func(gCtx gorp.Context, _ *entry) (bool, error) {
 							callCount++
 							Expect(gCtx.Context).To(BeIdenticalTo(ctx))
-							Expect(gCtx.Tx).To(BeIdenticalTo(tx))
+							Expect(gCtx.Snapshot).To(BeIdenticalTo(tx))
 							return false, nil
 						})).
 						Count(ctx, tx)).To(Equal(0))

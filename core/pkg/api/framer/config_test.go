@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -22,6 +23,7 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiframer.ServiceConfig {
 		return apiframer.ServiceConfig{
+			DB:              &gorp.DB{},
 			Instrumentation: alamos.New("test"),
 			Framer:          &framer.Service{},
 			Channel:         &channel.Service{},
@@ -41,6 +43,11 @@ var _ = Describe("ServiceConfig", func() {
 				clear(&cfg)
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
+			Entry(
+				"db",
+				func(c *apiframer.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
 			Entry(
 				"framer",
 				func(c *apiframer.ServiceConfig) { c.Framer = nil },
@@ -63,6 +70,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiframer.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
@@ -72,6 +80,7 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiframer.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Framer).To(BeIdenticalTo(cfg.Framer))
 			Expect(merged.Channel).To(BeIdenticalTo(cfg.Channel))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))

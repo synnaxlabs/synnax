@@ -174,7 +174,11 @@ describe("policy", () => {
 
     it("should allow the caller to delete policies on a role it can update", async () => {
       const userClient = await createTestClientWithPolicy(client, [
-        { name: "test", objects: [policy.resourceID("")], actions: ["delete"] },
+        {
+          name: "test",
+          objects: [policy.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
         { name: "role", objects: [role.resourceID(owner.key)], actions: ["update"] },
       ]);
       const randomPolicy = await client.access.policies.create({

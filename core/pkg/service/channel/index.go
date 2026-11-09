@@ -18,6 +18,7 @@ func indexReference() *gorp.KeyReference[Key, Channel, Key] {
 		Name:     "index",
 		Table:    tableName,
 		OnDelete: gorp.Restrict,
+		Kind:     gorp.Use,
 		Targets: func(c *Channel) []Key {
 			if c.IsIndex || c.LocalIndex == 0 {
 				return nil
