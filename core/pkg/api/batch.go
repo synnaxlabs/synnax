@@ -36,6 +36,8 @@ const (
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
+	PathArcDirectoryCreate      = "/arc/directory/create"
+	PathArcMove                 = "/arc/move"
 )
 
 // batchRoutes returns the handler of each endpoint a batch accepts. Every handler does
@@ -65,5 +67,7 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),
+		PathArcDirectoryCreate:      batch.Route(l.Arc.CreateDirectory),
+		PathArcMove:                 batch.Route(l.Arc.Move),
 	}
 }

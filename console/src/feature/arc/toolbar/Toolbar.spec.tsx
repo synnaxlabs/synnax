@@ -157,6 +157,26 @@ describe("arc/Toolbar", () => {
       );
     });
 
+    it("moves an Arc into a new directory from its menu", async () => {
+      const arc = await createArc();
+      const arcsID = await retrieveRootDirectoryID(client);
+      await renderToolbar();
+      await openTreeRowContextMenu(arc.name);
+      await act(async () => {
+        fireEvent.click(await screen.findByText("New directory"));
+      });
+      const name = uniqueName("dir");
+      commitTextEdit(await awaitTextEditingElement(), name);
+      await waitFor(async () => {
+        const children = await client.arcs.directories.retrieve({
+          parents: [arcsID.key],
+        });
+        const dir = children.find((d) => d.name === name);
+        expect(dir).toBeDefined();
+        expect((await client.arcs.retrieve(arc.key)).directory).toBe(dir?.key);
+      });
+    });
+
     it("creates a directory from the menu on empty space", async () => {
       const arc = await createArc();
       const arcsID = await retrieveRootDirectoryID(client);

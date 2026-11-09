@@ -122,6 +122,47 @@ describe("arc.directory", () => {
     expect(res.directory).toBe(d.key);
   });
 
+  describe("batch", () => {
+    it("should create a directory and move an Arc into it", async () => {
+      const root = await client.arcs.directories.retrieveRoot();
+      const a = await createArc();
+      const key = uuid.create();
+      const { directories } = client.arcs;
+      await client.batch.send([
+        directories.createRequest({ parent: root.key, key, name: uniqueName() }),
+        directories.moveRequest(
+          arc.directory.resourceID(root.key),
+          arc.directory.resourceID(key),
+          arc.resourceID(a.key),
+        ),
+      ]);
+      expect((await client.arcs.retrieve({ key: a.key })).directory).toBe(key);
+    });
+
+    it("should create nothing when the move fails", async () => {
+      const root = await client.arcs.directories.retrieveRoot();
+      const other = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const a = await createArc();
+      const key = uuid.create();
+      const { directories } = client.arcs;
+      await expect(
+        client.batch.send([
+          directories.createRequest({ parent: root.key, key, name: uniqueName() }),
+          directories.moveRequest(
+            arc.directory.resourceID(other.key),
+            arc.directory.resourceID(key),
+            arc.resourceID(a.key),
+          ),
+        ]),
+      ).rejects.toThrow();
+      const created = await client.arcs.directories.retrieve({ parents: [root.key] });
+      expect(created.map((d) => d.key)).not.toContain(key);
+    });
+  });
+
   it("should reject a move whose source does not hold the Arc", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const named = await client.arcs.directories.create({
