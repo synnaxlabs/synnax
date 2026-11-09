@@ -60,11 +60,8 @@ const takesServed = (current: string, served: string): boolean =>
   migrate.semVerNewer(served, current);
 
 /**
- * Finds the update that the Console offers. Synnax Desktop takes the newest release of
- * its own channel. Any other Console takes the release that its Core serves when the
- * minor versions differ or the served release is a newer patch. Next, a granted user
- * gets the newest stable release when it is past the minor version of a release Core.
- * Returns null in a browser, in a dev build, and when there is no target.
+ * Finds the update that the Console offers, or null. The update is breaking when it
+ * takes a granted user past the minor version of the Core.
  */
 export const find = async (target: Target | null): Promise<Available | null> => {
   if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;

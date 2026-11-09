@@ -15,7 +15,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { OS } from "@synnaxlabs/pluto";
-import { memo, type ReactElement, useEffect } from "react";
+import { Fragment, memo, type ReactElement, useEffect } from "react";
 
 import { Notifications } from "@/app/notifications";
 import { Primary } from "@/app/window/Primary";
@@ -36,6 +36,7 @@ const menu = Component.renderProp(DefaultContextMenu);
 
 export const Window = memo((): ReactElement | null => {
   const isMain = Session.Runtime.isMainWindow();
+  const VersionProvider = isMain ? Version.Provider : Fragment;
   const os = OS.use({ default: "Windows" });
   const dispatch = Session.useDispatch();
   useEffect(() => {
@@ -57,15 +58,6 @@ export const Window = memo((): ReactElement | null => {
       ctx?.start(Haul.ZERO_ITEM, [Haul.FILE]);
   };
 
-  const content = (
-    <Modals.Stack>
-      <Notifications.Feed />
-      <Menu.ContextMenu menu={menu} {...menuProps}>
-        {isMain ? <Primary /> : <Secondary />}
-      </Menu.ContextMenu>
-    </Modals.Stack>
-  );
-
   return (
     <Flex.Box
       full
@@ -79,7 +71,14 @@ export const Window = memo((): ReactElement | null => {
       onDragOver={handleDragOver}
       onContextMenu={menuProps.open}
     >
-      {isMain ? <Version.Provider>{content}</Version.Provider> : content}
+      <VersionProvider>
+        <Modals.Stack>
+          <Notifications.Feed />
+          <Menu.ContextMenu menu={menu} {...menuProps}>
+            {isMain ? <Primary /> : <Secondary />}
+          </Menu.ContextMenu>
+        </Modals.Stack>
+      </VersionProvider>
     </Flex.Box>
   );
 });

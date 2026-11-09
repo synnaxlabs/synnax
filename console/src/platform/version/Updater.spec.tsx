@@ -9,7 +9,7 @@
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
@@ -19,17 +19,20 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
+import { UncappedFeed } from "@/platform/notifications/testutil";
 import { Version } from "@/platform/version";
 import {
   callsOf,
   clearUpdater,
+  createStatus,
   createWrapper,
   type CreateWrapperParams,
   ENDPOINT,
   mockUpdater,
-  VERSION_RESOURCE_ID,
+  renderProvider,
+  RESOURCE_ID,
 } from "@/platform/version/testutil";
-import { awaitGranted, createTestClientWithGrants } from "@/testutil";
+import { awaitGranted, createTestClientWithGrants, getIconButton } from "@/testutil";
 
 const client = createTestClient();
 
@@ -146,9 +149,32 @@ describe("version Provider", () => {
     }
   });
 
+  it("should check again when the Core reports another version", async () => {
+    const before = mockUpdater({ served: "1.5.0" });
+    const setStatus = await renderProvider(<UncappedFeed />);
+    await waitFor(() => expect(callsOf(before, "updater_check")).toHaveLength(1));
+    await act(async () => {});
+    expect(screen.queryByText("Update available")).toBeNull();
+    mockUpdater({ served: "1.6.0" });
+    setStatus(createStatus("1.6.0"));
+    expect(await screen.findByText("Update available")).toBeTruthy();
+  });
+
+  it("should keep a silenced update silent when a new check finds it again", async () => {
+    const ipc = mockUpdater({ served: "1.4.2" });
+    const setStatus = await renderProvider(<UncappedFeed />);
+    await screen.findByText("Update available");
+    fireEvent.click(getIconButton(document.body, "close"));
+    await waitFor(() => expect(screen.queryByText("Update available")).toBeNull());
+    setStatus(createStatus("1.5.1"));
+    await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(2));
+    await act(async () => {});
+    expect(screen.queryByText("Update available")).toBeNull();
+  });
+
   describe("newest release", () => {
     const createGranted = async () =>
-      await createTestClientWithGrants(client, { update: [VERSION_RESOURCE_ID] });
+      await createTestClientWithGrants(client, { update: [RESOURCE_ID] });
 
     it("should offer a release past the minor of the Core to a granted user", async () => {
       mockUpdater({ served: "1.5.0", latest: "1.6.0" });
@@ -193,7 +219,7 @@ describe("version Provider", () => {
     it("should not check the newest release against a dev Core", async () => {
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
       const granted = await createGranted();
-      await awaitGranted(granted, VERSION_RESOURCE_ID, "update");
+      await awaitGranted(granted, RESOURCE_ID, "update");
       const { result } = await renderCheck({ client: granted, coreVersion: "0.0.0" });
       await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
       await waitFor(() => expect(result.current).toEqual(NONE));

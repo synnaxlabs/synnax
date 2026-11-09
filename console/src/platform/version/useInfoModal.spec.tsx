@@ -30,10 +30,10 @@ import {
   type CreateWrapperParams,
   type IPC,
   mockUpdater,
-  VERSION_RESOURCE_ID,
+  renderProvider,
+  RESOURCE_ID,
 } from "@/platform/version/testutil";
-import { createCore, createCoreState } from "@/session/core/testutil";
-import { createTestClientWithGrants, renderWithStatus } from "@/testutil";
+import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
@@ -82,17 +82,12 @@ type SetStatus = (status: connection.Status) => void;
  * badge.
  */
 const renderBadge = async (client: Client | null = null): Promise<SetStatus> => {
-  const core = createCore("Local");
-  const { setStatus } = await renderWithStatus(
-    <Version.Provider>
+  const setStatus = await renderProvider(
+    <>
       <Version.Badge />
       <Modals.Stack />
-    </Version.Provider>,
-    {
-      client,
-      status: createStatus("1.5.0"),
-      preloadedState: createCoreState([core], core.key),
-    },
+    </>,
+    client,
   );
   fireEvent.click(await screen.findByText("Update available"));
   return setStatus;
@@ -265,7 +260,7 @@ describe("version useInfoModal", () => {
   describe("newest release past the Core", () => {
     const openBreaking = async (): Promise<IPC> => {
       const granted = await createTestClientWithGrants(client, {
-        update: [VERSION_RESOURCE_ID],
+        update: [RESOURCE_ID],
       });
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
       await openModal({ client: granted });
@@ -297,7 +292,7 @@ describe("version useInfoModal", () => {
 
     it("should not download it when the Core changes before the user confirms", async () => {
       const granted = await createTestClientWithGrants(client, {
-        update: [VERSION_RESOURCE_ID],
+        update: [RESOURCE_ID],
       });
       const ipc = mockUpdater({ served: "1.5.0", latest: "1.6.0" });
       const setStatus = await renderBadge(granted);

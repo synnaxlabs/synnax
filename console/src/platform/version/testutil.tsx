@@ -22,10 +22,10 @@ import {
   createCore,
   createCoreState,
 } from "@/session/core/testutil";
-import { createStatusConsoleWrapper } from "@/testutil";
+import { createStatusConsoleWrapper, renderWithStatus } from "@/testutil";
 
 /** The object whose update action lets a user take the Console past its Core. */
-export const VERSION_RESOURCE_ID: resource.ID = { type: "builtin", key: "version" };
+export const RESOURCE_ID: resource.ID = { type: "builtin", key: "version" };
 
 /** The manifest URL of the Core that {@link createWrapper} selects. */
 export const ENDPOINT = `http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.port}/console/update/latest.json`;
@@ -139,4 +139,24 @@ export const createWrapper = async ({
     </Console>
   );
   return Wrapper;
+};
+
+/**
+ * Renders ui in a Provider with a selected Core that reports 1.5.0.
+ * @returns a function that sets the status that the Core reports.
+ */
+export const renderProvider = async (
+  ui: ReactElement,
+  client: Client | null = null,
+): Promise<(status: connection.Status) => void> => {
+  const core = createCore("Local");
+  const { setStatus } = await renderWithStatus(
+    <Version.Provider>{ui}</Version.Provider>,
+    {
+      client,
+      status: createStatus("1.5.0"),
+      preloadedState: createCoreState([core], core.key),
+    },
+  );
+  return setStatus;
 };

@@ -82,6 +82,7 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   useAsyncEffect(
     async (signal) => {
       setCheck({ variant: "loading" });
+      // Not held.current: a newer run can set it before this cleanup runs.
       let found: Available | null = null;
       let timer: ReturnType<typeof setTimeout> | undefined;
       const run = async (): Promise<void> => {

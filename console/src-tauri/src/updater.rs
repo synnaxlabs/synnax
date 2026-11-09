@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{Manager, ResourceId, Runtime, Url, Webview};
 use tauri_plugin_updater::{Error, UpdaterExt};
 
-/// The update in the shape that the JavaScript `Update` class of the updater plugin takes.
+/// The update in the shape that the updater plugin's JavaScript `Update` class takes.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Metadata {
@@ -37,7 +37,9 @@ pub async fn updater_check<R: Runtime>(
         .build()?;
     let update = match updater.check().await {
         Ok(update) => update,
-        // A Core answers 404 when it embeds no Console update.
+        // A Core answers 404 when it embeds no Console update. The plugin reports every
+        // non-2xx answer as ReleaseNotFound, and a manifest with no build for this
+        // platform as TargetNotFound.
         Err(Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(_)) => None,
         Err(err) => return Err(err),
     };
