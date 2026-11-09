@@ -139,13 +139,13 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
-      # The module cache comes from an earlier run, and a download checks go.sum only
-      # for modules it fetches. Neither check depends on GOOS, so one leg runs them.
+      # Each GOOS restores its own module cache from an earlier run, and a download
+      # checks go.sum only for modules it fetches.
       - name: Verify the Go module cache
-        if: matrix.goos == 'linux'
         working-directory: ${{ inputs.directory }}
         run: go mod verify
 
+      # Tidiness does not depend on GOOS, so one leg checks it.
       - name: Check that go.mod and go.sum are tidy
         if: matrix.goos == 'linux'
         working-directory: ${{ inputs.directory }}
