@@ -187,7 +187,7 @@ var _ = Describe("Change propagation", Ordered, func() {
 				To(Equal(MustSucceed(arc.HashProgram(*compiled.Program))))
 		})
 
-		It("Should hash the source when the automation does not compile", func(
+		It("Should hash its content when the automation does not compile", func(
 			ctx SpecContext,
 		) {
 			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
@@ -197,7 +197,10 @@ var _ = Describe("Change propagation", Ordered, func() {
 				Where(task.MatchKeys(key)).
 				Entry(&tsk).
 				Exec(ctx, db)).To(Succeed())
-			Expect(tsk.Config["hash"]).To(Equal(MustSucceed(arc.Hash(a.Base()))))
+			records := MustSucceed(svc.RetrieveDrift(ctx, db, a.Base().Key))
+			stored := records[a.Base().Key].Stored
+			Expect(stored.Text).To(Equal(MustSucceed(arc.Hash(a.Base()))))
+			Expect(tsk.Config["hash"]).To(Equal(MustSucceed(arc.HashContent(stored))))
 		})
 	})
 
@@ -625,10 +628,24 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 			brokenHash := settledHash(ctx, key)
 			edited := overwrite(ctx, m, moduleV2)
-			Eventually(func() string {
-				return record(ctx, a).Stored.Modules["pt_m"]
-			}).Should(Equal(hashOf(edited)))
-			Expect(configHash(ctx, key)()).To(Equal(brokenHash))
+			Eventually(configHash(ctx, key)).ShouldNot(Equal(brokenHash))
+			Expect(record(ctx, a).Stored.Modules["pt_m"]).To(Equal(hashOf(edited)))
+		})
+
+		It("Should leave the record when a module edit keeps the program", func(
+			ctx SpecContext,
+		) {
+			m := createArc(ctx, arc.TypeModule, "pt_m", moduleV1)
+			a := createArc(ctx, arc.TypeAutomation, "pt_a", importer)
+			key := deploy(ctx, a)
+			before := settledHash(ctx, key)
+			overwrite(ctx, m, moduleV1+"\n// unchanged")
+			Consistently(func() map[string]string {
+				return record(ctx, a).Stored.Modules
+			}, 50*time.Millisecond, 5*time.Millisecond).Should(
+				Equal(map[string]string{"pt_m": hashOf(m)}),
+			)
+			Expect(configHash(ctx, key)()).To(Equal(before))
 		})
 
 		It("Should drop a module that left its path from a broken automation", func(
@@ -671,6 +688,11 @@ var _ = Describe("Change propagation", Ordered, func() {
 				{Type: arc.TypeModule, Path: "pt_b", Kind: arc.ChangeKindChanged},
 				{Type: arc.TypeModule, Path: "pt_d", Kind: arc.ChangeKindAdded},
 			}))
+		})
+
+		It("Should name nothing before the task is deployed", func() {
+			hashes := drift.Hashes{Text: "t1", Modules: map[string]string{"pt_m": "m1"}}
+			Expect(arc.Changes(drift.Record{Stored: hashes})).To(BeEmpty())
 		})
 
 		It("Should name nothing when the task runs what is stored", func() {

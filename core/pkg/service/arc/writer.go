@@ -313,7 +313,7 @@ func (w Writer) UpdateTask(
 
 // build returns the hash of a's compiled program and the hashes of its content. The
 // program holds the code of every module a imports. An automation that does not
-// compile hashes its source and rehashes the modules in previous.
+// compile hashes its text and the modules in previous, rehashed.
 func (w Writer) build(
 	ctx context.Context,
 	a Arc,
@@ -327,19 +327,26 @@ func (w Writer) build(
 	if !ok {
 		return text, drift.Hashes{Text: text, Modules: previous.Modules}, nil
 	}
-	hash, paths := text, slices.Collect(maps.Keys(previous.Modules))
-	prog, loaded, err := w.compile(ctx, w.tx, automation)
-	if err == nil {
-		if hash, err = HashProgram(prog); err != nil {
-			return "", drift.Hashes{}, err
-		}
+	paths := slices.Collect(maps.Keys(previous.Modules))
+	prog, loaded, compileErr := w.compile(ctx, w.tx, automation)
+	if compileErr == nil {
 		paths = loaded
 	}
 	modules, err := w.hashModules(ctx, w.tx, paths)
 	if err != nil {
 		return "", drift.Hashes{}, err
 	}
-	return hash, drift.Hashes{Text: text, Modules: modules}, nil
+	hashes := drift.Hashes{Text: text, Modules: modules}
+	var hash string
+	if compileErr == nil {
+		hash, err = HashProgram(prog)
+	} else {
+		hash, err = HashContent(hashes)
+	}
+	if err != nil {
+		return "", drift.Hashes{}, err
+	}
+	return hash, hashes, nil
 }
 
 // sync rewrites an automation's task config or a module's compile status from its
@@ -416,9 +423,9 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task when an edit changed its name or compiled hash, and
-// its drift record when an edit changed its content hashes. A no-op for arcs with no
-// rack bound and for edits, like graph layout moves, that change none of these.
+// syncTask rewrites the arc's task and drift record when an edit changed its name or
+// compiled hash. A no-op for arcs with no rack bound and for edits, like graph layout
+// moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	b := a.Base()
 	existing, err := w.taskKeys(ctx, w.liveTasks(b.Key))
@@ -434,20 +441,12 @@ func (w Writer) syncTask(ctx context.Context, a Arc) error {
 		return err
 	}
 	hash, hashes, err := w.build(ctx, a, rec.Stored)
-	if err != nil {
+	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
 		return err
 	}
-	if cfg.Hash != hash || tsk.Name != b.Name {
-		cfg.Hash = hash
-		if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
-			return err
-		}
-	}
-	// The hash of an automation that does not compile leaves out its modules, so a
-	// module edit can change the record and not the task.
-	if hashes.Text == rec.Stored.Text &&
-		maps.Equal(hashes.Modules, rec.Stored.Modules) {
-		return nil
+	cfg.Hash = hash
+	if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
+		return err
 	}
 	return w.writeRecord(ctx, tsk, rec, hashes)
 }

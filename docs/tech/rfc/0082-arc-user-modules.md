@@ -67,7 +67,8 @@ importers from the import statements in the text and keeps no copy of them (§5.
 
 - **Compiled hash**: The hash of an Arc's compiled code (§5.4). Compiled code contains
   the Arc's imports, so an edit to a module at any depth moves the hash of every
-  importer. An Arc that does not compile hashes its source.
+  importer. An automation that does not compile hashes its text with the modules it last
+  loaded.
 - **Task config**: Stores the automation's compiled hash where RFC 0056 §6.6 stores its
   text hash, so `config_hash` moves when the automation or any module it imports
   changes.

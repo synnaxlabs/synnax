@@ -31,11 +31,13 @@ import (
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -139,9 +141,26 @@ var _ = Describe("Service", func() {
 				},
 				IncludeChanges: true,
 			}
+			tsk := deploy(ctx, a)
 			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeEmpty())
-			deploy(ctx, a)
+			stat := &task.Status{
+				Owner:   new(task.ResourceID(tsk.Key)),
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: task.StatusDetails{Running: true, ConfigHash: tsk.ConfigHash},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, stat)
+			})).To(Succeed())
+			b := a.Base()
+			b.Source = arc.Source{Variant: arc.TextSource{
+				Text: text.Text{Raw: "func f() i64 { return 1 }"},
+			}}
+			a.SetBase(b)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
 			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
 			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
 				[]arc.Change{{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged}},

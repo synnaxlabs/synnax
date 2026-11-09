@@ -63,6 +63,7 @@ var (
 	arcSvc     *arc.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
+	statusSvc  *status.Service
 	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
@@ -105,7 +106,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db,
 	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB: db,
 	}))
 	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))

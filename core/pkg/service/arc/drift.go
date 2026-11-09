@@ -59,8 +59,12 @@ func (s *Service) RetrieveDrift(
 }
 
 // Changes names each difference between the content rec's automation holds and the
-// content its task last ran. The automation comes first, then modules by path.
+// content its task last ran. The automation comes first, then modules by path. A record
+// with no deployed content names nothing.
 func Changes(rec drift.Record) []Change {
+	if rec.Deployed.Text == "" {
+		return nil
+	}
 	var changes []Change
 	if rec.Stored.Text != rec.Deployed.Text {
 		changes = append(changes, Change{Type: TypeAutomation, Kind: ChangeKindChanged})
