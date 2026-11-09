@@ -10,6 +10,7 @@
 import { useAsyncEffect } from "@synnaxlabs/lyra/hooks";
 import { Status } from "@synnaxlabs/lyra/status";
 import { migrate } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { isDev } from "@/platform/version/build";
@@ -21,12 +22,22 @@ const UPGRADE_URL = "https://docs.synnaxlabs.com/reference/enterprise/upgrade";
 
 const releaseZ = z.object({ version: migrate.semVerZ });
 
+const fetchLatest = async (signal: AbortSignal): Promise<string> => {
+  const res = await fetch(RELEASE_URL, { signal });
+  if (!res.ok) throw new Error(`${RELEASE_URL} returned ${res.status}`);
+  return releaseZ.parse(await res.json()).version;
+};
+
+interface CoreNoticeProps {
+  target: Target | null;
+}
+
 /**
  * Adds a status when the newest stable Core release is newer than the Core at target
  * and the user may take the Console past it. It checks again when the Core, its
- * version, or the grant changes.
+ * version, or the grant changes. Renders nothing.
  */
-export const useCoreNotice = (target: Target | null): void => {
+export const CoreNotice = ({ target }: CoreNoticeProps): ReactElement | null => {
   const addStatus = Status.useAdder();
   useAsyncEffect(
     async (signal) => {
@@ -39,8 +50,7 @@ export const useCoreNotice = (target: Target | null): void => {
         return;
       let latest: string;
       try {
-        const res = await fetch(RELEASE_URL, { signal });
-        latest = releaseZ.parse(await res.json()).version;
+        latest = await fetchLatest(signal);
       } catch (error) {
         // A network with no internet access cannot reach the docs site.
         if (!signal.aborted) console.warn(error);
@@ -57,4 +67,5 @@ export const useCoreNotice = (target: Target | null): void => {
     },
     [target?.version, target?.latestGranted],
   );
+  return null;
 };

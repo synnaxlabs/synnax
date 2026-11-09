@@ -51,7 +51,7 @@ func fromRelease(
 	if err = release.Download(ctx, cfg, "core", to, name, staged); err != nil {
 		if errors.Is(err, release.ErrNotFound) {
 			return errors.Newf(
-				"Core %s has no release file %s. Check the version.",
+				"Core %s has no signed release file %s. Check the version.",
 				to,
 				name,
 			)

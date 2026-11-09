@@ -34,15 +34,16 @@ import { createTestClientWithGrants } from "@/testutil";
 
 const client = createTestClient();
 
-/** Renders a Provider for a Core at 1.5.0 and returns the notifications it adds. */
+/** Renders a Provider for a Core at coreVersion and returns its notifications. */
 const renderNotifications = async (
   granted: boolean,
+  coreVersion = "1.5.0",
 ): Promise<{ current: Status.NotificationSpec[] }> => {
   const user = granted
     ? await createTestClientWithGrants(client, { update: [VERSION_RESOURCE_ID] })
     : null;
   const { result } = renderHook(() => Status.useNotifications().statuses, {
-    wrapper: await createWrapper({ client: user }),
+    wrapper: await createWrapper({ client: user, coreVersion }),
   });
   return result;
 };
@@ -77,6 +78,15 @@ describe("version Core notice", () => {
     const fetch = mockLatestCore("1.6.0");
     const notifications = await renderNotifications(false);
     // The Provider checks for a Console update after the Core notice had its chance.
+    await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
+    await act(async () => {});
+    expect(requestedLatestCore(fetch)).toBe(false);
+    expect(notifications.current).toEqual([]);
+  });
+
+  it("should not check for a dev Core", async () => {
+    const fetch = mockLatestCore("1.6.0");
+    const notifications = await renderNotifications(true, "0.0.1");
     await waitFor(() => expect(callsOf(ipc, "updater_check")).toHaveLength(1));
     await act(async () => {});
     expect(requestedLatestCore(fetch)).toBe(false);

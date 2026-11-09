@@ -60,9 +60,7 @@ func fromFile(ctx context.Context, w io.Writer, file string, timeout time.Durati
 
 // current is the installed Core that an update replaces.
 type current struct {
-	// binary is the path of the installed Core binary.
-	binary string
-	// version is the version of the installed Core.
+	binary  string
 	version string
 	// backups holds the backups of the data of the Core service, or is nil when no
 	// service runs the Core.
@@ -84,7 +82,7 @@ func check(
 	}
 	cur := current{binary: inst.Binary, version: from}
 	if version.Compare(to, from) < 0 {
-		return cur, false, errors.Newf(
+		return current{}, false, errors.Newf(
 			"Core %s is older than the installed Core %s. To go back, run `synnax "+
 				"update undo`.",
 			to,
@@ -93,7 +91,7 @@ func check(
 	}
 	if !installed {
 		if to == from {
-			return cur, false, printLines(
+			return current{}, false, printLines(
 				w,
 				fmt.Sprintf("Core %s is already installed at %s.", to, inst.Binary),
 			)
@@ -103,30 +101,30 @@ func check(
 	if cur.backups, err = storage.NewBackups(
 		storage.BackupsConfig{Dirname: inst.Data},
 	); err != nil {
-		return cur, false, errors.Wrapf(
+		return current{}, false, errors.Wrapf(
 			err,
 			"failed to open the data of the Core service",
 		)
 	}
 	state, err := cur.backups.UpdateState(to)
 	if err != nil {
-		return cur, false, err
+		return current{}, false, err
 	}
 	switch {
 	case state == storage.UpdateUndone:
-		return cur, false, errors.Newf(
+		return current{}, false, errors.Newf(
 			"The update to Core %s failed before. Fix the cause, run `synnax update "+
 				"retry`, then update again.",
 			to,
 		)
 	// The pending update still needs the old binary that a replace would overwrite.
 	case state == storage.UpdatePending:
-		return cur, false, errors.New(
+		return current{}, false, errors.New(
 			"An update of the data did not finish. Wait for the Core service to " +
 				"finish it, and start the service if it stopped.",
 		)
 	case to == from:
-		return cur, false, printLines(
+		return current{}, false, printLines(
 			w,
 			fmt.Sprintf("Core %s is already installed.", to),
 		)

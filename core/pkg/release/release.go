@@ -24,12 +24,13 @@ import (
 	"aead.dev/minisign"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Config sets where Download gets release files and the key that checks them.
 type Config struct {
-	// URL is the base URL of the release files: <URL>/<product>/v<version>/<name>
-	// holds a file, and the same URL plus .sig holds its signature.
+	// URL is the base URL of the release files: <URL>/<product>/v<version>/<name> holds
+	// a file, and the same URL plus .sig holds its signature.
 	URL string
 	// PublicKey is the minisign public key that checks each signature.
 	PublicKey string
@@ -45,6 +46,21 @@ var DefaultConfig = Config{
 	StallTimeout: time.Minute,
 }
 
+// Validate returns an error when c has no URL, a public key that does not parse, or a
+// stall timeout that is not positive.
+func (c Config) Validate() error {
+	v := validate.New("release.Config")
+	v.NotEmptyString("url", c.URL)
+	var key minisign.PublicKey
+	v.Ternary(
+		"public_key",
+		key.UnmarshalText([]byte(c.PublicKey)) != nil,
+		"must be a minisign public key",
+	)
+	v.Positive("stall_timeout", c.StallTimeout)
+	return v.Error()
+}
+
 var (
 	// ErrNotFound is returned when a release has no file of the given name.
 	ErrNotFound = errors.Wrap(query.ErrNotFound, "release file not found")
@@ -58,15 +74,19 @@ const maxSignatureSize = 4096
 // Download downloads the file name of the release of product at version to dst, with
 // mode 0600, and checks the file against its signature. A signature file holds the
 // base64 text of a minisign signature, as the Tauri signer writes it, and its trusted
-// comment must name the file. On any error, Download removes dst.
+// comment must name the file. Download returns the error of cfg.Validate first. On any
+// error, Download removes dst.
 func Download(
 	ctx context.Context,
 	cfg Config,
 	product, version, name, dst string,
 ) (err error) {
+	if err = cfg.Validate(); err != nil {
+		return err
+	}
 	var key minisign.PublicKey
 	if err = key.UnmarshalText([]byte(cfg.PublicKey)); err != nil {
-		return errors.Wrap(err, "invalid release public key")
+		return err
 	}
 	url := fmt.Sprintf("%s/%s/v%s/%s", cfg.URL, product, version, name)
 	sigBody, err := fetch(ctx, url+".sig", cfg.StallTimeout)
@@ -80,7 +100,7 @@ func Download(
 	signature, err := base64.StdEncoding.DecodeString(
 		strings.TrimSpace(string(encoded)),
 	)
-	if err != nil {
+	if err != nil || !names(signature, name) {
 		return errors.Wrapf(ErrSignature, "%s", url)
 	}
 	body, err := fetch(ctx, url, cfg.StallTimeout)
@@ -102,15 +122,16 @@ func Download(
 	if err = errors.Combine(err, f.Close()); err != nil {
 		return err
 	}
-	if !r.Verify(key, signature) || !signs(signature, name) {
+	if !r.Verify(key, signature) {
 		return errors.Wrapf(ErrSignature, "%s", url)
 	}
 	return nil
 }
 
-// signs reports whether the trusted comment of signature names the file name, so a
-// signed file of another product, platform, or version fails.
-func signs(signature []byte, name string) bool {
+// names reports whether the trusted comment of signature names the file name, so a
+// signed file of another product, platform, or version fails. Verify authenticates the
+// comment.
+func names(signature []byte, name string) bool {
 	var s minisign.Signature
 	if s.UnmarshalText(signature) != nil {
 		return false

@@ -102,20 +102,18 @@ const CORE_RELEASE_PATH = "/releases/core/latest.json";
 export const mockLatestCore = (latest: string | Error): MockInstance<typeof fetch> => {
   const original = globalThis.fetch;
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-    const url = input instanceof Request ? input.url : String(input);
-    if (!url.endsWith(CORE_RELEASE_PATH)) return await original(input, init);
+    if (!urlOf(input).endsWith(CORE_RELEASE_PATH)) return await original(input, init);
     if (latest instanceof Error) throw latest;
     return Response.json({ version: latest });
   });
 };
 
+const urlOf = (input: Parameters<typeof fetch>[0]): string =>
+  input instanceof Request ? input.url : String(input);
+
 /** Reports whether the Console requested the newest Core release through fetch. */
-export const requestedLatestCore = (
-  fetch: MockInstance<typeof globalThis.fetch>,
-): boolean =>
-  fetch.mock.calls.some(([input]) =>
-    (input instanceof Request ? input.url : String(input)).endsWith(CORE_RELEASE_PATH),
-  );
+export const requestedLatestCore = (spy: MockInstance<typeof fetch>): boolean =>
+  spy.mock.calls.some(([input]) => urlOf(input).endsWith(CORE_RELEASE_PATH));
 
 /** Returns the calls that ipc received for the command. */
 export const callsOf = (ipc: IPC, cmd: string): unknown[][] =>

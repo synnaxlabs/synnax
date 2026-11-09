@@ -27,8 +27,8 @@ import {
   STATUS_KEY_PREFIX,
   useTarget,
 } from "@/platform/version/check";
+import { CoreNotice } from "@/platform/version/CoreNotice";
 import { useInstallMiddleware } from "@/platform/version/Install";
-import { useCoreNotice } from "@/platform/version/useCoreNotice";
 
 const CHECK_INTERVAL = TimeSpan.seconds(30);
 
@@ -78,7 +78,6 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
   const addStatus = Status.useAdder();
   const installMiddleware = useInstallMiddleware();
   const target = useTarget();
-  useCoreNotice(target);
   const [check, setCheck] = useState<Check>({ variant: "loading" });
   const held = useRef<Update | null>(null);
   const installing = useRef<Installing | null>(null);
@@ -151,7 +150,12 @@ export const Provider = ({ children }: PropsWithChildren): ReactElement => {
     if (failed)
       throw error instanceof Error ? error : new Error(String(error), { cause: error });
   };
-  return <Context value={{ check, install }}>{children}</Context>;
+  return (
+    <Context value={{ check, install }}>
+      <CoreNotice target={target} />
+      {children}
+    </Context>
+  );
 };
 
 /**

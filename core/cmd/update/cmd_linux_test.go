@@ -260,8 +260,8 @@ var _ = Describe("Update with a Core service", func() {
 
 		It("Should name the file that the release does not have", func() {
 			Expect(run("0.61.0")).To(MatchError(
-				"Core 0.61.0 has no release file synnax-v0.61.0-linux. Check the " +
-					"version.",
+				"Core 0.61.0 has no signed release file synnax-v0.61.0-linux. Check " +
+					"the version.",
 			))
 			Expect(systemctl.Calls()).To(BeEmpty())
 		})

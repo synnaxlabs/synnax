@@ -29,6 +29,32 @@ import (
 // tauriPublicKey is a test key. The Tauri signer wrote testdata/file.sig with it.
 const tauriPublicKey = "RWTHN9nA4VXGAgEjq/Lfm/g1xdDH9Z14A87x+XPsx++zKtO/IxXxRDh7"
 
+var _ = Describe("Config", func() {
+	It("Should accept the default config", func() {
+		Expect(release.DefaultConfig.Validate()).To(Succeed())
+	})
+
+	DescribeTable(
+		"Should reject an invalid config",
+		func(change func(*release.Config), field string) {
+			cfg := release.DefaultConfig
+			change(&cfg)
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring(field)))
+		},
+		Entry("no URL", func(c *release.Config) { c.URL = "" }, "url"),
+		Entry(
+			"invalid public key",
+			func(c *release.Config) { c.PublicKey = "not a key" },
+			"public_key",
+		),
+		Entry(
+			"zero stall timeout",
+			func(c *release.Config) { c.StallTimeout = 0 },
+			"stall_timeout",
+		),
+	)
+})
+
 var _ = Describe("Download", func() {
 	var (
 		files, dst string
@@ -72,41 +98,46 @@ var _ = Describe("Download", func() {
 		Expect(release.Download(ctx, cfg, "core", "0.61.0", "file", dst)).To(Succeed())
 	})
 
-	It("Should reject the signed file of another name", func(ctx SpecContext) {
-		write("synnax", []byte("core"))
-		write("synnax.sig", signer.Sign("synnax-driver", []byte("core")))
-		Expect(download(ctx)).To(MatchError(release.ErrSignature))
-		Expect(dst).ToNot(BeAnExistingFile())
-	})
-
-	It("Should remove a file that does not match its signature", func(ctx SpecContext) {
-		write("synnax", []byte("changed core"))
-		write("synnax.sig", signer.Sign("synnax", []byte("core")))
-		Expect(download(ctx)).To(MatchError(release.ErrSignature))
-		Expect(dst).ToNot(BeAnExistingFile())
-	})
-
-	It("Should reject a signature from another key", func(ctx SpecContext) {
-		write("synnax", []byte("core"))
-		write("synnax.sig", testutil.NewSigner().Sign("synnax", []byte("core")))
-		Expect(download(ctx)).To(MatchError(release.ErrSignature))
-		Expect(dst).ToNot(BeAnExistingFile())
-	})
-
-	It("Should reject a signature that is not base64", func(ctx SpecContext) {
-		write("synnax", []byte("core"))
-		write("synnax.sig", []byte("not a signature"))
-		Expect(download(ctx)).To(MatchError(release.ErrSignature))
-		Expect(dst).ToNot(BeAnExistingFile())
-	})
+	DescribeTable(
+		"Should reject a file that its signature does not check",
+		func(ctx SpecContext, data, signature func() []byte) {
+			write("synnax", data())
+			write("synnax.sig", signature())
+			Expect(download(ctx)).To(MatchError(release.ErrSignature))
+			Expect(dst).ToNot(BeAnExistingFile())
+		},
+		Entry(
+			"signed under another name",
+			func() []byte { return []byte("core") },
+			func() []byte { return signer.Sign("synnax-driver", []byte("core")) },
+		),
+		Entry(
+			"changed after signing",
+			func() []byte { return []byte("changed core") },
+			func() []byte { return signer.Sign("synnax", []byte("core")) },
+		),
+		Entry(
+			"signed with another key",
+			func() []byte { return []byte("core") },
+			func() []byte {
+				return testutil.NewSigner().Sign("synnax", []byte("core"))
+			},
+		),
+		Entry(
+			"signature not base64",
+			func() []byte { return []byte("core") },
+			func() []byte { return []byte("not a signature") },
+		),
+	)
 
 	It(
 		"Should return ErrNotFound when the release has no file of the name",
 		func(ctx SpecContext) {
 			write("synnax.sig", signer.Sign("synnax", []byte("core")))
-			err := download(ctx)
-			Expect(err).To(MatchError(release.ErrNotFound))
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(download(ctx)).To(SatisfyAll(
+				MatchError(release.ErrNotFound),
+				MatchError(query.ErrNotFound),
+			))
 			Expect(dst).ToNot(BeAnExistingFile())
 		},
 	)
@@ -120,15 +151,13 @@ var _ = Describe("Download", func() {
 		},
 	)
 
-	It("Should reject an invalid public key", func(ctx SpecContext) {
+	It("Should return the error of an invalid config", func(ctx SpecContext) {
 		cfg.PublicKey = "not a key"
-		Expect(download(ctx)).To(MatchError(ContainSubstring(
-			"invalid release public key",
-		)))
+		Expect(download(ctx)).To(MatchError(ContainSubstring("public_key")))
 	})
 
 	Describe("Stall", func() {
-		data := []byte("0123456789")
+		data := []byte("0123456789ab")
 
 		// serve points cfg at a server that sends the signature of data and runs file
 		// for the file.
@@ -145,7 +174,7 @@ var _ = Describe("Download", func() {
 			))
 			DeferCleanup(server.Close)
 			cfg.URL = server.URL
-			cfg.StallTimeout = 150 * time.Millisecond
+			cfg.StallTimeout = 500 * time.Millisecond
 		}
 
 		It("Should keep a download that receives data slowly", func(ctx SpecContext) {
@@ -153,7 +182,7 @@ var _ = Describe("Download", func() {
 				for _, b := range data {
 					MustSucceed(w.Write([]byte{b}))
 					w.(http.Flusher).Flush()
-					time.Sleep(40 * time.Millisecond)
+					time.Sleep(50 * time.Millisecond)
 				}
 			})
 			Expect(download(ctx)).To(Succeed())
@@ -162,7 +191,7 @@ var _ = Describe("Download", func() {
 
 		It("Should fail when the file sends no response", func(ctx SpecContext) {
 			serve(func(_ http.ResponseWriter, r *http.Request) { <-r.Context().Done() })
-			Expect(download(ctx)).To(MatchError(ContainSubstring("no data for 150ms")))
+			Expect(download(ctx)).To(MatchError(ContainSubstring("no data for 500ms")))
 		})
 
 		It(
@@ -175,7 +204,7 @@ var _ = Describe("Download", func() {
 				})
 				Expect(
 					download(ctx),
-				).To(MatchError(ContainSubstring("no data for 150ms")))
+				).To(MatchError(ContainSubstring("no data for 500ms")))
 				Expect(dst).ToNot(BeAnExistingFile())
 			},
 		)

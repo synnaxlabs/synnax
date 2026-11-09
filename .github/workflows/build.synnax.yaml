@@ -1078,8 +1078,8 @@ jobs:
           retention-days: 7
           if-no-files-found: error
 
-  # synnax update and the Driver check these signatures before they run a downloaded
-  # binary. The job runs after the build, so it signs the files that each OS signed.
+  # synnax update checks these signatures before it runs a downloaded binary. The job
+  # runs after the build, so it signs the files that each OS signed.
   sign:
     name: Sign release binaries
     needs: [setup, build]
