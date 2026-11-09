@@ -16,10 +16,14 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -43,6 +47,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// RBAC checks that the subject can read the inputs of each calculated channel that
+	// a create writes.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
 	// Channel stores and retrieves channels.
 	//
 	// [REQUIRED]
@@ -66,6 +75,7 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Alias = override.Nil(c.Alias, other.Alias)
@@ -76,6 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.channel")
 	v.NotNil("db", c.DB)
+	v.NotNil("rbac", c.RBAC)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("status", c.Status)
 	v.NotNil("alias", c.Alias)
@@ -85,6 +96,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the central service for all things Channel related.
 type Service struct {
 	db       *gorp.DB
+	access   *rbac.Service
 	internal *channel.Service
 	status   *status.Service
 	alias    *alias.Service
@@ -97,6 +109,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}
 	return &Service{
 		db:       cfg.DB,
+		access:   cfg.RBAC,
 		internal: cfg.Channel,
 		status:   cfg.Status,
 		alias:    cfg.Alias,
@@ -181,6 +194,17 @@ func (s *Service) Create(
 	}
 	for i := range translated {
 		translated[i].Internal = false
+	}
+	inputs, err := s.internal.CalculationInputs(ctx, tx, translated)
+	if err != nil {
+		return CreateResponse{}, err
+	}
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionRetrieve,
+		Objects: framer.ResourceIDs(inputs),
+	}); err != nil {
+		return CreateResponse{}, err
 	}
 	opts := []channel.CreateOption{}
 	if req.RetrieveIfNameExists {

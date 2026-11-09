@@ -19,7 +19,8 @@ Label struct {
         @key
     }
     name  string      {
-        @doc value "is a human-readable name for the label."
+        @doc value           "is a human-readable name for the label."
+        @validate min_length 1
     }
     color color.Color {
         @doc value "is the display color for visual identification of the label."
