@@ -117,13 +117,17 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 }
 
 // AnalyzeComputedArgs registers a synthetic function for each instance argument
-// that is neither a literal nor a bare name, so lowering can sample it per fire.
+// that is not a literal, a float constant, or a bare name, so lowering can sample it
+// per fire.
 func AnalyzeComputedArgs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
 	args []symbol.Argument,
 ) {
 	for _, arg := range args {
 		if parser.IsLiteral(arg.Expr) || parser.BareIdentifier(arg.Expr) != nil {
+			continue
+		}
+		if _, ok := ctx.FloatConstant(arg.Expr); ok {
 			continue
 		}
 		AnalyzeSingleExpression(ctx.Child(arg.Expr))
@@ -223,5 +227,31 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			return
 		}
 		fn.Type.Inputs = append(fn.Type.Inputs, types.Param{Name: name, Type: t})
+	}
+}
+
+// BindOutput binds the untyped output of the node registered for expr to t, the type
+// of the variable it writes, so its literals take t.
+func BindOutput[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	expr parser.IExpressionContext,
+	t types.Type,
+) {
+	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
+	if err != nil {
+		return
+	}
+	out, ok := synth.Type.Outputs.Get(ir.DefaultOutputParam)
+	if !ok || out.Type.Unwrap().Kind != types.KindVariable {
+		return
+	}
+	if err := atypes.Check(
+		ctx.Constraints,
+		t,
+		out.Type,
+		expr,
+		"assignment",
+	); err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 	}
 }
