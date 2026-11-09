@@ -24,9 +24,17 @@ import (
 // describes. It returns an error when the sample does not hold a key.
 type RecordOf func(sample []byte) (resource.ID, error)
 
-// Records returns the RecordOf of each channel that PublishTable and PublishActions
+// Record finds the records that the samples of a change channel describe.
+type Record struct {
+	// Of returns the record of one sample.
+	Of RecordOf
+	// Deleted is true when each sample describes a record that was deleted.
+	Deleted bool
+}
+
+// Records returns the Record of each channel that PublishTable and PublishActions
 // created. The caller must not modify the map.
-func (p *Provider) Records() map[channel.Key]RecordOf { return p.records }
+func (p *Provider) Records() map[channel.Key]Record { return p.records }
 
 // Publishes reports whether PublishTable or PublishActions created the channel.
 func (p *Provider) Publishes(key channel.Key) bool {

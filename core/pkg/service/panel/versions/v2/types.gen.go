@@ -13,7 +13,7 @@ package v2
 
 import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
 	color "github.com/synnaxlabs/x/color/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )

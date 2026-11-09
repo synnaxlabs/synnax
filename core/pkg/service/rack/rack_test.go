@@ -315,7 +315,9 @@ var _ = Describe("Rack", Ordered, func() {
 					Entry(&res).
 					Exec(ctx, tx),
 			).To(Succeed())
-			Expect(res).To(Equal(*r))
+			expected := *r
+			expected.Status = nil
+			Expect(res).To(Equal(expected))
 		})
 		It("Should only retrieve embedded racks", func(ctx SpecContext) {
 			var res rack.Rack
@@ -563,24 +565,29 @@ var _ = Describe("Rack", Ordered, func() {
 					Exists(ctx, tx))).To(BeFalse())
 			})
 		})
-		Describe("Limit and Offset", func() {
-			It("Should paginate results with Limit and Offset", func(ctx SpecContext) {
-				for i := range 4 {
-					Expect(
-						writer.Create(
-							ctx,
-							&rack.Rack{Name: fmt.Sprintf("page-rack-%d", i)},
-						),
-					).To(Succeed())
+		Describe("Limit and After", func() {
+			It("Should page through results", func(ctx SpecContext) {
+				names := make([]string, 4)
+				created := make([]rack.Key, 4)
+				for i := range names {
+					names[i] = fmt.Sprintf("page-rack-%d", i)
+					r := &rack.Rack{Name: names[i]}
+					Expect(writer.Create(ctx, r)).To(Succeed())
+					created[i] = r.Key
 				}
-				var res []rack.Rack
-				Expect(svc.NewRetrieve().
-					Where(rack.MatchNames("page-rack-0", "page-rack-1", "page-rack-2", "page-rack-3")).
-					Limit(2).
-					Offset(1).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(HaveLen(2))
+				page := func(q rack.Retrieve) []rack.Key {
+					var res []rack.Rack
+					Expect(q.Where(rack.MatchNames(names...)).Limit(3).Entries(&res).
+						Exec(ctx, tx)).To(Succeed())
+					return lo.Map(
+						res,
+						func(r rack.Rack, _ int) rack.Key { return r.Key },
+					)
+				}
+				first := page(svc.NewRetrieve())
+				second := page(svc.NewRetrieve().After(first[2]))
+				Expect(second).To(HaveLen(1))
+				Expect(slices.Concat(first, second)).To(ConsistOf(created))
 			})
 		})
 		Describe("Search", func() {
@@ -772,6 +779,19 @@ var _ = Describe("Rack", Ordered, func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("renamed-integ-rack"))
 			Expect(res.Integrations).To(Equal([]string{"ni"}))
+		})
+		It("Should write the default status when the rack has none", func(
+			ctx SpecContext,
+		) {
+			openTx()
+			r := &rack.Rack{Name: "rename-no-status-rack"}
+			Expect(writer.Create(ctx, r)).To(Succeed())
+			Expect(stat.NewWriter(tx).DeleteOwned(ctx, r.ResourceID())).To(Succeed())
+			Expect(writer.Rename(ctx, r.Key, "renamed-no-status-rack")).To(Succeed())
+			s := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+			Expect(s.Name).To(Equal("renamed-no-status-rack"))
+			Expect(s.Variant).To(Equal(status.VariantWarning))
+			Expect(s.Message).To(Equal("Rack status unknown"))
 		})
 		It("Should return a validation error for an empty name", func(ctx SpecContext) {
 			openTx()
@@ -1093,6 +1113,32 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(writer.Create(ctx, &renamed)).To(Succeed())
 
 				Expect(retrieve()).To(Equal(expected))
+			},
+		)
+
+		It(
+			"Should keep the live status when a set action renames a rack",
+			func(ctx SpecContext) {
+				openTx()
+				r := rack.Rack{
+					Name: "starting rack",
+					Status: &rack.Status{
+						Variant: status.VariantWarning,
+						Message: "Rack is starting",
+						Time:    telem.SecondTS,
+					},
+				}
+				Expect(writer.Create(ctx, &r)).To(Succeed())
+				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
+				live.Variant = status.VariantSuccess
+				live.Message = "Rack is connected"
+				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
+				expected := live
+				expected.Name = "connected rack"
+
+				Expect(writer.Rename(ctx, r.Key, "connected rack")).To(Succeed())
+
+				Expect(retrieveStatusTx(ctx, stat, tx, r.Key)).To(Equal(expected))
 			},
 		)
 

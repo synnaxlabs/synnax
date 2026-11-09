@@ -12,11 +12,11 @@ package policy
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -86,6 +86,23 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
+// DispatchRequest carries an action sequence to apply to a single policy. DispatchKey
+// is a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[rbacpolicy.Key, rbacpolicy.Action]
+
+// Dispatch applies the action sequence to the target policy atomically. Subscribers to
+// the policy action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
+		WithDispatchKey(req.DispatchKey).
+		Apply(ctx, req.Key, req.Actions...)
+}
+
 var _ bind.Named = RetrieveRequest{}
 
 // Named implements bind.Named. It returns the policies that the top level of Where
@@ -97,9 +114,7 @@ func (r RetrieveRequest) Named() []resource.ID {
 	return bind.Keys(r.Where.Key, rbacpolicy.ResourceID)
 }
 
-// Retrieve returns the policies that req selects and that the subject can retrieve. A
-// request that selects the policies of subjects needs retrieve on each match, so a
-// subject that cannot read its own policies gets an access error, not an empty set.
+// Retrieve returns the policies that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	snap bind.Snapshot,
@@ -110,20 +125,7 @@ func (s *Service) Retrieve(
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if req.Where == nil || len(req.Where.Subjects) == 0 {
-		if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).
-			Exec(ctx, snap); err != nil {
-			return RetrieveResponse{}, err
-		}
-		return res, nil
-	}
-	if err = q.Exec(ctx, snap); err != nil {
-		return RetrieveResponse{}, err
-	}
-	if err = snap.Enforce(lo.Map(
-		res.Policies,
-		func(p rbacpolicy.Policy, _ int) resource.ID { return rbacpolicy.ResourceID(p.Key) },
-	)...); err != nil {
+	if err = q.Where(bind.Filter(snap, rbacpolicy.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
 	return res, nil

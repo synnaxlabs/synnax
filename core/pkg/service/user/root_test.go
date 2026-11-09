@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -206,6 +207,31 @@ var _ = Describe("ProvisionRoot", Serial, func() {
 		MustSucceed(login(ctx, "gamma", "p3"))
 		Expect(login(ctx, "gamma", "x")).Error().
 			To(MatchError(auth.ErrInvalidCredentials))
+	})
+	It("Should broadcast the promotion and the demotion", func(ctx SpecContext) {
+		prev := provision(ctx, "old-root", "p")
+		next := createUser(ctx, "gamma", "x", false)
+		rec := &Recorder[user.Key, user.Action]{}
+		DeferCleanup(svc.Actions().OnChange(rec.Record))
+		provision(ctx, "gamma", "p3")
+		set := func(path string, value any) user.Action {
+			return user.NewSetAction(
+				user.SetPayload{Path: []string{path}, Value: value},
+			)
+		}
+		Expect(rec.Snapshot()).To(ConsistOf(
+			SatisfyAll(
+				HaveField("Key", next.Key),
+				HaveField("Actions", Equal([]user.Action{
+					set("root_user", true),
+					set("role", owner),
+				})),
+			),
+			SatisfyAll(
+				HaveField("Key", prev.Key),
+				HaveField("Actions", Equal([]user.Action{set("root_user", false)})),
+			),
+		))
 	})
 	It("Should demote every stale root", func(ctx SpecContext) {
 		provision(ctx, "root-bootstrap", "p")

@@ -359,7 +359,7 @@ describe("table queries", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [table.rename({ name: "after_dispatch" })],
+          actions: [table.set({ path: ["name"], value: "after_dispatch" })],
         });
       });
       await waitFor(() =>

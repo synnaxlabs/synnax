@@ -68,7 +68,7 @@ describe("Panel Client", () => {
       let duringWrite: query.Cached<panel.Panel> | undefined;
       await client.panels.rename(pan.key, "renamed", {
         onOptimistic: () => {
-          duringWrite = client.panels.getCached(pan.key);
+          duringWrite = client.panels.watch(pan.key).getCached();
         },
       });
       expect(expectLive(duringWrite).name).toEqual("renamed");
@@ -79,7 +79,9 @@ describe("Panel Client", () => {
       await expect(
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
       ).rejects.toBe(WRITE_FAILED);
-      expect(expectLive(client.panels.getCached(pan.key)).name).toEqual(pan.name);
+      expect(expectLive(client.panels.watch(pan.key).getCached()).name).toEqual(
+        pan.name,
+      );
     });
   });
 });

@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package patch applies path actions to the JSON form of a record. A segment of a path
-// into an object names a field, and a segment into a list names the key of an entry,
-// never an index. Actions change the document in place. An action whose guards fail, or
-// whose path goes through a missing list entry, does nothing. An action the document
-// cannot hold, or a path that names __proto__, returns an error that wraps
-// validate.ErrValidation.
+// Package patch applies path actions to the JSON form of a record, or to a typed record
+// with a generated Patch method. A segment of a path into an object names a field, and
+// a segment into a list names the key of an entry, never an index. Actions change the
+// document in place. An action whose guards fail, or whose path goes through a missing
+// list entry, does nothing. An action the document cannot hold, or a path that names
+// __proto__, returns an error that wraps validate.ErrValidation. A generated Patch
+// method accepts only the actions that give the same result on the JSON form of its
+// record, writes only memory that the record owns, and leaves the record unchanged on
+// error.
 package patch
 
 import (
