@@ -186,7 +186,7 @@ describe("table/tree", () => {
   describe("haulItems", () => {
     it("returns a mosaic tab haul item for the resource", () => {
       const id = clientTable.resourceID("11111111-1111-1111-1111-111111111111");
-      const items = Item.haulItems(createResource(id, "My Table"));
+      const items = Item.haulItems(createResource(id, "My Table"), client);
       expect(items).toHaveLength(1);
       expect(items[0].key).toContain("table:11111111-1111-1111-1111-111111111111");
     });

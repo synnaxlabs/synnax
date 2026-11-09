@@ -28,11 +28,7 @@ const client = createTestClient();
 const renderItems = async () => {
   const dev = await createKafkaDevice(client);
   const propsStore = await createTestStore();
-  const resource = createDeviceResource({
-    key: dev.key,
-    name: dev.name,
-    configured: true,
-  });
+  const resource = createDeviceResource(dev);
   const handle = await renderMenuItem(
     <Kafka.Device.ContextMenuItems
       {...createBaseProps({ client, store: propsStore })}

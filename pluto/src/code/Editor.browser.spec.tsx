@@ -1,0 +1,29 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "@/code/Editor.css";
+
+import { renderThemed, selectedByTripleClick } from "@synnaxlabs/lyra/styletest";
+import { describe, expect, it } from "vitest";
+
+import { CSS } from "@/css";
+
+const CODE = "const pressure = 1;";
+
+describe("Editor", () => {
+  // Monaco's parts that set no user-select of their own inherit it from the editor.
+  it("should let a user select code under a body with selection off", async () => {
+    const { getByText } = await renderThemed(
+      <div className={CSS.B("editor")}>
+        <div>{CODE}</div>
+      </div>,
+    );
+    expect(await selectedByTripleClick(getByText(CODE).element())).toContain(CODE);
+  });
+});

@@ -63,6 +63,7 @@ Alias struct {
     """
     @go marshal
     @go migrate
+    @resource type    "range-alias"
     @retrieve indexes
     @retrieve key     "string"
 }

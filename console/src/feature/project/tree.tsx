@@ -66,6 +66,8 @@ const useRename = Tree.createUseRename({
   convertKey: String,
 });
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.projects.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
   const {
     selection,
@@ -159,7 +161,7 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
           <Link.CopyContextMenuItem
             onClick={() => handleLink({ name: first.name, resourceID: first.id })}
           />
-          <Tree.CopyPropertiesContextMenuItem {...props} />
+          <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
         </>
       )}
       <Menu.Divider />
@@ -236,7 +238,6 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "project",
   icon: <Icon.Project />,
   useOnSelect,
   children,
