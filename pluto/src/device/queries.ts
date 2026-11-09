@@ -327,9 +327,12 @@ export const createForm: CreateForm = (
       // A status read from the Core names the device as its owner. A beforeSave hook
       // that reports a new status leaves the owner out.
       const reported = status != null && status.owner == null;
-      if (primitive.isZero(data.key)) {
-        data.key = uuid.create();
-        set(formPath.key, data.key);
+      // The key is set before the create, so a failed create leaves it set.
+      if (stored == null) {
+        if (primitive.isZero(data.key)) {
+          data.key = uuid.create();
+          set(formPath.key, data.key);
+        }
         const sent = reported ? data : device.toUpdate(data);
         await client.devices.create(sent as device.New, schemas);
         return;
@@ -341,7 +344,7 @@ export const createForm: CreateForm = (
         "configured",
         "properties",
       ]);
-      if (stored?.rack !== data.rack) edits.push(device.setRack({ rack: data.rack }));
+      if (stored.rack !== data.rack) edits.push(device.setRack({ rack: data.rack }));
       if (edits.length > 0) await client.devices.dispatch(data.key, edits);
       if (reported)
         await client.statuses.set({ ...status, owner: device.resourceID(data.key) });

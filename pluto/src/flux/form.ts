@@ -55,14 +55,10 @@ import {
 import { type UpdateParams } from "@/flux/update";
 import { Synnax } from "@/synnax";
 
-export interface FormUpdateParams<
-  Schema extends z.ZodType<query.Data>,
-  Query extends query.Params = query.Params,
->
+export interface FormUpdateParams<Schema extends z.ZodType<query.Data>>
   extends
     Omit<UpdateParams<z.infer<Schema>>, "data" | "onChange" | "onOptimisticComplete">,
-    Omit<Form.UseReturn<Schema>, "setStatus">,
-    Pick<FormClientParams<Query>, "query"> {
+    Omit<Form.UseReturn<Schema>, "setStatus"> {
   /**
    * The record as the Core stores it, as far as the form knows: the values it read,
    * then those of each save and each listener reset. Undefined until it reads or saves.
@@ -94,7 +90,7 @@ export interface CreateFormParams<
    * A hit resolves the read synchronously, with no fetch and no suspension.
    */
   getCached?: (params: RetrieveParams<Query>) => z.infer<Schema> | undefined;
-  update: (params: FormUpdateParams<Schema, Query>) => Promise<void>;
+  update: (params: FormUpdateParams<Schema>) => Promise<void>;
   mountListeners?: (
     params: FormMountListenersParams<Query, Schema>,
   ) => destructor.Destructor | destructor.Destructor[];

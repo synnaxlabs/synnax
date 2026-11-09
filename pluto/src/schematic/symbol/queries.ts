@@ -111,16 +111,15 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     const symbol = client.schematics.symbols.getCached(key);
     return query.isLive(symbol) ? symbol : undefined;
   },
-  // A caller can set the key of a new symbol, so the form creates when it reads no
-  // symbol.
-  update: async ({ client, query: q, value, reset, stored }) => {
+  // A caller can set the key of a new symbol, so the form creates until it stores one.
+  update: async ({ client, value, reset, stored }) => {
     const values = value();
-    if (q == null) {
+    if (stored == null || values.key == null) {
       reset(await client.schematics.symbols.create(values));
       return;
     }
     const edits = actions.diffFields(formSchema, stored, values, ["name", "data"]);
-    if (edits.length > 0) await client.schematics.symbols.dispatch(q.key, edits);
+    if (edits.length > 0) await client.schematics.symbols.dispatch(values.key, edits);
   },
   mountListeners: ({ client, query: { key }, reset }) =>
     client.schematics.symbols.onChange(key, (result) => {
