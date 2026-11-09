@@ -45,22 +45,10 @@ const nameOf = (name: string): string => (name === NEXT ? "Next" : name);
 </details>
 
 <script>
-    import { track } from "@/components/version/links";
-
-    const MENUS = ".version-menu";
-
-    const close = (except?: EventTarget | null): void => {
-        for (const menu of document.querySelectorAll<HTMLDetailsElement>(MENUS))
-            if (!(except instanceof Node && menu.contains(except))) menu.open = false;
-    };
+    import { start } from "@/components/version/menu";
 
     // The header persists across page loads, so each link follows the current page.
-    track(`${MENUS} a[data-origin]`);
-    document.addEventListener("astro:page-load", () => close());
-    document.addEventListener("click", ({ target }) => close(target));
-    document.addEventListener("keydown", ({ key }) => {
-        if (key === "Escape") close();
-    });
+    start(".version-menu");
 </script>
 
 <style>
