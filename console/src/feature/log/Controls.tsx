@@ -28,9 +28,14 @@ const Search = (): ReactElement => {
   const key = Base.useKey();
   const dispatch = Session.useDispatch();
   const search = Session.Log.useSelectSearch();
-  const [open, setOpen] = useState(false);
+  // A stored search shows, so the lines it hides are never a surprise.
+  const [open, setOpen] = useState(search.text !== "");
   const set = (change: Partial<Session.Log.SearchState>): void => {
     dispatch(Session.Log.setSearch({ key, ...change }));
+  };
+  const close = (): void => {
+    set({ text: "" });
+    setOpen(false);
   };
   if (!open)
     return (
@@ -62,7 +67,7 @@ const Search = (): ReactElement => {
           aria-label="Search text"
           status={invalid ? "error" : undefined}
           onKeyDown={(e) => {
-            if (e.key === "Escape") setOpen(false);
+            if (e.key === "Escape") close();
           }}
         />
         <Button.Toggle
@@ -86,7 +91,7 @@ const Search = (): ReactElement => {
         <Button.Button
           size="small"
           variant="text"
-          onClick={() => setOpen(false)}
+          onClick={close}
           tooltip="Close search"
           aria-label="Close search"
         >

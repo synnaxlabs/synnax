@@ -479,6 +479,23 @@ describe("log/aether/Log", () => {
       expect(source.filter?.search).toBeNull();
     });
 
+    it("should hand the source the format each channel draws with", () => {
+      const { source, updateState } = setup();
+      const channels = [
+        clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO, precision: 2 }),
+      ];
+      const channelDataTypes = { "1": "float64" };
+      updateState({
+        channels,
+        channelDataTypes,
+        search: { text: "1.50", filtered: true },
+      });
+      expect(source.filter.formats["1"]).toMatchObject({
+        precision: 2,
+        dataType: "float64",
+      });
+    });
+
     it("should filter nothing with an invalid regex", () => {
       const { source, updateState } = setup();
       updateState({ search: { text: "(", mode: "regex", filtered: true } });
