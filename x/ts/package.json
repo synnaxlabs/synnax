@@ -3,6 +3,7 @@
   "version": "0.60.0",
   "type": "module",
   "sideEffects": [
+    "./dist/patch/stale.js",
     "./dist/zod/parse.js"
   ],
   "description": "Common Utilities for Synnax Labs",
