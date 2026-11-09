@@ -151,6 +151,49 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Changes", func() {
+		It(
+			"Should return the create, rename, and delete that a commit makes",
+			func(ctx SpecContext) {
+				e := newEnv(ctx)
+				renamed := e.createStored(ctx, "Before", "a")
+				deleted := e.createStored(ctx, "Deleted", "b")
+				var changes []gorp.EntryChange[secret.Key, secret.Secret]
+				DeferCleanup(
+					e.db.Observe().OnChange(func(ctx context.Context, c gorp.Commit) {
+						for ch := range e.svc.Changes(ctx, c) {
+							changes = append(changes, ch)
+						}
+					}),
+				)
+				created := secret.Secret{
+					Variant: secret.StoredSecret{Base: secret.Base{Name: "Created"}},
+				}
+				Expect(e.write(ctx, func(w secret.Writer) error {
+					if err := w.Create(ctx, &created, []byte("c")); err != nil {
+						return err
+					}
+					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {
+						return err
+					}
+					return w.Delete(ctx, deleted.Base().Key)
+				})).To(Succeed())
+				kinds := make(map[secret.Key]gorp.ChangeKind, len(changes))
+				names := make(map[secret.Key]string, len(changes))
+				for _, ch := range changes {
+					kinds[ch.Key], names[ch.Key] = ch.Kind, ch.Value.Base().Name
+				}
+				Expect(kinds).To(Equal(map[secret.Key]gorp.ChangeKind{
+					created.Base().Key: gorp.ChangeCreate,
+					renamed.Base().Key: gorp.ChangeUpdate,
+					deleted.Base().Key: gorp.ChangeDelete,
+				}))
+				Expect(names[created.Base().Key]).To(Equal("Created"))
+				Expect(names[renamed.Base().Key]).To(Equal("After"))
+			},
+		)
+	})
+
 	Describe("Resources", func() {
 		It("Should name each secret by its name", func(ctx SpecContext) {
 			e := newEnv(ctx)
