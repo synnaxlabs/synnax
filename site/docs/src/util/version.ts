@@ -18,6 +18,9 @@ const TRAIN = /^(\d+)\.(\d+)$/;
 // Older trains keep their sites but leave the menu.
 const LISTED_TRAINS = 2;
 
+// Earlier trains predate versioned docs, so they have no site.
+const FIRST_TRAIN = "0.60";
+
 /**
  * Where a version stands: `latest` for the newest train, `old` for an earlier one, and
  * `next` for `main`.
@@ -58,6 +61,13 @@ const compare = (a: string, b: string): number => {
   return aMajor - bMajor || aMinor - bMinor;
 };
 
+/**
+ * Keeps the trains that have a docs site.
+ * @param trains - The trains with a stable Core release, newest first.
+ */
+export const withSites = (trains: string[]): string[] =>
+  trains.filter((train) => compare(train, FIRST_TRAIN) >= 0);
+
 const urlOf = (name: string, newest: string): string => {
   if (name === newest) return ROOT;
   const host = name === NEXT ? NEXT : `v${name.replace(".", "-")}`;
@@ -65,16 +75,15 @@ const urlOf = (name: string, newest: string): string => {
 };
 
 /**
- * Places a version among the published trains.
- * @param trains - The trains with a stable Core release, newest first.
- * @throws {Error} if no train is published, or if `name` is a train with no stable
- * Core release.
+ * Places a version among the trains with a docs site.
+ * @param trains - The trains with a docs site, newest first.
+ * @throws {Error} if no train has a site, or if `name` is a train with no site.
  */
 export const resolve = (name: string, trains: string[]): Version => {
   const [newest] = trains;
-  if (newest == null) throw new Error("GitHub lists no stable Core release");
+  if (newest == null) throw new Error("No train has a docs site");
   if (name !== NEXT && !trains.includes(name))
-    throw new Error(`Train ${name} has no stable Core release`);
+    throw new Error(`Train ${name} has no docs site`);
   const status: Status = name === NEXT ? "next" : name === newest ? "latest" : "old";
   const listed = trains.slice(0, LISTED_TRAINS);
   if (status === "old" && !listed.includes(name)) listed.push(name);
