@@ -43,7 +43,8 @@ type Restored struct {
 // Restore puts the named backup back in the data directory and records the backup's
 // version, which is the version of the Core to run on the data. It moves the Cesium
 // directory of each channel that the backup has no metadata for to
-// Restored.OrphanedDir, and keeps the telemetry of every other channel.
+// Restored.OrphanedDir, and keeps the telemetry of every other channel. It also ends an
+// update that did not commit.
 //
 // Restore holds the lock on the data directory, so it fails while a Core runs on it. It
 // returns query.ErrNotFound when there is no complete backup with the name, and an
@@ -59,6 +60,11 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 			res = Restored{}
 		}
 	}()
+	return b.restore(name)
+}
+
+// restore is Restore for a caller that holds the lock on the data directory.
+func (b *Backups) restore(name string) (res Restored, err error) {
 	backups, err := b.List()
 	if err != nil {
 		return Restored{}, err
@@ -96,6 +102,9 @@ func (b *Backups) Restore(name string) (res Restored, err error) {
 		err = xfs.WriteFile(b.fs, versionFile, []byte(backup.Version))
 	}
 	if err != nil {
+		return Restored{}, err
+	}
+	if err = b.fs.Remove(updateMarkerFile); err != nil {
 		return Restored{}, err
 	}
 	if err = b.fs.Remove(restoreMarkerFile); err != nil {
@@ -168,11 +177,11 @@ func (b *Backups) checkRestore() error {
 	if err != nil {
 		return err
 	}
-	return errors.Newf(
+	return errors.Mark(errors.Newf(
 		"The restore of backup %s did not finish. Run `synnax update undo %s` again.",
 		name,
 		name,
-	)
+	), ErrRefused)
 }
 
 // restoreTS puts back the Cesium metadata of the backup src. It returns the path of the
