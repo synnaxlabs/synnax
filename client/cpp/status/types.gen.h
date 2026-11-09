@@ -36,6 +36,7 @@ namespace synnax::status {
 struct Cursor;
 struct Where;
 struct Order;
+struct SetPayload;
 struct RetrieveResponse;
 struct RetrieveRequest;
 
@@ -183,6 +184,15 @@ struct Order {
     from_proto(const ::api::status::pb::Order &pb);
 };
 
+/// @brief SetPayload replaces the status with the given state. Emitted by the Core on
+/// every write to the status; clients never dispatch it.
+struct SetPayload {
+    Status<x::json::json> status;
+
+    static SetPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the statuses a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief statuses are the statuses the request selects.
@@ -244,6 +254,12 @@ struct RetrieveRequest {
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::status::pb::RetrieveRequest &pb);
 };
+
+/// @brief Action holds one status mutation.
+using Action = std::variant<SetPayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("status", "");
 

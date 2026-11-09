@@ -49,23 +49,7 @@ Policy struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        policy Policy
-
-        @doc value """
-            replaces the policy with the given created state. Emitted by the Core when a
-            policy is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @create
     @doc value       """
         is an access control policy that defines which actions are permitted on which

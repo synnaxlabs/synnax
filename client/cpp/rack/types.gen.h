@@ -26,6 +26,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/types.gen.h"
 
 #include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
@@ -36,6 +37,7 @@ struct Where;
 struct Cursor;
 struct Rack;
 struct Order;
+struct CreatePayload;
 struct RetrieveResponse;
 struct RetrieveRequest;
 
@@ -45,6 +47,21 @@ constexpr const char *ORDER_FIELD_NAME = "name";
 /// key, and the low 16 bits contain the local sequential key. A rack is leased to the
 /// Core named in its high bits, so writes route to the Core running its Driver.
 using Key = std::uint32_t;
+
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 using Status = ::synnax::status::Status<std::monostate>;
 
@@ -165,6 +182,16 @@ struct Order {
     from_proto(const ::api::rack::pb::Order &pb);
 };
 
+/// @brief CreatePayload replaces the state with the created rack. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief rack is the created rack.
+    Rack rack;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief racks are the racks the request selects.
@@ -230,6 +257,13 @@ struct RetrieveRequest {
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::rack::pb::RetrieveRequest &pb);
 };
+
+/// @brief Action holds one rack mutation.
+using Action = std::
+    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("rack", "");
 

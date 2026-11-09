@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <string>
 #include <type_traits>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/label/json.gen.h"
@@ -99,6 +100,18 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline SetPayload SetPayload::parse(x::json::Parser parser) {
+    return SetPayload{
+        .status = parser.field<Status<x::json::json>>("status"),
+    };
+}
+
+inline x::json::json SetPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["status"] = this->status.to_json();
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -159,6 +172,22 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["statuses"] = x::json::to_array(this->statuses);
+    return j;
+}
+
+inline Action parse_action(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "set") return SetPayload::parse(parser.child("set"));
+    parser.field_err("type", "unknown Action type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Action &value) {
+    static constexpr const char *discriminators[] = {"set"};
+    const std::string discriminator = discriminators[value.index()];
+    x::json::json j = x::json::json::object();
+    j["type"] = discriminator;
+    j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
     return j;
 }
 

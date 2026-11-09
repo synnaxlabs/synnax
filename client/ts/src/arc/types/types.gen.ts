@@ -125,7 +125,7 @@ export interface Type extends z.infer<typeof typeZ> {}
 export type Param = {
   name: string;
   type: Type;
-  value: unknown;
+  value?: unknown;
 };
 export const paramZ: z.ZodType<Param> = z.object({
   /** name is the parameter name. */
@@ -133,7 +133,7 @@ export const paramZ: z.ZodType<Param> = z.object({
   /** type is the parameter type. */
   type: typeZ,
   /** value is an optional default value. */
-  value: z.unknown(),
+  value: z.unknown().optional(),
 });
 
 export const paramsZ = paramZ.array().default(() => []);

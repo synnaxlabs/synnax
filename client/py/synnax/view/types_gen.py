@@ -18,7 +18,15 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import ranger, status
 from synnax.resource import ID
-from x import filter
+from x import filter, patch
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 TYPE_RANGE: Literal["range"] = "range"
 
@@ -155,6 +163,16 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created view. Only the Core emits it.
+
+    Attributes:
+        view: Is the created view.
+    """
+
+    view: View
+
+
 class RetrieveResponse(BaseModel):
     """Holds the views a RetrieveRequest selects.
 
@@ -163,6 +181,38 @@ class RetrieveResponse(BaseModel):
     """
 
     views: list[View] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one view mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

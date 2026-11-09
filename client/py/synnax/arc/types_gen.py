@@ -14,12 +14,20 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
-from synnax.arc import graph as graph_, program as program_, text as text_
+from synnax.arc import graph as graph_, ir, program as program_, text as text_
 from synnax.resource import ID
-from x import filter
+from x import crdt, filter, patch, spatial
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -41,6 +49,98 @@ TYPE_MODULE: Literal["module"] = "module"
 Type = Literal["automation", "module"]
 
 Key: TypeAlias = UUID
+
+
+class SetNodePayload(BaseModel):
+    """Inserts the node if no node with the same key exists, otherwise replaces the
+    existing node in place. Operates only on the node's position; the node's function
+    type and inputs are set separately via SetNodeInputs.
+    """
+
+    node: graph_.Node
+
+
+class SetNodePositionPayload(BaseModel):
+    """Moves a graph node to a new canvas position."""
+
+    key: str
+    position: spatial.XY
+
+
+class SetNodeInputsPayload(BaseModel):
+    """Merges the given inputs into the entry for the given key in the graph inputs map.
+    Top-level fields present in the payload overwrite existing fields; fields absent
+    from the payload are preserved. The node's function type is held under "type".
+    """
+
+    key: str
+    inputs: dict[str, JsonValue] = Field(default_factory=dict)
+
+
+class RemoveNodePayload(BaseModel):
+    """Removes the node with the given key along with its inputs entry and any edges
+    connected to it.
+    """
+
+    key: str
+
+
+class AddEdgePayload(BaseModel):
+    """Appends the edge to the graph. No-op when an edge with the same source and target
+    handles already exists, so concurrent additions of the same connection converge
+    regardless of differing keys.
+    """
+
+    edge: graph_.Edge
+
+
+class RemoveEdgePayload(BaseModel):
+    """Removes the edge with the given key, if present."""
+
+    key: str
+
+
+class ReconnectEdgePayload(BaseModel):
+    """Rewrites the endpoints of the edge with the given key, preserving its key and
+    kind. No-op when no edge with the key exists.
+    """
+
+    key: str
+    source: ir.Handle
+    target: ir.Handle
+
+
+class InsertCharPayload(crdt.Insert):
+    """Carries a single collaborative-edit character insertion against the module's
+    text. The payload is a sequence CRDT operation; the server relays it to the other
+    editors of the module without interpreting it.
+    """
+
+
+class DeleteCharPayload(crdt.Delete):
+    """Carries a single collaborative-edit character deletion against the module's text.
+    The payload is a sequence CRDT operation; the server relays it to the other editors
+    of the module without interpreting it.
+    """
+
+
+class ForgetCharsPayload(BaseModel):
+    """Removes the given already-deleted characters from the module's text document,
+    dropping both their insert and delete operations from the replicated op-log. The
+    server emits it after a quiet editing period to reclaim the space held by tombstoned
+    characters. Because the characters are already deleted, and thus invisible, applying
+    it never changes the materialized text.
+    """
+
+    ids: list[crdt.ID] = Field(default_factory=list)
+
+
+class SetDirectoryPayload(BaseModel):
+    """Moves the Arc into the directory with the given key. The root Arcs directory
+    holds the Arcs at the top level.
+    """
+
+    directory: UUID
 
 
 class Order(BaseModel):
@@ -195,6 +295,16 @@ Payload = Annotated[
 ]
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created arc. Only the Core emits it.
+
+    Attributes:
+        arc: Is the created arc.
+    """
+
+    arc: Payload
+
+
 class RetrieveResponse(BaseModel):
     """Holds the arcs a RetrieveRequest selects.
 
@@ -203,6 +313,108 @@ class RetrieveResponse(BaseModel):
     """
 
     arcs: list[Payload] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class SetNodeAction(BaseModel):
+    type: Literal["set_node"] = "set_node"
+    set_node: SetNodePayload
+
+
+class SetNodePositionAction(BaseModel):
+    type: Literal["set_node_position"] = "set_node_position"
+    set_node_position: SetNodePositionPayload
+
+
+class SetNodeInputsAction(BaseModel):
+    type: Literal["set_node_inputs"] = "set_node_inputs"
+    set_node_inputs: SetNodeInputsPayload
+
+
+class RemoveNodeAction(BaseModel):
+    type: Literal["remove_node"] = "remove_node"
+    remove_node: RemoveNodePayload
+
+
+class AddEdgeAction(BaseModel):
+    type: Literal["add_edge"] = "add_edge"
+    add_edge: AddEdgePayload
+
+
+class RemoveEdgeAction(BaseModel):
+    type: Literal["remove_edge"] = "remove_edge"
+    remove_edge: RemoveEdgePayload
+
+
+class ReconnectEdgeAction(BaseModel):
+    type: Literal["reconnect_edge"] = "reconnect_edge"
+    reconnect_edge: ReconnectEdgePayload
+
+
+class InsertCharAction(BaseModel):
+    type: Literal["insert_char"] = "insert_char"
+    insert_char: InsertCharPayload
+
+
+class DeleteCharAction(BaseModel):
+    type: Literal["delete_char"] = "delete_char"
+    delete_char: DeleteCharPayload
+
+
+class ForgetCharsAction(BaseModel):
+    type: Literal["forget_chars"] = "forget_chars"
+    forget_chars: ForgetCharsPayload
+
+
+class SetDirectoryAction(BaseModel):
+    type: Literal["set_directory"] = "set_directory"
+    set_directory: SetDirectoryPayload
+
+
+# Holds one arc mutation.
+Action = Annotated[
+    CreateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | SetNodeAction
+    | SetNodePositionAction
+    | SetNodeInputsAction
+    | RemoveNodeAction
+    | AddEdgeAction
+    | RemoveEdgeAction
+    | ReconnectEdgeAction
+    | InsertCharAction
+    | DeleteCharAction
+    | ForgetCharsAction
+    | SetDirectoryAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

@@ -12,572 +12,101 @@
 package lineplot
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeSetTitleVisible is the Type of an Action that carries
-	// SetTitleVisiblePayload.
-	ActionTypeSetTitleVisible = "set_title_visible"
-	// ActionTypeSetTitleLevel is the Type of an Action that carries
-	// SetTitleLevelPayload.
-	ActionTypeSetTitleLevel = "set_title_level"
-	// ActionTypeSetLegendHidden is the Type of an Action that carries
-	// SetLegendHiddenPayload.
-	ActionTypeSetLegendHidden = "set_legend_hidden"
-	// ActionTypeSetLegendPosition is the Type of an Action that carries
-	// SetLegendPositionPayload.
-	ActionTypeSetLegendPosition = "set_legend_position"
-	// ActionTypeAddChannel is the Type of an Action that carries AddChannelPayload.
-	ActionTypeAddChannel = "add_channel"
-	// ActionTypeRemoveChannel is the Type of an Action that carries
-	// RemoveChannelPayload.
-	ActionTypeRemoveChannel = "remove_channel"
-	// ActionTypeSetChannels is the Type of an Action that carries SetChannelsPayload.
-	ActionTypeSetChannels = "set_channels"
-	// ActionTypeSetXChannel is the Type of an Action that carries SetXChannelPayload.
-	ActionTypeSetXChannel = "set_x_channel"
-	// ActionTypeAddRange is the Type of an Action that carries AddRangePayload.
-	ActionTypeAddRange = "add_range"
-	// ActionTypeRemoveRange is the Type of an Action that carries RemoveRangePayload.
-	ActionTypeRemoveRange = "remove_range"
-	// ActionTypeSetRanges is the Type of an Action that carries SetRangesPayload.
-	ActionTypeSetRanges = "set_ranges"
-	// ActionTypeSetAxisLabel is the Type of an Action that carries SetAxisLabelPayload.
-	ActionTypeSetAxisLabel = "set_axis_label"
-	// ActionTypeSetAxisLabelDirection is the Type of an Action that carries
-	// SetAxisLabelDirectionPayload.
-	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
-	// ActionTypeSetAxisLabelLevel is the Type of an Action that carries
-	// SetAxisLabelLevelPayload.
-	ActionTypeSetAxisLabelLevel = "set_axis_label_level"
-	// ActionTypeSetAxisBounds is the Type of an Action that carries
-	// SetAxisBoundsPayload.
-	ActionTypeSetAxisBounds = "set_axis_bounds"
-	// ActionTypeSetAxisTickSpacing is the Type of an Action that carries
-	// SetAxisTickSpacingPayload.
-	ActionTypeSetAxisTickSpacing = "set_axis_tick_spacing"
-	// ActionTypeSetAxisType is the Type of an Action that carries SetAxisTypePayload.
-	ActionTypeSetAxisType = "set_axis_type"
-	// ActionTypeSetLineLabel is the Type of an Action that carries SetLineLabelPayload.
-	ActionTypeSetLineLabel = "set_line_label"
-	// ActionTypeSetLineColor is the Type of an Action that carries SetLineColorPayload.
-	ActionTypeSetLineColor = "set_line_color"
-	// ActionTypeSetLineStrokeWidth is the Type of an Action that carries
-	// SetLineStrokeWidthPayload.
-	ActionTypeSetLineStrokeWidth = "set_line_stroke_width"
-	// ActionTypeSetLineAggregation is the Type of an Action that carries
-	// SetLineAggregationPayload.
-	ActionTypeSetLineAggregation = "set_line_aggregation"
-	// ActionTypeSetLineDetail is the Type of an Action that carries
-	// SetLineDetailPayload.
-	ActionTypeSetLineDetail = "set_line_detail"
-	// ActionTypeSetLine is the Type of an Action that carries SetLinePayload.
-	ActionTypeSetLine = "set_line"
-	// ActionTypeSetRule is the Type of an Action that carries SetRulePayload.
-	ActionTypeSetRule = "set_rule"
-	// ActionTypeSetRuleLabel is the Type of an Action that carries SetRuleLabelPayload.
-	ActionTypeSetRuleLabel = "set_rule_label"
-	// ActionTypeSetRuleColor is the Type of an Action that carries SetRuleColorPayload.
-	ActionTypeSetRuleColor = "set_rule_color"
-	// ActionTypeSetRuleAxis is the Type of an Action that carries SetRuleAxisPayload.
-	ActionTypeSetRuleAxis = "set_rule_axis"
-	// ActionTypeSetRuleLineWidth is the Type of an Action that carries
-	// SetRuleLineWidthPayload.
-	ActionTypeSetRuleLineWidth = "set_rule_line_width"
-	// ActionTypeSetRuleLineDash is the Type of an Action that carries
-	// SetRuleLineDashPayload.
-	ActionTypeSetRuleLineDash = "set_rule_line_dash"
-	// ActionTypeSetRuleUnits is the Type of an Action that carries SetRuleUnitsPayload.
-	ActionTypeSetRuleUnits = "set_rule_units"
-	// ActionTypeSetRulePosition is the Type of an Action that carries
-	// SetRulePositionPayload.
-	ActionTypeSetRulePosition = "set_rule_position"
-	// ActionTypeRemoveRule is the Type of an Action that carries RemoveRulePayload.
-	ActionTypeRemoveRule = "remove_rule"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-)
-
-// CreatePayload replaces the document with the given created state. Emitted by the Core
-// on create so remote caches ingest new documents; clients never dispatch it.
-type CreatePayload struct {
-	LinePlot LinePlot `json:"line_plot" msgpack:"line_plot"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(LinePlot) (LinePlot, error) {
+	return LinePlot{}, actions.ErrCoreOnly
 }
 
-// SetTitleVisiblePayload sets whether the plot title is shown above the plot.
-type SetTitleVisiblePayload struct {
-	Visible bool `json:"visible" msgpack:"visible"`
-}
-
-// SetTitleLevelPayload sets the typography level of the plot title.
-type SetTitleLevelPayload struct {
-	Level text.Level `json:"level" msgpack:"level"`
-}
-
-// SetLegendHiddenPayload sets whether the plot legend is hidden.
-type SetLegendHiddenPayload struct {
-	Hidden bool `json:"hidden" msgpack:"hidden"`
-}
-
-// SetLegendPositionPayload sets the anchor position of the plot legend within the
-// container.
-type SetLegendPositionPayload struct {
-	Position spatial.StickyXY `json:"position" msgpack:"position"`
-}
-
-// AddChannelPayload appends the channel to the channels array bound to the y-axis named
-// by axis_key. No-op when the channel is already present.
-type AddChannelPayload struct {
-	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
-// RemoveChannelPayload removes the channel from the y-axis named by axis_key. No-op
-// when the channel is not present.
-type RemoveChannelPayload struct {
-	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
-// SetChannelsPayload replaces the entire set of channels bound to the y-axis named by
-// axis_key with channels. Channels absent from the new set are removed and their lines
-// dropped; channels not previously present are added. Existing channels keep their line
-// styling.
-type SetChannelsPayload struct {
-	AxisKey  YAxisKey      `json:"axis_key" msgpack:"axis_key"`
-	Channels []channel.Key `json:"channels" msgpack:"channels"`
-}
-
-// SetXChannelPayload replaces the single channel bound to the x-axis named by axis_key.
-type SetXChannelPayload struct {
-	AxisKey XAxisKey    `json:"axis_key" msgpack:"axis_key"`
-	Channel channel.Key `json:"channel" msgpack:"channel"`
-}
-
-// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
-// reference is already present.
-type AddRangePayload struct {
-	Range ranger.Ref `json:"range" msgpack:"range"`
-}
-
-// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
-// when no reference is equal.
-type RemoveRangePayload struct {
-	Range ranger.Ref `json:"range" msgpack:"range"`
-}
-
-// SetRangesPayload replaces the plot's range references with ranges, such as when the
-// user edits a window. Lines style channels, so they are unaffected.
-type SetRangesPayload struct {
-	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
-}
-
-// SetAxisLabelPayload sets the label rendered along the axis identified by key.
-type SetAxisLabelPayload struct {
-	Key   AxisKey `json:"key" msgpack:"key"`
-	Label string  `json:"label" msgpack:"label"`
-}
-
-// SetAxisLabelDirectionPayload sets the orientation in which the axis label is laid
-// out.
-type SetAxisLabelDirectionPayload struct {
-	Key            AxisKey           `json:"key" msgpack:"key"`
-	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
-}
-
-// SetAxisLabelLevelPayload sets the typography level of the axis label.
-type SetAxisLabelLevelPayload struct {
-	Key        AxisKey    `json:"key" msgpack:"key"`
-	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
-}
-
-// SetAxisBoundsPayload sets the axis value-space window together with its per-edge
-// manual override flags. The two travel together: fixing a bound enables the manual
-// override for that edge, so callers set both at once.
-type SetAxisBoundsPayload struct {
-	Key          AxisKey        `json:"key" msgpack:"key"`
-	Bounds       spatial.Bounds `json:"bounds" msgpack:"bounds"`
-	ManualBounds ManualBounds   `json:"manual_bounds" msgpack:"manual_bounds"`
-}
-
-// SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
-type SetAxisTickSpacingPayload struct {
-	Key         AxisKey `json:"key" msgpack:"key"`
-	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
-}
-
-// SetAxisTypePayload sets the axis tick label style. Null resets it to the default,
-// which the Console derives (linear, or time for a timestamp-bound x-axis) at render
-// time.
-type SetAxisTypePayload struct {
-	Key  AxisKey   `json:"key" msgpack:"key"`
-	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
-}
-
-// SetLineLabelPayload sets the label of the line identified by key. Null resets it to
-// derive from the channel name at render time.
-type SetLineLabelPayload struct {
-	Key   string  `json:"key" msgpack:"key"`
-	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
-}
-
-// SetLineColorPayload sets the color of the line identified by key. Null resets it to a
-// palette color assigned at render time.
-type SetLineColorPayload struct {
-	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// SetLineStrokeWidthPayload sets the stroke width, in pixels, of the line identified by
-// key.
-type SetLineStrokeWidthPayload struct {
-	Key         string  `json:"key" msgpack:"key"`
-	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
-}
-
-// SetLineAggregationPayload sets how the line identified by key reduces a pixel group.
-type SetLineAggregationPayload struct {
-	Key         string      `json:"key" msgpack:"key"`
-	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
-}
-
-// SetLineDetailPayload sets the number of sample groups per pixel column of the line.
-type SetLineDetailPayload struct {
-	Key    string `json:"key" msgpack:"key"`
-	Detail Detail `json:"detail" msgpack:"detail"`
-}
-
-// SetLinePayload replaces the line with line.key in place, inserting it when no such
-// line exists. The fine-grained setLine* actions cover per-field edits; this
-// full-object form restores a line dropped by reconciliation.
-type SetLinePayload struct {
-	Line Line `json:"line" msgpack:"line"`
-}
-
-// SetRulePayload inserts the rule if no rule with rule.key exists, otherwise replaces
-// the existing entry in place. The fine-grained setRule* actions cover per-field edits;
-// this full-object form creates a rule or restores one removed by another action's
-// inverse.
-type SetRulePayload struct {
-	Rule Rule `json:"rule" msgpack:"rule"`
-}
-
-// SetRuleLabelPayload sets the label of the rule identified by key.
-type SetRuleLabelPayload struct {
-	Key   string `json:"key" msgpack:"key"`
-	Label string `json:"label" msgpack:"label"`
-}
-
-// SetRuleColorPayload sets the color of the rule identified by key. Null resets it to a
-// default color assigned at render time.
-type SetRuleColorPayload struct {
-	Key   string       `json:"key" msgpack:"key"`
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// SetRuleAxisPayload sets the axis the rule identified by key is anchored to.
-type SetRuleAxisPayload struct {
-	Key  string  `json:"key" msgpack:"key"`
-	Axis AxisKey `json:"axis" msgpack:"axis"`
-}
-
-// SetRuleLineWidthPayload sets the line width, in pixels, of the rule identified by
-// key.
-type SetRuleLineWidthPayload struct {
-	Key       string  `json:"key" msgpack:"key"`
-	LineWidth float64 `json:"line_width" msgpack:"line_width"`
-}
-
-// SetRuleLineDashPayload sets the dash length, in pixels, of the rule identified by
-// key.
-type SetRuleLineDashPayload struct {
-	Key      string  `json:"key" msgpack:"key"`
-	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
-}
-
-// SetRuleUnitsPayload sets the unit label of the rule identified by key.
-type SetRuleUnitsPayload struct {
-	Key   string `json:"key" msgpack:"key"`
-	Units string `json:"units" msgpack:"units"`
-}
-
-// SetRulePositionPayload sets the value-space position of the rule identified by key.
-type SetRulePositionPayload struct {
-	Key      string  `json:"key" msgpack:"key"`
-	Position float64 `json:"position" msgpack:"position"`
-}
-
-// RemoveRulePayload removes the rule with the given key, if present.
-type RemoveRulePayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// SetPayload replaces the value at a path in the line plot.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object in the line
-// plot.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list in the line plot.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list in the line plot.
-type MovePayload patch.Move
-
-// Action is a discriminated union for all LinePlot mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type                  string                        `json:"type" msgpack:"type"`
-	Create                *CreatePayload                `json:"create,omitzero" msgpack:"create,omitempty"`
-	SetTitleVisible       *SetTitleVisiblePayload       `json:"set_title_visible,omitzero" msgpack:"set_title_visible,omitempty"`
-	SetTitleLevel         *SetTitleLevelPayload         `json:"set_title_level,omitzero" msgpack:"set_title_level,omitempty"`
-	SetLegendHidden       *SetLegendHiddenPayload       `json:"set_legend_hidden,omitzero" msgpack:"set_legend_hidden,omitempty"`
-	SetLegendPosition     *SetLegendPositionPayload     `json:"set_legend_position,omitzero" msgpack:"set_legend_position,omitempty"`
-	AddChannel            *AddChannelPayload            `json:"add_channel,omitzero" msgpack:"add_channel,omitempty"`
-	RemoveChannel         *RemoveChannelPayload         `json:"remove_channel,omitzero" msgpack:"remove_channel,omitempty"`
-	SetChannels           *SetChannelsPayload           `json:"set_channels,omitzero" msgpack:"set_channels,omitempty"`
-	SetXChannel           *SetXChannelPayload           `json:"set_x_channel,omitzero" msgpack:"set_x_channel,omitempty"`
-	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
-	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
-	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
-	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
-	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
-	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
-	SetAxisBounds         *SetAxisBoundsPayload         `json:"set_axis_bounds,omitzero" msgpack:"set_axis_bounds,omitempty"`
-	SetAxisTickSpacing    *SetAxisTickSpacingPayload    `json:"set_axis_tick_spacing,omitzero" msgpack:"set_axis_tick_spacing,omitempty"`
-	SetAxisType           *SetAxisTypePayload           `json:"set_axis_type,omitzero" msgpack:"set_axis_type,omitempty"`
-	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitzero" msgpack:"set_line_label,omitempty"`
-	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitzero" msgpack:"set_line_color,omitempty"`
-	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitzero" msgpack:"set_line_stroke_width,omitempty"`
-	SetLineAggregation    *SetLineAggregationPayload    `json:"set_line_aggregation,omitzero" msgpack:"set_line_aggregation,omitempty"`
-	SetLineDetail         *SetLineDetailPayload         `json:"set_line_detail,omitzero" msgpack:"set_line_detail,omitempty"`
-	SetLine               *SetLinePayload               `json:"set_line,omitzero" msgpack:"set_line,omitempty"`
-	SetRule               *SetRulePayload               `json:"set_rule,omitzero" msgpack:"set_rule,omitempty"`
-	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitzero" msgpack:"set_rule_label,omitempty"`
-	SetRuleColor          *SetRuleColorPayload          `json:"set_rule_color,omitzero" msgpack:"set_rule_color,omitempty"`
-	SetRuleAxis           *SetRuleAxisPayload           `json:"set_rule_axis,omitzero" msgpack:"set_rule_axis,omitempty"`
-	SetRuleLineWidth      *SetRuleLineWidthPayload      `json:"set_rule_line_width,omitzero" msgpack:"set_rule_line_width,omitempty"`
-	SetRuleLineDash       *SetRuleLineDashPayload       `json:"set_rule_line_dash,omitzero" msgpack:"set_rule_line_dash,omitempty"`
-	SetRuleUnits          *SetRuleUnitsPayload          `json:"set_rule_units,omitzero" msgpack:"set_rule_units,omitempty"`
-	SetRulePosition       *SetRulePositionPayload       `json:"set_rule_position,omitzero" msgpack:"set_rule_position,omitempty"`
-	RemoveRule            *RemoveRulePayload            `json:"remove_rule,omitzero" msgpack:"remove_rule,omitempty"`
-	Set                   *SetPayload                   `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove                *RemovePayload                `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert                *InsertPayload                `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move                  *MovePayload                  `json:"move,omitzero" msgpack:"move,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state LinePlot, acts ...Action) (LinePlot, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeSetTitleVisible:
-			if a.SetTitleVisible == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetTitleVisible.Handle(state)
-		case ActionTypeSetTitleLevel:
-			if a.SetTitleLevel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetTitleLevel.Handle(state)
-		case ActionTypeSetLegendHidden:
-			if a.SetLegendHidden == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLegendHidden.Handle(state)
-		case ActionTypeSetLegendPosition:
-			if a.SetLegendPosition == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLegendPosition.Handle(state)
-		case ActionTypeAddChannel:
-			if a.AddChannel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddChannel.Handle(state)
-		case ActionTypeRemoveChannel:
-			if a.RemoveChannel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveChannel.Handle(state)
-		case ActionTypeSetChannels:
-			if a.SetChannels == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetChannels.Handle(state)
-		case ActionTypeSetXChannel:
-			if a.SetXChannel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetXChannel.Handle(state)
-		case ActionTypeAddRange:
-			if a.AddRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddRange.Handle(state)
-		case ActionTypeRemoveRange:
-			if a.RemoveRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveRange.Handle(state)
-		case ActionTypeSetRanges:
-			if a.SetRanges == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRanges.Handle(state)
-		case ActionTypeSetAxisLabel:
-			if a.SetAxisLabel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisLabel.Handle(state)
-		case ActionTypeSetAxisLabelDirection:
-			if a.SetAxisLabelDirection == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisLabelDirection.Handle(state)
-		case ActionTypeSetAxisLabelLevel:
-			if a.SetAxisLabelLevel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisLabelLevel.Handle(state)
-		case ActionTypeSetAxisBounds:
-			if a.SetAxisBounds == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisBounds.Handle(state)
-		case ActionTypeSetAxisTickSpacing:
-			if a.SetAxisTickSpacing == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisTickSpacing.Handle(state)
-		case ActionTypeSetAxisType:
-			if a.SetAxisType == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetAxisType.Handle(state)
-		case ActionTypeSetLineLabel:
-			if a.SetLineLabel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLineLabel.Handle(state)
-		case ActionTypeSetLineColor:
-			if a.SetLineColor == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLineColor.Handle(state)
-		case ActionTypeSetLineStrokeWidth:
-			if a.SetLineStrokeWidth == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLineStrokeWidth.Handle(state)
-		case ActionTypeSetLineAggregation:
-			if a.SetLineAggregation == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLineAggregation.Handle(state)
-		case ActionTypeSetLineDetail:
-			if a.SetLineDetail == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLineDetail.Handle(state)
-		case ActionTypeSetLine:
-			if a.SetLine == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetLine.Handle(state)
-		case ActionTypeSetRule:
-			if a.SetRule == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRule.Handle(state)
-		case ActionTypeSetRuleLabel:
-			if a.SetRuleLabel == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleLabel.Handle(state)
-		case ActionTypeSetRuleColor:
-			if a.SetRuleColor == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleColor.Handle(state)
-		case ActionTypeSetRuleAxis:
-			if a.SetRuleAxis == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleAxis.Handle(state)
-		case ActionTypeSetRuleLineWidth:
-			if a.SetRuleLineWidth == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleLineWidth.Handle(state)
-		case ActionTypeSetRuleLineDash:
-			if a.SetRuleLineDash == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleLineDash.Handle(state)
-		case ActionTypeSetRuleUnits:
-			if a.SetRuleUnits == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRuleUnits.Handle(state)
-		case ActionTypeSetRulePosition:
-			if a.SetRulePosition == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetRulePosition.Handle(state)
-		case ActionTypeRemoveRule:
-			if a.RemoveRule == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveRule.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case SetTitleVisiblePayload:
+			state, err = v.Handle(state)
+		case SetTitleLevelPayload:
+			state, err = v.Handle(state)
+		case SetLegendHiddenPayload:
+			state, err = v.Handle(state)
+		case SetLegendPositionPayload:
+			state, err = v.Handle(state)
+		case AddChannelPayload:
+			state, err = v.Handle(state)
+		case RemoveChannelPayload:
+			state, err = v.Handle(state)
+		case SetChannelsPayload:
+			state, err = v.Handle(state)
+		case SetXChannelPayload:
+			state, err = v.Handle(state)
+		case AddRangePayload:
+			state, err = v.Handle(state)
+		case RemoveRangePayload:
+			state, err = v.Handle(state)
+		case SetRangesPayload:
+			state, err = v.Handle(state)
+		case SetAxisLabelPayload:
+			state, err = v.Handle(state)
+		case SetAxisLabelDirectionPayload:
+			state, err = v.Handle(state)
+		case SetAxisLabelLevelPayload:
+			state, err = v.Handle(state)
+		case SetAxisBoundsPayload:
+			state, err = v.Handle(state)
+		case SetAxisTickSpacingPayload:
+			state, err = v.Handle(state)
+		case SetAxisTypePayload:
+			state, err = v.Handle(state)
+		case SetLineLabelPayload:
+			state, err = v.Handle(state)
+		case SetLineColorPayload:
+			state, err = v.Handle(state)
+		case SetLineStrokeWidthPayload:
+			state, err = v.Handle(state)
+		case SetLineAggregationPayload:
+			state, err = v.Handle(state)
+		case SetLineDetailPayload:
+			state, err = v.Handle(state)
+		case SetLinePayload:
+			state, err = v.Handle(state)
+		case SetRulePayload:
+			state, err = v.Handle(state)
+		case SetRuleLabelPayload:
+			state, err = v.Handle(state)
+		case SetRuleColorPayload:
+			state, err = v.Handle(state)
+		case SetRuleAxisPayload:
+			state, err = v.Handle(state)
+		case SetRuleLineWidthPayload:
+			state, err = v.Handle(state)
+		case SetRuleLineDashPayload:
+			state, err = v.Handle(state)
+		case SetRuleUnitsPayload:
+			state, err = v.Handle(state)
+		case SetRulePositionPayload:
+			state, err = v.Handle(state)
+		case RemoveRulePayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -586,187 +115,113 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewSetTitleVisibleAction wraps a SetTitleVisiblePayload in an Action envelope.
-func NewSetTitleVisibleAction(p SetTitleVisiblePayload) Action {
-	return Action{Type: ActionTypeSetTitleVisible, SetTitleVisible: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewSetTitleLevelAction wraps a SetTitleLevelPayload in an Action envelope.
-func NewSetTitleLevelAction(p SetTitleLevelPayload) Action {
-	return Action{Type: ActionTypeSetTitleLevel, SetTitleLevel: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewSetLegendHiddenAction wraps a SetLegendHiddenPayload in an Action envelope.
-func NewSetLegendHiddenAction(p SetLegendHiddenPayload) Action {
-	return Action{Type: ActionTypeSetLegendHidden, SetLegendHidden: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewSetLegendPositionAction wraps a SetLegendPositionPayload in an Action envelope.
-func NewSetLegendPositionAction(p SetLegendPositionPayload) Action {
-	return Action{Type: ActionTypeSetLegendPosition, SetLegendPosition: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewAddChannelAction wraps a AddChannelPayload in an Action envelope.
-func NewAddChannelAction(p AddChannelPayload) Action {
-	return Action{Type: ActionTypeAddChannel, AddChannel: &p}
-}
+// NewSetTitleVisibleAction returns an Action that carries p.
+func NewSetTitleVisibleAction(p SetTitleVisiblePayload) Action { return Action{Variant: p} }
 
-// NewRemoveChannelAction wraps a RemoveChannelPayload in an Action envelope.
-func NewRemoveChannelAction(p RemoveChannelPayload) Action {
-	return Action{Type: ActionTypeRemoveChannel, RemoveChannel: &p}
-}
+// NewSetTitleLevelAction returns an Action that carries p.
+func NewSetTitleLevelAction(p SetTitleLevelPayload) Action { return Action{Variant: p} }
 
-// NewSetChannelsAction wraps a SetChannelsPayload in an Action envelope.
-func NewSetChannelsAction(p SetChannelsPayload) Action {
-	return Action{Type: ActionTypeSetChannels, SetChannels: &p}
-}
+// NewSetLegendHiddenAction returns an Action that carries p.
+func NewSetLegendHiddenAction(p SetLegendHiddenPayload) Action { return Action{Variant: p} }
 
-// NewSetXChannelAction wraps a SetXChannelPayload in an Action envelope.
-func NewSetXChannelAction(p SetXChannelPayload) Action {
-	return Action{Type: ActionTypeSetXChannel, SetXChannel: &p}
-}
+// NewSetLegendPositionAction returns an Action that carries p.
+func NewSetLegendPositionAction(p SetLegendPositionPayload) Action { return Action{Variant: p} }
 
-// NewAddRangeAction wraps a AddRangePayload in an Action envelope.
-func NewAddRangeAction(p AddRangePayload) Action {
-	return Action{Type: ActionTypeAddRange, AddRange: &p}
-}
+// NewAddChannelAction returns an Action that carries p.
+func NewAddChannelAction(p AddChannelPayload) Action { return Action{Variant: p} }
 
-// NewRemoveRangeAction wraps a RemoveRangePayload in an Action envelope.
-func NewRemoveRangeAction(p RemoveRangePayload) Action {
-	return Action{Type: ActionTypeRemoveRange, RemoveRange: &p}
-}
+// NewRemoveChannelAction returns an Action that carries p.
+func NewRemoveChannelAction(p RemoveChannelPayload) Action { return Action{Variant: p} }
 
-// NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
-func NewSetRangesAction(p SetRangesPayload) Action {
-	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
-}
+// NewSetChannelsAction returns an Action that carries p.
+func NewSetChannelsAction(p SetChannelsPayload) Action { return Action{Variant: p} }
 
-// NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.
-func NewSetAxisLabelAction(p SetAxisLabelPayload) Action {
-	return Action{Type: ActionTypeSetAxisLabel, SetAxisLabel: &p}
-}
+// NewSetXChannelAction returns an Action that carries p.
+func NewSetXChannelAction(p SetXChannelPayload) Action { return Action{Variant: p} }
 
-// NewSetAxisLabelDirectionAction wraps a SetAxisLabelDirectionPayload in an Action envelope.
-func NewSetAxisLabelDirectionAction(p SetAxisLabelDirectionPayload) Action {
-	return Action{Type: ActionTypeSetAxisLabelDirection, SetAxisLabelDirection: &p}
-}
+// NewAddRangeAction returns an Action that carries p.
+func NewAddRangeAction(p AddRangePayload) Action { return Action{Variant: p} }
 
-// NewSetAxisLabelLevelAction wraps a SetAxisLabelLevelPayload in an Action envelope.
-func NewSetAxisLabelLevelAction(p SetAxisLabelLevelPayload) Action {
-	return Action{Type: ActionTypeSetAxisLabelLevel, SetAxisLabelLevel: &p}
-}
+// NewRemoveRangeAction returns an Action that carries p.
+func NewRemoveRangeAction(p RemoveRangePayload) Action { return Action{Variant: p} }
 
-// NewSetAxisBoundsAction wraps a SetAxisBoundsPayload in an Action envelope.
-func NewSetAxisBoundsAction(p SetAxisBoundsPayload) Action {
-	return Action{Type: ActionTypeSetAxisBounds, SetAxisBounds: &p}
-}
+// NewSetRangesAction returns an Action that carries p.
+func NewSetRangesAction(p SetRangesPayload) Action { return Action{Variant: p} }
 
-// NewSetAxisTickSpacingAction wraps a SetAxisTickSpacingPayload in an Action envelope.
-func NewSetAxisTickSpacingAction(p SetAxisTickSpacingPayload) Action {
-	return Action{Type: ActionTypeSetAxisTickSpacing, SetAxisTickSpacing: &p}
-}
+// NewSetAxisLabelAction returns an Action that carries p.
+func NewSetAxisLabelAction(p SetAxisLabelPayload) Action { return Action{Variant: p} }
 
-// NewSetAxisTypeAction wraps a SetAxisTypePayload in an Action envelope.
-func NewSetAxisTypeAction(p SetAxisTypePayload) Action {
-	return Action{Type: ActionTypeSetAxisType, SetAxisType: &p}
-}
+// NewSetAxisLabelDirectionAction returns an Action that carries p.
+func NewSetAxisLabelDirectionAction(p SetAxisLabelDirectionPayload) Action { return Action{Variant: p} }
 
-// NewSetLineLabelAction wraps a SetLineLabelPayload in an Action envelope.
-func NewSetLineLabelAction(p SetLineLabelPayload) Action {
-	return Action{Type: ActionTypeSetLineLabel, SetLineLabel: &p}
-}
+// NewSetAxisLabelLevelAction returns an Action that carries p.
+func NewSetAxisLabelLevelAction(p SetAxisLabelLevelPayload) Action { return Action{Variant: p} }
 
-// NewSetLineColorAction wraps a SetLineColorPayload in an Action envelope.
-func NewSetLineColorAction(p SetLineColorPayload) Action {
-	return Action{Type: ActionTypeSetLineColor, SetLineColor: &p}
-}
+// NewSetAxisBoundsAction returns an Action that carries p.
+func NewSetAxisBoundsAction(p SetAxisBoundsPayload) Action { return Action{Variant: p} }
 
-// NewSetLineStrokeWidthAction wraps a SetLineStrokeWidthPayload in an Action envelope.
-func NewSetLineStrokeWidthAction(p SetLineStrokeWidthPayload) Action {
-	return Action{Type: ActionTypeSetLineStrokeWidth, SetLineStrokeWidth: &p}
-}
+// NewSetAxisTickSpacingAction returns an Action that carries p.
+func NewSetAxisTickSpacingAction(p SetAxisTickSpacingPayload) Action { return Action{Variant: p} }
 
-// NewSetLineAggregationAction wraps a SetLineAggregationPayload in an Action envelope.
-func NewSetLineAggregationAction(p SetLineAggregationPayload) Action {
-	return Action{Type: ActionTypeSetLineAggregation, SetLineAggregation: &p}
-}
+// NewSetAxisTypeAction returns an Action that carries p.
+func NewSetAxisTypeAction(p SetAxisTypePayload) Action { return Action{Variant: p} }
 
-// NewSetLineDetailAction wraps a SetLineDetailPayload in an Action envelope.
-func NewSetLineDetailAction(p SetLineDetailPayload) Action {
-	return Action{Type: ActionTypeSetLineDetail, SetLineDetail: &p}
-}
+// NewSetLineLabelAction returns an Action that carries p.
+func NewSetLineLabelAction(p SetLineLabelPayload) Action { return Action{Variant: p} }
 
-// NewSetLineAction wraps a SetLinePayload in an Action envelope.
-func NewSetLineAction(p SetLinePayload) Action {
-	return Action{Type: ActionTypeSetLine, SetLine: &p}
-}
+// NewSetLineColorAction returns an Action that carries p.
+func NewSetLineColorAction(p SetLineColorPayload) Action { return Action{Variant: p} }
 
-// NewSetRuleAction wraps a SetRulePayload in an Action envelope.
-func NewSetRuleAction(p SetRulePayload) Action {
-	return Action{Type: ActionTypeSetRule, SetRule: &p}
-}
+// NewSetLineStrokeWidthAction returns an Action that carries p.
+func NewSetLineStrokeWidthAction(p SetLineStrokeWidthPayload) Action { return Action{Variant: p} }
 
-// NewSetRuleLabelAction wraps a SetRuleLabelPayload in an Action envelope.
-func NewSetRuleLabelAction(p SetRuleLabelPayload) Action {
-	return Action{Type: ActionTypeSetRuleLabel, SetRuleLabel: &p}
-}
+// NewSetLineAggregationAction returns an Action that carries p.
+func NewSetLineAggregationAction(p SetLineAggregationPayload) Action { return Action{Variant: p} }
 
-// NewSetRuleColorAction wraps a SetRuleColorPayload in an Action envelope.
-func NewSetRuleColorAction(p SetRuleColorPayload) Action {
-	return Action{Type: ActionTypeSetRuleColor, SetRuleColor: &p}
-}
+// NewSetLineDetailAction returns an Action that carries p.
+func NewSetLineDetailAction(p SetLineDetailPayload) Action { return Action{Variant: p} }
 
-// NewSetRuleAxisAction wraps a SetRuleAxisPayload in an Action envelope.
-func NewSetRuleAxisAction(p SetRuleAxisPayload) Action {
-	return Action{Type: ActionTypeSetRuleAxis, SetRuleAxis: &p}
-}
+// NewSetLineAction returns an Action that carries p.
+func NewSetLineAction(p SetLinePayload) Action { return Action{Variant: p} }
 
-// NewSetRuleLineWidthAction wraps a SetRuleLineWidthPayload in an Action envelope.
-func NewSetRuleLineWidthAction(p SetRuleLineWidthPayload) Action {
-	return Action{Type: ActionTypeSetRuleLineWidth, SetRuleLineWidth: &p}
-}
+// NewSetRuleAction returns an Action that carries p.
+func NewSetRuleAction(p SetRulePayload) Action { return Action{Variant: p} }
 
-// NewSetRuleLineDashAction wraps a SetRuleLineDashPayload in an Action envelope.
-func NewSetRuleLineDashAction(p SetRuleLineDashPayload) Action {
-	return Action{Type: ActionTypeSetRuleLineDash, SetRuleLineDash: &p}
-}
+// NewSetRuleLabelAction returns an Action that carries p.
+func NewSetRuleLabelAction(p SetRuleLabelPayload) Action { return Action{Variant: p} }
 
-// NewSetRuleUnitsAction wraps a SetRuleUnitsPayload in an Action envelope.
-func NewSetRuleUnitsAction(p SetRuleUnitsPayload) Action {
-	return Action{Type: ActionTypeSetRuleUnits, SetRuleUnits: &p}
-}
+// NewSetRuleColorAction returns an Action that carries p.
+func NewSetRuleColorAction(p SetRuleColorPayload) Action { return Action{Variant: p} }
 
-// NewSetRulePositionAction wraps a SetRulePositionPayload in an Action envelope.
-func NewSetRulePositionAction(p SetRulePositionPayload) Action {
-	return Action{Type: ActionTypeSetRulePosition, SetRulePosition: &p}
-}
+// NewSetRuleAxisAction returns an Action that carries p.
+func NewSetRuleAxisAction(p SetRuleAxisPayload) Action { return Action{Variant: p} }
 
-// NewRemoveRuleAction wraps a RemoveRulePayload in an Action envelope.
-func NewRemoveRuleAction(p RemoveRulePayload) Action {
-	return Action{Type: ActionTypeRemoveRule, RemoveRule: &p}
-}
+// NewSetRuleLineWidthAction returns an Action that carries p.
+func NewSetRuleLineWidthAction(p SetRuleLineWidthPayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewSetRuleLineDashAction returns an Action that carries p.
+func NewSetRuleLineDashAction(p SetRuleLineDashPayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewSetRuleUnitsAction returns an Action that carries p.
+func NewSetRuleUnitsAction(p SetRuleUnitsPayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewSetRulePositionAction returns an Action that carries p.
+func NewSetRulePositionAction(p SetRulePositionPayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewRemoveRuleAction returns an Action that carries p.
+func NewRemoveRuleAction(p RemoveRulePayload) Action { return Action{Variant: p} }

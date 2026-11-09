@@ -11,14 +11,29 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from synnax import group as group_, rack as rack_, status as status_
 from synnax.resource import ID
-from x import filter
+from x import filter, patch
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -121,6 +136,15 @@ WhereInput = TypedDict(
 )
 
 
+class SetRackPayload(BaseModel):
+    """Moves the device to a rack, under parent when it is set, or directly on the rack
+    when it is empty. The device leaves its group.
+    """
+
+    rack: rack_.Key = Field(ge=0, le=4294967295)
+    parent: Key | None = None
+
+
 class Cursor(BaseModel):
     """Is a position in an order of devices: the sort value and the key of a device.
 
@@ -198,6 +222,16 @@ class Device(BaseModel):
         return hash(self.key)
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created device. Only the Core emits it.
+
+    Attributes:
+        device: Is the created device.
+    """
+
+    device: Device
+
+
 class RetrieveResponse(BaseModel):
     """Holds the devices a RetrieveRequest selects.
 
@@ -206,6 +240,43 @@ class RetrieveResponse(BaseModel):
     """
 
     devices: list[Device] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class SetRackAction(BaseModel):
+    type: Literal["set_rack"] = "set_rack"
+    set_rack: SetRackPayload
+
+
+# Holds one device mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction | SetRackAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

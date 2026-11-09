@@ -25,8 +25,16 @@ from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
 
 from synnax import device as device_, rack as rack_, ranger, status as status_
 from synnax.resource import ID
-from x import filter, telem
+from x import filter, patch, telem
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -332,6 +340,16 @@ class PersistConfig(StartConfig):
         return hash(self.key)
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created task. Only the Core emits it.
+
+    Attributes:
+        task: Is the created task.
+    """
+
+    task: Payload
+
+
 class RetrieveResponse(BaseModel):
     """Holds the tasks a RetrieveRequest selects.
 
@@ -370,6 +388,38 @@ class WriteConfig(PersistConfig):
     @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one task mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

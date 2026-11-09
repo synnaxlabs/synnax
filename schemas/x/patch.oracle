@@ -34,7 +34,6 @@ Set struct {
     }
     value  any      {
         @doc value        "is the new value."
-        @py optional
         @ts preserve_case
     }
     guards Guard[] = [] {
@@ -67,7 +66,6 @@ Insert struct {
     }
     value  any      {
         @doc value        "is the new entry. It is an object with a string key."
-        @py optional
         @ts preserve_case
     }
     after  string?  {

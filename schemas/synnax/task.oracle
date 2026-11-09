@@ -121,23 +121,7 @@ Task struct<
         @ref on_delete cascade
     }
 
-    action Create {
-        task Task
-
-        @doc value """
-            replaces the task with the given created state. Emitted by the Core when a
-            task is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @create
     @doc value               """
         is an executable unit of work in the Driver system. Tasks represent specific

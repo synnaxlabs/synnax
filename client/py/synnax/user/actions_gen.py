@@ -11,91 +11,18 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field
-
-from synnax.user.types_gen import User
-from x import patch
-
-
-class CreatePayload(BaseModel):
-    """Replaces the user with the given created state. Emitted by the Core when a user
-    is created; clients never dispatch it.
-    """
-
-    user: User
-
-
-# Replaces the value at a path. It creates the absent objects on the path, and
-# does nothing when the path goes through a missing list entry.
-SetPayload = patch.Set
-
-
-# Removes an entry from a list or a field from an object.
-RemovePayload = patch.Remove
-
-
-# Adds an entry to a list. It does nothing when an entry with the same key exists.
-InsertPayload = patch.Insert
-
-
-# Moves an entry in a list. It does nothing when the entry is missing.
-MovePayload = patch.Move
-
-
-class SetUsernamePayload(BaseModel):
-    """Changes the username of the user's password. The Core refuses a username that
-    another user holds.
-    """
-
-    username: str
-
-
-class CreateAction(BaseModel):
-    type: Literal["create"] = "create"
-    create: CreatePayload
-
-
-class SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: SetPayload
-
-
-class RemoveAction(BaseModel):
-    type: Literal["remove"] = "remove"
-    remove: RemovePayload
-
-
-class InsertAction(BaseModel):
-    type: Literal["insert"] = "insert"
-    insert: InsertPayload
-
-
-class MoveAction(BaseModel):
-    type: Literal["move"] = "move"
-    move: MovePayload
-
-
-class SetUsernameAction(BaseModel):
-    type: Literal["set_username"] = "set_username"
-    set_username: SetUsernamePayload
-
-
-# Action is a discriminated union for all User mutations.
-Action = Annotated[
-    CreateAction
-    | SetAction
-    | RemoveAction
-    | InsertAction
-    | MoveAction
-    | SetUsernameAction,
-    Field(discriminator="type"),
-]
-
-
-def create(payload: CreatePayload) -> CreateAction:
-    return CreateAction(create=payload)
+from synnax.user.types_gen import (
+    InsertAction,
+    InsertPayload,
+    MoveAction,
+    MovePayload,
+    RemoveAction,
+    RemovePayload,
+    SetAction,
+    SetPayload,
+    SetUsernameAction,
+    SetUsernamePayload,
+)
 
 
 def set(payload: SetPayload) -> SetAction:

@@ -294,7 +294,7 @@ inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
     StaticWriteField result;
     static_cast<BaseWriteField &>(result) = BaseWriteField::parse(parser);
     result.json_type = parser.field<std::string>("json_type", "number");
-    result.value = parser.field<x::json::json>("value");
+    result.value = parser.field<x::json::json>("value", nullptr);
     result.type = parser.field<std::string>("type");
     return result;
 }

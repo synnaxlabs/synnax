@@ -11,7 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Generic, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Any,
+    Generic,
+    Literal,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, JsonValue, field_validator
@@ -162,6 +170,14 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class SetPayload(BaseModel):
+    """Replaces the status with the given state. Emitted by the Core on every write to
+    the status; clients never dispatch it.
+    """
+
+    status: Status[JsonValue]
+
+
 class RetrieveResponse(BaseModel):
     """Holds the statuses a RetrieveRequest selects.
 
@@ -190,6 +206,18 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+# Holds one status mutation.
+Action = Annotated[
+    SetAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

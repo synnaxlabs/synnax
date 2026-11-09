@@ -15,6 +15,7 @@ import {
   color,
   filter,
   notation,
+  patch,
   spatial,
   text,
   uuid,
@@ -188,6 +189,30 @@ export const scaledConfigZ = z.object({
 });
 export interface ScaledConfig extends z.infer<typeof scaledConfigZ> {}
 
+/** SetNodePositionPayload moves a node to a new position. */
+export const setNodePositionPayloadZ = z.object({
+  key: z.string(),
+  position: spatial.xyZ,
+});
+export interface SetNodePositionPayload extends z.infer<
+  typeof setNodePositionPayloadZ
+> {}
+
+/**
+ * RemoveNodePayload removes the node, its config, and the edges that connect to it and
+ * their configs. No-op when no node has the key.
+ */
+export const removeNodePayloadZ = z.object({
+  key: z.string(),
+});
+export interface RemoveNodePayload extends z.infer<typeof removeNodePayloadZ> {}
+
+/** RemoveEdgePayload removes the edge with the given key and its config, if present. */
+export const removeEdgePayloadZ = z.object({
+  key: z.string(),
+});
+export interface RemoveEdgePayload extends z.infer<typeof removeEdgePayloadZ> {}
+
 /** Order is a sort of schematics. */
 export const orderZ = z.object({
   /** field is the field to sort by. Records with equal values sort by key. */
@@ -196,6 +221,18 @@ export const orderZ = z.object({
   descending: z.boolean().default(false),
 });
 export interface Order extends z.infer<typeof orderZ> {}
+
+export const setPayloadZ = patch.setZ;
+export type SetPayload = z.infer<typeof setPayloadZ>;
+
+export const removePayloadZ = patch.removeZ;
+export type RemovePayload = z.infer<typeof removePayloadZ>;
+
+export const insertPayloadZ = patch.insertZ;
+export type InsertPayload = z.infer<typeof insertPayloadZ>;
+
+export const movePayloadZ = patch.moveZ;
+export type MovePayload = z.infer<typeof movePayloadZ>;
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -299,6 +336,15 @@ export const cursorZ = z.object({
   name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/**
+ * AddEdgePayload appends the edge to the schematic. No-op when an edge with the same
+ * key already exists, or when the source or target node does not exist.
+ */
+export const addEdgePayloadZ = z.object({
+  edge: edgeZ,
+});
+export interface AddEdgePayload extends z.infer<typeof addEdgePayloadZ> {}
 
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
@@ -3361,6 +3407,36 @@ export const schematicZ = z.object({
   range: ranger.keyZ.optional(),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
+
+/**
+ * SetNodePayload inserts the node if no node with the same key exists, otherwise
+ * replaces the existing node in place. A present config replaces the entry stored under
+ * the node's key in the schematic configs map.
+ */
+export const setNodePayloadZ = z.object({
+  node: nodeZ,
+  config: zod.nullToUndefined(elementConfigZ),
+});
+export interface SetNodePayload extends z.infer<typeof setNodePayloadZ> {}
+
+/**
+ * SetConfigPayload replaces the config entry stored under the given node or edge key.
+ * No-op when no node or edge has the key.
+ */
+export const setConfigPayloadZ = z.object({
+  key: z.string(),
+  config: elementConfigZ,
+});
+export interface SetConfigPayload extends z.infer<typeof setConfigPayloadZ> {}
+
+/**
+ * CreatePayload replaces the state with the created schematic. Only the Core emits it.
+ */
+export const createPayloadZ = z.object({
+  /** schematic is the created schematic. */
+  schematic: schematicZ,
+});
+export interface CreatePayload extends z.infer<typeof createPayloadZ> {}
 export interface New extends z.input<typeof schematicZ> {}
 
 /** RetrieveResponse holds the schematics a RetrieveRequest selects. */
@@ -3369,6 +3445,131 @@ export const retrieveResponseZ = z.object({
   schematics: schematicZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+export const createActionZ = z.object({
+  type: z.literal("create"),
+  create: createPayloadZ,
+});
+export interface CreateAction extends z.infer<typeof createActionZ> {}
+
+export const setActionZ = z.object({
+  type: z.literal("set"),
+  set: setPayloadZ,
+});
+export interface SetAction extends z.infer<typeof setActionZ> {}
+
+export const removeActionZ = z.object({
+  type: z.literal("remove"),
+  remove: removePayloadZ,
+});
+export interface RemoveAction extends z.infer<typeof removeActionZ> {}
+
+export const insertActionZ = z.object({
+  type: z.literal("insert"),
+  insert: insertPayloadZ,
+});
+export interface InsertAction extends z.infer<typeof insertActionZ> {}
+
+export const moveActionZ = z.object({
+  type: z.literal("move"),
+  move: movePayloadZ,
+});
+export interface MoveAction extends z.infer<typeof moveActionZ> {}
+
+export const setNodePositionActionZ = z.object({
+  type: z.literal("set_node_position"),
+  setNodePosition: setNodePositionPayloadZ,
+});
+export interface SetNodePositionAction extends z.infer<typeof setNodePositionActionZ> {}
+
+export const setNodeActionZ = z.object({
+  type: z.literal("set_node"),
+  setNode: setNodePayloadZ,
+});
+export interface SetNodeAction extends z.infer<typeof setNodeActionZ> {}
+
+export const removeNodeActionZ = z.object({
+  type: z.literal("remove_node"),
+  removeNode: removeNodePayloadZ,
+});
+export interface RemoveNodeAction extends z.infer<typeof removeNodeActionZ> {}
+
+export const addEdgeActionZ = z.object({
+  type: z.literal("add_edge"),
+  addEdge: addEdgePayloadZ,
+});
+export interface AddEdgeAction extends z.infer<typeof addEdgeActionZ> {}
+
+export const removeEdgeActionZ = z.object({
+  type: z.literal("remove_edge"),
+  removeEdge: removeEdgePayloadZ,
+});
+export interface RemoveEdgeAction extends z.infer<typeof removeEdgeActionZ> {}
+
+export const setConfigActionZ = z.object({
+  type: z.literal("set_config"),
+  setConfig: setConfigPayloadZ,
+});
+export interface SetConfigAction extends z.infer<typeof setConfigActionZ> {}
+
+export const ACTION_TYPES = [
+  "create",
+  "set",
+  "remove",
+  "insert",
+  "move",
+  "set_node_position",
+  "set_node",
+  "remove_node",
+  "add_edge",
+  "remove_edge",
+  "set_config",
+] as const;
+export const actionTypeZ = z.enum(ACTION_TYPES);
+export type ActionType = z.infer<typeof actionTypeZ>;
+
+/** Action holds one schematic mutation. */
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
+  createActionZ,
+  setActionZ,
+  removeActionZ,
+  insertActionZ,
+  moveActionZ,
+  setNodePositionActionZ,
+  setNodeActionZ,
+  removeNodeActionZ,
+  addEdgeActionZ,
+  removeEdgeActionZ,
+  setConfigActionZ,
+]);
+export type Action =
+  | CreateAction
+  | SetAction
+  | RemoveAction
+  | InsertAction
+  | MoveAction
+  | SetNodePositionAction
+  | SetNodeAction
+  | RemoveNodeAction
+  | AddEdgeAction
+  | RemoveEdgeAction
+  | SetConfigAction;
+
+export const ACTION_SCHEMAS: {
+  [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
+} = {
+  create: createActionZ,
+  set: setActionZ,
+  remove: removeActionZ,
+  insert: insertActionZ,
+  move: moveActionZ,
+  set_node_position: setNodePositionActionZ,
+  set_node: setNodeActionZ,
+  remove_node: removeNodeActionZ,
+  add_edge: addEdgeActionZ,
+  remove_edge: removeEdgeActionZ,
+  set_config: setConfigActionZ,
+};
 
 export const resourceID = resource.createIDFactory<Key>("schematic");
 export const TYPE_RESOURCE_ID = resourceID("");

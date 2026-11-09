@@ -16,6 +16,7 @@
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/rack/key.h"
@@ -26,6 +27,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/types.gen.h"
 
 #include "core/pkg/api/device/pb/device.pb.h"
 #include "core/pkg/service/legacy/device/pb/device.pb.h"
@@ -34,12 +36,29 @@ namespace synnax::device {
 
 struct StatusDetails;
 struct Where;
+struct SetRackPayload;
 struct Cursor;
 struct Order;
 struct RetrieveRequest;
+struct CreatePayload;
 struct RetrieveResponse;
 
 constexpr const char *ORDER_FIELD_NAME = "name";
+
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 using Key = std::string;
 
@@ -118,6 +137,16 @@ struct Where {
     to_proto() const;
     static std::pair<Where, x::errors::Error>
     from_proto(const ::service::device::pb::Where &pb);
+};
+
+/// @brief SetRackPayload moves the device to a rack, under parent when it is set, or
+/// directly on the rack when it is empty. The device leaves its group.
+struct SetRackPayload {
+    ::synnax::rack::Key rack = 0;
+    std::optional<Key> parent;
+
+    static SetRackPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
 };
 
 /// @brief Cursor is a position in an order of devices: the sort value and the key of a
@@ -249,6 +278,16 @@ struct RetrieveRequest {
     from_proto(const ::api::device::pb::RetrieveRequest &pb);
 };
 
+/// @brief CreatePayload replaces the state with the created device. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief device is the created device.
+    Device device;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief devices are the devices the request selects.
@@ -263,6 +302,18 @@ struct RetrieveResponse {
     static std::pair<RetrieveResponse, x::errors::Error>
     from_proto(const ::api::device::pb::RetrieveResponse &pb);
 };
+
+/// @brief Action holds one device mutation.
+using Action = std::variant<
+    CreatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload,
+    SetRackPayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("device", "");
 

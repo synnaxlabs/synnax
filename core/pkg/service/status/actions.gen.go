@@ -11,39 +11,24 @@
 
 package status
 
-import "github.com/synnaxlabs/x/union"
+import (
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/union"
+)
 
-// ActionTypeSet is the Type of an Action that carries SetPayload.
-const ActionTypeSet = "set"
-
-// SetPayload replaces the status with the given state. Emitted by the Core on every
-// write to the status; clients never dispatch it.
-type SetPayload struct {
-	Status Status[any] `json:"status" msgpack:"status"`
-}
-
-// Action is a discriminated union for all Status mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type string      `json:"type" msgpack:"type"`
-	Set  *SetPayload `json:"set,omitzero" msgpack:"set,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Status[any], actions ...Action) (Status[any], error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Status[any], acts ...Action) (Status[any], error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case SetPayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -52,7 +37,5 @@ func Reduce(state Status[any], actions ...Action) (Status[any], error) {
 	return state, nil
 }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }

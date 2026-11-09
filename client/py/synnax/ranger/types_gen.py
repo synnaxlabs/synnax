@@ -18,8 +18,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import label
 from synnax.resource import ID
-from x import color as color_, filter, telem
+from x import color as color_, filter, patch, telem
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -159,6 +167,16 @@ Ref = Annotated[
 ]
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created range. Only the Core emits it.
+
+    Attributes:
+        range: Is the created range.
+    """
+
+    range: Payload
+
+
 class RetrieveResponse(BaseModel):
     """Holds the ranges a RetrieveRequest selects.
 
@@ -187,6 +205,38 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one range mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

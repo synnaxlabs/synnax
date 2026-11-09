@@ -12,12 +12,20 @@
 package table
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
+	"strconv"
 )
 
 // Key is a unique identifier for a table, represented as a UUID.
@@ -112,4 +120,926 @@ type Where struct {
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 	// Ranges matches the tables owned by any of the given ranges.
 	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+}
+
+// CreatePayload replaces the state with the created table. Only the Core emits it.
+type CreatePayload struct {
+	// Table is the created table.
+	Table Table `json:"table" msgpack:"table"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CreatePayload) ApplyDefaults() {
+	c.Table.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CreatePayload) Validate() error {
+	v := validate.New("CreatePayload")
+	v.Exec(func() error { return validate.PathedError(c.Table.Validate(), "table") })
+	return v.Error()
+}
+
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
+
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
+
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
+
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
+
+// AddRowPayload inserts a row with the given key at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing column. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
+// replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveRow had stripped the table down to no columns, the explicit cells
+// trigger the same column-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the column index. Bootstrapped columns derive their keys from the row's
+// key the same way. Out-of-range indices clamp to the end.
+type AddRowPayload struct {
+	Index        uint32  `json:"index" msgpack:"index"`
+	Key          string  `json:"key" msgpack:"key"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AddRowPayload) ApplyDefaults() {
+	for i := range a.Cells {
+		a.Cells[i].ApplyDefaults()
+	}
+	if a.CellTemplate != nil {
+		a.CellTemplate.ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AddRowPayload) Validate() error {
+	v := validate.New("AddRowPayload")
+	for i := range a.Cells {
+		v.Exec(func() error { return validate.PathedError(a.Cells[i].Validate(), "cells", strconv.Itoa(i)) })
+	}
+	if a.CellTemplate != nil {
+		v.Exec(func() error { return validate.PathedError(a.CellTemplate.Validate(), "cell_template") })
+	}
+	return v.Error()
+}
+
+// RemoveRowPayload removes the row with the given key. All cells referenced by the
+// removed row are also dropped from the cells map. No-op if no row has the key.
+type RemoveRowPayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// AddColPayload inserts a column with the given key at the given index. Three flows:
+//
+// 1. User gesture with cell_template against a non-empty table: replicate the template
+// once per existing row. 2. User gesture with cell_template against a fully-empty
+// table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
+// replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
+// the original RemoveCol had stripped the table down to no rows, the explicit cells
+// trigger the same row-bootstrap as flow 2.
+//
+// Derived replica keys come from the template's key with the last four hex digits
+// replaced by the row index. Bootstrapped rows derive their keys from the column's key
+// the same way. Cells whose row index exceeds the row count are added to the cells map
+// but not referenced by any row. Out-of-range indices clamp to the end of every row's
+// cells list.
+type AddColPayload struct {
+	Index        uint32  `json:"index" msgpack:"index"`
+	Key          string  `json:"key" msgpack:"key"`
+	Size         float64 `json:"size" msgpack:"size"`
+	Cells        []Cell  `json:"cells" msgpack:"cells"`
+	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AddColPayload) ApplyDefaults() {
+	for i := range a.Cells {
+		a.Cells[i].ApplyDefaults()
+	}
+	if a.CellTemplate != nil {
+		a.CellTemplate.ApplyDefaults()
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AddColPayload) Validate() error {
+	v := validate.New("AddColPayload")
+	for i := range a.Cells {
+		v.Exec(func() error { return validate.PathedError(a.Cells[i].Validate(), "cells", strconv.Itoa(i)) })
+	}
+	if a.CellTemplate != nil {
+		v.Exec(func() error { return validate.PathedError(a.CellTemplate.Validate(), "cell_template") })
+	}
+	return v.Error()
+}
+
+// RemoveColPayload removes the column with the given key. All cells in that column
+// (across every row) are dropped from the cells map. No-op if no column has the key.
+type RemoveColPayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// ResizeRowPayload resizes the row with the given key. No-op if no row has the key.
+type ResizeRowPayload struct {
+	Key  string  `json:"key" msgpack:"key"`
+	Size float64 `json:"size" msgpack:"size"`
+}
+
+// ResizeColPayload resizes the column with the given key. No-op if no column has the
+// key.
+type ResizeColPayload struct {
+	Key  string  `json:"key" msgpack:"key"`
+	Size float64 `json:"size" msgpack:"size"`
+}
+
+// MoveRowPayload moves the row with the given key so that it ends up at index to,
+// shifting the rows in between by one. The row keeps its size and cells. No-op if no
+// row has the key; to clamps to the last row.
+type MoveRowPayload struct {
+	Key string `json:"key" msgpack:"key"`
+	To  uint32 `json:"to" msgpack:"to"`
+}
+
+// MoveColPayload moves the column with the given key so that it ends up at index to,
+// shifting the columns in between by one. The column keeps its size and its cell in
+// every row. No-op if no column has the key; to clamps to the last column. A row
+// missing a cell at the old or new index is left unchanged.
+type MoveColPayload struct {
+	Key string `json:"key" msgpack:"key"`
+	To  uint32 `json:"to" msgpack:"to"`
+}
+
+// SetCellPayload replaces the cell at cell.key with the provided value. No-op if no
+// cell with that key exists in the table.
+type SetCellPayload struct {
+	Cell Cell `json:"cell" msgpack:"cell"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SetCellPayload) ApplyDefaults() {
+	s.Cell.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetCellPayload) Validate() error {
+	v := validate.New("SetCellPayload")
+	v.Exec(func() error { return validate.PathedError(s.Cell.Validate(), "cell") })
+	return v.Error()
+}
+
+// EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
+// is in the selection is removed entirely; same for columns. Cells that survive that
+// row/column removal have their config replaced with the template, keeping their
+// original keys. Cells in the selection whose keys are not in the table's cells map are
+// silently skipped.
+type EraseCellsPayload struct {
+	Cells    []string   `json:"cells" msgpack:"cells"`
+	Template CellConfig `json:"template" msgpack:"template"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (e *EraseCellsPayload) ApplyDefaults() {
+	e.Template.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (e EraseCellsPayload) Validate() error {
+	v := validate.New("EraseCellsPayload")
+	v.Exec(func() error { return validate.PathedError(e.Template.Validate(), "template") })
+	return v.Error()
+}
+
+// ActionType is the "type" value that selects a variant of Action.
+type ActionType string
+
+const (
+	// CreateActionType selects the CreatePayload variant.
+	CreateActionType ActionType = "create"
+	// SetActionType selects the SetPayload variant.
+	SetActionType ActionType = "set"
+	// RemoveActionType selects the RemovePayload variant.
+	RemoveActionType ActionType = "remove"
+	// InsertActionType selects the InsertPayload variant.
+	InsertActionType ActionType = "insert"
+	// MoveActionType selects the MovePayload variant.
+	MoveActionType ActionType = "move"
+	// AddRowActionType selects the AddRowPayload variant.
+	AddRowActionType ActionType = "add_row"
+	// RemoveRowActionType selects the RemoveRowPayload variant.
+	RemoveRowActionType ActionType = "remove_row"
+	// AddColActionType selects the AddColPayload variant.
+	AddColActionType ActionType = "add_col"
+	// RemoveColActionType selects the RemoveColPayload variant.
+	RemoveColActionType ActionType = "remove_col"
+	// ResizeRowActionType selects the ResizeRowPayload variant.
+	ResizeRowActionType ActionType = "resize_row"
+	// ResizeColActionType selects the ResizeColPayload variant.
+	ResizeColActionType ActionType = "resize_col"
+	// MoveRowActionType selects the MoveRowPayload variant.
+	MoveRowActionType ActionType = "move_row"
+	// MoveColActionType selects the MoveColPayload variant.
+	MoveColActionType ActionType = "move_col"
+	// SetCellActionType selects the SetCellPayload variant.
+	SetCellActionType ActionType = "set_cell"
+	// EraseCellsActionType selects the EraseCellsPayload variant.
+	EraseCellsActionType ActionType = "erase_cells"
+)
+
+// ActionVariant is implemented by every Action variant.
+type ActionVariant interface {
+	isActionVariant()
+}
+
+func (CreatePayload) isActionVariant() {}
+
+func (SetPayload) isActionVariant() {}
+
+func (RemovePayload) isActionVariant() {}
+
+func (InsertPayload) isActionVariant() {}
+
+func (MovePayload) isActionVariant() {}
+
+func (AddRowPayload) isActionVariant() {}
+
+func (RemoveRowPayload) isActionVariant() {}
+
+func (AddColPayload) isActionVariant() {}
+
+func (RemoveColPayload) isActionVariant() {}
+
+func (ResizeRowPayload) isActionVariant() {}
+
+func (ResizeColPayload) isActionVariant() {}
+
+func (MoveRowPayload) isActionVariant() {}
+
+func (MoveColPayload) isActionVariant() {}
+
+func (SetCellPayload) isActionVariant() {}
+
+func (EraseCellsPayload) isActionVariant() {}
+
+// Action holds one table mutation.
+type Action struct {
+	Variant ActionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CreatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload CreatePayload `json:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType `json:"type"`
+			Payload SetPayload `json:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload RemovePayload `json:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload InsertPayload `json:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType  `json:"type"`
+			Payload MovePayload `json:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case AddRowPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload AddRowPayload `json:"add_row"`
+		}{Type: AddRowActionType, Payload: v})
+	case RemoveRowPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload RemoveRowPayload `json:"remove_row"`
+		}{Type: RemoveRowActionType, Payload: v})
+	case AddColPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload AddColPayload `json:"add_col"`
+		}{Type: AddColActionType, Payload: v})
+	case RemoveColPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload RemoveColPayload `json:"remove_col"`
+		}{Type: RemoveColActionType, Payload: v})
+	case ResizeRowPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload ResizeRowPayload `json:"resize_row"`
+		}{Type: ResizeRowActionType, Payload: v})
+	case ResizeColPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload ResizeColPayload `json:"resize_col"`
+		}{Type: ResizeColActionType, Payload: v})
+	case MoveRowPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload MoveRowPayload `json:"move_row"`
+		}{Type: MoveRowActionType, Payload: v})
+	case MoveColPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload MoveColPayload `json:"move_col"`
+		}{Type: MoveColActionType, Payload: v})
+	case SetCellPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload SetCellPayload `json:"set_cell"`
+		}{Type: SetCellActionType, Payload: v})
+	case EraseCellsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload EraseCellsPayload `json:"erase_cells"`
+		}{Type: EraseCellsActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ActionType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Type    ActionType  `json:"type"`
+			Payload *SetPayload `json:"set"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *RemovePayload `json:"remove"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *InsertPayload `json:"insert"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Type    ActionType   `json:"type"`
+			Payload *MovePayload `json:"move"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddRowActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *AddRowPayload `json:"add_row"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRowActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *RemoveRowPayload `json:"remove_row"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddColActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *AddColPayload `json:"add_col"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveColActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *RemoveColPayload `json:"remove_col"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeRowActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *ResizeRowPayload `json:"resize_row"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeColActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *ResizeColPayload `json:"resize_col"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveRowActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *MoveRowPayload `json:"move_row"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveColActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *MoveColPayload `json:"move_col"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetCellActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *SetCellPayload `json:"set_cell"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case EraseCellsActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *EraseCellsPayload `json:"erase_cells"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected.
+func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CreatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload CreatePayload `msgpack:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return enc.Encode(struct {
+			Type    ActionType `msgpack:"type"`
+			Payload SetPayload `msgpack:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload RemovePayload `msgpack:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload InsertPayload `msgpack:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return enc.Encode(struct {
+			Type    ActionType  `msgpack:"type"`
+			Payload MovePayload `msgpack:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case AddRowPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload AddRowPayload `msgpack:"add_row"`
+		}{Type: AddRowActionType, Payload: v})
+	case RemoveRowPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload RemoveRowPayload `msgpack:"remove_row"`
+		}{Type: RemoveRowActionType, Payload: v})
+	case AddColPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload AddColPayload `msgpack:"add_col"`
+		}{Type: AddColActionType, Payload: v})
+	case RemoveColPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload RemoveColPayload `msgpack:"remove_col"`
+		}{Type: RemoveColActionType, Payload: v})
+	case ResizeRowPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload ResizeRowPayload `msgpack:"resize_row"`
+		}{Type: ResizeRowActionType, Payload: v})
+	case ResizeColPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload ResizeColPayload `msgpack:"resize_col"`
+		}{Type: ResizeColActionType, Payload: v})
+	case MoveRowPayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload MoveRowPayload `msgpack:"move_row"`
+		}{Type: MoveRowActionType, Payload: v})
+	case MoveColPayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload MoveColPayload `msgpack:"move_col"`
+		}{Type: MoveColActionType, Payload: v})
+	case SetCellPayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload SetCellPayload `msgpack:"set_cell"`
+		}{Type: SetCellActionType, Payload: v})
+	case EraseCellsPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload EraseCellsPayload `msgpack:"erase_cells"`
+		}{Type: EraseCellsActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field.
+func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type ActionType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Payload *SetPayload `msgpack:"set"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Payload *RemovePayload `msgpack:"remove"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Payload *InsertPayload `msgpack:"insert"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Payload *MovePayload `msgpack:"move"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddRowActionType:
+		var v struct {
+			Payload *AddRowPayload `msgpack:"add_row"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRowActionType:
+		var v struct {
+			Payload *RemoveRowPayload `msgpack:"remove_row"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddColActionType:
+		var v struct {
+			Payload *AddColPayload `msgpack:"add_col"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveColActionType:
+		var v struct {
+			Payload *RemoveColPayload `msgpack:"remove_col"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeRowActionType:
+		var v struct {
+			Payload *ResizeRowPayload `msgpack:"resize_row"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeColActionType:
+		var v struct {
+			Payload *ResizeColPayload `msgpack:"resize_col"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveRowActionType:
+		var v struct {
+			Payload *MoveRowPayload `msgpack:"move_row"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveColActionType:
+		var v struct {
+			Payload *MoveColPayload `msgpack:"move_col"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetCellActionType:
+		var v struct {
+			Payload *SetCellPayload `msgpack:"set_cell"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case EraseCellsActionType:
+		var v struct {
+			Payload *EraseCellsPayload `msgpack:"erase_cells"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Action) Type() ActionType {
+	switch u.Variant.(type) {
+	case CreatePayload:
+		return CreateActionType
+	case SetPayload:
+		return SetActionType
+	case RemovePayload:
+		return RemoveActionType
+	case InsertPayload:
+		return InsertActionType
+	case MovePayload:
+		return MoveActionType
+	case AddRowPayload:
+		return AddRowActionType
+	case RemoveRowPayload:
+		return RemoveRowActionType
+	case AddColPayload:
+		return AddColActionType
+	case RemoveColPayload:
+		return RemoveColActionType
+	case ResizeRowPayload:
+		return ResizeRowActionType
+	case ResizeColPayload:
+		return ResizeColActionType
+	case MoveRowPayload:
+		return MoveRowActionType
+	case MoveColPayload:
+		return MoveColActionType
+	case SetCellPayload:
+		return SetCellActionType
+	case EraseCellsPayload:
+		return EraseCellsActionType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Action) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AddRowPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case AddColPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SetCellPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case EraseCellsPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Action) Validate() error {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		return variant.Validate()
+	case AddRowPayload:
+		return variant.Validate()
+	case AddColPayload:
+		return variant.Validate()
+	case SetCellPayload:
+		return variant.Validate()
+	case EraseCellsPayload:
+		return variant.Validate()
+	}
+	return nil
 }

@@ -38,23 +38,7 @@ Label struct {
         @patch
     }
 
-    action Create {
-        label Label
-
-        @doc value """
-            replaces the label with the given created state. Emitted by the Core when a
-            label is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @create
     @doc value       """
         is a tagging and categorization entity with a name and associated color. Labels

@@ -199,7 +199,7 @@ class StaticWriteField(BaseWriteField):
 
     type: Literal["static"] = "static"
     json_type: JSONType = "number"
-    value: JsonValue
+    value: JsonValue | None = None
 
 
 class GeneratedWriteField(BaseWriteField):

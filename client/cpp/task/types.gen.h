@@ -28,6 +28,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -45,11 +46,27 @@ struct ScanConfig;
 struct Order;
 struct PersistConfig;
 struct RetrieveRequest;
+struct CreatePayload;
 struct RetrieveResponse;
 struct ReadConfig;
 struct WriteConfig;
 
 constexpr const char *ORDER_FIELD_NAME = "name";
+
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 using Key = x::uuid::UUID;
 
@@ -397,6 +414,16 @@ struct RetrieveRequest {
     from_proto(const ::api::task::pb::RetrieveRequest &pb);
 };
 
+/// @brief CreatePayload replaces the state with the created task. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief task is the created task.
+    Task task;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the tasks a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief tasks are the tasks the request selects.
@@ -434,6 +461,13 @@ struct WriteConfig : public PersistConfig {
     static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief Action holds one task mutation.
+using Action = std::
+    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("task", "");
 

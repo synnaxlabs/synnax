@@ -12,11 +12,23 @@
 package panel
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
+	"strconv"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -109,4 +121,815 @@ type Where struct {
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 	// Ranges matches the panels owned by any of the given ranges.
 	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+}
+
+// CreatePayload replaces the state with the created panel. Only the Core emits it.
+type CreatePayload struct {
+	// Panel is the created panel.
+	Panel Panel `json:"panel" msgpack:"panel"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CreatePayload) ApplyDefaults() {
+	c.Panel.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CreatePayload) Validate() error {
+	v := validate.New("CreatePayload")
+	v.Exec(func() error { return validate.PathedError(c.Panel.Validate(), "panel") })
+	return v.Error()
+}
+
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
+
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
+
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
+
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
+
+// SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
+type SetIconPayload struct {
+	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`
+}
+
+// SetColorPayload sets the color of the panel's icon. Null lets the theme pick it.
+type SetColorPayload struct {
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+}
+
+// InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and
+// appending when index is absent or past the leaf's end. The destination leaf is
+// resolved from target_tab (the leaf holding that tab) when set, otherwise from the
+// target_leaf path-derived key, otherwise the first leaf in traversal order. Both are
+// hints: a target that no longer resolves to a leaf falls back to the first leaf
+// instead of failing, so a placement invalidated between the gesture and the dispatch
+// still opens the tabs. The fallback drops location too, leaving a leaf the caller
+// never pointed at unsplit. When location is an edge, the resolved leaf is split once
+// at that location and every tab is inserted into the new empty leaf; a center location
+// places the tabs directly in the resolved leaf, equivalent to absent. The split is
+// deferred to the first tab that lands, so a batch whose every tab is skipped leaves no
+// empty pane behind. A tab whose key is already in the tree has its content refreshed
+// and keeps its position unless the payload carries an explicit placement, in which
+// case it is relocated with the rest. Inserting a resource tab whose resource already
+// backs a different tab is skipped, as is a view tab of a type already backing a tab
+// when singleton is set: each may back at most one tab per panel, and callers select
+// the existing tab instead. Skipping one tab does not stop the others.
+type InsertTabsPayload struct {
+	Tabs       []Tab             `json:"tabs" msgpack:"tabs"`
+	TargetLeaf *int32            `json:"target_leaf,omitzero" msgpack:"target_leaf,omitempty"`
+	TargetTab  *TabKey           `json:"target_tab,omitzero" msgpack:"target_tab,omitempty"`
+	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
+	Singleton  *bool             `json:"singleton,omitzero" msgpack:"singleton,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InsertTabsPayload) Validate() error {
+	v := validate.New("InsertTabsPayload")
+	for i := range in.Tabs {
+		v.Exec(func() error { return validate.PathedError(in.Tabs[i].Validate(), "tabs", strconv.Itoa(i)) })
+	}
+	return v.Error()
+}
+
+// RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
+// empty and has a sibling, the reducer collapses the parent split.
+type RemoveTabPayload struct {
+	Key TabKey `json:"key" msgpack:"key"`
+}
+
+// MoveTabPayload moves a tab to a position within the panel. When location is an edge,
+// the target leaf is first split at that location and the tab moves into the new empty
+// leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
+// location places the tab directly in the target leaf, equivalent to absent.
+// Cross-panel moves are RemoveTab on the source plus InsertTabs on the destination (two
+// dispatches; not atomic).
+type MoveTabPayload struct {
+	Key        TabKey            `json:"key" msgpack:"key"`
+	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
+	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
+	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
+}
+
+// SplitTabPayload splits the tab with the given key off its leaf into a new sibling
+// pane, moving the tab into it. direction x places the new pane to the right, y to the
+// bottom. The tab must share its leaf with at least one other tab; splitting the only
+// tab in a leaf is a no-op.
+type SplitTabPayload struct {
+	Key       TabKey            `json:"key" msgpack:"key"`
+	Direction spatial.Direction `json:"direction" msgpack:"direction"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SplitTabPayload) Validate() error {
+	v := validate.New("SplitTabPayload")
+	v.Ternaryf("direction", !s.Direction.IsValid(), "invalid direction: %v", s.Direction)
+	return v.Error()
+}
+
+// ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
+type ResizeSplitPayload struct {
+	Split int32           `json:"split" msgpack:"split"`
+	Size  spatial.Decimal `json:"size" msgpack:"size"`
+}
+
+// SetTabResourcePayload sets the visualization resource displayed by the tab with the
+// given key, swapping it in place without changing the tab's identity or position.
+// Clears any view set on the tab. A no-op when the resource already backs another tab
+// in the panel. Used to fill a freshly inserted selector tab once the user picks a
+// visualization.
+type SetTabResourcePayload struct {
+	Key      TabKey      `json:"key" msgpack:"key"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetTabResourcePayload) Validate() error {
+	v := validate.New("SetTabResourcePayload")
+	v.Exec(func() error { return validate.PathedError(s.Resource.Validate(), "resource") })
+	return v.Error()
+}
+
+// SetTabViewPayload sets the inline view displayed by the tab with the given key,
+// swapping it in place without changing the tab's identity or position. Clears any
+// resource set on the tab.
+type SetTabViewPayload struct {
+	Key  TabKey `json:"key" msgpack:"key"`
+	View View   `json:"view" msgpack:"view"`
+}
+
+// ActionType is the "type" value that selects a variant of Action.
+type ActionType string
+
+const (
+	// CreateActionType selects the CreatePayload variant.
+	CreateActionType ActionType = "create"
+	// SetActionType selects the SetPayload variant.
+	SetActionType ActionType = "set"
+	// RemoveActionType selects the RemovePayload variant.
+	RemoveActionType ActionType = "remove"
+	// InsertActionType selects the InsertPayload variant.
+	InsertActionType ActionType = "insert"
+	// MoveActionType selects the MovePayload variant.
+	MoveActionType ActionType = "move"
+	// SetIconActionType selects the SetIconPayload variant.
+	SetIconActionType ActionType = "set_icon"
+	// SetColorActionType selects the SetColorPayload variant.
+	SetColorActionType ActionType = "set_color"
+	// InsertTabsActionType selects the InsertTabsPayload variant.
+	InsertTabsActionType ActionType = "insert_tabs"
+	// RemoveTabActionType selects the RemoveTabPayload variant.
+	RemoveTabActionType ActionType = "remove_tab"
+	// MoveTabActionType selects the MoveTabPayload variant.
+	MoveTabActionType ActionType = "move_tab"
+	// SplitTabActionType selects the SplitTabPayload variant.
+	SplitTabActionType ActionType = "split_tab"
+	// ResizeSplitActionType selects the ResizeSplitPayload variant.
+	ResizeSplitActionType ActionType = "resize_split"
+	// SetTabResourceActionType selects the SetTabResourcePayload variant.
+	SetTabResourceActionType ActionType = "set_tab_resource"
+	// SetTabViewActionType selects the SetTabViewPayload variant.
+	SetTabViewActionType ActionType = "set_tab_view"
+)
+
+// ActionVariant is implemented by every Action variant.
+type ActionVariant interface {
+	isActionVariant()
+}
+
+func (CreatePayload) isActionVariant() {}
+
+func (SetPayload) isActionVariant() {}
+
+func (RemovePayload) isActionVariant() {}
+
+func (InsertPayload) isActionVariant() {}
+
+func (MovePayload) isActionVariant() {}
+
+func (SetIconPayload) isActionVariant() {}
+
+func (SetColorPayload) isActionVariant() {}
+
+func (InsertTabsPayload) isActionVariant() {}
+
+func (RemoveTabPayload) isActionVariant() {}
+
+func (MoveTabPayload) isActionVariant() {}
+
+func (SplitTabPayload) isActionVariant() {}
+
+func (ResizeSplitPayload) isActionVariant() {}
+
+func (SetTabResourcePayload) isActionVariant() {}
+
+func (SetTabViewPayload) isActionVariant() {}
+
+// Action holds one panel mutation.
+type Action struct {
+	Variant ActionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CreatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload CreatePayload `json:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType `json:"type"`
+			Payload SetPayload `json:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload RemovePayload `json:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload InsertPayload `json:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType  `json:"type"`
+			Payload MovePayload `json:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetIconPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload SetIconPayload `json:"set_icon"`
+		}{Type: SetIconActionType, Payload: v})
+	case SetColorPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType      `json:"type"`
+			Payload SetColorPayload `json:"set_color"`
+		}{Type: SetColorActionType, Payload: v})
+	case InsertTabsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload InsertTabsPayload `json:"insert_tabs"`
+		}{Type: InsertTabsActionType, Payload: v})
+	case RemoveTabPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload RemoveTabPayload `json:"remove_tab"`
+		}{Type: RemoveTabActionType, Payload: v})
+	case MoveTabPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload MoveTabPayload `json:"move_tab"`
+		}{Type: MoveTabActionType, Payload: v})
+	case SplitTabPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType      `json:"type"`
+			Payload SplitTabPayload `json:"split_tab"`
+		}{Type: SplitTabActionType, Payload: v})
+	case ResizeSplitPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload ResizeSplitPayload `json:"resize_split"`
+		}{Type: ResizeSplitActionType, Payload: v})
+	case SetTabResourcePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType            `json:"type"`
+			Payload SetTabResourcePayload `json:"set_tab_resource"`
+		}{Type: SetTabResourceActionType, Payload: v})
+	case SetTabViewPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload SetTabViewPayload `json:"set_tab_view"`
+		}{Type: SetTabViewActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ActionType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Type    ActionType  `json:"type"`
+			Payload *SetPayload `json:"set"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *RemovePayload `json:"remove"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *InsertPayload `json:"insert"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Type    ActionType   `json:"type"`
+			Payload *MovePayload `json:"move"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetIconActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *SetIconPayload `json:"set_icon"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetColorActionType:
+		var v struct {
+			Type    ActionType       `json:"type"`
+			Payload *SetColorPayload `json:"set_color"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertTabsActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *InsertTabsPayload `json:"insert_tabs"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveTabActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *RemoveTabPayload `json:"remove_tab"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveTabActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *MoveTabPayload `json:"move_tab"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SplitTabActionType:
+		var v struct {
+			Type    ActionType       `json:"type"`
+			Payload *SplitTabPayload `json:"split_tab"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeSplitActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *ResizeSplitPayload `json:"resize_split"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTabResourceActionType:
+		var v struct {
+			Type    ActionType             `json:"type"`
+			Payload *SetTabResourcePayload `json:"set_tab_resource"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTabViewActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *SetTabViewPayload `json:"set_tab_view"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected.
+func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CreatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload CreatePayload `msgpack:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return enc.Encode(struct {
+			Type    ActionType `msgpack:"type"`
+			Payload SetPayload `msgpack:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload RemovePayload `msgpack:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload InsertPayload `msgpack:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return enc.Encode(struct {
+			Type    ActionType  `msgpack:"type"`
+			Payload MovePayload `msgpack:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetIconPayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload SetIconPayload `msgpack:"set_icon"`
+		}{Type: SetIconActionType, Payload: v})
+	case SetColorPayload:
+		return enc.Encode(struct {
+			Type    ActionType      `msgpack:"type"`
+			Payload SetColorPayload `msgpack:"set_color"`
+		}{Type: SetColorActionType, Payload: v})
+	case InsertTabsPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload InsertTabsPayload `msgpack:"insert_tabs"`
+		}{Type: InsertTabsActionType, Payload: v})
+	case RemoveTabPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload RemoveTabPayload `msgpack:"remove_tab"`
+		}{Type: RemoveTabActionType, Payload: v})
+	case MoveTabPayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload MoveTabPayload `msgpack:"move_tab"`
+		}{Type: MoveTabActionType, Payload: v})
+	case SplitTabPayload:
+		return enc.Encode(struct {
+			Type    ActionType      `msgpack:"type"`
+			Payload SplitTabPayload `msgpack:"split_tab"`
+		}{Type: SplitTabActionType, Payload: v})
+	case ResizeSplitPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload ResizeSplitPayload `msgpack:"resize_split"`
+		}{Type: ResizeSplitActionType, Payload: v})
+	case SetTabResourcePayload:
+		return enc.Encode(struct {
+			Type    ActionType            `msgpack:"type"`
+			Payload SetTabResourcePayload `msgpack:"set_tab_resource"`
+		}{Type: SetTabResourceActionType, Payload: v})
+	case SetTabViewPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload SetTabViewPayload `msgpack:"set_tab_view"`
+		}{Type: SetTabViewActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field.
+func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type ActionType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Payload *SetPayload `msgpack:"set"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Payload *RemovePayload `msgpack:"remove"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Payload *InsertPayload `msgpack:"insert"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Payload *MovePayload `msgpack:"move"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetIconActionType:
+		var v struct {
+			Payload *SetIconPayload `msgpack:"set_icon"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetColorActionType:
+		var v struct {
+			Payload *SetColorPayload `msgpack:"set_color"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertTabsActionType:
+		var v struct {
+			Payload *InsertTabsPayload `msgpack:"insert_tabs"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveTabActionType:
+		var v struct {
+			Payload *RemoveTabPayload `msgpack:"remove_tab"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveTabActionType:
+		var v struct {
+			Payload *MoveTabPayload `msgpack:"move_tab"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SplitTabActionType:
+		var v struct {
+			Payload *SplitTabPayload `msgpack:"split_tab"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ResizeSplitActionType:
+		var v struct {
+			Payload *ResizeSplitPayload `msgpack:"resize_split"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTabResourceActionType:
+		var v struct {
+			Payload *SetTabResourcePayload `msgpack:"set_tab_resource"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTabViewActionType:
+		var v struct {
+			Payload *SetTabViewPayload `msgpack:"set_tab_view"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Action) Type() ActionType {
+	switch u.Variant.(type) {
+	case CreatePayload:
+		return CreateActionType
+	case SetPayload:
+		return SetActionType
+	case RemovePayload:
+		return RemoveActionType
+	case InsertPayload:
+		return InsertActionType
+	case MovePayload:
+		return MoveActionType
+	case SetIconPayload:
+		return SetIconActionType
+	case SetColorPayload:
+		return SetColorActionType
+	case InsertTabsPayload:
+		return InsertTabsActionType
+	case RemoveTabPayload:
+		return RemoveTabActionType
+	case MoveTabPayload:
+		return MoveTabActionType
+	case SplitTabPayload:
+		return SplitTabActionType
+	case ResizeSplitPayload:
+		return ResizeSplitActionType
+	case SetTabResourcePayload:
+		return SetTabResourceActionType
+	case SetTabViewPayload:
+		return SetTabViewActionType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Action) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Action) Validate() error {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		return variant.Validate()
+	case InsertTabsPayload:
+		return variant.Validate()
+	case SplitTabPayload:
+		return variant.Validate()
+	case SetTabResourcePayload:
+		return variant.Validate()
+	}
+	return nil
 }

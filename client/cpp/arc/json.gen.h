@@ -17,11 +17,15 @@
 #include <vector>
 
 #include "client/cpp/arc/types.gen.h"
+#include "x/cpp/crdt/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/json.gen.h"
+#include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/json.gen.h"
+#include "arc/cpp/ir/json.gen.h"
 #include "arc/cpp/program/json.gen.h"
 #include "arc/cpp/text/json.gen.h"
 
@@ -72,6 +76,163 @@ inline x::json::json Where::to_json() const {
             arr.push_back(item.to_json());
         j["directories"] = arr;
     }
+    return j;
+}
+
+inline CreatePayload CreatePayload::parse(x::json::Parser parser) {
+    return CreatePayload{
+        .arc = parse_arc(parser.child("arc")),
+    };
+}
+
+inline x::json::json CreatePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["arc"] = ::synnax::arc::to_json(this->arc);
+    return j;
+}
+
+inline SetNodePayload SetNodePayload::parse(x::json::Parser parser) {
+    return SetNodePayload{
+        .node = parser.field<::arc::graph::Node>("node"),
+    };
+}
+
+inline x::json::json SetNodePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["node"] = this->node.to_json();
+    return j;
+}
+
+inline SetNodePositionPayload SetNodePositionPayload::parse(x::json::Parser parser) {
+    return SetNodePositionPayload{
+        .key = parser.field<std::string>("key"),
+        .position = parser.field<::x::spatial::XY>("position"),
+    };
+}
+
+inline x::json::json SetNodePositionPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["position"] = this->position.to_json();
+    return j;
+}
+
+inline SetNodeInputsPayload SetNodeInputsPayload::parse(x::json::Parser parser) {
+    return SetNodeInputsPayload{
+        .key = parser.field<std::string>("key"),
+        .inputs = parser.field<x::json::json::object_t>("inputs"),
+    };
+}
+
+inline x::json::json SetNodeInputsPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["inputs"] = this->inputs;
+    return j;
+}
+
+inline RemoveNodePayload RemoveNodePayload::parse(x::json::Parser parser) {
+    return RemoveNodePayload{
+        .key = parser.field<std::string>("key"),
+    };
+}
+
+inline x::json::json RemoveNodePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    return j;
+}
+
+inline AddEdgePayload AddEdgePayload::parse(x::json::Parser parser) {
+    return AddEdgePayload{
+        .edge = parser.field<::arc::graph::Edge>("edge"),
+    };
+}
+
+inline x::json::json AddEdgePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["edge"] = this->edge.to_json();
+    return j;
+}
+
+inline RemoveEdgePayload RemoveEdgePayload::parse(x::json::Parser parser) {
+    return RemoveEdgePayload{
+        .key = parser.field<std::string>("key"),
+    };
+}
+
+inline x::json::json RemoveEdgePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    return j;
+}
+
+inline ReconnectEdgePayload ReconnectEdgePayload::parse(x::json::Parser parser) {
+    return ReconnectEdgePayload{
+        .key = parser.field<std::string>("key"),
+        .source = parser.field<::arc::ir::Handle>("source"),
+        .target = parser.field<::arc::ir::Handle>("target"),
+    };
+}
+
+inline x::json::json ReconnectEdgePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key;
+    j["source"] = this->source.to_json();
+    j["target"] = this->target.to_json();
+    return j;
+}
+
+inline InsertCharPayload InsertCharPayload::parse(x::json::Parser parser) {
+    InsertCharPayload result;
+    static_cast<::x::crdt::Insert &>(result) = ::x::crdt::Insert::parse(parser);
+    return result;
+}
+
+inline x::json::json InsertCharPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::x::crdt::Insert::to_json(); parent.is_object())
+        j.update(parent);
+    return j;
+}
+
+inline DeleteCharPayload DeleteCharPayload::parse(x::json::Parser parser) {
+    DeleteCharPayload result;
+    static_cast<::x::crdt::Delete &>(result) = ::x::crdt::Delete::parse(parser);
+    return result;
+}
+
+inline x::json::json DeleteCharPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::x::crdt::Delete::to_json(); parent.is_object())
+        j.update(parent);
+    return j;
+}
+
+inline ForgetCharsPayload ForgetCharsPayload::parse(x::json::Parser parser) {
+    return ForgetCharsPayload{
+        .ids = parser.field<std::vector<::x::crdt::ID>>(
+            "ids",
+            std::vector<::x::crdt::ID>{}
+        ),
+    };
+}
+
+inline x::json::json ForgetCharsPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["ids"] = x::json::to_array(this->ids);
+    return j;
+}
+
+inline SetDirectoryPayload SetDirectoryPayload::parse(x::json::Parser parser) {
+    return SetDirectoryPayload{
+        .directory = parser.field<x::uuid::UUID>("directory"),
+    };
+}
+
+inline x::json::json SetDirectoryPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["directory"] = this->directory.to_json();
     return j;
 }
 
@@ -229,6 +390,65 @@ inline Arc parse_arc(x::json::Parser parser) {
 
 inline x::json::json to_json(const Arc &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Action parse_action(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "create") return CreatePayload::parse(parser.child("create"));
+    if (discriminator == "set") return SetPayload::parse(parser.child("set"));
+    if (discriminator == "remove") return RemovePayload::parse(parser.child("remove"));
+    if (discriminator == "insert") return InsertPayload::parse(parser.child("insert"));
+    if (discriminator == "move") return MovePayload::parse(parser.child("move"));
+    if (discriminator == "set_node")
+        return SetNodePayload::parse(parser.child("set_node"));
+    if (discriminator == "set_node_position")
+        return SetNodePositionPayload::parse(parser.child("set_node_position"));
+    if (discriminator == "set_node_inputs")
+        return SetNodeInputsPayload::parse(parser.child("set_node_inputs"));
+    if (discriminator == "remove_node")
+        return RemoveNodePayload::parse(parser.child("remove_node"));
+    if (discriminator == "add_edge")
+        return AddEdgePayload::parse(parser.child("add_edge"));
+    if (discriminator == "remove_edge")
+        return RemoveEdgePayload::parse(parser.child("remove_edge"));
+    if (discriminator == "reconnect_edge")
+        return ReconnectEdgePayload::parse(parser.child("reconnect_edge"));
+    if (discriminator == "insert_char")
+        return InsertCharPayload::parse(parser.child("insert_char"));
+    if (discriminator == "delete_char")
+        return DeleteCharPayload::parse(parser.child("delete_char"));
+    if (discriminator == "forget_chars")
+        return ForgetCharsPayload::parse(parser.child("forget_chars"));
+    if (discriminator == "set_directory")
+        return SetDirectoryPayload::parse(parser.child("set_directory"));
+    parser.field_err("type", "unknown Action type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Action &value) {
+    static constexpr const char *discriminators[] = {
+        "create",
+        "set",
+        "remove",
+        "insert",
+        "move",
+        "set_node",
+        "set_node_position",
+        "set_node_inputs",
+        "remove_node",
+        "add_edge",
+        "remove_edge",
+        "reconnect_edge",
+        "insert_char",
+        "delete_char",
+        "forget_chars",
+        "set_directory"
+    };
+    const std::string discriminator = discriminators[value.index()];
+    x::json::json j = x::json::json::object();
+    j["type"] = discriminator;
+    j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
+    return j;
 }
 
 }

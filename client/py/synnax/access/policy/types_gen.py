@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -19,8 +19,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from synnax import resource
 from synnax.access import action, role as role_
 from synnax.resource import ID
-from x import filter
+from x import filter, patch
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -126,6 +134,16 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created policy. Only the Core emits it.
+
+    Attributes:
+        policy: Is the created policy.
+    """
+
+    policy: Policy
+
+
 class RetrieveResponse(BaseModel):
     """Holds the policies a RetrieveRequest selects.
 
@@ -154,6 +172,38 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one policy mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

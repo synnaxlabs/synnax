@@ -11,15 +11,23 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.resource import ID
-from x import color as color_, filter, notation as notation_, telem
+from x import color as color_, filter, notation as notation_, patch, telem
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -38,6 +46,113 @@ class TimestampConfig(BaseModel):
     """
 
     format: telem.TimestampFormat
+    time_zone: telem.TimeZone
+
+
+class AddChannelPayload(BaseModel):
+    """Appends a default channel entry for the given channel. No-op when the channel is
+    already present.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+
+
+class RemoveChannelPayload(BaseModel):
+    """Removes the channel entry for the given channel. No-op when the channel is not
+    present.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+
+
+class SetChannelColorPayload(BaseModel):
+    """Sets the display color of the entry identified by channel. The zero color resets
+    it to the text color of the log. No-op when no entry references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    color: color_.Color
+
+
+class SetChannelNotationPayload(BaseModel):
+    """Sets the numeric notation of the entry identified by channel. No-op when no entry
+    references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    notation: notation_.Notation
+
+
+class SetChannelPrecisionPayload(BaseModel):
+    """Sets the number of digits after the decimal point for the entry identified by
+    channel. Absent clears it, so samples show as they arrive. No-op when no entry
+    references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    precision: int | None = Field(default=None, ge=0, le=255)
+
+
+class SetChannelAliasPayload(BaseModel):
+    """Sets the human-readable alias of the entry identified by channel. An empty alias
+    falls back to the channel name. No-op when no entry references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    alias: str
+
+
+class SetChannelTimestampFormatPayload(BaseModel):
+    """Sets the format of the values of the timestamp channel identified by channel.
+    No-op when no entry references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    format: telem.TimestampFormat
+
+
+class SetChannelTimestampTimeZonePayload(BaseModel):
+    """Sets the time zone of the values of the timestamp channel identified by channel.
+    No-op when no entry references the channel.
+    """
+
+    channel: channel_.Key = Field(ge=0, le=4294967295)
+    time_zone: telem.TimeZone
+
+
+class SwapChannelPayload(BaseModel):
+    """Repoints the entry referencing the "from" channel at the "to" channel in place,
+    preserving the entry's position and display configuration. No-op when no entry
+    references "from" or an entry already references "to".
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    from_: channel_.Key = Field(ge=0, le=4294967295, alias="from")
+    to: channel_.Key = Field(ge=0, le=4294967295)
+
+
+class SetTimestampPrecisionPayload(BaseModel):
+    """Sets the precision of displayed timestamps (0-3)."""
+
+    timestamp_precision: int = Field(ge=0, le=255)
+
+
+class SetChannelNamesHiddenPayload(BaseModel):
+    """Sets whether channel names are hidden."""
+
+    channel_names_hidden: bool
+
+
+class SetTimestampsHiddenPayload(BaseModel):
+    """Sets whether entry timestamps are hidden."""
+
+    timestamps_hidden: bool
+
+
+class SetTimeZonePayload(BaseModel):
+    """Sets the time zone of the line times and day rows of the log."""
+
     time_zone: telem.TimeZone
 
 
@@ -193,6 +308,26 @@ class Log(BaseModel):
         return hash(self.key)
 
 
+class SetChannelEntryPayload(BaseModel):
+    """Inserts the channel entry if no entry with the same channel exists, otherwise
+    replaces the existing entry in place. The fine-grained setChannel* actions cover
+    per-field edits; this full-object form inserts new entries and restores an entry
+    dropped by reconciliation.
+    """
+
+    entry: ChannelEntry
+
+
+class CreatePayload(BaseModel):
+    """Replaces the state with the created log. Only the Core emits it.
+
+    Attributes:
+        log: Is the created log.
+    """
+
+    log: Log
+
+
 class RetrieveResponse(BaseModel):
     """Holds the logs a RetrieveRequest selects.
 
@@ -201,6 +336,126 @@ class RetrieveResponse(BaseModel):
     """
 
     logs: list[Log] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class AddChannelAction(BaseModel):
+    type: Literal["add_channel"] = "add_channel"
+    add_channel: AddChannelPayload
+
+
+class RemoveChannelAction(BaseModel):
+    type: Literal["remove_channel"] = "remove_channel"
+    remove_channel: RemoveChannelPayload
+
+
+class SetChannelEntryAction(BaseModel):
+    type: Literal["set_channel_entry"] = "set_channel_entry"
+    set_channel_entry: SetChannelEntryPayload
+
+
+class SetChannelColorAction(BaseModel):
+    type: Literal["set_channel_color"] = "set_channel_color"
+    set_channel_color: SetChannelColorPayload
+
+
+class SetChannelNotationAction(BaseModel):
+    type: Literal["set_channel_notation"] = "set_channel_notation"
+    set_channel_notation: SetChannelNotationPayload
+
+
+class SetChannelPrecisionAction(BaseModel):
+    type: Literal["set_channel_precision"] = "set_channel_precision"
+    set_channel_precision: SetChannelPrecisionPayload
+
+
+class SetChannelAliasAction(BaseModel):
+    type: Literal["set_channel_alias"] = "set_channel_alias"
+    set_channel_alias: SetChannelAliasPayload
+
+
+class SetChannelTimestampFormatAction(BaseModel):
+    type: Literal["set_channel_timestamp_format"] = "set_channel_timestamp_format"
+    set_channel_timestamp_format: SetChannelTimestampFormatPayload
+
+
+class SetChannelTimestampTimeZoneAction(BaseModel):
+    type: Literal["set_channel_timestamp_time_zone"] = "set_channel_timestamp_time_zone"
+    set_channel_timestamp_time_zone: SetChannelTimestampTimeZonePayload
+
+
+class SwapChannelAction(BaseModel):
+    type: Literal["swap_channel"] = "swap_channel"
+    swap_channel: SwapChannelPayload
+
+
+class SetTimestampPrecisionAction(BaseModel):
+    type: Literal["set_timestamp_precision"] = "set_timestamp_precision"
+    set_timestamp_precision: SetTimestampPrecisionPayload
+
+
+class SetChannelNamesHiddenAction(BaseModel):
+    type: Literal["set_channel_names_hidden"] = "set_channel_names_hidden"
+    set_channel_names_hidden: SetChannelNamesHiddenPayload
+
+
+class SetTimestampsHiddenAction(BaseModel):
+    type: Literal["set_timestamps_hidden"] = "set_timestamps_hidden"
+    set_timestamps_hidden: SetTimestampsHiddenPayload
+
+
+class SetTimeZoneAction(BaseModel):
+    type: Literal["set_time_zone"] = "set_time_zone"
+    set_time_zone: SetTimeZonePayload
+
+
+# Holds one log mutation.
+Action = Annotated[
+    CreateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | AddChannelAction
+    | RemoveChannelAction
+    | SetChannelEntryAction
+    | SetChannelColorAction
+    | SetChannelNotationAction
+    | SetChannelPrecisionAction
+    | SetChannelAliasAction
+    | SetChannelTimestampFormatAction
+    | SetChannelTimestampTimeZoneAction
+    | SwapChannelAction
+    | SetTimestampPrecisionAction
+    | SetChannelNamesHiddenAction
+    | SetTimestampsHiddenAction
+    | SetTimeZoneAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

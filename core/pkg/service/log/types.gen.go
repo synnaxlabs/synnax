@@ -12,11 +12,23 @@
 package log
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/notation"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
@@ -50,4 +62,1043 @@ type Where struct {
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 	// Ranges matches the logs owned by any of the given ranges.
 	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+}
+
+// CreatePayload replaces the state with the created log. Only the Core emits it.
+type CreatePayload struct {
+	// Log is the created log.
+	Log Log `json:"log" msgpack:"log"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CreatePayload) ApplyDefaults() {
+	c.Log.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CreatePayload) Validate() error {
+	v := validate.New("CreatePayload")
+	v.Exec(func() error { return validate.PathedError(c.Log.Validate(), "log") })
+	return v.Error()
+}
+
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
+
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
+
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
+
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
+
+// AddChannelPayload appends a default channel entry for the given channel. No-op when
+// the channel is already present.
+type AddChannelPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// RemoveChannelPayload removes the channel entry for the given channel. No-op when the
+// channel is not present.
+type RemoveChannelPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// SetChannelEntryPayload inserts the channel entry if no entry with the same channel
+// exists, otherwise replaces the existing entry in place. The fine-grained setChannel*
+// actions cover per-field edits; this full-object form inserts new entries and restores
+// an entry dropped by reconciliation.
+type SetChannelEntryPayload struct {
+	Entry ChannelEntry `json:"entry" msgpack:"entry"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SetChannelEntryPayload) ApplyDefaults() {
+	s.Entry.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetChannelEntryPayload) Validate() error {
+	v := validate.New("SetChannelEntryPayload")
+	v.Exec(func() error { return validate.PathedError(s.Entry.Validate(), "entry") })
+	return v.Error()
+}
+
+// SetChannelColorPayload sets the display color of the entry identified by channel. The
+// zero color resets it to the text color of the log. No-op when no entry references the
+// channel.
+type SetChannelColorPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Color   color.Color `json:"color" msgpack:"color"`
+}
+
+// SetChannelNotationPayload sets the numeric notation of the entry identified by
+// channel. No-op when no entry references the channel.
+type SetChannelNotationPayload struct {
+	Channel  channel.Key       `json:"channel" msgpack:"channel"`
+	Notation notation.Notation `json:"notation" msgpack:"notation"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetChannelNotationPayload) Validate() error {
+	v := validate.New("SetChannelNotationPayload")
+	v.Ternaryf("notation", !s.Notation.IsValid(), "invalid notation: %v", s.Notation)
+	return v.Error()
+}
+
+// SetChannelPrecisionPayload sets the number of digits after the decimal point for the
+// entry identified by channel. Absent clears it, so samples show as they arrive. No-op
+// when no entry references the channel.
+type SetChannelPrecisionPayload struct {
+	Channel   channel.Key `json:"channel" msgpack:"channel"`
+	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
+}
+
+// SetChannelAliasPayload sets the human-readable alias of the entry identified by
+// channel. An empty alias falls back to the channel name. No-op when no entry
+// references the channel.
+type SetChannelAliasPayload struct {
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	Alias   string      `json:"alias" msgpack:"alias"`
+}
+
+// SetChannelTimestampFormatPayload sets the format of the values of the timestamp
+// channel identified by channel. No-op when no entry references the channel.
+type SetChannelTimestampFormatPayload struct {
+	Channel channel.Key           `json:"channel" msgpack:"channel"`
+	Format  telem.TimestampFormat `json:"format" msgpack:"format"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetChannelTimestampFormatPayload) Validate() error {
+	v := validate.New("SetChannelTimestampFormatPayload")
+	v.Ternaryf("format", !s.Format.IsValid(), "invalid format: %v", s.Format)
+	return v.Error()
+}
+
+// SetChannelTimestampTimeZonePayload sets the time zone of the values of the timestamp
+// channel identified by channel. No-op when no entry references the channel.
+type SetChannelTimestampTimeZonePayload struct {
+	Channel  channel.Key    `json:"channel" msgpack:"channel"`
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetChannelTimestampTimeZonePayload) Validate() error {
+	v := validate.New("SetChannelTimestampTimeZonePayload")
+	v.Ternaryf("time_zone", !s.TimeZone.IsValid(), "invalid time_zone: %v", s.TimeZone)
+	return v.Error()
+}
+
+// SwapChannelPayload repoints the entry referencing the "from" channel at the "to"
+// channel in place, preserving the entry's position and display configuration. No-op
+// when no entry references "from" or an entry already references "to".
+type SwapChannelPayload struct {
+	From channel.Key `json:"from" msgpack:"from"`
+	To   channel.Key `json:"to" msgpack:"to"`
+}
+
+// SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
+type SetTimestampPrecisionPayload struct {
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+}
+
+// SetChannelNamesHiddenPayload sets whether channel names are hidden.
+type SetChannelNamesHiddenPayload struct {
+	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
+}
+
+// SetTimestampsHiddenPayload sets whether entry timestamps are hidden.
+type SetTimestampsHiddenPayload struct {
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
+}
+
+// SetTimeZonePayload sets the time zone of the line times and day rows of the log.
+type SetTimeZonePayload struct {
+	TimeZone telem.TimeZone `json:"time_zone" msgpack:"time_zone"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetTimeZonePayload) Validate() error {
+	v := validate.New("SetTimeZonePayload")
+	v.Ternaryf("time_zone", !s.TimeZone.IsValid(), "invalid time_zone: %v", s.TimeZone)
+	return v.Error()
+}
+
+// ActionType is the "type" value that selects a variant of Action.
+type ActionType string
+
+const (
+	// CreateActionType selects the CreatePayload variant.
+	CreateActionType ActionType = "create"
+	// SetActionType selects the SetPayload variant.
+	SetActionType ActionType = "set"
+	// RemoveActionType selects the RemovePayload variant.
+	RemoveActionType ActionType = "remove"
+	// InsertActionType selects the InsertPayload variant.
+	InsertActionType ActionType = "insert"
+	// MoveActionType selects the MovePayload variant.
+	MoveActionType ActionType = "move"
+	// AddChannelActionType selects the AddChannelPayload variant.
+	AddChannelActionType ActionType = "add_channel"
+	// RemoveChannelActionType selects the RemoveChannelPayload variant.
+	RemoveChannelActionType ActionType = "remove_channel"
+	// SetChannelEntryActionType selects the SetChannelEntryPayload variant.
+	SetChannelEntryActionType ActionType = "set_channel_entry"
+	// SetChannelColorActionType selects the SetChannelColorPayload variant.
+	SetChannelColorActionType ActionType = "set_channel_color"
+	// SetChannelNotationActionType selects the SetChannelNotationPayload variant.
+	SetChannelNotationActionType ActionType = "set_channel_notation"
+	// SetChannelPrecisionActionType selects the SetChannelPrecisionPayload variant.
+	SetChannelPrecisionActionType ActionType = "set_channel_precision"
+	// SetChannelAliasActionType selects the SetChannelAliasPayload variant.
+	SetChannelAliasActionType ActionType = "set_channel_alias"
+	// SetChannelTimestampFormatActionType selects the SetChannelTimestampFormatPayload
+	// variant.
+	SetChannelTimestampFormatActionType ActionType = "set_channel_timestamp_format"
+	// SetChannelTimestampTimeZoneActionType selects the
+	// SetChannelTimestampTimeZonePayload variant.
+	SetChannelTimestampTimeZoneActionType ActionType = "set_channel_timestamp_time_zone"
+	// SwapChannelActionType selects the SwapChannelPayload variant.
+	SwapChannelActionType ActionType = "swap_channel"
+	// SetTimestampPrecisionActionType selects the SetTimestampPrecisionPayload variant.
+	SetTimestampPrecisionActionType ActionType = "set_timestamp_precision"
+	// SetChannelNamesHiddenActionType selects the SetChannelNamesHiddenPayload variant.
+	SetChannelNamesHiddenActionType ActionType = "set_channel_names_hidden"
+	// SetTimestampsHiddenActionType selects the SetTimestampsHiddenPayload variant.
+	SetTimestampsHiddenActionType ActionType = "set_timestamps_hidden"
+	// SetTimeZoneActionType selects the SetTimeZonePayload variant.
+	SetTimeZoneActionType ActionType = "set_time_zone"
+)
+
+// ActionVariant is implemented by every Action variant.
+type ActionVariant interface {
+	isActionVariant()
+}
+
+func (CreatePayload) isActionVariant() {}
+
+func (SetPayload) isActionVariant() {}
+
+func (RemovePayload) isActionVariant() {}
+
+func (InsertPayload) isActionVariant() {}
+
+func (MovePayload) isActionVariant() {}
+
+func (AddChannelPayload) isActionVariant() {}
+
+func (RemoveChannelPayload) isActionVariant() {}
+
+func (SetChannelEntryPayload) isActionVariant() {}
+
+func (SetChannelColorPayload) isActionVariant() {}
+
+func (SetChannelNotationPayload) isActionVariant() {}
+
+func (SetChannelPrecisionPayload) isActionVariant() {}
+
+func (SetChannelAliasPayload) isActionVariant() {}
+
+func (SetChannelTimestampFormatPayload) isActionVariant() {}
+
+func (SetChannelTimestampTimeZonePayload) isActionVariant() {}
+
+func (SwapChannelPayload) isActionVariant() {}
+
+func (SetTimestampPrecisionPayload) isActionVariant() {}
+
+func (SetChannelNamesHiddenPayload) isActionVariant() {}
+
+func (SetTimestampsHiddenPayload) isActionVariant() {}
+
+func (SetTimeZonePayload) isActionVariant() {}
+
+// Action holds one log mutation.
+type Action struct {
+	Variant ActionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CreatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload CreatePayload `json:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType `json:"type"`
+			Payload SetPayload `json:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload RemovePayload `json:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload InsertPayload `json:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType  `json:"type"`
+			Payload MovePayload `json:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case AddChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload AddChannelPayload `json:"add_channel"`
+		}{Type: AddChannelActionType, Payload: v})
+	case RemoveChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload RemoveChannelPayload `json:"remove_channel"`
+		}{Type: RemoveChannelActionType, Payload: v})
+	case SetChannelEntryPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetChannelEntryPayload `json:"set_channel_entry"`
+		}{Type: SetChannelEntryActionType, Payload: v})
+	case SetChannelColorPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetChannelColorPayload `json:"set_channel_color"`
+		}{Type: SetChannelColorActionType, Payload: v})
+	case SetChannelNotationPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                `json:"type"`
+			Payload SetChannelNotationPayload `json:"set_channel_notation"`
+		}{Type: SetChannelNotationActionType, Payload: v})
+	case SetChannelPrecisionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                 `json:"type"`
+			Payload SetChannelPrecisionPayload `json:"set_channel_precision"`
+		}{Type: SetChannelPrecisionActionType, Payload: v})
+	case SetChannelAliasPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetChannelAliasPayload `json:"set_channel_alias"`
+		}{Type: SetChannelAliasActionType, Payload: v})
+	case SetChannelTimestampFormatPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                       `json:"type"`
+			Payload SetChannelTimestampFormatPayload `json:"set_channel_timestamp_format"`
+		}{Type: SetChannelTimestampFormatActionType, Payload: v})
+	case SetChannelTimestampTimeZonePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                         `json:"type"`
+			Payload SetChannelTimestampTimeZonePayload `json:"set_channel_timestamp_time_zone"`
+		}{Type: SetChannelTimestampTimeZoneActionType, Payload: v})
+	case SwapChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SwapChannelPayload `json:"swap_channel"`
+		}{Type: SwapChannelActionType, Payload: v})
+	case SetTimestampPrecisionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                   `json:"type"`
+			Payload SetTimestampPrecisionPayload `json:"set_timestamp_precision"`
+		}{Type: SetTimestampPrecisionActionType, Payload: v})
+	case SetChannelNamesHiddenPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                   `json:"type"`
+			Payload SetChannelNamesHiddenPayload `json:"set_channel_names_hidden"`
+		}{Type: SetChannelNamesHiddenActionType, Payload: v})
+	case SetTimestampsHiddenPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                 `json:"type"`
+			Payload SetTimestampsHiddenPayload `json:"set_timestamps_hidden"`
+		}{Type: SetTimestampsHiddenActionType, Payload: v})
+	case SetTimeZonePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SetTimeZonePayload `json:"set_time_zone"`
+		}{Type: SetTimeZoneActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ActionType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Type    ActionType  `json:"type"`
+			Payload *SetPayload `json:"set"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *RemovePayload `json:"remove"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *InsertPayload `json:"insert"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Type    ActionType   `json:"type"`
+			Payload *MovePayload `json:"move"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddChannelActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *AddChannelPayload `json:"add_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveChannelActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *RemoveChannelPayload `json:"remove_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelEntryActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetChannelEntryPayload `json:"set_channel_entry"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelColorActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetChannelColorPayload `json:"set_channel_color"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelNotationActionType:
+		var v struct {
+			Type    ActionType                 `json:"type"`
+			Payload *SetChannelNotationPayload `json:"set_channel_notation"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelPrecisionActionType:
+		var v struct {
+			Type    ActionType                  `json:"type"`
+			Payload *SetChannelPrecisionPayload `json:"set_channel_precision"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelAliasActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetChannelAliasPayload `json:"set_channel_alias"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelTimestampFormatActionType:
+		var v struct {
+			Type    ActionType                        `json:"type"`
+			Payload *SetChannelTimestampFormatPayload `json:"set_channel_timestamp_format"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelTimestampTimeZoneActionType:
+		var v struct {
+			Type    ActionType                          `json:"type"`
+			Payload *SetChannelTimestampTimeZonePayload `json:"set_channel_timestamp_time_zone"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SwapChannelActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SwapChannelPayload `json:"swap_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimestampPrecisionActionType:
+		var v struct {
+			Type    ActionType                    `json:"type"`
+			Payload *SetTimestampPrecisionPayload `json:"set_timestamp_precision"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelNamesHiddenActionType:
+		var v struct {
+			Type    ActionType                    `json:"type"`
+			Payload *SetChannelNamesHiddenPayload `json:"set_channel_names_hidden"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimestampsHiddenActionType:
+		var v struct {
+			Type    ActionType                  `json:"type"`
+			Payload *SetTimestampsHiddenPayload `json:"set_timestamps_hidden"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimeZoneActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SetTimeZonePayload `json:"set_time_zone"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected.
+func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CreatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload CreatePayload `msgpack:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return enc.Encode(struct {
+			Type    ActionType `msgpack:"type"`
+			Payload SetPayload `msgpack:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload RemovePayload `msgpack:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload InsertPayload `msgpack:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return enc.Encode(struct {
+			Type    ActionType  `msgpack:"type"`
+			Payload MovePayload `msgpack:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case AddChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload AddChannelPayload `msgpack:"add_channel"`
+		}{Type: AddChannelActionType, Payload: v})
+	case RemoveChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload RemoveChannelPayload `msgpack:"remove_channel"`
+		}{Type: RemoveChannelActionType, Payload: v})
+	case SetChannelEntryPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetChannelEntryPayload `msgpack:"set_channel_entry"`
+		}{Type: SetChannelEntryActionType, Payload: v})
+	case SetChannelColorPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetChannelColorPayload `msgpack:"set_channel_color"`
+		}{Type: SetChannelColorActionType, Payload: v})
+	case SetChannelNotationPayload:
+		return enc.Encode(struct {
+			Type    ActionType                `msgpack:"type"`
+			Payload SetChannelNotationPayload `msgpack:"set_channel_notation"`
+		}{Type: SetChannelNotationActionType, Payload: v})
+	case SetChannelPrecisionPayload:
+		return enc.Encode(struct {
+			Type    ActionType                 `msgpack:"type"`
+			Payload SetChannelPrecisionPayload `msgpack:"set_channel_precision"`
+		}{Type: SetChannelPrecisionActionType, Payload: v})
+	case SetChannelAliasPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetChannelAliasPayload `msgpack:"set_channel_alias"`
+		}{Type: SetChannelAliasActionType, Payload: v})
+	case SetChannelTimestampFormatPayload:
+		return enc.Encode(struct {
+			Type    ActionType                       `msgpack:"type"`
+			Payload SetChannelTimestampFormatPayload `msgpack:"set_channel_timestamp_format"`
+		}{Type: SetChannelTimestampFormatActionType, Payload: v})
+	case SetChannelTimestampTimeZonePayload:
+		return enc.Encode(struct {
+			Type    ActionType                         `msgpack:"type"`
+			Payload SetChannelTimestampTimeZonePayload `msgpack:"set_channel_timestamp_time_zone"`
+		}{Type: SetChannelTimestampTimeZoneActionType, Payload: v})
+	case SwapChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SwapChannelPayload `msgpack:"swap_channel"`
+		}{Type: SwapChannelActionType, Payload: v})
+	case SetTimestampPrecisionPayload:
+		return enc.Encode(struct {
+			Type    ActionType                   `msgpack:"type"`
+			Payload SetTimestampPrecisionPayload `msgpack:"set_timestamp_precision"`
+		}{Type: SetTimestampPrecisionActionType, Payload: v})
+	case SetChannelNamesHiddenPayload:
+		return enc.Encode(struct {
+			Type    ActionType                   `msgpack:"type"`
+			Payload SetChannelNamesHiddenPayload `msgpack:"set_channel_names_hidden"`
+		}{Type: SetChannelNamesHiddenActionType, Payload: v})
+	case SetTimestampsHiddenPayload:
+		return enc.Encode(struct {
+			Type    ActionType                 `msgpack:"type"`
+			Payload SetTimestampsHiddenPayload `msgpack:"set_timestamps_hidden"`
+		}{Type: SetTimestampsHiddenActionType, Payload: v})
+	case SetTimeZonePayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SetTimeZonePayload `msgpack:"set_time_zone"`
+		}{Type: SetTimeZoneActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field.
+func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type ActionType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Payload *SetPayload `msgpack:"set"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Payload *RemovePayload `msgpack:"remove"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Payload *InsertPayload `msgpack:"insert"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Payload *MovePayload `msgpack:"move"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddChannelActionType:
+		var v struct {
+			Payload *AddChannelPayload `msgpack:"add_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveChannelActionType:
+		var v struct {
+			Payload *RemoveChannelPayload `msgpack:"remove_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelEntryActionType:
+		var v struct {
+			Payload *SetChannelEntryPayload `msgpack:"set_channel_entry"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelColorActionType:
+		var v struct {
+			Payload *SetChannelColorPayload `msgpack:"set_channel_color"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelNotationActionType:
+		var v struct {
+			Payload *SetChannelNotationPayload `msgpack:"set_channel_notation"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelPrecisionActionType:
+		var v struct {
+			Payload *SetChannelPrecisionPayload `msgpack:"set_channel_precision"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelAliasActionType:
+		var v struct {
+			Payload *SetChannelAliasPayload `msgpack:"set_channel_alias"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelTimestampFormatActionType:
+		var v struct {
+			Payload *SetChannelTimestampFormatPayload `msgpack:"set_channel_timestamp_format"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelTimestampTimeZoneActionType:
+		var v struct {
+			Payload *SetChannelTimestampTimeZonePayload `msgpack:"set_channel_timestamp_time_zone"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SwapChannelActionType:
+		var v struct {
+			Payload *SwapChannelPayload `msgpack:"swap_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimestampPrecisionActionType:
+		var v struct {
+			Payload *SetTimestampPrecisionPayload `msgpack:"set_timestamp_precision"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelNamesHiddenActionType:
+		var v struct {
+			Payload *SetChannelNamesHiddenPayload `msgpack:"set_channel_names_hidden"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimestampsHiddenActionType:
+		var v struct {
+			Payload *SetTimestampsHiddenPayload `msgpack:"set_timestamps_hidden"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTimeZoneActionType:
+		var v struct {
+			Payload *SetTimeZonePayload `msgpack:"set_time_zone"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Action) Type() ActionType {
+	switch u.Variant.(type) {
+	case CreatePayload:
+		return CreateActionType
+	case SetPayload:
+		return SetActionType
+	case RemovePayload:
+		return RemoveActionType
+	case InsertPayload:
+		return InsertActionType
+	case MovePayload:
+		return MoveActionType
+	case AddChannelPayload:
+		return AddChannelActionType
+	case RemoveChannelPayload:
+		return RemoveChannelActionType
+	case SetChannelEntryPayload:
+		return SetChannelEntryActionType
+	case SetChannelColorPayload:
+		return SetChannelColorActionType
+	case SetChannelNotationPayload:
+		return SetChannelNotationActionType
+	case SetChannelPrecisionPayload:
+		return SetChannelPrecisionActionType
+	case SetChannelAliasPayload:
+		return SetChannelAliasActionType
+	case SetChannelTimestampFormatPayload:
+		return SetChannelTimestampFormatActionType
+	case SetChannelTimestampTimeZonePayload:
+		return SetChannelTimestampTimeZoneActionType
+	case SwapChannelPayload:
+		return SwapChannelActionType
+	case SetTimestampPrecisionPayload:
+		return SetTimestampPrecisionActionType
+	case SetChannelNamesHiddenPayload:
+		return SetChannelNamesHiddenActionType
+	case SetTimestampsHiddenPayload:
+		return SetTimestampsHiddenActionType
+	case SetTimeZonePayload:
+		return SetTimeZoneActionType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Action) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SetChannelEntryPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Action) Validate() error {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		return variant.Validate()
+	case SetChannelEntryPayload:
+		return variant.Validate()
+	case SetChannelNotationPayload:
+		return variant.Validate()
+	case SetChannelTimestampFormatPayload:
+		return variant.Validate()
+	case SetChannelTimestampTimeZonePayload:
+		return variant.Validate()
+	case SetTimeZonePayload:
+		return variant.Validate()
+	}
+	return nil
 }

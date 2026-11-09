@@ -13,11 +13,13 @@
 
 #include <string>
 #include <utility>
+#include <variant>
 
 #include "client/cpp/resource/id.h"
 #include "x/cpp/color/color.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "core/pkg/service/label/pb/label.pb.h"
@@ -25,6 +27,22 @@
 namespace synnax::label {
 
 struct Label;
+struct CreatePayload;
+
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 using Key = x::uuid::UUID;
 
@@ -48,6 +66,23 @@ struct Label {
     static std::pair<Label, x::errors::Error>
     from_proto(const ::service::label::pb::Label &pb);
 };
+
+/// @brief CreatePayload replaces the state with the created label. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief label is the created label.
+    Label label;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Action holds one label mutation.
+using Action = std::
+    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("label", "");
 

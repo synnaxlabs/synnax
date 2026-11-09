@@ -19,14 +19,18 @@
 #include <vector>
 
 #include "client/cpp/resource/id.h"
+#include "x/cpp/crdt/types.gen.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/types.gen.h"
+#include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
+#include "arc/cpp/ir/types.gen.h"
 #include "arc/cpp/program/types.gen.h"
 #include "arc/cpp/text/types.gen.h"
 #include "core/pkg/api/arc/pb/arc.pb.h"
@@ -34,11 +38,23 @@
 
 namespace synnax::arc {
 
+struct SetNodePayload;
+struct SetNodePositionPayload;
+struct SetNodeInputsPayload;
+struct RemoveNodePayload;
+struct AddEdgePayload;
+struct RemoveEdgePayload;
+struct ReconnectEdgePayload;
+struct InsertCharPayload;
+struct DeleteCharPayload;
+struct ForgetCharsPayload;
+struct SetDirectoryPayload;
 struct Where;
 struct Cursor;
 struct Order;
 struct Base;
 struct RetrieveRequest;
+struct CreatePayload;
 struct RetrieveResponse;
 
 constexpr const char *ORDER_FIELD_NAME = "name";
@@ -49,7 +65,130 @@ constexpr const char *MODE_GRAPH = "graph";
 constexpr const char *TYPE_AUTOMATION = "automation";
 constexpr const char *TYPE_MODULE = "module";
 
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
+
 using Key = x::uuid::UUID;
+
+/// @brief SetNodePayload inserts the node if no node with the same key exists,
+/// otherwise replaces the existing node in place. Operates only on the node's position;
+/// the node's function type and inputs are set separately via SetNodeInputs.
+struct SetNodePayload {
+    ::arc::graph::Node node;
+
+    static SetNodePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief SetNodePositionPayload moves a graph node to a new canvas position.
+struct SetNodePositionPayload {
+    std::string key;
+    ::x::spatial::XY position;
+
+    static SetNodePositionPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief SetNodeInputsPayload merges the given inputs into the entry for the given key
+/// in the graph inputs map. Top-level fields present in the payload overwrite existing
+/// fields; fields absent from the payload are preserved. The node's function type is
+/// held under "type".
+struct SetNodeInputsPayload {
+    std::string key;
+    x::json::json::object_t inputs;
+
+    static SetNodeInputsPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RemoveNodePayload removes the node with the given key along with its inputs
+/// entry and any edges connected to it.
+struct RemoveNodePayload {
+    std::string key;
+
+    static RemoveNodePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AddEdgePayload appends the edge to the graph. No-op when an edge with the
+/// same source and target handles already exists, so concurrent additions of the same
+/// connection converge regardless of differing keys.
+struct AddEdgePayload {
+    ::arc::graph::Edge edge;
+
+    static AddEdgePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RemoveEdgePayload removes the edge with the given key, if present.
+struct RemoveEdgePayload {
+    std::string key;
+
+    static RemoveEdgePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
+/// preserving its key and kind. No-op when no edge with the key exists.
+struct ReconnectEdgePayload {
+    std::string key;
+    ::arc::ir::Handle source;
+    ::arc::ir::Handle target;
+
+    static ReconnectEdgePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InsertCharPayload carries a single collaborative-edit character insertion
+/// against the module's text. The payload is a sequence CRDT operation; the server
+/// relays it to the other editors of the module without interpreting it.
+struct InsertCharPayload : public ::x::crdt::Insert {
+
+    static InsertCharPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DeleteCharPayload carries a single collaborative-edit character deletion
+/// against the module's text. The payload is a sequence CRDT operation; the server
+/// relays it to the other editors of the module without interpreting it.
+struct DeleteCharPayload : public ::x::crdt::Delete {
+
+    static DeleteCharPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ForgetCharsPayload removes the given already-deleted characters from the
+/// module's text document, dropping both their insert and delete operations from the
+/// replicated op-log. The server emits it after a quiet editing period to reclaim the
+/// space held by tombstoned characters. Because the characters are already deleted, and
+/// thus invisible, applying it never changes the materialized text.
+struct ForgetCharsPayload {
+    std::vector<::x::crdt::ID> ids;
+
+    static ForgetCharsPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief SetDirectoryPayload moves the Arc into the directory with the given key. The
+/// root Arcs directory holds the Arcs at the top level.
+struct SetDirectoryPayload {
+    x::uuid::UUID directory;
+
+    static SetDirectoryPayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Where is a filter that selects Arcs.
 struct Where {
@@ -295,6 +434,16 @@ std::pair<Arc, x::errors::Error> arc_from_proto(const ::service::arc::pb::Arc &p
     return std::visit([](const auto &v) -> const Base & { return v; }, value);
 }
 
+/// @brief CreatePayload replaces the state with the created arc. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief arc is the created arc.
+    Arc arc;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the arcs a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief arcs are the arcs the request selects.
@@ -309,6 +458,28 @@ struct RetrieveResponse {
     static std::pair<RetrieveResponse, x::errors::Error>
     from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
+
+/// @brief Action holds one arc mutation.
+using Action = std::variant<
+    CreatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload,
+    SetNodePayload,
+    SetNodePositionPayload,
+    SetNodeInputsPayload,
+    RemoveNodePayload,
+    AddEdgePayload,
+    RemoveEdgePayload,
+    ReconnectEdgePayload,
+    InsertCharPayload,
+    DeleteCharPayload,
+    ForgetCharsPayload,
+    SetDirectoryPayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("arc", "");
 

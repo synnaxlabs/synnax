@@ -12,267 +12,57 @@
 package table
 
 import (
-	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeAddRow is the Type of an Action that carries AddRowPayload.
-	ActionTypeAddRow = "add_row"
-	// ActionTypeRemoveRow is the Type of an Action that carries RemoveRowPayload.
-	ActionTypeRemoveRow = "remove_row"
-	// ActionTypeAddCol is the Type of an Action that carries AddColPayload.
-	ActionTypeAddCol = "add_col"
-	// ActionTypeRemoveCol is the Type of an Action that carries RemoveColPayload.
-	ActionTypeRemoveCol = "remove_col"
-	// ActionTypeResizeRow is the Type of an Action that carries ResizeRowPayload.
-	ActionTypeResizeRow = "resize_row"
-	// ActionTypeResizeCol is the Type of an Action that carries ResizeColPayload.
-	ActionTypeResizeCol = "resize_col"
-	// ActionTypeMoveRow is the Type of an Action that carries MoveRowPayload.
-	ActionTypeMoveRow = "move_row"
-	// ActionTypeMoveCol is the Type of an Action that carries MoveColPayload.
-	ActionTypeMoveCol = "move_col"
-	// ActionTypeSetCell is the Type of an Action that carries SetCellPayload.
-	ActionTypeSetCell = "set_cell"
-	// ActionTypeEraseCells is the Type of an Action that carries EraseCellsPayload.
-	ActionTypeEraseCells = "erase_cells"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-)
-
-// CreatePayload replaces the document with the given created state. Emitted by the Core
-// on create so remote caches ingest new documents; clients never dispatch it.
-type CreatePayload struct {
-	Table Table `json:"table" msgpack:"table"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(Table) (Table, error) {
+	return Table{}, actions.ErrCoreOnly
 }
 
-// AddRowPayload inserts a row with the given key at the given index. Three flows:
-//
-// 1. User gesture with cell_template against a non-empty table: replicate the template
-// once per existing column. 2. User gesture with cell_template against a fully-empty
-// table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
-// replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
-// the original RemoveRow had stripped the table down to no columns, the explicit cells
-// trigger the same column-bootstrap as flow 2.
-//
-// Derived replica keys come from the template's key with the last four hex digits
-// replaced by the column index. Bootstrapped columns derive their keys from the row's
-// key the same way. Out-of-range indices clamp to the end.
-type AddRowPayload struct {
-	Index        uint32  `json:"index" msgpack:"index"`
-	Key          string  `json:"key" msgpack:"key"`
-	Size         float64 `json:"size" msgpack:"size"`
-	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
-}
-
-// RemoveRowPayload removes the row with the given key. All cells referenced by the
-// removed row are also dropped from the cells map. No-op if no row has the key.
-type RemoveRowPayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// AddColPayload inserts a column with the given key at the given index. Three flows:
-//
-// 1. User gesture with cell_template against a non-empty table: replicate the template
-// once per existing row. 2. User gesture with cell_template against a fully-empty
-// table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
-// replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
-// the original RemoveCol had stripped the table down to no rows, the explicit cells
-// trigger the same row-bootstrap as flow 2.
-//
-// Derived replica keys come from the template's key with the last four hex digits
-// replaced by the row index. Bootstrapped rows derive their keys from the column's key
-// the same way. Cells whose row index exceeds the row count are added to the cells map
-// but not referenced by any row. Out-of-range indices clamp to the end of every row's
-// cells list.
-type AddColPayload struct {
-	Index        uint32  `json:"index" msgpack:"index"`
-	Key          string  `json:"key" msgpack:"key"`
-	Size         float64 `json:"size" msgpack:"size"`
-	Cells        []Cell  `json:"cells" msgpack:"cells"`
-	CellTemplate *Cell   `json:"cell_template,omitzero" msgpack:"cell_template,omitempty"`
-}
-
-// RemoveColPayload removes the column with the given key. All cells in that column
-// (across every row) are dropped from the cells map. No-op if no column has the key.
-type RemoveColPayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// ResizeRowPayload resizes the row with the given key. No-op if no row has the key.
-type ResizeRowPayload struct {
-	Key  string  `json:"key" msgpack:"key"`
-	Size float64 `json:"size" msgpack:"size"`
-}
-
-// ResizeColPayload resizes the column with the given key. No-op if no column has the
-// key.
-type ResizeColPayload struct {
-	Key  string  `json:"key" msgpack:"key"`
-	Size float64 `json:"size" msgpack:"size"`
-}
-
-// MoveRowPayload moves the row with the given key so that it ends up at index to,
-// shifting the rows in between by one. The row keeps its size and cells. No-op if no
-// row has the key; to clamps to the last row.
-type MoveRowPayload struct {
-	Key string `json:"key" msgpack:"key"`
-	To  uint32 `json:"to" msgpack:"to"`
-}
-
-// MoveColPayload moves the column with the given key so that it ends up at index to,
-// shifting the columns in between by one. The column keeps its size and its cell in
-// every row. No-op if no column has the key; to clamps to the last column. A row
-// missing a cell at the old or new index is left unchanged.
-type MoveColPayload struct {
-	Key string `json:"key" msgpack:"key"`
-	To  uint32 `json:"to" msgpack:"to"`
-}
-
-// SetCellPayload replaces the cell at cell.key with the provided value. No-op if no
-// cell with that key exists in the table.
-type SetCellPayload struct {
-	Cell Cell `json:"cell" msgpack:"cell"`
-}
-
-// EraseCellsPayload erases the cells whose keys are in cells. Any row whose every cell
-// is in the selection is removed entirely; same for columns. Cells that survive that
-// row/column removal have their config replaced with the template, keeping their
-// original keys. Cells in the selection whose keys are not in the table's cells map are
-// silently skipped.
-type EraseCellsPayload struct {
-	Cells    []string   `json:"cells" msgpack:"cells"`
-	Template CellConfig `json:"template" msgpack:"template"`
-}
-
-// SetPayload replaces the value at a path in the table.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object in the table.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list in the table's cells.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list in the table's cells.
-type MovePayload patch.Move
-
-// Action is a discriminated union for all Table mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type       string             `json:"type" msgpack:"type"`
-	Create     *CreatePayload     `json:"create,omitzero" msgpack:"create,omitempty"`
-	AddRow     *AddRowPayload     `json:"add_row,omitzero" msgpack:"add_row,omitempty"`
-	RemoveRow  *RemoveRowPayload  `json:"remove_row,omitzero" msgpack:"remove_row,omitempty"`
-	AddCol     *AddColPayload     `json:"add_col,omitzero" msgpack:"add_col,omitempty"`
-	RemoveCol  *RemoveColPayload  `json:"remove_col,omitzero" msgpack:"remove_col,omitempty"`
-	ResizeRow  *ResizeRowPayload  `json:"resize_row,omitzero" msgpack:"resize_row,omitempty"`
-	ResizeCol  *ResizeColPayload  `json:"resize_col,omitzero" msgpack:"resize_col,omitempty"`
-	MoveRow    *MoveRowPayload    `json:"move_row,omitzero" msgpack:"move_row,omitempty"`
-	MoveCol    *MoveColPayload    `json:"move_col,omitzero" msgpack:"move_col,omitempty"`
-	SetCell    *SetCellPayload    `json:"set_cell,omitzero" msgpack:"set_cell,omitempty"`
-	EraseCells *EraseCellsPayload `json:"erase_cells,omitzero" msgpack:"erase_cells,omitempty"`
-	Set        *SetPayload        `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove     *RemovePayload     `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert     *InsertPayload     `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move       *MovePayload       `json:"move,omitzero" msgpack:"move,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Table, actions ...Action) (Table, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Table, acts ...Action) (Table, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeAddRow:
-			if a.AddRow == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddRow.Handle(state)
-		case ActionTypeRemoveRow:
-			if a.RemoveRow == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveRow.Handle(state)
-		case ActionTypeAddCol:
-			if a.AddCol == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddCol.Handle(state)
-		case ActionTypeRemoveCol:
-			if a.RemoveCol == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveCol.Handle(state)
-		case ActionTypeResizeRow:
-			if a.ResizeRow == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.ResizeRow.Handle(state)
-		case ActionTypeResizeCol:
-			if a.ResizeCol == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.ResizeCol.Handle(state)
-		case ActionTypeMoveRow:
-			if a.MoveRow == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.MoveRow.Handle(state)
-		case ActionTypeMoveCol:
-			if a.MoveCol == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.MoveCol.Handle(state)
-		case ActionTypeSetCell:
-			if a.SetCell == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetCell.Handle(state)
-		case ActionTypeEraseCells:
-			if a.EraseCells == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.EraseCells.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case AddRowPayload:
+			state, err = v.Handle(state)
+		case RemoveRowPayload:
+			state, err = v.Handle(state)
+		case AddColPayload:
+			state, err = v.Handle(state)
+		case RemoveColPayload:
+			state, err = v.Handle(state)
+		case ResizeRowPayload:
+			state, err = v.Handle(state)
+		case ResizeColPayload:
+			state, err = v.Handle(state)
+		case MoveRowPayload:
+			state, err = v.Handle(state)
+		case MoveColPayload:
+			state, err = v.Handle(state)
+		case SetCellPayload:
+			state, err = v.Handle(state)
+		case EraseCellsPayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -281,77 +71,47 @@ func Reduce(state Table, actions ...Action) (Table, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewAddRowAction wraps a AddRowPayload in an Action envelope.
-func NewAddRowAction(p AddRowPayload) Action {
-	return Action{Type: ActionTypeAddRow, AddRow: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewRemoveRowAction wraps a RemoveRowPayload in an Action envelope.
-func NewRemoveRowAction(p RemoveRowPayload) Action {
-	return Action{Type: ActionTypeRemoveRow, RemoveRow: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewAddColAction wraps a AddColPayload in an Action envelope.
-func NewAddColAction(p AddColPayload) Action {
-	return Action{Type: ActionTypeAddCol, AddCol: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewRemoveColAction wraps a RemoveColPayload in an Action envelope.
-func NewRemoveColAction(p RemoveColPayload) Action {
-	return Action{Type: ActionTypeRemoveCol, RemoveCol: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewResizeRowAction wraps a ResizeRowPayload in an Action envelope.
-func NewResizeRowAction(p ResizeRowPayload) Action {
-	return Action{Type: ActionTypeResizeRow, ResizeRow: &p}
-}
+// NewAddRowAction returns an Action that carries p.
+func NewAddRowAction(p AddRowPayload) Action { return Action{Variant: p} }
 
-// NewResizeColAction wraps a ResizeColPayload in an Action envelope.
-func NewResizeColAction(p ResizeColPayload) Action {
-	return Action{Type: ActionTypeResizeCol, ResizeCol: &p}
-}
+// NewRemoveRowAction returns an Action that carries p.
+func NewRemoveRowAction(p RemoveRowPayload) Action { return Action{Variant: p} }
 
-// NewMoveRowAction wraps a MoveRowPayload in an Action envelope.
-func NewMoveRowAction(p MoveRowPayload) Action {
-	return Action{Type: ActionTypeMoveRow, MoveRow: &p}
-}
+// NewAddColAction returns an Action that carries p.
+func NewAddColAction(p AddColPayload) Action { return Action{Variant: p} }
 
-// NewMoveColAction wraps a MoveColPayload in an Action envelope.
-func NewMoveColAction(p MoveColPayload) Action {
-	return Action{Type: ActionTypeMoveCol, MoveCol: &p}
-}
+// NewRemoveColAction returns an Action that carries p.
+func NewRemoveColAction(p RemoveColPayload) Action { return Action{Variant: p} }
 
-// NewSetCellAction wraps a SetCellPayload in an Action envelope.
-func NewSetCellAction(p SetCellPayload) Action {
-	return Action{Type: ActionTypeSetCell, SetCell: &p}
-}
+// NewResizeRowAction returns an Action that carries p.
+func NewResizeRowAction(p ResizeRowPayload) Action { return Action{Variant: p} }
 
-// NewEraseCellsAction wraps a EraseCellsPayload in an Action envelope.
-func NewEraseCellsAction(p EraseCellsPayload) Action {
-	return Action{Type: ActionTypeEraseCells, EraseCells: &p}
-}
+// NewResizeColAction returns an Action that carries p.
+func NewResizeColAction(p ResizeColPayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewMoveRowAction returns an Action that carries p.
+func NewMoveRowAction(p MoveRowPayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewMoveColAction returns an Action that carries p.
+func NewMoveColAction(p MoveColPayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewSetCellAction returns an Action that carries p.
+func NewSetCellAction(p SetCellPayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewEraseCellsAction returns an Action that carries p.
+func NewEraseCellsAction(p EraseCellsPayload) Action { return Action{Variant: p} }

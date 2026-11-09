@@ -11,17 +11,25 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_, status as status_
 from synnax.access import role as role_
 from synnax.resource import ID
-from x import filter
+from x import filter, patch
 from x.filter import shorthand
 
 Key: TypeAlias = int
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -193,6 +201,16 @@ class Rack(BaseModel):
         return hash(self.key)
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created rack. Only the Core emits it.
+
+    Attributes:
+        rack: Is the created rack.
+    """
+
+    rack: Base
+
+
 class RetrieveResponse(BaseModel):
     """Holds the racks a RetrieveRequest selects.
 
@@ -201,6 +219,38 @@ class RetrieveResponse(BaseModel):
     """
 
     racks: list[Base] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one rack mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

@@ -15,6 +15,7 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/label/types.gen.h"
@@ -26,6 +27,7 @@
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
+#include "x/cpp/patch/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -38,11 +40,27 @@ struct Range;
 struct Where;
 struct Cursor;
 struct Order;
+struct CreatePayload;
 struct RetrieveResponse;
 struct RetrieveRequest;
 
 constexpr const char *ORDER_FIELD_NAME = "name";
 constexpr const char *ORDER_FIELD_TIME_RANGE_START = "time_range_start";
+
+/// @brief SetPayload replaces the value at a path. It creates the absent objects on the
+/// path, and does nothing when the path goes through a missing list entry.
+using SetPayload = ::x::patch::Set;
+
+/// @brief RemovePayload removes an entry from a list or a field from an object.
+using RemovePayload = ::x::patch::Remove;
+
+/// @brief InsertPayload adds an entry to a list. It does nothing when an entry with the
+/// same key exists.
+using InsertPayload = ::x::patch::Insert;
+
+/// @brief MovePayload moves an entry in a list. It does nothing when the entry is
+/// missing.
+using MovePayload = ::x::patch::Move;
 
 using Key = x::uuid::UUID;
 
@@ -169,6 +187,16 @@ struct Order {
     from_proto(const ::api::ranger::pb::Order &pb);
 };
 
+/// @brief CreatePayload replaces the state with the created range. Only the Core emits
+/// it.
+struct CreatePayload {
+    /// @brief range is the created range.
+    Range range;
+
+    static CreatePayload parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief RetrieveResponse holds the ranges a RetrieveRequest selects.
 struct RetrieveResponse {
     /// @brief ranges are the ranges the request selects.
@@ -230,6 +258,13 @@ struct RetrieveRequest {
     static std::pair<RetrieveRequest, x::errors::Error>
     from_proto(const ::api::ranger::pb::RetrieveRequest &pb);
 };
+
+/// @brief Action holds one range mutation.
+using Action = std::
+    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+
+Action parse_action(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const Action &value);
 
 const synnax::resource::ID TYPE_RESOURCE_ID("range", "");
 

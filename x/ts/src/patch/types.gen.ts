@@ -39,7 +39,7 @@ export const setZ = z.object({
     .array()
     .default(() => []),
   /** value is the new value. */
-  value: caseconv.preserveCase(z.unknown()),
+  value: caseconv.preserveCase(z.unknown().optional()),
   /** guards are the variant guards for the path. */
   guards: guardZ.array().default(() => []),
 });
@@ -70,7 +70,7 @@ export const insertZ = z.object({
     .array()
     .default(() => []),
   /** value is the new entry. It is an object with a string key. */
-  value: caseconv.preserveCase(z.unknown()),
+  value: caseconv.preserveCase(z.unknown().optional()),
   /**
    * after is the key of the entry that the new entry goes after. The entry goes first
    * when absent, and last when no entry has the key.

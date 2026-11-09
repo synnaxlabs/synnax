@@ -134,23 +134,7 @@ Symbol struct {
         @ref on_delete detach
     }
 
-    action Create {
-        symbol Symbol
-
-        @doc value """
-            replaces the symbol with the given created state. Emitted by the Core when a
-            symbol is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @create
     @doc value     """
         is a persisted schematic symbol defining reusable visual components for

@@ -67,23 +67,7 @@ Range struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        range Range
-
-        @doc value """
-            replaces the range with the given created state. Emitted by the Core when a
-            range is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @cpp includes    "client/cpp/ranger/kv/kv.h"
     @cpp methods     "ranger::kv::Client kv"
     @cpp name        "Range"

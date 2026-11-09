@@ -11,93 +11,18 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field
-
-from synnax import resource
-from synnax.group.types_gen import Group
-from x import patch
-
-
-class CreatePayload(BaseModel):
-    """Replaces the group with the given created state. Emitted by the Core when a group
-    is created; clients never dispatch it.
-    """
-
-    group: Group
-
-
-# Replaces the value at a path. It creates the absent objects on the path, and
-# does nothing when the path goes through a missing list entry.
-SetPayload = patch.Set
-
-
-# Removes an entry from a list or a field from an object.
-RemovePayload = patch.Remove
-
-
-# Adds an entry to a list. It does nothing when an entry with the same key exists.
-InsertPayload = patch.Insert
-
-
-# Moves an entry in a list. It does nothing when the entry is missing.
-MovePayload = patch.Move
-
-
-class SetParentPayload(BaseModel):
-    """Moves the group under parent, or to the top level when parent is empty. A move
-    under a new top parent moves the records in the group to the project of that top
-    parent.
-    """
-
-    parent: resource.ID | None = None
-
-
-class CreateAction(BaseModel):
-    type: Literal["create"] = "create"
-    create: CreatePayload
-
-
-class SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: SetPayload
-
-
-class RemoveAction(BaseModel):
-    type: Literal["remove"] = "remove"
-    remove: RemovePayload
-
-
-class InsertAction(BaseModel):
-    type: Literal["insert"] = "insert"
-    insert: InsertPayload
-
-
-class MoveAction(BaseModel):
-    type: Literal["move"] = "move"
-    move: MovePayload
-
-
-class SetParentAction(BaseModel):
-    type: Literal["set_parent"] = "set_parent"
-    set_parent: SetParentPayload
-
-
-# Action is a discriminated union for all Group mutations.
-Action = Annotated[
-    CreateAction
-    | SetAction
-    | RemoveAction
-    | InsertAction
-    | MoveAction
-    | SetParentAction,
-    Field(discriminator="type"),
-]
-
-
-def create(payload: CreatePayload) -> CreateAction:
-    return CreateAction(create=payload)
+from synnax.group.types_gen import (
+    InsertAction,
+    InsertPayload,
+    MoveAction,
+    MovePayload,
+    RemoveAction,
+    RemovePayload,
+    SetAction,
+    SetParentAction,
+    SetParentPayload,
+    SetPayload,
+)
 
 
 def set(payload: SetPayload) -> SetAction:

@@ -957,15 +957,6 @@ Schematic struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        schematic Schematic
-
-        @doc value """
-            replaces the document with the given created state. Emitted by the Core on
-            create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
     action SetNodePosition {
         key      string
         position spatial.XY
@@ -1018,34 +1009,7 @@ Schematic struct {
         """
     }
 
-    action Set = patch.Set {
-        @doc value """
-            replaces the value at a path in the schematic's name or element configs.
-            No-op when no node or edge has the config's key.
-        """
-    }
-
-    action Remove = patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the schematic's
-            element configs. No-op when no node or edge has the config's key.
-        """
-    }
-
-    action Insert = patch.Insert {
-        @doc value """
-            adds an entry to a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
-        """
-    }
-
-    action Move = patch.Move {
-        @doc value """
-            moves an entry in a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
-        """
-    }
-
+    @actions
     @create
     @doc value     """
         is a visual diagram editor component for drawing system schematics, control

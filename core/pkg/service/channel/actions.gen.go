@@ -12,103 +12,39 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
-)
-
-// CreatePayload replaces the channel with the given created state. Emitted by the Core
-// when a channel is created; clients never dispatch it.
-type CreatePayload struct {
-	Channel Channel `json:"channel" msgpack:"channel"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(Channel) (Channel, error) {
+	return Channel{}, actions.ErrCoreOnly
 }
 
-// SetPayload replaces the value at a path. It creates the absent objects on the path,
-// and does nothing when the path goes through a missing list entry.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list. It does nothing when an entry with the same
-// key exists.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list. It does nothing when the entry is missing.
-type MovePayload patch.Move
-
-// RenamePayload renames the channel. The Core also renames the channel's storage when
-// the transaction commits.
-type RenamePayload struct {
-	Name Name `json:"name" msgpack:"name"`
-}
-
-// Action is a discriminated union for all Channel mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type   string         `json:"type" msgpack:"type"`
-	Create *CreatePayload `json:"create,omitzero" msgpack:"create,omitempty"`
-	Set    *SetPayload    `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove *RemovePayload `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert *InsertPayload `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move   *MovePayload   `json:"move,omitzero" msgpack:"move,omitempty"`
-	Rename *RenamePayload `json:"rename,omitzero" msgpack:"rename,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Channel, actions ...Action) (Channel, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Channel, acts ...Action) (Channel, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case RenamePayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -117,32 +53,20 @@ func Reduce(state Channel, actions ...Action) (Channel, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
-}
+// NewRenameAction returns an Action that carries p.
+func NewRenameAction(p RenamePayload) Action { return Action{Variant: p} }

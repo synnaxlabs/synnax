@@ -11,13 +11,21 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, TypedDict, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.resource import ID
-from x import color as color_, filter
+from x import color as color_, filter, patch
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -105,6 +113,16 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created label. Only the Core emits it.
+
+    Attributes:
+        label: Is the created label.
+    """
+
+    label: Label
+
+
 class RetrieveResponse(BaseModel):
     """Holds the labels a RetrieveRequest selects.
 
@@ -133,6 +151,38 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+# Holds one label mutation.
+Action = Annotated[
+    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

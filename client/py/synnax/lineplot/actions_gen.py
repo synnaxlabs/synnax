@@ -11,526 +11,96 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field
-
-from synnax import channel as channel_, ranger
 from synnax.lineplot.types_gen import (
-    Aggregation,
-    AxisKey,
-    Detail,
-    Line,
-    LinePlot,
-    ManualBounds,
-    Rule,
-    TickType,
-    XAxisKey,
-    YAxisKey,
+    AddChannelAction,
+    AddChannelPayload,
+    AddRangeAction,
+    AddRangePayload,
+    InsertAction,
+    InsertPayload,
+    MoveAction,
+    MovePayload,
+    RemoveAction,
+    RemoveChannelAction,
+    RemoveChannelPayload,
+    RemovePayload,
+    RemoveRangeAction,
+    RemoveRangePayload,
+    RemoveRuleAction,
+    RemoveRulePayload,
+    SetAction,
+    SetAxisBoundsAction,
+    SetAxisBoundsPayload,
+    SetAxisLabelAction,
+    SetAxisLabelDirectionAction,
+    SetAxisLabelDirectionPayload,
+    SetAxisLabelLevelAction,
+    SetAxisLabelLevelPayload,
+    SetAxisLabelPayload,
+    SetAxisTickSpacingAction,
+    SetAxisTickSpacingPayload,
+    SetAxisTypeAction,
+    SetAxisTypePayload,
+    SetChannelsAction,
+    SetChannelsPayload,
+    SetLegendHiddenAction,
+    SetLegendHiddenPayload,
+    SetLegendPositionAction,
+    SetLegendPositionPayload,
+    SetLineAction,
+    SetLineAggregationAction,
+    SetLineAggregationPayload,
+    SetLineColorAction,
+    SetLineColorPayload,
+    SetLineDetailAction,
+    SetLineDetailPayload,
+    SetLineLabelAction,
+    SetLineLabelPayload,
+    SetLinePayload,
+    SetLineStrokeWidthAction,
+    SetLineStrokeWidthPayload,
+    SetPayload,
+    SetRangesAction,
+    SetRangesPayload,
+    SetRuleAction,
+    SetRuleAxisAction,
+    SetRuleAxisPayload,
+    SetRuleColorAction,
+    SetRuleColorPayload,
+    SetRuleLabelAction,
+    SetRuleLabelPayload,
+    SetRuleLineDashAction,
+    SetRuleLineDashPayload,
+    SetRuleLineWidthAction,
+    SetRuleLineWidthPayload,
+    SetRulePayload,
+    SetRulePositionAction,
+    SetRulePositionPayload,
+    SetRuleUnitsAction,
+    SetRuleUnitsPayload,
+    SetTitleLevelAction,
+    SetTitleLevelPayload,
+    SetTitleVisibleAction,
+    SetTitleVisiblePayload,
+    SetXChannelAction,
+    SetXChannelPayload,
 )
-from x import color as color_, patch, spatial, text
 
 
-class CreatePayload(BaseModel):
-    """Replaces the document with the given created state. Emitted by the Core on create
-    so remote caches ingest new documents; clients never dispatch it.
-    """
+def set(payload: SetPayload) -> SetAction:
+    return SetAction(set=payload)
 
-    line_plot: LinePlot
 
+def remove(payload: RemovePayload) -> RemoveAction:
+    return RemoveAction(remove=payload)
 
-class SetTitleVisiblePayload(BaseModel):
-    """Sets whether the plot title is shown above the plot."""
 
-    visible: bool
+def insert(payload: InsertPayload) -> InsertAction:
+    return InsertAction(insert=payload)
 
 
-class SetTitleLevelPayload(BaseModel):
-    """Sets the typography level of the plot title."""
-
-    level: text.Level
-
-
-class SetLegendHiddenPayload(BaseModel):
-    """Sets whether the plot legend is hidden."""
-
-    hidden: bool
-
-
-class SetLegendPositionPayload(BaseModel):
-    """Sets the anchor position of the plot legend within the container."""
-
-    position: spatial.StickyXY
-
-
-class AddChannelPayload(BaseModel):
-    """Appends the channel to the channels array bound to the y-axis named by axis_key.
-    No-op when the channel is already present.
-    """
-
-    axis_key: YAxisKey
-    channel: channel_.Key = Field(ge=0, le=4294967295)
-
-
-class RemoveChannelPayload(BaseModel):
-    """Removes the channel from the y-axis named by axis_key. No-op when the channel is
-    not present.
-    """
-
-    axis_key: YAxisKey
-    channel: channel_.Key = Field(ge=0, le=4294967295)
-
-
-class SetChannelsPayload(BaseModel):
-    """Replaces the entire set of channels bound to the y-axis named by axis_key with
-    channels. Channels absent from the new set are removed and their lines dropped;
-    channels not previously present are added. Existing channels keep their line
-    styling.
-    """
-
-    axis_key: YAxisKey
-    channels: list[channel_.Key] = Field(default_factory=list)
-
-
-class SetXChannelPayload(BaseModel):
-    """Replaces the single channel bound to the x-axis named by axis_key."""
-
-    axis_key: XAxisKey
-    channel: channel_.Key = Field(ge=0, le=4294967295)
-
-
-class AddRangePayload(BaseModel):
-    """Appends the range reference to the plot's ranges. No-op when an equal reference
-    is already present.
-    """
-
-    range: ranger.Ref
-
-
-class RemoveRangePayload(BaseModel):
-    """Removes the reference equal to range from the plot's ranges. No-op when no
-    reference is equal.
-    """
-
-    range: ranger.Ref
-
-
-class SetRangesPayload(BaseModel):
-    """Replaces the plot's range references with ranges, such as when the user edits a
-    window. Lines style channels, so they are unaffected.
-    """
-
-    ranges: list[ranger.Ref] = Field(default_factory=list)
-
-
-class SetAxisLabelPayload(BaseModel):
-    """Sets the label rendered along the axis identified by key."""
-
-    key: AxisKey
-    label: str
-
-
-class SetAxisLabelDirectionPayload(BaseModel):
-    """Sets the orientation in which the axis label is laid out."""
-
-    key: AxisKey
-    label_direction: spatial.Direction
-
-
-class SetAxisLabelLevelPayload(BaseModel):
-    """Sets the typography level of the axis label."""
-
-    key: AxisKey
-    label_level: text.Level
-
-
-class SetAxisBoundsPayload(BaseModel):
-    """Sets the axis value-space window together with its per-edge manual override
-    flags. The two travel together: fixing a bound enables the manual override for that
-    edge, so callers set both at once.
-    """
-
-    key: AxisKey
-    bounds: spatial.Bounds
-    manual_bounds: ManualBounds
-
-
-class SetAxisTickSpacingPayload(BaseModel):
-    """Sets the target pixel distance between adjacent tick marks."""
-
-    key: AxisKey
-    tick_spacing: float
-
-
-class SetAxisTypePayload(BaseModel):
-    """Sets the axis tick label style. Null resets it to the default, which the Console
-    derives (linear, or time for a timestamp-bound x-axis) at render time.
-    """
-
-    key: AxisKey
-    type: TickType | None = None
-
-
-class SetLineLabelPayload(BaseModel):
-    """Sets the label of the line identified by key. Null resets it to derive from the
-    channel name at render time.
-    """
-
-    key: str
-    label: str | None = None
-
-
-class SetLineColorPayload(BaseModel):
-    """Sets the color of the line identified by key. Null resets it to a palette color
-    assigned at render time.
-    """
-
-    key: str
-    color: color_.Color | None = None
-
-
-class SetLineStrokeWidthPayload(BaseModel):
-    """Sets the stroke width, in pixels, of the line identified by key."""
-
-    key: str
-    stroke_width: float
-
-
-class SetLineAggregationPayload(BaseModel):
-    """Sets how the line identified by key reduces a pixel group."""
-
-    key: str
-    aggregation: Aggregation
-
-
-class SetLineDetailPayload(BaseModel):
-    """Sets the number of sample groups per pixel column of the line."""
-
-    key: str
-    detail: Detail
-
-
-class SetLinePayload(BaseModel):
-    """Replaces the line with line.key in place, inserting it when no such line exists.
-    The fine-grained setLine* actions cover per-field edits; this full-object form
-    restores a line dropped by reconciliation.
-    """
-
-    line: Line
-
-
-class SetRulePayload(BaseModel):
-    """Inserts the rule if no rule with rule.key exists, otherwise replaces the existing
-    entry in place. The fine-grained setRule* actions cover per-field edits; this
-    full-object form creates a rule or restores one removed by another action's inverse.
-    """
-
-    rule: Rule
-
-
-class SetRuleLabelPayload(BaseModel):
-    """Sets the label of the rule identified by key."""
-
-    key: str
-    label: str
-
-
-class SetRuleColorPayload(BaseModel):
-    """Sets the color of the rule identified by key. Null resets it to a default color
-    assigned at render time.
-    """
-
-    key: str
-    color: color_.Color | None = None
-
-
-class SetRuleAxisPayload(BaseModel):
-    """Sets the axis the rule identified by key is anchored to."""
-
-    key: str
-    axis: AxisKey
-
-
-class SetRuleLineWidthPayload(BaseModel):
-    """Sets the line width, in pixels, of the rule identified by key."""
-
-    key: str
-    line_width: float
-
-
-class SetRuleLineDashPayload(BaseModel):
-    """Sets the dash length, in pixels, of the rule identified by key."""
-
-    key: str
-    line_dash: float
-
-
-class SetRuleUnitsPayload(BaseModel):
-    """Sets the unit label of the rule identified by key."""
-
-    key: str
-    units: str
-
-
-class SetRulePositionPayload(BaseModel):
-    """Sets the value-space position of the rule identified by key."""
-
-    key: str
-    position: float
-
-
-class RemoveRulePayload(BaseModel):
-    """Removes the rule with the given key, if present."""
-
-    key: str
-
-
-# Replaces the value at a path in the line plot.
-SetPayload = patch.Set
-
-
-# Removes an entry from a list or a field from an object in the line plot.
-RemovePayload = patch.Remove
-
-
-# Adds an entry to a list in the line plot.
-InsertPayload = patch.Insert
-
-
-# Moves an entry in a list in the line plot.
-MovePayload = patch.Move
-
-
-class CreateAction(BaseModel):
-    type: Literal["create"] = "create"
-    create: CreatePayload
-
-
-class SetTitleVisibleAction(BaseModel):
-    type: Literal["set_title_visible"] = "set_title_visible"
-    set_title_visible: SetTitleVisiblePayload
-
-
-class SetTitleLevelAction(BaseModel):
-    type: Literal["set_title_level"] = "set_title_level"
-    set_title_level: SetTitleLevelPayload
-
-
-class SetLegendHiddenAction(BaseModel):
-    type: Literal["set_legend_hidden"] = "set_legend_hidden"
-    set_legend_hidden: SetLegendHiddenPayload
-
-
-class SetLegendPositionAction(BaseModel):
-    type: Literal["set_legend_position"] = "set_legend_position"
-    set_legend_position: SetLegendPositionPayload
-
-
-class AddChannelAction(BaseModel):
-    type: Literal["add_channel"] = "add_channel"
-    add_channel: AddChannelPayload
-
-
-class RemoveChannelAction(BaseModel):
-    type: Literal["remove_channel"] = "remove_channel"
-    remove_channel: RemoveChannelPayload
-
-
-class SetChannelsAction(BaseModel):
-    type: Literal["set_channels"] = "set_channels"
-    set_channels: SetChannelsPayload
-
-
-class SetXChannelAction(BaseModel):
-    type: Literal["set_x_channel"] = "set_x_channel"
-    set_x_channel: SetXChannelPayload
-
-
-class AddRangeAction(BaseModel):
-    type: Literal["add_range"] = "add_range"
-    add_range: AddRangePayload
-
-
-class RemoveRangeAction(BaseModel):
-    type: Literal["remove_range"] = "remove_range"
-    remove_range: RemoveRangePayload
-
-
-class SetRangesAction(BaseModel):
-    type: Literal["set_ranges"] = "set_ranges"
-    set_ranges: SetRangesPayload
-
-
-class SetAxisLabelAction(BaseModel):
-    type: Literal["set_axis_label"] = "set_axis_label"
-    set_axis_label: SetAxisLabelPayload
-
-
-class SetAxisLabelDirectionAction(BaseModel):
-    type: Literal["set_axis_label_direction"] = "set_axis_label_direction"
-    set_axis_label_direction: SetAxisLabelDirectionPayload
-
-
-class SetAxisLabelLevelAction(BaseModel):
-    type: Literal["set_axis_label_level"] = "set_axis_label_level"
-    set_axis_label_level: SetAxisLabelLevelPayload
-
-
-class SetAxisBoundsAction(BaseModel):
-    type: Literal["set_axis_bounds"] = "set_axis_bounds"
-    set_axis_bounds: SetAxisBoundsPayload
-
-
-class SetAxisTickSpacingAction(BaseModel):
-    type: Literal["set_axis_tick_spacing"] = "set_axis_tick_spacing"
-    set_axis_tick_spacing: SetAxisTickSpacingPayload
-
-
-class SetAxisTypeAction(BaseModel):
-    type: Literal["set_axis_type"] = "set_axis_type"
-    set_axis_type: SetAxisTypePayload
-
-
-class SetLineLabelAction(BaseModel):
-    type: Literal["set_line_label"] = "set_line_label"
-    set_line_label: SetLineLabelPayload
-
-
-class SetLineColorAction(BaseModel):
-    type: Literal["set_line_color"] = "set_line_color"
-    set_line_color: SetLineColorPayload
-
-
-class SetLineStrokeWidthAction(BaseModel):
-    type: Literal["set_line_stroke_width"] = "set_line_stroke_width"
-    set_line_stroke_width: SetLineStrokeWidthPayload
-
-
-class SetLineAggregationAction(BaseModel):
-    type: Literal["set_line_aggregation"] = "set_line_aggregation"
-    set_line_aggregation: SetLineAggregationPayload
-
-
-class SetLineDetailAction(BaseModel):
-    type: Literal["set_line_detail"] = "set_line_detail"
-    set_line_detail: SetLineDetailPayload
-
-
-class SetLineAction(BaseModel):
-    type: Literal["set_line"] = "set_line"
-    set_line: SetLinePayload
-
-
-class SetRuleAction(BaseModel):
-    type: Literal["set_rule"] = "set_rule"
-    set_rule: SetRulePayload
-
-
-class SetRuleLabelAction(BaseModel):
-    type: Literal["set_rule_label"] = "set_rule_label"
-    set_rule_label: SetRuleLabelPayload
-
-
-class SetRuleColorAction(BaseModel):
-    type: Literal["set_rule_color"] = "set_rule_color"
-    set_rule_color: SetRuleColorPayload
-
-
-class SetRuleAxisAction(BaseModel):
-    type: Literal["set_rule_axis"] = "set_rule_axis"
-    set_rule_axis: SetRuleAxisPayload
-
-
-class SetRuleLineWidthAction(BaseModel):
-    type: Literal["set_rule_line_width"] = "set_rule_line_width"
-    set_rule_line_width: SetRuleLineWidthPayload
-
-
-class SetRuleLineDashAction(BaseModel):
-    type: Literal["set_rule_line_dash"] = "set_rule_line_dash"
-    set_rule_line_dash: SetRuleLineDashPayload
-
-
-class SetRuleUnitsAction(BaseModel):
-    type: Literal["set_rule_units"] = "set_rule_units"
-    set_rule_units: SetRuleUnitsPayload
-
-
-class SetRulePositionAction(BaseModel):
-    type: Literal["set_rule_position"] = "set_rule_position"
-    set_rule_position: SetRulePositionPayload
-
-
-class RemoveRuleAction(BaseModel):
-    type: Literal["remove_rule"] = "remove_rule"
-    remove_rule: RemoveRulePayload
-
-
-class SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: SetPayload
-
-
-class RemoveAction(BaseModel):
-    type: Literal["remove"] = "remove"
-    remove: RemovePayload
-
-
-class InsertAction(BaseModel):
-    type: Literal["insert"] = "insert"
-    insert: InsertPayload
-
-
-class MoveAction(BaseModel):
-    type: Literal["move"] = "move"
-    move: MovePayload
-
-
-# Action is a discriminated union for all LinePlot mutations.
-Action = Annotated[
-    CreateAction
-    | SetTitleVisibleAction
-    | SetTitleLevelAction
-    | SetLegendHiddenAction
-    | SetLegendPositionAction
-    | AddChannelAction
-    | RemoveChannelAction
-    | SetChannelsAction
-    | SetXChannelAction
-    | AddRangeAction
-    | RemoveRangeAction
-    | SetRangesAction
-    | SetAxisLabelAction
-    | SetAxisLabelDirectionAction
-    | SetAxisLabelLevelAction
-    | SetAxisBoundsAction
-    | SetAxisTickSpacingAction
-    | SetAxisTypeAction
-    | SetLineLabelAction
-    | SetLineColorAction
-    | SetLineStrokeWidthAction
-    | SetLineAggregationAction
-    | SetLineDetailAction
-    | SetLineAction
-    | SetRuleAction
-    | SetRuleLabelAction
-    | SetRuleColorAction
-    | SetRuleAxisAction
-    | SetRuleLineWidthAction
-    | SetRuleLineDashAction
-    | SetRuleUnitsAction
-    | SetRulePositionAction
-    | RemoveRuleAction
-    | SetAction
-    | RemoveAction
-    | InsertAction
-    | MoveAction,
-    Field(discriminator="type"),
-]
-
-
-def create(payload: CreatePayload) -> CreateAction:
-    return CreateAction(create=payload)
+def move(payload: MovePayload) -> MoveAction:
+    return MoveAction(move=payload)
 
 
 def set_title_visible(payload: SetTitleVisiblePayload) -> SetTitleVisibleAction:
@@ -667,19 +237,3 @@ def set_rule_position(payload: SetRulePositionPayload) -> SetRulePositionAction:
 
 def remove_rule(payload: RemoveRulePayload) -> RemoveRuleAction:
     return RemoveRuleAction(remove_rule=payload)
-
-
-def set(payload: SetPayload) -> SetAction:
-    return SetAction(set=payload)
-
-
-def remove(payload: RemovePayload) -> RemoveAction:
-    return RemoveAction(remove=payload)
-
-
-def insert(payload: InsertPayload) -> InsertAction:
-    return InsertAction(insert=payload)
-
-
-def move(payload: MovePayload) -> MoveAction:
-    return MoveAction(move=payload)

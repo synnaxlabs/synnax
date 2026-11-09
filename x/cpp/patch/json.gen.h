@@ -42,7 +42,7 @@ inline Set Set::parse(x::json::Parser parser) {
             "path",
             std::vector<std::string>{}
         ),
-        .value = parser.field<x::json::json>("value"),
+        .value = parser.field<x::json::json>("value", nullptr),
         .guards = parser.field<std::vector<Guard>>("guards", std::vector<Guard>{}),
     };
 }
@@ -80,7 +80,7 @@ inline Insert Insert::parse(x::json::Parser parser) {
             "path",
             std::vector<std::string>{}
         ),
-        .value = parser.field<x::json::json>("value"),
+        .value = parser.field<x::json::json>("value", nullptr),
         .after = parser.field<std::optional<std::string>>("after"),
         .guards = parser.field<std::vector<Guard>>("guards", std::vector<Guard>{}),
     };

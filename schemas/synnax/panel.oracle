@@ -167,15 +167,6 @@ Panel struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        panel Panel
-
-        @doc value """
-            replaces the document with the given created state. Emitted by the Core on
-            create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
     action SetIcon {
         icon string?
 
@@ -287,24 +278,7 @@ Panel struct {
         """
     }
 
-    action Set = patch.Set {
-        @doc value "replaces the value at a path in the panel."
-    }
-
-    action Remove = patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the panel.
-        """
-    }
-
-    action Insert = patch.Insert {
-        @doc value "adds an entry to a list in the panel."
-    }
-
-    action Move = patch.Move {
-        @doc value "moves an entry in a list in the panel."
-    }
-
+    @actions
     @create
     @doc value     "is a project-owned tree of visualization tabs."
     @go marshal

@@ -11,31 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
-
-from pydantic import BaseModel, Field, JsonValue
-
-from synnax.status.types_gen import Status
-
-
-class SetPayload(BaseModel):
-    """Replaces the status with the given state. Emitted by the Core on every write to
-    the status; clients never dispatch it.
-    """
-
-    status: Status[JsonValue]
-
-
-class SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: SetPayload
-
-
-# Action is a discriminated union for all Status mutations.
-Action = Annotated[
-    SetAction,
-    Field(discriminator="type"),
-]
+from synnax.status.types_gen import SetAction, SetPayload
 
 
 def set(payload: SetPayload) -> SetAction:

@@ -159,6 +159,15 @@ export const cursorZ = z.object({
   name: z.string().optional(),
 });
 export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/**
+ * SetPayload replaces the status with the given state. Emitted by the Core on every
+ * write to the status; clients never dispatch it.
+ */
+export const setPayloadZ = z.object({
+  status: statusZ({ details: z.unknown() }),
+});
+export interface SetPayload extends z.infer<typeof setPayloadZ> {}
 export type New<
   Details extends z.ZodType = z.ZodNever,
   V extends z.ZodType<Variant> = typeof variantZ,
@@ -194,6 +203,26 @@ export const retrieveRequestZ = z.strictObject({
   limit: z.uint32().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+
+export const setActionZ = z.object({
+  type: z.literal("set"),
+  set: setPayloadZ,
+});
+export interface SetAction extends z.infer<typeof setActionZ> {}
+
+export const ACTION_TYPES = ["set"] as const;
+export const actionTypeZ = z.enum(ACTION_TYPES);
+export type ActionType = z.infer<typeof actionTypeZ>;
+
+/** Action holds one status mutation. */
+export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [setActionZ]);
+export type Action = SetAction;
+
+export const ACTION_SCHEMAS: {
+  [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
+} = {
+  set: setActionZ,
+};
 
 export const resourceID = resource.createIDFactory<Key>("status");
 export const TYPE_RESOURCE_ID = resourceID("");

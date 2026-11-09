@@ -230,15 +230,6 @@ Table struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        table Table
-
-        @doc value """
-            replaces the document with the given created state. Emitted by the Core on
-            create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
     action AddRow {
         index         uint32
         key           string = create
@@ -372,24 +363,7 @@ Table struct {
         """
     }
 
-    action Set = patch.Set {
-        @doc value "replaces the value at a path in the table."
-    }
-
-    action Remove = patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the table.
-        """
-    }
-
-    action Insert = patch.Insert {
-        @doc value "adds an entry to a list in the table's cells."
-    }
-
-    action Move = patch.Move {
-        @doc value "moves an entry in a list in the table's cells."
-    }
-
+    @actions
     @create
     @doc value     """
         is a tabular data display component for viewing structured telemetry data.

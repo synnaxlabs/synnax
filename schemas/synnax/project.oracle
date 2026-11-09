@@ -38,23 +38,7 @@ Project struct {
         @ref on_delete detach
     }
 
-    action Create {
-        project Project
-
-        @doc value """
-            replaces the project with the given created state. Emitted by the Core when
-            a project is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @create
     @doc value     """
         is a named, persistable container that groups the panels of the Console

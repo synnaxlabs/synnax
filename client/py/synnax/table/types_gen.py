@@ -18,8 +18,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.resource import ID
-from x import color, filter, notation as notation_, text
+from x import color, filter, notation as notation_, patch, text
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -65,6 +73,57 @@ class Column(BaseModel):
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     size: float = Field(default=72, ge=1)
+
+
+class RemoveRowPayload(BaseModel):
+    """Removes the row with the given key. All cells referenced by the removed row are
+    also dropped from the cells map. No-op if no row has the key.
+    """
+
+    key: str
+
+
+class RemoveColPayload(BaseModel):
+    """Removes the column with the given key. All cells in that column (across every
+    row) are dropped from the cells map. No-op if no column has the key.
+    """
+
+    key: str
+
+
+class ResizeRowPayload(BaseModel):
+    """Resizes the row with the given key. No-op if no row has the key."""
+
+    key: str
+    size: float
+
+
+class ResizeColPayload(BaseModel):
+    """Resizes the column with the given key. No-op if no column has the key."""
+
+    key: str
+    size: float
+
+
+class MoveRowPayload(BaseModel):
+    """Moves the row with the given key so that it ends up at index to, shifting the
+    rows in between by one. The row keeps its size and cells. No-op if no row has the
+    key; to clamps to the last row.
+    """
+
+    key: str
+    to: int = Field(ge=0, le=4294967295)
+
+
+class MoveColPayload(BaseModel):
+    """Moves the column with the given key so that it ends up at index to, shifting the
+    columns in between by one. The column keeps its size and its cell in every row.
+    No-op if no column has the key; to clamps to the last column. A row missing a cell
+    at the old or new index is left unchanged.
+    """
+
+    key: str
+    to: int = Field(ge=0, le=4294967295)
 
 
 class Order(BaseModel):
@@ -224,6 +283,18 @@ class Table(BaseModel):
         return hash(self.key)
 
 
+class EraseCellsPayload(BaseModel):
+    """Erases the cells whose keys are in cells. Any row whose every cell is in the
+    selection is removed entirely; same for columns. Cells that survive that row/column
+    removal have their config replaced with the template, keeping their original keys.
+    Cells in the selection whose keys are not in the table's cells map are silently
+    skipped.
+    """
+
+    cells: list[str] = Field(default_factory=list)
+    template: CellConfig
+
+
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve tables.
 
@@ -244,6 +315,70 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
 
+class AddRowPayload(BaseModel):
+    """Inserts a row with the given key at the given index. Three flows:
+
+    1. User gesture with cell_template against a non-empty table: replicate the template
+    once per existing column. 2. User gesture with cell_template against a fully-empty
+    table: seed a 1x1 grid (one template replica plus one default-sized column). 3. Undo
+    replay of RemoveRow (cell_template is null, cells is non-empty): use cells as-is. If
+    the original RemoveRow had stripped the table down to no columns, the explicit cells
+    trigger the same column-bootstrap as flow 2.
+
+    Derived replica keys come from the template's key with the last four hex digits
+    replaced by the column index. Bootstrapped columns derive their keys from the row's
+    key the same way. Out-of-range indices clamp to the end.
+    """
+
+    index: int = Field(ge=0, le=4294967295)
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    size: float
+    cells: list[Cell] = Field(default_factory=list)
+    cell_template: Cell | None = None
+
+
+class AddColPayload(BaseModel):
+    """Inserts a column with the given key at the given index. Three flows:
+
+    1. User gesture with cell_template against a non-empty table: replicate the template
+    once per existing row. 2. User gesture with cell_template against a fully-empty
+    table: seed a 1x1 grid (one template replica plus one default-sized row). 3. Undo
+    replay of RemoveCol (cell_template is null, cells is non-empty): use cells as-is. If
+    the original RemoveCol had stripped the table down to no rows, the explicit cells
+    trigger the same row-bootstrap as flow 2.
+
+    Derived replica keys come from the template's key with the last four hex digits
+    replaced by the row index. Bootstrapped rows derive their keys from the column's key
+    the same way. Cells whose row index exceeds the row count are added to the cells map
+    but not referenced by any row. Out-of-range indices clamp to the end of every row's
+    cells list.
+    """
+
+    index: int = Field(ge=0, le=4294967295)
+    key: str = Field(default_factory=lambda: str(uuid4()))
+    size: float
+    cells: list[Cell] = Field(default_factory=list)
+    cell_template: Cell | None = None
+
+
+class SetCellPayload(BaseModel):
+    """Replaces the cell at cell.key with the provided value. No-op if no cell with that
+    key exists in the table.
+    """
+
+    cell: Cell
+
+
+class CreatePayload(BaseModel):
+    """Replaces the state with the created table. Only the Core emits it.
+
+    Attributes:
+        table: Is the created table.
+    """
+
+    table: Table
+
+
 class RetrieveResponse(BaseModel):
     """Holds the tables a RetrieveRequest selects.
 
@@ -252,6 +387,102 @@ class RetrieveResponse(BaseModel):
     """
 
     tables: list[Table] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class AddRowAction(BaseModel):
+    type: Literal["add_row"] = "add_row"
+    add_row: AddRowPayload
+
+
+class RemoveRowAction(BaseModel):
+    type: Literal["remove_row"] = "remove_row"
+    remove_row: RemoveRowPayload
+
+
+class AddColAction(BaseModel):
+    type: Literal["add_col"] = "add_col"
+    add_col: AddColPayload
+
+
+class RemoveColAction(BaseModel):
+    type: Literal["remove_col"] = "remove_col"
+    remove_col: RemoveColPayload
+
+
+class ResizeRowAction(BaseModel):
+    type: Literal["resize_row"] = "resize_row"
+    resize_row: ResizeRowPayload
+
+
+class ResizeColAction(BaseModel):
+    type: Literal["resize_col"] = "resize_col"
+    resize_col: ResizeColPayload
+
+
+class MoveRowAction(BaseModel):
+    type: Literal["move_row"] = "move_row"
+    move_row: MoveRowPayload
+
+
+class MoveColAction(BaseModel):
+    type: Literal["move_col"] = "move_col"
+    move_col: MoveColPayload
+
+
+class SetCellAction(BaseModel):
+    type: Literal["set_cell"] = "set_cell"
+    set_cell: SetCellPayload
+
+
+class EraseCellsAction(BaseModel):
+    type: Literal["erase_cells"] = "erase_cells"
+    erase_cells: EraseCellsPayload
+
+
+# Holds one table mutation.
+Action = Annotated[
+    CreateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | AddRowAction
+    | RemoveRowAction
+    | AddColAction
+    | RemoveColAction
+    | ResizeRowAction
+    | ResizeColAction
+    | MoveRowAction
+    | MoveColAction
+    | SetCellAction
+    | EraseCellsAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

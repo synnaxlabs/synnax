@@ -12,11 +12,23 @@
 package lineplot
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
+	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -149,4 +161,1996 @@ type Where struct {
 	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
 	// Ranges matches the line plots owned by any of the given ranges.
 	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
+}
+
+// CreatePayload replaces the state with the created line plot. Only the Core emits it.
+type CreatePayload struct {
+	// LinePlot is the created line plot.
+	LinePlot LinePlot `json:"line_plot" msgpack:"line_plot"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (c *CreatePayload) ApplyDefaults() {
+	c.LinePlot.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c CreatePayload) Validate() error {
+	v := validate.New("CreatePayload")
+	v.Exec(func() error { return validate.PathedError(c.LinePlot.Validate(), "line_plot") })
+	return v.Error()
+}
+
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
+
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
+
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
+
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
+
+// SetTitleVisiblePayload sets whether the plot title is shown above the plot.
+type SetTitleVisiblePayload struct {
+	Visible bool `json:"visible" msgpack:"visible"`
+}
+
+// SetTitleLevelPayload sets the typography level of the plot title.
+type SetTitleLevelPayload struct {
+	Level text.Level `json:"level" msgpack:"level"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetTitleLevelPayload) Validate() error {
+	v := validate.New("SetTitleLevelPayload")
+	v.Ternaryf("level", !s.Level.IsValid(), "invalid level: %v", s.Level)
+	return v.Error()
+}
+
+// SetLegendHiddenPayload sets whether the plot legend is hidden.
+type SetLegendHiddenPayload struct {
+	Hidden bool `json:"hidden" msgpack:"hidden"`
+}
+
+// SetLegendPositionPayload sets the anchor position of the plot legend within the
+// container.
+type SetLegendPositionPayload struct {
+	Position spatial.StickyXY `json:"position" msgpack:"position"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SetLegendPositionPayload) ApplyDefaults() {
+	s.Position.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetLegendPositionPayload) Validate() error {
+	v := validate.New("SetLegendPositionPayload")
+	v.Exec(func() error { return validate.PathedError(s.Position.Validate(), "position") })
+	return v.Error()
+}
+
+// AddChannelPayload appends the channel to the channels array bound to the y-axis named
+// by axis_key. No-op when the channel is already present.
+type AddChannelPayload struct {
+	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AddChannelPayload) Validate() error {
+	v := validate.New("AddChannelPayload")
+	v.Ternaryf("axis_key", !a.AxisKey.IsValid(), "invalid axis_key: %v", a.AxisKey)
+	return v.Error()
+}
+
+// RemoveChannelPayload removes the channel from the y-axis named by axis_key. No-op
+// when the channel is not present.
+type RemoveChannelPayload struct {
+	AxisKey YAxisKey    `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r RemoveChannelPayload) Validate() error {
+	v := validate.New("RemoveChannelPayload")
+	v.Ternaryf("axis_key", !r.AxisKey.IsValid(), "invalid axis_key: %v", r.AxisKey)
+	return v.Error()
+}
+
+// SetChannelsPayload replaces the entire set of channels bound to the y-axis named by
+// axis_key with channels. Channels absent from the new set are removed and their lines
+// dropped; channels not previously present are added. Existing channels keep their line
+// styling.
+type SetChannelsPayload struct {
+	AxisKey  YAxisKey      `json:"axis_key" msgpack:"axis_key"`
+	Channels []channel.Key `json:"channels" msgpack:"channels"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetChannelsPayload) Validate() error {
+	v := validate.New("SetChannelsPayload")
+	v.Ternaryf("axis_key", !s.AxisKey.IsValid(), "invalid axis_key: %v", s.AxisKey)
+	return v.Error()
+}
+
+// SetXChannelPayload replaces the single channel bound to the x-axis named by axis_key.
+type SetXChannelPayload struct {
+	AxisKey XAxisKey    `json:"axis_key" msgpack:"axis_key"`
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetXChannelPayload) Validate() error {
+	v := validate.New("SetXChannelPayload")
+	v.Ternaryf("axis_key", !s.AxisKey.IsValid(), "invalid axis_key: %v", s.AxisKey)
+	return v.Error()
+}
+
+// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
+// reference is already present.
+type AddRangePayload struct {
+	Range ranger.Ref `json:"range" msgpack:"range"`
+}
+
+// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
+// when no reference is equal.
+type RemoveRangePayload struct {
+	Range ranger.Ref `json:"range" msgpack:"range"`
+}
+
+// SetRangesPayload replaces the plot's range references with ranges, such as when the
+// user edits a window. Lines style channels, so they are unaffected.
+type SetRangesPayload struct {
+	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
+}
+
+// SetAxisLabelPayload sets the label rendered along the axis identified by key.
+type SetAxisLabelPayload struct {
+	Key   AxisKey `json:"key" msgpack:"key"`
+	Label string  `json:"label" msgpack:"label"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisLabelPayload) Validate() error {
+	v := validate.New("SetAxisLabelPayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	return v.Error()
+}
+
+// SetAxisLabelDirectionPayload sets the orientation in which the axis label is laid
+// out.
+type SetAxisLabelDirectionPayload struct {
+	Key            AxisKey           `json:"key" msgpack:"key"`
+	LabelDirection spatial.Direction `json:"label_direction" msgpack:"label_direction"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisLabelDirectionPayload) Validate() error {
+	v := validate.New("SetAxisLabelDirectionPayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	v.Ternaryf("label_direction", !s.LabelDirection.IsValid(), "invalid label_direction: %v", s.LabelDirection)
+	return v.Error()
+}
+
+// SetAxisLabelLevelPayload sets the typography level of the axis label.
+type SetAxisLabelLevelPayload struct {
+	Key        AxisKey    `json:"key" msgpack:"key"`
+	LabelLevel text.Level `json:"label_level" msgpack:"label_level"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisLabelLevelPayload) Validate() error {
+	v := validate.New("SetAxisLabelLevelPayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	v.Ternaryf("label_level", !s.LabelLevel.IsValid(), "invalid label_level: %v", s.LabelLevel)
+	return v.Error()
+}
+
+// SetAxisBoundsPayload sets the axis value-space window together with its per-edge
+// manual override flags. The two travel together: fixing a bound enables the manual
+// override for that edge, so callers set both at once.
+type SetAxisBoundsPayload struct {
+	Key          AxisKey        `json:"key" msgpack:"key"`
+	Bounds       spatial.Bounds `json:"bounds" msgpack:"bounds"`
+	ManualBounds ManualBounds   `json:"manual_bounds" msgpack:"manual_bounds"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisBoundsPayload) Validate() error {
+	v := validate.New("SetAxisBoundsPayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	return v.Error()
+}
+
+// SetAxisTickSpacingPayload sets the target pixel distance between adjacent tick marks.
+type SetAxisTickSpacingPayload struct {
+	Key         AxisKey `json:"key" msgpack:"key"`
+	TickSpacing float64 `json:"tick_spacing" msgpack:"tick_spacing"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisTickSpacingPayload) Validate() error {
+	v := validate.New("SetAxisTickSpacingPayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	return v.Error()
+}
+
+// SetAxisTypePayload sets the axis tick label style. Null resets it to the default,
+// which the Console derives (linear, or time for a timestamp-bound x-axis) at render
+// time.
+type SetAxisTypePayload struct {
+	Key  AxisKey   `json:"key" msgpack:"key"`
+	Type *TickType `json:"type,omitzero" msgpack:"type,omitempty"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetAxisTypePayload) Validate() error {
+	v := validate.New("SetAxisTypePayload")
+	v.Ternaryf("key", !s.Key.IsValid(), "invalid key: %v", s.Key)
+	return v.Error()
+}
+
+// SetLineLabelPayload sets the label of the line identified by key. Null resets it to
+// derive from the channel name at render time.
+type SetLineLabelPayload struct {
+	Key   string  `json:"key" msgpack:"key"`
+	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
+}
+
+// SetLineColorPayload sets the color of the line identified by key. Null resets it to a
+// palette color assigned at render time.
+type SetLineColorPayload struct {
+	Key   string       `json:"key" msgpack:"key"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+}
+
+// SetLineStrokeWidthPayload sets the stroke width, in pixels, of the line identified by
+// key.
+type SetLineStrokeWidthPayload struct {
+	Key         string  `json:"key" msgpack:"key"`
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
+}
+
+// SetLineAggregationPayload sets how the line identified by key reduces a pixel group.
+type SetLineAggregationPayload struct {
+	Key         string      `json:"key" msgpack:"key"`
+	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetLineAggregationPayload) Validate() error {
+	v := validate.New("SetLineAggregationPayload")
+	v.Ternaryf("aggregation", !s.Aggregation.IsValid(), "invalid aggregation: %v", s.Aggregation)
+	return v.Error()
+}
+
+// SetLineDetailPayload sets the number of sample groups per pixel column of the line.
+type SetLineDetailPayload struct {
+	Key    string `json:"key" msgpack:"key"`
+	Detail Detail `json:"detail" msgpack:"detail"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetLineDetailPayload) Validate() error {
+	v := validate.New("SetLineDetailPayload")
+	v.Ternaryf("detail", !s.Detail.IsValid(), "invalid detail: %v", s.Detail)
+	return v.Error()
+}
+
+// SetLinePayload replaces the line with line.key in place, inserting it when no such
+// line exists. The fine-grained setLine* actions cover per-field edits; this
+// full-object form restores a line dropped by reconciliation.
+type SetLinePayload struct {
+	Line Line `json:"line" msgpack:"line"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SetLinePayload) ApplyDefaults() {
+	s.Line.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetLinePayload) Validate() error {
+	v := validate.New("SetLinePayload")
+	v.Exec(func() error { return validate.PathedError(s.Line.Validate(), "line") })
+	return v.Error()
+}
+
+// SetRulePayload inserts the rule if no rule with rule.key exists, otherwise replaces
+// the existing entry in place. The fine-grained setRule* actions cover per-field edits;
+// this full-object form creates a rule or restores one removed by another action's
+// inverse.
+type SetRulePayload struct {
+	Rule Rule `json:"rule" msgpack:"rule"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (s *SetRulePayload) ApplyDefaults() {
+	s.Rule.ApplyDefaults()
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetRulePayload) Validate() error {
+	v := validate.New("SetRulePayload")
+	v.Exec(func() error { return validate.PathedError(s.Rule.Validate(), "rule") })
+	return v.Error()
+}
+
+// SetRuleLabelPayload sets the label of the rule identified by key.
+type SetRuleLabelPayload struct {
+	Key   string `json:"key" msgpack:"key"`
+	Label string `json:"label" msgpack:"label"`
+}
+
+// SetRuleColorPayload sets the color of the rule identified by key. Null resets it to a
+// default color assigned at render time.
+type SetRuleColorPayload struct {
+	Key   string       `json:"key" msgpack:"key"`
+	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
+}
+
+// SetRuleAxisPayload sets the axis the rule identified by key is anchored to.
+type SetRuleAxisPayload struct {
+	Key  string  `json:"key" msgpack:"key"`
+	Axis AxisKey `json:"axis" msgpack:"axis"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s SetRuleAxisPayload) Validate() error {
+	v := validate.New("SetRuleAxisPayload")
+	v.Ternaryf("axis", !s.Axis.IsValid(), "invalid axis: %v", s.Axis)
+	return v.Error()
+}
+
+// SetRuleLineWidthPayload sets the line width, in pixels, of the rule identified by
+// key.
+type SetRuleLineWidthPayload struct {
+	Key       string  `json:"key" msgpack:"key"`
+	LineWidth float64 `json:"line_width" msgpack:"line_width"`
+}
+
+// SetRuleLineDashPayload sets the dash length, in pixels, of the rule identified by
+// key.
+type SetRuleLineDashPayload struct {
+	Key      string  `json:"key" msgpack:"key"`
+	LineDash float64 `json:"line_dash" msgpack:"line_dash"`
+}
+
+// SetRuleUnitsPayload sets the unit label of the rule identified by key.
+type SetRuleUnitsPayload struct {
+	Key   string `json:"key" msgpack:"key"`
+	Units string `json:"units" msgpack:"units"`
+}
+
+// SetRulePositionPayload sets the value-space position of the rule identified by key.
+type SetRulePositionPayload struct {
+	Key      string  `json:"key" msgpack:"key"`
+	Position float64 `json:"position" msgpack:"position"`
+}
+
+// RemoveRulePayload removes the rule with the given key, if present.
+type RemoveRulePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// ActionType is the "type" value that selects a variant of Action.
+type ActionType string
+
+const (
+	// CreateActionType selects the CreatePayload variant.
+	CreateActionType ActionType = "create"
+	// SetActionType selects the SetPayload variant.
+	SetActionType ActionType = "set"
+	// RemoveActionType selects the RemovePayload variant.
+	RemoveActionType ActionType = "remove"
+	// InsertActionType selects the InsertPayload variant.
+	InsertActionType ActionType = "insert"
+	// MoveActionType selects the MovePayload variant.
+	MoveActionType ActionType = "move"
+	// SetTitleVisibleActionType selects the SetTitleVisiblePayload variant.
+	SetTitleVisibleActionType ActionType = "set_title_visible"
+	// SetTitleLevelActionType selects the SetTitleLevelPayload variant.
+	SetTitleLevelActionType ActionType = "set_title_level"
+	// SetLegendHiddenActionType selects the SetLegendHiddenPayload variant.
+	SetLegendHiddenActionType ActionType = "set_legend_hidden"
+	// SetLegendPositionActionType selects the SetLegendPositionPayload variant.
+	SetLegendPositionActionType ActionType = "set_legend_position"
+	// AddChannelActionType selects the AddChannelPayload variant.
+	AddChannelActionType ActionType = "add_channel"
+	// RemoveChannelActionType selects the RemoveChannelPayload variant.
+	RemoveChannelActionType ActionType = "remove_channel"
+	// SetChannelsActionType selects the SetChannelsPayload variant.
+	SetChannelsActionType ActionType = "set_channels"
+	// SetXChannelActionType selects the SetXChannelPayload variant.
+	SetXChannelActionType ActionType = "set_x_channel"
+	// AddRangeActionType selects the AddRangePayload variant.
+	AddRangeActionType ActionType = "add_range"
+	// RemoveRangeActionType selects the RemoveRangePayload variant.
+	RemoveRangeActionType ActionType = "remove_range"
+	// SetRangesActionType selects the SetRangesPayload variant.
+	SetRangesActionType ActionType = "set_ranges"
+	// SetAxisLabelActionType selects the SetAxisLabelPayload variant.
+	SetAxisLabelActionType ActionType = "set_axis_label"
+	// SetAxisLabelDirectionActionType selects the SetAxisLabelDirectionPayload variant.
+	SetAxisLabelDirectionActionType ActionType = "set_axis_label_direction"
+	// SetAxisLabelLevelActionType selects the SetAxisLabelLevelPayload variant.
+	SetAxisLabelLevelActionType ActionType = "set_axis_label_level"
+	// SetAxisBoundsActionType selects the SetAxisBoundsPayload variant.
+	SetAxisBoundsActionType ActionType = "set_axis_bounds"
+	// SetAxisTickSpacingActionType selects the SetAxisTickSpacingPayload variant.
+	SetAxisTickSpacingActionType ActionType = "set_axis_tick_spacing"
+	// SetAxisTypeActionType selects the SetAxisTypePayload variant.
+	SetAxisTypeActionType ActionType = "set_axis_type"
+	// SetLineLabelActionType selects the SetLineLabelPayload variant.
+	SetLineLabelActionType ActionType = "set_line_label"
+	// SetLineColorActionType selects the SetLineColorPayload variant.
+	SetLineColorActionType ActionType = "set_line_color"
+	// SetLineStrokeWidthActionType selects the SetLineStrokeWidthPayload variant.
+	SetLineStrokeWidthActionType ActionType = "set_line_stroke_width"
+	// SetLineAggregationActionType selects the SetLineAggregationPayload variant.
+	SetLineAggregationActionType ActionType = "set_line_aggregation"
+	// SetLineDetailActionType selects the SetLineDetailPayload variant.
+	SetLineDetailActionType ActionType = "set_line_detail"
+	// SetLineActionType selects the SetLinePayload variant.
+	SetLineActionType ActionType = "set_line"
+	// SetRuleActionType selects the SetRulePayload variant.
+	SetRuleActionType ActionType = "set_rule"
+	// SetRuleLabelActionType selects the SetRuleLabelPayload variant.
+	SetRuleLabelActionType ActionType = "set_rule_label"
+	// SetRuleColorActionType selects the SetRuleColorPayload variant.
+	SetRuleColorActionType ActionType = "set_rule_color"
+	// SetRuleAxisActionType selects the SetRuleAxisPayload variant.
+	SetRuleAxisActionType ActionType = "set_rule_axis"
+	// SetRuleLineWidthActionType selects the SetRuleLineWidthPayload variant.
+	SetRuleLineWidthActionType ActionType = "set_rule_line_width"
+	// SetRuleLineDashActionType selects the SetRuleLineDashPayload variant.
+	SetRuleLineDashActionType ActionType = "set_rule_line_dash"
+	// SetRuleUnitsActionType selects the SetRuleUnitsPayload variant.
+	SetRuleUnitsActionType ActionType = "set_rule_units"
+	// SetRulePositionActionType selects the SetRulePositionPayload variant.
+	SetRulePositionActionType ActionType = "set_rule_position"
+	// RemoveRuleActionType selects the RemoveRulePayload variant.
+	RemoveRuleActionType ActionType = "remove_rule"
+)
+
+// ActionVariant is implemented by every Action variant.
+type ActionVariant interface {
+	isActionVariant()
+}
+
+func (CreatePayload) isActionVariant() {}
+
+func (SetPayload) isActionVariant() {}
+
+func (RemovePayload) isActionVariant() {}
+
+func (InsertPayload) isActionVariant() {}
+
+func (MovePayload) isActionVariant() {}
+
+func (SetTitleVisiblePayload) isActionVariant() {}
+
+func (SetTitleLevelPayload) isActionVariant() {}
+
+func (SetLegendHiddenPayload) isActionVariant() {}
+
+func (SetLegendPositionPayload) isActionVariant() {}
+
+func (AddChannelPayload) isActionVariant() {}
+
+func (RemoveChannelPayload) isActionVariant() {}
+
+func (SetChannelsPayload) isActionVariant() {}
+
+func (SetXChannelPayload) isActionVariant() {}
+
+func (AddRangePayload) isActionVariant() {}
+
+func (RemoveRangePayload) isActionVariant() {}
+
+func (SetRangesPayload) isActionVariant() {}
+
+func (SetAxisLabelPayload) isActionVariant() {}
+
+func (SetAxisLabelDirectionPayload) isActionVariant() {}
+
+func (SetAxisLabelLevelPayload) isActionVariant() {}
+
+func (SetAxisBoundsPayload) isActionVariant() {}
+
+func (SetAxisTickSpacingPayload) isActionVariant() {}
+
+func (SetAxisTypePayload) isActionVariant() {}
+
+func (SetLineLabelPayload) isActionVariant() {}
+
+func (SetLineColorPayload) isActionVariant() {}
+
+func (SetLineStrokeWidthPayload) isActionVariant() {}
+
+func (SetLineAggregationPayload) isActionVariant() {}
+
+func (SetLineDetailPayload) isActionVariant() {}
+
+func (SetLinePayload) isActionVariant() {}
+
+func (SetRulePayload) isActionVariant() {}
+
+func (SetRuleLabelPayload) isActionVariant() {}
+
+func (SetRuleColorPayload) isActionVariant() {}
+
+func (SetRuleAxisPayload) isActionVariant() {}
+
+func (SetRuleLineWidthPayload) isActionVariant() {}
+
+func (SetRuleLineDashPayload) isActionVariant() {}
+
+func (SetRuleUnitsPayload) isActionVariant() {}
+
+func (SetRulePositionPayload) isActionVariant() {}
+
+func (RemoveRulePayload) isActionVariant() {}
+
+// Action holds one line plot mutation.
+type Action struct {
+	Variant ActionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CreatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload CreatePayload `json:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType `json:"type"`
+			Payload SetPayload `json:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload RemovePayload `json:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload InsertPayload `json:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType  `json:"type"`
+			Payload MovePayload `json:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetTitleVisiblePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetTitleVisiblePayload `json:"set_title_visible"`
+		}{Type: SetTitleVisibleActionType, Payload: v})
+	case SetTitleLevelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload SetTitleLevelPayload `json:"set_title_level"`
+		}{Type: SetTitleLevelActionType, Payload: v})
+	case SetLegendHiddenPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetLegendHiddenPayload `json:"set_legend_hidden"`
+		}{Type: SetLegendHiddenActionType, Payload: v})
+	case SetLegendPositionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType               `json:"type"`
+			Payload SetLegendPositionPayload `json:"set_legend_position"`
+		}{Type: SetLegendPositionActionType, Payload: v})
+	case AddChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload AddChannelPayload `json:"add_channel"`
+		}{Type: AddChannelActionType, Payload: v})
+	case RemoveChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload RemoveChannelPayload `json:"remove_channel"`
+		}{Type: RemoveChannelActionType, Payload: v})
+	case SetChannelsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SetChannelsPayload `json:"set_channels"`
+		}{Type: SetChannelsActionType, Payload: v})
+	case SetXChannelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SetXChannelPayload `json:"set_x_channel"`
+		}{Type: SetXChannelActionType, Payload: v})
+	case AddRangePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType      `json:"type"`
+			Payload AddRangePayload `json:"add_range"`
+		}{Type: AddRangeActionType, Payload: v})
+	case RemoveRangePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload RemoveRangePayload `json:"remove_range"`
+		}{Type: RemoveRangeActionType, Payload: v})
+	case SetRangesPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType       `json:"type"`
+			Payload SetRangesPayload `json:"set_ranges"`
+		}{Type: SetRangesActionType, Payload: v})
+	case SetAxisLabelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetAxisLabelPayload `json:"set_axis_label"`
+		}{Type: SetAxisLabelActionType, Payload: v})
+	case SetAxisLabelDirectionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                   `json:"type"`
+			Payload SetAxisLabelDirectionPayload `json:"set_axis_label_direction"`
+		}{Type: SetAxisLabelDirectionActionType, Payload: v})
+	case SetAxisLabelLevelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType               `json:"type"`
+			Payload SetAxisLabelLevelPayload `json:"set_axis_label_level"`
+		}{Type: SetAxisLabelLevelActionType, Payload: v})
+	case SetAxisBoundsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload SetAxisBoundsPayload `json:"set_axis_bounds"`
+		}{Type: SetAxisBoundsActionType, Payload: v})
+	case SetAxisTickSpacingPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                `json:"type"`
+			Payload SetAxisTickSpacingPayload `json:"set_axis_tick_spacing"`
+		}{Type: SetAxisTickSpacingActionType, Payload: v})
+	case SetAxisTypePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SetAxisTypePayload `json:"set_axis_type"`
+		}{Type: SetAxisTypeActionType, Payload: v})
+	case SetLineLabelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetLineLabelPayload `json:"set_line_label"`
+		}{Type: SetLineLabelActionType, Payload: v})
+	case SetLineColorPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetLineColorPayload `json:"set_line_color"`
+		}{Type: SetLineColorActionType, Payload: v})
+	case SetLineStrokeWidthPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                `json:"type"`
+			Payload SetLineStrokeWidthPayload `json:"set_line_stroke_width"`
+		}{Type: SetLineStrokeWidthActionType, Payload: v})
+	case SetLineAggregationPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType                `json:"type"`
+			Payload SetLineAggregationPayload `json:"set_line_aggregation"`
+		}{Type: SetLineAggregationActionType, Payload: v})
+	case SetLineDetailPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload SetLineDetailPayload `json:"set_line_detail"`
+		}{Type: SetLineDetailActionType, Payload: v})
+	case SetLinePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload SetLinePayload `json:"set_line"`
+		}{Type: SetLineActionType, Payload: v})
+	case SetRulePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload SetRulePayload `json:"set_rule"`
+		}{Type: SetRuleActionType, Payload: v})
+	case SetRuleLabelPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetRuleLabelPayload `json:"set_rule_label"`
+		}{Type: SetRuleLabelActionType, Payload: v})
+	case SetRuleColorPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetRuleColorPayload `json:"set_rule_color"`
+		}{Type: SetRuleColorActionType, Payload: v})
+	case SetRuleAxisPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload SetRuleAxisPayload `json:"set_rule_axis"`
+		}{Type: SetRuleAxisActionType, Payload: v})
+	case SetRuleLineWidthPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType              `json:"type"`
+			Payload SetRuleLineWidthPayload `json:"set_rule_line_width"`
+		}{Type: SetRuleLineWidthActionType, Payload: v})
+	case SetRuleLineDashPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetRuleLineDashPayload `json:"set_rule_line_dash"`
+		}{Type: SetRuleLineDashActionType, Payload: v})
+	case SetRuleUnitsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetRuleUnitsPayload `json:"set_rule_units"`
+		}{Type: SetRuleUnitsActionType, Payload: v})
+	case SetRulePositionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetRulePositionPayload `json:"set_rule_position"`
+		}{Type: SetRulePositionActionType, Payload: v})
+	case RemoveRulePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload RemoveRulePayload `json:"remove_rule"`
+		}{Type: RemoveRuleActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ActionType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Type    ActionType  `json:"type"`
+			Payload *SetPayload `json:"set"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *RemovePayload `json:"remove"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *InsertPayload `json:"insert"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Type    ActionType   `json:"type"`
+			Payload *MovePayload `json:"move"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTitleVisibleActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetTitleVisiblePayload `json:"set_title_visible"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTitleLevelActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *SetTitleLevelPayload `json:"set_title_level"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLegendHiddenActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetLegendHiddenPayload `json:"set_legend_hidden"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLegendPositionActionType:
+		var v struct {
+			Type    ActionType                `json:"type"`
+			Payload *SetLegendPositionPayload `json:"set_legend_position"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddChannelActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *AddChannelPayload `json:"add_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveChannelActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *RemoveChannelPayload `json:"remove_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelsActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SetChannelsPayload `json:"set_channels"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetXChannelActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SetXChannelPayload `json:"set_x_channel"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddRangeActionType:
+		var v struct {
+			Type    ActionType       `json:"type"`
+			Payload *AddRangePayload `json:"add_range"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRangeActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *RemoveRangePayload `json:"remove_range"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRangesActionType:
+		var v struct {
+			Type    ActionType        `json:"type"`
+			Payload *SetRangesPayload `json:"set_ranges"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetAxisLabelPayload `json:"set_axis_label"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelDirectionActionType:
+		var v struct {
+			Type    ActionType                    `json:"type"`
+			Payload *SetAxisLabelDirectionPayload `json:"set_axis_label_direction"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelLevelActionType:
+		var v struct {
+			Type    ActionType                `json:"type"`
+			Payload *SetAxisLabelLevelPayload `json:"set_axis_label_level"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisBoundsActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *SetAxisBoundsPayload `json:"set_axis_bounds"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisTickSpacingActionType:
+		var v struct {
+			Type    ActionType                 `json:"type"`
+			Payload *SetAxisTickSpacingPayload `json:"set_axis_tick_spacing"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisTypeActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SetAxisTypePayload `json:"set_axis_type"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineLabelActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetLineLabelPayload `json:"set_line_label"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineColorActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetLineColorPayload `json:"set_line_color"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineStrokeWidthActionType:
+		var v struct {
+			Type    ActionType                 `json:"type"`
+			Payload *SetLineStrokeWidthPayload `json:"set_line_stroke_width"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineAggregationActionType:
+		var v struct {
+			Type    ActionType                 `json:"type"`
+			Payload *SetLineAggregationPayload `json:"set_line_aggregation"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineDetailActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *SetLineDetailPayload `json:"set_line_detail"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *SetLinePayload `json:"set_line"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *SetRulePayload `json:"set_rule"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLabelActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetRuleLabelPayload `json:"set_rule_label"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleColorActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetRuleColorPayload `json:"set_rule_color"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleAxisActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *SetRuleAxisPayload `json:"set_rule_axis"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLineWidthActionType:
+		var v struct {
+			Type    ActionType               `json:"type"`
+			Payload *SetRuleLineWidthPayload `json:"set_rule_line_width"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLineDashActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetRuleLineDashPayload `json:"set_rule_line_dash"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleUnitsActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetRuleUnitsPayload `json:"set_rule_units"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRulePositionActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetRulePositionPayload `json:"set_rule_position"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRuleActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *RemoveRulePayload `json:"remove_rule"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected.
+func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CreatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload CreatePayload `msgpack:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return enc.Encode(struct {
+			Type    ActionType `msgpack:"type"`
+			Payload SetPayload `msgpack:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload RemovePayload `msgpack:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload InsertPayload `msgpack:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return enc.Encode(struct {
+			Type    ActionType  `msgpack:"type"`
+			Payload MovePayload `msgpack:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetTitleVisiblePayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetTitleVisiblePayload `msgpack:"set_title_visible"`
+		}{Type: SetTitleVisibleActionType, Payload: v})
+	case SetTitleLevelPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload SetTitleLevelPayload `msgpack:"set_title_level"`
+		}{Type: SetTitleLevelActionType, Payload: v})
+	case SetLegendHiddenPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetLegendHiddenPayload `msgpack:"set_legend_hidden"`
+		}{Type: SetLegendHiddenActionType, Payload: v})
+	case SetLegendPositionPayload:
+		return enc.Encode(struct {
+			Type    ActionType               `msgpack:"type"`
+			Payload SetLegendPositionPayload `msgpack:"set_legend_position"`
+		}{Type: SetLegendPositionActionType, Payload: v})
+	case AddChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload AddChannelPayload `msgpack:"add_channel"`
+		}{Type: AddChannelActionType, Payload: v})
+	case RemoveChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload RemoveChannelPayload `msgpack:"remove_channel"`
+		}{Type: RemoveChannelActionType, Payload: v})
+	case SetChannelsPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SetChannelsPayload `msgpack:"set_channels"`
+		}{Type: SetChannelsActionType, Payload: v})
+	case SetXChannelPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SetXChannelPayload `msgpack:"set_x_channel"`
+		}{Type: SetXChannelActionType, Payload: v})
+	case AddRangePayload:
+		return enc.Encode(struct {
+			Type    ActionType      `msgpack:"type"`
+			Payload AddRangePayload `msgpack:"add_range"`
+		}{Type: AddRangeActionType, Payload: v})
+	case RemoveRangePayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload RemoveRangePayload `msgpack:"remove_range"`
+		}{Type: RemoveRangeActionType, Payload: v})
+	case SetRangesPayload:
+		return enc.Encode(struct {
+			Type    ActionType       `msgpack:"type"`
+			Payload SetRangesPayload `msgpack:"set_ranges"`
+		}{Type: SetRangesActionType, Payload: v})
+	case SetAxisLabelPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetAxisLabelPayload `msgpack:"set_axis_label"`
+		}{Type: SetAxisLabelActionType, Payload: v})
+	case SetAxisLabelDirectionPayload:
+		return enc.Encode(struct {
+			Type    ActionType                   `msgpack:"type"`
+			Payload SetAxisLabelDirectionPayload `msgpack:"set_axis_label_direction"`
+		}{Type: SetAxisLabelDirectionActionType, Payload: v})
+	case SetAxisLabelLevelPayload:
+		return enc.Encode(struct {
+			Type    ActionType               `msgpack:"type"`
+			Payload SetAxisLabelLevelPayload `msgpack:"set_axis_label_level"`
+		}{Type: SetAxisLabelLevelActionType, Payload: v})
+	case SetAxisBoundsPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload SetAxisBoundsPayload `msgpack:"set_axis_bounds"`
+		}{Type: SetAxisBoundsActionType, Payload: v})
+	case SetAxisTickSpacingPayload:
+		return enc.Encode(struct {
+			Type    ActionType                `msgpack:"type"`
+			Payload SetAxisTickSpacingPayload `msgpack:"set_axis_tick_spacing"`
+		}{Type: SetAxisTickSpacingActionType, Payload: v})
+	case SetAxisTypePayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SetAxisTypePayload `msgpack:"set_axis_type"`
+		}{Type: SetAxisTypeActionType, Payload: v})
+	case SetLineLabelPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetLineLabelPayload `msgpack:"set_line_label"`
+		}{Type: SetLineLabelActionType, Payload: v})
+	case SetLineColorPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetLineColorPayload `msgpack:"set_line_color"`
+		}{Type: SetLineColorActionType, Payload: v})
+	case SetLineStrokeWidthPayload:
+		return enc.Encode(struct {
+			Type    ActionType                `msgpack:"type"`
+			Payload SetLineStrokeWidthPayload `msgpack:"set_line_stroke_width"`
+		}{Type: SetLineStrokeWidthActionType, Payload: v})
+	case SetLineAggregationPayload:
+		return enc.Encode(struct {
+			Type    ActionType                `msgpack:"type"`
+			Payload SetLineAggregationPayload `msgpack:"set_line_aggregation"`
+		}{Type: SetLineAggregationActionType, Payload: v})
+	case SetLineDetailPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload SetLineDetailPayload `msgpack:"set_line_detail"`
+		}{Type: SetLineDetailActionType, Payload: v})
+	case SetLinePayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload SetLinePayload `msgpack:"set_line"`
+		}{Type: SetLineActionType, Payload: v})
+	case SetRulePayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload SetRulePayload `msgpack:"set_rule"`
+		}{Type: SetRuleActionType, Payload: v})
+	case SetRuleLabelPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetRuleLabelPayload `msgpack:"set_rule_label"`
+		}{Type: SetRuleLabelActionType, Payload: v})
+	case SetRuleColorPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetRuleColorPayload `msgpack:"set_rule_color"`
+		}{Type: SetRuleColorActionType, Payload: v})
+	case SetRuleAxisPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload SetRuleAxisPayload `msgpack:"set_rule_axis"`
+		}{Type: SetRuleAxisActionType, Payload: v})
+	case SetRuleLineWidthPayload:
+		return enc.Encode(struct {
+			Type    ActionType              `msgpack:"type"`
+			Payload SetRuleLineWidthPayload `msgpack:"set_rule_line_width"`
+		}{Type: SetRuleLineWidthActionType, Payload: v})
+	case SetRuleLineDashPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetRuleLineDashPayload `msgpack:"set_rule_line_dash"`
+		}{Type: SetRuleLineDashActionType, Payload: v})
+	case SetRuleUnitsPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetRuleUnitsPayload `msgpack:"set_rule_units"`
+		}{Type: SetRuleUnitsActionType, Payload: v})
+	case SetRulePositionPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetRulePositionPayload `msgpack:"set_rule_position"`
+		}{Type: SetRulePositionActionType, Payload: v})
+	case RemoveRulePayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload RemoveRulePayload `msgpack:"remove_rule"`
+		}{Type: RemoveRuleActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field.
+func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type ActionType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Payload *SetPayload `msgpack:"set"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Payload *RemovePayload `msgpack:"remove"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Payload *InsertPayload `msgpack:"insert"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Payload *MovePayload `msgpack:"move"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTitleVisibleActionType:
+		var v struct {
+			Payload *SetTitleVisiblePayload `msgpack:"set_title_visible"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetTitleLevelActionType:
+		var v struct {
+			Payload *SetTitleLevelPayload `msgpack:"set_title_level"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLegendHiddenActionType:
+		var v struct {
+			Payload *SetLegendHiddenPayload `msgpack:"set_legend_hidden"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLegendPositionActionType:
+		var v struct {
+			Payload *SetLegendPositionPayload `msgpack:"set_legend_position"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddChannelActionType:
+		var v struct {
+			Payload *AddChannelPayload `msgpack:"add_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveChannelActionType:
+		var v struct {
+			Payload *RemoveChannelPayload `msgpack:"remove_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetChannelsActionType:
+		var v struct {
+			Payload *SetChannelsPayload `msgpack:"set_channels"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetXChannelActionType:
+		var v struct {
+			Payload *SetXChannelPayload `msgpack:"set_x_channel"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddRangeActionType:
+		var v struct {
+			Payload *AddRangePayload `msgpack:"add_range"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRangeActionType:
+		var v struct {
+			Payload *RemoveRangePayload `msgpack:"remove_range"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRangesActionType:
+		var v struct {
+			Payload *SetRangesPayload `msgpack:"set_ranges"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelActionType:
+		var v struct {
+			Payload *SetAxisLabelPayload `msgpack:"set_axis_label"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelDirectionActionType:
+		var v struct {
+			Payload *SetAxisLabelDirectionPayload `msgpack:"set_axis_label_direction"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisLabelLevelActionType:
+		var v struct {
+			Payload *SetAxisLabelLevelPayload `msgpack:"set_axis_label_level"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisBoundsActionType:
+		var v struct {
+			Payload *SetAxisBoundsPayload `msgpack:"set_axis_bounds"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisTickSpacingActionType:
+		var v struct {
+			Payload *SetAxisTickSpacingPayload `msgpack:"set_axis_tick_spacing"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetAxisTypeActionType:
+		var v struct {
+			Payload *SetAxisTypePayload `msgpack:"set_axis_type"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineLabelActionType:
+		var v struct {
+			Payload *SetLineLabelPayload `msgpack:"set_line_label"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineColorActionType:
+		var v struct {
+			Payload *SetLineColorPayload `msgpack:"set_line_color"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineStrokeWidthActionType:
+		var v struct {
+			Payload *SetLineStrokeWidthPayload `msgpack:"set_line_stroke_width"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineAggregationActionType:
+		var v struct {
+			Payload *SetLineAggregationPayload `msgpack:"set_line_aggregation"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineDetailActionType:
+		var v struct {
+			Payload *SetLineDetailPayload `msgpack:"set_line_detail"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetLineActionType:
+		var v struct {
+			Payload *SetLinePayload `msgpack:"set_line"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleActionType:
+		var v struct {
+			Payload *SetRulePayload `msgpack:"set_rule"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLabelActionType:
+		var v struct {
+			Payload *SetRuleLabelPayload `msgpack:"set_rule_label"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleColorActionType:
+		var v struct {
+			Payload *SetRuleColorPayload `msgpack:"set_rule_color"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleAxisActionType:
+		var v struct {
+			Payload *SetRuleAxisPayload `msgpack:"set_rule_axis"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLineWidthActionType:
+		var v struct {
+			Payload *SetRuleLineWidthPayload `msgpack:"set_rule_line_width"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleLineDashActionType:
+		var v struct {
+			Payload *SetRuleLineDashPayload `msgpack:"set_rule_line_dash"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRuleUnitsActionType:
+		var v struct {
+			Payload *SetRuleUnitsPayload `msgpack:"set_rule_units"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetRulePositionActionType:
+		var v struct {
+			Payload *SetRulePositionPayload `msgpack:"set_rule_position"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveRuleActionType:
+		var v struct {
+			Payload *RemoveRulePayload `msgpack:"remove_rule"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Action) Type() ActionType {
+	switch u.Variant.(type) {
+	case CreatePayload:
+		return CreateActionType
+	case SetPayload:
+		return SetActionType
+	case RemovePayload:
+		return RemoveActionType
+	case InsertPayload:
+		return InsertActionType
+	case MovePayload:
+		return MoveActionType
+	case SetTitleVisiblePayload:
+		return SetTitleVisibleActionType
+	case SetTitleLevelPayload:
+		return SetTitleLevelActionType
+	case SetLegendHiddenPayload:
+		return SetLegendHiddenActionType
+	case SetLegendPositionPayload:
+		return SetLegendPositionActionType
+	case AddChannelPayload:
+		return AddChannelActionType
+	case RemoveChannelPayload:
+		return RemoveChannelActionType
+	case SetChannelsPayload:
+		return SetChannelsActionType
+	case SetXChannelPayload:
+		return SetXChannelActionType
+	case AddRangePayload:
+		return AddRangeActionType
+	case RemoveRangePayload:
+		return RemoveRangeActionType
+	case SetRangesPayload:
+		return SetRangesActionType
+	case SetAxisLabelPayload:
+		return SetAxisLabelActionType
+	case SetAxisLabelDirectionPayload:
+		return SetAxisLabelDirectionActionType
+	case SetAxisLabelLevelPayload:
+		return SetAxisLabelLevelActionType
+	case SetAxisBoundsPayload:
+		return SetAxisBoundsActionType
+	case SetAxisTickSpacingPayload:
+		return SetAxisTickSpacingActionType
+	case SetAxisTypePayload:
+		return SetAxisTypeActionType
+	case SetLineLabelPayload:
+		return SetLineLabelActionType
+	case SetLineColorPayload:
+		return SetLineColorActionType
+	case SetLineStrokeWidthPayload:
+		return SetLineStrokeWidthActionType
+	case SetLineAggregationPayload:
+		return SetLineAggregationActionType
+	case SetLineDetailPayload:
+		return SetLineDetailActionType
+	case SetLinePayload:
+		return SetLineActionType
+	case SetRulePayload:
+		return SetRuleActionType
+	case SetRuleLabelPayload:
+		return SetRuleLabelActionType
+	case SetRuleColorPayload:
+		return SetRuleColorActionType
+	case SetRuleAxisPayload:
+		return SetRuleAxisActionType
+	case SetRuleLineWidthPayload:
+		return SetRuleLineWidthActionType
+	case SetRuleLineDashPayload:
+		return SetRuleLineDashActionType
+	case SetRuleUnitsPayload:
+		return SetRuleUnitsActionType
+	case SetRulePositionPayload:
+		return SetRulePositionActionType
+	case RemoveRulePayload:
+		return RemoveRuleActionType
+	}
+	return ""
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *Action) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SetLegendPositionPayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SetLinePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case SetRulePayload:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Action) Validate() error {
+	switch variant := u.Variant.(type) {
+	case CreatePayload:
+		return variant.Validate()
+	case SetTitleLevelPayload:
+		return variant.Validate()
+	case SetLegendPositionPayload:
+		return variant.Validate()
+	case AddChannelPayload:
+		return variant.Validate()
+	case RemoveChannelPayload:
+		return variant.Validate()
+	case SetChannelsPayload:
+		return variant.Validate()
+	case SetXChannelPayload:
+		return variant.Validate()
+	case SetAxisLabelPayload:
+		return variant.Validate()
+	case SetAxisLabelDirectionPayload:
+		return variant.Validate()
+	case SetAxisLabelLevelPayload:
+		return variant.Validate()
+	case SetAxisBoundsPayload:
+		return variant.Validate()
+	case SetAxisTickSpacingPayload:
+		return variant.Validate()
+	case SetAxisTypePayload:
+		return variant.Validate()
+	case SetLineAggregationPayload:
+		return variant.Validate()
+	case SetLineDetailPayload:
+		return variant.Validate()
+	case SetLinePayload:
+		return variant.Validate()
+	case SetRulePayload:
+		return variant.Validate()
+	case SetRuleAxisPayload:
+		return variant.Validate()
+	}
+	return nil
 }

@@ -12,179 +12,49 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeSetNodePosition is the Type of an Action that carries
-	// SetNodePositionPayload.
-	ActionTypeSetNodePosition = "set_node_position"
-	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
-	ActionTypeSetNode = "set_node"
-	// ActionTypeRemoveNode is the Type of an Action that carries RemoveNodePayload.
-	ActionTypeRemoveNode = "remove_node"
-	// ActionTypeAddEdge is the Type of an Action that carries AddEdgePayload.
-	ActionTypeAddEdge = "add_edge"
-	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
-	ActionTypeRemoveEdge = "remove_edge"
-	// ActionTypeSetConfig is the Type of an Action that carries SetConfigPayload.
-	ActionTypeSetConfig = "set_config"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-)
-
-// CreatePayload replaces the document with the given created state. Emitted by the Core
-// on create so remote caches ingest new documents; clients never dispatch it.
-type CreatePayload struct {
-	Schematic Schematic `json:"schematic" msgpack:"schematic"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(Schematic) (Schematic, error) {
+	return Schematic{}, actions.ErrCoreOnly
 }
 
-// SetNodePositionPayload moves a node to a new position.
-type SetNodePositionPayload struct {
-	Key      string     `json:"key" msgpack:"key"`
-	Position spatial.XY `json:"position" msgpack:"position"`
-}
-
-// SetNodePayload inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place. A present config replaces the entry stored under
-// the node's key in the schematic configs map.
-type SetNodePayload struct {
-	Node   Node           `json:"node" msgpack:"node"`
-	Config *ElementConfig `json:"config,omitzero" msgpack:"config,omitempty"`
-}
-
-// RemoveNodePayload removes the node, its config, and the edges that connect to it and
-// their configs. No-op when no node has the key.
-type RemoveNodePayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// AddEdgePayload appends the edge to the schematic. No-op when an edge with the same
-// key already exists, or when the source or target node does not exist.
-type AddEdgePayload struct {
-	Edge Edge `json:"edge" msgpack:"edge"`
-}
-
-// RemoveEdgePayload removes the edge with the given key and its config, if present.
-type RemoveEdgePayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// SetConfigPayload replaces the config entry stored under the given node or edge key.
-// No-op when no node or edge has the key.
-type SetConfigPayload struct {
-	Key    string        `json:"key" msgpack:"key"`
-	Config ElementConfig `json:"config" msgpack:"config"`
-}
-
-// SetPayload replaces the value at a path in the schematic's name or element configs.
-// No-op when no node or edge has the config's key.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object in the
-// schematic's element configs. No-op when no node or edge has the config's key.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list in the schematic's element configs. No-op when
-// no node or edge has the config's key.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list in the schematic's element configs. No-op when
-// no node or edge has the config's key.
-type MovePayload patch.Move
-
-// Action is a discriminated union for all Schematic mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
-	SetConfig       *SetConfigPayload       `json:"set_config,omitzero" msgpack:"set_config,omitempty"`
-	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move            *MovePayload            `json:"move,omitzero" msgpack:"move,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Schematic, actions ...Action) (Schematic, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Schematic, acts ...Action) (Schematic, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeSetNodePosition:
-			if a.SetNodePosition == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNodePosition.Handle(state)
-		case ActionTypeSetNode:
-			if a.SetNode == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNode.Handle(state)
-		case ActionTypeRemoveNode:
-			if a.RemoveNode == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveNode.Handle(state)
-		case ActionTypeAddEdge:
-			if a.AddEdge == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddEdge.Handle(state)
-		case ActionTypeRemoveEdge:
-			if a.RemoveEdge == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveEdge.Handle(state)
-		case ActionTypeSetConfig:
-			if a.SetConfig == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetConfig.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case SetNodePositionPayload:
+			state, err = v.Handle(state)
+		case SetNodePayload:
+			state, err = v.Handle(state)
+		case RemoveNodePayload:
+			state, err = v.Handle(state)
+		case AddEdgePayload:
+			state, err = v.Handle(state)
+		case RemoveEdgePayload:
+			state, err = v.Handle(state)
+		case SetConfigPayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -193,57 +63,35 @@ func Reduce(state Schematic, actions ...Action) (Schematic, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.
-func NewSetNodePositionAction(p SetNodePositionPayload) Action {
-	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewSetNodeAction wraps a SetNodePayload in an Action envelope.
-func NewSetNodeAction(p SetNodePayload) Action {
-	return Action{Type: ActionTypeSetNode, SetNode: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewRemoveNodeAction wraps a RemoveNodePayload in an Action envelope.
-func NewRemoveNodeAction(p RemoveNodePayload) Action {
-	return Action{Type: ActionTypeRemoveNode, RemoveNode: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewAddEdgeAction wraps a AddEdgePayload in an Action envelope.
-func NewAddEdgeAction(p AddEdgePayload) Action {
-	return Action{Type: ActionTypeAddEdge, AddEdge: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
-func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
-	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
-}
+// NewSetNodePositionAction returns an Action that carries p.
+func NewSetNodePositionAction(p SetNodePositionPayload) Action { return Action{Variant: p} }
 
-// NewSetConfigAction wraps a SetConfigPayload in an Action envelope.
-func NewSetConfigAction(p SetConfigPayload) Action {
-	return Action{Type: ActionTypeSetConfig, SetConfig: &p}
-}
+// NewSetNodeAction returns an Action that carries p.
+func NewSetNodeAction(p SetNodePayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewRemoveNodeAction returns an Action that carries p.
+func NewRemoveNodeAction(p RemoveNodePayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewAddEdgeAction returns an Action that carries p.
+func NewAddEdgeAction(p AddEdgePayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewRemoveEdgeAction returns an Action that carries p.
+func NewRemoveEdgeAction(p RemoveEdgePayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewSetConfigAction returns an Action that carries p.
+func NewSetConfigAction(p SetConfigPayload) Action { return Action{Variant: p} }

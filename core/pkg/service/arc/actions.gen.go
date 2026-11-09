@@ -12,267 +12,59 @@
 package arc
 
 import (
-	"uuid"
-
-	"github.com/synnaxlabs/arc/graph"
-	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/x/crdt"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeSetNode is the Type of an Action that carries SetNodePayload.
-	ActionTypeSetNode = "set_node"
-	// ActionTypeSetNodePosition is the Type of an Action that carries
-	// SetNodePositionPayload.
-	ActionTypeSetNodePosition = "set_node_position"
-	// ActionTypeSetNodeInputs is the Type of an Action that carries
-	// SetNodeInputsPayload.
-	ActionTypeSetNodeInputs = "set_node_inputs"
-	// ActionTypeRemoveNode is the Type of an Action that carries RemoveNodePayload.
-	ActionTypeRemoveNode = "remove_node"
-	// ActionTypeAddEdge is the Type of an Action that carries AddEdgePayload.
-	ActionTypeAddEdge = "add_edge"
-	// ActionTypeRemoveEdge is the Type of an Action that carries RemoveEdgePayload.
-	ActionTypeRemoveEdge = "remove_edge"
-	// ActionTypeReconnectEdge is the Type of an Action that carries
-	// ReconnectEdgePayload.
-	ActionTypeReconnectEdge = "reconnect_edge"
-	// ActionTypeInsertChar is the Type of an Action that carries InsertCharPayload.
-	ActionTypeInsertChar = "insert_char"
-	// ActionTypeDeleteChar is the Type of an Action that carries DeleteCharPayload.
-	ActionTypeDeleteChar = "delete_char"
-	// ActionTypeForgetChars is the Type of an Action that carries ForgetCharsPayload.
-	ActionTypeForgetChars = "forget_chars"
-	// ActionTypeSetDirectory is the Type of an Action that carries SetDirectoryPayload.
-	ActionTypeSetDirectory = "set_directory"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-)
-
-// CreatePayload replaces the document with the given created state. Emitted by the Core
-// on create so remote caches ingest new documents; clients never dispatch it.
-type CreatePayload struct {
-	Arc Arc `json:"arc" msgpack:"arc"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(Arc) (Arc, error) {
+	return Arc{}, actions.ErrCoreOnly
 }
 
-// SetNodePayload inserts the node if no node with the same key exists, otherwise
-// replaces the existing node in place. Operates only on the node's position; the node's
-// function type and inputs are set separately via SetNodeInputs.
-type SetNodePayload struct {
-	Node graph.Node `json:"node" msgpack:"node"`
-}
-
-// SetNodePositionPayload moves a graph node to a new canvas position.
-type SetNodePositionPayload struct {
-	Key      string     `json:"key" msgpack:"key"`
-	Position spatial.XY `json:"position" msgpack:"position"`
-}
-
-// SetNodeInputsPayload merges the given inputs into the entry for the given key in the
-// graph inputs map. Top-level fields present in the payload overwrite existing fields;
-// fields absent from the payload are preserved. The node's function type is held under
-// "type".
-type SetNodeInputsPayload struct {
-	Key    string              `json:"key" msgpack:"key"`
-	Inputs msgpack.EncodedJSON `json:"inputs" msgpack:"inputs"`
-}
-
-// RemoveNodePayload removes the node with the given key along with its inputs entry and
-// any edges connected to it.
-type RemoveNodePayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// AddEdgePayload appends the edge to the graph. No-op when an edge with the same source
-// and target handles already exists, so concurrent additions of the same connection
-// converge regardless of differing keys.
-type AddEdgePayload struct {
-	Edge graph.Edge `json:"edge" msgpack:"edge"`
-}
-
-// RemoveEdgePayload removes the edge with the given key, if present.
-type RemoveEdgePayload struct {
-	Key string `json:"key" msgpack:"key"`
-}
-
-// ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
-// preserving its key and kind. No-op when no edge with the key exists.
-type ReconnectEdgePayload struct {
-	Key    string    `json:"key" msgpack:"key"`
-	Source ir.Handle `json:"source" msgpack:"source"`
-	Target ir.Handle `json:"target" msgpack:"target"`
-}
-
-// InsertCharPayload carries a single collaborative-edit character insertion against the
-// module's text. The payload is a sequence CRDT operation; the server relays it to the
-// other editors of the module without interpreting it.
-type InsertCharPayload struct {
-	ID     crdt.ID           `json:"id" msgpack:"id"`
-	Origin crdt.ID           `json:"origin" msgpack:"origin"`
-	Side   spatial.XLocation `json:"side" msgpack:"side"`
-	Char   int32             `json:"char" msgpack:"char"`
-}
-
-// DeleteCharPayload carries a single collaborative-edit character deletion against the
-// module's text. The payload is a sequence CRDT operation; the server relays it to the
-// other editors of the module without interpreting it.
-type DeleteCharPayload struct {
-	ID crdt.ID `json:"id" msgpack:"id"`
-}
-
-// ForgetCharsPayload removes the given already-deleted characters from the module's
-// text document, dropping both their insert and delete operations from the replicated
-// op-log. The server emits it after a quiet editing period to reclaim the space held by
-// tombstoned characters. Because the characters are already deleted, and thus
-// invisible, applying it never changes the materialized text.
-type ForgetCharsPayload struct {
-	IDs []crdt.ID `json:"ids" msgpack:"ids"`
-}
-
-// SetDirectoryPayload moves the Arc into the directory with the given key. The root
-// Arcs directory holds the Arcs at the top level.
-type SetDirectoryPayload struct {
-	Directory uuid.UUID `json:"directory" msgpack:"directory"`
-}
-
-// SetPayload replaces the Arc's name, or the value at a path in the graph's node
-// inputs.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object in the graph's
-// node inputs.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list in the graph's node inputs.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list in the graph's node inputs.
-type MovePayload patch.Move
-
-// Action is a discriminated union for all Arc mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type            string                  `json:"type" msgpack:"type"`
-	Create          *CreatePayload          `json:"create,omitzero" msgpack:"create,omitempty"`
-	SetNode         *SetNodePayload         `json:"set_node,omitzero" msgpack:"set_node,omitempty"`
-	SetNodePosition *SetNodePositionPayload `json:"set_node_position,omitzero" msgpack:"set_node_position,omitempty"`
-	SetNodeInputs   *SetNodeInputsPayload   `json:"set_node_inputs,omitzero" msgpack:"set_node_inputs,omitempty"`
-	RemoveNode      *RemoveNodePayload      `json:"remove_node,omitzero" msgpack:"remove_node,omitempty"`
-	AddEdge         *AddEdgePayload         `json:"add_edge,omitzero" msgpack:"add_edge,omitempty"`
-	RemoveEdge      *RemoveEdgePayload      `json:"remove_edge,omitzero" msgpack:"remove_edge,omitempty"`
-	ReconnectEdge   *ReconnectEdgePayload   `json:"reconnect_edge,omitzero" msgpack:"reconnect_edge,omitempty"`
-	InsertChar      *InsertCharPayload      `json:"insert_char,omitzero" msgpack:"insert_char,omitempty"`
-	DeleteChar      *DeleteCharPayload      `json:"delete_char,omitzero" msgpack:"delete_char,omitempty"`
-	ForgetChars     *ForgetCharsPayload     `json:"forget_chars,omitzero" msgpack:"forget_chars,omitempty"`
-	SetDirectory    *SetDirectoryPayload    `json:"set_directory,omitzero" msgpack:"set_directory,omitempty"`
-	Set             *SetPayload             `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove          *RemovePayload          `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert          *InsertPayload          `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move            *MovePayload            `json:"move,omitzero" msgpack:"move,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Arc, actions ...Action) (Arc, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Arc, acts ...Action) (Arc, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeSetNode:
-			if a.SetNode == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNode.Handle(state)
-		case ActionTypeSetNodePosition:
-			if a.SetNodePosition == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNodePosition.Handle(state)
-		case ActionTypeSetNodeInputs:
-			if a.SetNodeInputs == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetNodeInputs.Handle(state)
-		case ActionTypeRemoveNode:
-			if a.RemoveNode == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveNode.Handle(state)
-		case ActionTypeAddEdge:
-			if a.AddEdge == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.AddEdge.Handle(state)
-		case ActionTypeRemoveEdge:
-			if a.RemoveEdge == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveEdge.Handle(state)
-		case ActionTypeReconnectEdge:
-			if a.ReconnectEdge == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.ReconnectEdge.Handle(state)
-		case ActionTypeInsertChar:
-			if a.InsertChar == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.InsertChar.Handle(state)
-		case ActionTypeDeleteChar:
-			if a.DeleteChar == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.DeleteChar.Handle(state)
-		case ActionTypeForgetChars:
-			if a.ForgetChars == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.ForgetChars.Handle(state)
-		case ActionTypeSetDirectory:
-			if a.SetDirectory == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetDirectory.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case SetNodePayload:
+			state, err = v.Handle(state)
+		case SetNodePositionPayload:
+			state, err = v.Handle(state)
+		case SetNodeInputsPayload:
+			state, err = v.Handle(state)
+		case RemoveNodePayload:
+			state, err = v.Handle(state)
+		case AddEdgePayload:
+			state, err = v.Handle(state)
+		case RemoveEdgePayload:
+			state, err = v.Handle(state)
+		case ReconnectEdgePayload:
+			state, err = v.Handle(state)
+		case InsertCharPayload:
+			state, err = v.Handle(state)
+		case DeleteCharPayload:
+			state, err = v.Handle(state)
+		case ForgetCharsPayload:
+			state, err = v.Handle(state)
+		case SetDirectoryPayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -281,82 +73,50 @@ func Reduce(state Arc, actions ...Action) (Arc, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewSetNodeAction wraps a SetNodePayload in an Action envelope.
-func NewSetNodeAction(p SetNodePayload) Action {
-	return Action{Type: ActionTypeSetNode, SetNode: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewSetNodePositionAction wraps a SetNodePositionPayload in an Action envelope.
-func NewSetNodePositionAction(p SetNodePositionPayload) Action {
-	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewSetNodeInputsAction wraps a SetNodeInputsPayload in an Action envelope.
-func NewSetNodeInputsAction(p SetNodeInputsPayload) Action {
-	return Action{Type: ActionTypeSetNodeInputs, SetNodeInputs: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewRemoveNodeAction wraps a RemoveNodePayload in an Action envelope.
-func NewRemoveNodeAction(p RemoveNodePayload) Action {
-	return Action{Type: ActionTypeRemoveNode, RemoveNode: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewAddEdgeAction wraps a AddEdgePayload in an Action envelope.
-func NewAddEdgeAction(p AddEdgePayload) Action {
-	return Action{Type: ActionTypeAddEdge, AddEdge: &p}
-}
+// NewSetNodeAction returns an Action that carries p.
+func NewSetNodeAction(p SetNodePayload) Action { return Action{Variant: p} }
 
-// NewRemoveEdgeAction wraps a RemoveEdgePayload in an Action envelope.
-func NewRemoveEdgeAction(p RemoveEdgePayload) Action {
-	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
-}
+// NewSetNodePositionAction returns an Action that carries p.
+func NewSetNodePositionAction(p SetNodePositionPayload) Action { return Action{Variant: p} }
 
-// NewReconnectEdgeAction wraps a ReconnectEdgePayload in an Action envelope.
-func NewReconnectEdgeAction(p ReconnectEdgePayload) Action {
-	return Action{Type: ActionTypeReconnectEdge, ReconnectEdge: &p}
-}
+// NewSetNodeInputsAction returns an Action that carries p.
+func NewSetNodeInputsAction(p SetNodeInputsPayload) Action { return Action{Variant: p} }
 
-// NewInsertCharAction wraps a InsertCharPayload in an Action envelope.
-func NewInsertCharAction(p InsertCharPayload) Action {
-	return Action{Type: ActionTypeInsertChar, InsertChar: &p}
-}
+// NewRemoveNodeAction returns an Action that carries p.
+func NewRemoveNodeAction(p RemoveNodePayload) Action { return Action{Variant: p} }
 
-// NewDeleteCharAction wraps a DeleteCharPayload in an Action envelope.
-func NewDeleteCharAction(p DeleteCharPayload) Action {
-	return Action{Type: ActionTypeDeleteChar, DeleteChar: &p}
-}
+// NewAddEdgeAction returns an Action that carries p.
+func NewAddEdgeAction(p AddEdgePayload) Action { return Action{Variant: p} }
 
-// NewForgetCharsAction wraps a ForgetCharsPayload in an Action envelope.
-func NewForgetCharsAction(p ForgetCharsPayload) Action {
-	return Action{Type: ActionTypeForgetChars, ForgetChars: &p}
-}
+// NewRemoveEdgeAction returns an Action that carries p.
+func NewRemoveEdgeAction(p RemoveEdgePayload) Action { return Action{Variant: p} }
 
-// NewSetDirectoryAction wraps a SetDirectoryPayload in an Action envelope.
-func NewSetDirectoryAction(p SetDirectoryPayload) Action {
-	return Action{Type: ActionTypeSetDirectory, SetDirectory: &p}
-}
+// NewReconnectEdgeAction returns an Action that carries p.
+func NewReconnectEdgeAction(p ReconnectEdgePayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewInsertCharAction returns an Action that carries p.
+func NewInsertCharAction(p InsertCharPayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewDeleteCharAction returns an Action that carries p.
+func NewDeleteCharAction(p DeleteCharPayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewForgetCharsAction returns an Action that carries p.
+func NewForgetCharsAction(p ForgetCharsPayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewSetDirectoryAction returns an Action that carries p.
+func NewSetDirectoryAction(p SetDirectoryPayload) Action { return Action{Variant: p} }

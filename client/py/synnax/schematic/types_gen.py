@@ -19,8 +19,24 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from synnax import channel as channel_, group as group_, project as project_, ranger
 from synnax.resource import ID
 from synnax.schematic import symbol
-from x import border, color as color_, filter, notation as notation_, spatial, text
+from x import (
+    border,
+    color as color_,
+    filter,
+    notation as notation_,
+    patch,
+    spatial,
+    text,
+)
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 FLEX_ALIGNMENT_START: Literal["start"] = "start"
 
@@ -224,6 +240,27 @@ class ScaledConfig(BaseModel):
     scale: float = 1
 
 
+class SetNodePositionPayload(BaseModel):
+    """Moves a node to a new position."""
+
+    key: str
+    position: spatial.XY
+
+
+class RemoveNodePayload(BaseModel):
+    """Removes the node, its config, and the edges that connect to it and their configs.
+    No-op when no node has the key.
+    """
+
+    key: str
+
+
+class RemoveEdgePayload(BaseModel):
+    """Removes the edge with the given key and its config, if present."""
+
+    key: str
+
+
 class Order(BaseModel):
     """Is a sort of schematics.
 
@@ -392,6 +429,14 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class AddEdgePayload(BaseModel):
+    """Appends the edge to the schematic. No-op when an edge with the same key already
+    exists, or when the source or target node does not exist.
+    """
+
+    edge: Edge
 
 
 class PipeEdgeConfig(SegmentedEdgeConfig):
@@ -2029,6 +2074,35 @@ class Schematic(BaseModel):
         return hash(self.key)
 
 
+class SetNodePayload(BaseModel):
+    """Inserts the node if no node with the same key exists, otherwise replaces the
+    existing node in place. A present config replaces the entry stored under the node's
+    key in the schematic configs map.
+    """
+
+    node: Node
+    config: ElementConfig | None = None
+
+
+class SetConfigPayload(BaseModel):
+    """Replaces the config entry stored under the given node or edge key. No-op when no
+    node or edge has the key.
+    """
+
+    key: str
+    config: ElementConfig
+
+
+class CreatePayload(BaseModel):
+    """Replaces the state with the created schematic. Only the Core emits it.
+
+    Attributes:
+        schematic: Is the created schematic.
+    """
+
+    schematic: Schematic
+
+
 class RetrieveResponse(BaseModel):
     """Holds the schematics a RetrieveRequest selects.
 
@@ -2037,6 +2111,78 @@ class RetrieveResponse(BaseModel):
     """
 
     schematics: list[Schematic] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class SetNodePositionAction(BaseModel):
+    type: Literal["set_node_position"] = "set_node_position"
+    set_node_position: SetNodePositionPayload
+
+
+class SetNodeAction(BaseModel):
+    type: Literal["set_node"] = "set_node"
+    set_node: SetNodePayload
+
+
+class RemoveNodeAction(BaseModel):
+    type: Literal["remove_node"] = "remove_node"
+    remove_node: RemoveNodePayload
+
+
+class AddEdgeAction(BaseModel):
+    type: Literal["add_edge"] = "add_edge"
+    add_edge: AddEdgePayload
+
+
+class RemoveEdgeAction(BaseModel):
+    type: Literal["remove_edge"] = "remove_edge"
+    remove_edge: RemoveEdgePayload
+
+
+class SetConfigAction(BaseModel):
+    type: Literal["set_config"] = "set_config"
+    set_config: SetConfigPayload
+
+
+# Holds one schematic mutation.
+Action = Annotated[
+    CreateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | SetNodePositionAction
+    | SetNodeAction
+    | RemoveNodeAction
+    | AddEdgeAction
+    | RemoveEdgeAction
+    | SetConfigAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()

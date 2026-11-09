@@ -12,251 +12,55 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/patch"
-	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/union"
 )
 
-const (
-	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
-	ActionTypeCreate = "create"
-	// ActionTypeSetIcon is the Type of an Action that carries SetIconPayload.
-	ActionTypeSetIcon = "set_icon"
-	// ActionTypeSetColor is the Type of an Action that carries SetColorPayload.
-	ActionTypeSetColor = "set_color"
-	// ActionTypeInsertTabs is the Type of an Action that carries InsertTabsPayload.
-	ActionTypeInsertTabs = "insert_tabs"
-	// ActionTypeRemoveTab is the Type of an Action that carries RemoveTabPayload.
-	ActionTypeRemoveTab = "remove_tab"
-	// ActionTypeMoveTab is the Type of an Action that carries MoveTabPayload.
-	ActionTypeMoveTab = "move_tab"
-	// ActionTypeSplitTab is the Type of an Action that carries SplitTabPayload.
-	ActionTypeSplitTab = "split_tab"
-	// ActionTypeResizeSplit is the Type of an Action that carries ResizeSplitPayload.
-	ActionTypeResizeSplit = "resize_split"
-	// ActionTypeSetTabResource is the Type of an Action that carries
-	// SetTabResourcePayload.
-	ActionTypeSetTabResource = "set_tab_resource"
-	// ActionTypeSetTabView is the Type of an Action that carries SetTabViewPayload.
-	ActionTypeSetTabView = "set_tab_view"
-	// ActionTypeSet is the Type of an Action that carries SetPayload.
-	ActionTypeSet = "set"
-	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
-	ActionTypeRemove = "remove"
-	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
-	ActionTypeInsert = "insert"
-	// ActionTypeMove is the Type of an Action that carries MovePayload.
-	ActionTypeMove = "move"
-)
-
-// CreatePayload replaces the document with the given created state. Emitted by the Core
-// on create so remote caches ingest new documents; clients never dispatch it.
-type CreatePayload struct {
-	Panel Panel `json:"panel" msgpack:"panel"`
+// Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
+func (CreatePayload) Handle(Panel) (Panel, error) {
+	return Panel{}, actions.ErrCoreOnly
 }
 
-// SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
-type SetIconPayload struct {
-	Icon *string `json:"icon,omitzero" msgpack:"icon,omitempty"`
-}
-
-// SetColorPayload sets the color of the panel's icon. Null lets the theme pick it.
-type SetColorPayload struct {
-	Color *color.Color `json:"color,omitzero" msgpack:"color,omitempty"`
-}
-
-// InsertTabsPayload inserts tabs into a leaf in order, starting at the given index and
-// appending when index is absent or past the leaf's end. The destination leaf is
-// resolved from target_tab (the leaf holding that tab) when set, otherwise from the
-// target_leaf path-derived key, otherwise the first leaf in traversal order. Both are
-// hints: a target that no longer resolves to a leaf falls back to the first leaf
-// instead of failing, so a placement invalidated between the gesture and the dispatch
-// still opens the tabs. The fallback drops location too, leaving a leaf the caller
-// never pointed at unsplit. When location is an edge, the resolved leaf is split once
-// at that location and every tab is inserted into the new empty leaf; a center location
-// places the tabs directly in the resolved leaf, equivalent to absent. The split is
-// deferred to the first tab that lands, so a batch whose every tab is skipped leaves no
-// empty pane behind. A tab whose key is already in the tree has its content refreshed
-// and keeps its position unless the payload carries an explicit placement, in which
-// case it is relocated with the rest. Inserting a resource tab whose resource already
-// backs a different tab is skipped, as is a view tab of a type already backing a tab
-// when singleton is set: each may back at most one tab per panel, and callers select
-// the existing tab instead. Skipping one tab does not stop the others.
-type InsertTabsPayload struct {
-	Tabs       []Tab             `json:"tabs" msgpack:"tabs"`
-	TargetLeaf *int32            `json:"target_leaf,omitzero" msgpack:"target_leaf,omitempty"`
-	TargetTab  *TabKey           `json:"target_tab,omitzero" msgpack:"target_tab,omitempty"`
-	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
-	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
-	Singleton  *bool             `json:"singleton,omitzero" msgpack:"singleton,omitempty"`
-}
-
-// RemoveTabPayload removes the tab with the given key. If the containing leaf becomes
-// empty and has a sibling, the reducer collapses the parent split.
-type RemoveTabPayload struct {
-	Key TabKey `json:"key" msgpack:"key"`
-}
-
-// MoveTabPayload moves a tab to a position within the panel. When location is an edge,
-// the target leaf is first split at that location and the tab moves into the new empty
-// leaf; moving a leaf's only tab to an edge of its own leaf is a no-op. A center
-// location places the tab directly in the target leaf, equivalent to absent.
-// Cross-panel moves are RemoveTab on the source plus InsertTabs on the destination (two
-// dispatches; not atomic).
-type MoveTabPayload struct {
-	Key        TabKey            `json:"key" msgpack:"key"`
-	TargetLeaf int32             `json:"target_leaf" msgpack:"target_leaf"`
-	Index      *int32            `json:"index,omitzero" msgpack:"index,omitempty"`
-	Location   *spatial.Location `json:"location,omitzero" msgpack:"location,omitempty"`
-}
-
-// SplitTabPayload splits the tab with the given key off its leaf into a new sibling
-// pane, moving the tab into it. direction x places the new pane to the right, y to the
-// bottom. The tab must share its leaf with at least one other tab; splitting the only
-// tab in a leaf is a no-op.
-type SplitTabPayload struct {
-	Key       TabKey            `json:"key" msgpack:"key"`
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-}
-
-// ResizeSplitPayload adjusts the size ratio of a split node. size in [0, 1].
-type ResizeSplitPayload struct {
-	Split int32           `json:"split" msgpack:"split"`
-	Size  spatial.Decimal `json:"size" msgpack:"size"`
-}
-
-// SetTabResourcePayload sets the visualization resource displayed by the tab with the
-// given key, swapping it in place without changing the tab's identity or position.
-// Clears any view set on the tab. A no-op when the resource already backs another tab
-// in the panel. Used to fill a freshly inserted selector tab once the user picks a
-// visualization.
-type SetTabResourcePayload struct {
-	Key      TabKey      `json:"key" msgpack:"key"`
-	Resource resource.ID `json:"resource" msgpack:"resource"`
-}
-
-// SetTabViewPayload sets the inline view displayed by the tab with the given key,
-// swapping it in place without changing the tab's identity or position. Clears any
-// resource set on the tab.
-type SetTabViewPayload struct {
-	Key  TabKey `json:"key" msgpack:"key"`
-	View View   `json:"view" msgpack:"view"`
-}
-
-// SetPayload replaces the value at a path in the panel.
-type SetPayload patch.Set
-
-// RemovePayload removes an entry from a list or a field from an object in the panel.
-type RemovePayload patch.Remove
-
-// InsertPayload adds an entry to a list in the panel.
-type InsertPayload patch.Insert
-
-// MovePayload moves an entry in a list in the panel.
-type MovePayload patch.Move
-
-// Action is a discriminated union for all Panel mutations. Type names
-// the variant; the matching pointer field carries the payload and others are nil.
-type Action struct {
-	Type           string                 `json:"type" msgpack:"type"`
-	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
-	SetIcon        *SetIconPayload        `json:"set_icon,omitzero" msgpack:"set_icon,omitempty"`
-	SetColor       *SetColorPayload       `json:"set_color,omitzero" msgpack:"set_color,omitempty"`
-	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
-	RemoveTab      *RemoveTabPayload      `json:"remove_tab,omitzero" msgpack:"remove_tab,omitempty"`
-	MoveTab        *MoveTabPayload        `json:"move_tab,omitzero" msgpack:"move_tab,omitempty"`
-	SplitTab       *SplitTabPayload       `json:"split_tab,omitzero" msgpack:"split_tab,omitempty"`
-	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitzero" msgpack:"resize_split,omitempty"`
-	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitzero" msgpack:"set_tab_resource,omitempty"`
-	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitzero" msgpack:"set_tab_view,omitempty"`
-	Set            *SetPayload            `json:"set,omitzero" msgpack:"set,omitempty"`
-	Remove         *RemovePayload         `json:"remove,omitzero" msgpack:"remove,omitempty"`
-	Insert         *InsertPayload         `json:"insert,omitzero" msgpack:"insert,omitempty"`
-	Move           *MovePayload           `json:"move,omitzero" msgpack:"move,omitempty"`
-}
-
-// Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
-func Reduce(state Panel, actions ...Action) (Panel, error) {
+// Reduce applies acts to state in order through the Handle method of each payload. It
+// returns the first error with the state reduced up to it. An Action with no Variant
+// returns union.ErrMissingPayload.
+func Reduce(state Panel, acts ...Action) (Panel, error) {
 	var err error
-	for _, a := range actions {
-		switch a.Type {
-		case ActionTypeCreate:
-			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Create.Handle(state)
-		case ActionTypeSetIcon:
-			if a.SetIcon == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetIcon.Handle(state)
-		case ActionTypeSetColor:
-			if a.SetColor == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetColor.Handle(state)
-		case ActionTypeInsertTabs:
-			if a.InsertTabs == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.InsertTabs.Handle(state)
-		case ActionTypeRemoveTab:
-			if a.RemoveTab == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.RemoveTab.Handle(state)
-		case ActionTypeMoveTab:
-			if a.MoveTab == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.MoveTab.Handle(state)
-		case ActionTypeSplitTab:
-			if a.SplitTab == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SplitTab.Handle(state)
-		case ActionTypeResizeSplit:
-			if a.ResizeSplit == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.ResizeSplit.Handle(state)
-		case ActionTypeSetTabResource:
-			if a.SetTabResource == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetTabResource.Handle(state)
-		case ActionTypeSetTabView:
-			if a.SetTabView == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetTabView.Handle(state)
-		case ActionTypeSet:
-			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Set.Handle(state)
-		case ActionTypeRemove:
-			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Remove.Handle(state)
-		case ActionTypeInsert:
-			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Insert.Handle(state)
-		case ActionTypeMove:
-			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Move.Handle(state)
+	for _, a := range acts {
+		switch v := a.Variant.(type) {
+		case CreatePayload:
+			state, err = v.Handle(state)
+		case SetPayload:
+			state, err = v.Handle(state)
+		case RemovePayload:
+			state, err = v.Handle(state)
+		case InsertPayload:
+			state, err = v.Handle(state)
+		case MovePayload:
+			state, err = v.Handle(state)
+		case SetIconPayload:
+			state, err = v.Handle(state)
+		case SetColorPayload:
+			state, err = v.Handle(state)
+		case InsertTabsPayload:
+			state, err = v.Handle(state)
+		case RemoveTabPayload:
+			state, err = v.Handle(state)
+		case MoveTabPayload:
+			state, err = v.Handle(state)
+		case SplitTabPayload:
+			state, err = v.Handle(state)
+		case ResizeSplitPayload:
+			state, err = v.Handle(state)
+		case SetTabResourcePayload:
+			state, err = v.Handle(state)
+		case SetTabViewPayload:
+			state, err = v.Handle(state)
+		case nil:
+			return state, union.ErrMissingPayload
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return state, errors.Newf("Action: unknown variant %T", v)
 		}
 		if err != nil {
 			return state, err
@@ -265,72 +69,44 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 	return state, nil
 }
 
-// NewCreateAction wraps a CreatePayload in an Action envelope.
-func NewCreateAction(p CreatePayload) Action {
-	return Action{Type: ActionTypeCreate, Create: &p}
-}
+// NewCreateAction returns an Action that carries p.
+func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
 
-// NewSetIconAction wraps a SetIconPayload in an Action envelope.
-func NewSetIconAction(p SetIconPayload) Action {
-	return Action{Type: ActionTypeSetIcon, SetIcon: &p}
-}
+// NewSetAction returns an Action that carries p.
+func NewSetAction(p SetPayload) Action { return Action{Variant: p} }
 
-// NewSetColorAction wraps a SetColorPayload in an Action envelope.
-func NewSetColorAction(p SetColorPayload) Action {
-	return Action{Type: ActionTypeSetColor, SetColor: &p}
-}
+// NewRemoveAction returns an Action that carries p.
+func NewRemoveAction(p RemovePayload) Action { return Action{Variant: p} }
 
-// NewInsertTabsAction wraps a InsertTabsPayload in an Action envelope.
-func NewInsertTabsAction(p InsertTabsPayload) Action {
-	return Action{Type: ActionTypeInsertTabs, InsertTabs: &p}
-}
+// NewInsertAction returns an Action that carries p.
+func NewInsertAction(p InsertPayload) Action { return Action{Variant: p} }
 
-// NewRemoveTabAction wraps a RemoveTabPayload in an Action envelope.
-func NewRemoveTabAction(p RemoveTabPayload) Action {
-	return Action{Type: ActionTypeRemoveTab, RemoveTab: &p}
-}
+// NewMoveAction returns an Action that carries p.
+func NewMoveAction(p MovePayload) Action { return Action{Variant: p} }
 
-// NewMoveTabAction wraps a MoveTabPayload in an Action envelope.
-func NewMoveTabAction(p MoveTabPayload) Action {
-	return Action{Type: ActionTypeMoveTab, MoveTab: &p}
-}
+// NewSetIconAction returns an Action that carries p.
+func NewSetIconAction(p SetIconPayload) Action { return Action{Variant: p} }
 
-// NewSplitTabAction wraps a SplitTabPayload in an Action envelope.
-func NewSplitTabAction(p SplitTabPayload) Action {
-	return Action{Type: ActionTypeSplitTab, SplitTab: &p}
-}
+// NewSetColorAction returns an Action that carries p.
+func NewSetColorAction(p SetColorPayload) Action { return Action{Variant: p} }
 
-// NewResizeSplitAction wraps a ResizeSplitPayload in an Action envelope.
-func NewResizeSplitAction(p ResizeSplitPayload) Action {
-	return Action{Type: ActionTypeResizeSplit, ResizeSplit: &p}
-}
+// NewInsertTabsAction returns an Action that carries p.
+func NewInsertTabsAction(p InsertTabsPayload) Action { return Action{Variant: p} }
 
-// NewSetTabResourceAction wraps a SetTabResourcePayload in an Action envelope.
-func NewSetTabResourceAction(p SetTabResourcePayload) Action {
-	return Action{Type: ActionTypeSetTabResource, SetTabResource: &p}
-}
+// NewRemoveTabAction returns an Action that carries p.
+func NewRemoveTabAction(p RemoveTabPayload) Action { return Action{Variant: p} }
 
-// NewSetTabViewAction wraps a SetTabViewPayload in an Action envelope.
-func NewSetTabViewAction(p SetTabViewPayload) Action {
-	return Action{Type: ActionTypeSetTabView, SetTabView: &p}
-}
+// NewMoveTabAction returns an Action that carries p.
+func NewMoveTabAction(p MoveTabPayload) Action { return Action{Variant: p} }
 
-// NewSetAction wraps a SetPayload in an Action envelope.
-func NewSetAction(p SetPayload) Action {
-	return Action{Type: ActionTypeSet, Set: &p}
-}
+// NewSplitTabAction returns an Action that carries p.
+func NewSplitTabAction(p SplitTabPayload) Action { return Action{Variant: p} }
 
-// NewRemoveAction wraps a RemovePayload in an Action envelope.
-func NewRemoveAction(p RemovePayload) Action {
-	return Action{Type: ActionTypeRemove, Remove: &p}
-}
+// NewResizeSplitAction returns an Action that carries p.
+func NewResizeSplitAction(p ResizeSplitPayload) Action { return Action{Variant: p} }
 
-// NewInsertAction wraps a InsertPayload in an Action envelope.
-func NewInsertAction(p InsertPayload) Action {
-	return Action{Type: ActionTypeInsert, Insert: &p}
-}
+// NewSetTabResourceAction returns an Action that carries p.
+func NewSetTabResourceAction(p SetTabResourcePayload) Action { return Action{Variant: p} }
 
-// NewMoveAction wraps a MovePayload in an Action envelope.
-func NewMoveAction(p MovePayload) Action {
-	return Action{Type: ActionTypeMove, Move: &p}
-}
+// NewSetTabViewAction returns an Action that carries p.
+func NewSetTabViewAction(p SetTabViewPayload) Action { return Action{Variant: p} }

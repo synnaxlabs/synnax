@@ -22,6 +22,7 @@
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/json.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -225,6 +226,18 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
+inline CreatePayload CreatePayload::parse(x::json::Parser parser) {
+    return CreatePayload{
+        .task = parser.field<Task>("task"),
+    };
+}
+
+inline x::json::json CreatePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["task"] = this->task.to_json();
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -384,6 +397,27 @@ inline Scale parse_scale(x::json::Parser parser) {
 
 inline x::json::json to_json(const Scale &value) {
     return std::visit([](const auto &v) { return v.to_json(); }, value);
+}
+
+inline Action parse_action(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "create") return CreatePayload::parse(parser.child("create"));
+    if (discriminator == "set") return SetPayload::parse(parser.child("set"));
+    if (discriminator == "remove") return RemovePayload::parse(parser.child("remove"));
+    if (discriminator == "insert") return InsertPayload::parse(parser.child("insert"));
+    if (discriminator == "move") return MovePayload::parse(parser.child("move"));
+    parser.field_err("type", "unknown Action type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Action &value) {
+    static constexpr const char *discriminators[] =
+        {"create", "set", "remove", "insert", "move"};
+    const std::string discriminator = discriminators[value.index()];
+    x::json::json j = x::json::json::object();
+    j["type"] = discriminator;
+    j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
+    return j;
 }
 
 }

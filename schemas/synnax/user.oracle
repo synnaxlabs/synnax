@@ -44,23 +44,6 @@ User struct {
         @validate required
     }
 
-    action Create {
-        user User
-
-        @doc value """
-            replaces the user with the given created state. Emitted by the Core when a
-            user is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
     action SetUsername {
         username string
 
@@ -70,6 +53,7 @@ User struct {
         """
     }
 
+    @actions
     @doc value       """
         is an account entity representing a person accessing the Synnax system. Each
         user holds one role, which grants its permissions.

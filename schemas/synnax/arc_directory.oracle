@@ -37,23 +37,7 @@ Directory struct {
         @ref on_delete restrict
     }
 
-    action Create {
-        directory Directory
-
-        @doc value """
-            replaces the directory with the given created state. Emitted by the Core
-            when a directory is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @doc value     "holds Arcs and other directories below the Arcs root."
     @go marshal
     @go migrate

@@ -123,15 +123,6 @@ Log struct {
         @ref on_delete cascade
     }
 
-    action Create {
-        log Log
-
-        @doc value """
-            replaces the document with the given created state. Emitted by the Core on
-            create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
     action AddChannel {
         channel channel.Key
 
@@ -259,24 +250,7 @@ Log struct {
         @doc value "sets the time zone of the line times and day rows of the log."
     }
 
-    action Set = patch.Set {
-        @doc value "replaces the value at a path in the log."
-    }
-
-    action Remove = patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the log.
-        """
-    }
-
-    action Insert = patch.Insert {
-        @doc value "adds an entry to a list in the log."
-    }
-
-    action Move = patch.Move {
-        @doc value "moves an entry in a list in the log."
-    }
-
+    @actions
     @create
     @doc value     """
         is a visualization that shows the samples of its channels as text, one line per

@@ -98,15 +98,6 @@ Arc union on type Type extends Base {
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
-    action Create {
-        arc Arc
-
-        @doc value """
-            replaces the document with the given created state. Emitted by the Core on
-            create so remote caches ingest new documents; clients never dispatch it.
-        """
-    }
-
     action SetNode {
         node graph.Node
 
@@ -214,27 +205,7 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Set = patch.Set {
-        @doc value """
-            replaces the Arc's name, or the value at a path in the graph's node inputs.
-        """
-    }
-
-    action Remove = patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the graph's node
-            inputs.
-        """
-    }
-
-    action Insert = patch.Insert {
-        @doc value "adds an entry to a list in the graph's node inputs."
-    }
-
-    action Move = patch.Move {
-        @doc value "moves an entry in a list in the graph's node inputs."
-    }
-
+    @actions
     @create
     @doc value     """
         is an Arc module combining visual graph representation and text-based source

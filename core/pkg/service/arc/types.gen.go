@@ -12,8 +12,21 @@
 package arc
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/arc/graph"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
+	"github.com/synnaxlabs/x/crdt"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"github.com/vmihailenco/msgpack/v5/msgpcode"
 	"uuid"
 )
 
@@ -81,4 +94,835 @@ type Where struct {
 	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
 	// Directories matches the Arcs in any of the given directories.
 	Directories []uuid.UUID `json:"directories,omitzero" msgpack:"directories,omitempty"`
+}
+
+// CreatePayload replaces the state with the created arc. Only the Core emits it.
+type CreatePayload struct {
+	// Arc is the created arc.
+	Arc Arc `json:"arc" msgpack:"arc"`
+}
+
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
+
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
+
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
+
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
+
+// SetNodePayload inserts the node if no node with the same key exists, otherwise
+// replaces the existing node in place. Operates only on the node's position; the node's
+// function type and inputs are set separately via SetNodeInputs.
+type SetNodePayload struct {
+	Node graph.Node `json:"node" msgpack:"node"`
+}
+
+// SetNodePositionPayload moves a graph node to a new canvas position.
+type SetNodePositionPayload struct {
+	Key      string     `json:"key" msgpack:"key"`
+	Position spatial.XY `json:"position" msgpack:"position"`
+}
+
+// SetNodeInputsPayload merges the given inputs into the entry for the given key in the
+// graph inputs map. Top-level fields present in the payload overwrite existing fields;
+// fields absent from the payload are preserved. The node's function type is held under
+// "type".
+type SetNodeInputsPayload struct {
+	Key    string              `json:"key" msgpack:"key"`
+	Inputs msgpack.EncodedJSON `json:"inputs" msgpack:"inputs"`
+}
+
+// RemoveNodePayload removes the node with the given key along with its inputs entry and
+// any edges connected to it.
+type RemoveNodePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// AddEdgePayload appends the edge to the graph. No-op when an edge with the same source
+// and target handles already exists, so concurrent additions of the same connection
+// converge regardless of differing keys.
+type AddEdgePayload struct {
+	Edge graph.Edge `json:"edge" msgpack:"edge"`
+}
+
+// RemoveEdgePayload removes the edge with the given key, if present.
+type RemoveEdgePayload struct {
+	Key string `json:"key" msgpack:"key"`
+}
+
+// ReconnectEdgePayload rewrites the endpoints of the edge with the given key,
+// preserving its key and kind. No-op when no edge with the key exists.
+type ReconnectEdgePayload struct {
+	Key    string    `json:"key" msgpack:"key"`
+	Source ir.Handle `json:"source" msgpack:"source"`
+	Target ir.Handle `json:"target" msgpack:"target"`
+}
+
+// InsertCharPayload carries a single collaborative-edit character insertion against the
+// module's text. The payload is a sequence CRDT operation; the server relays it to the
+// other editors of the module without interpreting it.
+type InsertCharPayload struct {
+	crdt.Insert
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (in InsertCharPayload) Validate() error {
+	v := validate.New("InsertCharPayload")
+	v.Exec(in.Insert.Validate)
+	return v.Error()
+}
+
+// DeleteCharPayload carries a single collaborative-edit character deletion against the
+// module's text. The payload is a sequence CRDT operation; the server relays it to the
+// other editors of the module without interpreting it.
+type DeleteCharPayload struct {
+	crdt.Delete
+}
+
+// ForgetCharsPayload removes the given already-deleted characters from the module's
+// text document, dropping both their insert and delete operations from the replicated
+// op-log. The server emits it after a quiet editing period to reclaim the space held by
+// tombstoned characters. Because the characters are already deleted, and thus
+// invisible, applying it never changes the materialized text.
+type ForgetCharsPayload struct {
+	IDs []crdt.ID `json:"ids" msgpack:"ids"`
+}
+
+// SetDirectoryPayload moves the Arc into the directory with the given key. The root
+// Arcs directory holds the Arcs at the top level.
+type SetDirectoryPayload struct {
+	Directory uuid.UUID `json:"directory" msgpack:"directory"`
+}
+
+// ActionType is the "type" value that selects a variant of Action.
+type ActionType string
+
+const (
+	// CreateActionType selects the CreatePayload variant.
+	CreateActionType ActionType = "create"
+	// SetActionType selects the SetPayload variant.
+	SetActionType ActionType = "set"
+	// RemoveActionType selects the RemovePayload variant.
+	RemoveActionType ActionType = "remove"
+	// InsertActionType selects the InsertPayload variant.
+	InsertActionType ActionType = "insert"
+	// MoveActionType selects the MovePayload variant.
+	MoveActionType ActionType = "move"
+	// SetNodeActionType selects the SetNodePayload variant.
+	SetNodeActionType ActionType = "set_node"
+	// SetNodePositionActionType selects the SetNodePositionPayload variant.
+	SetNodePositionActionType ActionType = "set_node_position"
+	// SetNodeInputsActionType selects the SetNodeInputsPayload variant.
+	SetNodeInputsActionType ActionType = "set_node_inputs"
+	// RemoveNodeActionType selects the RemoveNodePayload variant.
+	RemoveNodeActionType ActionType = "remove_node"
+	// AddEdgeActionType selects the AddEdgePayload variant.
+	AddEdgeActionType ActionType = "add_edge"
+	// RemoveEdgeActionType selects the RemoveEdgePayload variant.
+	RemoveEdgeActionType ActionType = "remove_edge"
+	// ReconnectEdgeActionType selects the ReconnectEdgePayload variant.
+	ReconnectEdgeActionType ActionType = "reconnect_edge"
+	// InsertCharActionType selects the InsertCharPayload variant.
+	InsertCharActionType ActionType = "insert_char"
+	// DeleteCharActionType selects the DeleteCharPayload variant.
+	DeleteCharActionType ActionType = "delete_char"
+	// ForgetCharsActionType selects the ForgetCharsPayload variant.
+	ForgetCharsActionType ActionType = "forget_chars"
+	// SetDirectoryActionType selects the SetDirectoryPayload variant.
+	SetDirectoryActionType ActionType = "set_directory"
+)
+
+// ActionVariant is implemented by every Action variant.
+type ActionVariant interface {
+	isActionVariant()
+}
+
+func (CreatePayload) isActionVariant() {}
+
+func (SetPayload) isActionVariant() {}
+
+func (RemovePayload) isActionVariant() {}
+
+func (InsertPayload) isActionVariant() {}
+
+func (MovePayload) isActionVariant() {}
+
+func (SetNodePayload) isActionVariant() {}
+
+func (SetNodePositionPayload) isActionVariant() {}
+
+func (SetNodeInputsPayload) isActionVariant() {}
+
+func (RemoveNodePayload) isActionVariant() {}
+
+func (AddEdgePayload) isActionVariant() {}
+
+func (RemoveEdgePayload) isActionVariant() {}
+
+func (ReconnectEdgePayload) isActionVariant() {}
+
+func (InsertCharPayload) isActionVariant() {}
+
+func (DeleteCharPayload) isActionVariant() {}
+
+func (ForgetCharsPayload) isActionVariant() {}
+
+func (SetDirectoryPayload) isActionVariant() {}
+
+// Action holds one arc mutation.
+type Action struct {
+	Variant ActionVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CreatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload CreatePayload `json:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType `json:"type"`
+			Payload SetPayload `json:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload RemovePayload `json:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload InsertPayload `json:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType  `json:"type"`
+			Payload MovePayload `json:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetNodePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload SetNodePayload `json:"set_node"`
+		}{Type: SetNodeActionType, Payload: v})
+	case SetNodePositionPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType             `json:"type"`
+			Payload SetNodePositionPayload `json:"set_node_position"`
+		}{Type: SetNodePositionActionType, Payload: v})
+	case SetNodeInputsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload SetNodeInputsPayload `json:"set_node_inputs"`
+		}{Type: SetNodeInputsActionType, Payload: v})
+	case RemoveNodePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload RemoveNodePayload `json:"remove_node"`
+		}{Type: RemoveNodeActionType, Payload: v})
+	case AddEdgePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType     `json:"type"`
+			Payload AddEdgePayload `json:"add_edge"`
+		}{Type: AddEdgeActionType, Payload: v})
+	case RemoveEdgePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload RemoveEdgePayload `json:"remove_edge"`
+		}{Type: RemoveEdgeActionType, Payload: v})
+	case ReconnectEdgePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType           `json:"type"`
+			Payload ReconnectEdgePayload `json:"reconnect_edge"`
+		}{Type: ReconnectEdgeActionType, Payload: v})
+	case InsertCharPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload InsertCharPayload `json:"insert_char"`
+		}{Type: InsertCharActionType, Payload: v})
+	case DeleteCharPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType        `json:"type"`
+			Payload DeleteCharPayload `json:"delete_char"`
+		}{Type: DeleteCharActionType, Payload: v})
+	case ForgetCharsPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType         `json:"type"`
+			Payload ForgetCharsPayload `json:"forget_chars"`
+		}{Type: ForgetCharsActionType, Payload: v})
+	case SetDirectoryPayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType          `json:"type"`
+			Payload SetDirectoryPayload `json:"set_directory"`
+		}{Type: SetDirectoryActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ActionType `json:"type"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Type    ActionType  `json:"type"`
+			Payload *SetPayload `json:"set"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *RemovePayload `json:"remove"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *InsertPayload `json:"insert"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Type    ActionType   `json:"type"`
+			Payload *MovePayload `json:"move"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodeActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *SetNodePayload `json:"set_node"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodePositionActionType:
+		var v struct {
+			Type    ActionType              `json:"type"`
+			Payload *SetNodePositionPayload `json:"set_node_position"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodeInputsActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *SetNodeInputsPayload `json:"set_node_inputs"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveNodeActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *RemoveNodePayload `json:"remove_node"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddEdgeActionType:
+		var v struct {
+			Type    ActionType      `json:"type"`
+			Payload *AddEdgePayload `json:"add_edge"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveEdgeActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *RemoveEdgePayload `json:"remove_edge"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ReconnectEdgeActionType:
+		var v struct {
+			Type    ActionType            `json:"type"`
+			Payload *ReconnectEdgePayload `json:"reconnect_edge"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertCharActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *InsertCharPayload `json:"insert_char"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case DeleteCharActionType:
+		var v struct {
+			Type    ActionType         `json:"type"`
+			Payload *DeleteCharPayload `json:"delete_char"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ForgetCharsActionType:
+		var v struct {
+			Type    ActionType          `json:"type"`
+			Payload *ForgetCharsPayload `json:"forget_chars"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetDirectoryActionType:
+		var v struct {
+			Type    ActionType           `json:"type"`
+			Payload *SetDirectoryPayload `json:"set_directory"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// EncodeMsgpack encodes the active variant with its "type" tag injected.
+func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.EncodeNil()
+	case CreatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload CreatePayload `msgpack:"create"`
+		}{Type: CreateActionType, Payload: v})
+	case SetPayload:
+		return enc.Encode(struct {
+			Type    ActionType `msgpack:"type"`
+			Payload SetPayload `msgpack:"set"`
+		}{Type: SetActionType, Payload: v})
+	case RemovePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload RemovePayload `msgpack:"remove"`
+		}{Type: RemoveActionType, Payload: v})
+	case InsertPayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload InsertPayload `msgpack:"insert"`
+		}{Type: InsertActionType, Payload: v})
+	case MovePayload:
+		return enc.Encode(struct {
+			Type    ActionType  `msgpack:"type"`
+			Payload MovePayload `msgpack:"move"`
+		}{Type: MoveActionType, Payload: v})
+	case SetNodePayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload SetNodePayload `msgpack:"set_node"`
+		}{Type: SetNodeActionType, Payload: v})
+	case SetNodePositionPayload:
+		return enc.Encode(struct {
+			Type    ActionType             `msgpack:"type"`
+			Payload SetNodePositionPayload `msgpack:"set_node_position"`
+		}{Type: SetNodePositionActionType, Payload: v})
+	case SetNodeInputsPayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload SetNodeInputsPayload `msgpack:"set_node_inputs"`
+		}{Type: SetNodeInputsActionType, Payload: v})
+	case RemoveNodePayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload RemoveNodePayload `msgpack:"remove_node"`
+		}{Type: RemoveNodeActionType, Payload: v})
+	case AddEdgePayload:
+		return enc.Encode(struct {
+			Type    ActionType     `msgpack:"type"`
+			Payload AddEdgePayload `msgpack:"add_edge"`
+		}{Type: AddEdgeActionType, Payload: v})
+	case RemoveEdgePayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload RemoveEdgePayload `msgpack:"remove_edge"`
+		}{Type: RemoveEdgeActionType, Payload: v})
+	case ReconnectEdgePayload:
+		return enc.Encode(struct {
+			Type    ActionType           `msgpack:"type"`
+			Payload ReconnectEdgePayload `msgpack:"reconnect_edge"`
+		}{Type: ReconnectEdgeActionType, Payload: v})
+	case InsertCharPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload InsertCharPayload `msgpack:"insert_char"`
+		}{Type: InsertCharActionType, Payload: v})
+	case DeleteCharPayload:
+		return enc.Encode(struct {
+			Type    ActionType        `msgpack:"type"`
+			Payload DeleteCharPayload `msgpack:"delete_char"`
+		}{Type: DeleteCharActionType, Payload: v})
+	case ForgetCharsPayload:
+		return enc.Encode(struct {
+			Type    ActionType         `msgpack:"type"`
+			Payload ForgetCharsPayload `msgpack:"forget_chars"`
+		}{Type: ForgetCharsActionType, Payload: v})
+	case SetDirectoryPayload:
+		return enc.Encode(struct {
+			Type    ActionType          `msgpack:"type"`
+			Payload SetDirectoryPayload `msgpack:"set_directory"`
+		}{Type: SetDirectoryActionType, Payload: v})
+	default:
+		return errors.Newf("Action: unknown variant %T", v)
+	}
+}
+
+// DecodeMsgpack decodes the variant selected by the "type" field.
+func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	raw, err := dec.DecodeRaw()
+	if err != nil {
+		return err
+	}
+	if len(raw) == 1 && raw[0] == msgpcode.Nil {
+		u.Variant = nil
+		return nil
+	}
+	var disc struct {
+		Type ActionType `msgpack:"type"`
+	}
+	if err := vmsgpack.Unmarshal(raw, &disc); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CreateActionType:
+		var v struct {
+			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetActionType:
+		var v struct {
+			Payload *SetPayload `msgpack:"set"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveActionType:
+		var v struct {
+			Payload *RemovePayload `msgpack:"remove"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertActionType:
+		var v struct {
+			Payload *InsertPayload `msgpack:"insert"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case MoveActionType:
+		var v struct {
+			Payload *MovePayload `msgpack:"move"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodeActionType:
+		var v struct {
+			Payload *SetNodePayload `msgpack:"set_node"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodePositionActionType:
+		var v struct {
+			Payload *SetNodePositionPayload `msgpack:"set_node_position"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetNodeInputsActionType:
+		var v struct {
+			Payload *SetNodeInputsPayload `msgpack:"set_node_inputs"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveNodeActionType:
+		var v struct {
+			Payload *RemoveNodePayload `msgpack:"remove_node"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case AddEdgeActionType:
+		var v struct {
+			Payload *AddEdgePayload `msgpack:"add_edge"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case RemoveEdgeActionType:
+		var v struct {
+			Payload *RemoveEdgePayload `msgpack:"remove_edge"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ReconnectEdgeActionType:
+		var v struct {
+			Payload *ReconnectEdgePayload `msgpack:"reconnect_edge"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case InsertCharActionType:
+		var v struct {
+			Payload *InsertCharPayload `msgpack:"insert_char"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case DeleteCharActionType:
+		var v struct {
+			Payload *DeleteCharPayload `msgpack:"delete_char"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case ForgetCharsActionType:
+		var v struct {
+			Payload *ForgetCharsPayload `msgpack:"forget_chars"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case SetDirectoryActionType:
+		var v struct {
+			Payload *SetDirectoryPayload `msgpack:"set_directory"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	default:
+		return union.UnknownVariant(string(disc.Type))
+	}
+	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Action) Type() ActionType {
+	switch u.Variant.(type) {
+	case CreatePayload:
+		return CreateActionType
+	case SetPayload:
+		return SetActionType
+	case RemovePayload:
+		return RemoveActionType
+	case InsertPayload:
+		return InsertActionType
+	case MovePayload:
+		return MoveActionType
+	case SetNodePayload:
+		return SetNodeActionType
+	case SetNodePositionPayload:
+		return SetNodePositionActionType
+	case SetNodeInputsPayload:
+		return SetNodeInputsActionType
+	case RemoveNodePayload:
+		return RemoveNodeActionType
+	case AddEdgePayload:
+		return AddEdgeActionType
+	case RemoveEdgePayload:
+		return RemoveEdgeActionType
+	case ReconnectEdgePayload:
+		return ReconnectEdgeActionType
+	case InsertCharPayload:
+		return InsertCharActionType
+	case DeleteCharPayload:
+		return DeleteCharActionType
+	case ForgetCharsPayload:
+		return ForgetCharsActionType
+	case SetDirectoryPayload:
+		return SetDirectoryActionType
+	}
+	return ""
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Action) Validate() error {
+	switch variant := u.Variant.(type) {
+	case InsertCharPayload:
+		return variant.Validate()
+	}
+	return nil
 }

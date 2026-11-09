@@ -128,23 +128,6 @@ Device struct<
         @ref on_delete cascade
     }
 
-    action Create {
-        device Device
-
-        @doc value """
-            replaces the device with the given created state. Emitted by the Core when a
-            device is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
     action SetRack {
         rack   rack.Key
         parent Key?
@@ -155,6 +138,7 @@ Device struct<
         """
     }
 
+    @actions
     @create
     @doc value         """
         is a physical piece of hardware connected to Synnax through the Driver system.

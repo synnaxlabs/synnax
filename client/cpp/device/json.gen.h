@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/device/types.gen.h"
@@ -20,6 +21,7 @@
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/patch/json.gen.h"
 
 namespace synnax::device {
 
@@ -99,6 +101,32 @@ inline x::json::json Where::to_json() const {
     return j;
 }
 
+inline CreatePayload CreatePayload::parse(x::json::Parser parser) {
+    return CreatePayload{
+        .device = parser.field<Device>("device"),
+    };
+}
+
+inline x::json::json CreatePayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["device"] = this->device.to_json();
+    return j;
+}
+
+inline SetRackPayload SetRackPayload::parse(x::json::Parser parser) {
+    return SetRackPayload{
+        .rack = parser.field<::synnax::rack::Key>("rack"),
+        .parent = parser.field<std::optional<Key>>("parent"),
+    };
+}
+
+inline x::json::json SetRackPayload::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["rack"] = this->rack;
+    if (this->parent.has_value()) j["parent"] = *this->parent;
+    return j;
+}
+
 inline Cursor Cursor::parse(x::json::Parser parser) {
     return Cursor{
         .key = parser.field<Key>("key"),
@@ -158,6 +186,29 @@ inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
 inline x::json::json RetrieveResponse::to_json() const {
     x::json::json j = x::json::json::object();
     j["devices"] = x::json::to_array(this->devices);
+    return j;
+}
+
+inline Action parse_action(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("type");
+    if (discriminator == "create") return CreatePayload::parse(parser.child("create"));
+    if (discriminator == "set") return SetPayload::parse(parser.child("set"));
+    if (discriminator == "remove") return RemovePayload::parse(parser.child("remove"));
+    if (discriminator == "insert") return InsertPayload::parse(parser.child("insert"));
+    if (discriminator == "move") return MovePayload::parse(parser.child("move"));
+    if (discriminator == "set_rack")
+        return SetRackPayload::parse(parser.child("set_rack"));
+    parser.field_err("type", "unknown Action type: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Action &value) {
+    static constexpr const char *discriminators[] =
+        {"create", "set", "remove", "insert", "move", "set_rack"};
+    const std::string discriminator = discriminators[value.index()];
+    x::json::json j = x::json::json::object();
+    j["type"] = discriminator;
+    j[discriminator] = std::visit([](const auto &v) { return v.to_json(); }, value);
     return j;
 }
 

@@ -159,7 +159,7 @@ export const staticWriteFieldZ = baseWriteFieldZ.extend({
   /** jsonType is the JSON type the value is serialized as. */
   jsonType: jsonTypeZ.default("number"),
   /** value is the fixed JSON value placed at the pointer. */
-  value: z.unknown(),
+  value: z.unknown().optional(),
 });
 export interface StaticWriteField extends z.infer<typeof staticWriteFieldZ> {}
 

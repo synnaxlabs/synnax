@@ -85,23 +85,7 @@ Rack struct {
         @ref on_delete restrict
     }
 
-    action Create {
-        rack Rack
-
-        @doc value """
-            replaces the rack with the given created state. Emitted by the Core when a
-            rack is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
+    @actions
     @cpp includes    "client/cpp/task/task.h"
     @cpp methods     "task::Client tasks"
     @doc value       """

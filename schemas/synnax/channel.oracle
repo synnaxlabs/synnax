@@ -166,23 +166,6 @@ Channel struct {
         @ref on_delete detach
     }
 
-    action Create {
-        channel Channel
-
-        @doc value """
-            replaces the channel with the given created state. Emitted by the Core when
-            a channel is created; clients never dispatch it.
-        """
-    }
-
-    action Set = patch.Set
-
-    action Remove = patch.Remove
-
-    action Insert = patch.Insert
-
-    action Move = patch.Move
-
     action Rename {
         name Name
 
@@ -192,6 +175,7 @@ Channel struct {
         """
     }
 
+    @actions
     @cpp hand
     @doc value     """
         is an internal representation of a channel containing all storage and

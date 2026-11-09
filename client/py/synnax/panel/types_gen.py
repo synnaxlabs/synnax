@@ -18,8 +18,16 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from synnax import group as group_, project as project_, ranger, resource as resource_
 from synnax.resource import ID
-from x import color as color_, filter, spatial
+from x import color as color_, filter, patch, spatial
 from x.filter import shorthand
+
+SetPayload: TypeAlias = patch.Set
+
+RemovePayload: TypeAlias = patch.Remove
+
+InsertPayload: TypeAlias = patch.Insert
+
+MovePayload: TypeAlias = patch.Move
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -40,6 +48,25 @@ class View(BaseModel):
     """
 
     type: str
+
+
+class SetIconPayload(BaseModel):
+    """Sets the panel's icon. Null resets it to the default panel icon."""
+
+    icon: str | None = None
+
+
+class SetColorPayload(BaseModel):
+    """Sets the color of the panel's icon. Null lets the theme pick it."""
+
+    color: color_.Color | None = None
+
+
+class ResizeSplitPayload(BaseModel):
+    """Adjusts the size ratio of a split node. size in [0, 1]."""
+
+    split: int = Field(ge=-2147483648, le=2147483647)
+    size: spatial.Decimal
 
 
 class Order(BaseModel):
@@ -64,6 +91,51 @@ class TabBase(BaseModel):
     """
 
     key: TabKey = Field(default_factory=uuid4)
+
+
+class RemoveTabPayload(BaseModel):
+    """Removes the tab with the given key. If the containing leaf becomes empty and has
+    a sibling, the reducer collapses the parent split.
+    """
+
+    key: TabKey
+
+
+class MoveTabPayload(BaseModel):
+    """Moves a tab to a position within the panel. When location is an edge, the target
+    leaf is first split at that location and the tab moves into the new empty leaf;
+    moving a leaf's only tab to an edge of its own leaf is a no-op. A center location
+    places the tab directly in the target leaf, equivalent to absent. Cross-panel moves
+    are RemoveTab on the source plus InsertTabs on the destination (two dispatches; not
+    atomic).
+    """
+
+    key: TabKey
+    target_leaf: int = Field(ge=-2147483648, le=2147483647)
+    index: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    location: spatial.Location | None = None
+
+
+class SplitTabPayload(BaseModel):
+    """Splits the tab with the given key off its leaf into a new sibling pane, moving
+    the tab into it. direction x places the new pane to the right, y to the bottom. The
+    tab must share its leaf with at least one other tab; splitting the only tab in a
+    leaf is a no-op.
+    """
+
+    key: TabKey
+    direction: spatial.Direction
+
+
+class SetTabResourcePayload(BaseModel):
+    """Sets the visualization resource displayed by the tab with the given key, swapping
+    it in place without changing the tab's identity or position. Clears any view set on
+    the tab. A no-op when the resource already backs another tab in the panel. Used to
+    fill a freshly inserted selector tab once the user picks a visualization.
+    """
+
+    key: TabKey
+    resource: resource_.ID
 
 
 class Where(BaseModel):
@@ -127,6 +199,16 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class SetTabViewPayload(BaseModel):
+    """Sets the inline view displayed by the tab with the given key, swapping it in
+    place without changing the tab's identity or position. Clears any resource set on
+    the tab.
+    """
+
+    key: TabKey
+    view: View
+
+
 class ResourceTab(TabBase):
     """Is a tab displaying a backing Core document."""
 
@@ -173,6 +255,34 @@ class RetrieveRequest(BaseModel):
     order: Order | None = None
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
+
+
+class InsertTabsPayload(BaseModel):
+    """Inserts tabs into a leaf in order, starting at the given index and appending when
+    index is absent or past the leaf's end. The destination leaf is resolved from
+    target_tab (the leaf holding that tab) when set, otherwise from the target_leaf
+    path-derived key, otherwise the first leaf in traversal order. Both are hints: a
+    target that no longer resolves to a leaf falls back to the first leaf instead of
+    failing, so a placement invalidated between the gesture and the dispatch still opens
+    the tabs. The fallback drops location too, leaving a leaf the caller never pointed
+    at unsplit. When location is an edge, the resolved leaf is split once at that
+    location and every tab is inserted into the new empty leaf; a center location places
+    the tabs directly in the resolved leaf, equivalent to absent. The split is deferred
+    to the first tab that lands, so a batch whose every tab is skipped leaves no empty
+    pane behind. A tab whose key is already in the tree has its content refreshed and
+    keeps its position unless the payload carries an explicit placement, in which case
+    it is relocated with the rest. Inserting a resource tab whose resource already backs
+    a different tab is skipped, as is a view tab of a type already backing a tab when
+    singleton is set: each may back at most one tab per panel, and callers select the
+    existing tab instead. Skipping one tab does not stop the others.
+    """
+
+    tabs: list[Tab] = Field(default_factory=list)
+    target_leaf: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    target_tab: TabKey | None = None
+    index: int | None = Field(default=None, ge=-2147483648, le=2147483647)
+    location: spatial.Location | None = None
+    singleton: bool | None = None
 
 
 class LeafNode(BaseModel):
@@ -232,6 +342,16 @@ class Panel(BaseModel):
         return hash(self.key)
 
 
+class CreatePayload(BaseModel):
+    """Replaces the state with the created panel. Only the Core emits it.
+
+    Attributes:
+        panel: Is the created panel.
+    """
+
+    panel: Panel
+
+
 class RetrieveResponse(BaseModel):
     """Holds the panels a RetrieveRequest selects.
 
@@ -240,6 +360,96 @@ class RetrieveResponse(BaseModel):
     """
 
     panels: list[Panel] = Field(default_factory=list)
+
+
+class CreateAction(BaseModel):
+    type: Literal["create"] = "create"
+    create: CreatePayload
+
+
+class SetAction(BaseModel):
+    type: Literal["set"] = "set"
+    set: SetPayload
+
+
+class RemoveAction(BaseModel):
+    type: Literal["remove"] = "remove"
+    remove: RemovePayload
+
+
+class InsertAction(BaseModel):
+    type: Literal["insert"] = "insert"
+    insert: InsertPayload
+
+
+class MoveAction(BaseModel):
+    type: Literal["move"] = "move"
+    move: MovePayload
+
+
+class SetIconAction(BaseModel):
+    type: Literal["set_icon"] = "set_icon"
+    set_icon: SetIconPayload
+
+
+class SetColorAction(BaseModel):
+    type: Literal["set_color"] = "set_color"
+    set_color: SetColorPayload
+
+
+class InsertTabsAction(BaseModel):
+    type: Literal["insert_tabs"] = "insert_tabs"
+    insert_tabs: InsertTabsPayload
+
+
+class RemoveTabAction(BaseModel):
+    type: Literal["remove_tab"] = "remove_tab"
+    remove_tab: RemoveTabPayload
+
+
+class MoveTabAction(BaseModel):
+    type: Literal["move_tab"] = "move_tab"
+    move_tab: MoveTabPayload
+
+
+class SplitTabAction(BaseModel):
+    type: Literal["split_tab"] = "split_tab"
+    split_tab: SplitTabPayload
+
+
+class ResizeSplitAction(BaseModel):
+    type: Literal["resize_split"] = "resize_split"
+    resize_split: ResizeSplitPayload
+
+
+class SetTabResourceAction(BaseModel):
+    type: Literal["set_tab_resource"] = "set_tab_resource"
+    set_tab_resource: SetTabResourcePayload
+
+
+class SetTabViewAction(BaseModel):
+    type: Literal["set_tab_view"] = "set_tab_view"
+    set_tab_view: SetTabViewPayload
+
+
+# Holds one panel mutation.
+Action = Annotated[
+    CreateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | SetIconAction
+    | SetColorAction
+    | InsertTabsAction
+    | RemoveTabAction
+    | MoveTabAction
+    | SplitTabAction
+    | ResizeSplitAction
+    | SetTabResourceAction
+    | SetTabViewAction,
+    Field(discriminator="type"),
+]
 
 
 Where.model_rebuild()
