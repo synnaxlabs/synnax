@@ -11,7 +11,7 @@ import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";
 import { renderHookSuspended } from "@/testutil/render";
@@ -296,14 +296,13 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Symbol.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Symbol.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: symbol.key, name: "new-name" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.schematics.symbols.watch(symbol.key).getCached()).toMatchObject({
+        name: "new-name",
+      });
     });
   });
 

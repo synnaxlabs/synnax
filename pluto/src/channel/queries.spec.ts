@@ -45,7 +45,7 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const name = { in: [ch.name, project.SET_CHANNEL_NAME] };
+      const name = { in: [ch.name, project.ACTION_CHANNEL_NAME] };
       const { result } = renderHook(
         () => ({
           visible: Channel.useList({ query: { where: { name } } }),
