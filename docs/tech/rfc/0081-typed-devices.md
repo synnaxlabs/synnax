@@ -158,9 +158,9 @@ Each resource is a struct in its own `.oracle` file with its own package, such a
 `@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
 struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
 `@resource type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
-`@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
-`Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
-three fields repeat.
+`@ref kind place` and `@ref on_delete restrict`, `name string` with `@filter` and
+`@search`, and a `status` of its own `Status` type with `@go marshal omit`. A base
+struct would carry nothing else, so the three fields repeat.
 
 Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
 `ni.Device` shares a table with the legacy `Device`.
@@ -170,7 +170,7 @@ The NI resources are the pattern for every discovered make:
 ```
 Chassis struct {
     key           Key = create    { @key }
-    rack          rack.Key        { @filter }
+    rack          rack.Key        { @ref }
     name          string          { @filter @search }
     serial        string = ""     { @filter @index lookup }
     resource_name string          { @filter @index lookup }
@@ -180,19 +180,19 @@ Chassis struct {
     @create
     @go marshal
     @go migrate
-    @ontology type "ni_chassis"
+    @resource type "ni_chassis"
     @retrieve
 }
 
 Device struct {
     key        Key = create       { @key }
-    rack       rack.Key           { @filter }
+    rack       rack.Key           { @ref }
     name       string             { @filter @search }
     serial     string             { @index lookup }
     model      string             { @filter }
     alias      string
     simulated  bool = false
-    chassis    Chassis.Key?
+    chassis    Chassis.Key?       { @ref }
     identifier string = ""
     analog_input    AnalogInputPorts
     analog_output   AnalogOutputPorts
@@ -246,14 +246,14 @@ resource has a concrete writer and generated retrieve, in the shape of
 `core/pkg/service/rack`. No generic device store exists.
 
 Opening a resource opens its Gorp table with its migration chain and Oracle-generated
-indexes, registers its ontology service, and publishes `sy_<type>_set` and
-`sy_<type>_delete` through `signals.PublishFromGorp`. Its writer exposes `Create`,
-`Update`, and `Delete`. `Create` writes the row, an initial unknown status, the ontology
-resource, and the `parent_of` edge to its parent key, or to the rack when there is no
-parent. `Update` takes a function over the stored row, so a caller changes one field
-group and leaves the other as stored. `Delete` refuses with a `validate.ErrValidation`
-wrap while a task references the resource, then deletes children, status, resource, and
-row in one transaction.
+indexes and references, and publishes `sy_<type>_set` and `sy_<type>_delete` through
+`signals.PublishTable`. `Resources` returns its provider for the resource service. Its
+writer runs in the transaction of the caller and exposes `Create`, `Update`, and
+`Delete`. `Create` writes the row and an initial unknown status. The `@ref` fields put
+the resource under its chassis or rack. `Update` takes a function over the stored row,
+so a caller changes one field group and leaves the other as stored. `Delete` removes the
+row. Gorp deletes its status, and the modules of a chassis, through the references. The
+API binder checks delete access on each record that the delete removes.
 
 The referrer check for `ni.Device` scans the five NI config stores for a channel whose
 `device` is the key. Both tables belong to one service, so no cross-service query
@@ -444,8 +444,6 @@ reference, and policy carried forward. A client older than Phase 23 gets a not-f
 
 - Device import and export. The typed structs are shaped for a later `@go imex`.
 - A secret store for server credentials.
-- Gorp references and the ontology's replacement; the parent keys become `@ref` fields
-  when that lands.
 - Kafka clusters (RFC 0079) and integrations that do not exist yet; each follows §4.1.
 
 ## 8 Resolved decisions
