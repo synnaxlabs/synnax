@@ -451,6 +451,22 @@ describe("range", () => {
         expect(resolved).toEqual(ch.key);
       });
 
+      it("should resolve an alias to the channel it moved to", async () => {
+        const [first, second] = await client.channels.create([
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(first.key, "myalias");
+        expect(await rng.resolveAlias("myalias")).toEqual(first.key);
+        await rng.setAlias(first.key, "otheralias");
+        await rng.setAlias(second.key, "myalias");
+        expect(await rng.resolveAlias("myalias")).toEqual(second.key);
+      });
+
       it("should reject an alias named after an object member", async () => {
         const rng = await client.ranges.create({
           name: "My New One Second Range",

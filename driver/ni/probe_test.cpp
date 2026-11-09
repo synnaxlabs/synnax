@@ -10,7 +10,6 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
-#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -237,9 +236,9 @@ public:
 }
 
 /// @brief returns the negative port of each analog input port, keyed by port.
-std::unordered_map<std::uint32_t, std::optional<std::uint32_t>>
+std::unordered_map<std::uint16_t, std::uint16_t>
 negatives(const ::synnax::ni::Hardware &hw) {
-    std::unordered_map<std::uint32_t, std::optional<std::uint32_t>> out;
+    std::unordered_map<std::uint16_t, std::uint16_t> out;
     for (const auto &ai: hw.analog_inputs)
         out[ai.port] = ai.negative;
     return out;
@@ -257,14 +256,12 @@ TEST(ProbeTest, testPairsMSeriesPorts) {
     api->strings[DAQmx_Dev_ProductType] = "PCI-6221";
     api->add_analog_inputs(16, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     const auto hw = probe_api(api);
-    EXPECT_EQ(hw.product_category, "m_series_daq");
-    EXPECT_EQ(hw.product_type, "PCI-6221");
     ASSERT_EQ(hw.analog_inputs.size(), 16);
     const auto pairs = negatives(hw);
-    for (std::uint32_t port = 0; port < 8; port++)
+    for (std::uint16_t port = 0; port < 8; port++)
         EXPECT_EQ(pairs.at(port), port + 8) << "ai" << port;
-    for (std::uint32_t port = 8; port < 16; port++)
-        EXPECT_EQ(pairs.at(port), std::nullopt) << "ai" << port;
+    for (std::uint16_t port = 8; port < 16; port++)
+        EXPECT_EQ(pairs.at(port), 0) << "ai" << port;
 }
 
 /// @brief it should pair port n with n + 8 on an NI 9205, for positives 0-7 and 16-23.
@@ -274,12 +271,12 @@ TEST(ProbeTest, testPairsByProductType) {
     api->strings[DAQmx_Dev_ProductType] = "NI 9205";
     api->add_analog_inputs(32, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     const auto pairs = negatives(probe_api(api));
-    EXPECT_EQ(pairs.at(0), 8U);
-    EXPECT_EQ(pairs.at(7), 15U);
-    EXPECT_EQ(pairs.at(8), std::nullopt);
-    EXPECT_EQ(pairs.at(16), 24U);
-    EXPECT_EQ(pairs.at(23), 31U);
-    EXPECT_EQ(pairs.at(24), std::nullopt);
+    EXPECT_EQ(pairs.at(0), 8);
+    EXPECT_EQ(pairs.at(7), 15);
+    EXPECT_EQ(pairs.at(8), 0);
+    EXPECT_EQ(pairs.at(16), 24);
+    EXPECT_EQ(pairs.at(23), 31);
+    EXPECT_EQ(pairs.at(24), 0);
 }
 
 /// @brief it should pair port n with n + 4 on a USB-6008, for positives 0-3.
@@ -289,10 +286,10 @@ TEST(ProbeTest, testPairsUSBPorts) {
     api->strings[DAQmx_Dev_ProductType] = "USB-6008";
     api->add_analog_inputs(8, RSE_DIFF, {DAQmx_Val_Voltage});
     const auto pairs = negatives(probe_api(api));
-    for (std::uint32_t port = 0; port < 4; port++)
+    for (std::uint16_t port = 0; port < 4; port++)
         EXPECT_EQ(pairs.at(port), port + 4) << "ai" << port;
-    for (std::uint32_t port = 4; port < 8; port++)
-        EXPECT_EQ(pairs.at(port), std::nullopt) << "ai" << port;
+    for (std::uint16_t port = 4; port < 8; port++)
+        EXPECT_EQ(pairs.at(port), 0) << "ai" << port;
 }
 
 /// @brief it should not pair ports that do not accept RSE, such as those of a
@@ -303,7 +300,7 @@ TEST(ProbeTest, testDoesNotPairPortsWithoutRSE) {
     api->strings[DAQmx_Dev_ProductType] = "PXIe-6358";
     api->add_analog_inputs(16, DAQmx_Val_Bit_TermCfg_Diff, {DAQmx_Val_Voltage});
     for (const auto &[port, negative]: negatives(probe_api(api)))
-        EXPECT_EQ(negative, std::nullopt) << "ai" << port;
+        EXPECT_EQ(negative, 0) << "ai" << port;
 }
 
 /// @brief it should not pair the ports of a device outside the pair table.
@@ -313,7 +310,7 @@ TEST(ProbeTest, testDoesNotPairOtherDevices) {
     api->strings[DAQmx_Dev_ProductType] = "NI 9221";
     api->add_analog_inputs(16, RSE_DIFF, {DAQmx_Val_Voltage});
     for (const auto &[port, negative]: negatives(probe_api(api)))
-        EXPECT_EQ(negative, std::nullopt) << "ai" << port;
+        EXPECT_EQ(negative, 0) << "ai" << port;
 }
 
 /// @brief it should read back what Cfg_Default gives with a task on the narrowest
@@ -344,15 +341,18 @@ TEST(ProbeTest, testReadsBackDefaultTerminalConfig) {
     EXPECT_TRUE(api->calls_to("StartTask").empty());
 }
 
-/// @brief it should leave the default absent and clear the task when DAQmx rejects the
-/// readback channel.
-TEST(ProbeTest, testLeavesDefaultAbsentWhenReadbackFails) {
+/// @brief it should leave the default as Cfg_Default and clear the task when DAQmx
+/// rejects the readback channel.
+TEST(ProbeTest, testLeavesDefaultUnreadWhenReadbackFails) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(
+        hw.analog_inputs[0].default_terminal_config,
+        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+    );
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
     EXPECT_FALSE(is_complete(hw));
 }
@@ -381,19 +381,36 @@ TEST(ProbeTest, testReadsBackDefaultThroughCurrentChannel) {
     EXPECT_TRUE(api->calls_to("StartTask").empty());
 }
 
-/// @brief it should leave the absent values of the hardware out of its JSON, so that
-/// the JSON parses back to the same hardware.
-TEST(ProbeTest, testLeavesAbsentValuesOutOfJSON) {
+/// @brief it should write hardware that parses back to the same hardware.
+TEST(ProbeTest, testRoundTripsThroughJSON) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
     api->create_channel_status = DAQmxErrorInvalidDeviceID;
     const auto j = probe_api(api).to_json();
-    EXPECT_FALSE(j.contains("ai_min_rate"));
-    EXPECT_FALSE(j.contains("ao_max_rate"));
-    ASSERT_EQ(j["analog_inputs"].size(), 1);
-    EXPECT_FALSE(j["analog_inputs"][0].contains("default_terminal_config"));
-    EXPECT_FALSE(j["analog_inputs"][0].contains("negative"));
+    EXPECT_EQ(j["ai_min_rate"], 0);
+    EXPECT_EQ(j["analog_inputs"][0]["negative"], 0);
     EXPECT_EQ(::synnax::ni::Hardware::parse(x::json::Parser(j)).to_json(), j);
+}
+
+/// @brief it should parse stored hardware that has removed keys and lacks the keys with
+/// defaults, and treat a missing default terminal configuration as unread.
+TEST(ProbeTest, testParsesEarlierStoredHardware) {
+    x::json::Parser parser(
+        x::json::json{
+            {"product_category", "m_series_daq"},
+            {"product_type", "PCI-6221"},
+            {"analog_inputs",
+             {{{"port", 0},
+               {"terminal_configs", {"RSE", "Diff"}},
+               {"types", {"ai_voltage"}}}}},
+        }
+    );
+    const auto hw = ::synnax::ni::Hardware::parse(parser);
+    ASSERT_TRUE(parser.ok());
+    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 0);
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(hw.analog_inputs[0].negative, 0);
+    EXPECT_FALSE(is_complete(hw));
 }
 
 /// @brief it should take the one terminal configuration of a port as its default
@@ -409,27 +426,33 @@ TEST(ProbeTest, testTakesOnlyTerminalConfigAsDefault) {
     }
 }
 
-/// @brief it should leave the default absent on a port that accepts no terminal
+/// @brief it should leave the default as Cfg_Default on a port that accepts no terminal
 /// configuration.
 TEST(ProbeTest, testNoDefaultWithoutTerminalConfigs) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, 0, {DAQmx_Val_Voltage});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(
+        hw.analog_inputs[0].default_terminal_config,
+        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+    );
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
 
-/// @brief it should leave the default absent, and the hardware complete, on a port that
-/// accepts more than one terminal configuration and takes no voltage or current
-/// channel.
+/// @brief it should leave the default as Cfg_Default, and the hardware complete, on a
+/// port that accepts more than one terminal configuration and takes no voltage or
+/// current channel.
 TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, RSE_DIFF, {DAQmx_Val_Bridge});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(
+        hw.analog_inputs[0].default_terminal_config,
+        ::synnax::ni::TERMINAL_CONFIG_CFG_DEFAULT
+    );
     EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
@@ -507,14 +530,14 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     api->doubles[DAQmx_Dev_AI_MinRate] = 0.1;
     api->doubles[DAQmx_Dev_AI_MaxSingleChanRate] = 250000;
     api->doubles[DAQmx_Dev_AI_MaxMultiChanRate] = 250000;
-    api->doubles[DAQmx_Dev_AO_MaxRate] = 833333;
+    api->doubles[DAQmx_Dev_AO_MaxRate] = 833333.3333333334;
     api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02};
     api->double_arrays[DAQmx_Dev_AO_VoltageRngs] = {-10, 10};
     const auto hw = probe_api(api);
-    EXPECT_EQ(hw.ai_min_rate, 0.1);
-    EXPECT_EQ(hw.ai_max_single_channel_rate, 250000);
-    EXPECT_EQ(hw.ai_max_multi_channel_rate, 250000);
-    EXPECT_EQ(hw.ao_max_rate, 833333);
+    EXPECT_DOUBLE_EQ(hw.ai_min_rate.hz(), 0.1);
+    EXPECT_EQ(hw.ai_max_single_channel_rate.hz(), 250000);
+    EXPECT_EQ(hw.ai_max_multi_channel_rate.hz(), 250000);
+    EXPECT_DOUBLE_EQ(hw.ao_max_rate.hz(), 833333.3333333334);
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
     EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);
@@ -534,24 +557,16 @@ TEST(ProbeTest, testReadsChassis) {
     api->strings[DAQmx_Dev_ProductType] = "cDAQ-9178";
     api->strings[DAQmx_Dev_Terminals] = "/Dev1/PFI0, /Dev1/PFI1, /Dev1/20MHzTimebase";
     const auto hw = probe_api(api);
-    EXPECT_EQ(hw.product_category, "compact_daq_chassis");
     EXPECT_TRUE(hw.analog_inputs.empty());
     EXPECT_TRUE(hw.analog_outputs.empty());
     EXPECT_TRUE(hw.counter_inputs.empty());
     EXPECT_TRUE(hw.counter_outputs.empty());
     EXPECT_TRUE(hw.digital_ports.empty());
-    EXPECT_EQ(hw.ai_min_rate, std::nullopt);
+    EXPECT_EQ(hw.ai_min_rate.hz(), 0);
     EXPECT_EQ(
         hw.terminals,
         std::vector<std::string>({"PFI0", "PFI1", "20MHzTimebase"})
     );
-}
-
-/// @brief it should name a category it does not know "unknown".
-TEST(ProbeTest, testNamesUnknownCategory) {
-    auto api = std::make_shared<FakeAPI>();
-    api->ints[DAQmx_Dev_ProductCategory] = 99999;
-    EXPECT_EQ(probe_api(api).product_category, "unknown");
 }
 
 /// @brief it should fail when DAQmx fails with an error other than an unsupported
