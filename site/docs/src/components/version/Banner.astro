@@ -31,10 +31,19 @@ const latest = ROOT + Astro.url.pathname;
             {version.status === "next"
                 ? "These docs describe unreleased work."
                 : `These docs describe Synnax ${version.name}.`}{" "}
-            <a href={latest}>Read the docs for the latest release</a>.
+            <a href={latest} data-origin={ROOT}>
+                Read the docs for the latest release
+            </a>
+            .
         </p>
     </aside>
 )}
+
+<script>
+    import { track } from "@/components/version/links";
+
+    track(".version-banner a[data-origin]");
+</script>
 
 <style>
     .version-banner {
