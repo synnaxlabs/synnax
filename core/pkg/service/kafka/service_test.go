@@ -250,6 +250,20 @@ var _ = Describe("Service", func() {
 			Expect(data["record"]).To(HaveKeyWithValue("value_pointer", "/value"))
 		})
 
+		It("Should reset a config set to null to its defaults", func(ctx SpecContext) {
+			key := MustSucceed(
+				tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{"rate": 5}),
+			)
+			rec, changed := MustSucceed2(svc.Scan.Edit(ctx, db, key, []patch.Cursor{
+				begin(patch.Set{Path: []string{"config"}}),
+			}))
+			Expect(changed).To(BeTrue())
+			Expect(MustSucceed(rec.Data())).To(SatisfyAll(
+				HaveKeyWithValue("key", key.String()),
+				HaveKeyWithValue("rate", BeNumerically("==", 0.2)),
+			))
+		})
+
 		It("Should keep a scan rate that an action sets to zero", func(
 			ctx SpecContext,
 		) {
