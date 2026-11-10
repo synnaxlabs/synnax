@@ -11,6 +11,8 @@ package schematic
 
 import (
 	"context"
+	"maps"
+	"reflect"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -44,6 +46,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // belongs to the project that holds the group. Create returns an error wrapping
 // validate.ErrValidation when a schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
+	return w.create(ctx, s, nil)
+}
+
+// create creates s. A copy passes its source, whose scales s may keep.
+func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	}
@@ -54,8 +61,14 @@ func (w Writer) Create(ctx context.Context, s *Schematic) error {
 		}
 		s.Project = proj
 	}
-	s.ApplyDefaults()
 	if err := s.Validate(); err != nil {
+		return err
+	}
+	var prev Schematic
+	if source != nil {
+		prev = *source
+	}
+	if err := validateScales(prev, *s); err != nil {
 		return err
 	}
 	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
@@ -168,6 +181,7 @@ func (w Writer) Copy(
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	source := *result
 	result.Key = uuid.New()
 	result.Name = name
 	result.Snapshot = snapshot
@@ -175,7 +189,7 @@ func (w Writer) Copy(
 	if rng != nil {
 		result.Project, result.Range = nil, rng
 	}
-	return w.Create(ctx, result)
+	return w.create(ctx, result, &source)
 }
 
 // Delete deletes the schematics with the given keys.
@@ -210,11 +224,16 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 					}
 				}
 			}
+			// Reduce edits the configs map in place, so keep the stored ones.
+			stored := maps.Clone(sch.Configs)
 			reduced, err := Reduce(sch, acts...)
 			if err != nil {
 				return Schematic{}, err
 			}
 			if err = reduced.Validate(); err != nil {
+				return Schematic{}, err
+			}
+			if err = validateScales(Schematic{Configs: stored}, reduced); err != nil {
 				return Schematic{}, err
 			}
 			return reduced, nil
@@ -223,4 +242,45 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// validateScales returns an error wrapping validate.ErrValidation when a config of next
+// carries a scale that is not positive and differs from the scale prev stores for it. A
+// zero scale sizes a symbol to nothing. A stored scale that the write keeps passes, so
+// a stored zero does not block an edit to another field.
+func validateScales(prev, next Schematic) error {
+	for key, cfg := range next.Configs {
+		scale, ok := scaleOf(cfg)
+		if !ok || scale > 0 {
+			continue
+		}
+		if old, stored := prev.Configs[key]; stored {
+			if oldScale, hadScale := scaleOf(old); hadScale && oldScale == scale {
+				continue
+			}
+		}
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"configs.%s.scale: must be positive, got %v",
+			key,
+			scale,
+		)
+	}
+	return nil
+}
+
+// scaleOf returns the scale that cfg carries, and false when its variant has none.
+func scaleOf(cfg ElementConfig) (float64, bool) {
+	v := reflect.ValueOf(cfg.Variant)
+	if v.Kind() == reflect.Pointer {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return 0, false
+	}
+	f := v.FieldByName("Scale")
+	if !f.IsValid() || f.Kind() != reflect.Float64 {
+		return 0, false
+	}
+	return f.Float(), true
 }

@@ -26,7 +26,10 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each Arc by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := newAutomation(arc.Base{Name: "resource-arc"})
+		a := newAutomation(arc.Base{
+			Name:   "resource-arc",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{a.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: a.ResourceID(), Name: a.Base().Name}}))
@@ -57,7 +60,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no Arc", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := newAutomation(arc.Base{Name: "listed-arc"})
+		a := newAutomation(arc.Base{
+			Name:   "listed-arc",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		missing := resource.ID{Type: resource.TypeArc, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
@@ -69,7 +75,10 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each Arc by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		a := newAutomation(arc.Base{Name: "listed-arc"})
+		a := newAutomation(arc.Base{
+			Name:   "listed-arc",
+			Source: arc.Source{Variant: arc.TextSource{}},
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: a.ResourceID(), Name: a.Base().Name},

@@ -493,6 +493,29 @@ class TestRangeClient:
             assert rng["alt_test"].key == ch.key
             assert rng["alt_test"].name == ch.name
 
+        def test_alias_moved_to_another_channel(self, client: sy.Synnax) -> None:
+            """Should resolve an alias to the channel it moved to."""
+            first, second = client.channels.create(
+                [
+                    sy.Channel(
+                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
+                    ),
+                    sy.Channel(
+                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
+                    ),
+                ]
+            )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            moved, other = random_name(), random_name()
+            rng.set_alias(first.key, moved)
+            assert rng[moved].key == first.key
+            rng.set_alias(first.key, other)
+            rng.set_alias(second.key, moved)
+            assert rng[moved].key == second.key
+
         def test_alias_not_found(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
                 name="test",

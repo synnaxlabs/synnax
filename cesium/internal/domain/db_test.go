@@ -134,6 +134,16 @@ var _ = Describe("DB", func() {
 		})
 	}
 
+	Describe("Open", func() {
+		It("Should reject a file size that does not fit in 32 bits", func() {
+			Expect(domain.Open(domain.Config{
+				FS:              fs.NewMem(),
+				Instrumentation: PanicLogger(),
+				FileSize:        5 * telem.Gigabyte,
+			})).Error().To(MatchError(ContainSubstring("file_size")))
+		})
+	})
+
 	Describe("Attempting Operations on a Closed DB", func() {
 		Describe("HasDataFor", func() {
 			It("Should return ErrDBClosed", func(ctx SpecContext) {

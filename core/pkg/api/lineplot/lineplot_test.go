@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -62,7 +63,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
-		r := lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"}
+		r := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.LinePlot.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
@@ -81,9 +82,9 @@ var _ = Describe("Create", func() {
 		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
 		res := MustSucceed(
 			create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Name: "broadcast", Project: &proj.Key},
-				},
+				}),
 				DispatchKey: "dk-create",
 			}),
 		)
@@ -97,9 +98,11 @@ var _ = Describe("Create", func() {
 	) {
 		u := newUser(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
-		lp := lineplot.LinePlot{Key: uuid.New(), Name: "Denied", Project: &proj.Key}
+		lp := defaults.Fill(
+			lineplot.LinePlot{Key: uuid.New(), Name: "Denied", Project: &proj.Key},
+		)
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{lp},
+			LinePlots: defaults.Fill([]lineplot.LinePlot{lp}),
 		})).Error().To(denied(u, access.ActionCreate, lp.ResourceID()))
 		Expect(svc.LinePlot.NewRetrieve().
 			Where(lineplot.MatchKeys(lp.Key)).
@@ -110,9 +113,9 @@ var _ = Describe("Create", func() {
 		u := newCreator(ctx)
 		stored := createLinePlot(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{
+			LinePlots: defaults.Fill([]lineplot.LinePlot{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
-			},
+			}),
 		})).Error().To(SatisfyAll(
 			MatchError(validate.ErrValidation),
 			MatchError(ContainSubstring("lineplot %s already exists", stored.Key)),
@@ -132,11 +135,11 @@ var _ = Describe("Create", func() {
 			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
 		req := apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{{
+			LinePlots: defaults.Fill([]lineplot.LinePlot{{
 				Name:     "Plotted",
 				Project:  &proj.Key,
 				Channels: lineplot.Channels{Y1: []channel.Key{ch.Key()}},
-			}},
+			}}),
 		}
 		Expect(create(AuthedCtx(ctx, u), req)).Error().
 			To(denied(u, access.ActionRetrieve, channel.ResourceID(ch.Key())))
@@ -275,7 +278,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 
 func createLinePlot(ctx SpecContext, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Project: &proj.Key, Name: name}
+	lp := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
 	})).To(Succeed())
@@ -403,9 +406,9 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createGroup(ctx, "Create denied")
 			Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
-				},
+				}),
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -415,9 +418,9 @@ var _ = Describe("Create in a group", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(
 			create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: &proj.Key, Name: "Granted", Group: &g.Key},
-				},
+				}),
 			}),
 		)
 		Expect(retrieveLinePlot(ctx, res.LinePlots[0].Key).Group).To(Equal(&g.Key))
@@ -444,9 +447,9 @@ var _ = Describe("Create in a group", func() {
 			carried *project.Key,
 		) (apilineplot.CreateResponse, error) {
 			return create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: carried, Name: "Elsewhere", Group: &g.Key},
-				},
+				}),
 			})
 		}
 		DescribeTable(
@@ -493,7 +496,9 @@ var _ = Describe("Create with an owner", func() {
 			resource.ID{Type: resource.TypeLineplot},
 		)
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Denied"}},
+			LinePlots: defaults.Fill(
+				[]lineplot.LinePlot{{Project: &proj.Key, Name: "Denied"}},
+			),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })

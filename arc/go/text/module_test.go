@@ -56,6 +56,12 @@ var _ = Describe("Loader", func() {
 				Type: types.Chan(types.U8()),
 				ID:   102,
 			},
+			{
+				Name: "outs",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   103,
+			},
 		}
 	)
 	BeforeEach(func() {
@@ -237,6 +243,27 @@ var _ = Describe("Loader", func() {
 			Expect(diag.String()).To(ContainSubstring(`module "m" does not compile`))
 		})
 
+		It(
+			"Should report a module that does not compile once, at the import",
+			func(ctx SpecContext) {
+				sources["m"] = "export c := 1\n\nexport abc := \"a\"1."
+				diag := analyze(ctx, "import m\n\n"+
+					"f\"{m.c}\" -> outs\n\nm.abc -> outs\n\ntrig -> m.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(`module "m" does not compile`))
+				Expect((*diag)[0].Range.Start.Line).To(BeZero())
+			},
+		)
+
+		It(
+			"Should report an unknown module once, at the import",
+			func(ctx SpecContext) {
+				diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
+				Expect(*diag).To(HaveLen(1), diag.String())
+				Expect((*diag)[0].Message).To(Equal(`unknown module "nope"`))
+			},
+		)
+
 		Describe("Imported sequences", func() {
 			BeforeEach(func() {
 				sources["m"] = `export sequence s { stage a { trig -> out8 } }`
@@ -317,6 +344,39 @@ sequence main {
 		It("Should report an unknown module", func(ctx SpecContext) {
 			diag := analyze(ctx, "import nope\n\ntrig -> nope.f() -> out")
 			Expect(diag.String()).To(ContainSubstring(`unknown module "nope"`))
+		})
+	})
+
+	Describe("Loaded paths", func() {
+		It("Should list every module loaded, at any depth, by path", func(
+			ctx SpecContext,
+		) {
+			sources["d"] = `export func h() i64 { return 1 }`
+			sources["a"] = "import d\n\nexport func f() i64 { return d.h() }"
+			root := newRoot()
+			_, diag := text.Analyze(
+				ctx,
+				parse("import a\n\ntrig -> a.f() -> out"),
+				root,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(text.LoadedPaths(root)).To(Equal([]string{"a", "d"}))
+		})
+
+		It("Should leave out a module that does not compile", func(ctx SpecContext) {
+			sources["a"] = `export func f() i64 { return nope }`
+			root := newRoot()
+			_, diag := text.Analyze(
+				ctx,
+				parse("import a\n\ntrig -> a.f() -> out"),
+				root,
+			)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(text.LoadedPaths(root)).To(BeEmpty())
+		})
+
+		It("Should list nothing for a root with no module resolver", func() {
+			Expect(text.LoadedPaths(symbol.NewRoot(chans, nil))).To(BeNil())
 		})
 	})
 

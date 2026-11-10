@@ -52,6 +52,10 @@ message RetrieveRequest {
   optional uint32 limit = 5;
   // include_program includes the program of each record.
   bool include_program = 6;
+  // include_changes includes the changes of each record.
+  bool include_changes = 7;
+  // include_status includes the status of each record.
+  bool include_status = 8;
 }
 
 // RetrieveResponse holds the arcs a RetrieveRequest selects.

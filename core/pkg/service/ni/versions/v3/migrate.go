@@ -100,6 +100,31 @@ func MigrateBaseAOChannel(
 	return base, nil
 }
 
+// MigrateAOChannel lifts a v2 analog output channel to v3. A function generator drops
+// its command and state channels. The other types keep them.
+func MigrateAOChannel(ctx context.Context, old v2.AOChannel) (AOChannel, error) {
+	ch, err := autoMigrateAOChannel(ctx, old)
+	if err != nil {
+		return AOChannel{}, err
+	}
+	base := old.Base()
+	commanded := CommandedAOChannel{
+		CmdChannel:       base.CmdChannel,
+		StateChannel:     base.StateChannel,
+		CmdChannelName:   base.CmdChannelName,
+		StateChannelName: base.StateChannelName,
+	}
+	switch v := ch.Variant.(type) {
+	case AOCurrentChannel:
+		v.CommandedAOChannel = commanded
+		ch.Variant = v
+	case AOVoltageChannel:
+		v.CommandedAOChannel = commanded
+		ch.Variant = v
+	}
+	return ch, nil
+}
+
 // MigrateBaseCIChannel lifts a v2 counter input base to v3. A negative port becomes 0
 // and disables the channel.
 func MigrateBaseCIChannel(

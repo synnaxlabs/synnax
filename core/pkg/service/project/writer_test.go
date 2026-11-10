@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -126,9 +127,9 @@ var _ = Describe("Writer", func() {
 				Expect(schematicSvc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
 				Expect(schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)).
 					To(Succeed())
-				lp := lineplot.LinePlot{Name: "lp", Project: &proj.Key}
+				lp := defaults.Fill(lineplot.LinePlot{Name: "lp", Project: &proj.Key})
 				Expect(lineplotSvc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
-				l := log.Log{Name: "l", Project: &proj.Key}
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 				t := table.Table{Name: "t", Project: &proj.Key}
 				Expect(tableSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
@@ -167,7 +168,7 @@ var _ = Describe("Writer", func() {
 			kept := project.Project{Name: "kept"}
 			Expect(svc.NewWriter(tx).Create(ctx, &doomed)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
-			l := log.Log{Name: "l", Project: &kept.Key}
+			l := defaults.Fill(log.Log{Name: "l", Project: &kept.Key})
 			Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, doomed.Key)).To(Succeed())
 			Expect(logSvc.NewRetrieve().
@@ -185,7 +186,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
 				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-				l := log.Log{Name: "l", Project: &proj.Key}
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 				p := panel.Panel{Name: "p", Project: &proj.Key}
 				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
@@ -200,7 +201,7 @@ var _ = Describe("Writer", func() {
 	) {
 		proj := project.Project{Name: "snapshot"}
 		Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-		l := log.Log{Name: "l", Project: &proj.Key}
+		l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		var children []resource.ID
