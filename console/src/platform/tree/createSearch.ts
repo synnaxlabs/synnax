@@ -13,8 +13,8 @@ import { unique } from "@synnaxlabs/x";
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { useItems } from "@/platform/tree/context";
 import { DefaultItem, type Item } from "@/platform/tree/item";
-import { useItems } from "@/platform/tree/Provider";
 import {
   type CreateSearchParams,
   type Match,

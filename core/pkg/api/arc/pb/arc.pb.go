@@ -202,8 +202,12 @@ type RetrieveRequest struct {
 	Limit *uint32 `protobuf:"varint,5,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
 	// include_program includes the program of each record.
 	IncludeProgram bool `protobuf:"varint,6,opt,name=include_program,json=includeProgram,proto3" json:"include_program,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// include_changes includes the changes of each record.
+	IncludeChanges bool `protobuf:"varint,7,opt,name=include_changes,json=includeChanges,proto3" json:"include_changes,omitempty"`
+	// include_status includes the status of each record.
+	IncludeStatus bool `protobuf:"varint,8,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RetrieveRequest) Reset() {
@@ -278,6 +282,20 @@ func (x *RetrieveRequest) GetIncludeProgram() bool {
 	return false
 }
 
+func (x *RetrieveRequest) GetIncludeChanges() bool {
+	if x != nil {
+		return x.IncludeChanges
+	}
+	return false
+}
+
+func (x *RetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
+	}
+	return false
+}
+
 // RetrieveResponse holds the arcs a RetrieveRequest selects.
 type RetrieveResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -338,7 +356,7 @@ const file_core_pkg_api_arc_pb_arc_proto_rawDesc = "" +
 	"\x05field\x18\x01 \x01(\x0e2\x16.api.arc.pb.OrderFieldR\x05field\x12\x1e\n" +
 	"\n" +
 	"descending\x18\x02 \x01(\bR\n" +
-	"descending\"\xad\x02\n" +
+	"descending\"\xfd\x02\n" +
 	"\x0fRetrieveRequest\x120\n" +
 	"\x05where\x18\x01 \x01(\v2\x15.service.arc.pb.WhereH\x00R\x05where\x88\x01\x01\x12\x1f\n" +
 	"\vsearch_term\x18\x02 \x01(\tR\n" +
@@ -346,7 +364,9 @@ const file_core_pkg_api_arc_pb_arc_proto_rawDesc = "" +
 	"\x05order\x18\x03 \x01(\v2\x11.api.arc.pb.OrderH\x01R\x05order\x88\x01\x01\x12-\n" +
 	"\x05after\x18\x04 \x01(\v2\x12.api.arc.pb.CursorH\x02R\x05after\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x05 \x01(\rH\x03R\x05limit\x88\x01\x01\x12'\n" +
-	"\x0finclude_program\x18\x06 \x01(\bR\x0eincludeProgramB\b\n" +
+	"\x0finclude_program\x18\x06 \x01(\bR\x0eincludeProgram\x12'\n" +
+	"\x0finclude_changes\x18\a \x01(\bR\x0eincludeChanges\x12%\n" +
+	"\x0einclude_status\x18\b \x01(\bR\rincludeStatusB\b\n" +
 	"\x06_whereB\b\n" +
 	"\x06_orderB\b\n" +
 	"\x06_afterB\b\n" +

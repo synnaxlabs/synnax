@@ -35,6 +35,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
@@ -680,7 +681,7 @@ var _ = Describe("Delete cascades", func() {
 	}
 	createLinePlot := func(ctx SpecContext) held {
 		GinkgoHelper()
-		lp := lineplot.LinePlot{Name: "Plot", Range: &r.Key}
+		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Range: &r.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
 		})).To(Succeed())

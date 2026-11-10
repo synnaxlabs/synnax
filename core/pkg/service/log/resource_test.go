@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -25,7 +26,7 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each log by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		l := log.Log{Project: &proj.Key, Name: "resource-log"}
+		l := defaults.Fill(log.Log{Project: &proj.Key, Name: "resource-log"})
 		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{l.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: l.ResourceID(), Name: l.Name}}))
@@ -44,7 +45,7 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no log", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		l := log.Log{Project: &proj.Key, Name: "listed-log"}
+		l := defaults.Fill(log.Log{Project: &proj.Key, Name: "listed-log"})
 		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		missing := resource.ID{Type: resource.TypeLog, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
@@ -56,7 +57,7 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each log by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		l := log.Log{Project: &proj.Key, Name: "listed-log"}
+		l := defaults.Fill(log.Log{Project: &proj.Key, Name: "listed-log"})
 		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: l.ResourceID(), Name: l.Name},
@@ -69,7 +70,7 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		l := log.Log{Project: &proj.Key, Name: name}
+		l := defaults.Fill(log.Log{Project: &proj.Key, Name: name})
 		Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		return log.ResourceID(l.Key)
 	}

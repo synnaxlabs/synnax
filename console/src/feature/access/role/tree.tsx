@@ -47,6 +47,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
       {singleResource && (
         <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
       )}
