@@ -357,13 +357,12 @@ var _ = Describe("Relay", func() {
 				Eventually(stalled.Outlet()).Should(Receive())
 				send(4)
 				Expect(warnings()).To(Equal(1))
-				for drained := false; !drained; {
-					select {
-					case <-stalled.Outlet():
-					case <-time.After(100 * time.Millisecond):
-						drained = true
-					}
-				}
+				// Each failed attempt takes one frame, so this passes once stalled is
+				// empty.
+				Eventually(func(g Gomega) {
+					g.Consistently(stalled.Outlet(), 200*time.Millisecond).
+						ShouldNot(Receive())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
 				send(6)
 				Expect(warnings()).To(Equal(2))
 			},
