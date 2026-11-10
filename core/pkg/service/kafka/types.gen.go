@@ -52,12 +52,18 @@ const (
 // ScanConfig configures a Kafka scan task.
 type ScanConfig = versions.ScanConfig
 
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
+
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField = versions.ReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
 type ReadConfig = versions.ReadConfig
+
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
 
 // WriteChannel is a channel whose samples a write task produces as records.
 type WriteChannel = versions.WriteChannel
@@ -68,6 +74,9 @@ type Record = versions.Record
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
 type WriteConfig = versions.WriteConfig
+
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
 
 // ReadRecord is a set of fields read from the records with one Kafka key.
 type ReadRecord = versions.ReadRecord
@@ -596,12 +605,3 @@ func (u ReadFieldUpdate) ApplyTo(x *ReadField) error {
 	}
 	return nil
 }
-
-const (
-	// ScanTaskType is the task type of ScanConfig.
-	ScanTaskType = "kafka_scan"
-	// ReadTaskType is the task type of ReadConfig.
-	ReadTaskType = "kafka_read"
-	// WriteTaskType is the task type of WriteConfig.
-	WriteTaskType = "kafka_write"
-)

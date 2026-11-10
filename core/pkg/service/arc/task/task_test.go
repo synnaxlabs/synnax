@@ -254,7 +254,7 @@ var _ = Describe("Task", Ordered, func() {
 		svcTask := task.Task{
 			Key:    uuid.New(),
 			Name:   "test-task",
-			Type:   arctask.Type,
+			Type:   arctask.TaskType,
 			Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 		}
 		createTask(ctx, svcTask)
@@ -447,7 +447,7 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    uuid.New(),
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			createTask(ctx, svcTask)
@@ -466,7 +466,7 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			svcTask := task.Task{
 				Key:    uuid.New(),
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			createTask(ctx, svcTask)
@@ -484,7 +484,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-zero-period",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -507,7 +507,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    uuid.New(),
 				Name:   "test-invalid-config",
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 			}
 			createTask(ctx, svcTask)
@@ -535,7 +535,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    uuid.New(),
 				Name:   "test-module-not-found",
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			createTask(ctx, svcTask)
@@ -565,7 +565,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-config-success",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -596,7 +596,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-start-ack",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -635,7 +635,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-auto-start",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						AutoStart: true,
 						ArcKey:    uuid.New(),
@@ -665,7 +665,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-auto-start-fail",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						AutoStart:   true,
 						ArcKey:      uuid.New(),
@@ -701,7 +701,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-silent-stop",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						AutoStart: true,
 						ArcKey:    uuid.New(),
@@ -737,7 +737,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-invalid-config",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: map[string]any{"arc_key": "not-a-valid-uuid"},
 				}
 				createTask(ctx, svcTask)
@@ -764,7 +764,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-module-not-found",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -791,7 +791,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-boot-auto-start-failure",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						AutoStart: true,
 						ArcKey:    uuid.New(),
@@ -825,7 +825,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-boot-silent-success",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -854,7 +854,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:  uuid.New(),
 				Name: "test-boot-auto-start",
-				Type: arctask.Type,
+				Type: arctask.TaskType,
 				Config: configToMap(arctask.Config{
 					AutoStart: true,
 					ArcKey:    uuid.New(),
@@ -1021,7 +1021,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-bad-node",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1049,7 +1049,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-start-fail",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						ArcKey:      uuid.New(),
 						Performance: "unknown",
@@ -1094,7 +1094,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "test-start-canceled",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						ArcKey:      uuid.New(),
 						Performance: "unknown",
@@ -1267,7 +1267,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    uuid.New(),
 				Name:   "test-status-sequence",
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			createTask(ctx, svcTask)
@@ -1333,7 +1333,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-entry-status-once",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1397,7 +1397,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-entry-range-once",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1460,7 +1460,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-status-bare",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1533,7 +1533,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-status-var",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1611,7 +1611,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-status-alias",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1677,7 +1677,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-bare",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1750,7 +1750,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-var",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1828,7 +1828,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-alias",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1903,7 +1903,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-val-chan",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -1976,7 +1976,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-val-var",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -2047,7 +2047,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-computed-range-key",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -2119,7 +2119,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-route-range-val-alias",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -2232,7 +2232,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-status-report",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -2344,7 +2344,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:  uuid.New(),
 					Name: "performance-task",
-					Type: arctask.Type,
+					Type: arctask.TaskType,
 					Config: configToMap(arctask.Config{
 						ArcKey:      uuid.New(),
 						Performance: performance,
@@ -3639,7 +3639,7 @@ var _ = Describe("Task", Ordered, func() {
 				svcTask := task.Task{
 					Key:    uuid.New(),
 					Name:   "test-div-zero",
-					Type:   arctask.Type,
+					Type:   arctask.TaskType,
 					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 				}
 				createTask(ctx, svcTask)
@@ -3780,7 +3780,7 @@ var _ = Describe("Task", Ordered, func() {
 			svcTask := task.Task{
 				Key:    uuid.New(),
 				Name:   "test-div-recover",
-				Type:   arctask.Type,
+				Type:   arctask.TaskType,
 				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
 			}
 			createTask(ctx, svcTask)

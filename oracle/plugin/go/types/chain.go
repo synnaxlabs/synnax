@@ -60,12 +60,29 @@ func chainPredecessors(
 			}
 		}
 		preds[versioning.VersionedPath(origPath, e.version)] = predecessor{
-			path:    versioning.VersionedPath(origPath, prev),
-			aliased: aliased,
-			names:   names,
+			path:      versioning.VersionedPath(origPath, prev),
+			aliased:   aliased,
+			names:     names,
+			taskTyped: taskTyped(e.resource, f.Aliases, surf),
 		}
 	}
 	return preds, nil
+}
+
+// taskTyped returns the qualified names of the aliases whose predecessor declaration
+// in surf has a task type, so the predecessor package declares its constant.
+func taskTyped(
+	ns string, aliases map[string]versions.Alias, surf map[string]versions.Definition,
+) set.Set[string] {
+	typed := make(set.Set[string])
+	for name := range aliases {
+		if def, ok := surf[name]; ok {
+			if _, _, ok = domain.TaskType(def.Type); ok {
+				typed.Add(ns + "." + name)
+			}
+		}
+	}
+	return typed
 }
 
 // chainOrders maps every current version package to its version file's declaration
@@ -298,9 +315,14 @@ func frozenFile(
 	}
 	pred := predecessor{}
 	if prev, has := f.Chain.Predecessor(k); has {
+		surf, err := req.Versions.Surface(ctx, livePath, prev)
+		if err != nil {
+			return plugin.File{}, err
+		}
 		pred = predecessor{
-			path:    versioning.VersionedPath(origPath, prev),
-			aliased: make(set.Set[string], len(f.Aliases)),
+			path:      versioning.VersionedPath(origPath, prev),
+			aliased:   make(set.Set[string], len(f.Aliases)),
+			taskTyped: taskTyped(ns, f.Aliases, surf),
 		}
 		for name := range f.Aliases {
 			pred.aliased.Add(ns + "." + name)

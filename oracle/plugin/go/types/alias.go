@@ -126,7 +126,15 @@ func (g *aliasFileGenerator) GenerateFile(
 		if d.kind == declEnum && d.typ.Namespace != namespace {
 			continue
 		}
-		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, "", data)...)
+		decls := buildAliasDecls(d, prefix, "", data)
+		if tt, ok := taskType(d.typ); ok && len(decls) > 0 {
+			decls[0].Consts = append(decls[0].Consts, aliasConst{
+				Name:   tt.Name,
+				Target: prefix + "." + tt.Name,
+				Doc:    "is the task type of " + tt.Config + ".",
+			})
+		}
+		ad.Types = append(ad.Types, decls...)
 	}
 
 	// A path whose types are all @go omit generates no aliases; emitting the
@@ -271,7 +279,7 @@ type {{.LHS}} = {{.RHS}}
 
 {{formatDoc .Name .Doc}}
 {{- end}}
-const {{.Name}} {{.Type}} = {{.Target}}
+const {{.Name}}{{with .Type}} {{.}}{{end}} = {{.Target}}
 {{- end}}
 {{- else if .Consts}}
 
@@ -280,7 +288,7 @@ const (
 {{- if .Doc}}
 	{{formatFieldDoc .Name .Doc | printf "%s"}}
 {{- end}}
-	{{.Name}} {{.Type}} = {{.Target}}
+	{{.Name}}{{with .Type}} {{.}}{{end}} = {{.Target}}
 {{- end}}
 )
 {{- end}}

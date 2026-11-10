@@ -514,3 +514,12 @@ type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v2.ScanConfig
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "modbus_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "modbus_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "modbus_scan"
+)

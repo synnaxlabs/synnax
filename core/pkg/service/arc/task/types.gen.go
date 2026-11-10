@@ -35,6 +35,9 @@ const (
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config = versions.Config
 
+// TaskType is the task type of Config.
+const TaskType = versions.TaskType
+
 // ConfigUpdate holds changes to the fields of the config. An absent field does not
 // change.
 type ConfigUpdate struct {

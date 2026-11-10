@@ -39,12 +39,18 @@ const (
 // ScanConfig configures a Kafka scan task.
 type ScanConfig = v0.ScanConfig
 
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v0.ScanTaskType
+
 // ReadField is a single value extracted from a record's JSON value.
 type ReadField = v0.ReadField
 
 // ReadConfig configures a Kafka read task, which consumes a topic and writes record
 // fields into channels.
 type ReadConfig = v0.ReadConfig
+
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v0.ReadTaskType
 
 // WriteChannel is a channel whose samples a write task produces as records.
 type WriteChannel = v0.WriteChannel
@@ -55,6 +61,9 @@ type Record = v0.Record
 // WriteConfig configures a Kafka write task, which produces one record per sample of
 // each channel to a topic.
 type WriteConfig = v0.WriteConfig
+
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v0.WriteTaskType
 
 // ReadRecord is a set of fields read from the records with one Kafka key.
 type ReadRecord = v0.ReadRecord

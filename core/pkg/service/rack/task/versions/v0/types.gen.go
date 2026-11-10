@@ -17,3 +17,8 @@ import task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 type StatusConfig struct {
 	task.KeyedConfig
 }
+
+const (
+	// StatusTaskType is the task type of StatusConfig.
+	StatusTaskType = "rack_status"
+)

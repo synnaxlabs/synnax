@@ -391,3 +391,12 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v2.ScanConfig
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "ethercat_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "ethercat_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "ethercat_scan"
+)

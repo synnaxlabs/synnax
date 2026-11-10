@@ -34,9 +34,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Type is the type identifier for Arc tasks.
-const Type = "arc"
-
 // GetProgramFunc retrieves an automation with its compiled Program by key.
 type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 
@@ -131,7 +128,7 @@ func (f *factory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
-	if t.Type != Type {
+	if t.Type != TaskType {
 		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg Config

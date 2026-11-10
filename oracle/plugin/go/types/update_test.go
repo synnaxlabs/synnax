@@ -96,7 +96,7 @@ var _ = Describe("Update types", func() {
 				ToBeValidGoSource()
 		}
 
-		It("Should declare the task type of a config beside its update", func(
+		It("Should declare the task type of a config beside the config", func(
 			ctx SpecContext,
 		) {
 			generate(ctx, `
@@ -108,7 +108,7 @@ var _ = Describe("Update types", func() {
 					@task type "plot_analog_read"
 				}
 			`).ToContain(
-				"\t// AnalogReadTaskType is the task type of AnalogReadConfig.\n"+
+				"\t// AnalogReadTaskType is the task type of AnalogReadConfig.\n" +
 					"\tAnalogReadTaskType = \"plot_analog_read\"\n",
 			)
 		})

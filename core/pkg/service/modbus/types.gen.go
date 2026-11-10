@@ -122,11 +122,20 @@ type HoldingRegisterBitWriteChannel = versions.HoldingRegisterBitWriteChannel
 // ReadConfig configures a Modbus read task.
 type ReadConfig = versions.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
+
 // WriteConfig configures a Modbus write task.
 type WriteConfig = versions.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
+
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = versions.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
 
 // RegisterBit addresses one bit of a 16-bit register.
 type RegisterBit = versions.RegisterBit
@@ -1455,12 +1464,3 @@ func (u HoldingRegisterBitWriteChannelUpdate) Defaults() (HoldingRegisterBitWrit
 	var x HoldingRegisterBitWriteChannel
 	return x, nil
 }
-
-const (
-	// ReadTaskType is the task type of ReadConfig.
-	ReadTaskType = "modbus_read"
-	// WriteTaskType is the task type of WriteConfig.
-	WriteTaskType = "modbus_write"
-	// ScanTaskType is the task type of ScanConfig.
-	ScanTaskType = "modbus_scan"
-)

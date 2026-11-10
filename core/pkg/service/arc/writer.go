@@ -29,9 +29,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// TaskType is the task type for tasks that execute an Arc module.
-const TaskType = "arc"
-
 // Writer is used to create, update, and delete arcs within Synnax. The writer executes
 // all operations within the transaction provided to the Service.NewWriter method.
 type Writer struct {
@@ -257,7 +254,12 @@ func (w Writer) writeTask(
 	}
 	tw := w.tasks.NewWriter(w.tx)
 	if len(existing) == 0 {
-		tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
+		tsk := task.Task{
+			Rack:   rackKey,
+			Name:   a.Name,
+			Type:   taskversions.TaskType,
+			Config: encoded,
+		}
 		if err = tw.Create(ctx, &tsk); err != nil {
 			return nil, err
 		}

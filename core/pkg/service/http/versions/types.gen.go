@@ -73,6 +73,9 @@ type ReadEndpoint = v4.ReadEndpoint
 // server device and writes extracted JSON values to Synnax channels.
 type ReadConfig = v4.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v4.ReadTaskType
+
 // JSONType is the JSON type a channel value is serialized as in a request body.
 type JSONType = v4.JSONType
 
@@ -131,5 +134,11 @@ type WriteEndpoint = v4.WriteEndpoint
 // value is written to an endpoint's command channel.
 type WriteConfig = v4.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v4.WriteTaskType
+
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = v4.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v4.ScanTaskType

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -265,13 +266,13 @@ var _ = Describe("Writer", func() {
 			t := &task.Task{
 				Rack:   testRack.Key,
 				Name:   "child-task",
-				Type:   arc.TaskType,
+				Type:   arctask.TaskType,
 				Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 			}
 			other := &task.Task{
 				Rack:   testRack.Key,
 				Name:   "other-arc-task",
-				Type:   arc.TaskType,
+				Type:   arctask.TaskType,
 				Config: msgpack.EncodedJSON{"arc_key": b.Base().Key.String()},
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
@@ -299,7 +300,7 @@ var _ = Describe("Writer", func() {
 				t := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task",
-					Type:   arc.TaskType,
+					Type:   arctask.TaskType,
 					Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
@@ -343,13 +344,13 @@ var _ = Describe("Writer", func() {
 				t1 := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task-1",
-					Type:   arc.TaskType,
+					Type:   arctask.TaskType,
 					Config: cfg,
 				}
 				t2 := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task-2",
-					Type:   arc.TaskType,
+					Type:   arctask.TaskType,
 					Config: cfg,
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t1)).To(Succeed())

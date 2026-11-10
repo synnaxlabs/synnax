@@ -110,7 +110,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Configs: MustSucceed(config.NewRegistry(
 			slices.Concat(pd.Stores(), arcTaskSvc.Stores())...,
 		)),
-		ImExExcluded: []string{arctask.Type},
+		ImExExcluded: []string{arctask.TaskType},
 	}))
 	testRack = rack.Rack{Name: "Project Test Rack"}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

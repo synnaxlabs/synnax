@@ -122,11 +122,20 @@ type DigitalWriteChannel = versions.DigitalWriteChannel
 // ReadConfig configures a LabJack read task.
 type ReadConfig = versions.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
+
 // WriteConfig configures a LabJack write task.
 type WriteConfig = versions.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
+
 // ScanConfig configures a LabJack scan task.
 type ScanConfig = versions.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
 
 // ReadConfigUpdate holds changes to the fields of the read config. An absent field does
 // not change.
@@ -1024,12 +1033,3 @@ func (u DigitalWriteChannelUpdate) Defaults() (DigitalWriteChannel, error) {
 	x.ApplyDefaults()
 	return x, nil
 }
-
-const (
-	// ReadTaskType is the task type of ReadConfig.
-	ReadTaskType = "labjack_read"
-	// WriteTaskType is the task type of WriteConfig.
-	WriteTaskType = "labjack_write"
-	// ScanTaskType is the task type of ScanConfig.
-	ScanTaskType = "labjack_scan"
-)
