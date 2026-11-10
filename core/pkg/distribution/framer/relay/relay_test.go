@@ -219,6 +219,85 @@ var _ = Describe("Relay", func() {
 					Should(Succeed())
 			}
 		})
+
+		It(
+			"Should not drop frames for a stalled streamer under unrelated traffic",
+			func(ctx SpecContext) {
+				node := testutil.NewNode(ctx)
+				channels := MustSucceed(node.CreateChannels(ctx, newChannelSet()))
+				keys := channel.KeysFromChannels(channels)
+				quietKey, busyKeys := keys[0], keys[1:]
+				busyFrames := 3 * relay.DefaultConfig.StreamerBufferSize
+				openStreamer := func(
+					keys channel.Keys,
+					buffer int,
+				) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(node.Framer.NewStreamer(relay.StreamerConfig{
+						Keys:        keys,
+						SendOpenAck: new(true),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				quiet := openStreamer(channel.Keys{quietKey}, 1)
+				busy := openStreamer(busyKeys, 1)
+				w := MustOpen(node.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+				}))
+				writeQuiet := func(v int64) {
+					GinkgoHelper()
+					Expect(w.Write(frame.NewUnary(
+						quietKey,
+						telem.NewSeriesV(v),
+					))).To(BeTrue())
+				}
+				writeBusy := func(n int) {
+					GinkgoHelper()
+					for range n {
+						Expect(w.Write(frame.NewMulti(
+							busyKeys,
+							[]telem.Series{
+								telem.NewSeriesV[int64](1),
+								telem.NewSeriesV[int64](2),
+							},
+						))).To(BeTrue())
+					}
+					for range n {
+						Eventually(busy.Outlet()).Should(Receive())
+					}
+				}
+				// Nobody reads the quiet streamer, so it stalls on the second frame.
+				writeQuiet(1)
+				writeQuiet(2)
+				// The busy frames fill the stalled buffer three times over. Each batch
+				// fits in the busy streamer's buffer, so the busy streamer drops none.
+				const batchSize = 50
+				for range busyFrames / batchSize {
+					writeBusy(batchSize)
+				}
+				writeQuiet(3)
+				// The relay handles frames in order, so this busy frame arrives only
+				// after the relay handles the third quiet frame.
+				writeBusy(1)
+				for v := range int64(3) {
+					var r relay.Response
+					Eventually(quiet.Outlet()).Should(Receive(&r))
+					Expect(r.Frame.Get(quietKey).Series[0].Data).
+						To(Equal(telem.NewSeriesV(v + 1).Data))
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
 	})
 	Describe("ExcludeGroups", Ordered, func() {
 		It(
