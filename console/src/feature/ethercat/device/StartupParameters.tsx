@@ -24,6 +24,7 @@ import {
   parseStartupCommands,
   type StartupCommands,
 } from "@/feature/ethercat/device/esi";
+import { sameAddress, visibleFields } from "@/feature/ethercat/device/settings";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Runtime } from "@/platform/runtime";
 
@@ -175,12 +176,15 @@ const describeImport = (
 
 /**
  * Edits the CoE values that the Driver writes to a slave each time the network starts.
+ * A parameter with no name shows the name of the shown catalog setting at its address.
  */
 export const StartupParameters = (): ReactElement => {
   Form.useCheck(PATH, parametersZ);
   const { value, onChange } = Form.useField(PATH);
   const { get } = Form.useContext();
   const statuses = Form.useStatuses(PATH);
+  const fields = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.device;
+  const shown = fields == null ? [] : visibleFields(fields, value);
   const [result, setResult] = useState<status.Status | null>(null);
   const handleImport = async () => {
     try {
@@ -195,16 +199,24 @@ export const StartupParameters = (): ReactElement => {
       setResult(status.fromException(e, "Failed to import ESI file"));
     }
   };
-  const rows = value.map((p) => FIELDS.map((f) => p[f]));
+  const settingName = (address: ethercat.StartupParameter): string =>
+    shown.find((f) => sameAddress(f, address))?.name ?? "";
+  const rows = value.map((p) =>
+    FIELDS.map((f) => (f === "name" && p.name === "" ? settingName(p) : p[f])),
+  );
   const handleChange = (next: Input.TableCell[][]) =>
     onChange(
-      next.map(([index, subIndex, dataType, value, name]) => ({
-        index: Number(index),
-        subIndex: Number(subIndex),
-        dataType: String(dataType),
-        value: Number(value),
-        name: String(name),
-      })),
+      next.map(([index, subIndex, dataType, value, name]) => {
+        const parameter = {
+          index: Number(index),
+          subIndex: Number(subIndex),
+          dataType: String(dataType),
+          value: Number(value),
+          name: String(name),
+        };
+        if (parameter.name === settingName(parameter)) parameter.name = "";
+        return parameter;
+      }),
     );
   const cellStatus = ({ x, y }: xy.XY) =>
     statuses.find(({ key }) => key === `${String(PATH)}.${y}.${FIELDS[x]}`);
