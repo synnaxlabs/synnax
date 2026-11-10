@@ -15,6 +15,7 @@ from pydantic import ValidationError
 import synnax as sy
 from synnax import table
 from synnax.exceptions import NotFoundError
+from synnax.table.types_gen import Update
 
 
 @pytest.fixture
@@ -60,6 +61,24 @@ class TestTable:
         assert table.resource_id(key).key == str(key)
         t = table.Table(name="Readings")
         assert hash(t) == hash(t.key)
+
+
+class TestUpdate:
+    def test_cells_by_key(self) -> None:
+        """Should hold an update, an insert, and a remove of cells by key."""
+        update: Update = {
+            "cells": {
+                "update": {"a": {"variant": "text", "value": "Flow"}},
+                "insert": {"b": table.TextCellConfig(value="Level")},
+                "remove": ["c"],
+            }
+        }
+        assert update["cells"]["remove"] == ["c"]
+
+    def test_cells_reject_move(self) -> None:
+        """Should not take a move of the cells, which have no order."""
+        update: Update = {"cells": {"move": []}}  # type: ignore[typeddict-unknown-key]
+        assert "move" in update["cells"]
 
 
 @pytest.mark.table

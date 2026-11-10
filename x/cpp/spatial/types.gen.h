@@ -29,12 +29,14 @@ struct Dimensions;
 struct SignedDimensions;
 struct ClientXY;
 struct XYUpdate;
+struct DimensionsUpdate;
 struct Viewport;
 struct ViewportUpdate;
 struct CornerLocation;
 struct StickyUnits;
 struct StickyXY;
 struct LocationXY;
+struct LocationXYUpdate;
 
 constexpr const char *X_LOCATION_LEFT = "left";
 constexpr const char *X_LOCATION_RIGHT = "right";
@@ -163,6 +165,18 @@ struct XYUpdate {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief DimensionsUpdate holds changes to the fields of the dimensions. An absent
+/// field does not change.
+struct DimensionsUpdate {
+    /// @brief width is the width in pixels.
+    std::optional<double> width;
+    /// @brief height is the height in pixels.
+    std::optional<double> height;
+
+    static DimensionsUpdate parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Viewport is the camera state of a viewport.
 struct Viewport {
     /// @brief zoom is the zoom level where 1.0 equals 100%.
@@ -232,6 +246,18 @@ struct LocationXY {
     std::string y;
 
     static LocationXY parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief LocationXYUpdate holds changes to the fields of the location xy. An absent
+/// field does not change.
+struct LocationXYUpdate {
+    /// @brief x is the horizontal anchor.
+    std::optional<std::string> x;
+    /// @brief y is the vertical anchor.
+    std::optional<std::string> y;
+
+    static LocationXYUpdate parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

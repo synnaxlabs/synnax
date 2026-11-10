@@ -168,6 +168,30 @@ export const xyUpdateZ = z.object({
 });
 export interface XYUpdate extends z.infer<typeof xyUpdateZ> {}
 
+/**
+ * DimensionsUpdate holds changes to the fields of the dimensions. An absent field does
+ * not change.
+ */
+export const dimensionsUpdateZ = z.object({
+  /** width is the width in pixels. */
+  width: z.number().optional(),
+  /** height is the height in pixels. */
+  height: z.number().optional(),
+});
+export interface DimensionsUpdate extends z.infer<typeof dimensionsUpdateZ> {}
+
+/**
+ * LocationXYUpdate holds changes to the fields of the location xy. An absent field does
+ * not change.
+ */
+export const locationXYUpdateZ = z.object({
+  /** x is the horizontal anchor. */
+  x: xCenterLocationZ.optional(),
+  /** y is the vertical anchor. */
+  y: yCenterLocationZ.optional(),
+});
+export interface LocationXYUpdate extends z.infer<typeof locationXYUpdateZ> {}
+
 export const decimalZ = z.number().min(0).max(1);
 export type Decimal = z.infer<typeof decimalZ>;
 

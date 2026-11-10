@@ -933,6 +933,7 @@ Schematic struct {
             contains per-element configuration keyed by node or edge key. The variant of
             each value selects the symbol or edge style it configures.
         """
+        @patch
         @ts preserve_keys
     }
     group    group.Key?                 {

@@ -37,6 +37,12 @@ var _ = Describe("Update types", func() {
 				@ts hand
 				@ts include "x/ts/src/patch/field"
 			}
+			TypedMap struct<K extends comparable, V, U> {
+				set    map<K, V>?
+				update map<K, U>?
+				@ts hand
+				@ts include "x/ts/src/patch/field"
+			}
 		`)
 		typesPlugin = types.New(types.DefaultOptions())
 	})
@@ -70,7 +76,8 @@ var _ = Describe("Update types", func() {
 				"name: z.string().optional(),",
 				"note: patch.changeZ(z.string()).optional(),",
 				"layout: record.unknownZ().optional(),",
-				"tags: z.record(z.string(), z.string()).optional(),",
+				"tags: patch.typedMapZ({k: z.string(), v: z.string(), u: z.string()})"+
+					".optional(),",
 				"config: (config == null ? record.unknownZ() : "+
 					"patch.structZ(config)).optional(),",
 			).

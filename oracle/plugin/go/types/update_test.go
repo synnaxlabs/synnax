@@ -78,6 +78,10 @@ var _ = Describe("Update types", func() {
 				Struct struct<U, T> { merge U? }
 				List struct<E, K, U> { set E[]? }
 				ValueList struct<E> { set E[]? }
+				TypedMap struct<K extends comparable, V, U> {
+					set    map<K, V>?
+					update map<K, U>?
+				}
 				Update struct<V> { value V }
 			`)
 		})
@@ -166,6 +170,33 @@ var _ = Describe("Update types", func() {
 			)
 			content.ToContain(
 				"\tif u.Layout != nil {\n\t\tx.Layout = u.Layout\n\t}\n",
+			)
+		})
+
+		It("Should apply a map by key, merging or replacing each value", func(
+			ctx SpecContext,
+		) {
+			content := generate(ctx, `
+				Point struct {
+					x float64
+					y float64
+				}
+
+				Plot struct {
+					key    uuid
+					points map<string, Point>  { @patch }
+					labels map<string, string> { @patch }
+
+					@actions
+				}
+			`)
+			content.ToContain(
+				"patch.ApplyMap(\n\t\t\t&x.Points,\n\t\t\t*u.Points,\n\t\t\t" +
+					"func(v *Point, w PointUpdate) error { return w.ApplyTo(v) },",
+			)
+			content.ToContain(
+				"patch.ApplyMap(\n\t\t\t&x.Labels,\n\t\t\t*u.Labels,\n\t\t\t" +
+					"func(v *string, w string) error { *v = w; return nil },",
 			)
 		})
 
