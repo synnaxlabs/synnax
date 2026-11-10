@@ -172,6 +172,21 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
+      # A download adds missing go.sum entries, so a changed go.mod or go.sum means the
+      # committed ones were not tidy. Tidiness does not depend on GOOS.
+      - name: Check that go.mod and go.sum are tidy
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: |
+          git diff --exit-code -- go.mod go.sum
+          go mod tidy -diff
+
+      # Each job and GOOS restores its own module cache from an earlier run, and a
+      # download checks go.sum only for modules it fetches.
+      - name: Verify the Go module cache
+        working-directory: ${{ inputs.directory }}
+        run: go mod verify
+
       # Code with no build constraint can still use an API that some operating systems
       # lack, so a module that lints only for Linux type-checks for the others.
       - name: Type-check for Windows and macOS
@@ -332,6 +347,11 @@ jobs:
         env:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
+
+      - name: Verify the Go module cache
+        shell: bash
+        working-directory: ${{ inputs.directory }}
+        run: go mod verify
 
       - name: Install stringer
         if: matrix.codegen

@@ -25,6 +25,32 @@ release workflows redeploy the docs after each stable release. The updater route
 five minutes. `DOCS_GITHUB_TOKEN` in the Vercel project raises the GitHub API rate
 limit; the site works without it.
 
+## Versions
+
+`DOCS_VERSION` names the version a build describes: a train such as `0.61`, or `next`
+for `main`. Trains before 0.60 predate versioned docs and have no site. The newest train
+with a stable Core release is the latest and lives at `docs.synnaxlabs.com`. An earlier
+train lives at `v0-60.docs.synnaxlabs.com`, and `next` at `next.docs.synnaxlabs.com`.
+Old and next builds show a banner, ask search engines not to index them, and send the
+blog, release notes, reliability, and legal pages to the root. Download links keep to
+the build's train. Each version has its own search index. A build without
+`DOCS_VERSION`, such as a dev server or a preview, shows no menu and searches the index
+of `next`. A site other than the newest names the root as Latest, not by its train,
+because a newer train does not always rebuild it.
+
+To see a version locally, run `DOCS_VERSION=0.60 pnpm dev`.
+
+To deploy, run the `Deploy - Docs` workflow with one or more versions: a train such as
+`0.61`, `next`, `latest`, or `previous`. `next` builds from `main`. A train builds from
+its newest stable Core tag, or from its `release/core-X.Y` branch if the branch holds
+that tag. Set `ref` to build one version from another ref. A push to `main` deploys
+`next`. A stable release deploys `next`, `latest`, `previous`, and the train it
+released. An older site keeps the download links of its last deploy.
+
+To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
+train's release branch, and deploy the train. If a patch of the train shipped from
+`main`, first merge its tag into the branch.
+
 ## Feature flags
 
 A flag is a static build-time boolean that hides unfinished docs in production. Flags

@@ -12,12 +12,17 @@ package arc
 import (
 	"context"
 	"encoding/json/v2"
+	"maps"
+	"slices"
 	"uuid"
 
+	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -26,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,12 +49,23 @@ type Writer struct {
 	matchTasks  func(arcs ...Key) task.Filter
 	status      *status.Service
 	table       *gorp.Table[Key, Arc]
+	drifts      *gorp.Table[drift.Key, drift.Record]
 	dispatcher  actions.Dispatcher[Key, Action]
 	sweeper     textSweeper
 	resyncs     *gorp.Attachment[Key]
 	deletes     *gorp.Attachment[Key]
 	// directoryDispatcher attaches the actions that change directories.
 	directoryDispatcher actions.Dispatcher[directory.Key, directory.Action]
+	editedModules       *gorp.Attachment[Key]
+	compile             func(
+		context.Context, gorp.Snapshot, AutomationArc,
+	) (arc.Program, []string, error)
+	analyze     func(context.Context, gorp.Snapshot, ModuleArc) error
+	hashModules func(
+		context.Context, gorp.Snapshot, []string,
+	) (map[string]string, error)
+	now    func() telem.TimeStamp
+	parser parser.Config
 }
 
 // WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
@@ -95,7 +112,10 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		}
 		exists = err == nil
 	}
-	b.ApplyDefaults()
+	// A decode defaults an omitted source, but an explicit null clears it.
+	if b.Source.Variant == nil {
+		return errors.Wrap(validate.ErrValidation, "source: required")
+	}
 	if src, ok := b.Source.Variant.(TextSource); ok &&
 		len(src.Text.Doc.Inserts) == 0 && src.Text.Raw != "" {
 		src.Text.Doc = text.Create(src.Text.Raw)
@@ -132,10 +152,15 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if exists {
-		if err = w.syncTask(ctx, b); err != nil {
+	if module && (!exists || existing.Base().Name != b.Name) {
+		if err = w.resyncImporting(ctx); err != nil {
 			return err
 		}
+	} else if module {
+		w.editedModules.Add(w.tx, b.Key)
+	}
+	if err = w.sync(ctx, *a); err != nil {
+		return err
 	}
 	w.dispatcher.Attach(
 		w.tx,
@@ -170,7 +195,7 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		return err
 	}
 	w.deletes.Add(w.tx, keys...)
-	return nil
+	return w.resyncImporting(ctx)
 }
 
 func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
@@ -275,14 +300,91 @@ func (w Writer) UpdateTask(
 	if update.Performance != nil {
 		cfg.Performance = *update.Performance
 	}
-	if cfg.Hash, err = Hash(a.Base()); err != nil {
+	rec, err := w.record(ctx, tsk.Key)
+	if err != nil {
 		return nil, err
 	}
-	return w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
+	var hashes drift.Hashes
+	if cfg.Hash, hashes, err = w.build(ctx, a, rec.Stored); err != nil {
+		return nil, err
+	}
+	written, err := w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
+	if err != nil {
+		return nil, err
+	}
+	rec.Task = written.Key
+	if err = w.writeRecord(ctx, tsk, rec, hashes); err != nil {
+		return nil, err
+	}
+	return written, nil
+}
+
+// build returns the hash of a's compiled program and the hashes of its content. The
+// program holds the code of every module a imports. An automation that does not
+// compile hashes its text and the modules in previous, rehashed.
+func (w Writer) build(
+	ctx context.Context,
+	a Arc,
+	previous drift.Hashes,
+) (string, drift.Hashes, error) {
+	text, err := Hash(a.Base())
+	if err != nil {
+		return "", drift.Hashes{}, err
+	}
+	automation, ok := a.Variant.(AutomationArc)
+	if !ok {
+		return text, drift.Hashes{Text: text, Modules: previous.Modules}, nil
+	}
+	paths := slices.Collect(maps.Keys(previous.Modules))
+	prog, loaded, compileErr := w.compile(ctx, w.tx, automation)
+	if compileErr == nil {
+		paths = loaded
+	}
+	modules, err := w.hashModules(ctx, w.tx, paths)
+	if err != nil {
+		return "", drift.Hashes{}, err
+	}
+	hashes := drift.Hashes{Text: text, Modules: modules}
+	var hash string
+	if compileErr == nil {
+		hash, err = HashProgram(prog)
+	} else {
+		hash, err = HashContent(hashes)
+	}
+	if err != nil {
+		return "", drift.Hashes{}, err
+	}
+	return hash, hashes, nil
+}
+
+// sync rewrites an automation's task config or a module's compile status from its
+// content.
+func (w Writer) sync(ctx context.Context, a Arc) error {
+	if module, ok := a.Variant.(ModuleArc); ok {
+		return w.syncStatus(ctx, module)
+	}
+	return w.syncTask(ctx, a)
+}
+
+// syncStatus compiles the module and stores the result as its status.
+func (w Writer) syncStatus(ctx context.Context, module ModuleArc) error {
+	stat := Status{
+		Owner:   new(ResourceID(module.Key)),
+		Name:    module.Name,
+		Variant: status.VariantSuccess,
+		Message: "Compiled",
+		Time:    w.now(),
+	}
+	if err := w.analyze(ctx, w.tx, module); err != nil {
+		stat.Variant = status.VariantError
+		stat.Message = "Failed to compile"
+		stat.Description = err.Error()
+	}
+	return w.status.NewWriter(w.tx).Set(ctx, &stat)
 }
 
 // writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
-// arc's key into it. cfg.Hash is the arc's semantic hash, so the task's config hash
+// arc's key into it. cfg.Hash is the arc's compiled hash, so the task's config hash
 // tracks the arc's content and the task drift mechanism reports arc content drift with
 // no extra machinery.
 func (w Writer) writeTask(
@@ -329,11 +431,12 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task in place when an edit changed the arc's name or
-// semantic hash, keeping the task in step with the arc. A no-op for arcs with no rack
-// bound and for edits, like graph layout moves, that change neither.
-func (w Writer) syncTask(ctx context.Context, a Base) error {
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(a.Key))
+// syncTask rewrites the arc's task and drift record when an edit changed its name or
+// compiled hash. A no-op for arcs with no rack bound and for edits, like graph layout
+// moves, that change neither.
+func (w Writer) syncTask(ctx context.Context, a Arc) error {
+	b := a.Base()
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(b.Key))
 	if err != nil || len(existing) == 0 {
 		return err
 	}
@@ -341,26 +444,28 @@ func (w Writer) syncTask(ctx context.Context, a Base) error {
 	if err != nil {
 		return err
 	}
-	hash, err := Hash(a)
-	if err != nil || (cfg.Hash == hash && tsk.Name == a.Name) {
+	rec, err := w.record(ctx, tsk.Key)
+	if err != nil {
+		return err
+	}
+	hash, hashes, err := w.build(ctx, a, rec.Stored)
+	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
 		return err
 	}
 	cfg.Hash = hash
-	_, err = w.writeTask(ctx, a, tsk.Rack, existing, cfg)
-	return err
+	if _, err = w.writeTask(ctx, b, tsk.Rack, existing, cfg); err != nil {
+		return err
+	}
+	return w.writeRecord(ctx, tsk, rec, hashes)
 }
 
 func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 	for _, taskKey := range taskKeys {
-		var stat task.Status
-		err := w.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchOwners[task.StatusDetails](task.ResourceID(taskKey))).
-			Entry(&stat).
-			Exec(ctx, w.tx)
-		if err != nil && !errors.Is(err, query.ErrNotFound) {
+		stat, ok, err := taskStatus(ctx, w.status, w.tx, taskKey)
+		if err != nil {
 			return err
 		}
-		if err == nil && stat.Details.Running {
+		if ok && stat.Details.Running {
 			return errors.Wrap(
 				validate.ErrValidation,
 				"cannot clear the rack of a running arc; stop it first",
@@ -371,4 +476,22 @@ func (w Writer) clearRack(ctx context.Context, taskKeys []task.Key) error {
 		}
 	}
 	return nil
+}
+
+// taskStatus returns the status in snap of the task with key, false when none.
+func taskStatus(
+	ctx context.Context,
+	statuses *status.Service,
+	snap gorp.Snapshot,
+	key task.Key,
+) (task.Status, bool, error) {
+	var stat task.Status
+	err := statuses.NewRetrieve[task.StatusDetails]().
+		Where(status.MatchOwners[task.StatusDetails](task.ResourceID(key))).
+		Entry(&stat).
+		Exec(ctx, snap)
+	if errors.Is(err, query.ErrNotFound) {
+		return stat, false, nil
+	}
+	return stat, err == nil, err
 }

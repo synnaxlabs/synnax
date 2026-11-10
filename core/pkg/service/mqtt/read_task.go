@@ -210,7 +210,7 @@ func newReadTopic(
 func enums(entries []EnumEntry) []xjson.Enum {
 	out := make([]xjson.Enum, len(entries))
 	for i, e := range entries {
-		out[i] = xjson.Enum{Label: e.Label, Value: e.Value}
+		out[i] = xjson.NewEnum(e.Label, e.Value)
 	}
 	return out
 }

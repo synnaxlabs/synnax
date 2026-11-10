@@ -107,7 +107,7 @@ func (w Writer) Move(
 			NewCreateAction(CreatePayload{Arc: a}),
 		)
 	}
-	return nil
+	return w.resyncImporting(ctx)
 }
 
 // entry is an Arc or a directory as the directory that holds it sees it.
