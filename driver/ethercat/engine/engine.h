@@ -253,9 +253,12 @@ class Engine {
         const Settings &settings
     );
     /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
-    /// to another value.
+    /// to another value, apart from a slave that another program sets up.
     [[nodiscard]] x::errors::Error
     check_settings_locked(const Settings &settings) const;
+
+    /// @brief whether another program sets up the slave at position, by the last scan.
+    [[nodiscard]] bool shared_locked(uint16_t position) const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
