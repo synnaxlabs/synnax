@@ -484,7 +484,12 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
 
       it("should keep the order of the writes to one object", async () => {
-        const write = (subIndex: number, dataType: string, value: number, name: string) => ({
+        const write = (
+          subIndex: number,
+          dataType: string,
+          value: number,
+          name: string,
+        ) => ({
           index: 0x1c12,
           subIndex,
           dataType,
