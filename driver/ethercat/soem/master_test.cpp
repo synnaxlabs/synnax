@@ -984,6 +984,25 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     EXPECT_EQ(slaves[1].properties.settings, expected);
 }
 
+/// @brief it should store the settings that the catalog describes for the revision of
+/// the slave.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_DIO;
+    slave.eep_rev = 0x00050000;
+    slave.name = "32xDO";
+    slave.mbx_proto = ECT_MBXPROT_COE;
+    slave.sdo_objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
+    this->add_slave(slave);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    const auto &device = slaves[0].properties.settings->at("device");
+    ASSERT_EQ(device.size(), 1);
+    EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
+}
+
 /// @brief it should report why the settings of a slave could not be read.
 TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
     auto stg = create_stg(ECT_MBXPROT_COE);

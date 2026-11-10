@@ -309,6 +309,20 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     EXPECT_EQ(slaves[1].properties.settings, expected);
 }
 
+/// @brief it should store the settings that the catalog describes for the revision of
+/// the slave.
+TEST_F(IGHMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
+    auto &slave = this->api
+                      ->add_slave("32xDO", testutil::DEWESOFT, testutil::IOLITE_DIO);
+    slave.info.revision_number = 0x00050000;
+    slave.objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    const auto &device = slaves[0].properties.settings->at("device");
+    ASSERT_EQ(device.size(), 1);
+    EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
+}
+
 /// @brief it should report why the settings of a slave could not be read.
 TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
     auto objects = testutil::stg_objects(0);

@@ -25,12 +25,10 @@ namespace driver::ethercat::esi {
 namespace {
 using testutil::DEWESOFT;
 using testutil::IOLITE_6XSTG;
+using testutil::IOLITE_DIO;
 
 /// @brief the revision of an IOLITE 6xSTG in its ESI.
 constexpr uint32_t STG_REVISION = 0x00020001;
-
-/// @brief the product code that the IOLITE 32xDI, 32xDO, 8xDI-4xDO, and DIDO share.
-constexpr uint32_t IOLITE_DIO = 0xFB;
 
 /// @brief returns a read of a standalone 6xSTG in which input 1 counts count ranges.
 coe::Read counting_ranges(const uint32_t count) {
