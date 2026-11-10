@@ -36,6 +36,8 @@ const (
 	PathStatusSet               = "/status/set"
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
+	PathArcDirectoryCreate      = "/arc/directory/create"
+	PathArcMove                 = "/arc/move"
 	PathUserDispatch            = "/user/dispatch"
 	PathChannelDispatch         = "/channel/dispatch"
 	PathGroupDispatch           = "/group/dispatch"
@@ -88,6 +90,8 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathStatusSet:               batch.Route(l.Status.Set),
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),
+		PathArcDirectoryCreate:      batch.Route(l.Arc.CreateDirectory),
+		PathArcMove:                 batch.Route(l.Arc.Move),
 		PathUserDispatch:            batch.Route(l.User.Dispatch),
 		PathChannelDispatch:         batch.Route(l.Channel.Dispatch),
 		PathGroupDispatch:           batch.Route(l.Group.Dispatch),

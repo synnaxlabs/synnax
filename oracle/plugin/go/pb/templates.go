@@ -155,19 +155,35 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 }
 
 // {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}}.
+{{- if .Defaults}}
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+{{- end}}
 func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	var r {{.GoType}}
 	if pb == nil {
 		return r, nil
 	}
+{{- if .Defaults}}
+	defaults.Prefill(&r)
+{{- end}}
 {{- $goType := .GoType}}
+{{- $defaults := .Defaults}}
 {{- $needsErr := false}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
 	var err error
 {{- end}}
 {{- range .ErrorFields}}
-{{- if .HasBackwardError}}
+{{- if and $defaults .IsMessage .HasBackwardError (not .BackwardCast)}}
+	if pb.{{.PBName}} != nil {
+		r.{{.GoName}}, err = {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+	}
+{{- else if .HasBackwardError}}
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
@@ -249,6 +265,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	}
 {{- end}}
 {{- end}}
+{{- if .Defaults}}
+	defaults.FillGroups(&r)
+{{- end}}
 	return r, nil
 }
 
@@ -324,9 +343,11 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 {{- if or $ut.Bases .IsInline}}
 		m := {{if .IsInline}}inner{{else}}{{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}{{end}}
 {{- range $ut.Bases}}
-		m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
-		if err != nil {
-			return r, err
+		if pb.{{.PBGoName}} != nil {
+			m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
+			if err != nil {
+				return r, err
+			}
 		}
 {{- end}}
 		r.Variant = m

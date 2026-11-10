@@ -147,6 +147,15 @@ std::pair<ReadTaskConfig, x::errors::Error> ReadTaskConfig::parse(
                 continue;
             }
 
+            if (dt == x::telem::STRING_T && !field.enum_values.empty()) {
+                parser.field_err(
+                    "endpoints.fields.enum_values",
+                    "channel " + ch.name +
+                        " is a string channel, so it cannot have numeric enum values"
+                );
+                continue;
+            }
+
             if (field.optional && ch.is_index) {
                 parser.field_err(
                     "endpoints.fields.optional",

@@ -75,13 +75,15 @@ var (
 		ElectricalUnits: v3.ElectricalUnits("mVoltsPerVolt"),
 	}
 	fullyPopulatedBaseAOChannel = v3.BaseAOChannel{
-		Key:              "test_1",
-		Disabled:         false,
-		CmdChannel:       channel.Key(4),
-		StateChannel:     channel.Key(5),
-		CmdChannelName:   "test_5",
-		StateChannelName: "test_6",
-		Port:             8,
+		Key:      "test_1",
+		Disabled: false,
+		Port:     4,
+	}
+	fullyPopulatedCommandedAOChannel = v3.CommandedAOChannel{
+		CmdChannel:       channel.Key(2),
+		StateChannel:     channel.Key(3),
+		CmdChannelName:   "test_3",
+		StateChannelName: "test_4",
 	}
 	fullyPopulatedBaseCIChannel = v3.BaseCIChannel{
 		Key:      "test_1",
@@ -396,9 +398,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("ao_current variant", v3.AOChannel{Variant: v3.AOCurrentChannel{
-				BaseAOChannel: fullyPopulatedBaseAOChannel,
-				MinMaxVal:     fullyPopulatedMinMaxVal,
-				CustomScale:   fullyPopulatedCustomScale,
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 			}}),
 			Entry("ao_func_gen variant", v3.AOChannel{Variant: v3.AOFuncGenChannel{
 				BaseAOChannel: fullyPopulatedBaseAOChannel,
@@ -408,9 +411,10 @@ var _ = Describe("Codec", func() {
 				Offset:        4.5,
 			}}),
 			Entry("ao_voltage variant", v3.AOChannel{Variant: v3.AOVoltageChannel{
-				BaseAOChannel: fullyPopulatedBaseAOChannel,
-				MinMaxVal:     fullyPopulatedMinMaxVal,
-				CustomScale:   fullyPopulatedCustomScale,
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 			}}),
 		)
 	})
@@ -477,9 +481,10 @@ var _ = Describe("Codec", func() {
 				StateRate:          telem.Rate(5.5),
 				Channels: []v3.AOChannel{
 					{Variant: v3.AOCurrentChannel{
-						BaseAOChannel: fullyPopulatedBaseAOChannel,
-						MinMaxVal:     fullyPopulatedMinMaxVal,
-						CustomScale:   fullyPopulatedCustomScale,
+						BaseAOChannel:      fullyPopulatedBaseAOChannel,
+						MinMaxVal:          fullyPopulatedMinMaxVal,
+						CustomScale:        fullyPopulatedCustomScale,
+						CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 					}},
 				},
 			}),
@@ -536,13 +541,9 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", fullyPopulatedBaseAOChannel),
 			Entry("zero values", v3.BaseAOChannel{
-				Key:              "",
-				Disabled:         false,
-				CmdChannel:       channel.Key(0),
-				StateChannel:     channel.Key(0),
-				CmdChannelName:   "",
-				StateChannelName: "",
-				Port:             0,
+				Key:      "",
+				Disabled: false,
+				Port:     0,
 			}),
 		)
 	})
@@ -698,6 +699,26 @@ var _ = Describe("Codec", func() {
 			Entry("built_in variant", v3.CJC{Variant: v3.BuiltInCJC{}}),
 			Entry("const_val variant", v3.CJC{Variant: v3.ConstValCJC{Val: 1.5}}),
 			Entry("chan variant", v3.CJC{Variant: v3.ChanCJC{Port: 2}}),
+		)
+	})
+	Describe("CommandedAOChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v3.CommandedAOChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v3.CommandedAOChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedCommandedAOChannel),
+			Entry("zero values", v3.CommandedAOChannel{
+				CmdChannel:       channel.Key(0),
+				StateChannel:     channel.Key(0),
+				CmdChannelName:   "",
+				StateChannelName: "",
+			}),
 		)
 	})
 	Describe("CounterReadConfig", func() {
@@ -957,9 +978,10 @@ func BenchmarkEncodeDecodeAIChannel(b *testing.B) {
 
 func BenchmarkEncodeDecodeAOChannel(b *testing.B) {
 	seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
-		BaseAOChannel: fullyPopulatedBaseAOChannel,
-		MinMaxVal:     fullyPopulatedMinMaxVal,
-		CustomScale:   fullyPopulatedCustomScale,
+		BaseAOChannel:      fullyPopulatedBaseAOChannel,
+		MinMaxVal:          fullyPopulatedMinMaxVal,
+		CustomScale:        fullyPopulatedCustomScale,
+		CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -1016,9 +1038,10 @@ func BenchmarkEncodeDecodeAnalogWriteConfig(b *testing.B) {
 		StateRate:          telem.Rate(5.5),
 		Channels: []v3.AOChannel{
 			{Variant: v3.AOCurrentChannel{
-				BaseAOChannel: fullyPopulatedBaseAOChannel,
-				MinMaxVal:     fullyPopulatedMinMaxVal,
-				CustomScale:   fullyPopulatedCustomScale,
+				BaseAOChannel:      fullyPopulatedBaseAOChannel,
+				MinMaxVal:          fullyPopulatedMinMaxVal,
+				CustomScale:        fullyPopulatedCustomScale,
+				CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 			}},
 		},
 	}
@@ -1125,6 +1148,23 @@ func BenchmarkEncodeDecodeCJC(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded v3.CJC
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeCommandedAOChannel(b *testing.B) {
+	seed := fullyPopulatedCommandedAOChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v3.CommandedAOChannel
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -1815,9 +1855,10 @@ func FuzzDecodeAIChannel(f *testing.F) {
 func FuzzDecodeAOChannel(f *testing.F) {
 	{
 		seed := v3.AOChannel{Variant: v3.AOCurrentChannel{
-			BaseAOChannel: fullyPopulatedBaseAOChannel,
-			MinMaxVal:     fullyPopulatedMinMaxVal,
-			CustomScale:   fullyPopulatedCustomScale,
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1841,9 +1882,10 @@ func FuzzDecodeAOChannel(f *testing.F) {
 	}
 	{
 		seed := v3.AOChannel{Variant: v3.AOVoltageChannel{
-			BaseAOChannel: fullyPopulatedBaseAOChannel,
-			MinMaxVal:     fullyPopulatedMinMaxVal,
-			CustomScale:   fullyPopulatedCustomScale,
+			BaseAOChannel:      fullyPopulatedBaseAOChannel,
+			MinMaxVal:          fullyPopulatedMinMaxVal,
+			CustomScale:        fullyPopulatedCustomScale,
+			CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -1958,9 +2000,10 @@ func FuzzDecodeAnalogWriteConfig(f *testing.F) {
 			StateRate:          telem.Rate(5.5),
 			Channels: []v3.AOChannel{
 				{Variant: v3.AOCurrentChannel{
-					BaseAOChannel: fullyPopulatedBaseAOChannel,
-					MinMaxVal:     fullyPopulatedMinMaxVal,
-					CustomScale:   fullyPopulatedCustomScale,
+					BaseAOChannel:      fullyPopulatedBaseAOChannel,
+					MinMaxVal:          fullyPopulatedMinMaxVal,
+					CustomScale:        fullyPopulatedCustomScale,
+					CommandedAOChannel: fullyPopulatedCommandedAOChannel,
 				}},
 			},
 		}
@@ -2079,13 +2122,9 @@ func FuzzDecodeBaseAOChannel(f *testing.F) {
 	}
 	{
 		seed := v3.BaseAOChannel{
-			Key:              "",
-			Disabled:         false,
-			CmdChannel:       channel.Key(0),
-			StateChannel:     channel.Key(0),
-			CmdChannelName:   "",
-			StateChannelName: "",
-			Port:             0,
+			Key:      "",
+			Disabled: false,
+			Port:     0,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2401,6 +2440,50 @@ func FuzzDecodeCJC(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v3.CJC
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeCommandedAOChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedCommandedAOChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v3.CommandedAOChannel{
+			CmdChannel:       channel.Key(0),
+			StateChannel:     channel.Key(0),
+			CmdChannelName:   "",
+			StateChannelName: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v3.CommandedAOChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v3.CommandedAOChannel
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

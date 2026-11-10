@@ -31,6 +31,8 @@ const (
 	FaultOpReadAt FaultOp = "read_at"
 	// FaultOpWrite names File.Write.
 	FaultOpWrite FaultOp = "write"
+	// FaultOpWriteAt names File.WriteAt.
+	FaultOpWriteAt FaultOp = "write_at"
 	// FaultOpRename names FS.Rename.
 	FaultOpRename FaultOp = "rename"
 	// FaultOpStat names FS.Stat.
@@ -86,6 +88,12 @@ func WithFailReadAt(names ...string) FaultyFSOption {
 // fails.
 func WithFailWrite(names ...string) FaultyFSOption {
 	return failOn(FaultOpWrite, names)
+}
+
+// WithFailWriteAt fails WriteAt on each of the given paths. With no path, every
+// WriteAt fails.
+func WithFailWriteAt(names ...string) FaultyFSOption {
+	return failOn(FaultOpWriteAt, names)
 }
 
 // WithFailRename fails Rename on each of the given old paths. With no path, every
@@ -253,6 +261,13 @@ func (f *faultyFile) Write(p []byte) (int, error) {
 		return 0, err
 	}
 	return f.File.Write(p)
+}
+
+func (f *faultyFile) WriteAt(p []byte, off int64) (int, error) {
+	if err := f.fs.fault(FaultOpWriteAt, f.name); err != nil {
+		return 0, err
+	}
+	return f.File.WriteAt(p, off)
 }
 
 func (f *faultyFile) Close() error { f.fs.open.Add(-1); return f.File.Close() }
