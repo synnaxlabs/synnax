@@ -43,6 +43,9 @@ var _ = Describe("Group migrations", func() {
 		loose   = uuid.New()
 		nested  = uuid.New()
 		racks   = uuid.New()
+		first   = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+		second  = uuid.MustParse("00000000-0000-0000-0000-000000000002")
+		both    = []rack.Rack{{Key: r1, Name: "Rack 1"}, {Key: r2, Name: "Rack 2"}}
 	)
 
 	// migrate creates a 0.60.1 store of the given groups, racks, devices, and parent
@@ -117,7 +120,7 @@ var _ = Describe("Group migrations", func() {
 		migrate(
 			ctx,
 			map[uuid.UUID]string{inRack: "Under rack"},
-			nil,
+			both,
 			[]v2.Device{device("a", r1)},
 			parentOf(r1.ResourceID(), groupID(inRack)),
 			parentOf(groupID(inRack), deviceID("a")),
@@ -130,7 +133,7 @@ var _ = Describe("Group migrations", func() {
 		migrate(
 			ctx,
 			map[uuid.UUID]string{devices: "Devices", loose: "Thermocouples"},
-			nil,
+			both,
 			[]v2.Device{device("a", r1), device("b", r2), device("c", r1)},
 			parentOf(rootID, groupID(devices)),
 			parentOf(groupID(devices), groupID(loose)),
@@ -159,7 +162,7 @@ var _ = Describe("Group migrations", func() {
 		migrate(
 			ctx,
 			map[uuid.UUID]string{devices: "Devices", loose: "Outer", nested: "Inner"},
-			nil,
+			both,
 			[]v2.Device{device("a", r1)},
 			parentOf(rootID, groupID(devices)),
 			parentOf(groupID(devices), groupID(loose)),
@@ -181,7 +184,7 @@ var _ = Describe("Group migrations", func() {
 		migrate(
 			ctx,
 			map[uuid.UUID]string{inRack: "Sensors"},
-			nil,
+			both,
 			[]v2.Device{device("a", r1), device("b", r2)},
 			parentOf(r1.ResourceID(), groupID(inRack)),
 			parentOf(groupID(inRack), deviceID("a")),
@@ -211,5 +214,88 @@ var _ = Describe("Group migrations", func() {
 		a := retrieveDevice(ctx, "a")
 		Expect(*a.Group).ToNot(Equal(racks))
 		Expect(groups[*a.Group].Parent).To(HaveValue(Equal(r1.ResourceID())))
+	})
+
+	It("Should copy only the first group of a device", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", first: "First", second: "Second"},
+			both,
+			[]v2.Device{device("a", r1)},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(first)),
+			parentOf(groupID(devices), groupID(second)),
+			parentOf(groupID(first), deviceID("a")),
+			parentOf(groupID(second), deviceID("a")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(groups).ToNot(HaveKey(first))
+		Expect(groups).To(HaveKey(second))
+		Expect(groups).To(HaveLen(3))
+		Expect(
+			groups[*retrieveDevice(ctx, "a").Group],
+		).To(MatchFields(IgnoreExtras, Fields{
+			"Name":   Equal("First"),
+			"Parent": HaveValue(Equal(r1.ResourceID())),
+		}))
+	})
+
+	It(
+		"Should keep a device in a first group under its rack",
+		func(ctx SpecContext) {
+			migrate(
+				ctx,
+				map[uuid.UUID]string{
+					devices: "Devices",
+					first:   "Rack",
+					second:  "Loose",
+				},
+				both,
+				[]v2.Device{device("a", r1)},
+				parentOf(r1.ResourceID(), groupID(first)),
+				parentOf(rootID, groupID(devices)),
+				parentOf(groupID(devices), groupID(second)),
+				parentOf(groupID(first), deviceID("a")),
+				parentOf(groupID(second), deviceID("a")),
+			)
+			Expect(retrieveDevice(ctx, "a").Group).To(HaveValue(Equal(first)))
+			Expect(retrieveGroups(ctx)).To(HaveLen(3))
+		},
+	)
+
+	It("Should drop a device whose rack does not exist", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", loose: "Loose"},
+			both,
+			[]v2.Device{device("a", rack.Key(65539))},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(loose)),
+			parentOf(groupID(loose), deviceID("a")),
+		)
+		Expect(retrieveDevice(ctx, "a").Group).To(BeNil())
+		Expect(retrieveGroups(ctx)).To(HaveLen(2))
+	})
+
+	It("Should keep a split group that holds a child group", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", loose: "Outer", nested: "Inner"},
+			both,
+			[]v2.Device{device("a", r1)},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(loose)),
+			parentOf(groupID(loose), groupID(nested)),
+			parentOf(groupID(loose), deviceID("a")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(groups).To(HaveKey(loose))
+		Expect(groups).To(HaveKey(nested))
+		Expect(
+			groups[*retrieveDevice(ctx, "a").Group],
+		).To(MatchFields(IgnoreExtras, Fields{
+			"Name":   Equal("Outer"),
+			"Parent": HaveValue(Equal(r1.ResourceID())),
+		}))
 	})
 })

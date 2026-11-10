@@ -22,12 +22,14 @@ import (
 	rackv3 "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/set"
+	"go.uber.org/zap"
 )
 
 // SplitGroupsMigration moves each device in a group whose chain does not top out at the
-// device's rack into a copy of that chain under the rack. It then deletes each original
-// group left with no devices, racks, or child groups. It must run before
-// MembersMigration.
+// device's rack into a copy of that chain under the rack. It keeps only the first group
+// of a device and drops the device from its groups when its rack does not exist. It
+// then deletes each original group left with no devices, racks, or child groups. It
+// must run before MembersMigration.
 var SplitGroupsMigration = migrate.New("v61_device_group_split", splitGroups)
 
 type rackCopy struct {
@@ -35,7 +37,7 @@ type rackCopy struct {
 	rack  rack.Key
 }
 
-func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+func splitGroups(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 	edges, err := ontology.RetrieveRelationships(
 		ctx,
 		tx,
@@ -67,11 +69,28 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 	for _, d := range devices {
 		racks[d.Key] = d.Rack
 	}
+	var rackRows []rackv3.Rack
+	if err = gorp.NewRetrieve[rackv3.Key, rackv3.Rack]().
+		Entries(&rackRows).
+		Exec(ctx, tx); err != nil {
+		return err
+	}
+	var (
+		existing = set.New[rack.Key]()
+		held     = set.New[string]()
+	)
+	for _, r := range rackRows {
+		existing.Add(r.Key)
+		if r.Group != nil {
+			held.Add(r.Group.String())
+		}
+	}
 	var (
 		copies   = make(map[rackCopy]groupv1.Key)
 		created  []groupv1.Group
 		split    = set.New[string]()
-		moved    []ontology.Relationship
+		grouped  = set.New[string]()
+		removed  []ontology.Relationship
 		replaced []ontology.Relationship
 	)
 	var copyChain func(g groupv1.Group, r rack.Key, visited set.Set[string]) groupv1.Key
@@ -98,6 +117,10 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 		return c.Key
 	}
 	remaining := make(map[string]int, len(edges))
+	remove := func(e ontology.Relationship) {
+		remaining[e.From.Key]--
+		removed = append(removed, e)
+	}
 	for _, e := range edges {
 		remaining[e.From.Key]++
 		g, ok := byKey[e.From.Key]
@@ -105,32 +128,34 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 		if !ok || !found || g.Scope != resource.TypeDevice {
 			continue
 		}
+		if grouped.Contains(e.To.Key) {
+			remove(e)
+			continue
+		}
+		grouped.Add(e.To.Key)
+		if !existing.Contains(r) {
+			ins.L.Warn(
+				"dropped a device from its group because its rack does not exist",
+				zap.Stringer("group", g.Key),
+				zap.String("group_name", g.Name),
+				zap.Stringer("device", e.To),
+			)
+			remove(e)
+			continue
+		}
 		if top, ok := groupv1.TopParent(g, byKey); ok && top == r.ResourceID() {
 			continue
 		}
 		c := copyChain(g, r, set.New[string]())
-		remaining[e.From.Key]--
-		moved = append(moved, e)
+		remove(e)
 		replaced = append(replaced, ontology.Relationship{
 			From: groupID(c),
 			Type: ontology.RelationshipTypeParentOf,
 			To:   e.To,
 		})
 	}
-	if len(moved) == 0 {
+	if len(removed) == 0 {
 		return nil
-	}
-	var rackRows []rackv3.Rack
-	if err = gorp.NewRetrieve[rackv3.Key, rackv3.Rack]().
-		Entries(&rackRows).
-		Exec(ctx, tx); err != nil {
-		return err
-	}
-	held := set.New[string]()
-	for _, r := range rackRows {
-		if r.Group != nil {
-			held.Add(r.Group.String())
-		}
 	}
 	children := make(map[string]int, len(groups))
 	for _, g := range groups {
@@ -162,7 +187,7 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 		Delete(ctx, deleted...); err != nil {
 		return err
 	}
-	if err = ontology.DeleteRelationships(ctx, tx, moved...); err != nil {
+	if err = ontology.DeleteRelationships(ctx, tx, removed...); err != nil {
 		return err
 	}
 	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, replaced...)
