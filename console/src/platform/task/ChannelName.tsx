@@ -41,7 +41,7 @@ export interface ChannelNameProps extends optional.Optional<
   defaultName?: string;
   /**
    * Gives the name deploying the task creates from the name in the form, shown in
-   * place of it. A rename still stores the typed name.
+   * place of it. A rename still stores the text that the user enters.
    */
   formatName?: (name: string) => string;
   /**
