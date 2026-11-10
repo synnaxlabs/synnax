@@ -211,8 +211,7 @@ func narrowBounds(t types.Type) (lower, upper float64, ok bool) {
 	}
 }
 
-// fitsIn reports whether every value of from is a value of to, for two types that
-// share a WASM type.
+// fitsIn reports whether to holds every value of from.
 func fitsIn(from, to types.Type) bool {
 	switch from.Kind {
 	case to.Kind, types.KindBool:

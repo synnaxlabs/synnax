@@ -257,9 +257,7 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_wrap_i16", sy.DataType.INT16),
 ]
 
-# Each entry is an input channel, the value to write, and the i64 outputs to expect.
-# The two values for one input give different outputs, so each wait proves a new
-# write landed.
+# Each entry is an input channel, a value to write, and the i64 outputs to expect.
 NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
     # An integer cast wraps to the width of the target.
     (

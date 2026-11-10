@@ -10,6 +10,7 @@
 package compiler_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math"
@@ -3052,6 +3053,59 @@ var _ = Describe("Compiler", func() {
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
 			results := MustSucceed(mod.ExportedFunction("test").Call(ctx))
 			assertResult(results[0], 1.0)
+		})
+
+		Describe("Index function", func() {
+			// The body of the function before and after its host call. The host
+			// call sits inside the if block, so an index in range does not reach it.
+			var (
+				maxI32 = []byte{0x42, 0xff, 0xff, 0xff, 0xff, 0x07}
+				minI32 = []byte{0x42, 0x80, 0x80, 0x80, 0x80, 0x78}
+				get    = []byte{0x20, 0x00}
+				report = append([]byte{0x04, 0x40}, append(get, 0x10)...)
+				signed = bytes.Join([][]byte{
+					get, maxI32, {0x55}, get, minI32, {0x53}, {0x72}, report,
+				}, nil)
+				unsigned = bytes.Join([][]byte{get, maxI32, {0x56}, report}, nil)
+				tail     = []byte{0x1a, 0x0b, 0x20, 0x00, 0xa7}
+			)
+			source := func(indexType string) string {
+				return fmt.Sprintf(`func test() f64 {
+					s series f64 := [1.0, 2.0, 3.0]
+					i %s := 1
+					return s[i]
+				}`, indexType)
+			}
+
+			DescribeTable("should check the range in WASM",
+				func(ctx SpecContext, indexType string, head, absent []byte) {
+					output := MustSucceed(
+						compileWithHostImports(ctx, source(indexType), nil),
+					)
+					Expect(bytes.Contains(output.WASM, head)).To(BeTrue())
+					Expect(bytes.Contains(output.WASM, tail)).To(BeTrue())
+					Expect(bytes.Contains(output.WASM, absent)).To(BeFalse())
+				},
+				Entry("i64", "i64", signed, unsigned),
+				Entry("u64", "u64", unsigned, signed),
+				Entry("u32", "u32", signed, unsigned),
+			)
+
+			It("should not export the function", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, source("i64"), nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				Expect(mod.ExportedFunction("$index_from_i64")).To(BeNil())
+			})
+
+			It("should leave the function out of a program with no 64-bit index",
+				func(ctx SpecContext) {
+					output := MustSucceed(
+						compileWithHostImports(ctx, source("i32"), nil),
+					)
+					Expect(bytes.Contains(output.WASM, signed)).To(BeFalse())
+					Expect(bytes.Contains(output.WASM, unsigned)).To(BeFalse())
+				},
+			)
 		})
 
 		DescribeTable("index that does not fit in an i32 traps",

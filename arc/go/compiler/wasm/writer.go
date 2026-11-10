@@ -160,9 +160,8 @@ func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
 	return nil
 }
 
-// WriteNarrow wraps the i32 on the stack to the width of t. WASM has no 8-bit or
-// 16-bit integer, so arithmetic on these types can leave a value outside their range.
-// It writes nothing for any other type.
+// WriteNarrow wraps the i32 on the stack to the width of t. It writes nothing unless t
+// is an 8-bit or 16-bit integer.
 func (e *Writer) WriteNarrow(t types.Type) {
 	switch t.Kind {
 	case types.KindU8:

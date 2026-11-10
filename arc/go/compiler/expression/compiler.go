@@ -316,7 +316,7 @@ func CompileIndex[T antlr.ParserRuleContext](
 		t = types.I64()
 	}
 	if wasm.ConvertType(t) == wasm.I64 {
-		ctx.Resolver.EmitSeriesIndexFrom(ctx.Writer, ctx.WriterID, t)
+		ctx.Resolver.EmitIndexFrom(ctx.Writer, ctx.WriterID, t)
 	}
 	return nil
 }

@@ -1005,6 +1005,10 @@ var _ = Describe("Statement Compiler", func() {
 
 			analyzer.AnalyzeBlock(aCtx)
 			Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
+			Expect(aCtx.Constraints.Unify()).To(Succeed())
+			for node, t := range aCtx.TypeMap {
+				aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(t)
+			}
 
 			ctx := context.NewRoot(
 				bCtx,

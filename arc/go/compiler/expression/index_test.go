@@ -66,7 +66,9 @@ var _ = Describe("CompileIndex", func() {
 		},
 	)
 
-	DescribeTable("should narrow a 64-bit index with a host call",
+	// The harness registers the i64 index function first and the u64 one second. A
+	// module function takes the index after the last import.
+	DescribeTable("should narrow a 64-bit index with the module function",
 		expectSeriesExpression,
 		Entry("i64 index", "s[i]",
 			[]symbol.Symbol{
@@ -74,7 +76,7 @@ var _ = Describe("CompileIndex", func() {
 				scalarSymbol("i", types.I64(), 1),
 			},
 			types.F64(),
-			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0), OpCall, uint32(1),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(1), OpCall, uint32(0),
 		),
 		Entry("u64 index", "s[i]",
 			[]symbol.Symbol{
@@ -82,7 +84,7 @@ var _ = Describe("CompileIndex", func() {
 				scalarSymbol("i", types.U64(), 1),
 			},
 			types.F64(),
-			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0), OpCall, uint32(1),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(2), OpCall, uint32(0),
 		),
 		Entry("u32 index", "s[i]",
 			[]symbol.Symbol{
@@ -91,8 +93,8 @@ var _ = Describe("CompileIndex", func() {
 			},
 			types.F64(),
 			OpLocalGet, 0,
-			OpLocalGet, 1, OpI64ExtendI32U, OpCall, uint32(0),
-			OpCall, uint32(1),
+			OpLocalGet, 1, OpI64ExtendI32U, OpCall, uint32(1),
+			OpCall, uint32(0),
 		),
 		Entry("i64 slice bounds", "s[i:i]",
 			[]symbol.Symbol{
@@ -101,9 +103,9 @@ var _ = Describe("CompileIndex", func() {
 			},
 			types.Series(types.F64()),
 			OpLocalGet, 0,
-			OpLocalGet, 1, OpCall, uint32(0),
-			OpLocalGet, 1, OpCall, uint32(0),
-			OpCall, uint32(1),
+			OpLocalGet, 1, OpCall, uint32(1),
+			OpLocalGet, 1, OpCall, uint32(1),
+			OpCall, uint32(0),
 		),
 	)
 })
