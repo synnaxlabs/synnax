@@ -13,6 +13,7 @@
 
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -172,6 +173,41 @@ x::json::json ValueList<E>::to_json() const {
     if (this->insert.has_value()) j["insert"] = x::json::to_array(*this->insert);
     if (this->remove.has_value()) j["remove"] = x::json::to_array(*this->remove);
     if (this->move.has_value()) j["move"] = x::json::to_array(*this->move);
+    return j;
+}
+
+template<typename K, typename V, typename U>
+TypedMap<K, V, U> TypedMap<K, V, U>::parse(x::json::Parser parser) {
+    return TypedMap<K, V, U>{
+        .set = parser.field<std::optional<std::unordered_map<K, V>>>("set"),
+        .insert = parser.field<std::optional<std::unordered_map<K, V>>>("insert"),
+        .remove = parser.field<std::optional<std::vector<K>>>("remove"),
+        .update = parser.field<std::optional<std::unordered_map<K, U>>>("update"),
+    };
+}
+
+template<typename K, typename V, typename U>
+x::json::json TypedMap<K, V, U>::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->set.has_value()) {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: *this->set)
+            obj[x::json::map_key(key)] = x::json::to_json(item);
+        j["set"] = obj;
+    }
+    if (this->insert.has_value()) {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: *this->insert)
+            obj[x::json::map_key(key)] = x::json::to_json(item);
+        j["insert"] = obj;
+    }
+    if (this->remove.has_value()) j["remove"] = x::json::to_array(*this->remove);
+    if (this->update.has_value()) {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: *this->update)
+            obj[x::json::map_key(key)] = x::json::to_json(item);
+        j["update"] = obj;
+    }
     return j;
 }
 

@@ -107,6 +107,20 @@ type ValueList[E any] struct {
 	Move []ListMove[E] `json:"move,omitzero" msgpack:"move"`
 }
 
+// TypedMap changes a map whose values have a schema. The operators apply in the order
+// remove, update, then insert. A key that is missing, or an insert of a key that
+// exists, fails the update.
+type TypedMap[K comparable, V any, U any] struct {
+	// Set replaces the whole map. It cannot hold any other operator.
+	Set map[K]V `json:"set,omitzero" msgpack:"set"`
+	// Insert adds entries with keys that the map does not hold.
+	Insert map[K]V `json:"insert,omitzero" msgpack:"insert"`
+	// Remove removes the entries with these keys.
+	Remove []K `json:"remove,omitzero" msgpack:"remove"`
+	// Update merges each value into the value with the same key.
+	Update map[K]U `json:"update,omitzero" msgpack:"update"`
+}
+
 // Update changes a record by a partial record.
 type Update[V any] struct {
 	// Value is the partial record that the update applies.

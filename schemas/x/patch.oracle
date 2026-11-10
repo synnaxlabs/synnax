@@ -172,6 +172,31 @@ ValueList struct<E> {
     @ts include "x/ts/src/patch/field"
 }
 
+TypedMap struct<K extends comparable, V, U> {
+    set    map<K, V>? {
+        @doc value "replaces the whole map. It cannot hold any other operator."
+    }
+    insert map<K, V>? {
+        @doc value "adds entries with keys that the map does not hold."
+    }
+    remove K[]?       {
+        @doc value "removes the entries with these keys."
+    }
+    update map<K, U>? {
+        @doc value "merges each value into the value with the same key."
+    }
+
+    @doc value  """
+        changes a map whose values have a schema. The operators apply in the order
+        remove, update, then insert. A key that is missing, or an insert of a key that
+        exists, fails the update.
+    """
+    @pb omit
+    @py dict
+    @ts hand
+    @ts include "x/ts/src/patch/field"
+}
+
 Update struct<V> {
     value  V       {
         @doc value "is the partial record that the update applies."

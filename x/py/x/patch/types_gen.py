@@ -17,9 +17,11 @@ from pydantic import BaseModel, Field, JsonValue
 
 K = TypeVar("K")
 
-E = TypeVar("E")
+V = TypeVar("V")
 
 U = TypeVar("U")
+
+E = TypeVar("E")
 
 
 class Guard(BaseModel):
@@ -52,6 +54,32 @@ class ListMove(BaseModel, Generic[K]):
 class ListMoveDict(TypedDict, Generic[K]):
     key: K
     after: NotRequired[K]
+
+
+class TypedMap(BaseModel, Generic[K, V, U]):
+    """Changes a map whose values have a schema. The operators apply in the order
+    remove, update, then insert. A key that is missing, or an insert of a key that
+    exists, fails the update.
+
+    Attributes:
+        set: Replaces the whole map. It cannot hold any other operator.
+        insert: Adds entries with keys that the map does not hold.
+        remove: Removes the entries with these keys.
+        update: Merges each value into the value with the same key.
+    """
+
+    set: dict[K, V] | None = None
+    insert: dict[K, V] | None = None
+    remove: list[K] | None = None
+    update: dict[K, U] | None = None
+
+
+# TypedMapDict is the dict form of TypedMap.
+class TypedMapDict(TypedDict, Generic[K, V, U]):
+    set: NotRequired[dict[K, V]]
+    insert: NotRequired[dict[K, V]]
+    remove: NotRequired[list[K]]
+    update: NotRequired[dict[K, U]]
 
 
 class Set(BaseModel):
