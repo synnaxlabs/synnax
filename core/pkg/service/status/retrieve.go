@@ -16,6 +16,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
@@ -120,10 +122,20 @@ func MatchKeys[D any](keys ...Key) Filter[D] {
 // MatchNames returns a filter for statuses whose name matches any of the provided
 // values.
 func MatchNames[D any](names ...string) Filter[D] {
-	return func(Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return slices.Contains(names, s.Name), nil
-		})
+	keys := make([]string, len(names))
+	for i, n := range names {
+		keys[i] = compare.TextKey(n)
+	}
+	exact := set.New(names...)
+	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
+		return gorp.And(
+			gorp.MatchKeysFunc[Key, Status[D]](func(ctx gorp.Context) ([]Key, error) {
+				return r.indexes.name.Get(ctx, ctx.Snapshot, keys...)
+			}),
+			gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+				return exact.Contains(s.Name), nil
+			}),
+		)
 	}
 }
 
