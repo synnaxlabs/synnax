@@ -48,6 +48,7 @@ from synnax.task.types_gen import (
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 from x.timing import Timer
 
 # synnax.arc imports synnax.task at load time.
@@ -191,6 +192,7 @@ class Task:
         """
         return None
 
+    @deprecate_positional("args")
     def execute_command(
         self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
@@ -213,6 +215,7 @@ class Task:
         w.close()
         return cmd.key
 
+    @deprecate_positional("args", "timeout")
     def execute_command_sync(
         self,
         type_: str,
@@ -329,6 +332,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
+    @deprecate_positional("timeout")
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the driver sends the final status of the
         start.
@@ -343,6 +347,7 @@ class StarterStopperMixin:
         """
         _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
+    @deprecate_positional("timeout")
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the driver sends the final status of the
         stop.
@@ -358,6 +363,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
 
+    @deprecate_positional("timeout")
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
@@ -477,6 +483,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
+    @deprecate_positional("rack")
     def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld

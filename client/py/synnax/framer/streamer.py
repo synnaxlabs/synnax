@@ -31,6 +31,7 @@ from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSCodec
 from synnax.framer.common import validate_downsample_factor
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import CrudeTimeSpan, TimeSpan
+from x.params import deprecate_positional
 
 DEFAULT_KEEP_ALIVE = TimeSpan.SECOND * 5
 # Missing this many keep-alive intervals in a row fails the pending read: one is normal
@@ -181,6 +182,7 @@ class Streamer:
         raised.
         """
 
+    @deprecate_positional("timeout")
     def read(self, *, timeout: CrudeTimeSpan | None = None) -> Frame | None:
         """Reads the next frame of telemetry from the streamer. If a timeout is
         provided, this method will wait for the specified amount of time for a frame to
@@ -236,6 +238,7 @@ class Streamer:
             )
         )
 
+    @deprecate_positional("timeout")
     def close(self, *, timeout: CrudeTimeSpan | None = None) -> None:
         """Closes the streamer and frees all network resources.
 
