@@ -360,7 +360,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         settings: createSettingsDescription(),
         startupParameters: [named],
       });
-      fireEvent.click(screen.getByRole("button", { name: "20 kS/s" }));
+      fireEvent.click(screen.getByRole("button", { name: "Sample rate 20 kS/s" }));
       fireEvent.click(await screen.findByRole("option", { name: "1 kS/s" }));
       await save();
       await waitFor(async () =>
