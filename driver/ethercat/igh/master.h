@@ -111,8 +111,9 @@ public:
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
-    /// @brief writes nothing, since IgH takes startup parameters only before activation
-    /// and writes those again each time the slave restarts.
+    /// @brief writes nothing, since IgH takes startup parameters only before
+    /// activation. It does not write the parameters again when the slave restarts, so a
+    /// slave that loses power goes back to the values it stores.
     /// @returns errors::SETTING_CONFLICT when the slave holds another value for a
     /// parameter. errors::STARTUP_PARAMETER_ERROR when the slave fails to read one.
     x::errors::Error write(
