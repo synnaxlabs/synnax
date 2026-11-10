@@ -20,9 +20,7 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
-			rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -77,9 +75,7 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate
@@ -183,9 +179,7 @@ func (rc *ReadChannel) HashContent(h *content.Hash) {
 func (arc *AnalogReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&arc.BaseReadChannel.Key, c.Next(), func(def *AnalogReadChannel) {
-			arc.BaseReadChannel.Key = def.BaseReadChannel.Key
-		})
+		return patch.Value(&arc.BaseReadChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&arc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -234,9 +228,7 @@ func (arc *AnalogReadChannel) HashContent(h *content.Hash) {
 func (drc *DigitalReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&drc.BaseReadChannel.Key, c.Next(), func(def *DigitalReadChannel) {
-			drc.BaseReadChannel.Key = def.BaseReadChannel.Key
-		})
+		return patch.Value(&drc.BaseReadChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&drc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -264,9 +256,7 @@ func (drc *DigitalReadChannel) HashContent(h *content.Hash) {
 func (trc *ThermocoupleReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&trc.BaseReadChannel.Key, c.Next(), func(def *ThermocoupleReadChannel) {
-			trc.BaseReadChannel.Key = def.BaseReadChannel.Key
-		})
+		return patch.Value(&trc.BaseReadChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&trc.BaseReadChannel.Name, c.Next())
 	case "disabled":

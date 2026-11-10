@@ -20,9 +20,7 @@ import (
 func (arc *AnalogReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *AnalogReadConfig) {
-			arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&arc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -58,9 +56,7 @@ func (arc *AnalogReadConfig) HashContent(h *content.Hash) {
 func (awc *AnalogWriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *AnalogWriteConfig) {
-			awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -94,9 +90,7 @@ func (awc *AnalogWriteConfig) HashContent(h *content.Hash) {
 func (crc *CounterReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *CounterReadConfig) {
-			crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&crc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -132,9 +126,7 @@ func (crc *CounterReadConfig) HashContent(h *content.Hash) {
 func (dic *DIChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&dic.Key, c.Next(), func(def *DIChannel) {
-			dic.Key = def.Key
-		})
+		return patch.Value(&dic.Key, c.Next())
 	case "name":
 		return patch.Value(&dic.Name, c.Next())
 	case "disabled":
@@ -166,9 +158,7 @@ func (dic *DIChannel) HashContent(h *content.Hash) {
 func (doc *DOChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&doc.Key, c.Next(), func(def *DOChannel) {
-			doc.Key = def.Key
-		})
+		return patch.Value(&doc.Key, c.Next())
 	case "disabled":
 		return patch.Value(&doc.Disabled, c.Next())
 	case "cmd_channel":
@@ -206,9 +196,7 @@ func (doc *DOChannel) HashContent(h *content.Hash) {
 func (drc *DigitalReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *DigitalReadConfig) {
-			drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&drc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -247,9 +235,7 @@ func (drc *DigitalReadConfig) HashContent(h *content.Hash) {
 func (dwc *DigitalWriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *DigitalWriteConfig) {
-			dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -283,9 +269,7 @@ func (dwc *DigitalWriteConfig) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate
@@ -870,9 +854,7 @@ func (aic *AIChannel) HashContent(h *content.Hash) {
 func (aivc *AIVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aivc.BaseAIChannel.Key, c.Next(), func(def *AIVoltageChannel) {
-			aivc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aivc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aivc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -922,9 +904,7 @@ func (aivc *AIVoltageChannel) HashContent(h *content.Hash) {
 func (aiac *AIAccelChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aiac.BaseAIChannel.Key, c.Next(), func(def *AIAccelChannel) {
-			aiac.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aiac.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aiac.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -995,9 +975,7 @@ func (aiac *AIAccelChannel) HashContent(h *content.Hash) {
 func (aibc *AIBridgeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aibc.BaseAIChannel.Key, c.Next(), func(def *AIBridgeChannel) {
-			aibc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aibc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aibc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1065,9 +1043,7 @@ func (aibc *AIBridgeChannel) HashContent(h *content.Hash) {
 func (aicc *AICurrentChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aicc.BaseAIChannel.Key, c.Next(), func(def *AICurrentChannel) {
-			aicc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aicc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aicc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1127,9 +1103,7 @@ func (aicc *AICurrentChannel) HashContent(h *content.Hash) {
 func (aifbtc *AIForceBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aifbtc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgeTableChannel) {
-			aifbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aifbtc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aifbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1219,9 +1193,7 @@ func (aifbtc *AIForceBridgeTableChannel) HashContent(h *content.Hash) {
 func (aifbtplc *AIForceBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aifbtplc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
-			aifbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aifbtplc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aifbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1315,9 +1287,7 @@ func (aifbtplc *AIForceBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 func (aifiepec *AIForceIEPEChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aifiepec.BaseAIChannel.Key, c.Next(), func(def *AIForceIEPEChannel) {
-			aifiepec.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aifiepec.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aifiepec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1388,9 +1358,7 @@ func (aifiepec *AIForceIEPEChannel) HashContent(h *content.Hash) {
 func (aimc *AIMicrophoneChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aimc.BaseAIChannel.Key, c.Next(), func(def *AIMicrophoneChannel) {
-			aimc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aimc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aimc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1446,9 +1414,7 @@ func (aimc *AIMicrophoneChannel) HashContent(h *content.Hash) {
 func (aipbtc *AIPressureBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aipbtc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgeTableChannel) {
-			aipbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aipbtc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aipbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1538,9 +1504,7 @@ func (aipbtc *AIPressureBridgeTableChannel) HashContent(h *content.Hash) {
 func (aipbtplc *AIPressureBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aipbtplc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
-			aipbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aipbtplc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aipbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1634,9 +1598,7 @@ func (aipbtplc *AIPressureBridgeTwoPointLinChannel) HashContent(h *content.Hash)
 func (airc *AIResistanceChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&airc.BaseAIChannel.Key, c.Next(), func(def *AIResistanceChannel) {
-			airc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&airc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&airc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1694,9 +1656,7 @@ func (airc *AIResistanceChannel) HashContent(h *content.Hash) {
 func (airtdc *AIRTDChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&airtdc.BaseAIChannel.Key, c.Next(), func(def *AIRTDChannel) {
-			airtdc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&airtdc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&airtdc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1759,9 +1719,7 @@ func (airtdc *AIRTDChannel) HashContent(h *content.Hash) {
 func (aisgc *AIStrainGaugeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aisgc.BaseAIChannel.Key, c.Next(), func(def *AIStrainGaugeChannel) {
-			aisgc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aisgc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aisgc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1834,9 +1792,7 @@ func (aisgc *AIStrainGaugeChannel) HashContent(h *content.Hash) {
 func (aitbc *AITempBuiltinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitbc.Key, c.Next(), func(def *AITempBuiltinChannel) {
-			aitbc.Key = def.Key
-		})
+		return patch.Value(&aitbc.Key, c.Next())
 	case "name":
 		return patch.Value(&aitbc.Name, c.Next())
 	case "disabled":
@@ -1867,9 +1823,7 @@ func (aitbc *AITempBuiltinChannel) HashContent(h *content.Hash) {
 func (aitc *AIThermocoupleChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitc.BaseAIChannel.Key, c.Next(), func(def *AIThermocoupleChannel) {
-			aitc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1924,9 +1878,7 @@ func (aitc *AIThermocoupleChannel) HashContent(h *content.Hash) {
 func (aitbtc *AITorqueBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitbtc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgeTableChannel) {
-			aitbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitbtc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2016,9 +1968,7 @@ func (aitbtc *AITorqueBridgeTableChannel) HashContent(h *content.Hash) {
 func (aitbtplc *AITorqueBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitbtplc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
-			aitbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitbtplc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2112,9 +2062,7 @@ func (aitbtplc *AITorqueBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 func (aiviepec *AIVelocityIEPEChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aiviepec.BaseAIChannel.Key, c.Next(), func(def *AIVelocityIEPEChannel) {
-			aiviepec.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aiviepec.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aiviepec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2185,9 +2133,7 @@ func (aiviepec *AIVelocityIEPEChannel) HashContent(h *content.Hash) {
 func (aiawdcvc *AIAccel4WireDCVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aiawdcvc.BaseAIChannel.Key, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
-			aiawdcvc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aiawdcvc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aiawdcvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2261,9 +2207,7 @@ func (aiawdcvc *AIAccel4WireDCVoltageChannel) HashContent(h *content.Hash) {
 func (aiacc *AIAccelChargeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aiacc.BaseAIChannel.Key, c.Next(), func(def *AIAccelChargeChannel) {
-			aiacc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aiacc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aiacc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2326,9 +2270,7 @@ func (aiacc *AIAccelChargeChannel) HashContent(h *content.Hash) {
 func (aicc *AIChargeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aicc.BaseAIChannel.Key, c.Next(), func(def *AIChargeChannel) {
-			aicc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aicc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aicc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2383,9 +2325,7 @@ func (aicc *AIChargeChannel) HashContent(h *content.Hash) {
 func (aicrmsc *AICurrentRMSChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aicrmsc.BaseAIChannel.Key, c.Next(), func(def *AICurrentRMSChannel) {
-			aicrmsc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aicrmsc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aicrmsc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2445,9 +2385,7 @@ func (aicrmsc *AICurrentRMSChannel) HashContent(h *content.Hash) {
 func (aifbpc *AIForceBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aifbpc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgePolynomialChannel) {
-			aifbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aifbpc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aifbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2537,9 +2475,7 @@ func (aifbpc *AIForceBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aifvc *AIFreqVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aifvc.BaseAIChannel.Key, c.Next(), func(def *AIFreqVoltageChannel) {
-			aifvc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aifvc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aifvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2590,9 +2526,7 @@ func (aifvc *AIFreqVoltageChannel) HashContent(h *content.Hash) {
 func (aipbpc *AIPressureBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aipbpc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
-			aipbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aipbpc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aipbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2682,9 +2616,7 @@ func (aipbpc *AIPressureBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aitic *AIThermistorIexChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitic.BaseAIChannel.Key, c.Next(), func(def *AIThermistorIexChannel) {
-			aitic.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitic.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitic.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2748,9 +2680,7 @@ func (aitic *AIThermistorIexChannel) HashContent(h *content.Hash) {
 func (aitvc *AIThermistorVexChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitvc.BaseAIChannel.Key, c.Next(), func(def *AIThermistorVexChannel) {
-			aitvc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitvc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2817,9 +2747,7 @@ func (aitvc *AIThermistorVexChannel) HashContent(h *content.Hash) {
 func (aitbpc *AITorqueBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aitbpc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
-			aitbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aitbpc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aitbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2909,9 +2837,7 @@ func (aitbpc *AITorqueBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aivrmsc *AIVoltageRMSChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aivrmsc.BaseAIChannel.Key, c.Next(), func(def *AIVoltageRMSChannel) {
-			aivrmsc.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aivrmsc.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aivrmsc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2961,9 +2887,7 @@ func (aivrmsc *AIVoltageRMSChannel) HashContent(h *content.Hash) {
 func (aivwec *AIVoltageWithExcitChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aivwec.BaseAIChannel.Key, c.Next(), func(def *AIVoltageWithExcitChannel) {
-			aivwec.BaseAIChannel.Key = def.BaseAIChannel.Key
-		})
+		return patch.Value(&aivwec.BaseAIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&aivwec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -3106,9 +3030,7 @@ func (aoc *AOChannel) HashContent(h *content.Hash) {
 func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aocc.BaseAOChannel.Key, c.Next(), func(def *AOCurrentChannel) {
-			aocc.BaseAOChannel.Key = def.BaseAOChannel.Key
-		})
+		return patch.Value(&aocc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aocc.BaseAOChannel.Disabled, c.Next())
 	case "port":
@@ -3156,9 +3078,7 @@ func (aocc *AOCurrentChannel) HashContent(h *content.Hash) {
 func (aofgc *AOFuncGenChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aofgc.BaseAOChannel.Key, c.Next(), func(def *AOFuncGenChannel) {
-			aofgc.BaseAOChannel.Key = def.BaseAOChannel.Key
-		})
+		return patch.Value(&aofgc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aofgc.BaseAOChannel.Disabled, c.Next())
 	case "port":
@@ -3192,9 +3112,7 @@ func (aofgc *AOFuncGenChannel) HashContent(h *content.Hash) {
 func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&aovc.BaseAOChannel.Key, c.Next(), func(def *AOVoltageChannel) {
-			aovc.BaseAOChannel.Key = def.BaseAOChannel.Key
-		})
+		return patch.Value(&aovc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aovc.BaseAOChannel.Disabled, c.Next())
 	case "port":
@@ -3463,9 +3381,7 @@ func (cic *CIChannel) HashContent(h *content.Hash) {
 func (cifc *CIFrequencyChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cifc.BaseCIChannel.Key, c.Next(), func(def *CIFrequencyChannel) {
-			cifc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cifc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cifc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3540,9 +3456,7 @@ func (cifc *CIFrequencyChannel) HashContent(h *content.Hash) {
 func (ciecc *CIEdgeCountChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&ciecc.BaseCIChannel.Key, c.Next(), func(def *CIEdgeCountChannel) {
-			ciecc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&ciecc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&ciecc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3587,9 +3501,7 @@ func (ciecc *CIEdgeCountChannel) HashContent(h *content.Hash) {
 func (cipc *CIPeriodChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cipc.BaseCIChannel.Key, c.Next(), func(def *CIPeriodChannel) {
-			cipc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cipc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cipc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3664,9 +3576,7 @@ func (cipc *CIPeriodChannel) HashContent(h *content.Hash) {
 func (cipwc *CIPulseWidthChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cipwc.BaseCIChannel.Key, c.Next(), func(def *CIPulseWidthChannel) {
-			cipwc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cipwc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cipwc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3726,9 +3636,7 @@ func (cipwc *CIPulseWidthChannel) HashContent(h *content.Hash) {
 func (cispc *CISemiPeriodChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cispc.BaseCIChannel.Key, c.Next(), func(def *CISemiPeriodChannel) {
-			cispc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cispc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cispc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3783,9 +3691,7 @@ func (cispc *CISemiPeriodChannel) HashContent(h *content.Hash) {
 func (citesc *CITwoEdgeSepChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&citesc.BaseCIChannel.Key, c.Next(), func(def *CITwoEdgeSepChannel) {
-			citesc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&citesc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&citesc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3853,9 +3759,7 @@ func (citesc *CITwoEdgeSepChannel) HashContent(h *content.Hash) {
 func (civlc *CIVelocityLinearChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&civlc.BaseCIChannel.Key, c.Next(), func(def *CIVelocityLinearChannel) {
-			civlc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&civlc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&civlc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3921,9 +3825,7 @@ func (civlc *CIVelocityLinearChannel) HashContent(h *content.Hash) {
 func (civac *CIVelocityAngularChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&civac.BaseCIChannel.Key, c.Next(), func(def *CIVelocityAngularChannel) {
-			civac.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&civac.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&civac.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3989,9 +3891,7 @@ func (civac *CIVelocityAngularChannel) HashContent(h *content.Hash) {
 func (ciplc *CIPositionLinearChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&ciplc.BaseCIChannel.Key, c.Next(), func(def *CIPositionLinearChannel) {
-			ciplc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&ciplc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&ciplc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -4066,9 +3966,7 @@ func (ciplc *CIPositionLinearChannel) HashContent(h *content.Hash) {
 func (cipac *CIPositionAngularChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cipac.BaseCIChannel.Key, c.Next(), func(def *CIPositionAngularChannel) {
-			cipac.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cipac.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cipac.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -4143,9 +4041,7 @@ func (cipac *CIPositionAngularChannel) HashContent(h *content.Hash) {
 func (cidcc *CIDutyCycleChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cidcc.BaseCIChannel.Key, c.Next(), func(def *CIDutyCycleChannel) {
-			cidcc.BaseCIChannel.Key = def.BaseCIChannel.Key
-		})
+		return patch.Value(&cidcc.BaseCIChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cidcc.BaseCIChannel.Name, c.Next())
 	case "disabled":

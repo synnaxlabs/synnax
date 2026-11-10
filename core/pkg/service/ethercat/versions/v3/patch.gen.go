@@ -20,9 +20,7 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
-			rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -82,9 +80,7 @@ func (sp *StartupParameter) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -179,9 +175,7 @@ func (rc *ReadChannel) HashContent(h *content.Hash) {
 func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&erc.BaseReadChannel.Key, c.Next(), func(def *EntryReadChannel) {
-			erc.BaseReadChannel.Key = def.BaseReadChannel.Key
-		})
+		return patch.Value(&erc.BaseReadChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&erc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -224,9 +218,7 @@ func (erc *EntryReadChannel) HashContent(h *content.Hash) {
 func (urc *UnresolvedReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&urc.BaseReadChannel.Key, c.Next(), func(def *UnresolvedReadChannel) {
-			urc.BaseReadChannel.Key = def.BaseReadChannel.Key
-		})
+		return patch.Value(&urc.BaseReadChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&urc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -314,9 +306,7 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (ewc *EntryWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&ewc.BaseWriteChannel.Key, c.Next(), func(def *EntryWriteChannel) {
-			ewc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&ewc.BaseWriteChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&ewc.BaseWriteChannel.Name, c.Next())
 	case "disabled":
@@ -363,9 +353,7 @@ func (ewc *EntryWriteChannel) HashContent(h *content.Hash) {
 func (uwc *UnresolvedWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&uwc.BaseWriteChannel.Key, c.Next(), func(def *UnresolvedWriteChannel) {
-			uwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&uwc.BaseWriteChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&uwc.BaseWriteChannel.Name, c.Next())
 	case "disabled":

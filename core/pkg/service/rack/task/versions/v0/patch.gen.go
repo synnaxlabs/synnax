@@ -20,9 +20,7 @@ import (
 func (sc *StatusConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.KeyedConfig.Key, c.Next(), func(def *StatusConfig) {
-			sc.KeyedConfig.Key = def.KeyedConfig.Key
-		})
+		return patch.Value(&sc.KeyedConfig.Key, c.Next())
 	default:
 		return c.UnknownField()
 	}

@@ -83,9 +83,7 @@ func (qp *QueryParam) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate
@@ -107,9 +105,7 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.StartConfig.KeyedConfig.Key = def.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
 	case "device":
@@ -135,9 +131,7 @@ func (wc *WriteConfig) HashContent(h *content.Hash) {
 func (we *WriteEndpoint) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&we.Key, c.Next(), func(def *WriteEndpoint) {
-			we.Key = def.Key
-		})
+		return patch.Value(&we.Key, c.Next())
 	case "disabled":
 		return patch.Value(&we.Disabled, c.Next())
 	case "method":
@@ -250,9 +244,7 @@ func (wf *WriteField) HashContent(h *content.Hash) {
 func (swf *StaticWriteField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&swf.BaseWriteField.Key, c.Next(), func(def *StaticWriteField) {
-			swf.BaseWriteField.Key = def.BaseWriteField.Key
-		})
+		return patch.Value(&swf.BaseWriteField.Key, c.Next())
 	case "pointer":
 		return patch.Value(&swf.BaseWriteField.Pointer, c.Next())
 	case "json_type":
@@ -277,9 +269,7 @@ func (swf *StaticWriteField) HashContent(h *content.Hash) {
 func (gwf *GeneratedWriteField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&gwf.BaseWriteField.Key, c.Next(), func(def *GeneratedWriteField) {
-			gwf.BaseWriteField.Key = def.BaseWriteField.Key
-		})
+		return patch.Value(&gwf.BaseWriteField.Key, c.Next())
 	case "pointer":
 		return patch.Value(&gwf.BaseWriteField.Pointer, c.Next())
 	case "generator":

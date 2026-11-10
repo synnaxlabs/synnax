@@ -20,9 +20,7 @@ import (
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate

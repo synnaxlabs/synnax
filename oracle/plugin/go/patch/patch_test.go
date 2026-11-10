@@ -214,6 +214,48 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
+			"Should reset a removed field only when its default sets a value",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/mode"
+
+				Mode enum {
+					fast = "fast"
+					slow = "slow"
+				}
+
+				Level enum {
+					low  = 0
+					high = 1
+				}
+
+				Doc struct {
+					key string = create {
+						@patch
+					}
+					level Level = low {
+						@patch
+					}
+					mode Mode = slow {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "mode", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Value(&d.Key, c.Next())",
+						"return patch.Value(&d.Level, c.Next())",
+						"return patch.Defaulted(&d.Mode, c.Next(), func(def *Doc) {",
+					)
+			},
+		)
+
+		It(
 			"Should give a receiver that the cursor does not shadow",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `

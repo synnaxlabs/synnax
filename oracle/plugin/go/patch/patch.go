@@ -25,6 +25,7 @@ import (
 	"text/template"
 
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -794,7 +795,7 @@ func defaulted(
 		return false
 	}
 	if f.Default != nil {
-		return !zeroLiteral(*f.Default)
+		return !zeroDefault(*f.Default, f.Type, table)
 	}
 	ref := f.Type
 	if ref.IsTypeParam() || ref.Name == "Array" || ref.Name == "Map" {
@@ -814,9 +815,25 @@ func defaulted(
 	)
 }
 
-// zeroLiteral reports whether v is a literal of a Go zero value.
-func zeroLiteral(v resolution.ExpressionValue) bool {
+// zeroDefault reports whether the default v of a field of type ref leaves the Go zero
+// value. An ident default other than a union variant or a string enum member, such as
+// create or an integer enum member, sets nothing.
+func zeroDefault(
+	v resolution.ExpressionValue,
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) bool {
 	switch v.Kind {
+	case resolution.ValueKindIdent:
+		if _, ok := validation.ResolveUnionVariant(v.IdentValue, ref, table); ok {
+			return false
+		}
+		ev, ok := validation.ResolveEnumVariant(v.IdentValue, ref, table)
+		if !ok {
+			return true
+		}
+		form, _ := ev.Type.Form.(resolution.EnumForm)
+		return form.IsIntEnum
 	case resolution.ValueKindString:
 		return v.StringValue == ""
 	case resolution.ValueKindInt:

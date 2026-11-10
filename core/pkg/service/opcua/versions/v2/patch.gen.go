@@ -20,9 +20,7 @@ import (
 func (rc *ReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.BaseChannel.Key, c.Next(), func(def *ReadChannel) {
-			rc.BaseChannel.Key = def.BaseChannel.Key
-		})
+		return patch.Value(&rc.BaseChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&rc.BaseChannel.Name, c.Next())
 	case "disabled":
@@ -65,9 +63,7 @@ func (rc *ReadChannel) HashContent(h *content.Hash) {
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
-			rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":

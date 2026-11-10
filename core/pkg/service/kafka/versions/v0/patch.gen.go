@@ -20,9 +20,7 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
-			rc.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&rc.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -62,9 +60,7 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (rf *ReadField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rf.Key, c.Next(), func(def *ReadField) {
-			rf.Key = def.Key
-		})
+		return patch.Value(&rf.Key, c.Next())
 	case "disabled":
 		return patch.Value(&rf.Disabled, c.Next())
 	case "name":
@@ -112,9 +108,7 @@ func (rf *ReadField) HashContent(h *content.Hash) {
 func (rr *ReadRecord) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rr.Key, c.Next(), func(def *ReadRecord) {
-			rr.Key = def.Key
-		})
+		return patch.Value(&rr.Key, c.Next())
 	case "record_key":
 		return patch.Value(&rr.RecordKey, c.Next())
 	case "index":
@@ -187,9 +181,7 @@ func (r *Record) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate
@@ -211,9 +203,7 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.Key, c.Next(), func(def *WriteChannel) {
-			wc.Key = def.Key
-		})
+		return patch.Value(&wc.Key, c.Next())
 	case "disabled":
 		return patch.Value(&wc.Disabled, c.Next())
 	case "channel":
@@ -255,9 +245,7 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.StartConfig.KeyedConfig.Key = def.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
 	case "device":

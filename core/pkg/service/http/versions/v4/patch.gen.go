@@ -20,9 +20,7 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
-			rc.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&rc.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -59,9 +57,7 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&re.Key, c.Next(), func(def *ReadEndpoint) {
-			re.Key = def.Key
-		})
+		return patch.Value(&re.Key, c.Next())
 	case "method":
 		return patch.Defaulted(&re.Method, c.Next(), func(def *ReadEndpoint) {
 			re.Method = def.Method
@@ -110,9 +106,7 @@ func (re *ReadEndpoint) HashContent(h *content.Hash) {
 func (rf *ReadField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&rf.Key, c.Next(), func(def *ReadField) {
-			rf.Key = def.Key
-		})
+		return patch.Value(&rf.Key, c.Next())
 	case "name":
 		return patch.Value(&rf.Name, c.Next())
 	case "disabled":

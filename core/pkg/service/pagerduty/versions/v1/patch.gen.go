@@ -20,9 +20,7 @@ import (
 func (a *Alert) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&a.Key, c.Next(), func(def *Alert) {
-			a.Key = def.Key
-		})
+		return patch.Value(&a.Key, c.Next())
 	case "status":
 		return patch.Value(&a.Status, c.Next())
 	case "errors_critical":
@@ -57,9 +55,7 @@ func (a *Alert) HashContent(h *content.Hash) {
 func (tc *TaskConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&tc.StartConfig.KeyedConfig.Key, c.Next(), func(def *TaskConfig) {
-			tc.StartConfig.KeyedConfig.Key = def.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&tc.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&tc.StartConfig.AutoStart, c.Next())
 	case "routing_key":

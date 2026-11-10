@@ -20,9 +20,7 @@ import (
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -115,9 +113,7 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (awc *AnalogWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&awc.BaseWriteChannel.Key, c.Next(), func(def *AnalogWriteChannel) {
-			awc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&awc.BaseWriteChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&awc.BaseWriteChannel.Disabled, c.Next())
 	case "cmd_channel":
@@ -151,9 +147,7 @@ func (awc *AnalogWriteChannel) HashContent(h *content.Hash) {
 func (dwc *DigitalWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&dwc.BaseWriteChannel.Key, c.Next(), func(def *DigitalWriteChannel) {
-			dwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&dwc.BaseWriteChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&dwc.BaseWriteChannel.Disabled, c.Next())
 	case "cmd_channel":

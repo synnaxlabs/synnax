@@ -20,9 +20,7 @@ import (
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
-			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
-		})
+		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
 		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
 			sc.ScanConfig.Rate = def.ScanConfig.Rate
@@ -44,9 +42,7 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.BaseChannel.Key, c.Next(), func(def *WriteChannel) {
-			wc.BaseChannel.Key = def.BaseChannel.Key
-		})
+		return patch.Value(&wc.BaseChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&wc.BaseChannel.Name, c.Next())
 	case "disabled":
@@ -83,9 +79,7 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":

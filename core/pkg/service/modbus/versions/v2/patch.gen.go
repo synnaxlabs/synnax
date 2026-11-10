@@ -20,9 +20,7 @@ import (
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
-			wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
-		})
+		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
 	case "auto_start":
 		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -128,9 +126,7 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (cwc *CoilWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&cwc.BaseWriteChannel.Key, c.Next(), func(def *CoilWriteChannel) {
-			cwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&cwc.BaseWriteChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&cwc.BaseWriteChannel.Name, c.Next())
 	case "disabled":
@@ -156,9 +152,7 @@ func (cwc *CoilWriteChannel) HashContent(h *content.Hash) {
 func (hrwc *HoldingRegisterWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&hrwc.BaseWriteChannel.Key, c.Next(), func(def *HoldingRegisterWriteChannel) {
-			hrwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&hrwc.BaseWriteChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&hrwc.BaseWriteChannel.Name, c.Next())
 	case "disabled":
@@ -205,9 +199,7 @@ func (hrwc *HoldingRegisterWriteChannel) HashContent(h *content.Hash) {
 func (hrbwc *HoldingRegisterBitWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Defaulted(&hrbwc.BaseWriteChannel.Key, c.Next(), func(def *HoldingRegisterBitWriteChannel) {
-			hrbwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
-		})
+		return patch.Value(&hrbwc.BaseWriteChannel.Key, c.Next())
 	case "name":
 		return patch.Value(&hrbwc.BaseWriteChannel.Name, c.Next())
 	case "disabled":
