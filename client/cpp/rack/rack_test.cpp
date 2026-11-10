@@ -9,6 +9,8 @@
 
 #include <set>
 #include <sstream>
+#include <string>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -234,21 +236,34 @@ TEST(RackTests, testRetrieveOneWhereMultipleFound) {
     );
 }
 
-/// @brief it should update integrations on upsert.
-TEST(RackTests, testUpdateIntegrationsOnUpsert) {
+/// @brief it should set the integrations and version of a rack with a dispatch, and
+/// keep its name.
+TEST(RackTests, testDispatchSetsIntegrationsAndVersion) {
     const auto client = new_test_client();
-    auto r = Rack{
-        .name = "test_rack_upsert_integrations",
-        .integrations = {"ni"},
-    };
+    auto r = Rack{.name = "test_rack_dispatch", .integrations = {"ni"}};
     ASSERT_NIL(client.racks.create(r));
-    r.integrations = {"ni", "opc", "arc"};
-    ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
-    ASSERT_EQ(r2.integrations.size(), 3);
-    ASSERT_EQ(r2.integrations[0], "ni");
-    ASSERT_EQ(r2.integrations[1], "opc");
-    ASSERT_EQ(r2.integrations[2], "arc");
+    const std::vector<std::string> integrations = {"ni", "opc", "arc"};
+    ASSERT_NIL(client.racks.dispatch(
+        r.key,
+        {set({.path = {"integrations"}, .value = integrations}),
+         set({.path = {"version"}, .value = "1.2.3"})}
+    ));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(got.integrations, integrations);
+    ASSERT_EQ(got.version, "1.2.3");
+    ASSERT_EQ(got.name, "test_rack_dispatch");
+}
+
+/// @brief it should return a not found error when it dispatches to a rack that does not
+/// exist.
+TEST(RackTests, testDispatchNotFound) {
+    const auto client = new_test_client();
+    const auto r = ASSERT_NIL_P(client.racks.create("test_rack_dispatch_deleted"));
+    ASSERT_NIL(client.racks.del(r.key));
+    ASSERT_OCCURRED_AS(
+        client.racks.dispatch(r.key, {set({.path = {"name"}, .value = "renamed"})}),
+        x::errors::NOT_FOUND
+    );
 }
 
 /// @brief it should correctly stream output a rack.

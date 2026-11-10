@@ -1314,8 +1314,13 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
 
 /// @brief it should reject a register value wider than one request of the device.
 TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 1}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 1}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide"),
         x::telem::FLOAT32_T,
@@ -1338,8 +1343,13 @@ TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
 
 /// @brief it should reject a string wider than one request of the device.
 TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 2}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 2}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide_str"),
         x::telem::STRING_T,

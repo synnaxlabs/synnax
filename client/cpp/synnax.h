@@ -174,7 +174,7 @@ public:
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
-            std::move(this->t.range_set_end),
+            std::move(this->t.range_dispatch),
             ranger::kv::Client(
                 this->t.range_kv_get,
                 this->t.range_kv_set,
@@ -191,12 +191,14 @@ public:
             std::move(this->t.rack_create_client),
             std::move(this->t.rack_retrieve),
             std::move(this->t.rack_delete),
+            std::move(this->t.rack_dispatch),
             this->tasks
         ),
         devices(
             std::move(this->t.device_create),
             std::move(this->t.device_retrieve),
-            std::move(this->t.device_delete)
+            std::move(this->t.device_delete),
+            std::move(this->t.device_dispatch)
         ),
         statuses(
             this->t.status_retrieve,
