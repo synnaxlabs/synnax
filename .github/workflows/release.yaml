@@ -179,6 +179,7 @@ jobs:
           product: console
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Driver version
         id: driver
@@ -188,6 +189,7 @@ jobs:
           product: driver
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Core version
         id: core
@@ -197,6 +199,7 @@ jobs:
           product: core
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       # Packages publish on the Core's train, so every client works with a released
       # Core: the minor this run releases for the Core, else the release branch's

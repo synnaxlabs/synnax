@@ -25,6 +25,12 @@ inputs:
     description: Resolve the next patch on this minor (X.Y) instead of applying the bump
     required: false
     default: ""
+  ref:
+    description:
+      The branch the release runs from. A release/<product>-X.Y branch sets the train
+      for the Console, Core, and Driver.
+    required: false
+    default: ""
 
 outputs:
   version:
@@ -56,6 +62,7 @@ runs:
         BUMP: ${{ inputs.bump }}
         PRERELEASE: ${{ inputs.prerelease }}
         TRAIN: ${{ inputs.train }}
+        REF: ${{ inputs.ref }}
       run:
-        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" "$TRAIN" >>
-        "$GITHUB_OUTPUT"
+        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" "$TRAIN"
+        "$REF" >> "$GITHUB_OUTPUT"

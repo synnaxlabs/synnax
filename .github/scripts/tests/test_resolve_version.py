@@ -38,10 +38,16 @@ class Repo:
             self.git("tag", name)
 
     def resolve(
-        self, product: str, *, bump: str, prerelease: bool = False, train: str = ""
+        self,
+        product: str,
+        *,
+        bump: str,
+        prerelease: bool = False,
+        train: str = "",
+        ref: str = "main",
     ) -> dict[str, str]:
         result = subprocess.run(
-            [str(SCRIPT), product, bump, "true" if prerelease else "false", train],
+            [str(SCRIPT), product, bump, "true" if prerelease else "false", train, ref],
             cwd=self.path,
             check=True,
             capture_output=True,
@@ -49,9 +55,11 @@ class Repo:
         )
         return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
-    def resolve_error(self, product: str, *, bump: str, train: str = "") -> str:
+    def resolve_error(
+        self, product: str, *, bump: str, train: str = "", ref: str = "main"
+    ) -> str:
         result = subprocess.run(
-            [str(SCRIPT), product, bump, "false", train],
+            [str(SCRIPT), product, bump, "false", train, ref],
             cwd=self.path,
             capture_output=True,
             text=True,
@@ -98,16 +106,12 @@ class TestBumps:
 class TestHotfixes:
     """Tests for patches that live on release branches."""
 
-    def test_should_count_patches_from_unreachable_hotfix_tags(
-        self, repo: Repo
-    ) -> None:
+    def test_should_reject_a_patch_past_an_unreachable_hotfix(self, repo: Repo) -> None:
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
         repo.tag("console/v0.58.3")
         repo.git("checkout", "-q", "main")
-        out = repo.resolve("console", bump="patch")
-        assert out["version"] == "0.58.4"
-        assert out["previous_tag"] == "console/v0.58.3"
+        assert "release/<product>-0.58" in repo.resolve_error("console", bump="patch")
 
     def test_should_follow_an_unreachable_hotfix_into_the_next_train(
         self, repo: Repo
@@ -124,14 +128,31 @@ class TestHotfixes:
         repo.tag("core/v0.59.0", "console/v0.59.0")
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
-        out = repo.resolve("console", bump="patch")
+        out = repo.resolve("console", bump="patch", ref="release/console-0.58")
         assert out["version"] == "0.58.3"
         assert out["latest"] == "false"
 
     def test_should_be_latest_without_a_newer_train(self, repo: Repo) -> None:
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
-        assert repo.resolve("console", bump="patch")["latest"] == "true"
+        out = repo.resolve("console", bump="patch", ref="release/console-0.58")
+        assert out["latest"] == "true"
+
+    def test_should_open_the_train_of_a_new_release_branch(self, repo: Repo) -> None:
+        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
+        repo.commit("hotfix")
+        repo.tag("core/v0.58.3")
+        repo.git("checkout", "-q", "-b", "release/core-0.59", "main")
+        out = repo.resolve("core", bump="patch", ref="release/core-0.59")
+        assert out["version"] == "0.59.0"
+        assert out["previous_tag"] == "core/v0.58.3"
+        assert out["latest"] == "true"
+
+    def test_should_open_the_branch_train_with_a_candidate(self, repo: Repo) -> None:
+        out = repo.resolve(
+            "console", bump="patch", prerelease=True, ref="release/core-0.59"
+        )
+        assert out["version"] == "0.59.0-rc.1"
 
 
 class TestCandidates:

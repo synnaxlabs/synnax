@@ -11,27 +11,30 @@
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
 # outputs (key=value lines).
-# Usage: resolve_version.sh <product> <bump> [prerelease] [train]
+# Usage: resolve_version.sh <product> <bump> [prerelease] [train] [ref]
 #
 # The minor comes from the highest stable product tag reachable from HEAD, the patch
 # from the highest stable tag on that minor anywhere in the repo, so a hotfix tag on a
-# release branch is never reissued. Candidates never set the base: a candidate counts up
-# from the candidates already tagged for the version, and promoting one repeats the same
-# bump. The train rule caps a product at one minor ahead of the Core's latest stable.
-# Desktop skips the train rule, takes a major bump, and bumps its first release from
-# 0.0.0. That first release must be a major bump, so it outranks the 1.0.0 candidates.
-# latest is true when no stable tag of the product outranks the result. previous_tag is
-# the highest stable product tag below the result, reachable or not. A train (X.Y)
-# ignores the bump and resolves the next patch on that minor, or X.Y.0 when none exists.
-# A train's newest tag at HEAD resolves to itself.
+# release branch is never reissued. A patch fails when that tag is not reachable, since
+# the train has moved to its release branch. Candidates never set the base: a candidate
+# counts up from the candidates already tagged for the version, and promoting one
+# repeats the same bump. The train rule caps a product at one minor ahead of the Core's
+# latest stable. Desktop skips the train rule, takes a major bump, and bumps its first
+# release from 0.0.0. That first release must be a major bump, so it outranks the 1.0.0
+# candidates. latest is true when no stable tag of the product outranks the result.
+# previous_tag is the highest stable product tag below the result, reachable or not. A
+# train (X.Y) ignores the bump and resolves the next patch on that minor, or X.Y.0 when
+# none exists. A train's newest tag at HEAD resolves to itself. On the Console, Core,
+# and Driver, a release/<product>-X.Y ref (a branch name) sets the train to X.Y.
 
 set -euo pipefail
 
-USAGE="usage: resolve_version.sh <product> <bump> [prerelease] [train]"
+USAGE="usage: resolve_version.sh <product> <bump> [prerelease] [train] [ref]"
 PRODUCT=${1:?$USAGE}
 BUMP=${2:?$USAGE}
 PRERELEASE=${3:-false}
 TRAIN=${4:-}
+REF=${5:-}
 
 case "$PRODUCT" in
     console | core | driver | desktop | ts | py) ;;
@@ -45,6 +48,13 @@ esac
 highest() {
     sed -nE "s#^$1/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
 }
+
+BRANCH='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
+case "$PRODUCT" in
+    console | core | driver)
+        if [ -z "$TRAIN" ] && [[ $REF =~ $BRANCH ]]; then TRAIN=${BASH_REMATCH[2]}; fi
+        ;;
+esac
 
 if [ -n "$TRAIN" ]; then
     if ! [[ $TRAIN =~ ^[0-9]+\.[0-9]+$ ]]; then
@@ -83,6 +93,13 @@ else
 
     case "$BUMP" in
         patch)
+            if [ -n "$CURRENT" ] \
+                && ! git merge-base --is-ancestor "$PRODUCT/v$CURRENT" HEAD; then
+                echo "$PRODUCT $CURRENT is not reachable from HEAD: patch" \
+                    "$MAJOR.$MINOR from release/<product>-$MAJOR.$MINOR," \
+                    "or bump minor" >&2
+                exit 1
+            fi
             NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
             ;;
         minor)
