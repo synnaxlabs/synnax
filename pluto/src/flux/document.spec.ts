@@ -763,6 +763,8 @@ describe("createDocumentForm", () => {
               type: z.literal("holding_register"),
               key: z.string(),
               address: z.number(),
+              dataType: z.string(),
+              bytesSwapped: z.boolean().optional(),
             }),
           ])
           .array(),
@@ -826,6 +828,53 @@ describe("createDocumentForm", () => {
       expect(channelsOf(await fetchStored(t.key))).toMatchObject([
         { key: "a", address: 2 },
       ]);
+    });
+
+    it("should clear an optional field that the form sets to undefined", async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: modbus.WRITE_TASK_TYPE,
+        config: {
+          channels: [
+            {
+              type: "holding_register",
+              key: "a",
+              address: 1,
+              dataType: "float32",
+              bytesSwapped: true,
+            },
+          ],
+        },
+      });
+      type Register = Extract<
+        ChannelValues["config"]["channels"][number],
+        { type: "holding_register" }
+      >;
+      const register = deep.path<{ config: { channels: Register[] } }>().config.channels
+        .a;
+      const { result } = await renderUpdateForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set(register.bytesSwapped, undefined));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toEqual([
+        [
+          task.update({
+            value: {
+              config: {
+                channels: {
+                  update: [{ key: "a", type: "holding_register", bytesSwapped: null }],
+                },
+              },
+            },
+            guards: [
+              { path: ["config", "channels", "a", "type"], value: "holding_register" },
+            ],
+          }),
+        ],
+      ]);
+      expect(channelsOf(await fetchStored(t.key))[0]).not.toHaveProperty(
+        "bytesSwapped",
+      );
     });
 
     it("should send the edits to one field as one update", async () => {

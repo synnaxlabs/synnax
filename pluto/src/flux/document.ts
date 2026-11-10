@@ -242,13 +242,15 @@ const updateCodec = <Action, Update extends z.ZodType>({
   const toUpdate = (values: unknown, next: unknown): Action =>
     action(patch.diffUpdate(schema, values, next));
   return {
-    set: (values, target, formPath, value) =>
-      target.rest === "" && !isComposite(value)
-        ? nested(values, target.path, value)
-        : toUpdate(
-            values,
-            edited(values, (copy) => deep.set(copy, formPath, value)),
-          ),
+    set: (values, target, formPath, value) => {
+      if (target.rest !== "" || isComposite(value))
+        return toUpdate(
+          values,
+          edited(values, (copy) => deep.set(copy, formPath, value)),
+        );
+      // An update clears a field with null and skips an undefined one.
+      return nested(values, target.path, value === undefined ? null : value);
+    },
     remove: (values, { path, rest, entry }, formPath) => {
       if (rest !== "")
         return toUpdate(
