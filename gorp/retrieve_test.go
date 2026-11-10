@@ -18,10 +18,37 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+// closeFailingDB is a kv.DB whose iterators return err when they close.
+type closeFailingDB struct {
+	kv.DB
+	err error
+}
+
+func (d closeFailingDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	iter, err := d.DB.OpenIterator(opts)
+	if err != nil {
+		return nil, err
+	}
+	return closeFailingIterator{Iterator: iter, err: d.err}, nil
+}
+
+type closeFailingIterator struct {
+	kv.Iterator
+	err error
+}
+
+func (i closeFailingIterator) Close() error {
+	if err := i.Iterator.Close(); err != nil {
+		return err
+	}
+	return i.err
+}
 
 var _ = Describe("Retrieve", func() {
 	var (
@@ -841,6 +868,18 @@ var _ = Describe("Retrieve", func() {
 				Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(Equal(entries))
+		})
+		It("Should return the error of closing the iterator", func(ctx SpecContext) {
+			closeErr := errors.New("close failed")
+			failing := DeferClose(gorp.Wrap(
+				closeFailingDB{DB: memkv.New(), err: closeErr},
+				gorp.WithCodec(msgpack.Codec),
+			))
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Exec(ctx, failing),
+			).To(MatchError(closeErr))
 		})
 	})
 	Describe("GetFilterKeys", func() {
