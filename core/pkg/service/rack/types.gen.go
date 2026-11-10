@@ -22,6 +22,9 @@ import (
 // in its high bits, so writes route to the Core running its Driver.
 type Key = versions.Key
 
+// StatusDetails contains rack-specific status details.
+type StatusDetails = versions.StatusDetails
+
 // Status is rack-specific status information including operational state.
 type Status = versions.Status
 

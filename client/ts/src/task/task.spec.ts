@@ -1172,6 +1172,7 @@ describe("Task", async () => {
       variant,
       message,
       time: TimeStamp.now(),
+      details: { running: variant === "success" },
     });
   };
 
@@ -1187,6 +1188,7 @@ describe("Task", async () => {
       variant: "success",
       message,
       time: TimeStamp.now(),
+      details: { running: true },
     });
     await expect
       .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
@@ -1225,7 +1227,7 @@ describe("Task", async () => {
         message: "Driver not running",
         description: "The Core has not heard from the Driver.",
         time: TimeStamp.now(),
-        details: { rack: key },
+        details: { running: false },
       });
 
     it("should end the wait when the Driver of the task goes down", async () => {
@@ -1680,6 +1682,7 @@ describe("Task", async () => {
           description: "",
           time: TimeStamp.now(),
           labels: [],
+          details: { running: false },
         };
         const reply: task.Status = {
           key,

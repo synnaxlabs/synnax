@@ -468,6 +468,7 @@ TEST(stateTests, ReportsHealth) {
     EXPECT_EQ(beat.message, "Driver 0.59.3 cannot work with Core 0.60.1");
     EXPECT_EQ(beat.description, "Install the Driver release that matches the Core.");
     EXPECT_EQ(beat.owner, synnax::rack::resource_id(rack.key));
+    EXPECT_TRUE(beat.details.running);
 }
 
 /// @brief it should warn while the clock skew to the Core exceeds the threshold, and
