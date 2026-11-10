@@ -86,9 +86,9 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 // DeleteChannels deletes the channels with the given keys and skips keys with no
 // channel. It returns an error and deletes none of them if one is being written to or
 // read from, or is the index of a channel outside chs. A file system error stops it and
-// can leave the channels before the failed one deleted. It returns once the channels
-// are detached and removes their data in the background. Close waits for the removal to
-// finish.
+// can leave some of them deleted. It deletes index channels last. It returns once the
+// channels are detached and removes their data in the background. Close waits for the
+// removal to finish.
 func (db *DB) DeleteChannels(chs []ChannelKey) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -96,7 +96,13 @@ func (db *DB) DeleteChannels(chs []ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	chs = lo.Uniq(chs)
+	// Index channels detach last, so that a failed detach never keeps a data channel
+	// whose index it deleted.
+	data, indexes := lo.FilterReject(lo.Uniq(chs), func(ch ChannelKey, _ int) bool {
+		uDB, ok := db.mu.dbs.unary[ch]
+		return !ok || !uDB.Channel().IsIndex
+	})
+	chs = append(data, indexes...)
 	deleting := set.New(chs...)
 	for i, ch := range chs {
 		if err := db.markClosed(ch, deleting); err != nil {

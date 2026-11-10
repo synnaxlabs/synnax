@@ -1689,6 +1689,37 @@ var _ = Describe("Background removal", func() {
 		Expect(deletedDirs(fsys, later)).To(BeEmpty())
 	})
 
+	It("Should keep the index of a data channel that a failed delete keeps", func(
+		ctx SpecContext,
+	) {
+		data, failing := GenerateChannelKey(), GenerateChannelKey()
+		Expect(db.CreateChannel(
+			ctx,
+			cesium.Channel{
+				Key:      data,
+				Name:     "Thales",
+				Index:    key,
+				DataType: telem.Int64T,
+			},
+			virtualChannel(failing, "Anaximenes"),
+		)).To(Succeed())
+		Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+			[]cesium.ChannelKey{key, data},
+			[]telem.Series{
+				telem.NewSeriesSecondsTSV(10, 11, 12),
+				telem.NewSeriesV[int64](1, 2, 3),
+			},
+		))).To(Succeed())
+		fsys.SetOptions(WithFailRename(channelKeyToPath(failing)))
+		Expect(
+			db.DeleteChannels([]cesium.ChannelKey{key, failing, data}),
+		).To(MatchError(ErrFault))
+		MustSucceed(db.RetrieveChannel(ctx, key))
+		Expect(deletedDirs(fsys, key)).To(BeEmpty())
+		fr := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+		Expect(fr.Get(data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+	})
+
 	It("Should not delete a channel once the DB is closed", func() {
 		Expect(db.Close()).To(Succeed())
 		Expect(db.DeleteChannel(key)).To(MatchError(cesium.ErrDBClosed))
