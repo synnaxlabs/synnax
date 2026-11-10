@@ -45,8 +45,11 @@ const splitAddress = (value: string): [string, string, string] => {
     const close = rest.indexOf("]");
     end = close === -1 ? rest.length : close + 1;
   } else {
-    const at = rest.search(/[:/]/);
-    end = at === -1 ? rest.length : at;
+    const slash = rest.indexOf("/");
+    const authority = slash === -1 ? rest : rest.slice(0, slash);
+    // More than one colon is an IPv6 host without brackets, so no port follows it.
+    const at = authority.split(":").length > 2 ? -1 : authority.indexOf(":");
+    end = at === -1 ? authority.length : at;
   }
   return [scheme, rest.slice(0, end), rest.slice(end)];
 };
