@@ -302,8 +302,8 @@ struct Config {
     [[nodiscard]] x::errors::Error enroll();
 
     /// @brief enrolls with the given connection and saves its API key. It enrolls the
-    /// saved rack that needs enrollment, so the Driver keeps that rack and its tasks.
-    /// Returns the errors of enroll.
+    /// saved rack, or the rack that the saved API key logs in as, so the Driver keeps
+    /// that rack and its tasks. Returns the errors of enroll.
     static std::pair<Config, x::errors::Error>
     login(x::args::Parser &args, const synnax::Config &conn);
 

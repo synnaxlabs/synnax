@@ -206,6 +206,17 @@ TEST_F(RackConfigTest, LoginKeepsSavedRack) {
     ASSERT_FALSE(state["conn_params"].contains("password"));
 }
 
+/// @brief it should log in as the rack that the saved API key logs in as, so a second
+/// login keeps the rack.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRack) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+    ASSERT_NE(second.connection.api_key, first.connection.api_key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, first.rack.key);
+}
+
 /// @brief it should keep the saved rack and the password when the caller cannot create
 /// an API key for the rack.
 TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
