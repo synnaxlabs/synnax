@@ -17,6 +17,7 @@
 
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/settings.h"
 
 namespace driver::ethercat::esi {
@@ -47,6 +48,14 @@ read_stg(const uint16_t index, const uint8_t sub_index) {
     if (it == STG_TABLES.end() || (index & 0x7) > 5)
         return {0, coe::read_error(index, sub_index, 0x06020000)};
     return {it->second, x::errors::NIL};
+}
+
+/// @brief returns a read of the 6xSTG tables in which input 1 counts count ranges.
+coe::Read counting_ranges(const uint32_t count) {
+    return [count](const uint16_t index, const uint8_t sub_index) {
+        if (index == 0x8050 && sub_index == 3) return std::pair{count, x::errors::NIL};
+        return read_stg(index, sub_index);
+    };
 }
 
 std::vector<std::string> names(const x::json::json &options) {
@@ -125,5 +134,24 @@ TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
         read_settings(DEWESOFT, IOLITE_6XSTG, missing),
         coe::OBJECT_MISSING
     );
+}
+
+/// @brief it should reject a card table that counts more options than its object
+/// holds.
+TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
+    const auto err = read_settings(DEWESOFT, IOLITE_6XSTG, counting_ranges(0xFFFFFFFF))
+                         .second;
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "0x8050:03 counts 4294967295 options. The count must be from 1 to 252"
+    );
+}
+
+/// @brief it should reject a card table that counts no options.
+TEST(ReadSettings, RejectsAnOptionCountOfZero) {
+    const auto err = read_settings(DEWESOFT, IOLITE_6XSTG, counting_ranges(0)).second;
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    EXPECT_EQ(err.data, "0x8050:03 counts 0 options. The count must be from 1 to 252");
 }
 }
