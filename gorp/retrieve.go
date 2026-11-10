@@ -539,9 +539,7 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err err
 		}
 		if match {
 			validCount += 1
-			if r.limit == 0 || validCount <= r.limit {
-				r.entries.add(*v)
-			}
+			r.entries.add(*v)
 			if validCount == r.limit {
 				break
 			}
