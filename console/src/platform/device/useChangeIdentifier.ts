@@ -25,11 +25,10 @@ export const { useUpdate: useChangeIdentifier } =
     },
     update: async ({ client, data }) => {
       const { key, identifier } = data;
-      const d = await client.devices.retrieve(key);
-      await client.devices.create({
-        ...device.toUpdate(d),
-        properties: { ...d.properties, identifier },
-      });
+      await client.devices.dispatch(
+        key,
+        device.set({ path: ["properties", "identifier"], value: identifier }),
+      );
       return data;
     },
   });

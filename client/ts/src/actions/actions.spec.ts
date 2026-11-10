@@ -208,6 +208,77 @@ describe("applyEntryPath", () => {
   });
 });
 
+describe("diffFields", () => {
+  const schema = z.object({
+    name: z.string(),
+    sampleRate: z.number(),
+    props: z.object({
+      portCount: z.number(),
+      channels: z.record(z.string(), z.number()),
+    }),
+    nodes: caseconv.preserveCase(z.record(z.string(), z.number())),
+  });
+  const BASE = {
+    name: "dev",
+    sampleRate: 10,
+    props: { portCount: 1, channels: {} },
+    nodes: { "ns=1;nodeId": 1 },
+  };
+
+  it("should list no action when no field differs", () => {
+    expect(
+      actions.diffFields(schema, BASE, structuredClone(BASE), ["name", "props"]),
+    ).toEqual([]);
+  });
+
+  it("should set only the fields that differ", () => {
+    expect(
+      actions.diffFields(schema, BASE, { ...BASE, name: "renamed" }, ["name", "props"]),
+    ).toEqual([{ type: "set", set: { path: ["name"], value: "renamed", guards: [] } }]);
+  });
+
+  it("should set each listed field that next holds when there is no base", () => {
+    const next = { name: "dev", sampleRate: 10 };
+    expect(actions.diffFields(schema, undefined, next, ["name", "props"])).toEqual([
+      { type: "set", set: { path: ["name"], value: "dev", guards: [] } },
+    ]);
+  });
+
+  it("should skip a field that differs but is not listed", () => {
+    const next = { ...BASE, name: "renamed" };
+    expect(actions.diffFields(schema, BASE, next, ["props"])).toEqual([]);
+  });
+
+  it("should convert the path and the keys of the value to snake_case", () => {
+    const next = {
+      ...BASE,
+      sampleRate: 20,
+      props: { portCount: 2, channels: { portA: 3 } },
+    };
+    expect(actions.diffFields(schema, BASE, next, ["sampleRate", "props"])).toEqual([
+      { type: "set", set: { path: ["sample_rate"], value: 20, guards: [] } },
+      {
+        type: "set",
+        set: {
+          path: ["props"],
+          value: { port_count: 2, channels: { port_a: 3 } },
+          guards: [],
+        },
+      },
+    ]);
+  });
+
+  it("should keep the case of keys that the schema preserves", () => {
+    const next = { ...BASE, nodes: { "ns=1;nodeId": 2 } };
+    expect(actions.diffFields(schema, BASE, next, ["nodes"])).toEqual([
+      {
+        type: "set",
+        set: { path: ["nodes"], value: { "ns=1;nodeId": 2 }, guards: [] },
+      },
+    ]);
+  });
+});
+
 describe("createPathHandlers", () => {
   const set: patch.Set = { path: ["a"], value: 1, guards: [] };
   const remove: patch.Remove = { path: [], key: "a", guards: [] };
