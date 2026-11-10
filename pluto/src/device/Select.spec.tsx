@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { device, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, rejectRequests } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -85,6 +85,42 @@ describe("Device select", () => {
     expect(await c.findByText(dev.name)).toBeTruthy();
     expect(c.getByText("10.0.0.5")).toBeTruthy();
     expect(c.queryByText(/opc\.tcp/)).toBeNull();
+  });
+
+  it("should read the devices again when the dialog reopens after a failed read", async () => {
+    const rack = await client.racks.create({ name: "test" });
+    const make = id.create();
+    const dev = await client.devices.create({
+      key: id.create(),
+      name: id.create(),
+      rack: rack.key,
+      location: "test",
+      make,
+      model: "test",
+      properties: {},
+    });
+    const local = createTestClient();
+    const reject = rejectRequests(
+      local,
+      (target) => target === "/device/retrieve",
+      new Error("boom"),
+    );
+    const c = render(
+      <Device.SelectSingle
+        value={undefined}
+        onChange={vi.fn()}
+        query={{ where: { make: { eq: make } } }}
+        virtual={false}
+      />,
+      { wrapper: await createAsyncSynnaxWrapper({ client: local }) },
+    );
+    const trigger = c.getByRole("button", { name: "Device" });
+    fireEvent.click(trigger);
+    expect(await c.findByText("boom")).toBeTruthy();
+    fireEvent.click(trigger);
+    reject.mockRestore();
+    fireEvent.click(trigger);
+    expect(await c.findByText(dev.name)).toBeTruthy();
   });
 
   it("should show no status without a selected device", async () => {
