@@ -928,11 +928,11 @@ describe("class records", () => {
   });
   const t = z.object({ timeRange: TimeRange.z });
   const state = { timeRange: new TimeRange(10, 15) };
-  const apply = (value: z.input<typeof u>) =>
+  const apply = (value: z.output<typeof u>) =>
     patch.applyUpdate({ u, t }, state, { value, guards: [] }).next;
 
   it("should merge a partial into a class value and keep its class", () => {
-    const { timeRange } = apply({ timeRange: { end: 20 } });
+    const { timeRange } = apply({ timeRange: { end: new TimeStamp(20) } });
     expect(timeRange).toBeInstanceOf(TimeRange);
     expect(timeRange).toEqual(new TimeRange(10, 20));
   });
