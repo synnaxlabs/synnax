@@ -9,9 +9,9 @@
 
 """Fails when a repository webhook stops reaching its receiver.
 
-Reads the hook's deliveries from the last hour, newest first, up to MAX_DELIVERIES.
-Fails when at least half of them got no 2xx response, or when there were none while
-other workflow runs started.
+Reads all of the hook's deliveries from the last hour. Fails when at least half of them,
+and at least MIN_FAILURES, got no 2xx response, or when there were none while other
+workflow runs started.
 
 Usage: hook_health.py <hook-id>. Reads GH_TOKEN, GITHUB_REPOSITORY, and GITHUB_RUN_ID.
 """
@@ -20,6 +20,8 @@ import json
 import os
 import re
 import sys
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from collections import Counter
@@ -29,23 +31,31 @@ from typing import Any
 
 API = "https://api.github.com"
 WINDOW = timedelta(hours=1)
-# A busy hour sends thousands of deliveries. The newest thousand are enough to judge.
-MAX_DELIVERIES = 1000
 FAILURE_RATIO = 0.5
+# A quiet hour has only a few deliveries, so one bad response is not an outage.
+MIN_FAILURES = 3
 REQUEST_TIMEOUT_SECONDS = 30
+ATTEMPTS = 3
+RETRY_SECONDS = 10
 
 # Sends a GET and returns the decoded body and the URL of the next page, if any.
 Fetch = Callable[[str], tuple[Any, str | None]]
 
 
 class Http:
-    """Sends authenticated GET requests to the GitHub API."""
+    """Sends authenticated GET requests to the GitHub API. Retries a server error or
+    a network failure up to ATTEMPTS times."""
 
     def __init__(
-        self, *, token: str, urlopen: Callable[..., Any] = urllib.request.urlopen
+        self,
+        *,
+        token: str,
+        urlopen: Callable[..., Any] = urllib.request.urlopen,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
         self.token = token
         self.urlopen = urlopen
+        self.sleep = sleep
 
     def __call__(self, url: str) -> tuple[Any, str | None]:
         req = urllib.request.Request(
@@ -55,6 +65,18 @@ class Http:
                 "Accept": "application/vnd.github+json",
             },
         )
+        for _ in range(ATTEMPTS - 1):
+            try:
+                return self.get(req)
+            except urllib.error.HTTPError as e:
+                if e.code < 500:
+                    raise
+            except (urllib.error.URLError, TimeoutError):
+                pass
+            self.sleep(RETRY_SECONDS)
+        return self.get(req)
+
+    def get(self, req: urllib.request.Request) -> tuple[Any, str | None]:
         with self.urlopen(req, timeout=REQUEST_TIMEOUT_SECONDS) as resp:
             link = re.search(r'<([^>]+)>;\s*rel="next"', resp.headers.get("Link", ""))
             return json.load(resp), link.group(1) if link else None
@@ -63,17 +85,16 @@ class Http:
 def deliveries(
     fetch: Fetch, *, repository: str, hook: int, since: datetime
 ) -> list[dict[str, Any]]:
-    """The hook's deliveries at or after since, newest first, at most
-    MAX_DELIVERIES."""
+    """The hook's deliveries at or after since, newest first."""
     url: str | None = f"{API}/repos/{repository}/hooks/{hook}/deliveries?per_page=100"
     found: list[dict[str, Any]] = []
-    while url is not None and len(found) < MAX_DELIVERIES:
+    while url is not None:
         page, url = fetch(url)
         recent = [d for d in page if datetime.fromisoformat(d["delivered_at"]) >= since]
         found.extend(recent)
         if len(recent) < len(page):
             break
-    return found[:MAX_DELIVERIES]
+    return found
 
 
 def other_runs_started(
@@ -103,7 +124,7 @@ def check(
     if failed:
         codes = ", ".join(f"{n} x {code}" for code, n in failed.most_common())
         summary += f" ({codes})"
-    return total < FAILURE_RATIO * len(found), summary
+    return total < max(MIN_FAILURES, FAILURE_RATIO * len(found)), summary
 
 
 def main() -> None:

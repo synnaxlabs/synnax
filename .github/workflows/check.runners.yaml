@@ -62,7 +62,11 @@ jobs:
             github.run_id }}
         run: |
           summary=$(cat "$RUNNER_TEMP/summary.txt" 2> /dev/null || true)
-          text="Runner webhook failing: ${summary:-the check failed}. $RUN_URL"
+          text="Runner webhook failing: $summary. $RUN_URL"
+          # The check prints a summary only when it could read the deliveries.
+          if [ -z "$summary" ]; then
+            text="Runner webhook check could not run. $RUN_URL"
+          fi
           jq --null-input --arg text "$text" '{text: $text}' |
             curl --fail --silent --show-error \
               --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"

@@ -14,6 +14,7 @@ import urllib.request
 from datetime import UTC, datetime, timedelta
 from email.message import Message
 from typing import Any
+from urllib.error import HTTPError, URLError
 
 import pytest
 
@@ -80,8 +81,16 @@ class TestCheck:
 
     def test_should_fail_when_half_failed(self) -> None:
         """Should fail when at least half the deliveries got no 2xx."""
-        healthy, _ = run(FakeAPI([delivery(502), delivery(204)]))
+        healthy, _ = run(FakeAPI([delivery(502)] * 3 + [delivery(204)] * 3))
         assert not healthy
+
+    @pytest.mark.parametrize("statuses", [[502], [502, 204], [502, 502, 204]])
+    def test_should_pass_on_a_quiet_hour_with_few_failures(
+        self, statuses: list[int]
+    ) -> None:
+        """Should need MIN_FAILURES failures before the ratio applies."""
+        healthy, _ = run(FakeAPI([delivery(s) for s in statuses]))
+        assert healthy
 
     def test_should_fail_and_count_codes_when_all_failed(self) -> None:
         """Should fail on a wrong secret and list each status code."""
@@ -98,15 +107,11 @@ class TestCheck:
         assert run(api) == (True, "0 of 150 deliveries in the last hour failed")
         assert len(api.urls) == 2
 
-    def test_should_stop_at_the_delivery_limit(self) -> None:
-        """Should read at most MAX_DELIVERIES on a busy hour."""
-        api = FakeAPI([delivery(204)] * (hook_health.MAX_DELIVERIES + 250))
-        _, summary = run(api)
-        assert (
-            summary
-            == f"0 of {hook_health.MAX_DELIVERIES} deliveries in the last hour failed"
-        )
-        assert len(api.urls) == hook_health.MAX_DELIVERIES // 100
+    def test_should_read_the_whole_hour(self) -> None:
+        """Should page through every delivery of a busy hour."""
+        api = FakeAPI([delivery(204)] * 2500)
+        assert run(api) == (True, "0 of 2500 deliveries in the last hour failed")
+        assert len(api.urls) == 25
 
     def test_should_fail_when_runs_started_with_no_deliveries(self) -> None:
         """Should fail when GitHub sent nothing while other runs started."""
@@ -130,17 +135,27 @@ class Response(io.BytesIO):
 class TestHttp:
     """Tests for the authenticated GitHub API client."""
 
-    def respond(self, body: Any, *, link: str | None) -> Http:
+    def respond(
+        self,
+        body: Any,
+        *,
+        link: str | None = None,
+        errors: list[Exception] | None = None,
+    ) -> Http:
         headers = Message()
         if link is not None:
             headers["Link"] = link
         self.requests: list[urllib.request.Request] = []
+        self.sleeps: list[float] = []
+        pending = list(errors or [])
 
         def urlopen(req: urllib.request.Request, timeout: float) -> Any:
             self.requests.append(req)
+            if pending:
+                raise pending.pop(0)
             return Response(json.dumps(body).encode(), headers=headers)
 
-        return Http(token="secret", urlopen=urlopen)
+        return Http(token="secret", urlopen=urlopen, sleep=self.sleeps.append)
 
     def test_should_return_the_next_page(self) -> None:
         """Should parse the next page URL from the Link header."""
@@ -157,3 +172,32 @@ class TestHttp:
     ) -> None:
         """Should return None when the Link header names no next page."""
         assert self.respond([], link=link)("https://x/a") == ([], None)
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            HTTPError("https://x/a", 502, "Bad Gateway", Message(), None),
+            URLError("connection reset"),
+            TimeoutError(),
+        ],
+    )
+    def test_should_retry_a_transient_failure(self, error: Exception) -> None:
+        """Should retry a server error or a network failure after a pause."""
+        http = self.respond([1], errors=[error] * (hook_health.ATTEMPTS - 1))
+        assert http("https://x/a") == ([1], None)
+        assert self.sleeps == [hook_health.RETRY_SECONDS] * (hook_health.ATTEMPTS - 1)
+
+    def test_should_raise_after_the_last_attempt(self) -> None:
+        """Should raise when every attempt fails."""
+        error = HTTPError("https://x/a", 503, "Unavailable", Message(), None)
+        http = self.respond([1], errors=[error] * hook_health.ATTEMPTS)
+        with pytest.raises(HTTPError):
+            http("https://x/a")
+        assert len(self.requests) == hook_health.ATTEMPTS
+
+    def test_should_not_retry_a_client_error(self) -> None:
+        """Should raise a 4xx at once, such as a token without access to hooks."""
+        error = HTTPError("https://x/a", 403, "Forbidden", Message(), None)
+        with pytest.raises(HTTPError):
+            self.respond([1], errors=[error])("https://x/a")
+        assert len(self.requests) == 1
