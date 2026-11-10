@@ -198,7 +198,8 @@ export interface Info {
 export type Event =
   | { type: "check.started" }
   | { type: "check.success"; info: Info }
-  | { type: "check.failure"; error: Error; attempt: number }
+  /** `info` comes from a check without auth, when one answered. */
+  | { type: "check.failure"; error: Error; attempt: number; info?: Info }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "stream.denied"; error?: Error }
@@ -215,6 +216,7 @@ const CONNECTED = "Connected";
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach Core";
+const INCOMPATIBLE = "Core version not supported";
 const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
@@ -382,7 +384,21 @@ const reduceCheckFailure = (
   error: Error,
   attempt: number,
   config: Config,
+  info?: Info,
 ): Status => {
+  if (info != null && !isCompatible(info.nodeVersion, config.clientVersion))
+    return enterError(
+      prev,
+      INCOMPATIBLE,
+      {
+        ...checkFacts(info, config),
+        reason: "incompatible",
+        error,
+        authenticated: false,
+        retry: null,
+      },
+      `Client ${config.clientVersion} cannot work with Core ${info.nodeVersion}.`,
+    );
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
@@ -441,9 +457,10 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "check.success":
       return update(reduceCheckSuccess(prev, event.info, config), { checking: false });
     case "check.failure":
-      return update(reduceCheckFailure(prev, event.error, event.attempt, config), {
-        checking: false,
-      });
+      return update(
+        reduceCheckFailure(prev, event.error, event.attempt, config, event.info),
+        { checking: false },
+      );
     case "stream.live":
       return reduceStreamLive(prev);
     case "stream.drop":

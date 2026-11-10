@@ -166,6 +166,12 @@ export interface ClientParams {
    * that a check response proves authentication.
    */
   unary: UnaryClient;
+  /**
+   * Check transport without auth. When a check fails before the Core version is known,
+   * a check through it tells whether the Core is incompatible, since a login to such a
+   * Core can fail first.
+   */
+  tokenless?: UnaryClient;
   /** Cluster address, used in error messages. */
   address: string;
   /** Human-readable cluster name for status messages. */
@@ -206,6 +212,7 @@ export interface ClientParams {
  */
 export class Client implements Handle {
   private readonly unary: UnaryClient;
+  private readonly tokenless?: UnaryClient;
   private readonly address: string;
   private readonly config: Config;
   private readonly retry: breaker.Config;
@@ -227,6 +234,7 @@ export class Client implements Handle {
 
   constructor({
     unary,
+    tokenless,
     address,
     name,
     escalateAfter = DEFAULT_ESCALATE_AFTER,
@@ -239,6 +247,7 @@ export class Client implements Handle {
     onInternalError = console.error,
   }: ClientParams) {
     this.unary = unary;
+    this.tokenless = tokenless;
     this.address = address;
     this.config = {
       clientVersion: __VERSION__,
@@ -438,12 +447,26 @@ export class Client implements Handle {
         });
     } catch (err) {
       if (generation !== this.generation || this.closed) return;
+      const info = await this.checkTokenless();
+      if (generation !== this.generation || this.closed) return;
       this.attempts += 1;
       this.dispatch({
         type: "check.failure",
         error: errors.fromUnknown(err),
         attempt: this.attempts,
+        info,
       });
+    }
+  }
+
+  private async checkTokenless(): Promise<Info | undefined> {
+    if (this.tokenless == null || this.current.details.nodeVersion != null)
+      return undefined;
+    try {
+      return await sendCheck(this.tokenless);
+    } catch {
+      // the failed authenticated check already carries the error to report
+      return undefined;
     }
   }
 

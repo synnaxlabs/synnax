@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
+import {
+  type Context,
+  type Middleware,
+  type UnaryClient,
+  Unreachable,
+} from "@synnaxlabs/freighter";
 import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -90,6 +95,50 @@ const createScriptedUnary = ({
     setFailing: (next) => (down = next),
     setClusterKey: (next) => (key = next),
     setLicense: (next) => (state = next),
+  };
+};
+
+/**
+ * A Core 0.60 that answers a login and a check with the shapes it sends. Responses
+ * parse after the middleware runs, as in an HTTP client.
+ */
+const createCore060Unary = (): UnaryClient => {
+  const responses: Record<string, unknown> = {
+    "/auth/session/create": {
+      token: "token",
+      session: {
+        key: "6f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        subject: { type: "user", key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff" },
+        credential: "8f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        lastActive: TimeStamp.now().valueOf(),
+      },
+      user: {
+        key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        username: "synnax",
+        firstName: "",
+        lastName: "",
+        rootUser: true,
+      },
+    },
+    "/connectivity/check": {
+      clusterKey: "core-060",
+      nodeVersion: "0.60.1",
+      nodeKey: 1,
+      nodeTime: TimeStamp.now().valueOf(),
+      license: "ok",
+    },
+  };
+  const middleware: Middleware[] = [];
+  const run = async (ctx: Context, i: number): Promise<Context> =>
+    i === middleware.length
+      ? ctx
+      : await middleware[i](ctx, async (next) => await run(next, i + 1));
+  return {
+    use: (...mw) => middleware.push(...mw),
+    send: async (target, _req, _reqZ, resZ, params = {}) => {
+      await run({ target, role: "client", protocol: "http", params }, 0);
+      return resZ.parse(responses[target]);
+    },
   };
 };
 
@@ -945,6 +994,22 @@ describe("connection", () => {
       const calls = send.mock.calls.length;
       await sleep(TimeSpan.milliseconds(20));
       expect(send.mock.calls.length).toBe(calls);
+    });
+
+    it("should report a Core on another minor whose login fails to parse", async () => {
+      const unary = createCore060Unary();
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary() });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("incompatible");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
+      await client.close();
     });
 
     it("should idle rather than check while parked on an auth error", async () => {
