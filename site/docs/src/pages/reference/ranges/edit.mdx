@@ -66,44 +66,38 @@ The Console cannot change the color or the parent of a range.
 
   <Fragment slot="python">
 
-Call `client.ranges.create` with the `key` of the range:
+Call `client.ranges.set_end` to change the end of the range:
 
 ```python
 from datetime import datetime
 
-import synnax as sy
-
 my_range = client.ranges.retrieve(name="My Range")
-client.ranges.create(
-    key=my_range.key,
-    name="My Updated Range",
-    time_range=sy.TimeRange(
-        start=sy.TimeStamp(datetime(2023, 2, 12, 13, 0)),
-        end=sy.TimeStamp(datetime(2023, 2, 12, 15, 0)),
-    ),
-    color="#00FF00",
-)
+client.ranges.set_end(my_range.key, datetime(2023, 2, 12, 15, 0))
 ```
+
+Python cannot change the start, the color, or the parent of a range.
 
   </Fragment>
 
   <Fragment slot="typescript">
 
-Call `client.ranges.create` with the `key` of the range:
+Call `client.ranges.dispatch` with a `ranger.set` action for each field to change. You
+can change `timeRange`, `color`, and `parent`. Set `color` to `null` to clear it.
 
 ```typescript
-import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 
 const myRange = await client.ranges.retrieve("My Range");
-await client.ranges.create({
-  key: myRange.key,
-  name: "My Updated Range",
-  timeRange: new TimeRange(
-    new TimeStamp("2023-02-12 13:00:00"),
-    new TimeStamp("2023-02-12 15:00:00"),
-  ),
-  color: "#00FF00",
-});
+await client.ranges.dispatch(myRange.key, [
+  ranger.set({
+    path: ["timeRange"],
+    value: new TimeRange(
+      new TimeStamp("2023-02-12 13:00:00"),
+      new TimeStamp("2023-02-12 15:00:00"),
+    ).numeric,
+  }),
+  ranger.set({ path: ["color"], value: "#00FF00" }),
+]);
 ```
 
   </Fragment>
@@ -140,10 +134,8 @@ See [create ranges in Arc](/reference/ranges/arc).
 </Client.Tabs>
 
 <Note.Note variant="warning">
-  An update from Python or TypeScript replaces the name, the time range, and the color.
-  Leave out the color and the range loses it. The parent stays when you leave it out. An
-  update does not change [labels](/reference/ranges/metadata#labels). If no range has
-  the key, Synnax creates a new range with that key.
+  Do not call `create` with the key of a range to change it. The create fails because a
+  range already has the key.
 </Note.Note>
 
 <Divider.Divider x />
