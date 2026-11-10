@@ -134,6 +134,7 @@ jobs:
       freighter_integration: ${{ steps.filter.outputs.freighter_integration }}
       freighter_py: ${{ steps.filter.outputs.freighter_py }}
       freighter_ts: ${{ steps.filter.outputs.freighter_ts }}
+      go_changes: ${{ steps.go.outputs.changes }}
       gorp: ${{ steps.filter.outputs.gorp }}
       integration: ${{ steps.filter.outputs.integration }}
       keys: ${{ steps.keys.outputs.keys }}
@@ -189,6 +190,7 @@ jobs:
         id: keys
         env:
           FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           keys=$(uv run --locked --project .github/scripts \
             python .github/scripts/job_key.py keys)
@@ -207,6 +209,18 @@ jobs:
           echo "jobs=$(jq -c .reused <<< "$found")" >> "$GITHUB_OUTPUT"
           echo "lint_only=$(jq -c .lint_only <<< "$found")" >> "$GITHUB_OUTPUT"
 
+      - name: List the Go files changed since each Go job last passed
+        id: go
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR: ${{ github.event.pull_request.number || 0 }}
+        run: |
+          changes=$(uv run --locked --project .github/scripts \
+            python .github/scripts/job_key.py changes "$PR" "$HEAD_SHA")
+          echo "$changes" | jq .
+          echo "changes=$changes" >> "$GITHUB_OUTPUT"
+
   actionlint:
     needs: changes
     if:
@@ -223,9 +237,11 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'alamos-go')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['alamos-go'] }}
       coverage_flag: alamos-go
       directory: alamos/go
       macos: &full ${{ inputs.full == true }}
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'alamos-go') }}
@@ -316,10 +332,12 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'arc-go')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['arc-go'] }}
       coverage_flag: arc-go
       directory: arc/go
       install_antlr4: true
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'arc-go') }}
@@ -343,9 +361,11 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'cesium')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['cesium'] }}
       coverage_flag: cesium
       directory: cesium
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'cesium') }}
@@ -480,9 +500,11 @@ jobs:
     uses: ./.github/workflows/test.go.yaml
     with:
       cached: ${{ github.event_name == 'pull_request' }}
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['core'] }}
       coverage_flag: core
       directory: core
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       shards: 3
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'core')
@@ -771,9 +793,11 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'freighter-go')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['freighter-go'] }}
       coverage_flag: freighter-go
       directory: freighter/go
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'freighter-go') }}
@@ -802,9 +826,12 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'freighter-integration')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed:
+        ${{ fromJSON(needs.changes.outputs.go_changes)['freighter-integration'] }}
       coverage_flag: freighter-integration
       directory: freighter/integration
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'freighter-integration') }}
@@ -877,9 +904,11 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'gorp')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['gorp'] }}
       coverage_flag: gorp
       directory: gorp
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'gorp')
         }}
@@ -995,10 +1024,12 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'oracle')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['oracle'] }}
       coverage_flag: oracle
       directory: oracle
       install_antlr4: true
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
         'oracle') }}
@@ -1281,9 +1312,11 @@ jobs:
       !contains(fromJSON(needs.changes.outputs.reused), 'x-go')
     uses: ./.github/workflows/test.go.yaml
     with:
+      changed: ${{ fromJSON(needs.changes.outputs.go_changes)['x-go'] }}
       coverage_flag: x-go
       directory: x/go
       macos: *full
+      ref: ${{ github.event.pull_request.head.sha }}
       test:
         ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'x-go')
         }}
@@ -1462,12 +1495,15 @@ jobs:
         id: stamps
         if: needs.changes.result == 'success'
         env:
+          GO: ${{ needs.changes.outputs.go_changes }}
           KEYS: ${{ needs.changes.outputs.keys }}
+          PR: ${{ github.event.pull_request.number || 0 }}
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          stamps=$(jq -c --argjson keys "$KEYS" '[to_entries[]
-            | select(.value.result == "success" and $keys[.key])
-            | .key as $job | $keys[$job][] | {job: $job, key: .}]' <<< "$RESULTS")
+          stamps=$(jq -c --argjson keys "$KEYS" --argjson go "$GO" --arg pr "$PR" \
+            '[to_entries[] | select(.value.result == "success") | .key as $job
+            | ($keys[$job] // {} | .[]), (select($pr != "0" and $go[$job]) | "pr\($pr)")
+            | {job: $job, key: .}]' <<< "$RESULTS")
           echo "$stamps"
           echo "stamps=$stamps" >> "$GITHUB_OUTPUT"
 

@@ -66,6 +66,18 @@ on:
         required: false
         type: boolean
         default: true
+      ref:
+        description: The commit to check out, or empty for the commit of the event
+        required: false
+        type: string
+        default: ""
+      changed:
+        description:
+          all, or the changed Go files relative to the repository root, so only the
+          packages they reach lint and test
+        required: false
+        type: string
+        default: all
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -93,6 +105,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
@@ -144,6 +158,22 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
+      - name: Find the packages the change reaches
+        id: packages
+        shell: bash
+        working-directory: ${{ inputs.directory }}
+        env:
+          CHANGED: ${{ inputs.changed }}
+          CGO_ENABLED: "0"
+          GOOS: ${{ matrix.goos }}
+        run: |
+          if [ "$CHANGED" = all ]; then
+            packages=./...
+          else
+            packages=$(python3 -I "$GITHUB_WORKSPACE/.github/scripts/go_affected.py")
+          fi
+          echo "packages=$packages" | tee -a "$GITHUB_OUTPUT"
+
       # A download adds missing go.sum entries, so a changed go.mod or go.sum means the
       # committed ones were not tidy. Tidiness does not depend on GOOS.
       - name: Check that go.mod and go.sum are tidy
@@ -171,13 +201,16 @@ jobs:
           problem-matchers: true
 
       - name: Lint
+        if: steps.packages.outputs.packages != ''
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
           GOOS: ${{ matrix.goos }}
+          PACKAGES: ${{ steps.packages.outputs.packages }}
         run: |
           ./custom-gcl config verify
-          ./custom-gcl run --path-mode=abs
+          read -ra packages <<< "$PACKAGES"
+          ./custom-gcl run --path-mode=abs "${packages[@]}"
 
       # Each save holds every entry it restored, so stale builds pile up until their
       # extraction fills the disk. Go and golangci-lint refresh an entry's mtime when
@@ -238,6 +271,8 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
 
       # Go keeps its caches and build scratch on the OS disk (C:), whose ~14GB of
       # free space a --race --cover build of a large module overflows. RUNNER_TEMP
@@ -307,6 +342,21 @@ jobs:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
 
+      - name: Find the packages the change reaches
+        id: packages
+        if: inputs.test
+        shell: bash
+        working-directory: ${{ inputs.directory }}
+        env:
+          CHANGED: ${{ inputs.changed }}
+        run: |
+          if [ "$CHANGED" = all ]; then
+            packages=./...
+          else
+            packages=$(python3 -I "$GITHUB_WORKSPACE/.github/scripts/go_affected.py")
+          fi
+          echo "packages=$packages" | tee -a "$GITHUB_OUTPUT"
+
       - name: Verify the Go module cache
         shell: bash
         working-directory: ${{ inputs.directory }}
@@ -340,31 +390,43 @@ jobs:
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
-        if: inputs.test && inputs.cached
+        if: inputs.test && inputs.cached && steps.packages.outputs.packages != ''
         timeout-minutes: 150
-        run: >-
-          go test ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' ||
-          '' }} -timeout=30m ./...
+        shell: bash
+        env:
+          FLAGS:
+            ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' || '' }}
+          PACKAGES: ${{ steps.packages.outputs.packages }}
+        run: |
+          read -ra flags <<< "$FLAGS"
+          read -ra packages <<< "$PACKAGES"
+          go test "${flags[@]}" -timeout=30m "${packages[@]}"
         working-directory: ${{ inputs.directory }}
 
       # Each shard takes every nth suite in path order, which spreads the versions of
       # one service across the shards.
       - name: Test
-        if: inputs.test && !inputs.cached
+        if: inputs.test && !inputs.cached && steps.packages.outputs.packages != ''
         timeout-minutes: 150
         shell: bash
         env:
           FLAGS:
             ${{ runner.os == 'macOS' && '--procs=2 --compilers=1' || '-p --cover
             --coverprofile=cover.out --race' }} ${{ inputs.ginkgo_flags }}
+          PACKAGES: ${{ steps.packages.outputs.packages }}
           SHARD: ${{ matrix.shard }}
           SHARDS: ${{ inputs.shards }}
           SUITE:
             "{{if or .TestGoFiles .XTestGoFiles}}.{{slice .ImportPath (len
             .Module.Path)}}{{end}}"
         run: |
-          suites=$(go list -f "$SUITE" ./... |
+          read -ra packages <<< "$PACKAGES"
+          suites=$(go list -f "$SUITE" "${packages[@]}" |
             awk -v n="$SHARDS" -v s="$SHARD" 'NF && ++i % n == s % n')
+          if [ -z "$suites" ]; then
+            echo "No suite in this shard reaches the change."
+            exit 0
+          fi
           read -ra flags <<< "$FLAGS"
           read -ra suites <<< "${suites//$'\n'/ }"
           go run github.com/onsi/ginkgo/v2/ginkgo "${flags[@]}" --randomize-suites \
@@ -406,7 +468,9 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Upload coverage
-        if: inputs.test && runner.os != 'macOS'
+        if:
+          runner.os != 'macOS' && hashFiles(format('{0}/cover.out', inputs.directory))
+          != ''
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov

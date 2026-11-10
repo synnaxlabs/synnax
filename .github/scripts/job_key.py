@@ -11,10 +11,13 @@
 
     python3 job_key.py keys
     python3 job_key.py reused <keys>
+    python3 job_key.py changes <pull request> <head>
 
 A key hashes the job's block, the workflows it calls, and the files its filters match.
 Only its own filter counts unit tests. Go and Python files count without comments where
 the job reads none. A lint job also gets a code key, whose pass runs only its lint.
+The Go jobs key HEAD_SHA, the pull request head they test. changes prints the Go files
+each Go job's inputs changed since its last pass on the pull request, or all.
 """
 
 import hashlib
@@ -26,7 +29,7 @@ import sys
 from collections.abc import Callable, Iterable
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import comments
 from changed_jobs import FILTER_REF, FILTERS, SHARED_JOBS, WORKFLOW, load, paths
@@ -51,8 +54,18 @@ MODES = {
     "./.github/workflows/test.ts.yaml": CODE,
 }
 
-# A file in HEAD as its path and blob ID.
+# The Go jobs test the head of a pull request, not its merge commit.
+GO = "./.github/workflows/test.go.yaml"
+
+# A file as its path and blob ID.
 Entry = tuple[str, str]
+
+
+class Snapshot(NamedTuple):
+    """The files of a commit, and a reader of their content by path."""
+
+    entries: list[Entry]
+    content: Callable[[str], bytes]
 
 
 def glob_regex(glob: str) -> str:
@@ -97,6 +110,28 @@ def tree(rev: str = "HEAD") -> list[Entry]:
             meta, path = line.split("\t", 1)
             entries.append((path, meta.split()[2]))
     return sorted(entries)
+
+
+def snapshot(rev: str) -> Snapshot:
+    """Returns the files of rev, read from the object store."""
+    entries = tree(rev)
+    blobs = dict(entries)
+    batch = subprocess.Popen(
+        ["git", "cat-file", "--batch"], stdin=subprocess.PIPE, stdout=subprocess.PIPE
+    )
+    stdin, stdout = batch.stdin, batch.stdout
+    assert stdin is not None
+    assert stdout is not None
+
+    def content(path: str) -> bytes:
+        stdin.write(f"{blobs[path]}\n".encode())
+        stdin.flush()
+        size = int(stdout.readline().split()[2])
+        data = stdout.read(size)
+        stdout.read(1)
+        return data
+
+    return Snapshot(entries, content)
 
 
 def _refs(value: Any, names: Iterable[str]) -> list[str]:
@@ -153,42 +188,53 @@ def digest(lines: Iterable[str]) -> str:
 def keys(
     ci: str,
     filters: str,
-    entries: list[Entry],
+    files: Snapshot,
     *,
     read: Callable[[str], str],
-    content: Callable[[str], bytes],
     outputs: dict[str, str],
+    head: Snapshot | None = None,
 ) -> dict[str, dict[str, str]]:
-    """Returns the keys of each job that can reuse a pass."""
+    """Returns the keys of each job that can reuse a pass. A Go job keys head when it
+    is given."""
     jobs = load(ci)[0].get("jobs", {})
     globs = {k: paths(v) for k, v in load(filters)[0].items()}
     tests = matcher(globs[UNIT_TESTS])
-    stripped: dict[str, str] = {}
-    files: dict[tuple[str, bool, bool], str] = {}
 
-    def version(path: str, blob: str, code: bool) -> str:
-        if not code or not path.endswith(comments.SUFFIXES) or tests.fullmatch(path):
-            return blob
-        if path not in stripped:
-            text = comments.strip(path, content(path))
-            stripped[path] = blob if text is None else digest([text])
-        return stripped[path]
+    def hasher(snap: Snapshot) -> Callable[..., str]:
+        stripped: dict[str, str] = {}
+        cache: dict[tuple[str, bool, bool], str] = {}
 
-    def of(name: str, patterns: Iterable[str], *, own: bool, code: bool) -> str:
-        if (name, own, code) not in files:
-            pattern = matcher(patterns)
-            files[name, own, code] = digest(
-                f"{p} {version(p, b, code)}"
-                for p, b in entries
-                if pattern.fullmatch(p) and (own or not tests.fullmatch(p))
-            )
-        return files[name, own, code]
+        def version(path: str, blob: str, code: bool) -> str:
+            if (
+                not code
+                or not path.endswith(comments.SUFFIXES)
+                or tests.fullmatch(path)
+            ):
+                return blob
+            if path not in stripped:
+                text = comments.strip(path, snap.content(path))
+                stripped[path] = blob if text is None else digest([text])
+            return stripped[path]
 
-    common = of("", COMMON, own=True, code=False)
+        def of(name: str, patterns: Iterable[str], *, own: bool, code: bool) -> str:
+            if (name, own, code) not in cache:
+                pattern = matcher(patterns)
+                cache[name, own, code] = digest(
+                    f"{p} {version(p, b, code)}"
+                    for p, b in snap.entries
+                    if pattern.fullmatch(p) and (own or not tests.fullmatch(p))
+                )
+            return cache[name, own, code]
+
+        return of
+
+    base = hasher(files)
+    heads = hasher(head) if head else base
 
     def key(job: str, refs: list[str], *, own_code: bool, dep_code: bool) -> str:
         block = jobs[job]
         uses = block.get("uses", "")
+        of = heads if uses == GO else base
         workflows = called(uses[2:], read) if uses.startswith("./") else set()
         own, deps = refs[0], refs[1:]
         return digest(
@@ -197,9 +243,12 @@ def keys(
                 job,
                 f"{own_code} {dep_code}",
                 json.dumps(block, sort_keys=True, default=str),
-                common,
+                of("", COMMON, own=True, code=False),
                 *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
-                *(f"{w} {of(w, [w], own=True, code=False)}" for w in sorted(workflows)),
+                *(
+                    f"{w} {base(w, [w], own=True, code=False)}"
+                    for w in sorted(workflows)
+                ),
                 f"{own} {of(own, globs[own], own=True, code=own_code)}",
                 *(f"{r} {of(r, globs[r], own=False, code=dep_code)}" for r in deps),
             ]
@@ -221,10 +270,7 @@ def keys(
 
 def passed(artifacts: list[dict[str, Any]], repository_id: int) -> bool:
     """Returns whether a live artifact comes from a run of this repository."""
-    return any(
-        not a["expired"] and a["workflow_run"]["head_repository_id"] == repository_id
-        for a in artifacts
-    )
+    return bool(_live(artifacts, repository_id))
 
 
 def reused(
@@ -251,6 +297,45 @@ def reused(
     }
 
 
+def _live(artifacts: list[dict[str, Any]], repository_id: int) -> list[dict[str, Any]]:
+    return [
+        a
+        for a in artifacts
+        if not a["expired"] and a["workflow_run"]["head_repository_id"] == repository_id
+    ]
+
+
+def changes(
+    ci: str,
+    filters: str,
+    *,
+    pull_request: int,
+    fetch: Callable[[str], list[dict[str, Any]]],
+    repository_id: int,
+    diff: Callable[[str], list[str]],
+) -> dict[str, str]:
+    """Returns the Go files each Go job's inputs changed since its last pass on the pull
+    request, or all. diff lists the files changed since a commit."""
+    jobs = load(ci)[0].get("jobs", {})
+    globs = {k: paths(v) for k, v in load(filters)[0].items()}
+    shared = matcher([*COMMON, WORKFLOW, FILTERS])
+    out = {}
+    for job, refs in reusable(jobs, globs).items():
+        if jobs[job].get("uses") != GO:
+            continue
+        name = ARTIFACT.format(job=job, key=f"pr{pull_request}")
+        passes = _live(fetch(name), repository_id) if pull_request else []
+        if not passes:
+            out[job] = "all"
+            continue
+        last = max(passes, key=lambda a: a["created_at"])["workflow_run"]["head_sha"]
+        pattern = matcher(set().union(*(globs[r] for r in refs)))
+        changed = [f for f in diff(last) if pattern.fullmatch(f) or shared.fullmatch(f)]
+        go = all(f.endswith(".go") for f in changed)
+        out[job] = " ".join(changed) if go else "all"
+    return out
+
+
 def fetch_artifacts(repository: str) -> Callable[[str], list[dict[str, Any]]]:
     script = Path(__file__).with_name("gh_api.sh")
 
@@ -270,21 +355,55 @@ def fetch_artifacts(repository: str) -> Callable[[str], list[dict[str, Any]]]:
     return fetch
 
 
+def _fetch(rev: str) -> None:
+    subprocess.run(
+        ["git", "fetch", "--no-tags", "--depth=1", "origin", rev], check=True
+    )
+
+
+def _diff(head: str) -> Callable[[str], list[str]]:
+    def diff(base: str) -> list[str]:
+        _fetch(base)
+        return subprocess.run(
+            ["git", "diff", "--name-only", "--no-renames", base, head],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.splitlines()
+
+    return diff
+
+
 def main(argv: list[str]) -> None:
+    ci, filters = Path(WORKFLOW).read_text(), Path(FILTERS).read_text()
     if argv[1] == "keys":
+        head = os.environ.get("HEAD_SHA", "")
+        if head:
+            _fetch(head)
         result: Any = keys(
-            Path(WORKFLOW).read_text(),
-            Path(FILTERS).read_text(),
-            tree(),
+            ci,
+            filters,
+            Snapshot(tree(), lambda p: Path(p).read_bytes()),
             read=lambda p: Path(p).read_text(),
-            content=lambda p: Path(p).read_bytes(),
             outputs=json.loads(os.environ["FILTER_OUTPUTS"]),
+            head=snapshot(head) if head else None,
         )
     elif argv[1] == "reused":
         result = reused(
             json.loads(argv[2]),
             fetch=fetch_artifacts(os.environ["GITHUB_REPOSITORY"]),
             repository_id=int(os.environ["GITHUB_REPOSITORY_ID"]),
+        )
+    elif argv[1] == "changes":
+        if argv[3]:
+            _fetch(argv[3])
+        result = changes(
+            ci,
+            filters,
+            pull_request=int(argv[2]),
+            fetch=fetch_artifacts(os.environ["GITHUB_REPOSITORY"]),
+            repository_id=int(os.environ["GITHUB_REPOSITORY_ID"]),
+            diff=_diff(argv[3]),
         )
     else:
         raise ValueError(f"unknown command: {argv[1]}")

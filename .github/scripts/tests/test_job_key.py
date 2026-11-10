@@ -16,7 +16,20 @@ from typing import Any
 import pytest
 
 from changed_jobs import FILTERS, WORKFLOW, load
-from job_key import LINT, MODES, Entry, glob_regex, keys, reusable, reused, tree
+from job_key import (
+    GO,
+    LINT,
+    MODES,
+    Entry,
+    Snapshot,
+    changes,
+    glob_regex,
+    keys,
+    reusable,
+    reused,
+    snapshot,
+    tree,
+)
 
 CI = """\
 jobs:
@@ -83,22 +96,27 @@ FILES = {
 }
 
 
+def snap(files: dict[str, str]) -> Snapshot:
+    entries: list[Entry] = sorted(
+        (p, hashlib.sha1(text.encode()).hexdigest()) for p, text in files.items()
+    )
+    return Snapshot(entries, lambda p: files[p].encode())
+
+
 def run_all(
     files: dict[str, str] = FILES,
     *,
     ci: str = CI,
     outputs: dict[str, str] | None = None,
+    head: dict[str, str] | None = None,
 ) -> dict[str, dict[str, str]]:
-    entries: list[Entry] = sorted(
-        (p, hashlib.sha1(text.encode()).hexdigest()) for p, text in files.items()
-    )
     return keys(
         ci,
         FILTERS_TEXT,
-        entries,
+        snap(files),
         read=files.__getitem__,
-        content=lambda p: files[p].encode(),
         outputs=outputs or {"client": "true", "core": "false"},
+        head=snap(head) if head else None,
     )
 
 
@@ -227,14 +245,14 @@ class TestKeys:
         assert before["core"] == after["core"]
 
 
-GO = "package a\n\n// A is one.\nfunc A() int { return 1 }\n"
+SOURCE = "package a\n\n// A is one.\nfunc A() int { return 1 }\n"
 
 
 class TestComments:
     """Tests keying jobs when only comments change."""
 
     def comment(self) -> dict[str, dict[str, str]]:
-        return run_all(edit("core/a.go", GO.replace("A is one", "A returns one")))
+        return run_all(edit("core/a.go", SOURCE.replace("A is one", "A returns one")))
 
     def test_should_give_only_lint_jobs_a_code_key(self) -> None:
         assert {j: sorted(k) for j, k in run_all().items()} == {
@@ -260,12 +278,12 @@ class TestComments:
 
     def test_should_run_every_job_on_a_code_edit(self) -> None:
         before = run_all()
-        after = run_all(edit("core/a.go", GO.replace("return 1", "return 2")))
+        after = run_all(edit("core/a.go", SOURCE.replace("return 1", "return 2")))
         assert before["core"]["code"] != after["core"]["code"]
         assert before["client"] != after["client"]
 
     def test_should_count_a_directive_as_code(self) -> None:
-        after = run_all(edit("core/a.go", "//go:build linux\n\n" + GO))
+        after = run_all(edit("core/a.go", "//go:build linux\n\n" + SOURCE))
         assert run_all()["core"]["code"] != after["core"]["code"]
 
     def test_should_count_the_comments_of_a_unit_test(self) -> None:
@@ -312,6 +330,98 @@ class TestReused:
         assert self.check([]) == {"lint_only": ["core"], "reused": []}
 
 
+class TestHead:
+    """Tests keying the Go jobs on the head of a pull request."""
+
+    def test_should_key_a_go_job_on_the_head(self) -> None:
+        head = edit("core/a.go", SOURCE.replace("return 1", "return 2"))
+        before, after = run_all(), run_all(head=head)
+        assert before["core"] != after["core"]
+        assert before["client"] == after["client"]
+
+    def test_should_match_the_merge_commit_when_the_head_is_the_same(self) -> None:
+        assert run_all(head=FILES) == run_all()
+
+
+def created(sha: str, at: str) -> dict[str, Any]:
+    return {
+        **artifact(),
+        "created_at": at,
+        "workflow_run": {"head_repository_id": 1, "head_sha": sha},
+    }
+
+
+class TestChanges:
+    """Tests listing the Go files changed since a Go job's last pass."""
+
+    def check(
+        self, changed: list[str], passes: list[dict[str, Any]] | None = None
+    ) -> dict[str, str]:
+        bases: list[str] = []
+
+        def diff(base: str) -> list[str]:
+            bases.append(base)
+            return changed
+
+        found = {"pass-core-pr7": [created("a", "1")] if passes is None else passes}
+        out = changes(
+            CI,
+            FILTERS_TEXT,
+            pull_request=7,
+            fetch=lambda n: found.get(n, []),
+            repository_id=1,
+            diff=diff,
+        )
+        assert bases in ([], ["a"], ["b"])
+        return out
+
+    def test_should_list_the_changed_go_files(self) -> None:
+        assert self.check(["core/a.go", "core/a_test.go"]) == {
+            "core": "core/a.go core/a_test.go"
+        }
+
+    def test_should_ignore_files_the_job_does_not_read(self) -> None:
+        assert self.check(["docs/a.md", "client/a.ts"]) == {"core": ""}
+
+    @pytest.mark.parametrize(
+        "path", ["core/testdata/a.json", ".golangci.yaml", WORKFLOW, FILTERS]
+    )
+    def test_should_test_all_when_another_kind_changed(self, path: str) -> None:
+        assert self.check(["core/a.go", path]) == {"core": "all"}
+
+    def test_should_test_all_without_a_pass(self) -> None:
+        assert self.check(["core/a.go"], passes=[]) == {"core": "all"}
+
+    def test_should_test_all_outside_a_pull_request(self) -> None:
+        out = changes(
+            CI,
+            FILTERS_TEXT,
+            pull_request=0,
+            fetch=lambda n: [created("a", "1")],
+            repository_id=1,
+            diff=lambda base: [],
+        )
+        assert out == {"core": "all"}
+
+    def test_should_diff_against_the_newest_pass(self) -> None:
+        passes = [created("a", "1"), created("b", "2")]
+        bases: list[str] = []
+
+        def diff(base: str) -> list[str]:
+            bases.append(base)
+            return []
+
+        changes(
+            CI,
+            FILTERS_TEXT,
+            pull_request=7,
+            fetch=lambda n: passes if n == "pass-core-pr7" else [],
+            repository_id=1,
+            diff=diff,
+        )
+        assert bases == ["b"]
+
+
 def test_tree_should_list_every_file_with_its_blob(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -335,6 +445,10 @@ def test_tree_should_list_every_file_with_its_blob(
         ("a.go", git("rev-parse", "HEAD:a.go")),
         ("b/c d.go", git("rev-parse", "HEAD:b/c d.go")),
     ]
+    files = snapshot("HEAD")
+    assert files.entries == tree()
+    assert files.content("b/c d.go") == b"package b\n"
+    assert files.content("a.go") == b"package a\n"
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -388,3 +502,11 @@ def test_every_lint_job_runs_only_its_lint_when_its_code_passed() -> None:
         lint_only = f"!contains(fromJSON(needs.changes.outputs.lint_only), '{job}')"
         test = f"${{{{ inputs.full || {lint_only} }}}}"
         assert " ".join(jobs[job]["with"]["test"].split()) == test, job
+
+
+def test_every_go_job_tests_the_files_its_change_reaches() -> None:
+    jobs, keyed = real()
+    for job in (j for j in keyed if jobs[j].get("uses") == GO):
+        changed = f"${{{{ fromJSON(needs.changes.outputs.go_changes)['{job}'] }}}}"
+        assert jobs[job]["with"]["changed"] == changed, job
+        assert jobs[job]["with"]["ref"] == "${{ github.event.pull_request.head.sha }}"
