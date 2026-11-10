@@ -342,6 +342,11 @@ some device property keys are data, such as OPC UA node IDs.
    read a key named `set` or `remove` as an operator, and a whole-map replace loses a
    concurrent edit to another entry. The trade is real: a one-entry edit is one level
    deeper than a merge.
+10. **7.9 gRPC carries each action as JSON bytes.** Typed proto actions need a message
+    for each generic instance, about 7,000 generated lines, and add no compile-time
+    check: C++ already builds the generated `Update`. A `google.protobuf.Struct` also
+    stores every number as a double. The trade is real: the proto does not show the
+    shape of an action.
 
 ## 8 Open questions
 
