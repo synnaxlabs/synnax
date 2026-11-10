@@ -26,6 +26,12 @@ namespace {
 using testutil::DEWESOFT;
 using testutil::IOLITE_6XSTG;
 
+/// @brief the revision of an IOLITE 6xSTG in its ESI.
+constexpr uint32_t STG_REVISION = 0x00020001;
+
+/// @brief the product code that the IOLITE 32xDI, 32xDO, 8xDI-4xDO, and DIDO share.
+constexpr uint32_t IOLITE_DIO = 0xFB;
+
 /// @brief returns a read of a standalone 6xSTG in which input 1 counts count ranges.
 coe::Read counting_ranges(const uint32_t count) {
     auto objects = testutil::stg_objects(0);
@@ -66,7 +72,7 @@ setting(const x::json::json &channel, const uint8_t sub_index, const size_t nth 
 /// excitation limits that the card holds.
 TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &channels = settings.value()["channels"];
@@ -95,7 +101,7 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
 /// @brief it should give each setting of a 6xSTG input the value that the card holds.
 TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &input_2 = settings.value()["channels"][1];
@@ -112,6 +118,7 @@ TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
     const auto [settings, err] = read_settings(
         DEWESOFT,
         IOLITE_6XSTG,
+        STG_REVISION,
         STG_OP_MODES,
         testutil::read_of(std::move(objects))
     );
@@ -127,7 +134,7 @@ TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
 /// and buffered PDO layouts.
 TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &entries = settings.value()["channels"][1]["entries"];
@@ -146,7 +153,7 @@ TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
 /// nothing to switch.
 TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &mode = settings.value()["mode"];
@@ -167,7 +174,7 @@ TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
 /// @brief it should name the object that holds the mode of a 6xSTG.
 TEST(ReadSettings, NamesTheModeObjectOf6xSTG) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     EXPECT_EQ(settings.value()["mode"]["index"], 0x8020);
@@ -178,7 +185,7 @@ TEST(ReadSettings, NamesTheModeObjectOf6xSTG) {
 /// to standalone with a write that saves the mode.
 TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 1))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(1, 1))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &mode = settings.value()["mode"];
@@ -203,7 +210,7 @@ TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
 /// @brief it should not add the save write for a 6xSTG that saves each change.
 TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, stg(1, 0))
     );
     ASSERT_TRUE(settings.has_value());
     const auto &change = settings.value()["mode"]["switch"];
@@ -216,7 +223,7 @@ TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
 TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
     const std::vector<dc::OpMode> sm_only{{.name = "SM", .assign_activate = 0}};
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, sm_only, stg(0))
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, sm_only, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
     EXPECT_FALSE(settings.value()["mode"].contains("op_mode"));
@@ -226,7 +233,34 @@ TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
 /// describe.
 TEST(ReadSettings, ReturnsNoneForAnUndescribedProduct) {
     const auto settings = ASSERT_NIL_P(
-        read_settings(DEWESOFT, 0xFFFF, STG_OP_MODES, stg(0))
+        read_settings(DEWESOFT, 0xFFFF, 0, STG_OP_MODES, stg(0))
+    );
+    EXPECT_FALSE(settings.has_value());
+}
+
+/// @brief it should select the description of a product that matches the revision of
+/// the slave.
+TEST(ReadSettings, SelectsTheDescriptionOfTheRevision) {
+    const auto read = testutil::read_of({{{0x8020, 1}, 0}, {{0x8020, 9}, 0}});
+    const auto outputs = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_DIO, 0x00051000, {}, read)
+    );
+    ASSERT_TRUE(outputs.has_value());
+    ASSERT_EQ(outputs.value()["device"].size(), 1);
+    EXPECT_EQ(outputs.value()["device"][0]["name"], "Outputs on connection loss");
+    const auto inputs = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_DIO, 0x00040000, {}, read)
+    );
+    ASSERT_TRUE(inputs.has_value());
+    EXPECT_TRUE(inputs.value()["device"].empty());
+    EXPECT_EQ(inputs.value()["mode"]["index"], 0x8020);
+}
+
+/// @brief it should return no settings for a revision that no description of the
+/// product lists.
+TEST(ReadSettings, ReturnsNoneForAnUndescribedRevision) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_DIO, 0x00010000, {}, testutil::read_of({}))
     );
     EXPECT_FALSE(settings.has_value());
 }
@@ -238,6 +272,7 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
     const auto [settings, err] = read_settings(
         DEWESOFT,
         IOLITE_6XSTG,
+        STG_REVISION,
         STG_OP_MODES,
         testutil::read_of(std::move(objects))
     );
@@ -257,7 +292,7 @@ TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
         return std::pair{uint32_t{0}, coe::read_error(index, sub_index, 0x06020000)};
     };
     ASSERT_OCCURRED_AS_P(
-        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, missing),
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, missing),
         coe::OBJECT_MISSING
     );
 }
@@ -267,6 +302,7 @@ TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
     const auto err = read_settings(
                          DEWESOFT,
                          IOLITE_6XSTG,
+                         STG_REVISION,
                          STG_OP_MODES,
                          counting_ranges(0xFFFFFFFF)
     )
@@ -286,16 +322,23 @@ TEST(ReadSettings, ReadsEachObjectOnce) {
         reads[{index, sub_index}]++;
         return read(index, sub_index);
     };
-    ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, counted));
+    ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_REVISION, STG_OP_MODES, counted)
+    );
     for (const auto &[address, count]: reads)
         EXPECT_EQ(count, 1) << std::hex << address.first << ":" << +address.second;
 }
 
 /// @brief it should reject a card table that counts no options.
 TEST(ReadSettings, RejectsAnOptionCountOfZero) {
-    const auto
-        err = read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, counting_ranges(0))
-                  .second;
+    const auto err = read_settings(
+                         DEWESOFT,
+                         IOLITE_6XSTG,
+                         STG_REVISION,
+                         STG_OP_MODES,
+                         counting_ranges(0)
+    )
+                         .second;
     ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
     EXPECT_EQ(err.data, "0x8050:03 counts 0 options. The count must be from 1 to 252");
 }

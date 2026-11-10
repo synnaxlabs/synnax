@@ -8,13 +8,14 @@ import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-Dewesoft IOLITE and SIRIUS devices with an EtherCAT port connect to the Driver as
-EtherCAT modules. Each module shows in the devices toolbar, and read and write tasks use
-its PDOs as they use the PDOs of other modules. To connect the network, see
+Dewesoft IOLITE, KRYPTON, and SIRIUS devices with an EtherCAT port connect to the Driver
+as EtherCAT modules. Each module shows in the devices toolbar, and read and write tasks
+use its PDOs as they use the PDOs of other modules. To connect the network, see
 [Configure an EtherCAT device](/reference/hardware/ethercat/configure-device).
 
-You set the amplifiers of a device in DewesoftX, such as the range, the excitation, and
-the sample rate. Synnax does not change these settings.
+In dual mode, DewesoftX sets the amplifiers of a device, such as the range and the
+excitation. In standalone mode, Synnax can set them. See
+[Set up a module in Synnax](#set-up-a-module-in-synnax).
 
 <Divider.Divider x />
 
@@ -59,6 +60,27 @@ network that cycles slower than the sample rate can show aliases.
    DewesoftX and turn the power of the device off and on again.
 
 The device loads the stored settings each time it starts.
+
+<Divider.Divider x />
+
+## Set up a module in Synnax
+
+For the IOLITE, IOLITEi, KRYPTON, and KRYPTONi modules in the Dewesoft manual, the
+Console shows the settings of the module by name:
+
+- **Configure** dialog of the module -> the settings of the whole module, such as the
+  state of the outputs on connection loss.
+- **Settings** of a read channel -> the settings of its input, such as the range and the
+  filter.
+
+The Driver writes each setting as a startup parameter when the task starts.
+
+If the module is set up for DewesoftX, the **Configure** dialog shows a note and no
+settings. To use the module with Synnax only, click **Switch to Synnax only**, then
+restart the power of the device.
+
+Synnax Labs tested these settings on the 6xSTG. The settings of the other modules come
+from the Dewesoft manual and are not tested on hardware.
 
 <Divider.Divider x />
 

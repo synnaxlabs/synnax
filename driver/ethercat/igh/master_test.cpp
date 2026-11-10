@@ -299,6 +299,7 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
         esi::read_settings(
             testutil::DEWESOFT,
             testutil::IOLITE_6XSTG,
+            slaves[1].properties.revision,
             slaves[1].properties.op_modes,
             testutil::read_of(testutil::stg_objects(0))
         )
