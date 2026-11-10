@@ -127,6 +127,16 @@ var _ = Describe("MigrateReadChannel", func() {
 			}},
 		),
 		Entry(
+			"register value without a data type",
+			v2.ReadChannel{Variant: v2.InputRegisterReadChannel{
+				BaseReadChannel: base,
+			}},
+			v3.ReadChannel{Variant: v3.InputRegisterReadChannel{
+				BaseReadChannel: base,
+				RegisterValue:   v3.RegisterValue{DataType: "uint8"},
+			}},
+		),
+		Entry(
 			"coil",
 			v2.ReadChannel{Variant: v2.CoilReadChannel{BaseReadChannel: base}},
 			v3.ReadChannel{Variant: v3.CoilReadChannel{BaseReadChannel: base}},
@@ -164,6 +174,16 @@ var _ = Describe("MigrateWriteChannel", func() {
 				},
 			}},
 		),
+		Entry(
+			"holding register without a data type",
+			v2.WriteChannel{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+			}},
+			v3.WriteChannel{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue:    v3.RegisterValue{DataType: "uint8"},
+			}},
+		),
 	)
 })
 
@@ -183,6 +203,23 @@ var _ = Describe("RegisterValue", func() {
 			Expect(input.DataType).To(BeEquivalentTo("uint8"))
 		},
 	)
+
+	It("Should read an empty v2 data type as uint8", func(ctx SpecContext) {
+		var read v2.ReadConfig
+		Expect(json.Unmarshal([]byte(`{"channels": [
+			{"type": "holding_register", "key": "a", "data_type": ""}
+		]}`), &read)).To(Succeed())
+		readCfg := MustSucceed(v3.MigrateReadConfig(ctx, read))
+		holding := readCfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+		Expect(holding.DataType).To(BeEquivalentTo("uint8"))
+		var write v2.WriteConfig
+		Expect(json.Unmarshal([]byte(`{"channels": [
+			{"type": "holding_register", "key": "b", "data_type": ""}
+		]}`), &write)).To(Succeed())
+		writeCfg := MustSucceed(v3.MigrateWriteConfig(ctx, write))
+		written := writeCfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(written.DataType).To(BeEquivalentTo("uint8"))
+	})
 
 	It("Should read a v3 register value without a data type as uint16", func() {
 		var cfg v3.WriteConfig
@@ -274,5 +311,65 @@ var _ = Describe("ReadMigration", func() {
 			HaveKeyWithValue("old", BeEquivalentTo(400)),
 			HaveKeyWithValue("new", BeEquivalentTo(250)),
 		))
+	})
+})
+
+var _ = Describe("MigrateWriteConfig", func() {
+	It("Should lift every channel of the config", func(ctx SpecContext) {
+		old := v2.WriteConfig{Channels: []v2.WriteChannel{
+			{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+				RegisterValue:    v2.RegisterValue{DataType: "float32"},
+			}},
+			{Variant: v2.CoilWriteChannel{
+				BaseWriteChannel: v2.BaseWriteChannel{Key: "coil"},
+			}},
+		}}
+		old.Key = uuid.New()
+		old.Device = "dev"
+		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, old))
+		Expect(cfg.Key).To(Equal(old.Key))
+		Expect(cfg.Device).To(Equal("dev"))
+		Expect(cfg.Channels).To(Equal([]v3.WriteChannel{
+			{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "reg"},
+				RegisterValue:    v3.RegisterValue{DataType: "float32"},
+			}},
+			{Variant: v3.CoilWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "coil"},
+			}},
+		}))
+	})
+})
+
+var _ = Describe("WriteMigration", func() {
+	It("Should lift stored write configs in place", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		stored := v2.WriteConfig{Channels: []v2.WriteChannel{
+			{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+			}},
+		}}
+		stored.Key = uuid.New()
+		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{
+			DB: db,
+		}))
+		Expect(gorp.NewCreate[uuid.UUID, v2.WriteConfig]().
+			Entry(&stored).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "modbus_write",
+			Migrations: []gorp.Migration{v3.WriteMigration},
+		})).To(Succeed())
+		var got v3.WriteConfig
+		Expect(gorp.NewRetrieve[uuid.UUID, v3.WriteConfig]().
+			Where(gorp.MatchKeys[uuid.UUID, v3.WriteConfig](stored.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Channels).To(Equal([]v3.WriteChannel{
+			{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v3.BaseWriteChannel{Key: "reg"},
+				RegisterValue:    v3.RegisterValue{DataType: "uint8"},
+			}},
+		}))
 	})
 })

@@ -60,8 +60,10 @@ func parseStoredString(old v2.ReadChannel) (storedString, bool) {
 
 // MigrateReadChannel lifts a v2 read channel to v3. A register value of the string
 // data type becomes the string variant of its register space, with its length clamped
-// to 1 through 250. Every other variant keeps its shape.
+// to 1 through 250. Every other variant keeps its shape. An empty v2 data type becomes
+// uint8, the v2 default.
 func MigrateReadChannel(ctx context.Context, old v2.ReadChannel) (ReadChannel, error) {
+	old.ApplyDefaults()
 	s, ok := parseStoredString(old)
 	if !ok {
 		return autoMigrateReadChannel(ctx, old)
@@ -108,11 +110,13 @@ func migrateStoredRead(
 	return MigrateReadConfig(ctx, old)
 }
 
-// MigrateWriteChannel lifts a v2 write channel to v3. Every v2 variant exists in v3.
+// MigrateWriteChannel lifts a v2 write channel to v3. Every v2 variant exists in v3. An
+// empty v2 data type becomes uint8, the v2 default.
 func MigrateWriteChannel(
 	ctx context.Context,
 	old v2.WriteChannel,
 ) (WriteChannel, error) {
+	old.ApplyDefaults()
 	return autoMigrateWriteChannel(ctx, old)
 }
 
