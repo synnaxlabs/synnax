@@ -115,8 +115,8 @@ public:
     /// nothing, since IgH takes startup parameters only before activation and writes
     /// those again each time the slave restarts.
     /// @returns errors::SETTING_CONFLICT when the bus runs and the slave holds another
-    /// value for a parameter. errors::STARTUP_PARAMETER_ERROR when the slave rejects
-    /// or fails to read one.
+    /// value for a parameter. errors::STARTUP_PARAMETER_ERROR when the slave rejects or
+    /// fails to read one.
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
