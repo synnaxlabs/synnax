@@ -47,6 +47,7 @@ export const SelectSlave = ({ path }: SelectSlaveProps): ReactElement => {
       make={MAKE}
       model={SLAVE_MODEL}
       icon={HARDWARE.icon}
+      locationFormat={HARDWARE.location}
       filter={filter}
       connect={{
         title: HARDWARE.title,
