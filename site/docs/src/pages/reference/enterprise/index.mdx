@@ -135,8 +135,11 @@ Earlier versions are on the
 
 The installer also offers to install the Core as a Windows service, and selects that
 option by default. With the service, the Core starts now and each time Windows starts,
-so skip step 2. To change the service later, see
-[Run the Core as a service](/reference/enterprise/service).
+so skip step 2. The service runs without TLS and listens on `localhost:9090`, so only
+this computer can reach it. To serve other computers or to use TLS, edit
+`C:\ProgramData\Synnax\config.yaml`. See
+[Run the Core as a service](/reference/enterprise/service) and
+[Set up TLS](/reference/enterprise/tls).
 
 Verify the installation in a **PowerShell** terminal:
 

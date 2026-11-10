@@ -130,6 +130,9 @@ var _ = Describe("Actions", func() {
 		Expect(frames[1].Actions).To(Equal([]device.Action{act}))
 	},
 		Entry("name", "name", "Valve", func(d *device.Device) { d.Name = "Valve" }),
+		Entry("model", "model", "Model 2", func(d *device.Device) {
+			d.Model = "Model 2"
+		}),
 		Entry("location", "location", "dev2", func(d *device.Device) {
 			d.Location = "dev2"
 		}),
@@ -159,6 +162,14 @@ var _ = Describe("Actions", func() {
 		Entry("rack", "rack", 7),
 		Entry("parent", "parent", "other"),
 	)
+
+	It("Should refuse an empty model", func(ctx SpecContext) {
+		Expect(write(ctx, func(w device.Writer) error {
+			return w.Apply(ctx, dev.Key, set("model", ""))
+		})).To(MatchError(ContainSubstring("model: required")))
+		Expect(retrieve(ctx).Model).To(Equal(dev.Model))
+		Expect(rec.Snapshot()).To(HaveLen(1))
+	})
 
 	It("Should reject a create", func(ctx SpecContext) {
 		Expect(write(ctx, func(w device.Writer) error {

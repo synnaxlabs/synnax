@@ -12,7 +12,6 @@ import { type Nav } from "@/components/nav";
 export const PYTHON_SEQUENCES_NAV: Nav.PageNavNode = {
   key: "python",
   name: "Python",
-  edition: "enterprise",
   children: [
     {
       href: "/reference/control/python/write-sequences",

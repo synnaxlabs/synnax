@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, status } from "@synnaxlabs/client";
+import { device, status } from "@synnaxlabs/client";
 import { Device, Flux } from "@synnaxlabs/pluto";
 import { array, primitive, TimeSpan, unique, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -61,31 +61,22 @@ export interface ToggleEnabledParams {
   enabled?: boolean;
 }
 
-export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
-  ToggleEnabledParams,
-  SlaveDevice[]
->({
+export const { useUpdate: useToggleEnabled } = Flux.createUpdate<ToggleEnabledParams>({
   name: "toggle enabled",
   verbs: verbs.UPDATE,
-  update: async ({ data, client, onOptimisticComplete }) => {
+  update: async ({ data, client }) => {
     const keys = array.toArray(data.keys);
-
-    const devices = await client.devices.retrieve({
-      key: keys,
-      includeStatus: true,
-      schemas: SLAVE_SCHEMAS,
-    });
-
-    const enabledValue = data.enabled ?? !devices[0]?.properties?.enabled;
-
-    const updated = devices.map((dev) => ({
-      ...dev,
-      properties: { ...dev.properties, enabled: enabledValue },
-    }));
-
-    return await client.devices.create(updated, SLAVE_SCHEMAS, {
-      onOptimistic: async () => await onOptimisticComplete(updated),
-    });
+    let { enabled } = data;
+    if (enabled == null) {
+      const first = await client.devices.retrieve({
+        key: keys[0],
+        schemas: SLAVE_SCHEMAS,
+      });
+      enabled = !first.properties.enabled;
+    }
+    const set = device.set({ path: ["properties", "enabled"], value: enabled });
+    await Promise.all(keys.map(async (key) => await client.devices.dispatch(key, set)));
+    return data;
   },
 });
 

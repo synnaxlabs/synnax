@@ -552,7 +552,15 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 					calcA.Expression = "return calc_circ_b + 1"
 					Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, calcA)
+						_, err := channelSvc.NewWriter(tx).Apply(
+							ctx,
+							calcA.Key(),
+							channel.NewSetAction(channel.SetPayload{
+								Path:  []string{"expression"},
+								Value: calcA.Expression,
+							}),
+						)
+						return err
 					})).To(Succeed())
 
 					// Opening an iterator over the now-cyclic channel should fail.

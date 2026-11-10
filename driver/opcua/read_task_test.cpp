@@ -51,6 +51,7 @@ protected:
     std::shared_ptr<pipeline::testutil::WriterFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    synnax::device::Device dev;
     synnax::channel::Channel index_channel;
     synnax::channel::Channel bool_channel;
     synnax::channel::Channel uint16_channel;
@@ -139,8 +140,8 @@ protected:
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
 
-        synnax::device::Device dev{
-            .key = "opc_read_task_test_server_key",
+        this->dev = synnax::device::Device{
+            .key = make_unique_channel_name("opc_read_task_test_server"),
             .rack = rack.key,
             .location = "opc.tcp://localhost:4840",
             .make = "opc",
@@ -150,7 +151,7 @@ protected:
                 {{"connection", testutil::connection_json(conn_cfg)}}
             ),
         };
-        ASSERT_NIL(client->devices.create(dev));
+        ASSERT_NIL(client->devices.create(this->dev));
 
         // Use the comprehensive default server configuration
         auto server_cfg = testutil::ServerConfig::create_default();
@@ -162,7 +163,7 @@ protected:
 
         x::json::json task_cfg{
             {"data_saving_disabled", false},
-            {"device", dev.key},
+            {"device", this->dev.key},
             {"channels",
              x::json::json::array(
                  {{{"key", "NS=2;I=1"},
@@ -286,7 +287,7 @@ protected:
     mixed_cfg(const std::string &node_id, const bool nan_fill_enabled) const {
         return {
             {"data_saving_disabled", false},
-            {"device", "opc_read_task_test_server_key"},
+            {"device", this->dev.key},
             {"channels",
              x::json::json::array({
                  {{"node_id", node_id},
@@ -321,7 +322,7 @@ protected:
             });
         return {
             {"data_saving_disabled", false},
-            {"device", "opc_read_task_test_server_key"},
+            {"device", this->dev.key},
             {"channels", channels},
             {"sample_rate", 50},
             {"stream_rate", 25},
@@ -603,7 +604,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
     ASSERT_TRUE(server->wait_until_ready());
     const auto source = this->create_source({
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array({
              {{"node_id", "nsu=urn:b;s=Shared"},
@@ -636,7 +637,7 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
 TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
     const auto source = this->create_source({
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array({
              {{"node_id", "nsu=urn:late;s=Shared"},
@@ -728,13 +729,15 @@ TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto source = this->create_source(task_cfg_json);
     ASSERT_NIL(source->start());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     server->stop();
     x::breaker::Breaker breaker;
     x::telem::Frame fr;
@@ -780,7 +783,7 @@ TEST_F(TestReadTask, testServerOutageWarns) {
 TEST_F(TestReadTask, testEmptyChannelList) {
     x::json::json empty_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels", x::json::json::array()},
         {"sample_rate", 50},
         {"sampling", {{"type", "unary"}}},
@@ -796,7 +799,7 @@ TEST_F(TestReadTask, testEmptyChannelList) {
 TEST_F(TestReadTask, testDisabledChannels) {
     x::json::json disabled_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -823,7 +826,7 @@ TEST_F(TestReadTask, testDisabledChannels) {
 TEST_F(TestReadTask, testUnboundDisabledChannel) {
     x::json::json cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -951,13 +954,15 @@ TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
     moved_server.start();
     ASSERT_TRUE(moved_server.wait_until_ready());
     const auto rt = create_task();
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config moved_cfg;
     moved_cfg.endpoint = endpoint;
-    dev.properties["connection"] = testutil::connection_json(moved_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(moved_cfg)}
+        )}
+    ));
     rt->start("start");
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop", true);
@@ -979,16 +984,18 @@ TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
     auto secured = std::make_unique<testutil::Server>(secured_cfg);
     secured->start();
     ASSERT_TRUE(secured->wait_until_ready());
-    auto dev = ASSERT_NIL_P(
-        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
-    );
     connection::Config conn_cfg;
     conn_cfg.endpoint = "opc.tcp://localhost:4861";
     conn_cfg.security_mode = "SignAndEncrypt";
     conn_cfg.security_policy = "Basic256Sha256";
     conn_cfg.server_certificate = server_id.certificate;
-    dev.properties["connection"] = testutil::connection_json(conn_cfg);
-    ASSERT_NIL(ctx->client->devices.create(dev));
+    ASSERT_NIL(ctx->client->devices.dispatch(
+        task_cfg_json["device"].get<std::string>(),
+        {synnax::device::set(
+            {.path = {"properties", "connection"},
+             .value = testutil::connection_json(conn_cfg)}
+        )}
+    ));
     auto p = x::json::Parser(task_cfg_json);
     UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
     ASSERT_NIL(source.start());
@@ -1036,7 +1043,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
     // by clearing the frame and returning a warning
     x::json::json array_task_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -1224,7 +1231,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
     // Test that ArrayReadTaskSource aggregates multiple errors from different channels
     x::json::json multi_channel_array_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
@@ -1307,7 +1314,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_test_server",
+        .key = make_unique_channel_name("opc_invalid_test_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4841",
         .make = "opc",
@@ -1389,7 +1396,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_float_server",
+        .key = make_unique_channel_name("opc_invalid_float_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4842",
         .make = "opc",
@@ -1470,7 +1477,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
     invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device invalid_dev{
-        .key = "opc_invalid_double_server",
+        .key = make_unique_channel_name("opc_invalid_double_server"),
         .rack = invalid_rack.key,
         .location = "opc.tcp://localhost:4843",
         .make = "opc",
@@ -1546,7 +1553,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
     conn_cfg.security_policy = "None";
 
     synnax::device::Device dev{
-        .key = "opc_test_device_key",
+        .key = make_unique_channel_name("opc_test_device_key"),
         .rack = rack.key,
         .location = "opc.tcp://localhost:4840",
         .make = "opc",
@@ -1598,7 +1605,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
     constexpr int SAMPLE_RATE = 25;
     x::json::json array_cfg{
         {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
+        {"device", this->dev.key},
         {"channels",
          x::json::json::array(
              {{{"key", "NS=2;I=1"},
