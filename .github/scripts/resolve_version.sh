@@ -10,7 +10,8 @@
 # included in the file licenses/APL.txt.
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
-# outputs (key=value lines). Usage: resolve_version.sh <product> <bump> [prerelease]
+# outputs (key=value lines).
+# Usage: resolve_version.sh <product> <bump> [prerelease] [train]
 #
 # The minor comes from the highest stable product tag reachable from HEAD, the patch
 # from the highest stable tag on that minor anywhere in the repo, so a hotfix tag on a
@@ -19,16 +20,20 @@
 # bump. The train rule caps a product at one minor ahead of the Core's latest stable.
 # Desktop skips the train rule, takes a major bump, and bumps its first release from
 # 0.0.0. That first release must be a major bump, so it outranks the 1.0.0 candidates.
-# latest is true when no stable tag of the product outranks the result.
+# latest is true when no stable tag of the product outranks the result. A train (X.Y)
+# ignores the bump and resolves the next patch on that minor, or X.Y.0 when none exists.
+# A train's newest tag at HEAD resolves to itself.
 
 set -euo pipefail
 
-PRODUCT=${1:?usage: resolve_version.sh <product> <bump> [prerelease]}
-BUMP=${2:?usage: resolve_version.sh <product> <bump> [prerelease]}
+USAGE="usage: resolve_version.sh <product> <bump> [prerelease] [train]"
+PRODUCT=${1:?$USAGE}
+BUMP=${2:?$USAGE}
 PRERELEASE=${3:-false}
+TRAIN=${4:-}
 
 case "$PRODUCT" in
-    console | core | driver | desktop) ;;
+    console | core | driver | desktop | ts | py) ;;
     *)
         echo "unknown product: $PRODUCT" >&2
         exit 1
@@ -40,44 +45,64 @@ highest() {
     sed -nE "s#^$1/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
 }
 
-BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
-PREVIOUS_TAG=""
-if [ -n "$BASE" ]; then
-    PREVIOUS_TAG="$PRODUCT/v$BASE"
-elif [ "$PRODUCT" = desktop ]; then
-    if [ "$BUMP" != major ]; then
-        echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
+if [ -n "$TRAIN" ]; then
+    if ! [[ $TRAIN =~ ^[0-9]+\.[0-9]+$ ]]; then
+        echo "malformed train: $TRAIN" >&2
         exit 1
     fi
-    BASE=0.0.0
+    CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
+    BASE=${CURRENT:-none on $TRAIN}
+    PREVIOUS_TAG=""
+    NEXT="$TRAIN.0"
+    if [ -n "$CURRENT" ]; then
+        IFS=. read -r _ _ PATCH <<< "$CURRENT"
+        PREVIOUS_TAG="$PRODUCT/v$CURRENT"
+        NEXT="$TRAIN.$((PATCH + 1))"
+        # A tag at HEAD claims its version for this commit, so a rerun finishes it.
+        if [ "$(git rev-parse "$PREVIOUS_TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
+            NEXT=$CURRENT
+        fi
+    fi
 else
-    echo "no stable $PRODUCT tag is reachable from HEAD" >&2
-    exit 1
-fi
-IFS=. read -r MAJOR MINOR _ <<< "$BASE"
-
-CURRENT=$(git tag --list "$PRODUCT/v$MAJOR.$MINOR.*" | highest "$PRODUCT")
-IFS=. read -r _ _ PATCH <<< "${CURRENT:-$BASE}"
-
-case "$BUMP" in
-    patch)
-        NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
-        ;;
-    minor)
-        NEXT="$MAJOR.$((MINOR + 1)).0"
-        ;;
-    major)
-        if [ "$PRODUCT" != desktop ]; then
-            echo "a major bump is for desktop only; $PRODUCT shares the train" >&2
+    BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
+    PREVIOUS_TAG=""
+    if [ -n "$BASE" ]; then
+        PREVIOUS_TAG="$PRODUCT/v$BASE"
+    elif [ "$PRODUCT" = desktop ]; then
+        if [ "$BUMP" != major ]; then
+            echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
             exit 1
         fi
-        NEXT="$((MAJOR + 1)).0.0"
-        ;;
-    *)
-        echo "unknown bump: $BUMP (expected patch, minor, or major)" >&2
+        BASE=0.0.0
+    else
+        echo "no stable $PRODUCT tag is reachable from HEAD" >&2
         exit 1
-        ;;
-esac
+    fi
+    IFS=. read -r MAJOR MINOR _ <<< "$BASE"
+
+    CURRENT=$(git tag --list "$PRODUCT/v$MAJOR.$MINOR.*" | highest "$PRODUCT")
+    IFS=. read -r _ _ PATCH <<< "${CURRENT:-$BASE}"
+
+    case "$BUMP" in
+        patch)
+            NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
+            ;;
+        minor)
+            NEXT="$MAJOR.$((MINOR + 1)).0"
+            ;;
+        major)
+            if [ "$PRODUCT" != desktop ]; then
+                echo "a major bump is for desktop only; $PRODUCT shares the train" >&2
+                exit 1
+            fi
+            NEXT="$((MAJOR + 1)).0.0"
+            ;;
+        *)
+            echo "unknown bump: $BUMP (expected patch, minor, or major)" >&2
+            exit 1
+            ;;
+    esac
+fi
 IFS=. read -r NEXT_MAJOR NEXT_MINOR _ <<< "$NEXT"
 
 CORE=""

@@ -1082,9 +1082,6 @@ jobs:
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
-  versions:
-    uses: ./.github/workflows/test.updates.yaml
-
   vite-plugin:
     needs: changes
     if:
@@ -1305,7 +1302,6 @@ jobs:
       - soem
       - stylelint
       - stylelint-config
-      - versions
       - vite-plugin
       - www
       - www-site
