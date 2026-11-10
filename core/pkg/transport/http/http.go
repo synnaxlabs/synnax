@@ -50,9 +50,12 @@ import (
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
-// through the API layer's channel service.
+// through the API layer's channel service. Frame reads open their iterators under the
+// router's context, so a streamed body can outlive its request.
 func Bind(layer *api.Layer, router *http.Router) {
+	ctx := router.Context()
 	framerServerOption := framer.WithCodec(layer.Channel)
+	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
@@ -176,14 +179,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.FrameEncoder,
-				framer.CSVEncoder,
-				framer.TDMSEncoder,
+				framer.NewFrameEncoder(ctx),
+				csvEncoder,
+				framer.NewTDMSEncoder(ctx),
 			),
 			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
 			// bodies are binary samples: gzip shrinks them by under 10% and costs more
 			// time than the smaller body saves on all but a slow link.
-			http.WithStreamingResponse(framer.CSVEncoder),
+			http.WithStreamingResponse(csvEncoder),
 		),
 
 		// CONTROL

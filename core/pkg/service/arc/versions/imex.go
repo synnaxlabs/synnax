@@ -80,7 +80,7 @@ func withVariantType(ctx context.Context, env imex.Envelope) (imex.Envelope, err
 		return imex.Envelope{}, err
 	}
 	var typed imex.Envelope
-	if err = imex.Codec.Decode(ctx, raw, &typed); err != nil {
+	if err = imex.Codec.Decode(raw, &typed); err != nil {
 		return imex.Envelope{}, err
 	}
 	typed.Type = env.Type
