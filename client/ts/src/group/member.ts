@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, type patch, type record } from "@synnaxlabs/x";
+import { array, type destructor, type record } from "@synnaxlabs/x";
+import { type z } from "zod";
 
 import { type actions } from "@/actions";
 import { type batch } from "@/batch";
@@ -28,12 +29,12 @@ export const MEMBER_LINES = {
 };
 
 /**
- * Payload of a dispatch entry that moves one record. Its action sets the group of the
+ * Payload of a dispatch entry that moves one record. Its update sets the group of the
  * record, where null moves the record out of its group.
  */
 export interface MovePayload<K extends record.Key> extends actions.DispatchPayload<
   K,
-  patch.Action
+  actions.UpdateAction<z.ZodType<{ group: Key | null }>>
 > {}
 
 /**
@@ -61,7 +62,7 @@ export const createMoveRequest =
       payload: {
         key,
         actions: [
-          { type: "set", set: { path: ["group"], value: to ?? null, guards: [] } },
+          { type: "update", update: { value: { group: to ?? null }, guards: [] } },
         ],
       },
       apply: () => move([key], to ?? undefined),

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ethercat } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -251,8 +252,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  configSchemas: ethercat.CONFIG_SCHEMAS[ethercat.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: "ethercat_write",
+  type: ethercat.WRITE_TASK_TYPE,
   onConfigure,
 });
 

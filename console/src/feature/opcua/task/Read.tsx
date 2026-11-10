@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type Synnax, opcua } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -296,10 +296,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 };
 
 export const Read = Task.wrapForm({
-  type: "opc_read",
+  type: opcua.READ_TASK_TYPE,
   Properties,
   Form: TaskForm,
   schemas: READ_SCHEMAS,
+  configSchemas: opcua.CONFIG_SCHEMAS[opcua.READ_TASK_TYPE],
   deployConfigZ: deployReadConfigZ,
   onConfigure,
 });

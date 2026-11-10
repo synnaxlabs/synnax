@@ -66,6 +66,8 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   type: z.infer<S["type"]>;
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
+  /** The schemas that merge an edit into the config of the task. */
+  configSchemas: task.ConfigSchemas[string];
   /**
    * Checks the config from the first deploy on, as a check the form runs on every edit.
    * A deploy starts only when no field shows an error, so a warning never blocks one.
@@ -115,13 +117,14 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
+  configSchemas,
   type,
   deployConfigZ,
   onConfigure,
   showHeader = true,
   showControls = true,
 }: WrapFormParams<S>): FC<FormTabProps> => {
-  const useForm = PTask.createForm({ schemas });
+  const useForm = PTask.createForm({ schemas, configSchemas });
   const Wrapped: FC<FormTabProps> = ({ taskKey }) => {
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();

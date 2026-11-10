@@ -37,8 +37,7 @@ describe("createMoveRequest", () => {
 
   it("should build one entry per key that sets the project and drops the group", () => {
     const actions = [
-      { type: "set", set: { path: ["project"], value: P2, guards: [] } },
-      { type: "remove", remove: { path: [], key: "group", guards: [] } },
+      { type: "update", update: { value: { project: P2, group: null }, guards: [] } },
     ];
     expect(setProjectRequest(createTable())(["a", "b"], P2)).toEqual([
       {

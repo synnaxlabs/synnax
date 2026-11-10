@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, ni } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -272,8 +272,9 @@ export const AnalogWrite = Task.wrapForm({
   Properties,
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
+  configSchemas: ni.CONFIG_SCHEMAS[ni.ANALOG_WRITE_TASK_TYPE],
   deployConfigZ: deployAnalogWriteConfigZ,
-  type: "ni_analog_write",
+  type: ni.ANALOG_WRITE_TASK_TYPE,
   onConfigure,
 });
 

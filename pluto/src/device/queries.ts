@@ -264,7 +264,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ data, client }) => {
     const { key, name } = data;
-    await client.devices.rename(key, name);
+    await client.devices.update({ key, name });
     return data;
   },
 });

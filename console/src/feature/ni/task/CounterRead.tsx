@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError, QueryError, type rack } from "@synnaxlabs/client";
+import { channel, NotFoundError, QueryError, type rack, ni } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -265,8 +265,9 @@ export const CounterRead = Task.wrapForm({
   Properties,
   Form,
   schemas: COUNTER_READ_SCHEMAS,
+  configSchemas: ni.CONFIG_SCHEMAS[ni.COUNTER_READ_TASK_TYPE],
   deployConfigZ: deployCounterReadConfigZ,
-  type: "ni_counter_read",
+  type: ni.COUNTER_READ_TASK_TYPE,
   onConfigure,
 });
 

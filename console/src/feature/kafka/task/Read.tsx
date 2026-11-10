@@ -321,8 +321,9 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  configSchemas: kafka.CONFIG_SCHEMAS[kafka.READ_TASK_TYPE],
   deployConfigZ: deployReadConfigZ,
-  type: READ_TYPE,
+  type: kafka.READ_TASK_TYPE,
   onConfigure,
 });
 

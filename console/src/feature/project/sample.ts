@@ -209,7 +209,7 @@ export interface Programs {
 export const create = async (client: Synnax, programs: Programs): Promise<void> => {
   const ch = await createChannels(client);
   // A reset keeps the project, so the visualizations that the user added to it stay.
-  if (await exists(client)) await client.projects.rename(KEYS.project, NAME);
+  if (await exists(client)) await client.projects.update({ key: KEYS.project, name: NAME });
   else await client.projects.create({ key: KEYS.project, name: NAME });
   // Deleting an Arc deletes its task, which stops the old program.
   await Promise.all([

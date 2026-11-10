@@ -118,14 +118,15 @@ const useDocumentNodeForm = Flux.createDocumentForm<
   arc.Key,
   arc.Arc,
   typeof Node.configZ,
-  NodePropsParams
+  NodePropsParams,
+  arc.Action
 >({
   name: "Arc node",
   schema: Node.configZ,
   domain: (client) => client.arcs,
   useEnsure,
   toValues: (a, { nodeKey }) => graphOf(a).inputs[nodeKey] as Node.Config,
-  pathOf: ({ nodeKey }) => ["graph", "inputs", nodeKey],
+  fields: ({ nodeKey }, inputs) => arc.setNodeInputs({ key: nodeKey, inputs }),
 });
 
 const useNodeFormBase = (query: NodePropsParams) => useDocumentNodeForm({ query });
@@ -237,7 +238,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.arcs.rename(key, name);
+    await client.arcs.update({ key, name });
     return data;
   },
 });

@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/task/Task.css";
 
-import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -284,8 +284,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  configSchemas: modbus.CONFIG_SCHEMAS[modbus.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: "modbus_write",
+  type: modbus.WRITE_TASK_TYPE,
   onConfigure,
 });
 

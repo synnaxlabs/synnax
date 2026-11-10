@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type destructor, type patch, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, type record, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type actions } from "@/actions";
@@ -32,12 +32,12 @@ export const OWNER_LINES = {
 };
 
 /**
- * Payload of a dispatch entry that moves one visualization. Its actions set the project
- * of the visualization and remove its group.
+ * Payload of a dispatch entry that moves one visualization. Its update sets the project
+ * of the visualization and clears its group.
  */
 export interface MovePayload<K extends record.Key> extends actions.DispatchPayload<
   K,
-  patch.Action
+  actions.UpdateAction<z.ZodType<{ project: Key; group: null }>>
 > {}
 
 /**
@@ -64,8 +64,10 @@ export const createMoveRequest =
       payload: {
         key,
         actions: [
-          { type: "set", set: { path: ["project"], value: to, guards: [] } },
-          { type: "remove", remove: { path: [], key: "group", guards: [] } },
+          {
+            type: "update",
+            update: { value: { project: to, group: null }, guards: [] },
+          },
         ],
       },
       apply: () => move([key], to),

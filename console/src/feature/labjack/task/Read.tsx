@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, labjack } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -397,8 +397,9 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  configSchemas: labjack.CONFIG_SCHEMAS[labjack.READ_TASK_TYPE],
   deployConfigZ: deployReadConfigZ,
-  type: "labjack_read",
+  type: labjack.READ_TASK_TYPE,
   onConfigure,
 });
 
