@@ -31,13 +31,21 @@ const (
 	countInputParam      = "count"
 	derivativeSymbolName = "derivative"
 	durationInputParam   = "duration"
+	infSymbolName        = "inf"
+	isFiniteSymbolName   = "is_finite"
+	isInfiniteSymbolName = "is_infinite"
+	isNaNSymbolName      = "is_nan"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
+	nanSymbolName        = "nan"
 	powSymbolName        = "pow"
 	resetInputParam      = "reset"
 )
 
-var numConstraint = types.NumericConstraint()
+var (
+	numConstraint   = types.NumericConstraint()
+	floatConstraint = types.FloatConstraint()
+)
 
 type (
 	reductionFn  = func(telem.Series, int64, *telem.Series) int64
@@ -129,12 +137,85 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "sensor -> math.derivative() -> rate_output"),
 	)
+	isNaNDoc = doc.New(
+		doc.Paragraph("Returns true if a float value is NaN."),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func clean() {x f64} f64 {\n    if math.is_nan(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
+	)
+	isInfiniteDoc = doc.New(
+		doc.Paragraph(
+			"Returns true if a float value is positive or negative infinity.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func capped() {x f64} f64 {\n    if math.is_infinite(x) {\n        return 0.0\n    }\n    return x\n}",
+		),
+	)
+	isFiniteDoc = doc.New(
+		doc.Paragraph("Returns true if a float value is not NaN and not infinite."),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"sequence main {\n    stage spin_down {\n        not math.is_finite(pump_speed) or pump_speed < 15 => next\n    }\n    stage stopped {\n        1 -> pump_stopped\n    }\n}",
+		),
+	)
+	nanDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 NaN value. NaN fails every comparison except !=. Test for it with math.is_nan.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func invalid() {x f64} f64 {\n    if x < 0.0 {\n        return math.nan\n    }\n    return x\n}",
+		),
+	)
+	infDoc = doc.New(
+		doc.Paragraph(
+			"The f32 or f64 positive infinity value. Negate it for -math.inf.",
+		),
+		doc.Divider(),
+		doc.Code(
+			"arc",
+			"func lowest() {x f64} f64 {\n    low f64 $= math.inf\n    if x < low {\n        low = x\n    }\n    return low\n}",
+		),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
-			"Numerical primitives: running averages, running min/max, derivatives, and arithmetic helpers.",
+			"Numerical primitives: running averages, running min/max, derivatives, float checks, and arithmetic helpers.",
 		),
 	)
 )
+
+func newFloatCheckSymbol(name string, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: "value", Type: types.Variable("T", &floatConstraint)},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
+		}),
+		Trigger: symbol.TriggerOnly,
+		Doc:     doc,
+	}
+}
+
+func newFloatConstant(name string, value float64, doc doc.Doc) *symbol.Symbol {
+	return &symbol.Symbol{
+		Name:         name,
+		Kind:         symbol.KindConstant,
+		Exec:         symbol.ExecBoth,
+		Type:         types.Variable("T", &floatConstraint),
+		DefaultValue: value,
+		Doc:          doc,
+	}
+}
 
 func newPowSymbol() *symbol.Symbol {
 	return &symbol.Symbol{
@@ -189,7 +270,18 @@ func NewSymbols() []*symbol.Symbol {
 	max := createBaseSymbol(maxSymbolName, maxDoc)
 	derivative := newDerivativeSymbol()
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
-	mod.AddChild(newPowSymbol(), avg, min, max, derivative)
+	mod.AddChild(
+		newPowSymbol(),
+		avg,
+		min,
+		max,
+		derivative,
+		newFloatCheckSymbol(isNaNSymbolName, isNaNDoc),
+		newFloatCheckSymbol(isInfiniteSymbolName, isInfiniteDoc),
+		newFloatCheckSymbol(isFiniteSymbolName, isFiniteDoc),
+		newFloatConstant(nanSymbolName, math.NaN(), nanDoc),
+		newFloatConstant(infSymbolName, math.Inf(1), infDoc),
+	)
 	avgBare := *avg
 	avgBare.Deprecated = avg
 	minBare := *min

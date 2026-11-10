@@ -154,8 +154,9 @@ class CalcTypeCascade(ConsoleCase):
         self.console.notifications.close_all()
 
         scaled_ch = self.client.channels.retrieve(self.calcs["scaled"])
-        scaled_ch.expression = f"return {self.raw['precision']} * 2"
-        self.client.channels.create(scaled_ch)
+        self.client.channels.set_expression(
+            scaled_ch.key, f"return {self.raw['precision']} * 2"
+        )
 
         def widened() -> bool | None:
             data_type = self._get_data_type("scaled")
@@ -216,10 +217,10 @@ class CalcTypeCascade(ConsoleCase):
         self.console.notifications.close_all()
 
         combined_ch = self.client.channels.retrieve(self.calcs["combined"])
-        combined_ch.expression = (
-            f"return f32({self.calcs['scaled']}) + {self.raw['reference']}"
+        self.client.channels.set_expression(
+            combined_ch.key,
+            f"return f32({self.calcs['scaled']}) + {self.raw['reference']}",
         )
-        self.client.channels.create(combined_ch)
         sy.sleep(2)  # noqa: TID251 hold: checks that no error shows
 
         notifs = self.console.notifications.check()

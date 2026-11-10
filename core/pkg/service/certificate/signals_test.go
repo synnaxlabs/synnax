@@ -87,7 +87,7 @@ var _ = Describe("Signals", Ordered, func() {
 	}
 	create := func(ctx context.Context, c *certificate.Certificate) {
 		GinkgoHelper()
-		write(ctx, func(w certificate.Writer) error { return w.Create(ctx, c, nil) })
+		write(ctx, func(w certificate.Writer) error { return w.Set(ctx, c, nil) })
 	}
 
 	It("Should publish each created certificate", func(ctx SpecContext) {

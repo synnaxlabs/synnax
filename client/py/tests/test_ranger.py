@@ -148,15 +148,17 @@ class TestRangeClient:
         assert child.color is None
         assert client.ranges.retrieve(key=child.key).color is None
 
-    def test_update_color(self, client: sy.Synnax) -> None:
-        """Should replace the color on a re-create, and clear it when none is given."""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a range whose key exists and keep the stored range."""
         tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
         rng = client.ranges.create(name=random_name(), time_range=tr, color="#FF0000")
-        client.ranges.create(key=rng.key, name=rng.name, time_range=tr, color="#0000FF")
-        retrieved = client.ranges.retrieve(key=rng.key)
-        assert retrieved.color == sy.Color(r=0, g=0, b=255, a=1.0)
-        client.ranges.create(key=rng.key, name=rng.name, time_range=tr)
-        assert client.ranges.retrieve(key=rng.key).color is None
+        with pytest.raises(sy.ValidationError, match=f"range {rng.key} already exists"):
+            client.ranges.create(
+                key=rng.key, name=rng.name, time_range=tr, color="#0000FF"
+            )
+        assert client.ranges.retrieve(key=rng.key).color == sy.Color(
+            r=255, g=0, b=0, a=1.0
+        )
 
     def test_create_multiple(self, two_ranges: list[sy.Range]) -> None:
         """Should create multiple valid ranges"""
@@ -184,18 +186,6 @@ class TestRangeClient:
         )
         assert sibling.parent == parent.key
         assert client.ranges.retrieve(key=sibling.key).parent == parent.key
-
-    def test_recreate_keeps_parent(self, client: sy.Synnax) -> None:
-        """Should keep the stored parent on a re-create that carries no parent, and
-        replace it on one that does."""
-        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
-        a = client.ranges.create(name=random_name(), time_range=tr)
-        b = client.ranges.create(name=random_name(), time_range=tr)
-        child = client.ranges.create(name=random_name(), time_range=tr, parent=a)
-        client.ranges.create(key=child.key, name=child.name, time_range=tr)
-        assert client.ranges.retrieve(key=child.key).parent == a.key
-        client.ranges.create(key=child.key, name=child.name, time_range=tr, parent=b)
-        assert client.ranges.retrieve(key=child.key).parent == b.key
 
     def test_retrieve_by_key(
         self, two_ranges: list[sy.Range], client: sy.Synnax
@@ -305,6 +295,25 @@ class TestRangeClient:
         with pytest.raises(sy.ValidationError):
             client.ranges.rename(rng.key, "")
         assert client.ranges.retrieve(key=rng.key).name == "Before Rename"
+
+    def test_set_end(self, client: sy.Synnax) -> None:
+        """Should set the end of a range to a timestamp that a float cannot hold
+        exactly, and keep its start and name."""
+        start = sy.TimeStamp(1_700_000_000_000_000_000)
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeRange(start=start, end=sy.TimeStamp.MAX),
+        )
+        end = sy.TimeStamp(1_700_000_000_000_000_001)
+        client.ranges.set_end(rng.key, end)
+        res = client.ranges.retrieve(key=rng.key)
+        assert res.time_range == sy.TimeRange(start=start, end=end)
+        assert res.name == rng.name
+
+    def test_set_end_not_found(self, client: sy.Synnax) -> None:
+        """Should raise a NotFoundError when no range has the key."""
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.set_end(uuid4(), sy.TimeStamp.now())
 
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
         """Should reject creation of a range with an empty name (Pydantic
@@ -483,6 +492,29 @@ class TestRangeClient:
             rng.set_alias(ch.key, "alt_test")
             assert rng["alt_test"].key == ch.key
             assert rng["alt_test"].name == ch.name
+
+        def test_alias_moved_to_another_channel(self, client: sy.Synnax) -> None:
+            """Should resolve an alias to the channel it moved to."""
+            first, second = client.channels.create(
+                [
+                    sy.Channel(
+                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
+                    ),
+                    sy.Channel(
+                        name=random_name(), data_type=sy.DataType.INT8, virtual=True
+                    ),
+                ]
+            )
+            rng = client.ranges.create(
+                name=random_name(),
+                time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            )
+            moved, other = random_name(), random_name()
+            rng.set_alias(first.key, moved)
+            assert rng[moved].key == first.key
+            rng.set_alias(first.key, other)
+            rng.set_alias(second.key, moved)
+            assert rng[moved].key == second.key
 
         def test_alias_not_found(self, client: sy.Synnax) -> None:
             rng = client.ranges.create(
@@ -898,16 +930,6 @@ class TestRangeLabels:
         )
         assert rng.labels == [lbl.key]
         assert rng.retrieve_labels() == [lbl]
-
-    def test_recreate_ignores_labels(self, client: sy.Synnax, rng: sy.Range) -> None:
-        """Should keep the stored labels on a re-create and ignore the carried ones"""
-        a = client.labels.create(name=random_name(), color="#FF0000")
-        b = client.labels.create(name=random_name(), color="#00FF00")
-        rng.add_label(a.key)
-        client.ranges.create(
-            key=rng.key, name=rng.name, time_range=rng.time_range, labels=[b.key]
-        )
-        assert client.ranges.retrieve(key=rng.key).labels == [a.key]
 
 
 @pytest.mark.ranger

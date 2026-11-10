@@ -7,10 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
+#include <variant>
+#include <vector>
+
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
 
 namespace synnax::ranger {
+namespace {
+/// @brief returns an integer timestamp as a string of its nanoseconds. The Core decodes
+/// a JSON number in a set as a float, which cannot hold every timestamp exactly.
+x::json::json exact(const x::json::json &time) {
+    return time.is_number_integer() ? x::json::json(time.dump()) : time;
+}
+
+/// @brief returns the JSON form of an action, with the timestamps of a time range set
+/// as exact strings.
+x::json::json encode(const Action &action) {
+    auto j = to_json(action);
+    const auto *set = std::get_if<SetPayload>(&action);
+    if (set == nullptr || set->path.empty() || set->path[0] != "time_range") return j;
+    auto &value = j["set"]["value"];
+    if (set->path.size() > 1)
+        value = exact(value);
+    else if (value.is_object())
+        for (auto &time: value)
+            time = exact(time);
+    return j;
+}
+}
 
 std::pair<Range, x::errors::Error>
 Client::retrieve(const Key &key, const RetrieveOptions &options) const {
@@ -107,11 +133,19 @@ Client::create(const std::string &name, x::telem::TimeRange time_range) const {
 }
 
 x::errors::Error
-Client::set_end(const x::uuid::UUID &key, const x::telem::TimeStamp end) const {
-    auto req = grpc::ranger::SetEndRequest();
+Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
+    grpc::ranger::DispatchRequest req;
     req.set_key(key.to_string());
-    req.set_end(end.nanoseconds());
-    return set_end_client->send("/range/set-end", req).second;
+    for (const auto &action: actions)
+        req.add_actions(encode(action).dump());
+    return this->dispatch_client->send("/range/dispatch", req).second;
+}
+
+x::errors::Error Client::set_end(const Key &key, const x::telem::TimeStamp end) const {
+    return this->dispatch(
+        key,
+        {set({.path = {"time_range", "end"}, .value = end.nanoseconds()})}
+    );
 }
 
 }

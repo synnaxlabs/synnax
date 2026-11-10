@@ -115,7 +115,7 @@ var _ = Describe("Dispatch", func() {
 			Base: secret.Base{Name: "Created"},
 		}}
 		Expect(write(ctx, func(w secret.Writer) error {
-			return w.Create(ctx, &created, []byte("hunter2"))
+			return w.Set(ctx, &created, []byte("hunter2"))
 		})).To(Succeed())
 		frames := rec.Snapshot()
 		Expect(frames).To(HaveLen(1))

@@ -2,12 +2,16 @@
 layout: "@/layouts/Reference.astro"
 title: "Export data"
 heading: "Export data"
-description: "Download channel data from a range or a line plot as a CSV file."
+description:
+  "Download channel data from a range or a line plot as a CSV file, or export it in
+  code."
+clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Edition } from "@/components/edition";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -38,7 +42,7 @@ When you export from a line plot, the dialog selects the channels of the plot fo
 
 Open the component toolbar of the line plot and click <Icon.CSV />. The dialog selects
 the X and Y channels of the plot. Its time span covers all the ranges on the plot, and a
-rolling span ends at the current time.
+live window ends at the current time.
 
 ### Selected region
 
@@ -47,10 +51,10 @@ rolling span ends at the current time.
 
 The dialog uses the start and end of the selection.
 
-### Range annotation
+### Range bar
 
-Right-click a range annotation on the line plot and select **Download as CSV**. The
-dialog uses the start and end of that range.
+Right-click a range bar on the line plot and select **Download as CSV**. The dialog uses
+the start and end of that range.
 
 <Divider.Divider x />
 
@@ -79,10 +83,40 @@ before the start time. Press **Ctrl+Enter** (**Cmd+Enter** on macOS) to download
 - Channels with different index channels have different timestamp columns. A cell is
   empty when a channel has no sample at the timestamp of that line.
 
-<Edition.Enterprise>
+<Divider.Divider x />
 
-To export data in code, read it with the Python or TypeScript client. See
-[read data](/reference/client/read-data). In Python, `frame.to_df()` converts the data
-to a `pandas.DataFrame`, which you can save with `to_csv`.
+## Export data in code
 
-</Edition.Enterprise>
+A script exports data on a schedule, or as the last step of a test. The Core writes the
+file, so the script never holds the whole export in memory.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+rng = client.ranges.retrieve(name="Oct 10 Burst Test")
+client.read_csv(rng.time_range, ["tank_pressure", "tank_temperature"], dest="test.csv")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { createWriteStream } from "node:fs";
+import { Writable } from "node:stream";
+
+const rng = await client.ranges.retrieve("Oct 10 Burst Test");
+const csv = await client.readCSV(rng.timeRange, ["tank_pressure", "tank_temperature"]);
+await csv.pipeTo(Writable.toWeb(createWriteStream("test.csv")));
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+The file has the same format as a Console export. The clients can also write an NI TDMS
+file. See [export to CSV](/reference/client/read-data#export-to-csv) and
+[export to TDMS](/reference/client/read-data#export-to-tdms), which use the Python or
+TypeScript client.

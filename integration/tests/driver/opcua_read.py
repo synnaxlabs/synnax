@@ -71,7 +71,7 @@ class OPCUAReadBool(OPCUAReadTaskCase):
 
 class OPCUAReadArray(OPCUAReadTaskCase):
     task_name = "OPCUA Read Array"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -95,7 +95,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
     """Test reading server timestamps as the task index (is_index)."""
 
     task_name = "OPCUA Read Timestamp"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:

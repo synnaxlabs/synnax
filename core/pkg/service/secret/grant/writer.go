@@ -51,5 +51,5 @@ func (w Writer) Create(ctx context.Context, g *Grant) error {
 	}
 	g.Key = uuid.New()
 	g.ExpiresAt = now.Add(telem.TimeSpan(w.svc.cfg.TTL))
-	return w.svc.table.NewCreate().Entry(g).Exec(ctx, w.tx)
+	return w.svc.table.NewCreate().Exclusive().Entry(g).Exec(ctx, w.tx)
 }

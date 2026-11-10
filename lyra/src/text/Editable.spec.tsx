@@ -46,6 +46,16 @@ describe("Editable", () => {
       expect(text.querySelector("img")).toBeNull();
     });
 
+    it("should not render a one-character value as a square", () => {
+      const c = render(<Editable value="a" onChange={vi.fn()} />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
+    it("should not render a read-only one-character value as a square", () => {
+      const c = render(<MaybeEditable value="a" />);
+      expect(c.getByText("a").className).not.toContain("lyra--square");
+    });
+
     it("should forward refs to the underlying element", () => {
       const ref = createRef<HTMLParagraphElement>();
       const c = render(<Editable ref={ref} value="Hello" onChange={vi.fn()} />);

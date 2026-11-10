@@ -215,7 +215,7 @@ class Lifecycle(ArcCase, ConsoleCase):
         self.writer.write("bb_signal_start_cmd", 1)
         self.wait_for_eq("signal_stage_log", "start")
 
-        # --- 4. Rename while running (triggers redeployment warning) ---
+        # --- 4. Rename while running ---
         self.log(f"Renaming Arc from '{self.arc_name}' to '{self.new_name}'")
         old_name = self.arc_name
         self.console.arc.rename(old_name=self.arc_name, new_name=self.new_name)
@@ -227,16 +227,13 @@ class Lifecycle(ArcCase, ConsoleCase):
         old_item = self.console.arc.find_item(old_name)
         assert old_item is None, f"Old name '{old_name}' still present"
 
-        # --- 5. Re-configure and re-start with new name ---
+        # --- 5. A rename does not change the program, so the task keeps running ---
         self.log("Opening renamed Arc")
         self.console.arc.open(self.new_name)
 
-        self.log("Re-deploying with new name")
-        self.console.arc.select_rack(self.rack.name)
-        self.console.arc.deploy()
-
-        # Re-deploy auto-starts the task (auto_start is set in the task config
-        # by load_arc), so the Arc is already running with the new name here.
+        self.log("Verifying the renamed Arc runs with no redeploy")
+        self.console.arc.wait_for_running()
+        assert not self.console.arc.is_drifted(), "Rename asked for a redeploy"
 
         # --- 6. Stop, then delete and verify the tab tombstones ---
         self.log("Stopping Arc")

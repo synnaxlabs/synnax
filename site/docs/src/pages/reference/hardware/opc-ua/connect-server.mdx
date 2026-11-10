@@ -48,8 +48,8 @@ Synnax, an OPC UA server is one endpoint with its login and security settings. T
 7. Click **Connect**.
 
 The Console asks the Driver to connect to the server before it saves the server. If the
-test fails or takes more than 10 seconds, the dialog shows the error and keeps your
-entries.
+test fails, or takes longer than two times the **Request timeout** plus 2 seconds (12
+seconds at the default), the dialog shows the error and keeps your entries.
 
 <Video id="device-drivers/opc-ua/connect-server/connect-server" />
 
@@ -133,7 +133,7 @@ The Driver sends a certificate to the server. Select one of these:
 
 - **Driver certificate** -> the default. Each Driver makes its own certificate, and all
   the servers that the Driver connects to get the same one. The dialog shows its
-  thumbprint and its expiry date.
+  thumbprint. Click <Icon.Settings /> (**Manage**) to see its expiry date.
 - **Files on the Driver computer** -> the paths of a certificate and a private key on
   the computer that runs the Driver. Use this when your site issues its own
   certificates. The key must not have a password, and the certificate must hold the
@@ -142,7 +142,9 @@ The Driver sends a certificate to the server. Select one of these:
 Most servers reject a certificate that they do not know, and keep it in a list of
 rejected certificates. To make the server trust the Driver certificate:
 
-1. Click **Connect**. The test fails with "Server rejected the Driver certificate".
+1. Click **Connect**. The test fails with "Server rejected the Driver certificate". With
+   **Files on the Driver computer**, the message is "Server rejected the client
+   certificate".
 2. On the server, find the Driver certificate in the rejected list. Make sure that its
    thumbprint is the same as the one in the dialog, then trust it.
 3. Click **Connect** again.
@@ -178,7 +180,10 @@ connects only to a server that sends the trusted certificate.
   certificate that the server sends on the first connection. The Driver saves that
   certificate to the device.
 - When the server gets a new certificate, the device shows "Server certificate not
-  trusted". Open the device, compare the new thumbprint, and click **Trust**.
+  trusted". Right-click the device in the devices toolbar, select **Edit connection**,
+  and click **Connect**. Compare the new thumbprint, then click **Trust and connect**.
+
+<Video id="hardware/opc-ua/trust-server-certificate" />
 
 ### Validate server certificate
 
@@ -287,14 +292,15 @@ trusts no certificate yet.
 </Problem.Cause>
 <Problem.Fix>
 
-1. Open the device and click **Connect**.
+1. Right-click the device in the devices toolbar, select **Edit connection**, and click
+   **Connect**.
 2. Make sure that the thumbprint in the dialog is the same as the one the server shows.
 3. Click **Trust and connect**.
 
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Server rejected the Driver certificate"}>
+<Problem.Item message={["Server rejected the Driver certificate", "Server rejected the client certificate"]}>
 <Problem.Cause>
 
 The server does not trust the client certificate.

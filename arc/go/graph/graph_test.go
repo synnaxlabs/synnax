@@ -12,16 +12,20 @@ package graph_test
 import (
 	"maps"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc"
+	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -129,6 +133,19 @@ var _ = Describe("Graph", func() {
 			Expect(params[1].Type).To(Equal(types.I64()))
 		})
 
+		DescribeTable("constant errors in a function body",
+			func(ctx SpecContext, body string, code diagnostics.ErrorCode) {
+				g := MustSucceed(graph.Parse(graph.Graph{
+					Functions: []ir.Function{{Key: "f", Body: ir.Body{Raw: body}}},
+				}))
+				_, diags := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(*diags).To(HaveLen(1), diags.String())
+				Expect((*diags)[0].Code).To(Equal(code))
+			},
+			Entry("overflow", "{\n x i8 := 100 + 100\n}", codes.ConstantOverflow),
+			Entry("division by zero", "{\n x := 1 / 0\n}", codes.DivisionByZero),
+		)
+
 		It("Should correctly analyze a complete program", func(ctx SpecContext) {
 			nodes, inputs := buildNodes(
 				nodeSpec{key: "first", typ: "on", cfg: map[string]any{"channel": 12}},
@@ -185,6 +202,146 @@ var _ = Describe("Graph", func() {
 			Expect(firstNode.Inputs).To(HaveLen(1))
 			Expect(firstNode.Channels.Read).To(HaveLen(1))
 		})
+
+		It("Should type the same call in two bodies apart", func(ctx SpecContext) {
+			check := func(key string, t types.Type) ir.Function {
+				return ir.Function{
+					Key:    key,
+					Inputs: types.Params{{Name: "value", Type: t}},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.Bool()},
+					},
+					Body: ir.Body{Raw: `{ return math.is_nan(value) }`},
+				}
+			}
+			g := MustSucceed(graph.Parse(arc.Graph{Functions: []ir.Function{
+				check("check_f32", types.F32()),
+				check("check_f64", types.F64()),
+			}}))
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			symbol.AutoImportModules(root)
+			_, diagnostics := graph.Analyze(ctx, g, root)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should type the same constant in two bodies apart", func(ctx SpecContext) {
+			limit := func(key string, t types.Type) ir.Function {
+				return ir.Function{
+					Key:    key,
+					Inputs: types.Params{{Name: "value", Type: t}},
+					Outputs: types.Params{
+						{Name: ir.DefaultOutputParam, Type: types.Bool()},
+					},
+					Body: ir.Body{Raw: `{ return value < math.inf }`},
+				}
+			}
+			g := MustSucceed(graph.Parse(arc.Graph{Functions: []ir.Function{
+				limit("limit_f32", types.F32()),
+				limit("limit_f64", types.F64()),
+			}}))
+			root := symbol.NewRoot(nil, stl.NewSymbols())
+			symbol.AutoImportModules(root)
+			_, diagnostics := graph.Analyze(ctx, g, root)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		DescribeTable("Should reject a node that is not a flow function",
+			func(ctx SpecContext, nodeType string) {
+				nodes, inputs := buildNodes(nodeSpec{key: "n", typ: nodeType})
+				g := arc.Graph{Nodes: nodes, Inputs: inputs}
+				root := symbol.NewRoot(nil, stl.NewSymbols())
+				symbol.AutoImportModules(root)
+				_, diagnostics := graph.Analyze(ctx, g, root)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring("not a flow function"))
+			},
+			Entry("constant", "math.nan"),
+			Entry("WASM-only function", "math.is_nan"),
+			Entry("module", "math"),
+		)
+
+		DescribeTable("Should keep type variables of separate bodies apart",
+			func(
+				ctx SpecContext,
+				firstType, secondType types.Type,
+				firstBody, secondBody string,
+			) {
+				function := func(key string, typ types.Type, body string) ir.Function {
+					return ir.Function{
+						Key:     key,
+						Inputs:  types.Params{{Name: "x", Type: typ}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typ}},
+						Body:    ir.Body{Raw: body},
+					}
+				}
+				g := MustSucceed(graph.Parse(graph.Graph{Functions: []ir.Function{
+					function("first", firstType, firstBody),
+					function("second", secondType, secondBody),
+				}}))
+				inter, diagnostics := graph.Analyze(ctx, g, NewGraphRoot(nil))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				within := func(node, ancestor antlr.Tree) bool {
+					for ; node != nil; node = node.GetParent() {
+						if node == ancestor {
+							return true
+						}
+					}
+					return false
+				}
+				for node, typ := range inter.TypeMap {
+					if _, ok := node.(parser.ILiteralContext); !ok {
+						continue
+					}
+					expected := secondType
+					if within(node, g.Functions[0].Body.AST) {
+						expected = firstType
+					}
+					Expect(typ.Unwrap().Kind).To(Equal(expected.Kind), node.GetText())
+				}
+			},
+			Entry("series element literal",
+				types.F32(), types.F64(),
+				"{ y series f32 := [1.5] return x }",
+				"{ y series f64 := [1.5] return x }",
+			),
+			Entry("float literal in two float widths",
+				types.F32(), types.F64(),
+				"{ return x + 1.5 }", "{ return x + 1.5 }",
+			),
+			Entry("integer literal in two integer widths",
+				types.I32(), types.I64(),
+				"{ return x + 1 }", "{ return x + 1 }",
+			),
+			Entry("integer literal in an integer and a float",
+				types.I32(), types.F64(),
+				"{ return x + 1 }", "{ return x + 1 }",
+			),
+			Entry("float literal and integer literal",
+				types.F32(), types.I32(),
+				"{ return x + 1.5 }", "{ return x + 1 }",
+			),
+			Entry("returned literal",
+				types.F32(), types.F64(),
+				"{ return 1.5 }", "{ return 1.5 }",
+			),
+			Entry("declared literal",
+				types.F32(), types.F64(),
+				"{ y f32 := 1.5 return x + y }", "{ y f64 := 1.5 return x + y }",
+			),
+			Entry("stateful literal",
+				types.F32(), types.F64(),
+				"{ y f32 $= 1.5 return x + y }", "{ y f64 $= 1.5 return x + y }",
+			),
+			Entry("compared literal",
+				types.F32(), types.F64(),
+				"{ if x > 1.5 { return x } return x }",
+				"{ if x > 1.5 { return x } return x }",
+			),
+			Entry("empty series",
+				types.F32(), types.F64(),
+				"{ y := [] y[0] = x return x }", "{ y := [] y[0] = x return x }",
+			),
+		)
 
 		Describe("Polymorphic Stages", func() {
 			It(

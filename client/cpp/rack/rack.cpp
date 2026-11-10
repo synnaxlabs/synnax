@@ -17,11 +17,13 @@ Client::Client(
     std::unique_ptr<CreateClient> rack_create_client,
     std::unique_ptr<RetrieveClient> rack_retrieve_client,
     std::unique_ptr<DeleteClient> rack_delete_client,
+    std::unique_ptr<DispatchClient> rack_dispatch_client,
     task::Client tasks
 ):
     rack_create_client(std::move(rack_create_client)),
     rack_retrieve_client(std::move(rack_retrieve_client)),
     rack_delete_client(std::move(rack_delete_client)),
+    rack_dispatch_client(std::move(rack_dispatch_client)),
     tasks(std::move(tasks)) {}
 
 std::pair<Rack, x::errors::Error>
@@ -80,6 +82,15 @@ std::pair<Rack, x::errors::Error> Client::create(const std::string &name) const 
     auto rack = Rack{.name = name};
     auto err = create(rack);
     return {rack, err};
+}
+
+x::errors::Error
+Client::dispatch(const Key key, const std::vector<Action> &actions) const {
+    grpc::rack::DispatchRequest req;
+    req.set_key(key);
+    for (const auto &action: actions)
+        req.add_actions(to_json(action).dump());
+    return this->rack_dispatch_client->send("/rack/dispatch", req).second;
 }
 
 x::errors::Error Client::del(const Key key) const {

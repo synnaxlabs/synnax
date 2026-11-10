@@ -313,6 +313,8 @@ export const Editable = ({
       contentEditable={editable}
       suppressContentEditableWarning
       style={style}
+      // Text squares a lone glyph as an icon. Editable text is a name, never an icon.
+      square={false}
       {...rest}
     >
       {value}
@@ -342,7 +344,11 @@ export const MaybeEditable = ({
   ...rest
 }: MaybeEditableProps): ReactElement => {
   if (disabled || onChange == null || onChange === false)
-    return <Text {...rest}>{value}</Text>;
+    return (
+      <Text square={false} {...rest}>
+        {value}
+      </Text>
+    );
 
   if (onChange === true) onChange = () => {};
   return (

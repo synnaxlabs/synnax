@@ -14,7 +14,14 @@ from uuid import uuid4
 from pydantic import JsonValue
 
 from synnax import device, rack as rack_, task
-from synnax.opcua.types_gen import ReadChannel, ReadConfig, WriteChannel, WriteConfig
+from synnax.opcua.types_gen import (
+    ReadChannel,
+    ReadConfig,
+    Sampling,
+    UnarySampling,
+    WriteChannel,
+    WriteConfig,
+)
 from synnax.telem import CrudeRate, Rate
 
 SecurityMode = Literal["None", "Sign", "SignAndEncrypt"]
@@ -40,13 +47,13 @@ class ReadTask(
     :param name: A human-readable name for the task.
     :param sample_rate: The rate at which to sample data from the OPC UA device.
     :param stream_rate: The rate at which acquired data will be streamed to the Synnax
-        cluster. Only relevant when array_mode is False.
+        cluster. Only relevant in unary sampling.
     :param data_saving_disabled: Whether to only stream data for real-time consumption
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
-    :param array_mode: Whether to sample data in array mode, where each read returns an
-        array of array_size samples per node.
-    :param array_size: The number of samples in each array when array_mode is True.
+    :param sampling: How the task samples each node. Unary sampling reads one sample
+        per node at the sample rate. Array sampling reads an array of samples from each
+        node on each read.
     :param channels: The OPC UA nodes to read from and the Synnax channels to write
         their data to.
     :param nan_fill_enabled: Whether to write NaN for a bad value of a float channel.
@@ -66,8 +73,7 @@ class ReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        array_mode: bool = False,
-        array_size: int = 1,
+        sampling: Sampling | None = None,
         channels: Sequence[ReadChannel] | None = None,
         nan_fill_enabled: bool = False,
     ) -> None:
@@ -82,8 +88,7 @@ class ReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            array_mode=array_mode,
-            array_size=array_size,
+            sampling=sampling if sampling is not None else UnarySampling(),
             channels=list(channels) if channels is not None else [],
             nan_fill_enabled=nan_fill_enabled,
         )
@@ -123,7 +128,10 @@ class ReadTask(
                     {"node_id": ch.node_id, "field": ch.field, "channel": ch.channel}
                 )
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -174,7 +182,10 @@ class WriteTask(
             if ch.node_id:
                 channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 MAKE = "opc"
