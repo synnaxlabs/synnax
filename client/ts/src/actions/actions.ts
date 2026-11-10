@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, patch, type record } from "@synnaxlabs/x";
+import { caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -101,6 +101,55 @@ export const applyEntryPath = <S extends object>(
   const inverse = applyInverse(state, action, schema);
   if (inverse.length === 0) return NO_OP_RESULT;
   return { inverse, targets: [path[root.length]] };
+};
+
+/**
+ * Applies a path action to a draft of a cached record whose path actions edit only the
+ * top-level fields of a document, then parses the field that the action changes. The
+ * action holds the snake_case form that the Core stores. A field that parses to
+ * undefined is removed.
+ * @param document - The schema of the fields that path actions edit, which also names
+ * the keys that keep their case.
+ * @throws {Error} if the path does not start at a field of the document, or if the
+ * field does not parse after the action.
+ */
+export const applyField = <S extends object>(
+  state: Draft<S>,
+  action: patch.Action,
+  document: z.ZodObject,
+): HandlerResult<patch.Action> => {
+  const path = patch.pathOf(action);
+  const [field] = caseconv.snakeToCamelPath(path.slice(0, 1), {
+    schema: document,
+  }).path;
+  const fieldZ: z.ZodType | undefined =
+    field == null || !Object.hasOwn(document.shape, field)
+      ? undefined
+      : document.shape[field];
+  if (fieldZ == null) throw new Error(`no editable field at "${path.join(".")}"`);
+  const result = applyPath(state, action, document);
+  if (result.inverse.length === 0) return result;
+  const draft = state as record.Unknown;
+  const next: unknown = zod.parse(fieldZ, snapshotDraft(draft[field]), {
+    label: field,
+  });
+  if (next === undefined) delete draft[field];
+  else draft[field] = next;
+  return result;
+};
+
+/**
+ * Replaces a draft of a cached record with the record that a create carries. A create
+ * has no inverse.
+ */
+export const replace = <S extends record.Keyed<record.Key>>(
+  state: Draft<S>,
+  created: S,
+): HandlerResult<never> => {
+  const draft = state as record.Unknown;
+  for (const key of Object.keys(draft)) if (!(key in created)) delete draft[key];
+  Object.assign(draft, created);
+  return { inverse: [], targets: [String(created.key)] };
 };
 
 const PATH_TYPES: ReadonlySet<string> = new Set(["set", "remove", "insert", "move"]);

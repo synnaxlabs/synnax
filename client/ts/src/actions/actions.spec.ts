@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type patch } from "@synnaxlabs/x";
+import { caseconv, type patch, zod } from "@synnaxlabs/x";
 import { type Draft, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -205,6 +205,83 @@ describe("applyEntryPath", () => {
     );
     expect(next).toBe(DOC);
     expect(result).toBe(actions.NO_OP_RESULT);
+  });
+});
+
+describe("applyField", () => {
+  const documentZ = z.object({
+    maxSize: z.number(),
+    group: zod.nullToUndefined(z.string()),
+  });
+  interface Doc {
+    key: string;
+    maxSize: number;
+    group?: string;
+  }
+  const DOC: Doc = { key: "a", maxSize: 1, group: "g" };
+  const setAt = (path: string[], value: unknown, guards: patch.Guard[] = []) => ({
+    type: "set" as const,
+    set: { path, value, guards },
+  });
+  const apply = (action: patch.Action) => {
+    let result: actions.HandlerResult<patch.Action> = actions.NO_OP_RESULT;
+    const next = produce(DOC, (draft) => {
+      result = actions.applyField(draft, action, documentZ);
+    });
+    return { next, result };
+  };
+
+  it("should apply a wire-form path to a field of the document", () => {
+    const { next, result } = apply(setAt(["max_size"], 2));
+    expect(next.maxSize).toBe(2);
+    expect(result).toEqual({
+      inverse: [setAt(["max_size"], 1)],
+      targets: ["max_size"],
+    });
+  });
+
+  it("should remove a field that parses to undefined", () => {
+    const { next } = apply(setAt(["group"], null));
+    expect(next).toEqual({ key: "a", maxSize: 1 });
+  });
+
+  it.each([[["key"]], [["missing"]], [["constructor"]], [["__proto__"]], [[]]])(
+    "should throw on a set at %j",
+    (path) => {
+      expect(() => apply(setAt(path, 2))).toThrow(
+        `no editable field at "${path.join(".")}"`,
+      );
+    },
+  );
+
+  it("should throw when the field does not parse after the action", () => {
+    expect(() => apply(setAt(["max_size"], "big"))).toThrow(
+      "Failed to parse maxSize (1 issue)",
+    );
+  });
+
+  it("should return NO_OP_RESULT when a guard fails", () => {
+    const { next, result } = apply(
+      setAt(["max_size"], 2, [{ path: ["kind"], value: "a" }]),
+    );
+    expect(next).toBe(DOC);
+    expect(result).toBe(actions.NO_OP_RESULT);
+  });
+});
+
+describe("replace", () => {
+  it("should replace a draft with a created record", () => {
+    let result: actions.HandlerResult<never> = actions.NO_OP_RESULT;
+    const prev: { key: number; name: string; group?: string } = {
+      key: 1,
+      name: "a",
+      group: "g",
+    };
+    const next = produce(prev, (draft) => {
+      result = actions.replace(draft, { key: 1, name: "b" });
+    });
+    expect(next).toEqual({ key: 1, name: "b" });
+    expect(result).toEqual({ inverse: [], targets: ["1"] });
   });
 });
 

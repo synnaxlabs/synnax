@@ -11,7 +11,15 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, dispatchReqZ, dispatchResZ, set } from "@/device/actions.gen";
+import { actions } from "@/actions";
+import { createOf, reduceAll } from "@/device/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/device/actions.gen";
 import {
   type Device,
   type DeviceSchemas,
@@ -28,6 +36,7 @@ import { LINES } from "@/device/where";
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -37,10 +46,8 @@ import { query } from "@/query";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
-export const SET_CHANNEL_NAME = "sy_device_set";
+export const ACTION_CHANNEL_NAME = "sy_device_action_set";
 export const DELETE_CHANNEL_NAME = "sy_device_delete";
-
-const genericDeviceZ = deviceZ();
 
 const createReqZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -150,6 +157,7 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Omit<Device, "status">>;
+  private readonly dispatcher: actions.Controller<Key, Omit<Device, "status">, Action>;
   /**
    * Builds requests that move devices between groups. The group must sit under each
    * device's rack.
@@ -166,13 +174,20 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
       fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
-          value: ({ status: _, ...device }) => device,
-        }),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a device reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Omit<Device, "status">, Action>({
+      store,
+      listed: (action) =>
+        action.type === "set_rack" || actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/device/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     // Composed rows carry any cached status; includeStatus only gates fetch flags.
     const composed = cache.derive<Key, Omit<Device, "status">, Device>({
       name: "device.composed",
@@ -223,6 +238,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
     this.setGroupRequest = group.createMoveRequest("/device/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
@@ -358,29 +374,20 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.dispatch(key, set({ path: ["name"], value: name })),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
   }
 
   /**
-   * Applies the actions to the device in one transaction.
+   * Applies the actions to the cached device until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Actions hold the snake_case form that the
+   * Core stores. A refused send drops the actions from the cached device.
+   * @throws {Error} if the cached device cannot hold an action, before any send.
    * @throws {ValidationError} if the device cannot hold an action.
    * @throws {NotFoundError} if the device does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/device/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
-      dispatchReqZ,
-      dispatchResZ,
-    );
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /** Subscribes to every device set delivered to the cache. Statuses excluded. */

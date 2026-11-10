@@ -14,7 +14,6 @@ import {
   type CrudeTimeSpan,
   deep,
   type destructor,
-  errors,
   filter,
   id,
   primitive,
@@ -601,29 +600,8 @@ export class Client extends query.Retriever<
     drop();
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const setName = (next: string) =>
-      this.store.set(key, (p) =>
-        p == null ? undefined : this.sugar({ ...p.payload, name: next }),
-      );
-    // Restores only the name, so the rollback cannot undo edits made after it.
-    const rename = (): destructor.Destructor => {
-      const prev = this.store.get(key)?.name ?? name;
-      setName(name);
-      return () => setName(prev);
-    };
-    const rollback = rename();
-    try {
-      await opts.onOptimistic?.();
-    } catch (e) {
-      rollback();
-      throw errors.fromUnknown(e);
-    }
-    await this.dispatcher.send(key, [set({ path: ["name"], value: name })], {
-      rollback,
-      reapply: rename,
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**

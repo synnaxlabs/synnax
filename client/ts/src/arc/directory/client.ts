@@ -11,11 +11,14 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor } from "@synnaxlabs/x";
 import z from "zod";
 
+import { actions } from "@/actions";
 import { setDirectory } from "@/arc/actions.gen";
+import { createOf, reduceAll } from "@/arc/directory/actions";
 import {
   type Action,
   dispatchReqZ,
   dispatchResZ,
+  scopedActionZ,
   set,
 } from "@/arc/directory/actions.gen";
 import {
@@ -30,6 +33,7 @@ import { LINES } from "@/arc/directory/where";
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -42,7 +46,7 @@ import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { type resource } from "@/resource";
 
-export const SET_CHANNEL_NAME = "sy_arc_directory_set";
+export const ACTION_CHANNEL_NAME = "sy_arc_directory_action_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_directory_delete";
 
 const createReqZ = z.object({
@@ -86,17 +90,31 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Directory>;
+  private readonly dispatcher: actions.Controller<Key, Directory, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Directory>({
       name: "Arc directories",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, directoryZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a directory reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Directory, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/arc/directory/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "Arc directory",
       table: store,
@@ -111,6 +129,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /** Retrieves the directory that holds every other directory and Arc. */
@@ -208,30 +227,21 @@ export class Client extends query.Retriever<
    * Renames the directory with key.
    * @throws {ValidationError} if name is not an identifier.
    */
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+  async rename(key: Key, name: string): Promise<void> {
     validateIdentifier(name);
-    const rename = () => query.partialUpdate(this.store, key, { name });
-    await query.optimistic({
-      rollbacks: [rename()],
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.dispatch(key, set({ path: ["name"], value: name })),
-    });
-    rename();
+    await this.dispatch(key, set({ path: ["name"], value: name }));
   }
 
   /**
-   * Applies the actions to the directory in one transaction.
+   * Applies the actions to the cached directory until the Core echoes them, and sends
+   * them to the Core to apply in one transaction. Actions hold the snake_case form that
+   * the Core stores. A refused send drops the actions from the cached directory.
+   * @throws {Error} if the cached directory cannot hold an action, before any send.
    * @throws {ValidationError} if the directory cannot hold an action.
    * @throws {NotFoundError} if the directory does not exist.
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
-    await this.cfg.unary.send(
-      "/arc/directory/dispatch",
-      { key, dispatchKey: "", actions: array.toArray(actions) },
-      dispatchReqZ,
-      dispatchResZ,
-    );
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /** Deletes the empty directories with keys. */

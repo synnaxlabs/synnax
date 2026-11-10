@@ -12,7 +12,7 @@ import { createProxiedTestClient, createTestClient } from "@synnaxlabs/client/te
 import { id, TimeRange } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Project } from "@/project";
@@ -104,21 +104,16 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.retrieve?.name).toEqual(newName));
     });
 
-    it("should apply the rename optimistically", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const proj = await client.projects.create({
         name: `testProject-${id.create()}`,
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Project.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const name = `newName-${id.create()}`;
+      const { result } = renderHook(() => Project.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: proj.key,
-          name: `newName-${id.create()}`,
-        });
+        await result.current.updateAsync({ key: proj.key, name });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.projects.watch(proj.key).getCached()).toMatchObject({ name });
     });
   });
 

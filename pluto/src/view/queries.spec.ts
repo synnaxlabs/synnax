@@ -8,13 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, view } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { deep, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
+import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 import { View } from "@/view";
 
@@ -169,6 +173,18 @@ describe("View queries", () => {
       await act(async () => expect(await result.current.saveAsync()).toBe(true));
       const stored = await createTestClient().views.retrieve(view.key);
       expect(stored.name).toEqual("existing-view");
+    });
+    it("should keep typed values and show the error on a refused save", async () => {
+      const view = await client.views.create({ name: "refused-view", type: "range" });
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      const { result } = await renderHookSuspended(
+        () => View.useForm({ query: { key: view.key } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: viewer }) },
+      );
+      act(() => result.current.form.set(path.name, "typed-view"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.form.value().name).toEqual("typed-view");
     });
     it("should save a view it starts from without a query", async () => {
       const view = await client.views.create({ name: "existing-view", type: "range" });

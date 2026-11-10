@@ -131,10 +131,8 @@ export interface RenameParams extends Pick<schematic.symbol.Symbol, "key" | "nam
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    await client.schematics.symbols.rename(data.key, data.name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+  update: async ({ client, data }) => {
+    await client.schematics.symbols.rename(data.key, data.name);
     return data;
   },
 });

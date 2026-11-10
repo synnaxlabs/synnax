@@ -321,6 +321,56 @@ describe("Device", async () => {
       const stored = await createTestClient().devices.retrieve(d.key);
       expect(stored.location).toBe("Dev2");
     });
+
+    it("should reject a queued dispatch that needs a refused one", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch-queue",
+        make: "ni",
+        model: "dog",
+        properties: { x: 1 },
+      });
+      const refused = client.devices.dispatch(d.key, [
+        device.set({ path: ["name"], value: "" }),
+        device.set({ path: ["properties", "x"], value: {} }),
+      ]);
+      const nested = client.devices.dispatch(
+        d.key,
+        device.set({ path: ["properties", "x", "y"], value: 2 }),
+      );
+      await expect(refused).rejects.toThrow("name: required");
+      await expect(nested).rejects.toThrow(
+        "[properties, x]: the value is not an object or a list",
+      );
+      await client.devices.dispatch(
+        d.key,
+        device.set({ path: ["location"], value: "Dev2" }),
+      );
+      expect((await createTestClient().devices.retrieve(d.key)).location).toBe("Dev2");
+    });
+
+    it("should hold a set inside the properties in the cache", async () => {
+      const d = await client.devices.create({
+        rack: testRack.key,
+        location: "Dev1",
+        key: id.create(),
+        name: "device-dispatch-properties",
+        make: "ni",
+        model: "dog",
+        properties: { readIndex: 1, identifier: "dev" },
+      });
+      await client.devices.dispatch(d.key, [
+        device.set({ path: ["configured"], value: true }),
+        device.set({ path: ["properties", "read_index"], value: 2 }),
+      ]);
+      const cached = expectLive(client.devices.watch(d.key).getCached());
+      expect(cached.configured).toBe(true);
+      expect(cached.properties).toEqual({ readIndex: 2, identifier: "dev" });
+      const stored = await createTestClient().devices.retrieve(d.key);
+      expect(stored.properties).toEqual({ readIndex: 2, identifier: "dev" });
+    });
   });
 
   describe("retrieve", () => {
