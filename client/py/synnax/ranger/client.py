@@ -50,7 +50,7 @@ from synnax.util import request_where, returns_one, sole
 from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
 
 # synnax.task imports this module through its range field.
@@ -261,6 +261,7 @@ class Range(Payload):
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
+    @deprecate_positional("name", "time_range", "key", "color", "parent")
     def __init__(
         self,
         *,
