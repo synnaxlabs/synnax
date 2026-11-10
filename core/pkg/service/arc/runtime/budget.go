@@ -54,7 +54,7 @@ func (b Budget) Reset() {
 // Err returns an error wrapping ErrLoopBudget when the guest used its whole budget
 // since the last Reset, and nil otherwise.
 func (b Budget) Err() error {
-	if b.global == nil || b.global.Get() != 0 {
+	if b.global == nil || int64(b.global.Get()) > 0 {
 		return nil
 	}
 	return errors.Wrapf(

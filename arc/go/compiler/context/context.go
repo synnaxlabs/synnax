@@ -51,7 +51,8 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	loopStack []LoopEntry
 	// Config carries per-parse language settings (e.g. dashed channel names).
 	Config parser.Config
-	// LoopBudget is the index of the global that loops count their iterations against.
+	// LoopBudget is the index of the global that loop iterations and function calls
+	// take from.
 	LoopBudget uint32
 }
 

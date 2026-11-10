@@ -3629,15 +3629,11 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
-		It("Should stop a task whose cycle uses its whole loop budget", func(
+		DescribeTable("Should stop a task whose cycle uses its whole loop budget", func(
 			ctx SpecContext,
+			source string,
 		) {
-			prog := arc.Text{Raw: `
-				func spin() {
-					for {}
-				}
-				interval(period=10ms) -> spin()
-			`}
+			prog := arc.Text{Raw: source}
 			svcTask := task.Task{
 				Key:    uuid.New(),
 				Name:   "test-tick-limit",
@@ -3662,7 +3658,24 @@ var _ = Describe("Task", Ordered, func() {
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
 			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
-		})
+		},
+			Entry("one looping node", `
+				func spin() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+			`),
+			Entry("two looping nodes on one trigger", `
+				func spin() {
+					for {}
+				}
+				func spin_again() {
+					for {}
+				}
+				interval(period=10ms) -> spin()
+				interval(period=10ms) -> spin_again()
+			`),
+		)
 
 		It(
 			"Should report WASM division by zero via status service",

@@ -72,6 +72,20 @@ var _ = Describe("Budget", func() {
 		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
 	})
 
+	It("Should trap every later call once the budget is used up", func(
+		ctx SpecContext,
+	) {
+		budget := MustSucceed(runtime.NewBudget(guest, 1000))
+		budget.Reset()
+		for range 2 {
+			Expect(guest.ExportedFunction("spin").Call(ctx)).Error().
+				To(MatchError(ContainSubstring("unreachable")))
+		}
+		Expect(guest.ExportedFunction("count").Call(ctx)).Error().
+			To(MatchError(ContainSubstring("unreachable")))
+		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
+	})
+
 	It("Should run a loop that stays under the budget", func(ctx SpecContext) {
 		budget := MustSucceed(runtime.NewBudget(guest, 1000))
 		budget.Reset()

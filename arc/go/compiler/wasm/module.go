@@ -48,9 +48,9 @@ type Global struct {
 	Init int64
 }
 
-// LoopBudgetExport names the exported i64 global that counts the loop iterations a
-// guest can still run. Each iteration of a loop takes one, and a loop that takes the
-// last one traps. A host sets the global before it calls the guest.
+// LoopBudgetExport names the exported i64 global that counts the loop iterations and
+// function calls a guest can still run. Each takes one, and the guest traps when it
+// takes the last one. A host sets the global before it calls the guest.
 const LoopBudgetExport = "loop_budget"
 
 // DataSegment represents a data segment to be placed in linear memory

@@ -17,7 +17,7 @@ import (
 
 var _ = Describe("WASM Writer", func() {
 	Describe("WriteLoopBudget", func() {
-		It("Should take one unit from the budget and trap at zero", func() {
+		It("Should take one unit from the budget and trap at zero or less", func() {
 			w := wasm.NewWriter()
 			w.WriteLoopBudget(3)
 			Expect(w.Bytes()).To(Equal([]byte{
@@ -26,7 +26,8 @@ var _ = Describe("WASM Writer", func() {
 				byte(wasm.OpI64Sub),
 				byte(wasm.OpGlobalSet), 3,
 				byte(wasm.OpGlobalGet), 3,
-				byte(wasm.OpI64Eqz),
+				byte(wasm.OpI64Const), 0,
+				byte(wasm.OpI64LeS),
 				byte(wasm.OpIf), 0x40,
 				byte(wasm.OpUnreachable),
 				byte(wasm.OpEnd),
