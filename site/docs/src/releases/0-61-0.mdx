@@ -1,0 +1,132 @@
+---
+title: "Version 0.61 release notes"
+---
+
+import { Releases } from "@/components/releases";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+<Releases.Release
+    version="0.61.0"
+    desktopVersion="1.1.0"
+    breakingChanges
+    date="Nov 2026"
+    title="Updates you can undo, EtherCAT clock sync, MQTT, and Kafka"
+>
+
+### Breaking changes in 0.61
+
+#### Core and deployment
+
+- A Driver on another minor version than its Core starts no tasks, and a 0.60 Driver
+  cannot register its rack with a 0.61 Core. Install Driver 0.61 on each Driver computer
+  when you upgrade the Core.
+- A desktop Console on another minor version shows a full-window block. Update the
+  Console with the Core, or click **Open in browser**.
+- `synnax start` refuses `--peers` and `-p`, and a Core never joins other Cores. Remove
+  them from service configs and Docker commands.
+- The HTTP and WebSocket routes refuse msgpack with a 415, or a 406 when the caller
+  accepts only msgpack. Send JSON from HTTP callers.
+- The upgrade rewrites stored records, and an older Core refuses the data. To go back,
+  run `synnax update undo` with the 0.61 binary. See
+  [Upgrade a Core](/reference/enterprise/upgrade).
+- The Core exits with code 65 when it refuses its data and 78 for a bad flag, and the
+  systemd unit does not restart on them.
+- Status details under a rack, device, task, or channel key must decode to that type.
+  Scripts that set those statuses must send typed details.
+
+#### Access and users
+
+- Each user and rack holds exactly one role. The upgrade keeps, for a user with several
+  roles, the role that covers the most, and gives users with none a new **No access**
+  role. Check those users after the upgrade.
+- `users.set_role` and `setRole` replace `set_roles`, `setRoles`, and
+  `access.roles.assign` and `unassign`. `users.create` needs a role.
+- The built-in Host role is now Driver, and it cannot create or delete racks.
+- A user has one `name`. `first_name`, `last_name`, and the user `username` field are
+  gone, and **Change username** left the Console.
+- To create or edit a calculated channel, a user needs read access to each channel that
+  it reads.
+- On Linux, the Console needs a Secret Service, such as GNOME Keyring or KWallet, to
+  keep its session token.
+
+#### Arc
+
+- Inputs go in parentheses and triggers in braces. The Core rewrites stored Arcs.
+  Rewrite Arc text in scripts that call `client.arcs.create` and in files outside
+  Synnax.
+- A series variable outside a function, such as `s := [1.0, 2.0]`, fails to compile.
+  Before, a flow on it read or wrote nothing. Declare the variable in the function that
+  uses it.
+- `^` needs numeric operands.
+- New Arcs are text only. Graph Arcs still run.
+
+#### Hardware
+
+- EtherCAT on IgH counts positions from 1. Delete the EtherCAT devices of an IgH Driver
+  after the upgrade, then scan again.
+- The EtherCAT bus rate stays fixed while a slave runs DC sync, and a task at another
+  rate fails. On IgH, a chosen DC mode fails its start.
+- LabJack T7 and T8: **Max voltage** now sets the input range. A channel at 1 V or less
+  can fail a fast stream of many channels. Lower the rate if a start fails.
+- Modbus: the default timeout is 1000 ms instead of 500 ms, and a write sends only the
+  commanded addresses. Add channels for addresses that relied on gap writes.
+- OPC UA: a secured connection pins one server certificate and clears the old
+  certificate path. Click **Trust** in the connect dialog. `uint8` maps to Byte instead
+  of Boolean, and a write task drops commands while it is disconnected.
+- OPC UA: a secured connection refuses an expired server certificate. Renew the
+  certificate on the server, then trust the new one. See
+  [Server certificate expired](/reference/hardware/opc-ua/connect-server#troubleshooting).
+- C interface: `synnax_client_open` takes `api_key` after `password`. Update the call
+  node of the LabVIEW `synnax client open.vi`.
+
+#### Both clients
+
+- `client.ontology` and the TypeScript `ontology` export are gone. Use
+  `client.resources` to search and `client.groups` for groups. `ontology.ID` is now
+  `resource.ID`.
+- A single retrieve raises `NotFoundError` or `MultipleFoundError` instead of giving the
+  first match. In TypeScript, a key list throws for a missing key.
+- Python `devices.retrieve(make=, model=, location=)` and `tasks.retrieve(type=)`, and
+  TypeScript `tasks.retrieve({ type, rack })`, return lists. Add `one=True` or
+  `one: true`.
+- A plain channel name matches exactly, and `name_patterns` is gone. Use
+  `name={"regex": ...}` or `name: { regex }`.
+- The rack filter loses `host_is_node`, and iterator and writer responses lose
+  `node_key`.
+- A `persist` writer inside the session of a running task fails to open with
+  `UnauthorizedError`. Write before the session, or give a start.
+
+#### Python client
+
+- Options, flags, and timeouts are keyword-only.
+- A filter field set to `None` raises `ValidationError`. Leave the field out.
+- Retrieve methods refuse `offset`, `include_labels`, and `include_parent`. Page with
+  `limit` and `after`. A range holds its label keys in `labels`, and a device holds its
+  parent key in `parent`.
+- `client.read` with a list of channels also returns their index channels.
+- `Frame.to_df()` has a time index, names columns by channel in request order, and drops
+  index columns. `frame["name"]` raises `MultipleFoundError` for two channels with one
+  name.
+- `Series` is no longer a Pydantic model. Use `pydantic.TypeAdapter(Series)`.
+- `TimeSpan(rate)` is the period, so 2 Hz is 500 ms.
+- `wait_until`, `wait_while`, and `wait_until_defined` check the current value first.
+- `labels.create` needs `name` and `color`.
+- The Arc task `config.arc_key` is a `UUID`.
+- `labjack.Device` is keyed by `serial_number`, and `ethercat.Device` positions count
+  from 1.
+- Freighter's `register_exception`, `encode_exception`, and `decode_exception` are gone.
+  Use `x.exceptions.Registry`.
+
+#### TypeScript client
+
+- Retrieve parameters are strict filters, so `{ names }`, `{ keys }`, `{ makes }`, and
+  `{ models }` throw. Use `{ name }`, `{ key }`, `{ make }`, and `{ model }`, each with
+  a value or a list.
+- `new TimeSpan(rate)` gives the period.
+- The LabJack scale types move to `task.Scale` and `task.scaleZ`.
+- `@synnaxlabs/x`: `debounce`, `throttle`, and `Batcher` move into the `scheduler`
+  namespace.
+
+</Releases.Release>
