@@ -29,35 +29,35 @@ class TestSecret:
     def test_create_file(self, client: sy.Synnax) -> None:
         """Should create a file secret."""
         s = client.secrets.set(
-            secret.NewFile(name="Client key", path="/etc/synnax/client.key")
+            secret.NewFile(name="Client key", file_name="client.key")
         )
         assert isinstance(s, secret.FileSecret)
-        assert s.path == "/etc/synnax/client.key"
+        assert s.file_name == "client.key"
 
     def test_create_from_keywords(self, client: sy.Synnax) -> None:
         """Should create a stored or file secret from keyword arguments."""
         stored = client.secrets.set(name="Token", value="abc")
         assert isinstance(stored, secret.StoredSecret)
         assert stored.name == "Token"
-        file = client.secrets.set(name="Key file", path="/tmp/key.pem")
+        file = client.secrets.set(name="Key file", file_name="key.pem")
         assert isinstance(file, secret.FileSecret)
-        assert file.path == "/tmp/key.pem"
+        assert file.file_name == "key.pem"
 
     @pytest.mark.parametrize(
         "kwargs",
         [
             {"name": "Missing"},
-            {"name": "Both", "value": "abc", "path": "/tmp/key.pem"},
+            {"name": "Both", "value": "abc", "file_name": "key.pem"},
             {"value": "abc"},
         ],
     )
     def test_create_from_invalid_keywords(
         self, client: sy.Synnax, kwargs: dict[str, str]
     ) -> None:
-        """Should reject keyword arguments without a name and one value or path."""
+        """Should reject keyword arguments without a name and one value or file."""
         with pytest.raises(
             sy.ValidationError,
-            match=r"A secret needs a name and exactly one of a value or a path\.",
+            match=r"A secret needs a name and exactly one of a value or a file name\.",
         ):
             client.secrets.set(**kwargs)
 
@@ -66,7 +66,7 @@ class TestSecret:
         secrets = client.secrets.set(
             [
                 secret.NewStored(name="Token", value="abc"),
-                secret.NewFile(name="Key file", path="/tmp/key.pem"),
+                secret.NewFile(name="Key file", file_name="key.pem"),
             ]
         )
         assert isinstance(secrets[0], secret.StoredSecret)
@@ -76,7 +76,7 @@ class TestSecret:
         """Should replace a secret that has the same key."""
         first = client.secrets.set(secret.NewStored(name="API key", value="one"))
         second = client.secrets.set(
-            secret.NewFile(key=first.key, name="API key v2", path="/opt/api.key")
+            secret.NewFile(key=first.key, name="API key v2", file_name="api.key")
         )
         assert second.key == first.key
         assert second.updated > first.updated
@@ -167,7 +167,7 @@ class TestSecret:
         secrets = client.secrets.set(
             [
                 secret.NewStored(name="Delete 1", value="a"),
-                secret.NewFile(name="Delete 2", path="/tmp/b"),
+                secret.NewFile(name="Delete 2", file_name="b"),
             ]
         )
         client.secrets.delete([s.key for s in secrets])

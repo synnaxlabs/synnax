@@ -61,12 +61,12 @@ describe("Secret", () => {
       const s = await client.secrets.set({
         name: "Client key",
         source: "file",
-        path: "/etc/synnax/client.key",
+        fileName: "client.key",
       });
       expect(s).toMatchObject({
         name: "Client key",
         source: "file",
-        path: "/etc/synnax/client.key",
+        fileName: "client.key",
       });
     });
 
@@ -74,7 +74,7 @@ describe("Secret", () => {
       const client = createTestClient();
       const secrets = await client.secrets.set([
         { name: "Token", source: "stored", value: "abc" },
-        { name: "Key file", source: "file", path: "/tmp/key.pem" },
+        { name: "Key file", source: "file", fileName: "key.pem" },
       ]);
       expect(secrets).toHaveLength(2);
       expect(secrets[0]).toMatchObject({ name: "Token", source: "stored" });
@@ -92,7 +92,7 @@ describe("Secret", () => {
         key: first.key,
         name: "API key v2",
         source: "file",
-        path: "/opt/api.key",
+        fileName: "api.key",
       });
       expect(second.key).toEqual(first.key);
       expect(second.updated.after(first.updated)).toBe(true);
@@ -515,7 +515,7 @@ describe("Secret", () => {
       const client = createTestClient();
       const secrets = await client.secrets.set([
         { name: "Delete 1", source: "stored", value: "a" },
-        { name: "Delete 2", source: "file", path: "/tmp/b" },
+        { name: "Delete 2", source: "file", fileName: "b" },
       ]);
       const keys = secrets.map((s) => s.key);
       await client.secrets.delete(keys);
