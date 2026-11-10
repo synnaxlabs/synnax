@@ -239,13 +239,11 @@ export default class Synnax extends framer.Client {
     const parsedParams = zod.parse(constructorParamsZ, params);
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
-    const transport = new Transport(
-      new url.URL({ host, port: Number(port) }),
-      retry,
-      secure,
-      parsedParams.onRetry,
-    );
+    const address = new url.URL({ host, port: Number(port) });
+    const transport = new Transport(address, retry, secure, parsedParams.onRetry);
     transport.use(errorsMiddleware);
+    const tokenless = new Transport(address, {}, secure);
+    tokenless.use(errorsMiddleware);
     // The arrow reads this.channels only when called, after construction completes.
     const retrieveChannels: framer.ChannelRetriever = async (toRetrieve) => {
       const result = await this.channels.retrieve(
@@ -276,6 +274,7 @@ export default class Synnax extends framer.Client {
     this.cache = cache;
     this.conn = new connection.Client({
       unary: transport.unaryNoRetry,
+      tokenless: tokenless.unaryNoRetry,
       address: `${host}:${Number(port)}`,
       name: parsedParams.name,
       clockSkewThreshold: new TimeSpan(clockSkewThreshold).abs(),

@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -107,7 +106,7 @@ func matchAPIKey(k auth.APIKey) types.GomegaMatcher {
 }
 
 var (
-	bob    = user.User{Key: uuid.New()}
+	bob    = auth.User{Key: uuid.New()}
 	apiKey = auth.APIKey{
 		Key:     uuid.New(),
 		Subject: bob.ResourceID(),
