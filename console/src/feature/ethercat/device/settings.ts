@@ -120,9 +120,9 @@ const allows = ({ options, min, max }: Field, value: number): boolean =>
 
 /**
  * @returns a startup parameter for each address of the fields, in the order of the
- * fields, with the value in values or the default. A shown field with options takes its default
- * when its value is not one of them. A hidden field takes its default when its value
- * is not one of its options or is outside its limits.
+ * fields, with the value in values or the default. A shown field with options takes its
+ * default when its value is not one of them. A hidden field takes its default when its
+ * value is not one of its options or is outside its limits.
  */
 export const fill = (fields: Field[], values: Value[]): ethercat.StartupParameter[] => {
   const shown = visibleFields(fields, values);
