@@ -51,7 +51,9 @@ download links of its last deploy.
 
 To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
 train's release branch (`release/docs-0.60` for 0.60), and deploy the train. If a patch
-of the train shipped from `main`, first merge its tag into the branch.
+of the train shipped from `main`, first merge its tag into the branch. A 0.60 release
+deploys `release/docs-0.60` as it is, so pick the docs of a 0.60 patch onto it before
+the release.
 
 ## Feature flags
 
