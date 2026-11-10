@@ -64,8 +64,15 @@ interface Shown {
   text: string;
 }
 
+const showWhole = (value: string): Shown => ({
+  lead: <span className={BRIGHT}>{value}</span>,
+  keep: value.length,
+  text: value,
+});
+
 const showAddress = (value: string, hiddenSchemes: string[] = []): Shown => {
   const [scheme, host, rest] = splitAddress(value);
+  if (host === "") return showWhole(value);
   const shown = hiddenSchemes.includes(scheme.toLowerCase()) ? "" : scheme;
   return {
     lead: (
@@ -79,12 +86,6 @@ const showAddress = (value: string, hiddenSchemes: string[] = []): Shown => {
     text: shown + host + rest,
   };
 };
-
-const showWhole = (value: string): Shown => ({
-  lead: <span className={BRIGHT}>{value}</span>,
-  keep: value.length,
-  text: value,
-});
 
 const show = (value: string, { shape, hiddenSchemes }: LocationFormat): Shown => {
   switch (shape) {

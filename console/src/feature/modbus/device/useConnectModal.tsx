@@ -97,12 +97,14 @@ const beforeValidate = ({
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
   const connection = get(connectionPath).value;
-  set(
-    path.location,
-    connection.transport === "rtu"
-      ? connection.serialPort
-      : `${connection.host}:${connection.port}`,
-  );
+  if (connection.transport === "rtu") {
+    set(path.location, connection.serialPort);
+    return;
+  }
+  const { host, port } = connection;
+  // Brackets keep the colons of an IPv6 host apart from the port's.
+  const shown = host.includes(":") ? `[${host}]` : host;
+  set(path.location, `${shown}:${port}`);
 };
 
 const beforeSave = async ({

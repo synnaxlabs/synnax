@@ -75,6 +75,15 @@ describe("Device location", () => {
     expect(c.queryByText(/opc\.tcp/)).toBeNull();
   });
 
+  it("should keep the whole of a location without a host in view", () => {
+    const value = "/dev/ttyUSB0";
+    const c = render(<Device.Location value={value} format={{ shape: "address" }} />);
+    const location = c.getByText(value).closest<HTMLElement>(".pluto-device-location");
+    expect(location?.style.getPropertyValue("--pluto-location-keep")).toBe(
+      `${value.length}`,
+    );
+  });
+
   it("should keep a scheme that the format does not hide", () => {
     const c = render(
       <Device.Location
