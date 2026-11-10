@@ -205,7 +205,9 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
   // The data type and repeated name checks run before any create, so their failure
   // leaves nothing behind.
-  const dataTypes = toDataTypes(await client.channels.retrieve(readChannelKeys(slaves)));
+  const dataTypes = toDataTypes(
+    await client.channels.retrieve(readChannelKeys(slaves)),
+  );
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

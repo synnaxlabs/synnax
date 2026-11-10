@@ -1186,6 +1186,22 @@ describe("Read", () => {
       expect(await deploy(["int16"])).toEqual([typed]);
     });
 
+    it("should replace the binding of a deleted channel", async () => {
+      const { slave, deploy, tasks } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      await client.tasks.delete(tasks);
+      await client.channels.delete(first);
+      const [second] = await deploy(["uint16"]);
+      expect(second).not.toBe(first);
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.read.channels).toEqual([
+        { index: 0x6000, subIndex: 1, scaled: false, channel: second },
+      ]);
+    });
+
     it("should end the name the user gave it in its type", async () => {
       const { deploy } = await createStatusSlave();
       const name = uniqueName("ecat_pressure");

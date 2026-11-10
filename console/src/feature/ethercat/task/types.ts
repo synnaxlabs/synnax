@@ -172,8 +172,7 @@ export const bindReadChannel = (
   const scaled = isScaled(ch);
   const { read } = slave.properties;
   read.channels = read.channels.filter(
-    (b) =>
-      !isAt(ch)(b) || b.scaled !== scaled || (!scaled && dataTypes.has(b.channel)),
+    (b) => !isAt(ch)(b) || b.scaled !== scaled || (!scaled && dataTypes.has(b.channel)),
   );
   read.channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
   dataTypes.set(key, readDataType(ch));
