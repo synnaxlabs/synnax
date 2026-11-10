@@ -91,9 +91,9 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 // Apply applies the actions to the channel with the given key and attaches them to the
 // transaction of w. An edit of the expression or operations infers the data type again,
 // and Apply attaches a set of a changed data type after acts. Apply returns every
-// action that it attaches. A rename reaches storage when the transaction commits. Apply
-// returns an error wrapping validate.ErrValidation for an invalid action or result, and
-// query.ErrNotFound when no channel has the key.
+// action that it attaches. A new name reaches storage when the transaction commits.
+// Apply returns an error wrapping validate.ErrValidation for an invalid action or
+// result, and query.ErrNotFound when no channel has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var prev Channel
 	if err := w.svc.table.NewRetrieve().
