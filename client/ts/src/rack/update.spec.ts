@@ -60,6 +60,11 @@ describe("reduceAll", () => {
     expect(reduceAll(next, inverse).next).toEqual(prev);
   });
 
+  it("should set a required field", () => {
+    const { next } = reduceAll(createRack(), [rack.update({ value: { name: "Lab" } })]);
+    expect(next.name).toBe("Lab");
+  });
+
   it("should throw a stale error when a guard does not hold", () => {
     expect(() =>
       reduceAll(createRack(), [
