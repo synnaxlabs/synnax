@@ -491,7 +491,34 @@ describe("generated update shapes", () => {
     it("should throw when a variant change leaves out a required field", () => {
       expect(() =>
         applyTask({ sensors: { update: [{ key: "s1", type: "thermocouple" }] } }),
-      ).toThrow("couple is required");
+      ).toThrow("s1: couple is required");
+    });
+
+    it("should keep a stale error stale when it names the entry", () => {
+      const entryZ = z.object({ key: z.string(), tags: z.string().array() });
+      const entryUpdateZ = z.object({
+        key: z.string(),
+        tags: patch.valueListZ(z.string()).optional(),
+      });
+      const u = z.object({
+        entries: patch.listZ({ e: entryZ, k: z.string(), u: entryUpdateZ }).optional(),
+      });
+      const t = z.object({ entries: entryZ.array() });
+      let caught: unknown;
+      try {
+        patch.applyUpdate(
+          { u, t },
+          { entries: [{ key: "e1", tags: ["a"] }] },
+          {
+            value: { entries: { update: [{ key: "e1", tags: { remove: ["t9"] } }] } },
+            guards: [],
+          },
+        );
+      } catch (e) {
+        caught = e;
+      }
+      expect(patch.StaleError.matches(caught)).toBe(true);
+      expect((caught as Error).message).toBe("e1: t9 not found");
     });
 
     it("should merge base fields into an entry without a type", () => {

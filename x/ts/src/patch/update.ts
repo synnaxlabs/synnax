@@ -15,6 +15,7 @@ import {
 } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { errors } from "@/errors";
 import { narrow } from "@/narrow";
 import { type StructSchemas } from "@/patch/field";
 import { type Kind, kindOf } from "@/patch/kind";
@@ -287,7 +288,7 @@ const applyList = (
   update?.forEach((u) => {
     const i = indexOf(u[KEY]);
     if (mergeEntry == null) throw new Error("A value list has no update operator");
-    list[i] = mergeEntry(list[i], u);
+    list[i] = withKey(u[KEY], () => mergeEntry(list[i], u));
   });
   list = appendUnique(list, insert ?? [], keyOf);
   move?.forEach(({ key, after }) => {
@@ -297,6 +298,17 @@ const applyList = (
     list.splice(after == null ? 0 : indexOf(after) + 1, 0, entry);
   });
   return list;
+};
+
+// Runs fn, and starts the message of an error that it throws with the key of an entry.
+const withKey = <R>(key: unknown, fn: () => R): R => {
+  try {
+    return fn();
+  } catch (e) {
+    const message = `${String(key)}: ${errors.fromUnknown(e).message}`;
+    if (StaleError.matches(e)) throw new StaleError(message, { cause: e });
+    throw new Error(message, { cause: e });
+  }
 };
 
 const appendUnique = (
