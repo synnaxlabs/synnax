@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -85,7 +86,7 @@ var _ = Describe("OpenService", func() {
 	It(
 		"Should register itself with the configured ImEx registry on open",
 		func(ctx SpecContext) {
-			l := log.Log{Project: &proj.Key, Name: "auto-registered"}
+			l := defaults.Fill(log.Log{Project: &proj.Key, Name: "auto-registered"})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &l)
 			})).To(Succeed())

@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -53,7 +54,11 @@ func generateAutoCopy(
 			wrappers: wrappers, aliases: aliases,
 		}
 	}
-	data := newCollector(nil).collect(types)
+	c := newCollector(nil)
+	data := c.collect(types)
+	if err := errors.Join(c.errs...); err != nil {
+		return nil, err
+	}
 	if len(data.Funcs) == 0 {
 		return nil, nil
 	}
@@ -284,6 +289,8 @@ type collector struct {
 	usesLo bool
 	// aliases forces the alias of each import path it holds.
 	aliases map[string]string
+	// errs collects the fields no generated or hand-written step can carry.
+	errs []error
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
@@ -511,17 +518,30 @@ func (c *collector) structFuncFromForms(
 		if domain.GetStringFromField(*newField, "go", "marshal") == "omit" {
 			continue
 		}
-		// A field the two versions shape differently — an optional appearing, a
-		// union replacing a struct, a declaration replacing a raw record, a type
-		// moving to another resource, a leaf primitive Go cannot cast across — has
-		// no copy that type-checks; the hand-written migration carries it.
+		name := naming.GetFieldName(oldField)
+		// A type moving to another resource copies when its shape holds, and
+		// otherwise needs a hand-written step that the build requires.
+		if c.declarationMismatch(oldField.Type, newField.Type) &&
+			c.movedResource(oldField.Type, newField.Type) {
+			if oldField.Optional == newField.Optional &&
+				c.sameShape(oldField.Type, newField.Type) {
+				c.addMovedField(&fn, oldField.Type, newField.Type, recv+"."+name, name,
+					oldField.Optional)
+			} else {
+				c.addHandField(&fn, goName, *newField, recv+"."+name, name)
+			}
+			continue
+		}
+		// Any other field the two versions shape differently — an optional
+		// appearing, a union replacing a struct, a declaration replacing a raw
+		// record, a leaf primitive Go cannot cast across — has no copy that
+		// type-checks; the hand-written migration carries it.
 		if oldField.Optional != newField.Optional ||
 			c.unionMismatch(oldField.Type, newField.Type) ||
 			c.declarationMismatch(oldField.Type, newField.Type) ||
 			c.castMismatch(oldField.Type, newField.Type) {
 			continue
 		}
-		name := naming.GetFieldName(oldField)
 		c.addField(&fn, oldField.Type, recv+"."+name, name, oldField.Optional)
 	}
 	return fn
@@ -625,9 +645,8 @@ func (c *collector) unionMismatch(oldRef, newRef resolution.TypeRef) bool {
 }
 
 // declarationMismatch reports whether a field's old and new types name different
-// declarations: a raw record becoming a named struct, a rename, or a type moving to
-// another resource. Only the declaration a version resolves the field to can carry the
-// value, so a mismatch leaves the field to the hand-written migration.
+// declarations at any position: a raw record becoming a named struct, a rename, or a
+// type moving to another resource.
 func (c *collector) declarationMismatch(oldRef, newRef resolution.TypeRef) bool {
 	oldResolved, oldOk := oldRef.Resolve(c.oldTable)
 	newResolved, newOk := newRef.Resolve(c.newTable)
@@ -637,9 +656,256 @@ func (c *collector) declarationMismatch(oldRef, newRef resolution.TypeRef) bool 
 	if oldResolved.Name != newResolved.Name {
 		return true
 	}
-	oldLive, _, oldVersioned := versions.ParseDepNS(oldResolved.Namespace)
-	newLive, _, newVersioned := versions.ParseDepNS(newResolved.Namespace)
+	if movedNamespace(oldResolved, newResolved) {
+		return true
+	}
+	n := min(len(oldRef.TypeArgs), len(newRef.TypeArgs))
+	for i := range n {
+		if c.declarationMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// movedNamespace reports whether two versioned declarations belong to different
+// resources.
+func movedNamespace(oldT, newT resolution.Type) bool {
+	oldLive, _, oldVersioned := versions.ParseDepNS(oldT.Namespace)
+	newLive, _, newVersioned := versions.ParseDepNS(newT.Namespace)
 	return oldVersioned && newVersioned && oldLive != newLive
+}
+
+// movedResource reports whether every declaration mismatch between a field's old and
+// new types is a declaration of the same name moving to another resource.
+func (c *collector) movedResource(oldRef, newRef resolution.TypeRef) bool {
+	oldT, oldOk := oldRef.Resolve(c.oldTable)
+	newT, newOk := newRef.Resolve(c.newTable)
+	if !oldOk || !newOk || oldT.Name != newT.Name {
+		return false
+	}
+	if len(oldRef.TypeArgs) != len(newRef.TypeArgs) {
+		return false
+	}
+	for i := range oldRef.TypeArgs {
+		if c.declarationMismatch(oldRef.TypeArgs[i], newRef.TypeArgs[i]) &&
+			!c.movedResource(oldRef.TypeArgs[i], newRef.TypeArgs[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// sameShape reports whether a value of the old type converts to the new type member
+// for member and field for field: the same primitives, the same enum values, and
+// structs with the same fields in the same shapes.
+func (c *collector) sameShape(oldRef, newRef resolution.TypeRef) bool {
+	return c.sameShapeVisiting(oldRef, newRef, make(set.Set[string]))
+}
+
+// sameShapeVisiting is sameShape, treating a pair already in visiting as the same
+// shape so that recursive types terminate.
+func (c *collector) sameShapeVisiting(
+	oldRef, newRef resolution.TypeRef,
+	visiting set.Set[string],
+) bool {
+	if resolution.IsPrimitive(oldRef.Name) || resolution.IsPrimitive(newRef.Name) {
+		return oldRef.Name == newRef.Name
+	}
+	if !c.declarationMismatch(oldRef, newRef) {
+		return true
+	}
+	if !c.movedResource(oldRef, newRef) {
+		return false
+	}
+	if oldRef.Name == "Array" || newRef.Name == "Array" {
+		return oldRef.Name == newRef.Name && len(oldRef.TypeArgs) == 1 &&
+			len(newRef.TypeArgs) == 1 &&
+			c.sameShapeVisiting(oldRef.TypeArgs[0], newRef.TypeArgs[0], visiting)
+	}
+	oldT, _, oldOk := resolution.Dealias(oldRef, c.oldTable)
+	newT, _, newOk := resolution.Dealias(newRef, c.newTable)
+	if !oldOk || !newOk {
+		return false
+	}
+	pair := oldT.QualifiedName + "->" + newT.QualifiedName
+	if visiting.Contains(pair) {
+		return true
+	}
+	visiting.Add(pair)
+	switch of := oldT.Form.(type) {
+	case resolution.EnumForm:
+		nf, ok := newT.Form.(resolution.EnumForm)
+		return ok && of.IsIntEnum == nf.IsIntEnum && sameEnumValues(of, nf)
+	case resolution.StructForm:
+		nf, ok := newT.Form.(resolution.StructForm)
+		if !ok || of.IsGeneric() || nf.IsGeneric() || len(of.Extends) > 0 ||
+			len(nf.Extends) > 0 || len(of.Fields) != len(nf.Fields) {
+			return false
+		}
+		for _, f := range of.Fields {
+			g := findField(nf.Fields, f.Name)
+			if g == nil || f.Optional != g.Optional ||
+				!c.sameShapeVisiting(f.Type, g.Type, visiting) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func sameEnumValues(a, b resolution.EnumForm) bool {
+	if len(a.Values) != len(b.Values) {
+		return false
+	}
+	values := make(map[string]any, len(a.Values))
+	for _, v := range a.Values {
+		values[v.Name] = v.Value
+	}
+	for _, v := range b.Values {
+		if old, ok := values[v.Name]; !ok || old != v.Value {
+			return false
+		}
+	}
+	return true
+}
+
+// addMovedField copies a field whose type moved to another resource with the same
+// shape: an enum converts, and a struct copies through a generated step.
+func (c *collector) addMovedField(
+	fn *funcData,
+	oldRef, newRef resolution.TypeRef,
+	accessor, goName string,
+	isOptional bool,
+) {
+	if oldRef.Name == "Array" && len(oldRef.TypeArgs) == 1 {
+		oldElem, newElem := oldRef.TypeArgs[0], newRef.TypeArgs[0]
+		oldT, _, _ := resolution.Dealias(oldElem, c.oldTable)
+		newT, _, _ := resolution.Dealias(newElem, c.newTable)
+		varName := fn.varName(goName)
+		oldName := c.resolveTypeName(oldT, c.oldTable)
+		newName := c.resolveTypeName(newT, c.newTable)
+		c.usesLo = true
+		if _, isEnum := oldT.Form.(resolution.EnumForm); isEnum {
+			fn.Preamble = append(fn.Preamble, step{
+				Kind: "sliceCast", VarName: varName, Accessor: accessor,
+				ElemExpr: newName + "(v)", OldElem: oldName, NewElem: newName,
+			})
+		} else {
+			fn.Preamble = append(fn.Preamble, step{
+				Kind: "sliceMigrate", VarName: varName, Accessor: accessor,
+				ElemExpr: c.requireMovedFunc(oldT, newT) + "(ctx, v)",
+				OldElem:  oldName, NewElem: newName,
+			})
+			fn.UsesCtx = true
+		}
+		fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
+		return
+	}
+	oldT, _, _ := resolution.Dealias(oldRef, c.oldTable)
+	newT, _, _ := resolution.Dealias(newRef, c.newTable)
+	newName := c.resolveTypeName(newT, c.newTable)
+	varName := fn.varName(goName)
+	if _, isEnum := oldT.Form.(resolution.EnumForm); isEnum {
+		if !isOptional {
+			fn.Fields = append(fn.Fields, field{
+				Name: goName, Value: newName + "(" + accessor + ")",
+			})
+			return
+		}
+		fn.Preamble = append(fn.Preamble, step{
+			Kind: "optionalCast", VarName: varName, Accessor: accessor, Type: newName,
+		})
+		fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
+		return
+	}
+	call := c.requireMovedFunc(oldT, newT)
+	fn.UsesCtx = true
+	if isOptional {
+		fn.Preamble = append(fn.Preamble, step{
+			Kind: "optionalMigrate", VarName: varName, Accessor: accessor,
+			Call: fmt.Sprintf("%s(ctx, *%s)", call, accessor), Type: newName,
+		})
+	} else {
+		fn.Preamble = append(fn.Preamble, step{
+			Kind: "migrate", VarName: varName,
+			Call: fmt.Sprintf("%s(ctx, %s)", call, accessor),
+		})
+	}
+	fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
+}
+
+// varName returns the variable that holds a converted field, apart from the receiver
+// the function reads old fields through.
+func (fn *funcData) varName(goName string) string {
+	name := naming.LowerFirst(goName)
+	if name == fn.recv {
+		name += "Val"
+	}
+	return name
+}
+
+// addHandField reads a field whose type moved to another resource with a new shape
+// through a hand-written step, migrate<Type><Field>, that the build requires. A field
+// of an anonymous variant has no name to give the step, so it fails generation.
+func (c *collector) addHandField(
+	fn *funcData,
+	owner string,
+	newField resolution.Field,
+	accessor, goName string,
+) {
+	if owner == "" {
+		c.errs = append(c.errs, errors.Newf(
+			"variant field %s moves to another resource with a new shape, which "+
+				"no migration step can carry",
+			newField.Name,
+		))
+		return
+	}
+	varName := fn.varName(goName)
+	fn.UsesCtx = true
+	fn.Preamble = append(fn.Preamble, step{
+		Kind: "migrate", VarName: varName,
+		Call: fmt.Sprintf("migrate%s%s(ctx, %s)", owner, goName, accessor),
+	})
+	fn.Fields = append(fn.Fields, field{Name: goName, Value: varName})
+}
+
+// pascalJoin joins the parts of a qualified Go name, such as v0.Entry, into one
+// PascalCase name, such as V0Entry.
+func pascalJoin(qualified string) string {
+	var b strings.Builder
+	for part := range strings.SplitSeq(qualified, ".") {
+		b.WriteString(strings.ToUpper(part[:1]))
+		b.WriteString(part[1:])
+	}
+	return b.String()
+}
+
+// requireMovedFunc returns the step that copies a struct moved to another resource,
+// queueing its generation the first time.
+func (c *collector) requireMovedFunc(oldT, newT resolution.Type) string {
+	oldName := c.resolveTypeName(oldT, c.oldTable)
+	newName := c.resolveTypeName(newT, c.newTable)
+	goName := pascalJoin(oldName) + "To" + pascalJoin(newName)
+	name := "autoMigrate" + goName
+	key := oldT.QualifiedName + "->" + newT.QualifiedName
+	if c.generated.Contains(key) {
+		return name
+	}
+	c.generated.Add(key)
+	oldSF, _ := oldT.Form.(resolution.StructForm)
+	newSF, _ := newT.Form.(resolution.StructForm)
+	c.funcs = append(c.funcs, c.structFuncFromForms(
+		goName,
+		oldName,
+		newName,
+		"old",
+		oldSF,
+		newSF,
+	))
+	return name
 }
 
 // castMismatch reports whether a field's old and new types resolve to leaf

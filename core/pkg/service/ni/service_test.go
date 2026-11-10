@@ -267,5 +267,23 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring("invalid units: BOGUS")))
 			},
 		)
+
+		It("Should reject a digital read line above 31", func(ctx SpecContext) {
+			Expect(
+				svc.DigitalRead.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{"port": 0, "line": 32}},
+				}),
+			).Error().
+				To(MatchError(ContainSubstring("must be less than or equal to 31")))
+		})
+
+		It("Should reject a digital write line above 31", func(ctx SpecContext) {
+			Expect(
+				svc.DigitalWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{"port": 0, "line": 32}},
+				}),
+			).Error().
+				To(MatchError(ContainSubstring("must be less than or equal to 31")))
+		})
 	})
 })

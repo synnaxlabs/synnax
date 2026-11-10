@@ -14,9 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	channeltestutil "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -128,6 +130,56 @@ var _ = Describe("Service", func() {
 					"thermocouple_type": "BOGUS",
 				}},
 			})).Error().To(MatchError(ContainSubstring("invalid thermocouple_type: BOGUS")))
+		})
+
+		It("Should reject a negative channel past AIN127", func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"type": "analog", "neg_chan": 199}},
+			})).Error().To(MatchError(ContainSubstring("neg_chan")))
+		})
+
+		DescribeTable(
+			"Should lift a v2 negative channel",
+			func(ctx SpecContext, ch map[string]any, expected types.GomegaMatcher) {
+				ch["type"], ch["key"], ch["scale"] = "analog", "ai", map[string]any{
+					"type": "none",
+				}
+				out := MustSucceed(svc.Read.Normalize(ctx, db, v2.Version,
+					msgpack.EncodedJSON{"channels": []any{ch}},
+				))
+				Expect(out["channels"]).To(ConsistOf(expected))
+			},
+			Entry("ground", map[string]any{"neg_chan": 199}, Not(HaveKey("neg_chan"))),
+			Entry("absent", map[string]any{}, Not(HaveKey("neg_chan"))),
+			Entry(
+				"pair",
+				map[string]any{"neg_chan": 3},
+				HaveKeyWithValue("neg_chan", BeNumerically("==", 3)),
+			),
+		)
+
+		It("Should map a v2 backlog count of 0 to absent", func(ctx SpecContext) {
+			out := MustSucceed(svc.Read.Normalize(ctx, db, v2.Version,
+				msgpack.EncodedJSON{"device_scan_backlog_warn_on_count": 0},
+			))
+			Expect(out).ToNot(HaveKey("device_scan_backlog_warn_on_count"))
+		})
+
+		It("Should give an absent v2 TCP scan multiplier the default", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.Scan.Normalize(ctx, db, v2.Version,
+				msgpack.EncodedJSON{},
+			))
+			Expect(out["tcp_scan_multiplier"]).To(BeNumerically("==", 10))
+		})
+
+		It("Should reject a scan backlog count of 0", func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"device_scan_backlog_warn_on_count": 0,
+			})).Error().To(MatchError(ContainSubstring(
+				"device_scan_backlog_warn_on_count",
+			)))
 		})
 	})
 })

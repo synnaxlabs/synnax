@@ -329,6 +329,21 @@ describe("User", () => {
       const fresh = createTestClient();
       expect((await fresh.users.retrieve(root.key)).role).toEqual(root.role);
     });
+    test("change no role when one user cannot take it", async () => {
+      const [from, to] = await Promise.all([
+        createEmptyRole(client),
+        createEmptyRole(client),
+      ]);
+      const u = await createUser(from.key);
+      const root = await client.users.retrieve({
+        username: TEST_CREDENTIALS.username,
+      });
+      await expect(client.users.setRole([u.key, root.key], to.key)).rejects.toThrow(
+        `cannot change the role of root user ${root.name}`,
+      );
+      const fresh = createTestClient();
+      expect((await fresh.users.retrieve(u.key)).role).toEqual(from.key);
+    });
     test("refuse a user that does not exist", async () => {
       const r = await createEmptyRole(client);
       await expect(client.users.setRole(uuid.create(), r.key)).rejects.toThrow(
@@ -377,6 +392,14 @@ describe("User", () => {
       await subject.users.setRole(u.key, to.key);
       const fresh = createTestClient();
       expect((await fresh.users.retrieve(u.key)).role).toEqual(to.key);
+    });
+  });
+  describe("Dispatch", () => {
+    test("should apply the action to the user", async () => {
+      const u = await createUser();
+      const name = `dispatched-${id.create()}`;
+      await client.users.dispatch(u.key, user.set({ path: ["name"], value: name }));
+      expect((await createTestClient().users.retrieve(u.key)).name).toEqual(name);
     });
   });
   describe("Delete", () => {

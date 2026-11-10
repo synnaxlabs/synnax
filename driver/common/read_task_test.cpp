@@ -16,16 +16,13 @@
 #include <thread>
 #include <vector>
 
-#include "absl/base/log_severity.h"
-#include "absl/log/log_entry.h"
-#include "absl/log/log_sink.h"
-#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/read_task.h"
+#include "driver/common/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
@@ -127,31 +124,6 @@ public:
         const auto i = std::min(this->reads.load(), this->script.size() - 1);
         this->reads++;
         return this->script[i];
-    }
-};
-
-/// @brief captures the text of every warning line while in scope.
-class WarningSink final : public absl::LogSink {
-    std::mutex mu;
-    std::vector<std::string> lines;
-
-public:
-    WarningSink() { absl::AddLogSink(this); }
-
-    ~WarningSink() override { absl::RemoveLogSink(this); }
-
-    void Send(const absl::LogEntry &entry) override {
-        if (entry.log_severity() != absl::LogSeverity::kWarning) return;
-        std::lock_guard lock(this->mu);
-        this->lines.emplace_back(entry.text_message());
-    }
-
-    /// @brief returns the number of captured lines that contain text.
-    size_t count(const std::string &text) {
-        std::lock_guard lock(this->mu);
-        return std::ranges::count_if(this->lines, [&](const std::string &line) {
-            return line.contains(text);
-        });
     }
 };
 
@@ -290,6 +262,89 @@ TEST(TestCommonReadTask, testErrorOnStart) {
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(start_state.message, "Failed to start task");
     EXPECT_EQ(start_state.description, "start error");
+}
+
+namespace {
+const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
+
+/// @brief creates a read task that reads two frames and then empty frames.
+std::unique_ptr<ReadTask> create_read_task(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const std::shared_ptr<pipeline::testutil::WriterFactory> &writer_factory
+) {
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    reads->emplace_back(0, x::telem::Series(x::telem::TimeStamp::now()));
+    reads->emplace_back(0, x::telem::Series(x::telem::TimeStamp::now()));
+    return std::make_unique<ReadTask>(
+        synnax::task::Task{.key = x::uuid::create()},
+        ctx,
+        x::breaker::Config{.name = "cat", .base_interval = x::telem::MILLISECOND},
+        std::make_unique<MockSource>(reads),
+        writer_factory
+    );
+}
+}
+
+/// @brief it should report a failed start when the writer fails to open.
+TEST(TestCommonReadTask, testWriterOpenErrorFailsStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto read_task = create_read_task(
+        ctx,
+        std::make_shared<pipeline::testutil::WriterFactory>(
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::vector{OPEN_ERR}
+        )
+    );
+    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_EQ(status.description, "no control authority");
+    read_task->stop("stop_cmd", true);
+}
+
+/// @brief it should report a failed start when the writer fails to open on a restart
+/// after it opened on an earlier start.
+TEST(TestCommonReadTask, testWriterOpenErrorOnRestartFailsStart) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const auto writer_factory = std::make_shared<pipeline::testutil::WriterFactory>(
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::vector{x::errors::NIL, OPEN_ERR}
+    );
+    auto read_task = create_read_task(ctx, writer_factory);
+    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(writer_factory->writes->size(), 1);
+    ASSERT_TRUE(read_task->stop("stop_cmd", true));
+    ASSERT_TRUE(read_task->start("start_cmd_2"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 4);
+    const auto status = ctx->snapshot()[3];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    read_task->stop("stop_cmd_2", true);
+}
+
+/// @brief it should report a failed read when the writer fails to reopen after it
+/// opened.
+TEST(TestCommonReadTask, testWriterReopenErrorFailsRead) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    // The second write fails, the writer closes as unreachable, and the reopen fails.
+    auto read_task = create_read_task(
+        ctx,
+        std::make_shared<pipeline::testutil::WriterFactory>(
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::vector{x::errors::NIL, OPEN_ERR},
+            std::vector{freighter::UNREACHABLE},
+            std::vector{1}
+        )
+    );
+    ASSERT_TRUE(read_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[1];
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to read data");
+    EXPECT_EQ(status.description, "no control authority");
+    read_task->stop("stop_cmd", true);
 }
 
 /// @brief it should report error status when source fails to stop.

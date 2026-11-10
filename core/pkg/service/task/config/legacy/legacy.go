@@ -31,6 +31,8 @@ type Rewrite struct {
 	// Post runs after era normalization and carries the integration's shape
 	// migrations. Keys it sees are already snake_case.
 	Post func(config msgpack.EncodedJSON)
+	// Validate rejects a legacy blob the rewrite cannot convert. It runs before Apply.
+	Validate func(config msgpack.EncodedJSON) error
 }
 
 // Apply returns config converted to the current stored shape. The top-level map is

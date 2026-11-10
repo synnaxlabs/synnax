@@ -82,7 +82,6 @@ TEST(TestReadChannelParse, testTCChan) {
         {"range", 0},
         {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
         {"thermocouple_type", "K"},
-        {"neg_chan", 199},
         {"units", "K"},
         {"cjc_source", "TEMPERATURE_DEVICE_K"},
         {"cjc_slope", 1},
@@ -98,7 +97,7 @@ TEST(TestReadChannelParse, testTCChan) {
     ASSERT_EQ(tc_chan->synnax_key, 0);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 3);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -109,20 +108,20 @@ TEST(TestReadChannelParse, testTCChan) {
 std::unique_ptr<InputChan> parse_thermocouple(
     const std::string &port,
     const std::string &cjc_source,
-    const int neg_chan = 199,
-    const std::string &units = "K"
+    const std::string &units = "K",
+    const std::optional<std::uint16_t> neg_chan = std::nullopt
 ) {
-    const x::json::json cfg{
+    x::json::json cfg{
         {"port", port},
         {"channel", 1},
         {"type", "thermocouple"},
         {"thermocouple_type", "K"},
-        {"neg_chan", neg_chan},
         {"units", units},
         {"cjc_source", cjc_source},
         {"cjc_slope", 1},
         {"cjc_offset", 0}
     };
+    if (neg_chan.has_value()) cfg["neg_chan"] = *neg_chan;
     auto p = x::json::Parser(cfg);
     auto chan = parse_input_chan(p);
     EXPECT_NIL(p.error());
@@ -142,6 +141,22 @@ std::unique_ptr<InputChan> parse_analog(const double range) {
     auto chan = parse_input_chan(p);
     EXPECT_NIL(p.error());
     return chan;
+}
+
+/// @brief it should read an analog channel with no negative channel against ground.
+TEST(TestReadChannelParse, testAIChanAbsentNegChanIsGround) {
+    const x::json::json cfg{
+        {"port", "AIN0"},
+        {"channel", 1},
+        {"type", "analog"},
+        {"range", 10},
+    };
+    auto p = x::json::Parser(cfg);
+    const auto chan = parse_input_chan(p);
+    ASSERT_NIL(p.error());
+    const auto *const ai = dynamic_cast<AIChan *>(chan.get());
+    ASSERT_NE(ai, nullptr);
+    ASSERT_EQ(ai->neg_chan, LJM_GND);
 }
 
 /// @brief it should reject an analog channel with a max voltage of zero.
@@ -249,7 +264,7 @@ TEST(TestReadChannelApply, testT8Thermocouple) {
 /// @brief it should turn off the thermocouple feature of the device, and set the
 /// thermocouple range and the negative channel on a T7.
 TEST(TestReadChannelApply, testT7Thermocouple) {
-    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", 3);
+    const auto chan = parse_thermocouple("AIN2", "TEMPERATURE_DEVICE_K", "K", 3);
     const auto dev = std::make_shared<device::Mock>();
     ASSERT_NIL(chan->apply(dev, T7));
     const std::map<std::string, double> expected{
@@ -306,11 +321,11 @@ std::pair<double, x::errors::Error> temperature(
 /// the channel.
 TEST(TestThermocoupleTemperature, testConvertsToUnits) {
     const device::Mock dev;
-    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "K");
+    const auto kelvin = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "K");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(kelvin, dev, 0.001, 300)), 325);
-    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "C");
+    const auto celsius = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "C");
     EXPECT_DOUBLE_EQ(ASSERT_NIL_P(temperature(celsius, dev, 0.001, 300)), 51.85);
-    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, 199, "F");
+    const auto fahrenheit = parse_thermocouple("AIN0", DEVICE_CJC_SOURCE, "F");
     EXPECT_NEAR(ASSERT_NIL_P(temperature(fahrenheit, dev, 0.001, 300)), 125.33, 1e-9);
 }
 
@@ -427,21 +442,6 @@ TEST(TestReadChannelParse, testInvalidChannelType) {
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should derive the backlog threshold from the sample rate when the
-/// count is zero.
-TEST(TestBacklogWarnOnCount, testZeroDerivesFromSampleRate) {
-    const x::json::json cfg{{"device_scan_backlog_warn_on_count", 0}};
-    auto p = x::json::Parser(cfg);
-    const auto count = parse_backlog_warn_on_count(
-        p,
-        "device_scan_backlog_warn_on_count",
-        x::telem::HERTZ * 50,
-        2
-    );
-    ASSERT_NIL(p.error());
-    ASSERT_EQ(count, 100);
-}
-
 /// @brief it should derive the backlog threshold when the count is absent.
 TEST(TestBacklogWarnOnCount, testAbsentDerivesFromSampleRate) {
     const auto cfg = x::json::json::object();
@@ -470,9 +470,9 @@ TEST(TestBacklogWarnOnCount, testExplicitCountKept) {
     ASSERT_EQ(count, 7);
 }
 
-x::json::json basic_read_task_config() {
+x::json::json basic_read_task_config(const std::string &device) {
     return {
-        {"device", "230227d9-02aa-47e4-b370-0d590add1bc1"},
+        {"device", device},
         {"sample_rate", 10},
         {"stream_rate", 5},
         {"data_saving_disabled", false},
@@ -486,7 +486,6 @@ x::json::json basic_read_task_config() {
                {"range", 0},
                {"scale", {{"type", "linear"}, {"slope", 1}, {"offset", 2}}},
                {"thermocouple_type", "K"},
-               {"neg_chan", 199},
                {"units", "K"},
                {"cjc_source", "TEMPERATURE_DEVICE_K"},
                {"cjc_slope", 1},
@@ -512,7 +511,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -538,7 +537,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"][0]["channel"] = tc_ch.key;
     j["channels"][1]["channel"] = di_ch.key;
     j["channels"][2]["channel"] = ai_ch.key;
@@ -561,7 +560,7 @@ TEST(TestReadTaskConfigParse, testBasicReadTaskConfigParse) {
     ASSERT_EQ(tc_chan->synnax_key, tc_ch.key);
     ASSERT_EQ(tc_chan->type, LJM_ttK);
     ASSERT_EQ(tc_chan->pos_chan, 0);
-    ASSERT_EQ(tc_chan->neg_chan, 199);
+    ASSERT_EQ(tc_chan->neg_chan, LJM_GND);
     ASSERT_EQ(tc_chan->units, LJM_KELVIN);
     ASSERT_EQ(tc_chan->cjc_source, DEVICE_CJC_SOURCE);
     ASSERT_EQ(tc_chan->cjc_slope, 1);
@@ -586,7 +585,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -603,7 +602,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     ));
 
     // Create a config with an invalid channel type
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
@@ -624,7 +623,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+        .key = make_unique_channel_name("labjack"),
         .rack = rack.key,
         .location = "dev1",
         .make = "labjack",
@@ -638,7 +637,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
         true
     ));
 
-    auto j = basic_read_task_config();
+    auto j = basic_read_task_config(dev.key);
     j["data_saving_disabled"] = false;
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
@@ -670,7 +669,7 @@ protected:
         auto client = std::make_shared<synnax::Synnax>(new_test_client());
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
         auto dev = synnax::device::Device{
-            .key = "230227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("labjack"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",
@@ -683,7 +682,7 @@ protected:
             x::telem::FLOAT64_T,
             true
         ));
-        auto j = basic_read_task_config();
+        auto j = basic_read_task_config(dev.key);
         if (thermocouple)
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
@@ -694,7 +693,6 @@ protected:
                   {"range", 0},
                   {"scale", {{"type", "none"}}},
                   {"thermocouple_type", "K"},
-                  {"neg_chan", 199},
                   {"units", "K"},
                   {"cjc_source", "TEMPERATURE_DEVICE_K"},
                   {"cjc_slope", 1},
@@ -1036,7 +1034,6 @@ protected:
             {"type", "thermocouple"},
             {"scale", {{"type", "none"}}},
             {"thermocouple_type", "K"},
-            {"neg_chan", 199},
             {"units", "K"},
             {"cjc_source", cjc_source},
             {"cjc_slope", 1},
@@ -1078,8 +1075,7 @@ protected:
         };
         const auto create_err = this->client->devices.create(device);
         EXPECT_NIL(create_err);
-        auto j = basic_read_task_config();
-        j["device"] = device.key;
+        auto j = basic_read_task_config(device.key);
         j["channels"] = channels;
         j["sample_rate"] = sample_rate;
         j["stream_rate"] = stream_rate;

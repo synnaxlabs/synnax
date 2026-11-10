@@ -71,7 +71,7 @@ afterEach(async () => {
 
 /** Creates a certificate with a private key, which makes the key a used secret. */
 const createCertificate = async () => {
-  const c = await client.certificates.create({
+  const c = await client.certificates.set({
     name: uniqueName("certificate"),
     source: "stored",
     ...CERTIFICATE,
@@ -214,7 +214,7 @@ describe("secret/Toolbar", () => {
   });
 
   it("offers no replacement for a file secret", async () => {
-    const s = await client.secrets.create({
+    const s = await client.secrets.set({
       name: uniqueName("secret"),
       source: "file",
       path: "/etc/synnax/token",

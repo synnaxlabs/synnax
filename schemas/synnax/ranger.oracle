@@ -72,27 +72,17 @@ Range struct {
 
         @doc value """
             replaces the range with the given created state. Emitted by the Core when a
-            range is created or overwritten whole; clients never dispatch it.
+            range is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the range."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the range.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the range."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the range."
-    }
+    action Move = patch.Move
 
     @cpp includes    "client/cpp/ranger/kv/kv.h"
     @cpp methods     "ranger::kv::Client kv"

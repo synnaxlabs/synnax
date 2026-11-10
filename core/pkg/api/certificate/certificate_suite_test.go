@@ -41,15 +41,14 @@ var (
 	db  *gorp.DB
 	svc *service.Layer
 	// The handlers run the routes as the API layer binds them.
-	create freighter.UnaryHandler[
-		apicertificate.CreateRequest,
-		apicertificate.CreateResponse,
+	set freighter.UnaryHandler[
+		apicertificate.SetRequest,
+		apicertificate.SetResponse,
 	]
 	retrieve freighter.UnaryHandler[
 		apicertificate.RetrieveRequest,
 		apicertificate.RetrieveResponse,
 	]
-	rename   freighter.UnaryHandler[apicertificate.RenameRequest, struct{}]
 	del      freighter.UnaryHandler[apicertificate.DeleteRequest, struct{}]
 	dispatch freighter.UnaryHandler[apicertificate.DispatchRequest, struct{}]
 )
@@ -67,9 +66,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Held: apiauth.HeldTables(),
 	}))
-	create = bind.Write(binder, apiSvc.Create)
+	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
-	rename = bind.Write(binder, apiSvc.Rename)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 })

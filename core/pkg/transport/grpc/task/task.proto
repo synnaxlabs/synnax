@@ -33,6 +33,10 @@ service TaskCopyService {
   rpc Exec(CopyRequest) returns (CopyResponse);
 }
 
+service TaskDispatchService {
+  rpc Exec(DispatchRequest) returns (google.protobuf.Empty);
+}
+
 message CreateRequest {
   repeated service.task.pb.Task tasks = 1;
 }
@@ -59,4 +63,13 @@ message CopyRequest {
 
 message CopyResponse {
   service.task.pb.Task task = 1;
+}
+
+// DispatchRequest applies actions to one task.
+message DispatchRequest {
+  string key = 1;
+  string dispatch_key = 2;
+  // actions holds the JSON encoding of each action, in the shape the HTTP dispatch
+  // route takes, such as {"type": "set", "set": {...}}.
+  repeated bytes actions = 3;
 }

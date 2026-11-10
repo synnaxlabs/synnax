@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, NotFoundError } from "@synnaxlabs/client";
+import { access, NotFoundError } from "@synnaxlabs/client";
 import {
   createEmptyRole,
   createTestClient,
@@ -16,7 +16,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import { Role } from "@/access/role";
 import { Flux } from "@/flux";
@@ -95,6 +95,42 @@ describe("queries", () => {
     });
   });
 
+  describe("useMultiple", () => {
+    it("should retrieve the roles with the keys", async () => {
+      const prefix = id.create();
+      const a = await client.access.roles.create({ name: `${prefix}-a` });
+      const b = await client.access.roles.create({ name: `${prefix}-b` });
+      const { result } = await renderHookSuspended(
+        () => Role.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current?.map(({ key }) => key).sort()).toEqual(
+          [a.key, b.key].sort(),
+        ),
+      );
+    });
+
+    it("should update when one of the roles changes", async () => {
+      const prefix = id.create();
+      const a = await client.access.roles.create({ name: `${prefix}-a` });
+      const b = await client.access.roles.create({ name: `${prefix}-b` });
+      const { result } = await renderHookSuspended(
+        () => Role.useMultiple({ keys: [a.key, b.key] }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toHaveLength(2));
+      await act(async () => {
+        await client.access.roles.rename(a.key, `${prefix}-renamed`);
+      });
+      await waitFor(() =>
+        expect(result.current).toContainEqual(
+          expect.objectContaining({ key: a.key, name: `${prefix}-renamed` }),
+        ),
+      );
+    });
+  });
+
   describe("useResultForUser", () => {
     const createUser = async (prefix: string, role: access.role.Key) =>
       await client.users.create({
@@ -143,7 +179,10 @@ describe("queries", () => {
         wrapper,
       });
       await waitFor(() => expect(result.current.data?.description).toEqual("Before"));
-      await remote.access.roles.create({ ...role, description: "After" });
+      await remote.access.roles.dispatch(
+        role.key,
+        access.role.set({ path: ["description"], value: "After" }),
+      );
       await waitFor(() => expect(result.current.data?.description).toEqual("After"));
     });
 
@@ -178,14 +217,13 @@ describe("queries", () => {
         name: "testRole",
         description: "Test description",
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Role.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Role.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: role.key, name: "newName" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.access.roles.watch(role.key).getCached()).toMatchObject({
+        name: "newName",
+      });
     });
   });
 
