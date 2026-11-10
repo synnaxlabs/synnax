@@ -351,6 +351,8 @@ TEST(ReadSettings, ReturnsNoSettingsWhenTheModeReadGetsNoAnswer) {
         STG_OP_MODES,
         aborting_at(0x8020, 9, 0)
     );
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(coe::OBJECT_MISSING));
     EXPECT_EQ(err.data, "failed to read 0x8020:09: no response");
     EXPECT_FALSE(settings.has_value());
 }
