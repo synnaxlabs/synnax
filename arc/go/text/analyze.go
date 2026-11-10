@@ -749,11 +749,13 @@ func lowerComputedDecl(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (varEntry, bool) {
+	// A series has no register and cannot be read outside a function, so its
+	// declaration lowers to nothing.
 	if e.register == nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-			"variable '%s' of type %s cannot have a computed initializer",
+		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,
+			"variable '%s' of type %s has no effect outside a function",
 			sym.Name, sym.Type))
-		return varEntry{}, false
+		return varEntry{}, true
 	}
 	res, ok := analyzeExpression(ctx.Child(expr), kg, shell, true)
 	if !ok {

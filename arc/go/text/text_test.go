@@ -1972,6 +1972,26 @@ var _ = Describe("Text", func() {
 					"y -> out_ch\n}\n}"),
 		)
 
+		DescribeTable("Should warn on a series declaration outside a function",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				warnings := testutil.Warnings(diagnostics)
+				Expect(warnings).To(HaveLen(1))
+				Expect(warnings[0].Message).To(Equal(
+					"variable 'data' of type series f64 has no effect outside a function",
+				))
+				Expect(inter.Nodes).To(BeEmpty())
+			},
+			Entry("top level", "data := [1.0, 2.0, 3.0]"),
+			Entry("stage", "sequence main {\nstage a {\ndata := [1.0, 2.0]\n}\n}"),
+		)
+
 		DescribeTable("Should lower reactive re-expression and alias rebind",
 			func(ctx SpecContext, source string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

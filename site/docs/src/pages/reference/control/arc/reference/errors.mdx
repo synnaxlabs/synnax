@@ -234,10 +234,13 @@ This section lists the most common diagnostics without a code, not all of them.
     Start from a literal or an expression that reads no channel.
   </Problem.Fix>
 </Problem.Item>
-<Problem.Item message={"variable '<x>' of type <T> cannot have a computed initializer"}>
+<Problem.Item
+  severity="warning"
+  message={"variable '<x>' of type <T> has no effect outside a function"}
+>
   <Problem.Cause>
-    A `:=` or `$=` outside a function starts from a value of a type with no zero value,
-    such as a series. A series literal counts.
+    A `:=` or `$=` outside a function declares a series. Code outside a function cannot
+    read a series, so the compiler drops the declaration.
   </Problem.Cause>
   <Problem.Fix>Declare the variable in the function that uses it.</Problem.Fix>
 </Problem.Item>
