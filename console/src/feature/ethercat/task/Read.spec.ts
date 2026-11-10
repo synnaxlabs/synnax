@@ -9,6 +9,7 @@
 
 import {
   channel,
+  device,
   type ethercat,
   type rack,
   type Synnax,
@@ -80,6 +81,19 @@ const renderRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) 
   });
   await awaitEditableForm();
   return { ...rendered, draft, statuses };
+};
+
+/** Deploys a new read task with the config and unmounts its form. */
+const deployRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) => {
+  const rendered = await renderRead(config);
+  const deployed = await deployAndAwaitTask(
+    client,
+    rendered.container,
+    rendered.draft.key,
+    EtherCAT.Task.READ_SCHEMAS,
+  );
+  rendered.unmount();
+  return deployed;
 };
 
 const awaitStatus = async (
@@ -511,8 +525,10 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.readIndex).not.toBe(0);
-    expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(status.channel);
-    expect(updated.properties.read.channels[`${0x6000}_2`]).toBe(named.channel);
+    expect(updated.properties.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, channel: status.channel },
+      { index: 0x6000, subIndex: 2, scaled: false, channel: named.channel },
+    ]);
     const index = await client.channels.retrieve(updated.properties.readIndex);
     expect(index.name).toBe(`${identifier}_time`);
     expect(index.isIndex).toBe(true);
@@ -543,7 +559,12 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     inputs.forEach((e, i) =>
-      expect(updated.properties.read.channels[`${e.index}_1`]).toBe(keys[i]),
+      expect(updated.properties.read.channels).toContainEqual({
+        index: e.index,
+        subIndex: 1,
+        scaled: false,
+        channel: keys[i],
+      }),
     );
   });
 
@@ -851,7 +872,9 @@ describe("Read", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    expect(updated.properties.read.channels[`${0x6000}_2`]).toBeUndefined();
+    expect(updated.properties.read.channels).not.toContainEqual(
+      expect.objectContaining({ index: 0x6000, subIndex: 2 }),
+    );
   });
 
   it("should reject an index name that another slave's index holds", async () => {
@@ -932,7 +955,12 @@ describe("Read", () => {
     const owner = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
-      write: { channels: { [`${0x7000}_1`]: deleted.key, [`${0x7000}_2`]: cmd.key } },
+      write: {
+        channels: [
+          { index: 0x7000, subIndex: 1, command: deleted.key, state: 0 },
+          { index: 0x7000, subIndex: 2, command: cmd.key, state: 0 },
+        ],
+      },
     });
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: `${base}_cmd`,
@@ -1074,8 +1102,10 @@ describe("Read", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(rawKey);
-    expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
+    expect(updated.properties.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, channel: rawKey },
+      { index: 0x6000, subIndex: 1, scaled: true, channel: scaledKey },
+    ]);
   });
 
   describe("a typed name that the other channel of the entry holds", () => {
@@ -1153,7 +1183,7 @@ describe("Read", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    expect(updated.properties.read.channels).toEqual({});
+    expect(updated.properties.read.channels).toEqual([]);
   });
 
   it("should reject a typed name that new channels of two slaves share", async () => {
@@ -1186,7 +1216,7 @@ describe("Read", () => {
         schemas: EtherCAT.Device.SLAVE_SCHEMAS,
       });
       expect(updated.properties.readIndex).toBe(0);
-      expect(updated.properties.read.channels).toEqual({});
+      expect(updated.properties.read.channels).toEqual([]);
     }
     expect(await client.channels.retrieve({ name: [name] })).toEqual([]);
   });
@@ -1269,48 +1299,182 @@ describe("Read", () => {
         },
       ],
     };
-    const deploy = async () => {
-      const rendered = await renderRead(config);
-      const deployed = await deployAndAwaitTask(
-        client,
-        rendered.container,
-        rendered.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      rendered.unmount();
-      return deployed.config.channels[0].channel;
-    };
+    const deploy = async () => (await deployRead(config)).config.channels[0].channel;
     const first = await deploy();
     expect(await deploy()).toBe(first);
   });
 
-  it("should reject a data type that differs from the mapped channel's", async () => {
+  it("should keep the channels that a slave stores as a map keyed by address", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),
       network: "eth0",
       pdos: createPDOs(),
     });
-    const render = async (dataType: string) =>
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    };
+    const deploy = async () => (await deployRead(config)).config.channels[0].channel;
+    const first = await deploy();
+    await client.devices.dispatch(
+      slave.key,
+      device.set({
+        path: ["properties", "read", "channels"],
+        value: { [`${0x6000}_1`]: first },
+      }),
+    );
+    expect(await deploy()).toBe(first);
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, channel: first },
+    ]);
+  });
+
+  describe("a data type that differs from the type of the entry's channel", () => {
+    const createStatusSlave = async () => {
+      const identifier = createIdentifier();
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier,
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const statusChannel = (dataType: string, name = "") => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, {
+          ...STATUS_ENTRY,
+          dataType,
+        }),
+        name,
+      });
+      const tasks: task.Key[] = [];
+      const deploy = async (dataTypes: string[], name = "") => {
+        const deployed = await deployRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: dataTypes.map((dataType) => statusChannel(dataType, name)),
+        });
+        tasks.push(deployed.key);
+        return deployed.config.channels.map(({ channel }) => channel);
+      };
+      return { identifier, slave, statusChannel, deploy, tasks };
+    };
+
+    it("should get its own channel, and the first type should keep its channel", async () => {
+      const { identifier, slave, deploy } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      const [typed] = await deploy(["int16"]);
+      expect(typed).not.toBe(first);
+      const created = await client.channels.retrieve(typed);
+      expect(created.name).toBe(`${identifier}_Status_int16`);
+      expect(created.dataType.toString()).toBe("int16");
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.read.channels).toEqual([
+        { index: 0x6000, subIndex: 1, scaled: false, channel: first },
+        { index: 0x6000, subIndex: 1, scaled: false, channel: typed },
+      ]);
+      expect(await deploy(["uint16"])).toEqual([first]);
+    });
+
+    it("should keep its own channel after the entry's first channel is deleted", async () => {
+      const { deploy, tasks } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      const [typed] = await deploy(["int16"]);
+      // The Core refuses to delete a channel that a task uses.
+      await client.tasks.delete(tasks);
+      await client.channels.delete(first);
+      expect(await deploy(["int16"])).toEqual([typed]);
+    });
+
+    it("should replace the binding of a deleted channel", async () => {
+      const { slave, deploy, tasks } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      await client.tasks.delete(tasks);
+      await client.channels.delete(first);
+      const [second] = await deploy(["uint16"]);
+      expect(second).not.toBe(first);
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.read.channels).toEqual([
+        { index: 0x6000, subIndex: 1, scaled: false, channel: second },
+      ]);
+    });
+
+    it("should end the name the user gave it in its type", async () => {
+      const { deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      const [first] = await deploy(["uint16"], name);
+      const [typed] = await deploy(["int16"], name);
+      expect(typed).not.toBe(first);
+      const created = await client.channels.retrieve(typed);
+      expect(created.name).toBe(`${name}_int16`);
+      expect(created.dataType.toString()).toBe("int16");
+      expect(await deploy(["uint16"], name)).toEqual([first]);
+    });
+
+    it("should show the name of its own channel before deploying", async () => {
+      const { identifier, statusChannel, deploy } = await createStatusSlave();
+      await deploy(["uint16"]);
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [
-          EtherCAT.Task.createEntryReadChannel(slave.key, {
-            ...STATUS_ENTRY,
-            dataType,
-          }),
-        ],
+        channels: [statusChannel("int16")],
       });
-    const first = await render("uint16");
-    await deployAndAwaitTask(
-      client,
-      first.container,
-      first.draft.key,
-      EtherCAT.Task.READ_SCHEMAS,
-    );
-    first.unmount();
-    const { container, statuses } = await render("int16");
-    await clickDeploy(container);
-    await awaitStatus(statuses, /holds uint16 data, not int16/);
+      const item = await findChannelListItem(`${identifier}_Status_int16`);
+      expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+    });
+
+    it("should show the name the user gave it in its type before deploying", async () => {
+      const { statusChannel, deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      await deploy(["uint16"], name);
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [statusChannel("int16", name)],
+      });
+      const item = await findChannelListItem(`${name}_int16`);
+      expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+    });
+
+    it("should keep one scaled channel for every raw type", async () => {
+      const { identifier, statusChannel } = await createStatusSlave();
+      const deployScaled = async (dataType: string) =>
+        (
+          await deployRead({
+            ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+            channels: [{ ...statusChannel(dataType), scale: LINEAR }],
+          })
+        ).config.channels[0].channel;
+      const first = await deployScaled("uint16");
+      expect(await deployScaled("int16")).toBe(first);
+      expect((await client.channels.retrieve(first)).name).toBe(
+        `${identifier}_Status_scaled`,
+      );
+    });
+
+    it("should not end the name of a scaled channel in its raw type", async () => {
+      const { statusChannel, deploy } = await createStatusSlave();
+      await deploy(["uint16"]);
+      const name = uniqueName("ecat_pressure");
+      const deployed = await deployRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [{ ...statusChannel("int16", name), scale: LINEAR }],
+      });
+      const key = deployed.config.channels[0].channel;
+      expect((await client.channels.retrieve(key)).name).toBe(name);
+    });
+
+    it("should not add its type to a name that ends in it", async () => {
+      const { deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      await deploy(["uint16"], name);
+      const [typed] = await deploy(["int16"], `${name}_int16`);
+      expect((await client.channels.retrieve(typed)).name).toBe(`${name}_int16`);
+    });
   });
 
   it("should reject a channel of an input that only DewesoftX reads", async () => {
@@ -1405,7 +1569,9 @@ describe("Read", () => {
       const second = await deploySlave(identifier);
       expect(second.channel).toBe(first.channel);
       expect(second.slave.properties.readIndex).toBe(first.slave.properties.readIndex);
-      expect(second.slave.properties.read.channels[`${0x6000}_1`]).toBe(first.channel);
+      expect(second.slave.properties.read.channels).toEqual([
+        { index: 0x6000, subIndex: 1, scaled: false, channel: first.channel },
+      ]);
     });
 
     it("should reject two entries that share the name of a deleted slave's channel", async () => {
@@ -1488,7 +1654,14 @@ describe("Read", () => {
       await deleteSlave(first.slave.key, first.task);
       const { container, statuses } = await renderSlave(identifier, "int16");
       await clickDeploy(container);
-      await awaitStatus(statuses, /holds uint16 data, not int16/);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `^Channel ${identifier}_Status holds uint16 data, not int16\\. Set the ` +
+            `data type to uint16, or delete channel ${identifier}_Status so the ` +
+            "task can create it again\\.$",
+        ),
+      );
     });
   });
 
@@ -1516,7 +1689,7 @@ describe("Read", () => {
       key: slave.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    expect(updated.properties.read.channels).toEqual({});
+    expect(updated.properties.read.channels).toEqual([]);
   });
 
   it("should mark the channel list when the task has no channels", async () => {

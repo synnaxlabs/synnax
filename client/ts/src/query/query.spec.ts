@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   AccessDeniedError,
+  AuthError,
   ExpiredLicenseError,
   MissingLicenseError,
   NotFoundError,
@@ -355,7 +356,10 @@ describe("Answers", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
-    it("should stay silent when the change stream is denied", async () => {
+    it.each([
+      ["denied", AccessDeniedError],
+      ["refused for a failed login", AuthError],
+    ])("should stay silent when the change stream is %s", async (_, StreamError) => {
       const table = newTable();
       const onError = vi.fn();
       const answers = singleSpace(
@@ -366,7 +370,7 @@ describe("Answers", () => {
         },
         {
           ensureStreaming: async () => {
-            throw new AccessDeniedError("no permission to stream");
+            throw new StreamError("refused");
           },
           onError,
         },
