@@ -765,6 +765,14 @@ jobs:
             ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
             runner.name) || '~/setup-pnpm' }}
 
+      # The Console's version guard reads the TypeScript client's version.
+      - name: Stamp package versions
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == '' && inputs.release_tag != ''
+        shell: bash
+        env:
+          VERSION: ${{ needs.setup.outputs.VERSION }}
+        run: .github/scripts/stamp_versions.sh "$VERSION"
+
       - name: Build Console web assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
