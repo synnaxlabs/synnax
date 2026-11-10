@@ -84,7 +84,7 @@ Examples:
 	return cmd
 }
 
-func runCheck(cmd *cobra.Command, _ []string) error {
+func runCheck(cmd *cobra.Command, _ []string) (err error) {
 	ctx := cmd.Context()
 
 	gates := lo.Must(cmd.Flags().GetStringSlice(checkGatesFlag))
@@ -154,11 +154,11 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 
 	var shipped *check.Release
 	if wantedGates.has("versions") && len(result.Chains) > 0 {
-		release, err := extractRelease(ctx, repoRoot)
-		if err != nil {
+		var release check.Release
+		if release, err = extractRelease(ctx, repoRoot); err != nil {
 			return err
 		}
-		defer func() { _ = os.RemoveAll(release.Root) }()
+		defer func() { err = errors.Combine(err, os.RemoveAll(release.Root)) }()
 		shipped = &release
 	}
 
