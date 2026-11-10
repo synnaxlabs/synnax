@@ -103,7 +103,7 @@ const beforeValidate = ({
   }
   const { host, port } = connection;
   // Brackets keep the colons of an IPv6 host apart from the port's.
-  const shown = host.includes(":") ? `[${host}]` : host;
+  const shown = host.includes(":") && !host.startsWith("[") ? `[${host}]` : host;
   set(path.location, `${shown}:${port}`);
 };
 
