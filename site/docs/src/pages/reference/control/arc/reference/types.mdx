@@ -179,7 +179,7 @@ func peak() f64 {
   `data + [1.0, 2.0]` fails with `series literal requires series type hint`.
 - A slice is a series. `sub := data[1:3]` gives `series f64`, and `x f64 := data[1:3]`
   fails with `cannot assign series f64 to 'x' (type f64)`.
-- An index outside the series gives `0` on the Core and an error on a Driver. See
+- A negative index counts from the end. An index outside the series is an error. See
   [errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).
 - A top-level series is not a constant. Its declaration fails with
   `variable 'data' of type series f64 cannot have a computed initializer`.

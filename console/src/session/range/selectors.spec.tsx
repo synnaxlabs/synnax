@@ -29,12 +29,18 @@ const DYNAMIC: Range.DynamicState = {
   span: 1000,
 };
 
-const EMPTY_STATE: Range.SliceState = { version: 0, selected: undefined, ranges: [] };
+const EMPTY_STATE: Range.SliceState = {
+  version: 0,
+  selected: undefined,
+  ranges: [],
+  staticKeysRewritten: false,
+};
 
 const stateWith = (ranges: Range.State[], selected?: string): Range.SliceState => ({
   version: 0,
   selected,
   ranges,
+  staticKeysRewritten: false,
 });
 
 const storeWith = (ranges: Range.State[], selected?: string): Range.StoreState => ({

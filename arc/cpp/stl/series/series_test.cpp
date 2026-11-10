@@ -229,6 +229,16 @@ private:
     }
 };
 
+/// @brief asserts that result is a failure with text in its message.
+void expect_failure(
+    const wasmtime::TrapResult<std::vector<wasmtime::Val>> &result,
+    const std::string &text
+) {
+    ASSERT_FALSE(static_cast<bool>(result));
+    const auto message = result.err_ref().message();
+    EXPECT_NE(message.find(text), std::string::npos) << message;
+}
+
 ////////////////////// Chunk 1: create_empty, set_element, index //////////////////////
 
 #define TEST_CREATE_EMPTY(suffix, wasm_val_type)                                       \
@@ -274,6 +284,64 @@ private:
         EXPECT_EQ(val_r[0].get_val(), 0);                                              \
     }
 
+#define TEST_INDEX_NEGATIVE(suffix, make_val, get_val, cpp_val)                        \
+    TEST(SeriesModule, IndexNegativeCountsFromEnd_##suffix) {                          \
+        Fixture f(build_core_wat(#suffix));                                            \
+        auto handle_r = f.get("create_empty")                                          \
+                            .call(f.store, {wasmtime::Val(int32_t{3})})                \
+                            .unwrap();                                                 \
+        auto h = handle_r[0].i32();                                                    \
+        (void) f.get("set_element")                                                    \
+            .call(                                                                     \
+                f.store,                                                               \
+                {wasmtime::Val(h),                                                     \
+                 wasmtime::Val(int32_t{-1}),                                           \
+                 wasmtime::Val(make_val)}                                              \
+            )                                                                          \
+            .unwrap();                                                                 \
+        for (const int32_t index: {2, -1}) {                                           \
+            auto val_r = f.get("index")                                                \
+                             .call(f.store, {wasmtime::Val(h), wasmtime::Val(index)})  \
+                             .unwrap();                                                \
+            EXPECT_EQ(val_r[0].get_val(), cpp_val);                                    \
+        }                                                                              \
+    }
+
+#define TEST_INDEX_OUT_OF_BOUNDS(suffix, make_val)                                     \
+    TEST(SeriesModule, IndexOutOfBoundsTraps_##suffix) {                               \
+        Fixture f(build_core_wat(#suffix));                                            \
+        auto handle_r = f.get("create_empty")                                          \
+                            .call(f.store, {wasmtime::Val(int32_t{3})})                \
+                            .unwrap();                                                 \
+        auto h = handle_r[0].i32();                                                    \
+        for (const int32_t index: {3, -4})                                             \
+            expect_failure(                                                            \
+                f.get("index")                                                         \
+                    .call(f.store, {wasmtime::Val(h), wasmtime::Val(index)}),          \
+                "index " + std::to_string(index) +                                     \
+                    " out of bounds for series of size 3"                              \
+            );                                                                         \
+    }                                                                                  \
+    TEST(SeriesModule, SetElementOutOfBoundsTraps_##suffix) {                          \
+        Fixture f(build_core_wat(#suffix));                                            \
+        auto handle_r = f.get("create_empty")                                          \
+                            .call(f.store, {wasmtime::Val(int32_t{3})})                \
+                            .unwrap();                                                 \
+        auto h = handle_r[0].i32();                                                    \
+        for (const int32_t index: {3, -4})                                             \
+            expect_failure(                                                            \
+                f.get("set_element")                                                   \
+                    .call(                                                             \
+                        f.store,                                                       \
+                        {wasmtime::Val(h),                                             \
+                         wasmtime::Val(index),                                         \
+                         wasmtime::Val(make_val)}                                      \
+                    ),                                                                 \
+                "index " + std::to_string(index) +                                     \
+                    " out of bounds for series of size 3"                              \
+            );                                                                         \
+    }
+
 TEST_CREATE_EMPTY(u8, i32)
 TEST_CREATE_EMPTY(u16, i32)
 TEST_CREATE_EMPTY(u32, i32)
@@ -310,9 +378,35 @@ TEST_INDEX_NULL_HANDLE(f32, f32)
 TEST_INDEX_NULL_HANDLE(f64, f64)
 TEST_INDEX_NULL_HANDLE(bool, i32)
 
+TEST_INDEX_NEGATIVE(u8, int32_t{42}, i32, 42)
+TEST_INDEX_NEGATIVE(u16, int32_t{1000}, i32, 1000)
+TEST_INDEX_NEGATIVE(u32, int32_t{70000}, i32, 70000)
+TEST_INDEX_NEGATIVE(u64, int64_t{100000}, i64, 100000)
+TEST_INDEX_NEGATIVE(i8, int32_t{-5}, i32, -5)
+TEST_INDEX_NEGATIVE(i16, int32_t{-300}, i32, -300)
+TEST_INDEX_NEGATIVE(i32, int32_t{-70000}, i32, -70000)
+TEST_INDEX_NEGATIVE(i64, int64_t{-100000}, i64, -100000)
+TEST_INDEX_NEGATIVE(f32, float{3.14f}, f32, 3.14f)
+TEST_INDEX_NEGATIVE(f64, double{2.718}, f64, 2.718)
+TEST_INDEX_NEGATIVE(bool, int32_t{1}, i32, 1)
+
+TEST_INDEX_OUT_OF_BOUNDS(u8, int32_t{42})
+TEST_INDEX_OUT_OF_BOUNDS(u16, int32_t{1000})
+TEST_INDEX_OUT_OF_BOUNDS(u32, int32_t{70000})
+TEST_INDEX_OUT_OF_BOUNDS(u64, int64_t{100000})
+TEST_INDEX_OUT_OF_BOUNDS(i8, int32_t{-5})
+TEST_INDEX_OUT_OF_BOUNDS(i16, int32_t{-300})
+TEST_INDEX_OUT_OF_BOUNDS(i32, int32_t{-70000})
+TEST_INDEX_OUT_OF_BOUNDS(i64, int64_t{-100000})
+TEST_INDEX_OUT_OF_BOUNDS(f32, float{3.14f})
+TEST_INDEX_OUT_OF_BOUNDS(f64, double{2.718})
+TEST_INDEX_OUT_OF_BOUNDS(bool, int32_t{1})
+
 #undef TEST_CREATE_EMPTY
 #undef TEST_SET_AND_INDEX
 #undef TEST_INDEX_NULL_HANDLE
+#undef TEST_INDEX_NEGATIVE
+#undef TEST_INDEX_OUT_OF_BOUNDS
 
 ////////////////////// Chunk 2: element ops (add/sub/mul/div/mod + reverse) ////////////
 
@@ -990,28 +1084,6 @@ TEST(SeriesModule, SetElementBoolNormalizesNonzero) {
         )
         .unwrap();
     EXPECT_EQ(index_bool(f, h, 0), 1);
-}
-
-TEST(SeriesModule, SetElementBoolOutOfBoundsIsIgnored) {
-    Fixture f{std::string(MISC_WAT)};
-    auto h = make_bool_series(f, {1, 0});
-    auto result = f.get("set_element_bool")
-                      .call(
-                          f.store,
-                          {wasmtime::Val(h),
-                           wasmtime::Val(int32_t{5}),
-                           wasmtime::Val(int32_t{1})}
-                      )
-                      .unwrap();
-    EXPECT_EQ(result[0].i32(), h);
-    EXPECT_EQ(index_bool(f, h, 0), 1);
-    EXPECT_EQ(index_bool(f, h, 1), 0);
-}
-
-TEST(SeriesModule, IndexBoolOutOfBoundsReturnsZero) {
-    Fixture f{std::string(MISC_WAT)};
-    auto h = make_bool_series(f, {1, 1});
-    EXPECT_EQ(index_bool(f, h, 5), 0);
 }
 
 const std::string_view BOOL_OPS_WAT = R"wat(

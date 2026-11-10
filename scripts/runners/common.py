@@ -259,7 +259,7 @@ def parameter_store() -> ParameterStore:
 
 def secret(name: str, *, store: ParameterStore) -> str:
     """The environment variable name, else the SecureString parameter /runners/<name>
-    in store, lowercased with dashes (GH_TOKEN reads /runners/gh-token). Raises when
+    in store, lowercased with dashes (GH_APP_KEY reads /runners/gh-app-key). Raises when
     the parameter does not exist."""
     if value := os.environ.get(name):
         return value

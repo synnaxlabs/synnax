@@ -71,7 +71,7 @@ mask := data > 2.0 // [false, false, true] (series bool)
 
 **Rules**:
 
-- Out-of-bounds access = runtime error
+- `data[-1]` is the last element. Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Comparisons return `series bool` elementwise
 - Empty `[]` without a type takes its element type from its first typed write or use.
