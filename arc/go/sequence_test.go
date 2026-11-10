@@ -9266,8 +9266,8 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	// A stage sees only samples taken after it was entered. A batch sampled before
-	// entry but delivered after it must not reach the stage.
+	// A stage sees every sample that arrives after it was entered, whatever its stamp.
+	// The sender's clock can be skewed from the runtime's.
 	Describe("Stage entry samples", func() {
 		const (
 			startCmd = 420
@@ -9309,52 +9309,24 @@ var _ = Describe("Sequence", func() {
 			return got
 		}
 
-		It("Should drop a batch taken entirely before entry", func(ctx SpecContext) {
-			h := newH(ctx)
-			defer h.Close(ctx)
-			trigger(h, ctx, startCmd)
-			pre := h.cycleNow
-			trigger(h, ctx, goCmd)
-			h.IngestIndexed(
-				ptIdx,
-				telem.NewSeriesV(
-					pre-36*telem.MillisecondTS,
-					pre-25*telem.MillisecondTS,
-					pre-14*telem.MillisecondTS,
-				),
-				pt,
-				telem.NewSeriesV[float32](289.6, 289.6, 289.6),
-			)
-			for range 5 {
-				advance(h, ctx, telem.Millisecond)
-			}
-			Expect(seen(h)).To(BeEmpty())
-		})
-
 		It(
-			"Should emit only the samples taken at or after entry from a straddling batch",
+			"Should emit samples that arrive after entry from a sender 3 s behind",
 			func(ctx SpecContext) {
 				h := newH(ctx)
 				defer h.Close(ctx)
 				trigger(h, ctx, startCmd)
-				pre := h.cycleNow
 				trigger(h, ctx, goCmd)
-				post := h.cycleNow
+				behind := h.cycleNow - 3*telem.SecondTS
 				h.IngestIndexed(
 					ptIdx,
-					telem.NewSeriesV(
-						pre-10*telem.MillisecondTS,
-						pre,
-						post,
-						post+telem.MillisecondTS,
-					),
+					telem.NewSeriesV(behind, behind+telem.MillisecondTS),
 					pt,
-					telem.NewSeriesV[float32](1, 2, 3, 4),
+					telem.NewSeriesV[float32](1, 2),
 				)
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
 				}
-				Expect(seen(h)).To(Equal([]float32{3, 4}))
+				Expect(seen(h)).To(Equal([]float32{1, 2}))
 			},
 		)
 	})

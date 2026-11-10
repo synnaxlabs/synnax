@@ -19,16 +19,12 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// A persistence check armed on stage entry acts only on samples taken inside the
-// stage (SY-5456) and measures its hold in sample time (SY-5457). Telemetry reaches
-// the runtime one delivery latency late, so the first batch a stage sees was sampled
-// before entry.
+// A persistence check armed on stage entry measures its hold in sample time
+// (SY-5457). Telemetry reaches the runtime one delivery latency late.
 //
 // Timeline, with T the stamp at which the run stage enters:
 //
-//	T-34 .. T-14 ms  samples below 300 are taken, during the previous stage
 //	T                run stage enters, check armed, step=700 written
-//	T+2              that batch is delivered and dropped
 //	T+22             a batch taken inside the stage is delivered
 //
 // A func with a flow-fed input runs once per sample with the sample's stamp. An
@@ -162,12 +158,6 @@ sequence main {
 		return telem.NewSeriesV(stamps...), telem.NewSeriesV(values...)
 	}
 
-	// staleBatch was taken 34 to 14 ms before entry: the batch the stage sees first,
-	// one 16 ms delivery latency late.
-	staleBatch := func(entry telem.TimeStamp) (telem.Series, telem.Series) {
-		return lowBatch(entry - 34*telem.MillisecondTS)
-	}
-
 	expectAbortAt := func(out telem.Frame[uint32], entry, at telem.TimeStamp) {
 		GinkgoHelper()
 		vals, stamps := stepWrites(out)
@@ -184,7 +174,7 @@ sequence main {
 		const check = `sensor -> low_for_50() => shutdown`
 
 		It(
-			"Ignores the stale batch and trips on one taken inside the stage",
+			"Trips on a batch taken inside the stage",
 			func(ctx SpecContext) {
 				h := newHarness(ctx, check)
 				defer h.Close(ctx)
@@ -192,15 +182,9 @@ sequence main {
 				h.clock.Source = func() telem.TimeStamp { return now }
 				entry := enterRun(ctx, h, &now)
 
-				stamps, values := staleBatch(entry)
+				stamps, values := lowBatch(entry)
 				h.IngestIndexed(sensorIdxKey, stamps, sensorKey, values)
-				out := cycle(ctx, h, &now, entry+2*telem.MillisecondTS)
-				Expect(seenCount(out)).To(Equal(0), "pre-entry samples are dropped")
-				expectNoAbort(out)
-
-				stamps, values = lowBatch(entry)
-				h.IngestIndexed(sensorIdxKey, stamps, sensorKey, values)
-				out = cycle(ctx, h, &now, entry+22*telem.MillisecondTS)
+				out := cycle(ctx, h, &now, entry+22*telem.MillisecondTS)
 				Expect(seenCount(out)).To(Equal(100))
 				expectAbortAt(out, entry, entry+22*telem.MillisecondTS)
 			},
@@ -211,7 +195,7 @@ sequence main {
 		const check = `sensor -> is_low() -> stable.for(duration=10ms) => shutdown`
 
 		It(
-			"Ignores the stale batch and trips on one taken inside the stage",
+			"Trips on a batch taken inside the stage",
 			func(ctx SpecContext) {
 				h := newHarness(ctx, check)
 				defer h.Close(ctx)
@@ -219,16 +203,10 @@ sequence main {
 				h.clock.Source = func() telem.TimeStamp { return now }
 				entry := enterRun(ctx, h, &now)
 
-				stamps, values := staleBatch(entry)
-				h.IngestIndexed(sensorIdxKey, stamps, sensorKey, values)
-				out := cycle(ctx, h, &now, entry+2*telem.MillisecondTS)
-				Expect(seenCount(out)).To(Equal(0), "pre-entry samples are dropped")
-				expectNoAbort(out)
-
 				// 20 ms of low samples taken inside the stage prove a 10 ms hold.
-				stamps, values = lowBatch(entry)
+				stamps, values := lowBatch(entry)
 				h.IngestIndexed(sensorIdxKey, stamps, sensorKey, values)
-				out = cycle(ctx, h, &now, entry+22*telem.MillisecondTS)
+				out := cycle(ctx, h, &now, entry+22*telem.MillisecondTS)
 				Expect(seenCount(out)).To(Equal(100))
 				expectAbortAt(out, entry, entry+22*telem.MillisecondTS)
 			},

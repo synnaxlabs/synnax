@@ -4622,8 +4622,8 @@ TEST(ComputedInitializersTest, LetsAReassignmentReplaceAComputedInitializer) {
     );
 }
 
-// A stage sees only samples taken after it was entered. A batch sampled before entry
-// but delivered after it must not reach the stage.
+// A stage sees every sample that arrives after it was entered, whatever its stamp.
+// The sender's clock can be skewed from the runtime's.
 namespace stage_entry_samples {
 const std::string SRC = R"(
     sequence main {
@@ -4662,37 +4662,16 @@ void ingest_pt(
 }
 }
 
-TEST(StageEntrySamplesTest, DropsABatchTakenEntirelyBeforeEntry) {
+TEST(StageEntrySamplesTest, EmitsSamplesArrivingAfterEntryFromASender3sBehind) {
     using namespace stage_entry_samples;
     auto h = new_h();
     h.trigger("start_cmd");
-    const auto pre = h.now();
     h.trigger("go_cmd");
-    ingest_pt(
-        h,
-        {pre - 36 * x::telem::MILLISECOND,
-         pre - 25 * x::telem::MILLISECOND,
-         pre - 14 * x::telem::MILLISECOND},
-        {289.6f, 289.6f, 289.6f}
-    );
-    EXPECT_TRUE(collect<float>(h.flush(), h.key("pt_seen")).empty());
-}
-
-TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
-    using namespace stage_entry_samples;
-    auto h = new_h();
-    h.trigger("start_cmd");
-    const auto pre = h.now();
-    h.trigger("go_cmd");
-    const auto post = h.now();
-    ingest_pt(
-        h,
-        {pre - 10 * x::telem::MILLISECOND, pre, post, post + x::telem::MILLISECOND},
-        {1.0f, 2.0f, 3.0f, 4.0f}
-    );
+    const auto behind = h.now() - 3 * x::telem::SECOND;
+    ingest_pt(h, {behind, behind + x::telem::MILLISECOND}, {1.0f, 2.0f});
     EXPECT_EQ(
         collect<float>(h.flush(), h.key("pt_seen")),
-        (std::vector<float>{3.0f, 4.0f})
+        (std::vector<float>{1.0f, 2.0f})
     );
 }
 }

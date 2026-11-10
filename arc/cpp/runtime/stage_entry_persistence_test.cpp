@@ -24,15 +24,12 @@
 #include "arc/cpp/runtime/testutil/harness.h"
 #include "arc/cpp/types/types.h"
 
-/// A persistence check armed on stage entry acts only on samples taken inside the
-/// stage (SY-5456) and measures its hold in sample time (SY-5457). Mirrors
-/// arc/go/stage_entry_persistence_test.go.
+/// A persistence check armed on stage entry measures its hold in sample time
+/// (SY-5457). Mirrors arc/go/stage_entry_persistence_test.go.
 ///
 /// Timeline, with T the stamp at which the run stage enters:
 ///
-///   T-34 .. T-14 ms  samples below 300 are taken, during the previous stage
 ///   T                run stage enters, check armed, step=700 written
-///   T+2              that batch is delivered and dropped
 ///   T+22             a batch taken inside the stage is delivered
 ///
 /// A func with a flow-fed input runs once per sample with the sample's stamp. An
@@ -137,12 +134,6 @@ public:
         this->ingest_sensor(stamps, values);
     }
 
-    /// @brief ingests the batch taken 34 to 14 ms before entry: the batch the stage
-    /// sees first, one 16 ms delivery latency late.
-    void ingest_stale_batch(const x::telem::TimeStamp entry) {
-        this->ingest_low_batch(entry - 34 * x::telem::MILLISECOND);
-    }
-
     /// @brief every (value, stamp) pair written to step in the frame.
     [[nodiscard]] std::pair<std::vector<std::int64_t>, std::vector<x::telem::TimeStamp>>
     step_writes(const x::telem::Frame &fr) const {
@@ -204,32 +195,22 @@ const std::string
 }
 
 // A sample counter fed per sample.
-TEST(StageEntryPersistenceTest, CounterIgnoresTheStaleBatchAndTripsOnInStageSamples) {
+TEST(StageEntryPersistenceTest, CounterTripsOnInStageSamples) {
     Sequence h(COUNTER_CHECK);
     const auto entry = h.enter_run();
-    h.ingest_stale_batch(entry);
-    auto out = h.cycle(entry + 2 * x::telem::MILLISECOND);
-    EXPECT_EQ(h.seen_count(out), 0) << "pre-entry samples are dropped";
-    h.expect_no_abort(out);
-
     h.ingest_low_batch(entry);
-    out = h.cycle(entry + 22 * x::telem::MILLISECOND);
+    const auto out = h.cycle(entry + 22 * x::telem::MILLISECOND);
     EXPECT_EQ(h.seen_count(out), 100);
     h.expect_abort_at(out, entry, entry + 22 * x::telem::MILLISECOND);
 }
 
 // stable.for fed per sample. 20 ms of low samples taken inside the stage prove a
 // 10 ms hold.
-TEST(StageEntryPersistenceTest, StableForIgnoresTheStaleBatchAndTripsOnInStageSamples) {
+TEST(StageEntryPersistenceTest, StableForTripsOnInStageSamples) {
     Sequence h(STABLE_PER_SAMPLE_CHECK);
     const auto entry = h.enter_run();
-    h.ingest_stale_batch(entry);
-    auto out = h.cycle(entry + 2 * x::telem::MILLISECOND);
-    EXPECT_EQ(h.seen_count(out), 0) << "pre-entry samples are dropped";
-    h.expect_no_abort(out);
-
     h.ingest_low_batch(entry);
-    out = h.cycle(entry + 22 * x::telem::MILLISECOND);
+    const auto out = h.cycle(entry + 22 * x::telem::MILLISECOND);
     EXPECT_EQ(h.seen_count(out), 100);
     h.expect_abort_at(out, entry, entry + 22 * x::telem::MILLISECOND);
 }
