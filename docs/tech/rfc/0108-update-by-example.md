@@ -82,14 +82,15 @@ await client.racks.delete(rack.key);
 ```
 
 An array of updates applies in one transaction, all or nothing. Python takes the same
-partial as keywords, as its retrieve does, and C++ takes a designated initializer:
+partial as keywords, as its retrieve does. C++ takes the key and a designated
+initializer, because a designated initializer cannot name the key of a base struct:
 
 ```python
 client.racks.update(key=rk, name="Rack 2")
 ```
 
 ```cpp
-client.racks.update({.key = rk, .integrations = {.insert = {"labjack"}}});
+client.racks.update(rk, {.integrations = {.insert = {"labjack"}}});
 ```
 
 ### 4.1 Fields
@@ -299,7 +300,7 @@ actions, so phase 8 deletes them with no migration.
 | 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                         | 5          |
 | 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5          |
 | 8     | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 6, 7       |
-| 9     | Type the gRPC dispatch protos                   | `oracle/plugin/pb`, `core/pkg/api/grpc`, `client/cpp`                                   | 8          |
+| 9     | Type the gRPC dispatch protos and add batch     | `oracle/plugin/pb`, `core/pkg/api/grpc`, `core/pkg/transport/grpc`, `client/cpp`        | 8          |
 
 ## 7 Resolved decisions
 
