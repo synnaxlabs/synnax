@@ -303,7 +303,7 @@ some device property keys are data, such as OPC UA node IDs.
 | 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                         | 5          |
 | 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5, 6       |
 | 8     | Move the last path action senders to updates    | `core/pkg/service`, `driver`, `client/ts`, `pluto`, `console`                           | 6, 7       |
-| 9     | Type the gRPC dispatch protos and add batch     | `oracle/plugin/pb`, `core/pkg/api/grpc`, `core/pkg/transport/grpc`, `client/cpp`        | 7          |
+| 9     | Serve batch and channel dispatch over gRPC      | `core/pkg/transport/grpc`, `core/pkg/api/batch`, `client/cpp`                           | 7          |
 | 10    | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 8, 9       |
 
 ## 7 Resolved decisions
