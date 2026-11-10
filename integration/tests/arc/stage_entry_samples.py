@@ -112,7 +112,9 @@ sequence {p}_main {{
 
 class StageEntrySamples(ArcCase):
     """A stage sees only samples taken after it was entered (SY-5456), once the
-    channel's index has learned its clock offset from earlier data (SY-5771).
+    channel's index has learned its clock offset from recent data (SY-5771). The
+    offset holds the delivery delay too, so the stale samples are stamped well before
+    entry.
 
     The test stamps every `pt` sample itself; samples taken before entry carry
     BEFORE_ENTRY. Each `pt` first gets one sample on arrival, before its stage is

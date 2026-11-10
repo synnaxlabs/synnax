@@ -251,7 +251,7 @@ func (s *source) raiseWaterMark() {
 // Reset advances the high water mark to the current channel alignment, so a
 // (re-)activated stage only responds to samples arriving after activation. When the
 // channel's index has a recent clock offset, the stage also drops samples stamped
-// before entry on the sender's clock.
+// before entry on the sender's clock, to within the minimum delivery delay.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
 	s.entered = ctx.Now
