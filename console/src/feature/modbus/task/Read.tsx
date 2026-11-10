@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/task/Task.css";
 
-import { channel, NotFoundError, modbus } from "@synnaxlabs/client";
+import { channel, modbus,NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";

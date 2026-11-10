@@ -219,6 +219,28 @@ export const diffFields = <F extends string>(
   });
 
 /**
+ * Builds the update that turns the fields of base into the fields of next, with a
+ * guard on each union that it changes inside.
+ * @param u - The schema of the update value.
+ * @param base - The stored values, or undefined to set each field that next holds.
+ * @returns the update, or null when the fields hold the same values.
+ */
+export const diffUpdate = <U extends z.ZodType, F extends string>(
+  u: U,
+  base: Partial<Record<F, unknown>> | undefined,
+  next: Partial<Record<F, unknown>>,
+  fields: F[],
+): patch.Update<U> | null => {
+  const pick = (values: Partial<Record<F, unknown>>) =>
+    Object.fromEntries(
+      fields.filter((f) => values[f] !== undefined).map((f) => [f, values[f]]),
+    );
+  const update = patch.diffUpdate(u, base == null ? {} : pick(base), pick(next));
+  const { value } = update as patch.Update<z.ZodType>;
+  return Object.keys(value as record.Unknown).length === 0 ? null : update;
+};
+
+/**
  * createPathHandlers builds the set, remove, insert, and move handlers of a document's
  * action union from one function that applies a path action.
  */

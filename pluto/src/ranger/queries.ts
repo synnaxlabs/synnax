@@ -127,13 +127,17 @@ export const formPath = deep.path<z.infer<typeof formSchema>>();
 export const useForm = Flux.createDocumentForm<
   ranger.Key,
   ranger.Range,
-  typeof formSchema
+  typeof formSchema,
+  Flux.DocumentQuery<ranger.Key>,
+  ranger.Action,
+  typeof ranger.updateZ
 >({
   name: RESOURCE_NAME,
   schema: formSchema,
   domain: (client) => client.ranges,
   useEnsure,
   toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
+  updates: { schema: ranger.updateZ, action: ranger.update },
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
@@ -254,10 +258,7 @@ export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangePara
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     const { key, timeRange } = data;
-    await client.ranges.dispatch(
-      key,
-      ranger.set({ path: ["timeRange"], value: timeRange }),
-    );
+    await client.ranges.update({ key, timeRange });
     return data;
   },
 });

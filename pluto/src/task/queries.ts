@@ -168,19 +168,21 @@ export interface InitialValues<
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
   configSchemas,
-}: CreateFormParams<S>) =>
-  Flux.createDocumentForm<
+}: CreateFormParams<S>) => {
+  const updateZ = task.updateZ(configSchemas);
+  return Flux.createDocumentForm<
     task.Key,
     task.Task,
     FormSchema<S>,
     Flux.DocumentQuery<task.Key>,
-    task.Action
+    task.Action,
+    typeof updateZ
   >({
     name: RESOURCE_NAME,
     schema: createFormSchema(schemas),
     domain: (client) => client.tasks,
     useEnsure,
-    updates: { schema: task.updateZ(configSchemas), action: task.update },
+    updates: { schema: updateZ, action: task.update },
     // The cache holds every task untyped. Parsing would cost a full parse on each
     // change, so the form's schema checks each field as it is written instead.
     toValues: ({ payload }) => ({
@@ -194,6 +196,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       snapshot: payload.snapshot ?? false,
     }),
   });
+};
 
 export type DeleteParams = task.Key | task.Key[];
 

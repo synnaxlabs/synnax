@@ -9,7 +9,12 @@
 
 import "@/feature/pagerduty/task/Alert.css";
 
-import { pagerduty, type rack, type status, type Synnax as Client } from "@synnaxlabs/client";
+import {
+  pagerduty,
+  type rack,
+  type status,
+  type Synnax as Client,
+} from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";

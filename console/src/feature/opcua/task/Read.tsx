@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax, opcua } from "@synnaxlabs/client";
+import { channel, NotFoundError, opcua,type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";

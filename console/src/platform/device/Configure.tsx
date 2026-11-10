@@ -55,11 +55,16 @@ const { useUpdate: useSave } = Flux.createUpdate<SaveParams>({
   verbs: verbs.UPDATE,
   update: async ({ client, data }) => {
     const { prev, next } = data;
-    const edits = actions.diffFields(device.deviceZ(), prev, next, [
-      "name",
-      "configured",
+    // An update changes the case of property keys on the wire, so they stay a path
+    // action.
+    const edits: device.Action[] = actions.diffFields(device.deviceZ(), prev, next, [
       "properties",
     ]);
+    const update = actions.diffUpdate(device.updateZ(), prev, next, [
+      "name",
+      "configured",
+    ]);
+    if (update != null) edits.push(device.update(update));
     if (edits.length > 0) await client.devices.dispatch(prev.key, edits);
     return data;
   },

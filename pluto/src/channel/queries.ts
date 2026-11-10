@@ -177,12 +177,16 @@ const updateForm = async ({
     set(formPath.key, ch.key);
     return;
   }
-  const edits: channel.Action[] = actions.diffFields(channel.payloadZ, stored, values, [
-    "expression",
-    "operations",
-  ]);
-  if (stored?.name !== values.name)
-    edits.unshift(channel.rename({ name: values.name }));
+  const edits: channel.Action[] = [];
+  if (stored?.name !== values.name) edits.push(channel.rename({ name: values.name }));
+  const update: channel.Update = {
+    ...actions.diffUpdate(channel.updateZ, stored, values, ["expression"])?.value,
+  };
+  // The form shows a channel with no operations as one "none" operation, which the Core
+  // does not hold, so the operations go whole.
+  if (!deep.equal(stored?.operations, values.operations))
+    update.operations = { set: values.operations };
+  if (Object.keys(update).length > 0) edits.push(channel.update({ value: update }));
   if (edits.length > 0) await client.channels.dispatch(values.key, edits);
 };
 
