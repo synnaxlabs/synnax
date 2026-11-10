@@ -14,7 +14,7 @@ export const components = mdxOverrides;
     version="0.61.0"
     desktopVersion="1.1.0"
     breakingChanges
-    title="Updates you can undo, EtherCAT clock sync, MQTT, and Kafka"
+    title="Arc modules, EtherCAT clock sync, MQTT, Kafka, and updates you can undo"
 >
 
 <Hero.Hero
@@ -24,44 +24,59 @@ export const components = mdxOverrides;
   palette="violet-pink"
 />
 
-Synnax v0.61 makes a Core update safe to undo. The Core backs up its data before a new
-version opens it, and puts the backup back when the update fails.
+Synnax v0.61 brings Arc modules: write a conversion, a check, or a sequence one time,
+and import it into every automation.
 
-EtherCAT slaves run in distributed clock sync, with startup parameters and scales that
-you set in the Console. MQTT brokers, Sparkplug B edge nodes, and Kafka clusters connect
-as devices and need no Driver. Logs scroll back through every stored value.
+EtherCAT slaves run in distributed clock sync, and you set them up in the Console. MQTT
+brokers, Sparkplug B edge nodes, and Kafka clusters connect with no Driver. Logs scroll
+back through every stored value, and live plots draw in half the time. A Core update is
+now safe to undo.
 
-Arc syntax changed, and a Core now runs alone. Read the
+Arc syntax and some client calls changed. Read the
 [breaking changes](#breaking-changes-in-061) before you upgrade.
 
 <Divider.Divider x />
 
-### Updates you can undo
+### Arc modules
 
-<Hero.Hero
-  inset
-  still="releases/0-61-0/version-guard"
-  layout="framed"
-  palette="blue-pink"
-/>
+<Video id="releases/0-61-0/arc-modules" />
 
-Before, an update changed the data folder for good. When the new Core failed to start,
-you had a Core that did not run and data that the old Core could not read.
+Before, each automation held its own copy of shared code, such as a unit conversion or a
+vent sequence. A fix meant an edit in every copy.
 
-Now, before a new version first opens the data, the Core backs up its metadata and keeps
-the three newest backups. A backup of 10,000 channels takes 4 seconds. When the new Core
-fails before it commits the update, its next start puts the backup back and refuses that
-version until you run `synnax update retry`.
+Now, write that code one time in a module, and import it into each automation. Create an
+Arc, select the **Module** type, and put `export` before the functions, sequences,
+stages, and variables to share:
 
-- **Go back** -> `synnax update undo` puts back an earlier version, and
-  `synnax update history` lists the backups.
-- **Update a service** -> `synnax update --file` updates a Core service on Linux and
-  Windows.
-- **Matching versions** -> a Console or a Driver on another minor version stops with a
-  clear message, such as "Console 0.61.0 cannot work with Core 0.60.1", instead of odd
-  errors.
+```arc
+export func psi_to_kpa() {v f64} f64 {
+    return v * 6.895
+}
 
-See [Upgrade a Core](/reference/enterprise/upgrade).
+export stage vent {
+    0 -> press_vlv_cmd
+    1 -> vent_vlv_cmd
+}
+```
+
+An automation imports the module by its folder path in the **Arcs** toolbar, and uses
+its code like its own:
+
+```arc
+import lib.tank
+
+tank_pt -> tank.psi_to_kpa() -> tank_pt_kpa
+abort_cmd == 1 => tank.vent
+```
+
+- **Find modules as you type** -> import completion suggests the path of each module
+  that you can read, and the **Add import** quick fix adds the import for an unknown
+  name.
+- **Change a module safely** -> a running automation keeps the module code that it
+  started with. The **Redeploy** tooltip names the change, such as "Module lib.tank
+  changed. Redeploy to apply."
+
+See [Arc modules](/reference/control/arc/modules).
 
 <Divider.Divider x />
 
@@ -71,19 +86,24 @@ See [Upgrade a Core](/reference/enterprise/upgrade).
 
 Before, slaves that list only distributed clock (DC) modes refused SAFE-OP, and every
 task on the port failed. Frames drifted from 624 µs to 975 µs off target in 10 minutes.
-CoE settings needed TwinCAT, and raw counts needed a calculated channel.
+Slave settings had to be set outside Synnax, and raw counts needed a calculated channel.
 
 Now, right-click a slave and select **Configure** to pick its DC mode and its SYNC0 and
-SYNC1 cycles, or leave **Auto**.
+SYNC1 cycles, or leave **Auto**. The bus cycle locks to the DC reference clock, so
+frames stay on time. DC comes back after a slave loses power.
 
-- **Cycle lock** -> the bus cycle locks to the DC reference clock. At 500 Hz, the median
-  frame stays within 36 µs of its target. DC comes back after a slave loses power.
 - **Startup parameters** -> write CoE settings, such as filters, ranges, and sensor
-  types, before SAFE-OP.
+  types, before SAFE-OP. **Import from ESI file** adds them from the file of the slave
+  maker.
+- **Settings for the Dewesoft IOLITE 6xSTG** -> the **Settings** section sets the
+  measurement, bridge, range, low-pass filter, and coupling of each channel, and the
+  sample rate of the card. The read task writes them when it starts.
+- **Leave DewesoftX mode** -> a card in DewesoftX mode shows **Switch to Synnax only**.
+  Click it, then restart the power of the device.
 - **Scales and stop values** -> read channels get a scale, and write channels get a
   value to write when the task stops.
-- **Add every input of** -> adds all inputs of a terminal to a read task.
-- **Faster restarts** -> a start after a stop is about 2 seconds faster.
+- **Add every input of** and **Add every output of** -> add all inputs or outputs of a
+  terminal to a task at once.
 
 See [EtherCAT](/reference/hardware/ethercat/configure-device).
 
@@ -117,14 +137,71 @@ and in Synnax Enterprise. See [Kafka](/reference/hardware/kafka/connect-cluster)
 
 <Video id="releases/0-61-0/logs" />
 
-Before, a log showed the time that the Console received each value, kept only recent
-values, and lost its place when it closed.
+Before, a log showed the time that the Console received each value, and kept only recent
+values.
 
 Now a log shows each value at its sample time, in time order across channels, and
 scrolls back through every stored value. The scrollbar shows your place in time, a date
 heading starts each day, long values wrap, and a **Time zone** setting picks local time
 or UTC. On a remote Core, the first lines show in 0.6 seconds instead of 1.5. See
 [Logs](/reference/visualize/logs).
+
+<Divider.Divider x />
+
+### Faster live plots
+
+Live line plots draw each frame in half the time or less, and long plots open at once:
+
+| Case                                         | Before  | v0.61   |
+| -------------------------------------------- | ------- | ------- |
+| Live plot of 50 lines of 1 kHz data, a frame | 27.4 ms | 14.2 ms |
+| Live plot of 10 lines of 1 kHz data, a frame | 5.48 ms | 2.99 ms |
+| Static hour view of 50 lines, a frame        | 7.14 ms | 1.77 ms |
+| Rolling 30-day plot of 11 lines, first draw  | Froze   | 121 ms  |
+
+A live plot of 50 channels at 25 kHz held about 1.3 GB of memory. Now memory use stays
+flat.
+
+<Divider.Divider x />
+
+### Updates you can undo
+
+<Hero.Hero
+  inset
+  still="releases/0-61-0/version-guard"
+  layout="framed"
+  palette="blue-pink"
+/>
+
+Before, an update changed the data folder for good. When the new Core failed to start,
+you had a Core that did not run and data that the old Core could not read.
+
+Now, before a new version first opens the data, the Core backs up its metadata. When the
+update fails, the Core puts the backup back and refuses that version until you run
+`synnax update retry`.
+
+- **Go back** -> `synnax update undo` puts back an earlier version, and
+  `synnax update history` lists the backups. The Core keeps the three newest backups. A
+  backup of 10,000 channels takes 4 seconds.
+- **Update in one command** -> from 0.61 on, `sudo synnax update <version>` downloads
+  that Core, checks its signature, and updates the Core service on Linux and Windows.
+- **A Console that follows its Core** -> from 0.61 on, a desktop Console on another
+  minor version than its Core offers **Update Console**. The Core serves the update for
+  macOS and Windows, so it needs no internet access.
+
+To upgrade from 0.60, see [Upgrade the Core](/reference/enterprise/upgrade).
+
+<Divider.Divider x />
+
+### The Driver as a service on Windows and macOS
+
+Before, a standalone Driver ran as a service only on Linux. On Windows and macOS, it ran
+in a terminal.
+
+Now `synnax-driver install` makes a service on each platform, and `synnax-driver start`
+starts it. On Windows and macOS, the service starts with the computer and restarts when
+it stops with an error. See
+[Install a standalone Driver](/reference/enterprise/driver/install).
 
 <Divider.Divider x />
 
@@ -144,35 +221,17 @@ rack with its own key, and an upgraded Driver changes over on its first start. T
 Console keeps a session token, not the password.
 
 Right-click a user or a rack and select **Manage credentials** to create and delete
-keys, see live sessions, and set a password. An Owner can reset the password of another
-user. When you delete a key, its sessions end. See
+keys. When you delete a key, its sessions end. See
 [Connect to a Core](/reference/client/connect).
-
-<Divider.Divider x />
-
-### Faster live plots
-
-Live line plots, values, and logs read stored and live data through one cache. Each line
-below is a 10-minute window of 1 kHz data:
-
-| Case                            | v0.60   | v0.61   |
-| ------------------------------- | ------- | ------- |
-| Live plot of 50 lines, a frame  | 27.4 ms | 14.2 ms |
-| Live plot of 10 lines, a frame  | 5.48 ms | 2.99 ms |
-| Hour view of 50 lines, a frame  | 7.14 ms | 1.77 ms |
-| Rolling 30-day plot, first draw | Froze   | 121 ms  |
-
-A live plot of 50 channels at 25 kHz held about 1.3 GB. Now the live data of each
-channel stays near 131,000 samples. One slow streamer no longer slows the others.
 
 <Divider.Divider x />
 
 ### More in this release
 
-#### Arc: inputs in parentheses, and computed values
+#### Arc: new syntax, time text, and NaN checks
 
-A function takes its inputs in parentheses and its triggers in braces, in the
-declaration and in the flow:
+A function declares its inputs in parentheses and its triggers in braces. A flow passes
+the inputs in parentheses:
 
 ```arc
 func scale(factor f64) {value f64} f64 {
@@ -182,10 +241,29 @@ func scale(factor f64) {value f64} f64 {
 sensor -> scale(factor=2.0) -> out
 ```
 
-The Core rewrites each stored Arc on upgrade. Computed initializers now run, such as
-`x := time.now()` and `key := ranges.create("r")`. New Arcs are text only, and graph
-Arcs still open and run. The Arc explorer holds Arcs in directories. See
+- **Time as text** -> `time.format` prints a time with your format and time zone, such
+  as `time.format(time.now(), "%Y-%m-%d %H:%M:%S %Z", "America/Denver")`. Before, an
+  f-string printed a time as nanoseconds.
+- **NaN and infinity** -> `math.nan`, `math.inf`, `math.is_nan`, `math.is_infinite`, and
+  `math.is_finite` find bad values, such as
+  `not math.is_finite(pump_speed) or pump_speed < 15 => next`.
+- **Arcs in folders** -> the **Arcs** toolbar shows your Arcs as a folder tree that you
+  can search. Arc tasks show in the **Tasks** toolbar, where you start and stop them.
+
+New Arcs are text only in the Console, and graph Arcs still open and run. See
 [Arc](/reference/control/arc).
+
+#### Find things faster in the Console
+
+The **Devices**, **Arcs**, and **Channels** toolbars and the component selector each
+have a search. The **Devices** toolbar finds a device by its name, location, make, or
+model, and shows the short part of each location, such as the host of a server.
+
+A folder of 12,896 channels opens in about 255 ms and shows **Show more** to load the
+rest. Ctrl+C or Cmd+C copies the names of the selected tree items, and a paste into chat
+or email gives links. In the schematic tree, **Copy** is now **Duplicate**.
+
+Trees move and open with the arrow keys and Enter, and Shift+F10 opens a context menu.
 
 #### Pick plot ranges faster
 
@@ -197,16 +275,14 @@ times, and range highlights stack in lanes above the plot. See
 #### OPC UA you can trust
 
 A secured connection pins the server certificate. The connect dialog shows its
-thumbprint and offers **Trust**. Tasks ride out outages and Bad values, writes convert
-to the node type, read channels take structure fields, and a folder drops into a task at
-once. See [OPC UA](/reference/hardware/opc-ua/connect-server).
+thumbprint and offers **Trust and connect**. Tasks ride out outages, and read channels
+take structure fields. See [OPC UA](/reference/hardware/opc-ua/connect-server).
 
 #### Modbus over serial, gateways, strings, and bits
 
 Connect Modbus RTU servers on a serial port. Servers on one address or port share one
-connection, each with its own unit ID. Read and write strings and register bits, and use
-six-digit Modicon addresses. The **Diagnostics** section of the connect dialog counts
-requests, retries, and timeouts. See
+connection, each with its own unit ID. Read strings, read and write register bits, and
+use six-digit Modicon addresses. See
 [Modbus](/reference/hardware/modbus/connect-server).
 
 #### LabJack T8 and reconnects
@@ -219,32 +295,22 @@ The T8 runs, with thermocouples up to 250 Hz. Tasks wait for a lost device and g
 
 NI and LabJack tasks pick ports from a grid that shows each port as free, used, or in
 conflict. Channels show as tables, and each channel shows what a deploy will change.
-**Data saving** and **Auto start** are toggles in the task footer, and a new task starts
-with one channel. Two people who edit one task, range, or label keep both edits. See
+**Data saving** and **Auto start** are toggles in the task footer. See
 [Tasks](/reference/hardware/tasks).
-
-#### Keyboard and search in the Console
-
-Trees move and open with the arrow keys and Enter. Shift+F10 or the Menu key opens a
-context menu, and Down moves from a toolbar search into its results. Modals hold the
-focus and give it back. The channels toolbar searches its tree, and the component
-selector has a search field.
 
 #### Synnax Desktop: connect scripts, read the log
 
-Python and TypeScript scripts on the same computer connect with `sy.Synnax()` and no
-arguments. **Connect from code** gives the code, and **Reset key** ends old sessions.
-The diagnostics log colors errors, holds its place, and **Copy logs** copies it for
-support. See [Connect to Synnax Desktop](/reference/client/connect).
+Python scripts on the same computer connect with `sy.Synnax()` and no arguments, and
+**Connect from code** gives the code for Python and TypeScript. **Copy logs** copies the
+diagnostics log for support. See
+[Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop).
 
 #### Python client: visualizations, labels, and frames
 
 Create schematics, line plots, logs, tables, and panels in code with
 `client.schematics`, `client.line_plots`, `client.logs`, `client.tables`, and
 `client.panels`. Ranges add, remove, and list labels, and `client.projects` exports and
-imports projects. `Frame.to_df()` indexes by time. `sy.Error` catches each client error.
-The client runs on Python 3.12 to 3.14. See
-[Visualizations in code](/reference/visualize/code).
+imports projects. See [Visualizations in code](/reference/visualize/code).
 
 #### Filters for every resource
 
@@ -254,161 +320,103 @@ Each `retrieve` takes filter fields directly, with values, lists, or operators:
 client.labels.retrieve(name={"starts_with": "Hot"})
 ```
 
-```typescript
-await client.channels.retrieve({ name: { regex: "^tank_" } });
-```
-
 A plain key or name returns one record, and `one=True` returns one record for any
 filter. Errors name the filter, such as `Found no channel where name = "tank_pressure"`.
 See [Find channels](/reference/channels/find).
-
-#### Writers that need no start time
-
-`open_writer` takes no start. Each index starts at its first timestamp, so a writer with
-several clocks no longer fails. A `persist` writer fills a gap before the session of a
-running task without taking control. See [Write data](/reference/client/write-data).
 
 <Divider.Divider x />
 
 ### Minor improvements and bug fixes
 
-- Copy values, thumbprints, and dialog text in the Console.
-- Auto inputs show an **Auto** badge instead of a fake value.
-- Schematic pipes stay on their connection points at each zoom, and the tooltip shows
-  the last sample.
-- Line plots break where a writer stopped, and come back after a GPU loss.
+- Write tasks no longer hang after a long Core outage, and NI, LabJack, and EtherCAT
+  write tasks report their state at once, not one period late.
+- A Linux Driver no longer fails its fourth Arc task with "mmap failed to reserve".
+- Deleting a running task or Arc stops it first, and deleting a large channel no longer
+  stalls the Core.
+- `synnax-driver login` keeps the saved rack instead of making a new empty one.
+- A Core that was killed no longer leaves reads failing with "failed to resolve
+  position".
+- Schematic pipes stay on their connection points at each zoom, and line plots break
+  where a writer stopped.
 - Missing NI or LabJack libraries show one warning with the installer link, and need no
   restart after you install them.
-- A command to a Core task always gets an answer, and a command wait ends when its
-  Driver goes down.
-- Deleting a running task stops it first.
-- Statuses come back after a Driver reconnects, with no repeated "Driver not running"
-  copies.
-- Modbus TCP reconnects after a lost socket on Windows.
-- HTTP read fields can be **Optional**, with a **Fill value**.
-- LabJack refuses a second stream on one device and stops a leftover one.
 - EtherCAT waits up to 10 seconds for SAFE-OP and OP, and one refused slave no longer
-  stops every task on its port.
-- Synnax Enterprise gets the EtherCAT fixes of Synnax Desktop 1.0.2 to 1.0.4: a fast
-  refusal on a state change error, deleted slaves that give back their channels, and an
-  error that names the DewesoftX filter.
-- The Core truncates data past its index when it opens, so a killed Core no longer
-  leaves reads failing with "failed to resolve position".
+  stops every task on its port. Synnax Enterprise also gets the EtherCAT fixes of Synnax
+  Desktop 1.0.3 and 1.0.4.
 
 <Divider.Divider x />
 
 ### Breaking changes in 0.61
 
-#### Core and deployment
+#### Before you upgrade a Core
 
-- A Driver on another minor version than its Core starts no tasks, and a 0.60 Driver
-  cannot register its rack with a 0.61 Core. Install Driver 0.61 on each Driver computer
-  when you upgrade the Core.
-- A desktop Console on another minor version shows a full-window block. Update the
-  Console with the Core, or click **Open in browser**.
-- `synnax start` refuses `--peers` and `-p`, and a Core never joins other Cores. Remove
-  them from service configs and Docker commands.
-- The HTTP and WebSocket routes refuse msgpack with a 415, or a 406 when the caller
-  accepts only msgpack. Send JSON from HTTP callers.
-- The upgrade rewrites stored records, and an older Core refuses the data. To go back,
-  run `synnax update undo` with the 0.61 binary. See
-  [Upgrade a Core](/reference/enterprise/upgrade).
-- The Core exits with code 65 when it refuses its data and 78 for a bad flag, and the
-  systemd unit does not restart on them.
-- Status details under a rack, device, task, or channel key must decode to that type.
-  Scripts that set those statuses must send typed details.
+- Upgrade the Drivers and the desktop Consoles with the Core. A Driver on another minor
+  version starts no tasks, and a desktop Console on another minor version does not open
+  the workspace.
+- The upgrade rewrites stored records, and a 0.60 Core cannot read them. To go back, run
+  `synnax update undo` with the 0.61 binary. See
+  [Upgrade the Core](/reference/enterprise/upgrade).
+- `synnax start` refuses `--peers` and `-p`. Remove them from service configs and Docker
+  commands.
+- A Core with `--auto-cert` replaces a `node.crt` that `ca.crt` did not sign, such as
+  one made before v0.58.2. Clients must trust `ca.crt`.
 
 #### Access and users
 
-- Each user and rack holds exactly one role. The upgrade keeps, for a user with several
-  roles, the role that covers the most, and gives users with none a new **No access**
-  role. Check those users after the upgrade.
-- `users.set_role` and `setRole` replace `set_roles`, `setRoles`, and
-  `access.roles.assign` and `unassign`. `users.create` needs a role.
-- The built-in Host role is now Driver, and it cannot create or delete racks.
-- A user has one `name`. `first_name`, `last_name`, and the user `username` field are
-  gone, and **Change username** left the Console.
-- To create or edit a calculated channel, a user needs read access to each channel that
-  it reads.
-- On Linux, the Console needs a Secret Service, such as GNOME Keyring or KWallet, to
-  keep its session token.
+- Each user and rack holds exactly one role. A user with several roles keeps the one
+  that covers the most, and a user with none gets the new **No access** role. Check
+  those users after the upgrade.
+- `users.set_role` and `setRole` replace `access.roles.assign` and `unassign`, and
+  `users.create` needs a role. The built-in Host role is now Driver.
+- A user has one `name` instead of a first and last name.
+- On Linux, the Console needs a Secret Service, such as GNOME Keyring.
+
+#### Scripts
+
+- A create with a key that already exists fails with `<type> <key> already exists`.
+  Before, it changed the record. Use `rename`, `channels.set_expression`,
+  `ranges.set_end`, `devices.dispatch`, `tasks.configure`, or `arcs.set_text`.
+- A single retrieve raises `NotFoundError` or `MultipleFoundError` instead of giving the
+  first match. Retrieves by device make, model, or location, or by task type, return
+  lists: add `one=True` or `one: true`.
+- A plain channel name or range alias matches exactly, not as a pattern. Use
+  `name={"regex": ...}` or `name: { regex }`.
+- `client.ontology` is gone. Use `client.resources` and `client.groups`.
+- `TimeSpan(rate)` is the period, so 2 Hz is 500 ms.
+- Python: options, flags, and timeouts are keyword-only. A 0.60 call that passes them by
+  position still runs with a `DeprecationWarning` until the next minor release.
+- Python: `task.start()` raises `RuntimeError` when the Driver fails to start the task.
+- Python: `wait_until` and `wait_while` check the current value first.
+- Python: `client.read` with a list of channels also returns their index channels, and
+  `Frame.to_df()` drops index columns. Retrieves page with `limit` and `after`, not
+  `offset`.
+- Python: OPC UA read channels take `sampling=sy.opcua.ArraySampling(size=5)` instead of
+  `array_mode` and `array_size`. LabJack `neg_chan` takes 0 to 127, or `None` for
+  ground. Modbus strings use `HoldingRegisterStringReadChannel(length=N)`.
+- TypeScript: retrieve parameters are strict filters. Use `{ name }`, `{ key }`,
+  `{ make }`, and `{ model }` instead of `{ names }`, `{ keys }`, `{ makes }`, and
+  `{ models }`.
 
 #### Arc
 
-- Inputs go in parentheses and triggers in braces. The Core rewrites stored Arcs.
-  Rewrite Arc text in scripts that call `client.arcs.create` and in files outside
-  Synnax.
+- A function takes its inputs in parentheses and its triggers in braces. The Core
+  rewrites stored Arcs. Rewrite Arc text that you keep outside Synnax.
+- A constant that overflows its type, or an integer division by zero, fails to compile.
 - A series variable outside a function, such as `s := [1.0, 2.0]`, fails to compile.
-  Before, a flow on it read or wrote nothing. Declare the variable in the function that
-  uses it.
-- `^` needs numeric operands.
-- New Arcs are text only. Graph Arcs still run.
 
 #### Hardware
 
-- EtherCAT on IgH counts positions from 1. Delete the EtherCAT devices of an IgH Driver
-  after the upgrade, then scan again.
-- The EtherCAT bus rate stays fixed while a slave runs DC sync, and a task at another
-  rate fails. On IgH, a chosen DC mode fails its start.
-- LabJack T7 and T8: **Max voltage** now sets the input range. A channel at 1 V or less
-  can fail a fast stream of many channels. Lower the rate if a start fails.
-- Modbus: the default timeout is 1000 ms instead of 500 ms, and a write sends only the
-  commanded addresses. Add channels for addresses that relied on gap writes.
-- OPC UA: a secured connection pins one server certificate and clears the old
-  certificate path. Click **Trust** in the connect dialog. `uint8` maps to Byte instead
-  of Boolean, and a write task drops commands while it is disconnected.
-- OPC UA: a secured connection refuses an expired server certificate. Renew the
-  certificate on the server, then trust the new one. See
-  [Server certificate expired](/reference/hardware/opc-ua/connect-server#troubleshooting).
-- C interface: `synnax_client_open` takes `api_key` after `password`. Update the call
-  node of the LabVIEW `synnax client open.vi`.
-
-#### Both clients
-
-- `client.ontology` and the TypeScript `ontology` export are gone. Use
-  `client.resources` to search and `client.groups` for groups. `ontology.ID` is now
-  `resource.ID`.
-- A single retrieve raises `NotFoundError` or `MultipleFoundError` instead of giving the
-  first match. In TypeScript, a key list throws for a missing key.
-- Python `devices.retrieve(make=, model=, location=)` and `tasks.retrieve(type=)`, and
-  TypeScript `tasks.retrieve({ type, rack })`, return lists. Add `one=True` or
-  `one: true`.
-- A plain channel name matches exactly, and `name_patterns` is gone. Use
-  `name={"regex": ...}` or `name: { regex }`.
-- The rack filter loses `host_is_node`, and iterator and writer responses lose
-  `node_key`.
-- A `persist` writer inside the session of a running task fails to open with
-  `UnauthorizedError`. Write before the session, or give a start.
-
-#### Python client
-
-- Options, flags, and timeouts are keyword-only.
-- A filter field set to `None` raises `ValidationError`. Leave the field out.
-- Retrieve methods refuse `offset`, `include_labels`, and `include_parent`. Page with
-  `limit` and `after`. A range holds its label keys in `labels`, and a device holds its
-  parent key in `parent`.
-- `client.read` with a list of channels also returns their index channels.
-- `Frame.to_df()` has a time index, names columns by channel in request order, and drops
-  index columns. `frame["name"]` raises `MultipleFoundError` for two channels with one
-  name.
-- `Series` is no longer a Pydantic model. Use `pydantic.TypeAdapter(Series)`.
-- `TimeSpan(rate)` is the period, so 2 Hz is 500 ms.
-- `wait_until`, `wait_while`, and `wait_until_defined` check the current value first.
-- `labels.create` needs `name` and `color`.
-- The Arc task `config.arc_key` is a `UUID`.
-- `labjack.Device` is keyed by `serial_number`, and `ethercat.Device` positions count
-  from 1.
-- Freighter's `register_exception`, `encode_exception`, and `decode_exception` are gone.
-  Use `x.exceptions.Registry`.
-
-#### TypeScript client
-
-- Retrieve parameters are strict filters, so `{ names }`, `{ keys }`, `{ makes }`, and
-  `{ models }` throw. Use `{ name }`, `{ key }`, `{ make }`, and `{ model }`, each with
-  a value or a list.
-- `new TimeSpan(rate)` gives the period.
-- The LabJack scale types move to `task.Scale` and `task.scaleZ`.
-- `@synnaxlabs/x`: `debounce`, `throttle`, and `Batcher` move into the `scheduler`
-  namespace.
+- EtherCAT on IgH counts positions from 1. After the upgrade, delete the EtherCAT
+  devices of an IgH Driver, then scan again.
+- While a slave runs DC sync, the EtherCAT bus rate stays fixed, and a task at a rate
+  that does not fit fails.
+- LabJack T7: **Max voltage** sets the input range. If a fast stream of many channels
+  fails to start, lower the rate.
+- Modbus: the default timeout is 1000 ms, and a write sends only the commanded
+  addresses.
+- OPC UA: a secured connection pins one server certificate and refuses an expired one.
+  Click **Trust and connect** in the connect dialog. `uint8` maps to Byte, not Boolean.
+- LabVIEW: `synnax_client_open` takes `api_key` after `password`. Update the call node
+  of `synnax client open.vi`.
 
 </Releases.Release>
