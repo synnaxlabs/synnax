@@ -55,6 +55,7 @@ cc_test(
     deps = [
         ":settings",
         "//driver/ethercat/errors",
+        "//driver/ethercat/testutil:stg",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

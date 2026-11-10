@@ -19,43 +19,20 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/settings.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::esi {
 namespace {
-constexpr uint32_t DEWESOFT = 0xDEBE50F7;
-constexpr uint32_t IOLITE_6XSTG = 252;
+using testutil::DEWESOFT;
+using testutil::IOLITE_6XSTG;
 
-/// @brief the range, filter, and excitation tables of input 1 of the 6xSTG on the
-/// station. Each other input holds the same tables at its own indices.
-const std::map<std::pair<uint16_t, uint8_t>, uint32_t> STG_TABLES{
-    {{0x8050, 3}, 5},
-    {{0x8050, 4}, 500},
-    {{0x8050, 5}, 100},
-    {{0x8050, 6}, 30},
-    {{0x8050, 7}, 10},
-    {{0x8050, 8}, 1},
-    {{0x8060, 1}, 2},
-    {{0x8060, 2}, 10000},
-    {{0x8060, 3}, 500},
-    {{0x8070, 2}, 240},
-    {{0x8070, 3}, 42},
-    {{0x8070, 4}, 120},
-};
-
-std::pair<uint32_t, x::errors::Error>
-read_stg(const uint16_t index, const uint8_t sub_index) {
-    const auto it = STG_TABLES.find({static_cast<uint16_t>(index & 0xFFF8), sub_index});
-    if (it == STG_TABLES.end() || (index & 0x7) > 5)
-        return {0, coe::read_error(index, sub_index, 0x06020000)};
-    return {it->second, x::errors::NIL};
-}
+const coe::Read read_stg = testutil::read_of(testutil::stg_objects());
 
 /// @brief returns a read of the 6xSTG tables in which input 1 counts count ranges.
 coe::Read counting_ranges(const uint32_t count) {
-    return [count](const uint16_t index, const uint8_t sub_index) {
-        if (index == 0x8050 && sub_index == 3) return std::pair{count, x::errors::NIL};
-        return read_stg(index, sub_index);
-    };
+    auto objects = testutil::stg_objects();
+    objects[{0x8050, 3}] = count;
+    return testutil::read_of(std::move(objects));
 }
 
 std::vector<std::string> names(const x::json::json &options) {
