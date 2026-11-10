@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import Any, Literal, Required, TypeAlias, TypedDict, override as _override
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -248,6 +248,16 @@ class RetrieveResponse(BaseModel):
     """
 
     channels: list[Payload] = Field(default_factory=list)
+
+
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the channel that the update changes.
+    """
+
+    key: Required[Key]
 
 
 Where.model_rebuild()

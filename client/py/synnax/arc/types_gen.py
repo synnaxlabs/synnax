@@ -249,6 +249,16 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class BaseUpdateInput(BaseUpdate, total=False):
+    """Is the update of the shared fields that a client sends.
+
+    Attributes:
+        key: Is the key of the arc that the update changes.
+    """
+
+    key: Required[Key]
+
+
 class AutomationUpdate(TypedDict, total=False):
     """Is an Arc that runs on a rack as a task."""
 
@@ -309,6 +319,25 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_program: bool = False
 
+
+class AutomationUpdateInput(TypedDict, total=False):
+    """Is an Arc that runs on a rack as a task."""
+
+    type: Required[Literal["automation"]]
+    key: Required[Key]
+    name: str
+
+
+class ModuleUpdateInput(TypedDict, total=False):
+    """Is an Arc that holds code for other Arcs to import."""
+
+    type: Required[Literal["module"]]
+    key: Required[Key]
+    name: str
+
+
+# Is the update that a client sends.
+UpdateInput = BaseUpdateInput | AutomationUpdateInput | ModuleUpdateInput
 
 UpdatePayload: TypeAlias = patch.Update[Update]
 

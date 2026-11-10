@@ -67,6 +67,30 @@ var _ = Describe("Update types", func() {
 		)
 	})
 
+	It("Should render UpdateInput as the update with the key of the record", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/plot"
+			@py output "client/py/synnax/plot"
+
+			Plot struct {
+				key  uuid   { @key }
+				name string { @patch }
+				hash string { @patch core }
+
+				@actions
+			}
+		`, "plot", loader, types.New(types.DefaultOptions()))
+		ExpectContent(resp, "client/py/synnax/plot/types_gen.py").ToContain(
+			"class UpdateInput(Update, total=False):\n",
+			"        key: Is the key of the plot that the update changes.\n",
+			"    key: Required[UUID]\n",
+		)
+	})
+
 	It("Should render a union update as a union of TypedDicts", func(
 		ctx SpecContext,
 	) {
@@ -97,6 +121,39 @@ var _ = Describe("Update types", func() {
 				"    name: str\n"+
 				"    where: patch.Change[str]\n",
 			"Update = BaseUpdate | RangeUpdate | StatusUpdate\n",
+		)
+	})
+
+	It("Should render a union UpdateInput with the key in each form", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/view"
+			@py output "client/py/synnax/view"
+
+			Base struct {
+				key  uuid   { @key }
+				name string { @patch }
+			}
+
+			View union on type extends Base {
+				range {
+					where string? { @patch }
+				}
+				status {}
+				@actions
+			}
+		`, "view", loader, types.New(types.DefaultOptions()))
+		ExpectContent(resp, "client/py/synnax/view/types_gen.py").ToContain(
+			"class BaseUpdateInput(BaseUpdate, total=False):\n",
+			"class RangeUpdateInput(TypedDict, total=False):\n"+
+				"    type: Required[Literal[\"range\"]]\n"+
+				"    key: Required[UUID]\n"+
+				"    name: str\n"+
+				"    where: patch.Change[str]\n",
+			"UpdateInput = BaseUpdateInput | RangeUpdateInput | StatusUpdateInput\n",
 		)
 	})
 })

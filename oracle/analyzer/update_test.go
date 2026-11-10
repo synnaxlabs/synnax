@@ -216,6 +216,90 @@ var _ = Describe("Update types", func() {
 			Expect(ok).To(BeFalse())
 		})
 
+		Describe("Python input", func() {
+			const keyed = `
+				import "schemas/x/patch"
+
+				Plot struct {
+					key  uuid   { @key }
+					name string { @patch }
+					hash string { @patch core }
+					@actions
+				}
+			`
+
+			It("Should derive UpdateInput with the key of the record in Python", func(
+				ctx SpecContext,
+			) {
+				table := analyze(ctx, keyed)
+				input := table.MustGet("test.UpdateInput")
+				Expect(domainExprNames(input.Domains["py"])).To(ContainElement("dict"))
+				form := input.Form.(resolution.StructForm)
+				Expect(form.Extends[0].Name).To(Equal("test.Update"))
+				Expect(fieldNames(form)).To(Equal([]string{"key"}))
+				key := form.Fields[0]
+				Expect(key.Optional).To(BeFalse())
+				Expect(key.Type.Name).To(Equal("uuid"))
+				Expect(omit.IsField(key, "ts")).To(BeTrue())
+				Expect(doc.Get(key.Domains)).To(Equal(
+					"is the key of the plot that the update changes.",
+				))
+			})
+
+			It("Should keep the TypeScript UpdateInput beside the Python key", func(
+				ctx SpecContext,
+			) {
+				table := analyze(ctx, keyed)
+				input := table.MustGet("test.UpdateInput")
+				Expect(input.Form.(resolution.StructForm).OmittedFields).To(
+					Equal([]string{"hash"}),
+				)
+				Expect(domainExprNames(input.Domains["ts"])).To(
+					ContainElements("use_input", "type_only"),
+				)
+				for _, lang := range []string{"go", "cpp", "pb"} {
+					Expect(omit.IsAbsent(input, lang)).To(BeTrue(), lang)
+				}
+			})
+
+			It("Should derive a Python-only UpdateInput without Core-only fields", func(
+				ctx SpecContext,
+			) {
+				table := analyze(ctx, `
+					import "schemas/x/patch"
+
+					Plot struct {
+						key  uuid   { @key }
+						name string { @patch }
+						@actions
+					}
+				`)
+				input := table.MustGet("test.UpdateInput")
+				Expect(omit.IsType(input, "py")).To(BeFalse())
+				for _, lang := range []string{"go", "ts", "cpp", "pb"} {
+					Expect(omit.IsAbsent(input, lang)).To(BeTrue(), lang)
+				}
+			})
+
+			It("Should take the key type that the retrieve names", func(
+				ctx SpecContext,
+			) {
+				table := analyze(ctx, `
+					import "schemas/x/patch"
+
+					Key = uint32
+
+					Plot struct {
+						name string { @patch }
+						@actions
+						@retrieve key "Key"
+					}
+				`)
+				key := fieldOf(table, "test.UpdateInput", "key")
+				Expect(key.Type.Name).To(Equal("test.Key"))
+			})
+		})
+
 		It("Should render each update as a TypedDict in Python", func(
 			ctx SpecContext,
 		) {
@@ -371,6 +455,39 @@ var _ = Describe("Update types", func() {
 			Expect(form.Untagged.Name).To(Equal("test.BaseUpdate"))
 			base := table.MustGet("test.BaseUpdate").Form.(resolution.StructForm)
 			Expect(fieldNames(base)).To(Equal([]string{"name"}))
+		})
+
+		It("Should derive a Python UpdateInput union with the key in each form", func(
+			ctx SpecContext,
+		) {
+			table := analyze(ctx, `
+				import "schemas/x/patch"
+
+				Base struct {
+					key  uuid   { @key }
+					name string { @patch }
+				}
+
+				View union on type extends Base {
+					range {
+						where string? { @patch }
+					}
+					status {}
+					@actions
+				}
+			`)
+			input := table.MustGet("test.UpdateInput")
+			Expect(domainExprNames(input.Domains["py"])).To(ContainElement("dict"))
+			Expect(omit.IsAbsent(input, "ts")).To(BeTrue())
+			form := input.Form.(resolution.UnionForm)
+			Expect(form.Untagged.Name).To(Equal("test.BaseUpdateInput"))
+			base := table.MustGet("test.BaseUpdateInput").Form.(resolution.StructForm)
+			Expect(base.Extends[0].Name).To(Equal("test.BaseUpdate"))
+			Expect(fieldNames(base)).To(Equal([]string{"key"}))
+			Expect(form.Variants).To(HaveLen(2))
+			payload := table.MustGet(form.Variants[0].Type.Name).
+				Form.(resolution.StructForm)
+			Expect(fieldNames(payload)).To(Equal([]string{"key", "name", "where"}))
 		})
 
 		It("Should give the union record the update action", func(ctx SpecContext) {

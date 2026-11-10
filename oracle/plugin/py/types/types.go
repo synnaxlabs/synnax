@@ -2423,7 +2423,7 @@ class {{ .Name }}(IntEnum):
 {{- if not .HasAlias }}
 
 
-class {{ .PyName }}(TypedDict{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}, total=False):
+class {{ .PyName }}({{ if .ExtendsNames }}{{ range $i, $n := .ExtendsNames }}{{ if $i }}, {{ end }}{{ $n }}{{ end }}{{ else }}TypedDict{{ end }}{{ if hasTypeParams .TypeParams }}, Generic[{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ genericArg $p }}{{ end }}]{{ end }}, total=False):
 {{- if hasDocumentation . }}
 {{ formatGoogleDocstring . }}
 {{- end }}

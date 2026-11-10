@@ -138,6 +138,16 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+class BaseUpdateInput(BaseUpdate, total=False):
+    """Is the update of the shared fields that a client sends.
+
+    Attributes:
+        key: Is the key of the view that the update changes.
+    """
+
+    key: Required[Key]
+
+
 class RangeUpdate(TypedDict, total=False):
     """Is a saved view of ranges."""
 
@@ -200,6 +210,27 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
+
+class RangeUpdateInput(TypedDict, total=False):
+    """Is a saved view of ranges."""
+
+    type: Required[Literal["range"]]
+    key: Required[Key]
+    name: str
+    where: patch.Change[ranger.Where]
+
+
+class StatusUpdateInput(TypedDict, total=False):
+    """Is a saved view of statuses."""
+
+    type: Required[Literal["status"]]
+    key: Required[Key]
+    name: str
+    where: patch.Change[status.Where]
+
+
+# Is the update that a client sends.
+UpdateInput = BaseUpdateInput | RangeUpdateInput | StatusUpdateInput
 
 UpdatePayload: TypeAlias = patch.Update[Update]
 

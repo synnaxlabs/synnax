@@ -112,11 +112,15 @@ func addDictForm(
 	if !dict && !data.dictForms.Contains(typ.QualifiedName) {
 		return nil
 	}
-	if sd.After != "" || len(typ.Form.(resolution.StructForm).Extends) > 0 {
+	extends := typ.Form.(resolution.StructForm).Extends
+	if sd.After != "" || (len(extends) > 0 && !dict) {
 		return errors.Newf(
 			"%s: a dict form needs a struct with no parent and no filter input",
 			typ.QualifiedName,
 		)
+	}
+	if err := checkDictParents(typ, table); err != nil {
+		return err
 	}
 	fields, err := dictFieldsOf(typ, table, data, keyFields)
 	if err != nil {
@@ -125,6 +129,12 @@ func addDictForm(
 	if dict {
 		sd.IsDict, sd.Fields = true, fields
 		sd.HasAlias = lo.SomeBy(fields, func(f fieldData) bool { return f.Alias != "" })
+		if sd.HasAlias && len(extends) > 0 {
+			return errors.Newf(
+				"%s: a TypedDict with a parent cannot hold a key named for a keyword",
+				typ.QualifiedName,
+			)
+		}
 		if sd.HasAlias {
 			sd.After = typedDict(sd.PyName, fields, typeParamNames(sd))
 		}
@@ -133,6 +143,31 @@ func addDictForm(
 	name := sd.PyName + "Dict"
 	sd.After = "# " + name + " is the dict form of " + sd.PyName + ".\n" +
 		typedDict(name, fields, typeParamNames(sd))
+	return nil
+}
+
+// checkDictParents returns an error when a parent of the TypedDict typ is not a
+// TypedDict, or when typ omits a field that a parent holds, which a TypedDict cannot
+// drop.
+func checkDictParents(typ resolution.Type, table *resolution.Table) error {
+	form := typ.Form.(resolution.StructForm)
+	for _, ref := range form.Extends {
+		parent, _, ok := resolution.Dealias(ref, table)
+		if !ok || !isDict(parent) {
+			return errors.Newf(
+				"%s: a TypedDict can only extend a TypedDict, not %s",
+				typ.QualifiedName, ref.Name,
+			)
+		}
+		for _, f := range resolution.UnifiedFields(parent, table) {
+			if lo.Contains(form.OmittedFields, f.Name) {
+				return errors.Newf(
+					"%s: a TypedDict cannot omit the field %s of %s",
+					typ.QualifiedName, f.Name, parent.QualifiedName,
+				)
+			}
+		}
+	}
 	return nil
 }
 

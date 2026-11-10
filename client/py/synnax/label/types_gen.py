@@ -11,7 +11,14 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Literal,
+    Required,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -123,6 +130,16 @@ class Cursor(BaseModel):
 
     key: Key
     name: str | None = None
+
+
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the label that the update changes.
+    """
+
+    key: Required[Key]
 
 
 UpdatePayload: TypeAlias = patch.Update[Update]

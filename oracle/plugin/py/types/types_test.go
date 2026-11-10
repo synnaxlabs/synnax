@@ -3505,7 +3505,48 @@ var _ = Describe("Dict forms", func() {
 			}
 		`, "ops", loader)
 		Expect(typesPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
-			"ops.Update: a dict form needs a struct with no parent and no filter input",
+			"ops.Update: a TypedDict can only extend a TypedDict, not ops.Base",
+		)))
+	})
+
+	It("Should render a dict form that extends a dict form", func(ctx SpecContext) {
+		resp := MustGenerate(ctx, `
+			@py output "out"
+
+			Update struct {
+				name string?
+				@py dict
+			}
+
+			Input struct extends Update {
+				key int32
+				@py dict
+			}
+		`, "ops", loader, typesPlugin)
+		ExpectContent(resp, "out/types_gen.py").ToContain(
+			"class Input(Update, total=False):\n    key: Required[int]\n",
+		)
+	})
+
+	It("Should reject a dict form that omits a field of its parent", func(
+		ctx SpecContext,
+	) {
+		req := MustGenerateRequest(ctx, `
+			@py output "out"
+
+			Update struct {
+				name string?
+				note string?
+				@py dict
+			}
+
+			Input struct extends Update {
+				-note
+				@py dict
+			}
+		`, "ops", loader)
+		Expect(typesPlugin.Generate(req)).Error().To(MatchError(ContainSubstring(
+			"ops.Input: a TypedDict cannot omit the field note of ops.Update",
 		)))
 	})
 })

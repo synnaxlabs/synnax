@@ -15,6 +15,7 @@ from typing import (
     Annotated,
     Any,
     Literal,
+    Required,
     TypeAlias,
     TypedDict,
     override as _override,
@@ -180,6 +181,17 @@ class Cursor(BaseModel):
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the device that the update changes.
+    """
+
+    key: Required[Key]
+
 
 UpdatePayload: TypeAlias = patch.Update[Update]
 

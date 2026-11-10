@@ -167,9 +167,7 @@ func (s *updateSynth) root(typ resolution.Type) {
 	core := lo.FilterMap(fields, func(f resolution.Field, _ int) (string, bool) {
 		return f.Name, coreOnly(f)
 	})
-	if len(core) > 0 {
-		s.input(typ, core)
-	}
+	s.input(typ, resolution.UnifiedFields(typ, s.c.table), core)
 	s.updateAction(typ, core)
 }
 
@@ -196,6 +194,7 @@ func (s *updateSynth) rootUnion(typ resolution.Type, form resolution.UnionForm) 
 		return
 	}
 	if s.deriveUnion(typ, updateSuffix, patched, false) {
+		s.inputUnion(typ, baseFields(form, s.c.table))
 		s.updateAction(typ, nil)
 	}
 }
@@ -398,48 +397,191 @@ func (s *updateSynth) collides(owner, existing resolution.Type) bool {
 	return true
 }
 
-// input registers UpdateInput, the update that a TypeScript client sends: Update
-// without the fields that only the Core sets. Python and C++ updates already leave
-// them out, so only TypeScript renders it.
-func (s *updateSynth) input(owner resolution.Type, core []string) {
+// input registers UpdateInput, the update that a client sends. In TypeScript it is
+// Update without the fields that only the Core sets, and only a record with such fields
+// has one. In Python it is Update with the key of the record. Python and C++ updates
+// already leave out the Core-only fields. fields are the fields of owner.
+func (s *updateSynth) input(
+	owner resolution.Type,
+	fields []resolution.Field,
+	core []string,
+) {
 	update, ok := s.c.table.Get(owner.Namespace + "." + updateSuffix)
 	if !ok || update.Updates != owner.QualifiedName {
 		return
 	}
-	name := updateSuffix + "Input"
-	qualified := owner.Namespace + "." + name
-	if _, exists := s.c.table.Get(qualified); exists {
-		s.report(owner, diagnostics.Errorf(ruleCtx(owner.AST),
-			"%s derives the update type %s, which the schema already declares",
-			owner.Name, qualified,
-		))
+	key, keyed := inputKey(owner, fields)
+	if len(core) == 0 && !keyed {
 		return
 	}
-	domains := map[string]resolution.Domain{}
-	for _, lang := range []string{"go", "py", "cpp", "pb"} {
-		domains[lang] = omitted(lang)
+	qualified := owner.Namespace + "." + inputName
+	if s.inputDeclared(owner, qualified) {
+		return
 	}
-	ts := layDomains(nil, update.Domains, "output", "concrete_types")["ts"]
-	ts.Name = "ts"
-	ts.Expressions = append(
-		slices.Clone(ts.Expressions),
-		resolution.Expression{Name: "use_input"},
-		resolution.Expression{Name: "type_only"},
-	)
-	domains["ts"] = ts
+	domains := inputDomains(owner, keyed)
+	if len(core) > 0 {
+		ts := layDomains(nil, update.Domains, "output", "concrete_types")["ts"]
+		ts.Name = "ts"
+		ts.Expressions = append(
+			slices.Clone(ts.Expressions),
+			resolution.Expression{Name: "use_input"},
+			resolution.Expression{Name: "type_only"},
+		)
+		domains["ts"] = ts
+	}
+	form := resolution.StructForm{
+		TypeParams:    update.Form.(resolution.StructForm).TypeParams,
+		Extends:       []resolution.TypeRef{{Name: update.QualifiedName}},
+		OmittedFields: core,
+	}
+	if keyed {
+		form.Fields = []resolution.Field{key}
+	}
 	lo.Must0(s.c.table.Add(resolution.Type{
-		Name:          name,
+		Name:          inputName,
 		Namespace:     owner.Namespace,
 		QualifiedName: qualified,
 		FilePath:      owner.FilePath,
-		Form: resolution.StructForm{
-			TypeParams:    update.Form.(resolution.StructForm).TypeParams,
-			Extends:       []resolution.TypeRef{{Name: update.QualifiedName}},
-			OmittedFields: core,
-		},
-		Domains: withDoc(domains, "is the update that a client sends."),
+		Form:          form,
+		Domains:       withDoc(domains, "is the update that a client sends."),
+		Updates:       owner.QualifiedName,
+	}))
+}
+
+// inputUnion registers UpdateInput for a union record, for Python only: the union of
+// the variant updates and the base update, each with the key of the record. base are
+// the fields that every variant of owner shares.
+func (s *updateSynth) inputUnion(owner resolution.Type, base []resolution.Field) {
+	key, keyed := inputKey(owner, base)
+	if !keyed {
+		return
+	}
+	update := s.c.table.MustGet(owner.Namespace + "." + updateSuffix)
+	form := update.Form.(resolution.UnionForm)
+	qualified := owner.Namespace + "." + inputName
+	if s.inputDeclared(owner, qualified) {
+		return
+	}
+	add := func(
+		name string,
+		f resolution.StructForm,
+		doc string,
+		synthetic bool,
+	) resolution.TypeRef {
+		ref := resolution.TypeRef{Name: owner.Namespace + "." + name}
+		domains := inputDomains(owner, true)
+		if doc != "" {
+			domains = withDoc(domains, doc)
+		}
+		lo.Must0(s.c.table.Add(resolution.Type{
+			Name:          name,
+			Namespace:     owner.Namespace,
+			QualifiedName: ref.Name,
+			FilePath:      owner.FilePath,
+			Form:          f,
+			Domains:       domains,
+			Synthetic:     synthetic,
+			Updates:       owner.QualifiedName,
+		}))
+		return ref
+	}
+	var untagged resolution.TypeRef
+	if form.HasUntagged() {
+		name := "Base" + inputName
+		if s.inputDeclared(owner, owner.Namespace+"."+name) {
+			return
+		}
+		untagged = add(name, resolution.StructForm{
+			Extends: []resolution.TypeRef{form.Untagged},
+			Fields:  []resolution.Field{key},
+		}, "is the update of the shared fields that a client sends.", false)
+	}
+	variants := make([]resolution.UnionVariant, 0, len(form.Variants))
+	for _, v := range form.Variants {
+		name := inputName + pascalIdent(v.Name) + "Payload"
+		if s.inputDeclared(owner, owner.Namespace+"."+name) {
+			return
+		}
+		payload := s.c.table.MustGet(v.Type.Name).Form.(resolution.StructForm)
+		fields := append([]resolution.Field{key}, payload.Fields...)
+		v.Type = add(name, resolution.StructForm{Fields: fields}, "", true)
+		variants = append(variants, v)
+	}
+	form.Variants, form.Untagged = variants, untagged
+	lo.Must0(s.c.table.Add(resolution.Type{
+		Name:          inputName,
+		Namespace:     owner.Namespace,
+		QualifiedName: qualified,
+		FilePath:      owner.FilePath,
+		Form:          form,
+		Domains: withDoc(
+			inputDomains(owner, true),
+			"is the update that a client sends.",
+		),
 		Updates: owner.QualifiedName,
 	}))
+}
+
+// inputName names the update that a client sends.
+const inputName = updateSuffix + "Input"
+
+// inputKey returns the key field of an UpdateInput, which only Python holds: the key
+// that the retrieve of owner names, or else the required @key field of fields. A
+// record with neither takes no key.
+func inputKey(
+	owner resolution.Type,
+	fields []resolution.Field,
+) (resolution.Field, bool) {
+	ref, ok := resolution.RetrieveKey(owner)
+	if !ok {
+		f, found := lo.Find(fields, func(f resolution.Field) bool {
+			_, isKey := f.Domains["key"]
+			return isKey && !f.Optional
+		})
+		if !found {
+			return resolution.Field{}, false
+		}
+		ref = f.Type
+	}
+	noun := strings.ReplaceAll(casing.TypeSnake(owner.Name), "_", " ")
+	key := requiredField(
+		"key",
+		ref,
+		"is the key of the "+noun+" that the update changes.",
+	)
+	addDomain(key.Domains, omitted("ts"))
+	return key, true
+}
+
+// inputDomains returns the domains of an UpdateInput of owner: a TypedDict in Python
+// when it holds a key, and no form in any other language.
+func inputDomains(owner resolution.Type, keyed bool) map[string]resolution.Domain {
+	domains := layDomains(nil, owner.Domains, "output", "omit", "concrete_types")
+	for _, lang := range []string{"go", "ts", "cpp", "pb"} {
+		domains[lang] = omitted(lang)
+	}
+	if !keyed {
+		domains["py"] = omitted("py")
+		return domains
+	}
+	addDomain(domains, resolution.Domain{
+		Name:        "py",
+		Expressions: resolution.Expressions{{Name: "dict"}},
+	})
+	return domains
+}
+
+// inputDeclared reports, as an error, whether the schema already declares qualified,
+// the name of an input type that owner derives.
+func (s *updateSynth) inputDeclared(owner resolution.Type, qualified string) bool {
+	if _, exists := s.c.table.Get(qualified); !exists {
+		return false
+	}
+	s.report(owner, diagnostics.Errorf(ruleCtx(owner.AST),
+		"%s derives the update type %s, which the schema already declares",
+		owner.Name, qualified,
+	))
+	return true
 }
 
 // patched reports whether a record field takes an update.

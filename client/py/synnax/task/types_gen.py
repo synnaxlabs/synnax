@@ -335,6 +335,16 @@ class ScanConfig(KeyedConfig):
         return hash(self.key)
 
 
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the task that the update changes.
+    """
+
+    key: Required[Key]
+
+
 UpdatePayload: TypeAlias = patch.Update[Update]
 
 

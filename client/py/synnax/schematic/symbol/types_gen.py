@@ -11,7 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Required,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -272,6 +280,16 @@ class RetrieveResponse(BaseModel):
     """
 
     symbols: list[Symbol] = Field(default_factory=list)
+
+
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the symbol that the update changes.
+    """
+
+    key: Required[Key]
 
 
 UpdatePayload: TypeAlias = patch.Update[Update]
