@@ -26,7 +26,7 @@ on:
 permissions:
   contents: read
 
-# One run at a time holds the hardware. A whole run waits, so the gate sees the last run.
+# One run at a time holds the hardware. A whole run waits so its gate sees the last run.
 concurrency:
   group: hitl
   cancel-in-progress: false
