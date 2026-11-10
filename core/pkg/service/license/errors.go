@@ -10,7 +10,6 @@
 package license
 
 import (
-	"context"
 	"strings"
 
 	"github.com/synnaxlabs/x/errors"
@@ -57,7 +56,7 @@ func newTooManyError(count uint32) error {
 	return errors.Wrapf(ErrTooMany, "limit is %d channels", count)
 }
 
-func encode(_ context.Context, err error) (errors.Payload, bool) {
+func encode(err error) (errors.Payload, bool) {
 	if errors.CheapIs(err, ErrMissing) {
 		return errors.Payload{Type: missingType, Data: err.Error()}, true
 	}
@@ -82,7 +81,7 @@ func encode(_ context.Context, err error) (errors.Payload, bool) {
 	return errors.Payload{}, false
 }
 
-func decode(_ context.Context, p errors.Payload) (error, bool) {
+func decode(p errors.Payload) (error, bool) {
 	switch p.Type {
 	case missingType:
 		return errors.Wrap(ErrMissing, p.Data), true

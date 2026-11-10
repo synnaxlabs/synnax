@@ -83,7 +83,7 @@ func (frameEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) er
 	var payload []byte
 	if readErr != nil {
 		if payload, err = json.Codec.Encode(
-			ctx, errors.Encode(ctx, readErr, false),
+			ctx, errors.Encode(readErr, false),
 		); err != nil {
 			return err
 		}

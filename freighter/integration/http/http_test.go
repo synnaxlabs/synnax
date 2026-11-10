@@ -279,11 +279,11 @@ var _ = Describe("emptyResponse", func() {
 var _ = Describe("Test error", func() {
 	It(
 		"Should round-trip through the freighter errors registry",
-		func(ctx SpecContext) {
+		func() {
 			payload := errors.Payload{Type: "integration.error", Data: "7,boom"}
-			decoded := errors.Decode(ctx, payload)
+			decoded := errors.Decode(payload)
 			Expect(decoded).To(MatchError("boom"))
-			Expect(errors.Encode(ctx, decoded, false)).To(Equal(payload))
+			Expect(errors.Encode(decoded, false)).To(Equal(payload))
 		},
 	)
 })

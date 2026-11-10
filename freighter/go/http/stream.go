@@ -145,7 +145,7 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 		return i, c.peerCloseErr
 	}
 	if msg.Type == WSMessageTypeClose {
-		c.peerCloseErr = errors.Decode(context.TODO(), msg.Err)
+		c.peerCloseErr = errors.Decode(msg.Err)
 		if c.peerCloseErr == nil {
 			c.peerCloseErr = freighter.EOF
 		}

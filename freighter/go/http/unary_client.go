@@ -171,7 +171,7 @@ func (u *unaryClient[RQ, RS]) Send(
 				if err := decoder.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
 					return outCtx, err
 				}
-				return outCtx, errors.Decode(ctx, pld)
+				return outCtx, errors.Decode(pld)
 			}
 			return outCtx, decoder.DecodeStream(outCtx, httpRes.Body, &res)
 		}),

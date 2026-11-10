@@ -431,7 +431,7 @@ var _ = Describe("Unary", func() {
 				).To(Equal("application/json"))
 				var pld errors.Payload
 				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
-				Expect(errors.Decode(ctx, pld)).To(MatchError(testutil.ErrCustom))
+				Expect(errors.Decode(pld)).To(MatchError(testutil.ErrCustom))
 			},
 		)
 
@@ -537,7 +537,7 @@ var _ = Describe("Unary", func() {
 				var pld errors.Payload
 				respBody := MustSucceed(io.ReadAll(httpRes.Body))
 				Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
-				Expect(errors.Decode(ctx, pld)).To(MatchError(testutil.ErrCustom))
+				Expect(errors.Decode(pld)).To(MatchError(testutil.ErrCustom))
 			},
 		)
 	})

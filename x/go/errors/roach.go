@@ -16,11 +16,11 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
-func roachEncode(ctx context.Context, err error) Payload {
+func roachEncode(err error) Payload {
 	// Case where the error is of type roach or not typed. If the type isn't registered,
 	// attempt to encode the error using cockroachdb's error package. This is used for
 	// go-to-go transport.
-	encoded := errors.EncodeError(ctx, err)
+	encoded := errors.EncodeError(context.Background(), err)
 	b, err := encoded.Marshal()
 	// If we couldn't encode the error, return a standardized unknown payload along with
 	// the error string.
@@ -31,7 +31,7 @@ func roachEncode(ctx context.Context, err error) Payload {
 }
 
 // Decode implements Provider.
-func roachDecode(ctx context.Context, pld Payload) (error, bool) {
+func roachDecode(pld Payload) (error, bool) {
 	if pld.Type != TypeRoach {
 		return nil, false
 	}
@@ -43,5 +43,5 @@ func roachDecode(ctx context.Context, pld Payload) (error, bool) {
 	if err := e.Unmarshal(b); err != nil {
 		return nil, false
 	}
-	return errors.DecodeError(ctx, *e), true
+	return errors.DecodeError(context.Background(), *e), true
 }
