@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"fmt"
 	"sync/atomic"
 	"uuid"
 
@@ -293,6 +294,31 @@ var _ = Describe("Dispatch", Ordered, func() {
 					}
 					Expect(warning).To(Equal(1))
 					Expect(info).To(Equal(1))
+				},
+			)
+
+			It(
+				"Should set the status with the lowest key on each set by a shared name",
+				func(ctx SpecContext) {
+					name := "by_name_order"
+					for i := range 16 {
+						Expect(setStatus(ctx, &status.Status[any]{
+							Key:     fmt.Sprintf("%s_%02d", name, i),
+							Name:    name,
+							Variant: status.VariantInfo,
+							Time:    telem.Now(),
+						})).To(Succeed())
+					}
+					for range 5 {
+						gotKey, multi := MustSucceed2(svc.SetByKeyOrName(
+							ctx,
+							name,
+							"updated",
+							string(status.VariantWarning),
+						))
+						Expect(gotKey).To(Equal(name + "_00"))
+						Expect(multi).To(BeTrue())
+					}
 				},
 			)
 
