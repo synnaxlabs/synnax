@@ -145,7 +145,6 @@ jobs:
       ts_tag: ${{ steps.ts.outputs.tag }}
       ts_minor: ${{ steps.ts.outputs.minor }}
       ts_latest: ${{ steps.ts.outputs.latest }}
-      ts_previous_tag: ${{ steps.ts.outputs.previous_tag }}
       py_version: ${{ steps.py.outputs.version }}
       py_tag: ${{ steps.py.outputs.tag }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
@@ -459,14 +458,14 @@ jobs:
 
       # npm hides a staged version until a maintainer approves it, so the tag goes up
       # only after a stage succeeds, and a run whose tag already names this commit has
-      # nothing to stage. While the previous version waits for approval, nothing new
-      # stages, so approvals always move `latest` forward. `client` is approved last.
+      # nothing to stage. While the newest version on any train waits for approval,
+      # nothing new stages, so approvals always move `latest` forward. `client` is
+      # approved last.
       - name: Claim the version
         id: claim
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG: ${{ needs.resolve.outputs.ts_tag }}
-          PREVIOUS: ${{ needs.resolve.outputs.ts_previous_tag }}
         run: |
           status() {
             curl -s -o /dev/null -w '%{http_code}' \
@@ -488,12 +487,13 @@ jobs:
               exit 1
             fi
           done
-          if [ -n "$PREVIOUS" ]; then
-            code=$(status client "${PREVIOUS#ts/v}")
-            if [ "$code" != 200 ]; then
-              echo "client ${PREVIOUS#ts/v} is not out; approve or reject it first" >&2
-              exit 1
-            fi
+          newest=$(git ls-remote --tags --refs origin 'refs/tags/ts/v*' \
+            | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
+          if [ -n "$newest" ] && [ "$(status client "$newest")" != 200 ]; then
+            echo "client $newest is not out. Approve it, or reject it and delete" >&2
+            echo "the ts/v$newest tag." >&2
+            exit 1
           fi
 
       - name: Stamp package versions
@@ -531,8 +531,9 @@ jobs:
             echo "### Approve the npm packages"
             echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
             echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
-            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`. A later release"
-            echo "cannot stage until \`client\` is approved or rejected."
+            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`. No later release"
+            echo "stages until \`client\` is approved. To reject, reject every package"
+            echo "and delete the \`ts/v$VERSION\` tag."
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish-py:
