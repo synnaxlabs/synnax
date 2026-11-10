@@ -116,17 +116,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		group.RetrieveAncestorsResponse,
 	]{}
 
-	// GROUP MEMBERSHIP
-	t.SchematicSetGroup = noop.UnaryServer[schematic.SetGroupRequest, struct{}]{}
-	t.LinePlotSetGroup = noop.UnaryServer[lineplot.SetGroupRequest, struct{}]{}
-	t.LogSetGroup = noop.UnaryServer[log.SetGroupRequest, struct{}]{}
-	t.TableSetGroup = noop.UnaryServer[table.SetGroupRequest, struct{}]{}
-	t.PanelSetGroup = noop.UnaryServer[panel.SetGroupRequest, struct{}]{}
-	t.SchematicSetProject = noop.UnaryServer[schematic.SetProjectRequest, struct{}]{}
-	t.LinePlotSetProject = noop.UnaryServer[lineplot.SetProjectRequest, struct{}]{}
-	t.LogSetProject = noop.UnaryServer[log.SetProjectRequest, struct{}]{}
-	t.TableSetProject = noop.UnaryServer[table.SetProjectRequest, struct{}]{}
-	t.PanelSetProject = noop.UnaryServer[panel.SetProjectRequest, struct{}]{}
+	// BATCH
 	t.Batch = noop.UnaryServer[batch.ExecRequest, batch.ExecResponse]{}
 
 	// PROJECT
@@ -148,7 +138,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SchematicCreate = noop.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]{}
 	t.SchematicDelete = noop.UnaryServer[schematic.DeleteRequest, struct{}]{}
 	t.SchematicRetrieve = noop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
-	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, struct{}]{}
+	t.SchematicDispatch = noop.UnaryServer[schematic.DispatchRequest, schematic.DispatchResponse]{}
 	t.SchematicCopy = noop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
@@ -164,19 +154,19 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LinePlotCreate = noop.UnaryServer[lineplot.CreateRequest, lineplot.CreateResponse]{}
 	t.LinePlotRetrieve = noop.UnaryServer[lineplot.RetrieveRequest, lineplot.RetrieveResponse]{}
 	t.LinePlotDelete = noop.UnaryServer[lineplot.DeleteRequest, struct{}]{}
-	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, struct{}]{}
+	t.LinePlotDispatch = noop.UnaryServer[lineplot.DispatchRequest, lineplot.DispatchResponse]{}
 
 	// PANEL
 	t.PanelCreate = noop.UnaryServer[panel.CreateRequest, panel.CreateResponse]{}
 	t.PanelRetrieve = noop.UnaryServer[panel.RetrieveRequest, panel.RetrieveResponse]{}
 	t.PanelDelete = noop.UnaryServer[panel.DeleteRequest, struct{}]{}
-	t.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, struct{}]{}
+	t.PanelDispatch = noop.UnaryServer[panel.DispatchRequest, panel.DispatchResponse]{}
 
 	// LOG
 	t.LogCreate = noop.UnaryServer[log.CreateRequest, log.CreateResponse]{}
 	t.LogRetrieve = noop.UnaryServer[log.RetrieveRequest, log.RetrieveResponse]{}
 	t.LogDelete = noop.UnaryServer[log.DeleteRequest, struct{}]{}
-	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, struct{}]{}
+	t.LogDispatch = noop.UnaryServer[log.DispatchRequest, log.DispatchResponse]{}
 
 	// VIEW
 	t.ViewCreate = noop.UnaryServer[view.CreateRequest, view.CreateResponse]{}
@@ -188,7 +178,7 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.TableCreate = noop.UnaryServer[table.CreateRequest, table.CreateResponse]{}
 	t.TableRetrieve = noop.UnaryServer[table.RetrieveRequest, table.RetrieveResponse]{}
 	t.TableDelete = noop.UnaryServer[table.DeleteRequest, struct{}]{}
-	t.TableDispatch = noop.UnaryServer[table.DispatchRequest, struct{}]{}
+	t.TableDispatch = noop.UnaryServer[table.DispatchRequest, table.DispatchResponse]{}
 
 	// LABEL
 	t.LabelCreate = noop.UnaryServer[label.CreateRequest, label.CreateResponse]{}

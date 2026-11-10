@@ -12,11 +12,13 @@ package project
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -74,6 +76,53 @@ func ValidateGroup(
 		*g,
 		p,
 	), "group")
+}
+
+// Placement is the group and project of a visualization.
+type Placement struct {
+	// Group is the group that holds the visualization, or nil.
+	Group *group.Key
+	// Project is the project that owns the visualization, or nil when a range owns it.
+	Project *Key
+}
+
+// Place returns the placement of a visualization of type t after an edit moves it from
+// prev to next, and the actions that the move adds to the edit, built with set and
+// remove. A new group moves the visualization into the project that holds the group,
+// which adds a set of the project when it changes. A new project with the same group
+// moves the visualization out of its group, which adds a remove of the group. Place
+// returns a validation error on the group field when the new group cannot hold t.
+func Place[A any](
+	ctx context.Context,
+	tx gorp.Tx,
+	t resource.Type,
+	prev, next Placement,
+	set func(patch.Set) A,
+	remove func(patch.Remove) A,
+) (Placement, []A, error) {
+	if !groupsEqual(prev.Group, next.Group) {
+		p, err := GroupProject(ctx, tx, next.Group, t)
+		if err != nil {
+			return Placement{}, nil, err
+		}
+		if p == nil || lo.FromPtr(next.Project) == *p {
+			return next, nil, nil
+		}
+		next.Project = p
+		return next, []A{set(patch.Set{Path: []string{"project"}, Value: *p})}, nil
+	}
+	if next.Group == nil || lo.FromPtr(prev.Project) == lo.FromPtr(next.Project) {
+		return next, nil, nil
+	}
+	next.Group = nil
+	return next, []A{remove(patch.Remove{Key: "group"})}, nil
+}
+
+func groupsEqual(a, b *group.Key) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 // TopParentProject returns the project that a visualization of type t belongs to when

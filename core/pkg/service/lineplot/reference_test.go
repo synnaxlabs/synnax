@@ -106,7 +106,7 @@ var _ = Describe("Channel references", func() {
 				})).To(Succeed())
 			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Apply(
+				_, err := svc.NewWriter(tx).Apply(
 					ctx,
 					plot.Key,
 					lineplot.NewSetLineStrokeWidthAction(
@@ -116,6 +116,7 @@ var _ = Describe("Channel references", func() {
 						},
 					),
 				)
+				return err
 			})).To(Succeed())
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return channelSvc.NewWriter(tx).DeleteMany(

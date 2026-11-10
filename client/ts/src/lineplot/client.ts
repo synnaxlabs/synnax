@@ -82,8 +82,11 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, LinePlot>;
-  /** Builds requests that move line plots between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  /**
+   * Builds requests that move line plots between groups. A move into a group of another
+   * project also moves the line plot into that project.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   /** Builds requests that move line plots out of their group and into a project. */
   readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
@@ -122,12 +125,14 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
-      "/lineplot/set-group",
-      (keys, to) => group.moveCached(store, keys, to),
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/lineplot/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
     );
     this.setProjectRequest = project.createMoveRequest(
-      "/lineplot/set-project",
+      "/lineplot/dispatch",
       (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;

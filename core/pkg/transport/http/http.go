@@ -221,46 +221,6 @@ func Bind(layer *api.Layer, router *http.Router) {
 			group.RetrieveAncestorsRequest,
 			group.RetrieveAncestorsResponse,
 		](router, "/api/v1/group/retrieve-ancestors"),
-		SchematicSetGroup: unary[schematic.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSetGroup,
-		),
-		LinePlotSetGroup: unary[lineplot.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLinePlotSetGroup,
-		),
-		LogSetGroup: unary[log.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLogSetGroup,
-		),
-		TableSetGroup: unary[table.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathTableSetGroup,
-		),
-		PanelSetGroup: unary[panel.SetGroupRequest, struct{}](
-			router,
-			"/api/v1"+api.PathPanelSetGroup,
-		),
-		SchematicSetProject: unary[schematic.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathSchematicSetProject,
-		),
-		LinePlotSetProject: unary[lineplot.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLinePlotSetProject,
-		),
-		LogSetProject: unary[log.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathLogSetProject,
-		),
-		TableSetProject: unary[table.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathTableSetProject,
-		),
-		PanelSetProject: unary[panel.SetProjectRequest, struct{}](
-			router,
-			"/api/v1"+api.PathPanelSetProject,
-		),
 		Batch: unary[batch.ExecRequest, batch.ExecResponse](
 			router,
 			"/api/v1/batch",
@@ -360,7 +320,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/schematic/delete",
 		),
-		SchematicDispatch: unary[schematic.DispatchRequest, struct{}](
+		SchematicDispatch: unary[schematic.DispatchRequest, schematic.DispatchResponse](
 			router,
 			"/api/v1"+api.PathSchematicDispatch,
 		),
@@ -414,7 +374,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/lineplot/delete",
 		),
-		LinePlotDispatch: unary[lineplot.DispatchRequest, struct{}](
+		LinePlotDispatch: unary[lineplot.DispatchRequest, lineplot.DispatchResponse](
 			router,
 			"/api/v1"+api.PathLinePlotDispatch,
 		),
@@ -432,7 +392,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/panel/delete",
 		),
-		PanelDispatch: unary[panel.DispatchRequest, struct{}](
+		PanelDispatch: unary[panel.DispatchRequest, panel.DispatchResponse](
 			router,
 			"/api/v1"+api.PathPanelDispatch,
 		),
@@ -447,7 +407,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			"/api/v1/log/retrieve",
 		),
 		LogDelete: unary[log.DeleteRequest, struct{}](router, "/api/v1/log/delete"),
-		LogDispatch: unary[log.DispatchRequest, struct{}](
+		LogDispatch: unary[log.DispatchRequest, log.DispatchResponse](
 			router,
 			"/api/v1"+api.PathLogDispatch,
 		),
@@ -465,7 +425,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/table/delete",
 		),
-		TableDispatch: unary[table.DispatchRequest, struct{}](
+		TableDispatch: unary[table.DispatchRequest, table.DispatchResponse](
 			router,
 			"/api/v1"+api.PathTableDispatch,
 		),

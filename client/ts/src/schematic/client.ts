@@ -97,8 +97,11 @@ export class Client extends query.Retriever<
   readonly symbols: symbol.Client;
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Schematic>;
-  /** Builds requests that move schematics between groups. */
-  readonly setGroupRequest: group.SetGroupRequest<Key>;
+  /**
+   * Builds requests that move schematics between groups. A move into a group of another
+   * project also moves the schematic into that project.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
   /** Builds requests that move schematics out of their group and into a project. */
   readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Schematic, Action>;
@@ -144,12 +147,14 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.symbols = new symbol.Client(cfg);
     this.store = store;
-    this.setGroupRequest = group.createSetGroupRequest(
-      "/schematic/set-group",
-      (keys, to) => group.moveCached(store, keys, to),
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/schematic/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
     );
     this.setProjectRequest = project.createMoveRequest(
-      "/schematic/set-project",
+      "/schematic/dispatch",
       (keys, to) => project.moveCached(store, keys, to),
     );
     this.dispatcher = dispatcher;

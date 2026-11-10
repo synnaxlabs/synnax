@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
@@ -185,7 +186,7 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved).To(HaveLen(2))
 		})
 	})
-	Describe("SetProject", func() {
+	Describe("Apply of a project move", func() {
 		It(
 			"Should reject moving a range's snapshot into a project",
 			func(ctx SpecContext) {
@@ -198,8 +199,8 @@ var _ = Describe("Writer", func() {
 					svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &rng.Key, &snap),
 				).To(Succeed())
 				Expect(
-					svc.NewWriter(tx).SetProject(ctx, proj.Key, snap.Key),
-				).To(MatchError(
+					svc.NewWriter(tx).Apply(ctx, snap.Key, setProject(proj.Key)),
+				).Error().To(MatchError(
 					ContainSubstring(
 						"must belong to exactly one of a project and a range",
 					),
@@ -207,13 +208,14 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
-		It("Should move the schematics into the project", func(ctx SpecContext) {
+		It("Should move the schematic into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
 			v := schematic.Schematic{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().
 				Where(schematic.MatchKeys(v.Key)).
@@ -226,8 +228,8 @@ var _ = Describe("Writer", func() {
 			tx := DeferClose(db.OpenTx())
 			v := schematic.Schematic{Project: &proj.Key, Name: "stuck"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
@@ -513,6 +515,40 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, db),
 				).To(Succeed())
 				Expect(res.Name).To(Equal("renamed-snap"))
+			},
+		)
+		It(
+			"Should allow a move of a snapshot schematic into and out of a group",
+			func(ctx SpecContext) {
+				s := schematic.Schematic{Project: &proj.Key, Name: "test"}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &s)
+				})).To(Succeed())
+				var snap schematic.Schematic
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, nil, &snap)
+				})).To(Succeed())
+				g := group.Group{Name: "snapshots", Parent: new(proj.ResourceID())}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return groupSvc.NewWriter(tx).Create(ctx, &g)
+				})).To(Succeed())
+				retrieveGroup := func() *group.Key {
+					GinkgoHelper()
+					var res schematic.Schematic
+					Expect(svc.NewRetrieve().
+						Where(schematic.MatchKeys(snap.Key)).
+						Entry(&res).
+						Exec(ctx, db)).To(Succeed())
+					return res.Group
+				}
+				Expect(dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					setGroup(g.Key),
+				})).To(Succeed())
+				Expect(retrieveGroup()).To(Equal(&g.Key))
+				Expect(dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+					removeGroup,
+				})).To(Succeed())
+				Expect(retrieveGroup()).To(BeNil())
 			},
 		)
 		It(

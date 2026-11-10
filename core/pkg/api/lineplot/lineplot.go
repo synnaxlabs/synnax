@@ -15,9 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
-	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -95,16 +93,24 @@ func (s *Service) Create(
 // deduplicated against the local optimistic update.
 type DispatchRequest = actions.DispatchRequest[lineplot.Key, lineplot.Action]
 
+// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
+// of the project that a move into a group of another project needs.
+type DispatchResponse = actions.DispatchResponse[lineplot.Action]
+
 // Dispatch applies the action sequence to the target line plot in tx. Subscribers to
 // the line plot action signals receive the sequence after the transaction commits.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
+) (DispatchResponse, error) {
+	added, err := s.internal.NewWriter(tx).
 		WithDispatchKey(req.DispatchKey).
 		Apply(ctx, req.Key, req.Actions...)
+	if err != nil {
+		return DispatchResponse{}, err
+	}
+	return DispatchResponse{Actions: added}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
@@ -147,37 +153,4 @@ func (s *Service) Delete(
 	req DeleteRequest,
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetGroupRequest moves line plots into Group, or out of their group when Group is nil.
-type SetGroupRequest struct {
-	Group *group.Key     `json:"group" msgpack:"group"`
-	Keys  []lineplot.Key `json:"keys"  msgpack:"keys"`
-}
-
-// SetGroup moves the line plots with the given keys into a group. A move into a group
-// under another project moves the line plots into that project.
-func (s *Service) SetGroup(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetGroupRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).SetGroup(ctx, req.Group, req.Keys...)
-}
-
-// SetProjectRequest moves line plots into Project.
-type SetProjectRequest struct {
-	Project project.Key    `json:"project" msgpack:"project"`
-	Keys    []lineplot.Key `json:"keys"    msgpack:"keys"`
-}
-
-// SetProject moves the line plots with the given keys out of their group and into a
-// project.
-func (s *Service) SetProject(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetProjectRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		SetProject(ctx, req.Project, req.Keys...)
 }
