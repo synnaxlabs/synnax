@@ -32,7 +32,7 @@ import (
 // VersionsGate verifies the explicitly managed version chains: the live file's
 // version-owned content matches chain resolution (the merged projection), every
 // redeclaration differs structurally from its resolved predecessor, and no version file
-// changes a stored shape the latest stable release shipped.
+// changes a stored shape that Env.Shipped shipped.
 type versionsGate struct{}
 
 // NewVersionsGate returns a Checker that asserts the version chain is well formed.

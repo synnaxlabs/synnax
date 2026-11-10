@@ -710,7 +710,43 @@ Box struct<T> {
 
     @go marshal
 }
-`, "Box.value: changes between a type parameter and a concrete type"),
+`, "Box.value: changes its type parameter"),
+			Entry("a generic type that swaps its type parameters", `
+Pair struct<A, B> {
+    a A
+    b B
+
+    @go marshal
+}
+`, `
+Pair struct<A, B> {
+    a B
+    b A
+
+    @go marshal
+}
+`, "Pair.a: changes its type parameter"),
+			Entry("a field that drops its nil type argument", `
+Status struct<D> {
+    details D?
+}
+
+Channel struct {
+    status Status<nil>
+
+    @go marshal
+}
+`, `
+Status struct<D> {
+    details D?
+}
+
+Channel struct {
+    status Status<string>
+
+    @go marshal
+}
+`, "Channel.status: changes from nil to string"),
 			Entry("an enum that changes between int and string members", `
 Level enum {
     a = 1
@@ -900,6 +936,23 @@ Box struct<U> {
     @go marshal
 }
 `)
+		Expect(messages()).To(BeEmpty())
+	})
+
+	It("Should pass a stored field with a nil type argument", func() {
+		const channel = `
+Status struct<D> {
+    details D?
+}
+
+Channel struct {
+    status Status<nil>
+
+    @go marshal
+}
+`
+		write(releaseRoot, v0Path, channel)
+		write(root, v0Path, channel)
 		Expect(messages()).To(BeEmpty())
 	})
 

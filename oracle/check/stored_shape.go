@@ -27,6 +27,8 @@ import (
 type shapes struct {
 	old, new *resolution.Table
 	visiting set.Set[string]
+	// oldParams and newParams are the type parameters of the struct being compared.
+	oldParams, newParams []resolution.TypeParam
 }
 
 func newShapes(old, new *resolution.Table) shapes {
@@ -47,7 +49,7 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	}
 	switch o := old.Form.(type) {
 	case resolution.StructForm:
-		return s.fields(at, old, new, len(o.TypeParams))
+		return s.fields(at, old, new)
 	case resolution.EnumForm:
 		return enumMembers(at, o, new.Form.(resolution.EnumForm))
 	case resolution.UnionForm:
@@ -69,8 +71,10 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 }
 
 // fields compares the stored fields of two structs, bases included.
-func (s shapes) fields(at string, old, new resolution.Type, typeParams int) string {
-	if len(new.Form.(resolution.StructForm).TypeParams) != typeParams {
+func (s shapes) fields(at string, old, new resolution.Type) string {
+	s.oldParams = old.Form.(resolution.StructForm).TypeParams
+	s.newParams = new.Form.(resolution.StructForm).TypeParams
+	if len(s.oldParams) != len(s.newParams) {
 		return at + ": changes its type parameters"
 	}
 	oldFields := storedFields(resolution.UnifiedFields(old, s.old))
@@ -151,12 +155,31 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		return at + ": changes its array size"
 	}
 	if old.IsTypeParam() || new.IsTypeParam() {
-		if old.IsTypeParam() != new.IsTypeParam() {
-			return at + ": changes between a type parameter and a concrete type"
+		if paramIndex(s.oldParams, old) != paramIndex(s.newParams, new) {
+			return at + ": changes its type parameter"
 		}
 		return ""
 	}
-	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
+	oldType, oldOK := s.old.Get(old.Name)
+	newType, newOK := s.new.Get(new.Name)
+	if !oldOK || !newOK {
+		if oldOK != newOK || old.Name != new.Name {
+			return fmt.Sprintf("%s: changes from %s to %s", at, old.Name, new.Name)
+		}
+		return ""
+	}
+	return s.typ(at, oldType, newType)
+}
+
+// paramIndex returns the position of the type parameter that ref holds in params, or
+// -1 when ref holds a concrete type. Stored data binds parameters by position.
+func paramIndex(params []resolution.TypeParam, ref resolution.TypeRef) int {
+	if !ref.IsTypeParam() {
+		return -1
+	}
+	return slices.IndexFunc(params, func(p resolution.TypeParam) bool {
+		return p.Name == ref.TypeParam.Name
+	})
 }
 
 // enumMembers requires every old member in new with the same value. Stored data holds
