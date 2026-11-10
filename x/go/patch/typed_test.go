@@ -425,19 +425,20 @@ var _ = Describe("Patch", func() {
 
 		It("Should leave the schema default for a removal", func() {
 			g := doc()
-			Expect(MustSucceed(partial(&g, patch.Remove{Key: "factor"}))).To(BeTrue())
+			Expect(partial(&g, patch.Remove{Key: "factor"})).To(BeTrue())
 			Expect(g.Factor).To(Equal(1.0))
 		})
 
 		It("Should leave the schema default for a null set", func() {
 			g := doc()
-			Expect(MustSucceed(partial(&g, patch.Set{Path: []string{"factor"}}))).To(BeTrue())
+			Expect(partial(&g, patch.Set{Path: []string{"factor"}})).To(BeTrue())
 			Expect(g.Factor).To(Equal(1.0))
 		})
 
 		It("Should keep an explicit zero", func() {
 			g := doc()
-			Expect(MustSucceed(partial(&g, patch.Set{Path: []string{"factor"}, Value: 0.0}))).To(BeFalse())
+			zero := patch.Set{Path: []string{"factor"}, Value: 0.0}
+			Expect(partial(&g, zero)).To(BeFalse())
 			Expect(g.Factor).To(BeZero())
 		})
 
@@ -449,8 +450,7 @@ var _ = Describe("Patch", func() {
 
 		It("Should reject a removal from a strict document", func() {
 			g := doc()
-			c, err := patch.Begin(patch.Remove{Key: "factor"})
-			Expect(err).ToNot(HaveOccurred())
+			c := MustSucceed(patch.Begin(patch.Remove{Key: "factor"}))
 			Expect(g.Patch(c)).To(MatchError(validate.ErrValidation))
 		})
 	})
