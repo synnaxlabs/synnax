@@ -396,6 +396,7 @@ jobs:
       # client's minor.
       - name: Pick the dist-tag
         id: dist-tag
+        shell: bash
         run: |
           minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
           latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
