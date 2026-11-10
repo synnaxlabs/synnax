@@ -494,6 +494,32 @@ TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
     EXPECT_EQ(sink->stop_count, 1);
 }
 
+/// @brief it should restart a task whose command pipeline failed, whether or not the
+/// failed run has stopped yet.
+TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    streamer_factory->open_errors = {x::errors::UNKNOWN};
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 1);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    ASSERT_TRUE(write_task->start("start_cmd_2"));
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().back().details.cmd, "start_cmd_2");
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.message, "Started task");
+    EXPECT_TRUE(status.details.running);
+    EXPECT_EQ(sink->start_count, 2);
+    EXPECT_EQ(sink->stop_count, 1);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
 namespace {
 const auto OPEN_ERR = x::errors::Error(x::errors::UNAUTHORIZED, "no control authority");
 
