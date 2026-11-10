@@ -436,3 +436,50 @@ describe("dispatch", () => {
       .toBe(lbl.name);
   });
 });
+
+describe("update", () => {
+  beforeAll(async () => {
+    await client.connect();
+    await remote.connect();
+  });
+  const createLabel = async () =>
+    await client.labels.create({ name: `update-${id.create()}`, color: "#00ff00" });
+  const cachedOf = (c: typeof client, key: label.Key) => {
+    const cached = c.labels.watch(key).getCached();
+    return query.isLive(cached) ? cached : undefined;
+  };
+
+  it("should store an update and echo it to each client that caches the label", async () => {
+    const lbl = await createLabel();
+    await remote.labels.retrieve(lbl.key);
+    await client.labels.update({ key: lbl.key, name: "Anomaly" });
+    const stored = await createTestClient().labels.retrieve(lbl.key);
+    expect(stored.name).toBe("Anomaly");
+    expect(stored.color).toEqual(lbl.color);
+    expect(expectLive(client.labels.watch(lbl.key).getCached()).name).toBe("Anomaly");
+    await expect.poll(() => cachedOf(remote, lbl.key)?.name).toBe("Anomaly");
+  });
+
+  it("should store an array of updates in one batch and echo each of them", async () => {
+    const [a, b] = await Promise.all([createLabel(), createLabel()]);
+    await remote.labels.retrieve([a.key, b.key]);
+    const send = spyOnSend(client);
+    await client.labels.update([
+      { key: a.key, name: "Anomaly" },
+      { key: b.key, color: "#ff0000" },
+    ]);
+    expect(send.mock.calls.filter(([target]) => target === "/batch")).toHaveLength(1);
+    const [storedA, storedB] = await createTestClient().labels.retrieve([a.key, b.key]);
+    expect(storedA.name).toBe("Anomaly");
+    expect(storedB.name).toBe(b.name);
+    expect(storedB.color).toEqual(color.construct("#ff0000"));
+    expect(expectLive(client.labels.watch(a.key).getCached()).name).toBe("Anomaly");
+    expect(expectLive(client.labels.watch(b.key).getCached()).color).toEqual(
+      color.construct("#ff0000"),
+    );
+    await expect.poll(() => cachedOf(remote, a.key)?.name).toBe("Anomaly");
+    await expect
+      .poll(() => cachedOf(remote, b.key)?.color)
+      .toEqual(color.construct("#ff0000"));
+  });
+});
