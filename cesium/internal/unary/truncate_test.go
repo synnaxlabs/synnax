@@ -18,7 +18,6 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding/json"
-	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,12 +27,12 @@ var _ = Describe("TruncateToIndex", func() {
 	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, func() {
 			var (
-				fs      xfs.FS
+				fs      *FaultyFS
 				indexDB *unary.DB
 				tr      = (10 * telem.SecondTS).Range(20 * telem.SecondTS)
 			)
 			BeforeEach(func(ctx SpecContext) {
-				fs = openFS()
+				fs = WrapFaultyFS(openFS())
 				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
@@ -102,6 +101,34 @@ var _ = Describe("TruncateToIndex", func() {
 					telem.NewSeriesV("a", "b", "c", "d", "e", "f"),
 					telem.NewSeriesV("a", "b", "c", "d"),
 				),
+			)
+
+			It("Should name the channel and the domain when it fails",
+				func(ctx SpecContext) {
+					written := openData(ctx, telem.NewSeriesV("a", "b", "c", "d"))
+					Expect(written.Close()).To(Succeed())
+					Expect(indexDB.Delete(
+						ctx,
+						(12 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					dataDB := MustOpen(unary.Open(ctx, unary.Config{
+						FS:              MustSucceed(fs.Sub("data")),
+						MetaCodec:       json.Codec,
+						Channel:         written.Channel(),
+						Instrumentation: PanicLogger(),
+					}))
+					dataDB.SetIndex(indexDB.Index())
+					fs.SetOptions(WithFailReadAt())
+					err := dataDB.TruncateToIndex(ctx)
+					Expect(err).To(MatchError(ErrFault))
+					Expect(err).To(MatchError(ContainSubstring(
+						dataDB.Channel().String(),
+					)))
+					Expect(err).To(MatchError(ContainSubstring(
+						"domain " + (10 * telem.SecondTS).
+							Range(13*telem.SecondTS+1).String(),
+					)))
+				},
 			)
 
 			It("Should remove a domain whose start no index domain holds",

@@ -53,7 +53,7 @@ func (db *DB) TruncateToIndex(ctx context.Context) error {
 			cutStart,
 			keepEnd,
 		); err != nil {
-			return db.wrapError(err)
+			return db.wrapError(errors.Wrapf(err, "domain %v", c.domain))
 		}
 		db.cfg.L.Warn(
 			"truncated a domain to the samples its index has timestamps for",
@@ -78,35 +78,43 @@ func (db *DB) findCuts(ctx context.Context) (cuts []cut, err error) {
 	iter := db.domain.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	for ok := iter.SeekFirst(ctx); ok; ok = iter.Next() {
-		tr := iter.TimeRange()
 		var (
-			end            telem.TimeStamp
-			covered, count int64
-			offset         telem.Size
+			c     cut
+			found bool
 		)
-		if end, covered, err = db.index().Coverage(ctx, tr); err != nil {
-			return nil, err
+		if c, found, err = db.findCut(ctx, iter); err != nil {
+			return nil, errors.Wrapf(err, "domain %v", iter.TimeRange())
 		}
-		// A domain ends 1 ns after its last sample, so a domain that ends inside the
-		// run of its index has a timestamp for every sample.
-		if tr.End <= end {
-			continue
+		if found {
+			cuts = append(cuts, c)
 		}
-		if count, err = db.resolver.domainSampleCount(ctx, iter); err != nil {
-			return nil, err
-		}
-		if count <= covered {
-			continue
-		}
-		if offset, err = db.resolver.byteOffset(ctx, iter, covered); err != nil {
-			return nil, err
-		}
-		cuts = append(cuts, cut{
-			domain:  tr,
-			start:   max(end, tr.Start),
-			offset:  offset,
-			dropped: count - covered,
-		})
 	}
 	return cuts, nil
+}
+
+func (db *DB) findCut(ctx context.Context, iter *domain.Iterator) (cut, bool, error) {
+	tr := iter.TimeRange()
+	end, covered, err := db.index().Coverage(ctx, tr)
+	if err != nil {
+		return cut{}, false, err
+	}
+	// A domain ends 1 ns after its last sample, so a domain that ends inside the run of
+	// its index has a timestamp for every sample.
+	if tr.End <= end {
+		return cut{}, false, nil
+	}
+	count, err := db.resolver.domainSampleCount(ctx, iter)
+	if err != nil || count <= covered {
+		return cut{}, false, err
+	}
+	offset, err := db.resolver.byteOffset(ctx, iter, covered)
+	if err != nil {
+		return cut{}, false, err
+	}
+	return cut{
+		domain:  tr,
+		start:   max(end, tr.Start),
+		offset:  offset,
+		dropped: count - covered,
+	}, true, nil
 }
