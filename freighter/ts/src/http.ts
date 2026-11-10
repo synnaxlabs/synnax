@@ -90,6 +90,18 @@ const HTTP_STATUS_BAD_REQUEST = 400;
 
 const DEFAULT_TIMEOUT = TimeSpan.seconds(60);
 
+// Browser and Node.js timers fire at once past a signed 32-bit count of milliseconds.
+const MAX_TIMEOUT = TimeSpan.milliseconds(2 ** 31 - 1);
+
+/** Returns the timeout as a limit, or null when it sets no limit. */
+const limitOf = (timeout: CrudeTimeSpan): TimeSpan | null => {
+  if (typeof timeout === "number" && !Number.isFinite(timeout)) return null;
+  const span = new TimeSpan(timeout);
+  return span.greaterThan(TimeSpan.ZERO) && span.lessThanOrEqual(MAX_TIMEOUT)
+    ? span
+    : null;
+};
+
 /**
  * The single query parameter file transfer params travel on. The server exposes its
  * value to the handler as the "params" request param.
@@ -145,7 +157,9 @@ const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
  * @param timeout - The longest a send waits for its response, body included. Defaults
- * to 60 seconds. File transfers have no limit, since their bodies can take longer.
+ * to 60 seconds. A timeout of zero, infinity, or more than 2^31 - 1 milliseconds (about
+ * 24.8 days) sets no limit. File transfers have no limit, since their bodies can take
+ * longer.
  */
 export class HTTPClient
   extends MiddlewareCollector
@@ -153,7 +167,7 @@ export class HTTPClient
 {
   endpoint: url.URL;
   encoder: binary.Codec;
-  private readonly timeout: TimeSpan;
+  private readonly timeout: TimeSpan | null;
 
   constructor(
     endpoint: url.URL,
@@ -164,7 +178,7 @@ export class HTTPClient
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
-    this.timeout = new TimeSpan(timeout);
+    this.timeout = limitOf(timeout);
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -194,7 +208,9 @@ export class HTTPClient
       { ...this.context(url), params: { ...params } },
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const signal = AbortSignal.timeout(this.timeout.milliseconds);
+        const { timeout } = this;
+        const signal =
+          timeout == null ? undefined : AbortSignal.timeout(timeout.milliseconds);
         let httpRes: Response;
         let data: ArrayBuffer;
         try {
@@ -206,10 +222,9 @@ export class HTTPClient
           });
           data = await httpRes.arrayBuffer();
         } catch (e) {
-          if (!signal.aborted) throw errors.fromUnknown(e);
-          const timeout = this.timeout.toString();
+          if (timeout == null || signal?.aborted !== true) throw errors.fromUnknown(e);
           throw new Error(
-            `[freighter] no response from ${ctx.target} within ${timeout}`,
+            `[freighter] no response from ${ctx.target} within ${timeout.toString()}`,
             { cause: e },
           );
         }

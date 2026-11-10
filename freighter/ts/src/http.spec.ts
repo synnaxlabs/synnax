@@ -10,7 +10,7 @@
 import { createServer, type RequestListener, type Server } from "node:http";
 import { type AddressInfo } from "node:net";
 
-import { binary, TimeSpan, url, zod } from "@synnaxlabs/x";
+import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -99,7 +99,10 @@ describe("http", () => {
   describe("timeout", () => {
     let server: Server;
 
-    const serve = async (handler: RequestListener): Promise<HTTPClient> => {
+    const serve = async (
+      handler: RequestListener,
+      timeout: CrudeTimeSpan = TimeSpan.milliseconds(50),
+    ): Promise<HTTPClient> => {
       server = createServer(handler);
       await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
       const { port } = server.address() as AddressInfo;
@@ -107,7 +110,7 @@ describe("http", () => {
         new url.URL({ host: "127.0.0.1", port }),
         new binary.JSONCodec(),
         false,
-        TimeSpan.milliseconds(50),
+        timeout,
       );
     };
 
@@ -131,6 +134,21 @@ describe("http", () => {
       await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
         "no response from",
       );
+    });
+
+    test.each([
+      ["a zero", TimeSpan.ZERO],
+      ["an infinite", Infinity],
+      ["a 30 day", TimeSpan.days(30)],
+      ["the largest", TimeSpan.MAX],
+    ])("sends with no limit for %s timeout", async (_, timeout) => {
+      const c = await serve((_, res) => {
+        setTimeout(() => {
+          res.writeHead(200, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ id: 1 }));
+        }, 20);
+      }, timeout);
+      expect(await c.send("/slow", {}, messageZ, messageZ)).toEqual({ id: 1 });
     });
   });
 
