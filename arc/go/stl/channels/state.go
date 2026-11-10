@@ -45,26 +45,42 @@ type ProgramState struct {
 	offsets map[uint32]clockOffset
 }
 
-// offsetWindow is how long an observed clock offset counts toward an estimate.
-const offsetWindow = telem.Second
+// offsetWindow is the width of the windows clock offsets are kept in. An observed
+// offset counts until the end of the window after the one it was observed in.
+const offsetWindow = 5 * telem.Second
 
-// clockOffset estimates how far the local clock runs ahead of the stamps on an index,
-// delivery delay included. It is the minimum offset seen over the last one to two
-// windows, so clock drift and jumps age out.
-type clockOffset struct {
-	curr, prev telem.TimeSpan
-	start      telem.TimeStamp
+// offsetBucket holds the minimum offset observed in one window.
+type offsetBucket struct {
+	window int64
+	min    telem.TimeSpan
+	set    bool
 }
 
+// clockOffset estimates how far the local clock runs ahead of the stamps on an index,
+// delivery delay included: the minimum offset observed in the current and previous
+// window. Older offsets age out, so clock drift and jumps do not persist.
+type clockOffset [2]offsetBucket
+
 func (o *clockOffset) observe(now telem.TimeStamp, offset telem.TimeSpan) {
-	switch age := telem.TimeSpan(now - o.start); {
-	case age >= 2*offsetWindow:
-		o.curr, o.prev, o.start = offset, offset, now
-	case age >= offsetWindow:
-		o.prev, o.curr, o.start = o.curr, offset, now
-	default:
-		o.curr = min(o.curr, offset)
+	w := int64(now) / int64(offsetWindow)
+	b := &o[w&1]
+	if !b.set || b.window != w {
+		*b = offsetBucket{window: w, min: offset, set: true}
+		return
 	}
+	b.min = min(b.min, offset)
+}
+
+// at returns the estimate at local time now, and false when no offset is recent
+// enough.
+func (o clockOffset) at(now telem.TimeStamp) (offset telem.TimeSpan, ok bool) {
+	w := int64(now) / int64(offsetWindow)
+	for _, b := range o {
+		if b.set && b.window >= w-1 && (!ok || b.min < offset) {
+			offset, ok = b.min, true
+		}
+	}
+	return offset, ok
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
@@ -112,13 +128,13 @@ func (ps *ProgramState) learnOffsets(now telem.TimeStamp) {
 }
 
 // entryStamp returns the stamp on the index of key that matches local time now, or
-// zero when the index has no learned clock offset.
+// zero when the index has no recent clock offset.
 func (ps *ProgramState) entryStamp(key uint32, now telem.TimeStamp) telem.TimeStamp {
-	o, ok := ps.offsets[ps.indexes[key]]
+	offset, ok := ps.offsets[ps.indexes[key]].at(now)
 	if !ok {
 		return 0
 	}
-	return now.Add(-min(o.curr, o.prev))
+	return now.Add(-offset)
 }
 
 // Flush extracts buffered channel writes into a frame and clears the write buffer. Only

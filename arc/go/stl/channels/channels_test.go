@@ -528,15 +528,28 @@ var _ = Describe("Channel", func() {
 				},
 			)
 
-			It("Should forget an offset older than two windows", func(ctx SpecContext) {
-				learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
-				learnOffset(11, 100*telem.SecondTS, 103*telem.SecondTS)
-				enter(ctx, 104*telem.SecondTS)
-				deliver(ctx, 101.5)
-				Expect(
-					nodeState.Output(0).Unmarshal[float32](),
-				).To(Equal([]float32{101.5}))
-			})
+			It(
+				"Should filter by arrival only once the offset is two windows old",
+				func(ctx SpecContext) {
+					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+					enter(ctx, 111*telem.SecondTS)
+					deliver(ctx, 105)
+					Expect(
+						nodeState.Output(0).Unmarshal[float32](),
+					).To(Equal([]float32{105}))
+				},
+			)
+
+			It(
+				"Should keep the previous window's offset in the next window",
+				func(ctx SpecContext) {
+					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+					learnOffset(11, 103*telem.SecondTS, 106*telem.SecondTS)
+					enter(ctx, 107*telem.SecondTS)
+					deliver(ctx, 106.5)
+					Expect(emitted).To(BeZero())
+				},
+			)
 
 			It(
 				"Should not let a delayed batch raise the offset",
@@ -598,7 +611,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: progState.Node("source"),
 					}))
-					learnOffset(11, 50*telem.SecondTS, 50*telem.SecondTS)
+					learnOffset(11, 101*telem.SecondTS, 101*telem.SecondTS)
 					source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
 					tr := telem.TimeRange{
 						Start: 100 * telem.SecondTS,
@@ -638,7 +651,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: nodeState,
 					}))
-					learnOffset(11, 50*telem.SecondTS, 50*telem.SecondTS)
+					learnOffset(11, 200*telem.SecondTS, 200*telem.SecondTS)
 					source.Reset(rnode.Context{Context: ctx, Now: 200 * telem.SecondTS})
 					fr1 := telem.Frame[uint32]{}
 					d1 := telem.NewSeriesV[float32](1.5, 2.5)
@@ -678,7 +691,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: nodeState,
 				}))
-				learnOffset(13, 50*telem.SecondTS, 50*telem.SecondTS)
+				learnOffset(13, 101*telem.SecondTS, 101*telem.SecondTS)
 				source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(12, telem.NewSeriesV("a", "b", "c"))

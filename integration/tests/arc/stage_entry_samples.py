@@ -21,6 +21,7 @@ MILLISECOND = sy.TimeSpan.MILLISECOND
 BEFORE_ENTRY = -1.0
 # The time between each pt's first sample and stage entry. Samples taken before entry
 # are stamped in this gap, after the first sample, so their writes do not overlap it.
+# The runtime forgets a clock offset after 5 to 10 s, so the gap stays well below that.
 HISTORY_GAP = 1 * SECOND
 # How long after the first sample the samples taken before entry start.
 STALE_AFTER_HISTORY = 100 * MILLISECOND
@@ -173,8 +174,11 @@ class StageEntrySamples(ArcCase):
         return f"{self._ch(p, 'entered')}_time"
 
     def _enter_b(self, p: str) -> sy.TimeStamp:
-        """Move the sequence into stage B and return its entry cycle stamp."""
+        """Give pt its first sample, move the sequence into stage B, and return its
+        entry cycle stamp."""
         self.wait_for_eq(self._ch(p, "log"), "a")
+        self._history[p] = self._write_history(p)
+        sy.sleep(HISTORY_GAP)  # noqa: TID251 leaves room for stale samples
         self.writer.write(self._ch(p, "go_cmd"), 1)
         self.wait_for_gt(self._entered_time(p), 0)
         return sy.TimeStamp(int(self.read_tlm(self._entered_time(p), 0)))
@@ -266,10 +270,6 @@ class StageEntrySamples(ArcCase):
         self.wait_for_eq(self._ch(p, "pt_seen"), COUNTER_LAST)
 
     def verify_sequence_execution(self) -> None:
-        for p in SEQUENCES:
-            self.wait_for_eq(self._ch(p, "log"), "a")
-        self._history = {p: self._write_history(p) for p in SEQUENCES}
-        sy.sleep(HISTORY_GAP)  # noqa: TID251 leaves room for stale samples
         self._verify_counter()
         self._verify_before_entry()
         self._verify_straddle()

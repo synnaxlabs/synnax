@@ -195,6 +195,8 @@ type source struct {
 	highWaterMark telem.Alignment
 	// entered is the cycle stamp of the last Reset.
 	entered telem.TimeStamp
+	// entry is entered on the sender's clock. Samples stamped earlier are dropped.
+	entry telem.TimeStamp
 }
 
 // tail returns the samples of s from index from to the end.
@@ -230,6 +232,7 @@ func (s *source) Init(node.Context) {}
 // only values arriving afterward fire
 func (s *source) rebindTo(key uint32) {
 	s.currKey = key
+	s.entry = s.state.entryStamp(key, s.entered)
 	s.highWaterMark = 0
 	s.raiseWaterMark()
 }
@@ -245,10 +248,10 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment and records the
-// cycle as the entry time, so a (re-)activated stage only responds to samples arriving
-// after activation. When the channel's index has a learned clock offset, the stage
-// also drops samples stamped before entry on the sender's clock.
+// Reset advances the high water mark to the current channel alignment, so a
+// (re-)activated stage only responds to samples arriving after activation. When the
+// channel's index has a recent clock offset, the stage also drops samples stamped
+// before entry on the sender's clock.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
 	s.entered = ctx.Now
@@ -256,6 +259,7 @@ func (s *source) Reset(ctx node.Context) {
 		s.rebindTo(key)
 		return
 	}
+	s.entry = s.state.entryStamp(s.currKey, s.entered)
 	s.raiseWaterMark()
 }
 
@@ -268,7 +272,6 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
-	entry := s.state.entryStamp(s.currKey, s.entered)
 	for _, ser := range data.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Lower < s.highWaterMark {
@@ -300,7 +303,7 @@ func (s *source) Next(ctx node.Context) {
 				timeSeries.Alignment = ser.Alignment
 				timeSeries.TimeRange = ser.TimeRange
 			}
-			first := firstAtOrAfter(timeSeries, entry)
+			first := firstAtOrAfter(timeSeries, s.entry)
 			if first == int(ser.Len()) {
 				s.highWaterMark = ab.Upper
 				continue
