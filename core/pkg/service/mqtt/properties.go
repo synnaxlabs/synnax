@@ -227,7 +227,7 @@ func loadTLS(props properties) (*tls.Config, error) {
 		if err != nil {
 			return nil, errors.Wrapf(
 				validate.ErrValidation,
-				"invalid broker properties: client_certificate: %s",
+				"invalid broker properties: client_certificate and client_private_key: %s",
 				err.Error(),
 			)
 		}

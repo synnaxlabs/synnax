@@ -12,6 +12,7 @@ package mqtt_test
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -35,9 +36,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// createCerts creates a CA and a certificate for the local host. It returns the TLS
-// configuration of a broker and the PEM-encoded CA.
-func createCerts() (*tls.Config, string) {
+// certs are a CA and a certificate for the local host that it signs, all PEM-encoded.
+type certs struct{ ca, cert, key string }
+
+// createCerts creates a CA and a certificate for the local host. It returns the
+// certificates and the TLS configuration of a broker that serves them.
+func createCerts() (certs, *tls.Config) {
 	GinkgoHelper()
 	dir := GinkgoT().TempDir()
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
@@ -46,11 +50,12 @@ func createCerts() (*tls.Config, string) {
 	}))
 	Expect(f.CreateCAPair()).To(Succeed())
 	Expect(f.CreateNodePair()).To(Succeed())
-	pair := MustSucceed(tls.LoadX509KeyPair(
-		filepath.Join(dir, "node.crt"), filepath.Join(dir, "node.key"),
-	))
-	ca := MustSucceed(os.ReadFile(filepath.Join(dir, "ca.crt")))
-	return &tls.Config{Certificates: []tls.Certificate{pair}}, string(ca)
+	read := func(name string) string {
+		return string(MustSucceed(os.ReadFile(filepath.Join(dir, name))))
+	}
+	c := certs{ca: read("ca.crt"), cert: read("node.crt"), key: read("node.key")}
+	pair := MustSucceed(tls.X509KeyPair([]byte(c.cert), []byte(c.key)))
+	return c, &tls.Config{Certificates: []tls.Certificate{pair}}
 }
 
 var _ = Describe("Scan task", func() {
@@ -192,6 +197,23 @@ var _ = Describe("Scan task", func() {
 	})
 
 	Describe("Device edits", func() {
+		It(
+			"Should keep the TLS connection of a task while its properties stay the same",
+			func(ctx SpecContext) {
+				c, tlsCfg := createCerts()
+				broker := startBrokerWith(brokerOptions{tls: tlsCfg})
+				props := msgpack.EncodedJSON{"secure": true, "ca_certificate": c.ca}
+				dev := createBrokerDevice(ctx, rackKey, broker.port, props)
+				startRead(ctx, configureRead(ctx, dev))
+				Eventually(broker.connectedIDs).Should(HaveLen(1))
+				editDevice(ctx, dev, props)
+				props["client_id"] = "line-8"
+				editDevice(ctx, dev, props)
+				Eventually(broker.connectedIDs).Should(ContainElement("line-8"))
+				Expect(broker.connectedIDs()).To(HaveLen(2))
+			},
+		)
+
 		It("Should reconnect a running task with the new properties, with no scan task",
 			func(ctx SpecContext) {
 				broker := startBroker(0)
@@ -436,18 +458,37 @@ var _ = Describe("Scan task", func() {
 		Describe("TLS", func() {
 			It("Should verify the broker against a CA certificate",
 				func(ctx SpecContext) {
-					tlsCfg, ca := createCerts()
+					c, tlsCfg := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
 					stat := testConnection(ctx, msgpack.EncodedJSON{
-						"port": broker.port, "secure": true, "ca_certificate": ca,
+						"port": broker.port, "secure": true, "ca_certificate": c.ca,
 					})
 					expectSuccess(stat)
 				},
 			)
 
+			It("Should present a client certificate to a broker that asks for one",
+				func(ctx SpecContext) {
+					c, tlsCfg := createCerts()
+					tlsCfg.ClientAuth = tls.RequireAndVerifyClientCert
+					tlsCfg.ClientCAs = x509.NewCertPool()
+					Expect(
+						tlsCfg.ClientCAs.AppendCertsFromPEM([]byte(c.ca)),
+					).To(BeTrue())
+					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
+					expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
+						"port":               broker.port,
+						"secure":             true,
+						"ca_certificate":     c.ca,
+						"client_certificate": c.cert,
+						"client_private_key": c.key,
+					}))
+				},
+			)
+
 			It("Should reject a broker that its roots do not verify",
 				func(ctx SpecContext) {
-					tlsCfg, _ := createCerts()
+					_, tlsCfg := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
 					stat := testConnection(ctx, msgpack.EncodedJSON{
 						"port": broker.port, "secure": true,
@@ -460,7 +501,7 @@ var _ = Describe("Scan task", func() {
 
 			It("Should accept any certificate when verification is skipped",
 				func(ctx SpecContext) {
-					tlsCfg, _ := createCerts()
+					_, tlsCfg := createCerts()
 					broker := startBrokerWith(brokerOptions{tls: tlsCfg})
 					expectSuccess(testConnection(ctx, msgpack.EncodedJSON{
 						"port":                 broker.port,
@@ -472,9 +513,9 @@ var _ = Describe("Scan task", func() {
 
 			It("Should not read a file at the path that a CA certificate holds",
 				func(ctx SpecContext) {
-					_, ca := createCerts()
+					c, _ := createCerts()
 					caFile := filepath.Join(GinkgoT().TempDir(), "ca.crt")
-					Expect(os.WriteFile(caFile, []byte(ca), 0o600)).To(Succeed())
+					Expect(os.WriteFile(caFile, []byte(c.ca), 0o600)).To(Succeed())
 					expectError(
 						testConnection(ctx, msgpack.EncodedJSON{
 							"port": 8883, "secure": true, "ca_certificate": caFile,
@@ -560,13 +601,27 @@ var _ = Describe("Scan task", func() {
 						"PEM certificates: validation error"
 				},
 			),
+			Entry("a client key that does not match its certificate",
+				func() (msgpack.EncodedJSON, string) {
+					c, _ := createCerts()
+					other, _ := createCerts()
+					return msgpack.EncodedJSON{
+						"secure":             true,
+						"client_certificate": c.cert,
+						"client_private_key": other.key,
+					}, "invalid broker properties: client_certificate and " +
+						"client_private_key: tls: private key does not match " +
+						"public key: validation error"
+				},
+			),
 			Entry("a client certificate that is not PEM",
 				func() (msgpack.EncodedJSON, string) {
 					return msgpack.EncodedJSON{
 						"secure":             true,
 						"client_certificate": "certificate",
 						"client_private_key": "key",
-					}, "invalid broker properties: client_certificate: tls: " +
+					}, "invalid broker properties: client_certificate and " +
+						"client_private_key: tls: " +
 						"failed to find any PEM data in certificate input: " +
 						"validation error"
 				},
