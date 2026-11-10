@@ -27,6 +27,7 @@ from synnax.resource import ID, CrudeID, Type
 from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 
 
 class _CreateReq(BaseModel):
@@ -56,6 +57,7 @@ class Client:
     def __init__(self, client: UnaryClient):
         self._client = client
 
+    @deprecate_positional("parent", "name", "key")
     def create(
         self,
         name: str,

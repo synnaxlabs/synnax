@@ -459,7 +459,9 @@ public:
             // A pipeline sets failed before it stops, so read running first.
             const auto running = this->cmd_write_pipe.running() ||
                                  this->running_without_commands;
-            restart = this->failed;
+            // A command pipeline can also exit without failing, such as when the Core
+            // closes the streamer. Its sink is still started.
+            restart = this->failed || (!running && this->sink_started);
             if (running && !restart) {
                 if (this->opening)
                     this->pending_starts.push_back(cmd_key);

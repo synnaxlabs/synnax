@@ -32,8 +32,8 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
   while the label stays deploys it again. Add it when the PR changes the Console UI or
   needs a live Core to review. `preview/docs`, `preview/foundation`, `preview/landing`,
   and `preview/portal` do the same for each site on Vercel.
-- A version bump rides the PR that ships the change. Test-only and docs-only changes
-  bump nothing.
+- A PR never bumps a version. Every manifest carries `0.0.0`, and Release resolves each
+  version from Git tags.
 
 ### Pull requests from forks
 

@@ -7,7 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Action, remove, type StoreState } from "@/session/range/slice";
+import { lineplot } from "@synnaxlabs/client";
+
+import { toRef } from "@/session/range/ref";
+import {
+  type Action,
+  markStaticKeysRewritten,
+  remove,
+  type StoreState,
+} from "@/session/range/slice";
 import { type Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
@@ -29,6 +37,38 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
     client.ranges.onDelete((key) => store.dispatch(remove({ keys: [key] }))),
 };
 
+// Desktop 1.0 stored a static range's key on a line plot. The Core cannot resolve the
+// key, so the plot shows the range's window instead.
+const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
+  reconcile: async ({ client, store, ended }) => {
+    const { ranges, staticKeysRewritten } = store.getState().range;
+    if (staticKeysRewritten) return;
+    const windows = new Map(
+      ranges
+        .filter(({ variant }) => variant === "static")
+        .map((s) => [s.key, toRef(s)]),
+    );
+    if (windows.size > 0) {
+      const plots = await client.lineplots.retrieve({});
+      await Promise.all(
+        plots.map(async ({ key, ranges }) => {
+          const actions = ranges.flatMap((range) => {
+            const window = range.variant === "key" ? windows.get(range.key) : undefined;
+            if (window == null) return [];
+            return [
+              lineplot.removeRange({ range }),
+              lineplot.addRange({ range: window }),
+            ];
+          });
+          if (actions.length > 0) await client.lineplots.send(key, actions);
+        }),
+      );
+    }
+    if (!ended()) store.dispatch(markStaticKeysRewritten());
+  },
+};
+
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   { name: "sync ranges", use: () => syncRanges },
+  { name: "rewrite static range keys", use: () => rewriteStaticKeys },
 ];
