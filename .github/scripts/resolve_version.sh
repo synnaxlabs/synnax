@@ -28,8 +28,9 @@
 # release branch cut at a run's commit finishes that run's publish.
 #
 # Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
-# counts from the highest tag on that minor. The first Desktop release must be a major
-# bump from 0.0.0, so it outranks the 1.0.0 candidates.
+# counts from the highest tag on that minor. release/desktop-X.Y takes only a patch, on
+# X.Y. The first Desktop release must be a major bump from 0.0.0, so it outranks the
+# 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
 # rule caps every product but Desktop at one minor ahead of the Core's newest stable.
@@ -121,8 +122,13 @@ case "$PRODUCT" in
         fi
         ;;
     desktop)
-        if [ "$REF" != main ] && [ -z "$(release_train desktop)" ]; then
+        TRAIN=$(release_train desktop)
+        if [ "$REF" != main ] && [ -z "$TRAIN" ]; then
             echo "desktop releases only from main or release/desktop-X.Y, not '$REF'" >&2
+            exit 1
+        fi
+        if [ -n "$TRAIN" ] && [ "$BUMP" != patch ]; then
+            echo "$REF releases only patches, not a $BUMP bump" >&2
             exit 1
         fi
         BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
@@ -135,7 +141,7 @@ case "$PRODUCT" in
         fi
         IFS=. read -r MAJOR MINOR _ <<< "$BASE"
         case "$BUMP" in
-            patch) NEXT=$(next_patch "$MAJOR.$MINOR") ;;
+            patch) NEXT=$(next_patch "${TRAIN:-$MAJOR.$MINOR}") ;;
             minor) NEXT="$MAJOR.$((MINOR + 1)).0" ;;
             major) NEXT="$((MAJOR + 1)).0.0" ;;
             *)

@@ -269,6 +269,15 @@ class TestDesktop:
         out = repo.resolve("desktop", ref="release/desktop-1.0", bump="patch")
         assert out["version"] == "1.0.1"
 
+    @pytest.mark.parametrize("bump", ["minor", "major"])
+    def test_should_patch_only_from_a_desktop_release_branch(
+        self, repo: Repo, bump: str
+    ) -> None:
+        repo.tag("desktop/v1.0.0")
+        repo.branch("release/desktop-1.0")
+        error = repo.resolve_error("desktop", ref="release/desktop-1.0", bump=bump)
+        assert f"releases only patches, not a {bump} bump" in error
+
     @pytest.mark.parametrize(
         "ref", ["sy-1-feature", "", "release/core-0.58", "release/desktop-1.0.x"]
     )
