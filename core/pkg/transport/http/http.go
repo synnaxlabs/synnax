@@ -10,8 +10,6 @@
 package http
 
 import (
-	"context"
-
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
@@ -50,9 +48,10 @@ import (
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
-// through the API layer's channel service. ctx bounds the iterators that frame reads
-// open, so it must outlive every request.
-func Bind(ctx context.Context, layer *api.Layer, router *http.Router) {
+// through the API layer's channel service. Frame reads open their iterators under the
+// router's context, so a streamed body can outlive its request.
+func Bind(layer *api.Layer, router *http.Router) {
+	ctx := router.Context()
 	framerServerOption := framer.WithCodec(layer.Channel)
 	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
