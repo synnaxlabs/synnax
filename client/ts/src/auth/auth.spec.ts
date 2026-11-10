@@ -15,7 +15,9 @@ import { auth } from "@/auth";
 import {
   AuthError,
   ExpiredTokenError,
+  InvalidCredentialsError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
 import {
@@ -59,7 +61,9 @@ describe("auth", () => {
       credentials: { username: TEST_CREDENTIALS.username, password: "wrong" },
     });
     const mw = client.middleware();
-    await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(AuthError);
+    await expect(mw(DUMMY_CTX, async () => DUMMY_CTX)).rejects.toThrow(
+      InvalidCredentialsError,
+    );
   });
 
   describe("token retry", () => {
@@ -347,9 +351,7 @@ describe("auth", () => {
       const attempt = async () =>
         await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       await expect(attempt()).rejects.toSatisfy((e) => AuthError.matches(e));
-      await expect(attempt()).rejects.toThrow(
-        "no credentials, API key, token, or cookie",
-      );
+      await expect(attempt()).rejects.toThrow(MissingCredentialsError);
     });
 
     it("should let the newest login win when two interleave", async () => {
@@ -556,7 +558,7 @@ describe("auth", () => {
       }).retrieveSessions();
       await expect(
         makeClient({ credentials: { username, password: "old" } }).retrieveSessions(),
-      ).rejects.toThrow(AuthError);
+      ).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should switch to a new session when setting its own password", async () => {
@@ -606,7 +608,7 @@ describe("auth", () => {
       await resumed.setPassword({ password: "new", currentPassword: "old" });
       expect(resumed.token).not.toEqual(token);
       await resumed.retrieveSessions();
-      await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(opener.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should keep the owner's session when setting another's password", async () => {
@@ -686,7 +688,7 @@ describe("auth", () => {
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
       await owner.deleteKeys(key.key);
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should forget its key on logout", async () => {
@@ -703,7 +705,7 @@ describe("auth", () => {
 
     it("should reject a key the Core never issued", async () => {
       const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
-      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+      await expect(keyed.retrieveSessions()).rejects.toThrow(InvalidCredentialsError);
     });
 
     it("should connect a Synnax client with a key", async () => {

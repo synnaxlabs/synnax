@@ -29,6 +29,7 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
 import { resource } from "@/resource";
@@ -490,7 +491,9 @@ export class Client {
         u = res.user;
         owned = false;
       } else
-        throw new AuthError("no credentials, API key, token, or cookie to log in with");
+        throw new MissingCredentialsError(
+          "no credentials, API key, token, or cookie to log in with",
+        );
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
