@@ -10,15 +10,10 @@
 name: Deploy - TypeScript
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - alamos/ts/package.json
-      - client/ts/package.json
-      - freighter/ts/package.json
-      - x/ts/package.json
-  workflow_dispatch:
+  workflow_call:
+    secrets:
+      TURBO_TOKEN:
+        required: false
 
 permissions:
   id-token: write

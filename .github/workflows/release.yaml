@@ -10,9 +10,9 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
-  inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3} {4}{5}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.packages && '
+  Packages' || '', inputs.bump, inputs.prerelease && ' candidate' || '') }}
 
 on:
   workflow_dispatch:
@@ -27,6 +27,10 @@ on:
         default: true
       core:
         description: Release the Core
+        type: boolean
+        default: true
+      packages:
+        description: Publish the npm and PyPI packages whose versions are not published
         type: boolean
         default: true
       bump:
@@ -136,7 +140,7 @@ jobs:
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        if: ${{ !inputs.console && !inputs.driver && !inputs.core && !inputs.packages }}
         run: |
           echo "no product selected" >&2
           exit 1
@@ -352,6 +356,25 @@ jobs:
     steps:
       - name: Publish release
         run: gh release edit "$TAG" --draft=false --latest=false
+
+  # Packages have no candidate channel, so a candidate run never publishes them.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      id-token: write
+    uses: ./.github/workflows/deploy.ts.yaml
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      id-token: write
+    uses: ./.github/workflows/deploy.py.yaml
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
