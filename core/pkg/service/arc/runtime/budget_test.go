@@ -35,6 +35,10 @@ func count() i64 {
 	}
 	return n
 }
+
+func recurse() i64 {
+	return recurse()
+}
 `
 
 // instantiate compiles source and instantiates it in a new wazero runtime that closes
@@ -82,6 +86,14 @@ var _ = Describe("Budget", func() {
 				To(MatchError(ContainSubstring("unreachable")))
 		}
 		Expect(guest.ExportedFunction("count").Call(ctx)).Error().
+			To(MatchError(ContainSubstring("unreachable")))
+		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
+	})
+
+	It("Should trap a recursive function with no loop", func(ctx SpecContext) {
+		budget := MustSucceed(runtime.NewBudget(guest, 1000))
+		budget.Reset()
+		Expect(guest.ExportedFunction("recurse").Call(ctx)).Error().
 			To(MatchError(ContainSubstring("unreachable")))
 		Expect(budget.Err()).To(MatchError(runtime.ErrLoopBudget))
 	})

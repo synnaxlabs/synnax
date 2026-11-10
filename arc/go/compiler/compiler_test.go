@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlchannels "github.com/synnaxlabs/arc/stl/channels"
@@ -35,6 +36,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 func compile(
@@ -224,6 +226,26 @@ var _ = Describe("Compiler", func() {
 	})
 
 	Describe("Function Execution", func() {
+		It("should take one unit of the loop budget on each call", func(
+			ctx SpecContext,
+		) {
+			output := MustSucceed(compile(ctx, `
+			func noop() {
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			budget, ok := mod.ExportedGlobal(wasm.LoopBudgetExport).(api.MutableGlobal)
+			Expect(ok).To(BeTrue())
+			noop := mod.ExportedFunction("noop")
+			budget.Set(2)
+			MustSucceed(noop.Call(ctx))
+			Expect(budget.Get()).To(Equal(uint64(1)))
+			Expect(
+				noop.Call(ctx),
+			).Error().
+				To(MatchError(ContainSubstring("unreachable")))
+		})
+
 		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
 			func dog() {b i64} i64 {
