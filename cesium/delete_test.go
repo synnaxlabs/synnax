@@ -762,6 +762,7 @@ var _ = Describe("Delete", func() {
 						Entry("1 index, 2 data", index2, data2, data3),
 						Entry("data and unrelated index", data1, data2, index3),
 						Entry("1 virtual", virtual1),
+						Entry("a repeated key", data1, data1),
 						Entry(
 							"all",
 							data1,
