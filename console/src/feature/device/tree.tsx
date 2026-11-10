@@ -149,7 +149,7 @@ export const GROUP_MEMBER: Group.Member = {
   children: (client, key) =>
     Tree.createSource(
       client.devices,
-      { where: { groups: [key] }, includeStatus: true },
+      { where: { groups: [key] } },
       Tree.toResource("device"),
     ),
 };
@@ -169,7 +169,7 @@ export const listTreeRoot = (client: Synnax): Tree.Source[] => [
 const children: Tree.Children = ({ client, id }) => [
   Tree.createSource(
     client.devices,
-    { where: { parents: [id.key] }, includeStatus: true },
+    { where: { parents: [id.key] } },
     Tree.toResource("device"),
   ),
 ];
