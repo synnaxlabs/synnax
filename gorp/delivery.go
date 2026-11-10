@@ -117,7 +117,7 @@ func (d *delivery) run(ctx context.Context, t ticket, state *txState) {
 		Changes:  state.changes.list(),
 		attached: state.attached,
 	})
-	if wait := time.Since(start); wait > lockWaitWarning {
+	if wait := time.Since(start); wait > waitWarning {
 		d.ins.L.Warn(
 			"gorp commit waited long for the readers of Observe",
 			zap.Duration("wait", wait),

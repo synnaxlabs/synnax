@@ -60,9 +60,9 @@ type DB struct {
 
 var _ Tx = (*DB)(nil)
 
-// lockWaitWarning is the wait past which OpenTx and WithSnapshot warn about the lock,
-// and a commit warns about its delivery.
-const lockWaitWarning = 500 * time.Millisecond
+// waitWarning is the wait past which OpenTx and WithSnapshot warn about the lock, and
+// a commit warns about its delivery.
+const waitWarning = 500 * time.Millisecond
 
 // OpenTx begins a new Tx against the DB. It blocks until no other Tx and no snapshot of
 // the DB is open. A goroutine that opens a second Tx, or writes through the DB, while
@@ -70,7 +70,7 @@ const lockWaitWarning = 500 * time.Millisecond
 func (db *DB) OpenTx() Tx {
 	start := time.Now()
 	db.lock.Lock()
-	if wait := time.Since(start); wait > lockWaitWarning {
+	if wait := time.Since(start); wait > waitWarning {
 		db.Instrumentation.L.Warn(
 			"gorp transaction waited long for the write lock",
 			zap.Duration("wait", wait),
@@ -134,7 +134,7 @@ func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	start := time.Now()
 	db.lock.RLock()
 	defer db.lock.RUnlock()
-	if wait := time.Since(start); wait > lockWaitWarning {
+	if wait := time.Since(start); wait > waitWarning {
 		db.Instrumentation.L.Warn(
 			"gorp snapshot waited long for the read lock",
 			zap.Duration("wait", wait),
