@@ -243,19 +243,6 @@ var _ = Describe("Member", func() {
 				Expect(g.Scope).To(Equal(resource.TypeProject))
 			},
 		)
-
-		It(
-			"Should keep a group that holds a rack under its stored parent",
-			func(ctx SpecContext) {
-				g := create(ctx, resource.TypeDevice, nil)
-				place(ctx, "r3", g)
-				g.Parent = new(rackID("r1"))
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &g)
-				})).To(Succeed())
-				Expect(g.Parent).To(BeNil())
-			},
-		)
 	})
 
 	Describe("SetParent", func() {

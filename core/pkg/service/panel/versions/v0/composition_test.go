@@ -584,7 +584,6 @@ var _ = Describe("Composition migrations", func() {
 	It("Should convert app view tabs into view tabs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		legacyTypes := []string{
-			"arc_explorer",
 			"range_explorer",
 			"status_explorer",
 			"taskSelector",
@@ -622,7 +621,6 @@ var _ = Describe("Composition migrations", func() {
 		root := panels[0].Root
 		zeroTabKeys(&root)
 		Expect(root).To(Equal(*leaf(
-			appViewTab("arc_explorer"),
 			appViewTab("range_explorer"),
 			appViewTab("status_explorer"),
 			appViewTab("taskSelector"),
@@ -633,35 +631,40 @@ var _ = Describe("Composition migrations", func() {
 
 	// A tab whose type the Console has no renderer for takes its whole panel down, so
 	// an app view without a current equivalent must never reach a panel.
-	It("Should drop app views with no current equivalent", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		stageLayout(ctx, db, project.Project{
-			Key:  uuid.New(),
-			Name: "Ops",
-			Layout: msgpack.EncodedJSON{
-				"mosaics": map[string]any{
-					"main": map[string]any{
-						"root": map[string]any{
-							"key":  1,
-							"tabs": []any{mosaicTab("docs")},
+	DescribeTable(
+		"Should drop app views with no current equivalent",
+		func(ctx SpecContext, layoutType string) {
+			db := DeferClose(gorp.Wrap(memkv.New()))
+			stageLayout(ctx, db, project.Project{
+				Key:  uuid.New(),
+				Name: "Ops",
+				Layout: msgpack.EncodedJSON{
+					"mosaics": map[string]any{
+						"main": map[string]any{
+							"root": map[string]any{
+								"key":  1,
+								"tabs": []any{mosaicTab(layoutType)},
+							},
+						},
+					},
+					"layouts": map[string]any{
+						layoutType: map[string]any{
+							"key":      layoutType,
+							"type":     layoutType,
+							"name":     layoutType,
+							"location": "mosaic",
 						},
 					},
 				},
-				"layouts": map[string]any{
-					"docs": map[string]any{
-						"key":      "docs",
-						"type":     "docs",
-						"name":     "Documentation",
-						"location": "mosaic",
-					},
-				},
-			},
-		})
+			})
 
-		openPanelTable(ctx, db)
-		runComposition(ctx, db)
-		Expect(collectPanels(ctx, db)).To(BeEmpty())
-	})
+			openPanelTable(ctx, db)
+			runComposition(ctx, db)
+			Expect(collectPanels(ctx, db)).To(BeEmpty())
+		},
+		Entry("documentation", "docs"),
+		Entry("an Arc explorer", "arc_explorer"),
+	)
 
 	It(
 		"Should strip resource tabs the type whitelist rejects",

@@ -188,6 +188,15 @@ func (p ForgetCharsPayload) Handle(state Arc) (Arc, error) {
 	})
 }
 
+// Handle sets the directory that holds the Arc. Writer.Apply checks the Arc's name in
+// that directory.
+func (p SetDirectoryPayload) Handle(state Arc) (Arc, error) {
+	b := state.Base()
+	b.Directory = &p.Directory
+	state.SetBase(b)
+	return state, nil
+}
+
 // onGraph applies edit to the graph of a graph-mode Arc. A text-mode Arc is a
 // validation error.
 func onGraph(state Arc, edit func(g *graph.Graph)) (Arc, error) {

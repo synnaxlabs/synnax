@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "client/cpp/status/status.h"
+#include "client/cpp/task/actions.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/proto.gen.h"
 #include "client/cpp/task/types.gen.h"
@@ -48,6 +49,10 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::task::DeleteRequest, google::protobuf::Empty>;
 
+/// @brief Type alias for the transport used to dispatch actions to a task.
+using DispatchClient = freighter::
+    UnaryClient<grpc::task::DispatchRequest, google::protobuf::Empty>;
+
 /// @brief Stream output operator for Task.
 /// @param os The output stream.
 /// @param task The task to output.
@@ -73,14 +78,17 @@ public:
     /// @param task_create_client Client for creating tasks.
     /// @param task_retrieve_client Client for retrieving tasks.
     /// @param task_delete_client Client for deleting tasks.
+    /// @param task_dispatch_client Client for dispatching actions to tasks.
     Client(
         std::shared_ptr<CreateClient> task_create_client,
         std::shared_ptr<RetrieveClient> task_retrieve_client,
-        std::shared_ptr<DeleteClient> task_delete_client
+        std::shared_ptr<DeleteClient> task_delete_client,
+        std::shared_ptr<DispatchClient> task_dispatch_client
     ):
         task_create_client(std::move(task_create_client)),
         task_retrieve_client(std::move(task_retrieve_client)),
-        task_delete_client(std::move(task_delete_client)) {}
+        task_delete_client(std::move(task_delete_client)),
+        task_dispatch_client(std::move(task_dispatch_client)) {}
 
     /// @brief Creates a task on the rack.
     /// @param task The task to create. Will be updated with the assigned key.
@@ -136,6 +144,15 @@ public:
         const RetrieveOptions &options = {}
     ) const;
 
+    /// @brief applies the actions to the task with the given key in order, as one
+    /// atomic edit.
+    /// @param key the key of the task.
+    /// @param actions the actions to apply.
+    /// @returns an error that matches NOT_FOUND when no task has the key, or VALIDATION
+    /// when the task cannot hold an action.
+    [[nodiscard]]
+    x::errors::Error dispatch(Key key, const std::vector<Action> &actions) const;
+
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.
@@ -157,5 +174,7 @@ private:
     std::shared_ptr<RetrieveClient> task_retrieve_client;
     /// @brief Task deletion transport.
     std::shared_ptr<DeleteClient> task_delete_client;
+    /// @brief Task dispatch transport.
+    std::shared_ptr<DispatchClient> task_dispatch_client;
 };
 }

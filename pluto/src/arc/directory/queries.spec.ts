@@ -10,7 +10,7 @@
 import { arc, NotFoundError, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id, uuid } from "@synnaxlabs/x";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
@@ -80,5 +80,71 @@ describe("Arc.Directory", () => {
       await result.current.updateAsync(d.key);
     });
     await expect(retrieveDirectories(d.key)).rejects.toSatisfy(NotFoundError.matches);
+  });
+
+  describe("useResultList", () => {
+    it("should find a directory by its name", async () => {
+      const d = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const { result } = renderHook(
+        () => Arc.Directory.useResultList({ searchTerm: d.name }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(result.current.data?.map(({ key }) => key)).toContain(d.key);
+      });
+    });
+  });
+
+  describe("useResultAncestors", () => {
+    it("should keep the directories and the directories above them live", async () => {
+      const mid = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const leaf = await client.arcs.directories.create({
+        parent: mid.key,
+        name: uniqueName(),
+      });
+      const keysOf = (directories?: arc.directory.Directory[]): arc.directory.Key[] =>
+        (directories ?? []).map(({ key }) => key).sort();
+      const { result } = renderHook(
+        () => Arc.Directory.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(keysOf(result.current.data)).toEqual(
+          [leaf.key, mid.key, root.key].sort(),
+        );
+      });
+      const name = uniqueName();
+      await act(async () => {
+        await client.arcs.directories.rename(mid.key, name);
+      });
+      await waitFor(() =>
+        expect(result.current.data).toContainEqual(
+          expect.objectContaining({ key: mid.key, name }),
+        ),
+      );
+      const dest = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      await act(async () => {
+        await client.arcs.directories.move(
+          arc.directory.resourceID(dest.key),
+          arc.directory.resourceID(mid.key),
+        );
+      });
+      await waitFor(() =>
+        expect(keysOf(result.current.data)).toEqual(
+          [leaf.key, mid.key, dest.key, root.key].sort(),
+        ),
+      );
+    });
   });
 });

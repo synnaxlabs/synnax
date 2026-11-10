@@ -601,15 +601,19 @@ class TestTaskClient:
         assert res.config["routing_key"] == "rk-50"
 
     def test_task_configure_updates_config(self, client: sy.Synnax) -> None:
-        """Should overwrite the stored config when configured again."""
+        """Should set the name and config of a task that exists, and take its new
+        config hash."""
         tsk = sy.Task(
             name="test", type="pagerduty_alert", config={"routing_key": "rk-1"}
         )
         client.tasks.configure(tsk)
+        tsk.name = "renamed"
         tsk.config = {"routing_key": "rk-2"}
         client.tasks.configure(tsk)
         res = client.tasks.retrieve(key=tsk.key)
+        assert res.name == "renamed"
         assert res.config["routing_key"] == "rk-2"
+        assert tsk.config_hash == res.config_hash
 
     def test_configure_puts_task_on_rack_of_device(self, client: sy.Synnax) -> None:
         """Should configure a task with no rack onto the rack of its device."""
@@ -700,6 +704,16 @@ class TestTaskClient:
         assert snap.snapshot
         assert [t.key for t in client.tasks.retrieve(ranges=[rng.key])] == [snap.key]
         assert [t.key for t in rng.snapshots()] == [snap.key]
+
+    def test_configure_rejects_snapshot(self, client: sy.Synnax) -> None:
+        """Should refuse to configure a snapshot."""
+        original = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
+        snap = client.tasks.copy(original.key, str(uuid4()), snapshot=True)
+        with pytest.raises(
+            sy.ValidationError,
+            match=f"task {snap.key} is a snapshot, so only its name can change",
+        ):
+            client.tasks.configure(snap)
 
     def test_delete_range_deletes_snapshots(self, client: sy.Synnax) -> None:
         """Should delete the snapshots in a range when the range is deleted."""

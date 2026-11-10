@@ -127,8 +127,8 @@ type Writer struct {
 	table *gorp.Table[Key, Directory]
 }
 
-// Create creates d, giving d a key when it has none. A key in use is a validation
-// error.
+// Create creates d, giving d a key when it has none. It returns an error wrapping
+// validate.ErrValidation when a directory with the key exists.
 func (w Writer) Create(ctx context.Context, d *Directory) error {
 	if d.Key == uuid.Nil() {
 		d.Key = uuid.New()
@@ -136,18 +136,7 @@ func (w Writer) Create(ctx context.Context, d *Directory) error {
 	if err := d.Validate(); err != nil {
 		return err
 	}
-	exists, err := w.table.NewRetrieve().
-		Where(gorp.MatchKeys[Key, Directory](d.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return errors.Wrapf(
-			validate.ErrValidation, "directory %s already exists", d.Key,
-		)
-	}
-	return w.table.NewCreate().Entry(d).Exec(ctx, w.tx)
+	return w.table.NewCreate().Exclusive().Entry(d).Exec(ctx, w.tx)
 }
 
 // Update replaces the directory with key with the result of change, which receives the

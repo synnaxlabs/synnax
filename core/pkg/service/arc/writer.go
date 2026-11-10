@@ -76,41 +76,18 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// validateType rejects a change of type between the stored Arc and its replacement.
-func validateType(stored, next Type) error {
-	if stored == next {
-		return nil
-	}
-	return errors.Wrapf(
-		validate.ErrValidation, "type cannot change from %s to %s", stored, next,
-	)
-}
-
-// Create creates the given Arc. If the Arc does not have a key,
-// a new key will be generated.
+// Create creates the given Arc in the root directory. If the Arc does not have a key, a
+// new key will be generated. Create returns an error wrapping validate.ErrValidation
+// when an Arc with the key exists.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
 	if a.Variant == nil {
 		return errors.Wrap(
 			validate.ErrValidation, "an Arc must be an automation or a module",
 		)
 	}
-	var (
-		existing Arc
-		exists   bool
-		err      error
-		b        = a.Base()
-	)
+	b := a.Base()
 	if b.Key == uuid.Nil() {
 		b.Key = uuid.New()
-	} else {
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](b.Key)).
-			Entry(&existing).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		exists = err == nil
 	}
 	// A decode defaults an omitted source, but an explicit null clears it.
 	if b.Source.Variant == nil {
@@ -122,44 +99,24 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 		b.Source.Variant = src
 	}
 	a.SetBase(b)
-	if err = a.Validate(); err != nil {
+	if err := a.Validate(); err != nil {
 		return err
 	}
 	module := a.Type() == TypeModule
-	if !exists {
-		if err = w.validateEntry(
-			ctx,
-			w.root,
-			a.ResourceID(),
-			b.Name,
-			module,
-		); err != nil {
-			return err
-		}
-		b.Directory = &w.root
-	} else {
-		if err = validateType(existing.Type(), a.Type()); err != nil {
-			return err
-		}
-		if existing.Base().Name != b.Name {
-			if err = w.validateName(ctx, a.ResourceID(), b.Name, module); err != nil {
-				return err
-			}
-		}
-		b.Directory = existing.Base().Directory
-	}
-	a.SetBase(b)
-	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
+	if err := w.validateEntry(ctx, w.root, a.ResourceID(), b.Name, module); err != nil {
 		return err
 	}
-	if module && (!exists || existing.Base().Name != b.Name) {
-		if err = w.resyncImporting(ctx); err != nil {
+	b.Directory = &w.root
+	a.SetBase(b)
+	if err := w.table.NewCreate().Exclusive().Entry(a).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if module {
+		if err := w.resyncImporting(ctx); err != nil {
 			return err
 		}
-	} else if module {
-		w.editedModules.Add(w.tx, b.Key)
 	}
-	if err = w.sync(ctx, *a); err != nil {
+	if err := w.sync(ctx, *a); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -170,8 +127,8 @@ func (w Writer) Create(ctx context.Context, a *Arc) error {
 	return nil
 }
 
-// CreateMany creates the given Arcs. If Arcs with the same key already exist, they will
-// be overwritten.
+// CreateMany creates the given Arcs. It returns an error wrapping
+// validate.ErrValidation when an Arc with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, arcs *[]Arc) error {
 	for i := range *arcs {
 		if err := w.Create(ctx, &(*arcs)[i]); err != nil {
@@ -383,10 +340,10 @@ func (w Writer) syncStatus(ctx context.Context, module ModuleArc) error {
 	return w.status.NewWriter(w.tx).Set(ctx, &stat)
 }
 
-// writeTask creates or overwrites the arc's task on rackKey with cfg, stamping the
-// arc's key into it. cfg.Hash is the arc's compiled hash, so the task's config hash
-// tracks the arc's content and the task drift mechanism reports arc content drift with
-// no extra machinery.
+// writeTask creates the arc's task on rackKey with cfg, or applies the arc's name,
+// rackKey, and cfg to the existing task, stamping the arc's key into cfg. cfg.Hash is
+// the arc's compiled hash, so the task's config hash tracks the arc's content and the
+// task drift mechanism reports arc content drift with no extra machinery.
 func (w Writer) writeTask(
 	ctx context.Context,
 	a Base,
@@ -403,11 +360,25 @@ func (w Writer) writeTask(
 	if err = json.Unmarshal(b, &encoded); err != nil {
 		return nil, err
 	}
-	tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
-	if len(existing) > 0 {
-		tsk.Key = existing[0]
+	tw := w.tasks.NewWriter(w.tx)
+	if len(existing) == 0 {
+		tsk := task.Task{Rack: rackKey, Name: a.Name, Type: TaskType, Config: encoded}
+		if err = tw.Create(ctx, &tsk); err != nil {
+			return nil, err
+		}
+		return &tsk, nil
 	}
-	if err := w.tasks.NewWriter(w.tx).Create(ctx, &tsk); err != nil {
+	if _, err = tw.Apply(
+		ctx,
+		existing[0],
+		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: a.Name}),
+		task.NewSetAction(task.SetPayload{Path: []string{"rack"}, Value: rackKey}),
+		task.NewSetAction(task.SetPayload{Path: []string{"config"}, Value: encoded}),
+	); err != nil {
+		return nil, err
+	}
+	tsk, _, err := w.retrieveTask(ctx, existing[0])
+	if err != nil {
 		return nil, err
 	}
 	return &tsk, nil
@@ -431,9 +402,9 @@ func (w Writer) retrieveTask(
 	return tsk, cfg, tsk.Config.Unmarshal(&cfg)
 }
 
-// syncTask rewrites the arc's task and drift record when an edit changed its name or
-// compiled hash. A no-op for arcs with no rack bound and for edits, like graph layout
-// moves, that change neither.
+// syncTask applies the arc's name and compiled hash to the arc's task, and rewrites its
+// drift record, when an edit changed either. A no-op for arcs with no rack bound and
+// for edits, like graph layout moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Arc) error {
 	b := a.Base()
 	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(b.Key))

@@ -75,6 +75,9 @@ func dispatch(
 	acts []schematic.Action,
 ) error {
 	return db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.NewWriter(tx).WithDispatchKey(dispatchKey).Apply(ctx, key, acts...)
+		_, err := svc.NewWriter(tx).
+			WithDispatchKey(dispatchKey).
+			Apply(ctx, key, acts...)
+		return err
 	})
 }

@@ -33,40 +33,24 @@ const (
 )
 
 // CreatePayload replaces the group with the given created state. Emitted by the Core
-// when a group is created or overwritten whole; clients never dispatch it.
+// when a group is created; clients never dispatch it.
 type CreatePayload struct {
 	Group Group `json:"group" msgpack:"group"`
 }
 
-// SetPayload replaces the value at a path in the group.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
 
-// RemovePayload removes an entry from a list or a field from an object in the group.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
 
-// InsertPayload adds an entry to a list in the group.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
 
-// MovePayload moves an entry in a list in the group.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
 
 // SetParentPayload moves the group under parent, or to the top level when parent is
 // empty. A move under a new top parent moves the records in the group to the project of

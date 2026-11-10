@@ -46,6 +46,7 @@ import {
   type ReadSchemas,
   uniqueEntries,
 } from "@/feature/ethercat/task/types";
+import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -220,7 +221,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       created.forEach((c, i) => bindReadChannel(slave, toCreate[i], c.key));
     }
 
-    if (modified) await client.devices.create(slave);
+    if (modified) await Device.setProperties(client, slave, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.channel = readChannelOf(slave, ch);

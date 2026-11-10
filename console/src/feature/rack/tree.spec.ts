@@ -70,7 +70,7 @@ const createNIRackWithScanner = async () => {
 const createOPCUARackWithScanner = async () => {
   const r = await client.racks.create({
     name: uniqueName("opcua_rack"),
-    integrations: [OPCUA.Device.INTEGRATION],
+    integrations: [OPCUA.Device.INTEGRATION_KEY],
   });
   const scanTask = await r.createTask({
     name: uniqueName("opcua_scanner"),

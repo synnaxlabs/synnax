@@ -170,6 +170,17 @@ and nested fields.
 
 `?` and `= value` are mutually exclusive; the analyzer rejects a field carrying both.
 
+`@py optional` makes a field optional in Python alone. Use it for an `any` field that
+must read an absent key as `None`, because the Python JSON codec drops `None` fields.
+
+## Action aliases
+
+`action Set = patch.Set` takes an existing struct as the payload, with the struct's doc.
+A body of domains only, `action Set = patch.Set { @doc value "..." }`, gives the action
+its own doc in place of the struct's. Generators keep the `SetPayload` name as an alias
+(in Go, a defined type that can carry `Handle`). The target must be a struct with no
+type parameters, and no two actions of a type may share one.
+
 ## Union discriminators
 
 A union's discriminator is a generated `<Union>Type` with one constant per variant. When
@@ -242,8 +253,8 @@ when most types need it, declare it file-level and omit the exceptions.
 
 ## Path actions
 
-`@patch` marks a field of a document (a struct with `action Set extends patch.Set`) that
-path actions may edit. A path to any other field fails, so a Core-owned field such as
+`@patch` marks a field of a document (a struct with `action Set = patch.Set`) that path
+actions may edit. A path to any other field fails, so a Core-owned field such as
 `labels` gets no tag. Go generates a `Patch` method for the document and for every
 struct that a `@patch` field reaches, in the version package that declares the struct. A
 struct with a hand-written Go JSON decoder, such as `color.Color`, declares

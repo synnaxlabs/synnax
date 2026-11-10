@@ -23,11 +23,17 @@ schematic. In a script, you retrieve a channel before you read or write its data
 ## Find a channel in the Console
 
 The [channels toolbar](/reference/channels#channels-in-the-console) lists all of the
-channels in Synnax. To open it, click <Icon.Channel /> or press **C**. To add a channel
-to a schematic, drag it from the toolbar onto the schematic.
+channels in Synnax. To open it, click <Icon.Channel /> or press **C**. Drag a channel
+onto a line plot or a schematic, or double-click it to add it to the open line plot.
 
-To find a channel by name, click <Icon.Search /> at the top of the left bar, or press
-**Ctrl+P** (**Cmd+P** on macOS), to open the
+To filter the toolbar, click <Icon.Search /> in its header and type part of a name.
+Under an active range, the search also matches aliases. Click <Icon.TreeView /> to show
+the results in their groups. Press **Escape** in the field to close the search.
+
+<Video id="client/channels/search" />
+
+You can also find a channel from anywhere in the Console. Click <Icon.Search /> at the
+top of the left bar, or press **Ctrl+P** (**Cmd+P** on macOS), to open the
 [search palette](/reference/get-started/ui-overview#search-and-command-palette). Then
 type part of the name. Select a result to add the channel to the open line plot, or to a
 new line plot. A virtual channel opens in a log.
@@ -58,8 +64,10 @@ channels = client.channels.retrieve([tank_pressure.key, tank_temperature.key])
 ```
 
 When you pass one name or key, `retrieve` returns one channel. It raises
-`sy.NotFoundError` when no channel matches. When you pass a list, `retrieve` returns a
-list and leaves out the channels that it does not find.
+`sy.NotFoundError` when no channel matches, and `sy.MultipleFoundError` when more than
+one channel has the name. When you pass a list, `retrieve` returns a list and leaves out
+the channels that it does not find. To get one channel for any other filter, pass
+`one=True`.
 
 Pass names or keys, not both in one list. A key never changes, but a name can change.
 Store keys in programs that run for a long time.
@@ -80,8 +88,10 @@ const byKey = await client.channels.retrieve([tankPressure.key, sameChannel.key]
 ```
 
 When you pass one name or key, `retrieve` returns one channel. It throws a
-`NotFoundError` when no channel matches. When you pass an array, `retrieve` returns an
-array and leaves out the channels that it does not find.
+`NotFoundError` when no channel matches, and a `MultipleFoundError` when more than one
+channel has the name. When you pass an array, `retrieve` returns an array and leaves out
+the channels that it does not find. To get one channel for any other filter, pass
+`one: true`.
 
 Pass names or keys, not both in one array. A key never changes, but a name can change.
 Store keys in programs that run for a long time.
@@ -92,11 +102,21 @@ Store keys in programs that run for a long time.
 
 ### By pattern
 
-A `name` filter with a `regex` matches names with a regular expression, in
-[Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). The expression can match any
-part of the name, so start it with `^` to match from the start. For example, `^tank_`
-matches `tank_pressure` and `tank_time`, but not `ox_tank_pressure`. A plain name, as in
-the section above, always matches exactly.
+A `name` filter selects channels by a pattern in their name. Set one or more operators.
+A channel must match all of them. A plain name, as in the section above, always matches
+exactly.
+
+| Python             | TypeScript        | Matches names that                                                                           |
+| ------------------ | ----------------- | -------------------------------------------------------------------------------------------- |
+| `contains`         | `contains`        | Hold the text.                                                                               |
+| `starts_with`      | `startsWith`      | Start with the text.                                                                         |
+| `regex`            | `regex`           | Match the regular expression, in [Go RE2 syntax](https://github.com/google/re2/wiki/Syntax). |
+| `in_`              | `in`              | Equal one of the names in the list.                                                          |
+| `case_insensitive` | `caseInsensitive` | Set to true, the other operators ignore case.                                                |
+
+A `regex` can match any part of the name, so start it with `^` to match from the start.
+For example, `^tank_` matches `tank_pressure` and `tank_time`, but not
+`ox_tank_pressure`.
 
 <Client.Tabs exclude={["console"]}>
 
@@ -109,6 +129,11 @@ import synnax as sy
 tank_channels = client.channels.retrieve(
     where=sy.channel.Where(name=sy.filter.String(regex="^tank_"))
 )
+pressures = client.channels.retrieve(
+    where=sy.channel.Where(
+        name=sy.filter.String(contains="pressure", case_insensitive=True)
+    )
+)
 ```
 
   </Fragment>
@@ -119,6 +144,9 @@ tank_channels = client.channels.retrieve(
 // Returns Channel[]
 const tankChannels = await client.channels.retrieve({
   where: { name: { regex: "^tank_" } },
+});
+const pressures = await client.channels.retrieve({
+  where: { name: { contains: "pressure", caseInsensitive: true } },
 });
 ```
 

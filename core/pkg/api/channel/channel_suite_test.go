@@ -58,12 +58,10 @@ var (
 		apichannel.CreateResponse,
 	]
 	deleteChannels freighter.UnaryHandler[apichannel.DeleteRequest, struct{}]
-	renameChannels freighter.UnaryHandler[apichannel.RenameRequest, struct{}]
 	dispatch       freighter.UnaryHandler[
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,
 	]
-	setGroup         freighter.UnaryHandler[apichannel.SetGroupRequest, struct{}]
 	retrieveChannels freighter.UnaryHandler[
 		apichannel.AliasedRetrieveRequest,
 		apichannel.RetrieveResponse,
@@ -94,9 +92,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	)
 	createChannels = bind.Write(binder, apiSvc.Create)
 	deleteChannels = bind.Write(binder, apiSvc.Delete)
-	renameChannels = bind.Write(binder, apiSvc.Rename)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	setGroup = bind.Write(binder, apiSvc.SetGroup)
 	retrieveChannels = bind.Read(binder, apiSvc.Retrieve)
 	author = MustSucceed(
 		rbactestutil.CreateUser(ctx, db, rbacSvc, userSvc, user.User{Name: "test"}),

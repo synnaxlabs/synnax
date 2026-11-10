@@ -51,27 +51,17 @@ Group struct {
 
         @doc value """
             replaces the group with the given created state. Emitted by the Core when a
-            group is created or overwritten whole; clients never dispatch it.
+            group is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the group."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the group.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the group."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the group."
-    }
+    action Move = patch.Move
 
     action SetParent {
         parent resource.ID?
