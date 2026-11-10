@@ -37,7 +37,7 @@ var _ = Describe("Writer", func() {
 		return string(MustSucceed(e.svc.Resolve(ctx, rk, g, key))[key])
 	}
 
-	Describe("Create", func() {
+	Describe("Set", func() {
 		It(
 			"Should give a stored secret a key and encrypt its value",
 			func(ctx SpecContext) {
