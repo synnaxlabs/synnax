@@ -153,19 +153,19 @@ const PATH = PROPERTIES.startupParameters;
  * A parameter with no name shows the name of the shown catalog setting at its address.
  */
 export const StartupParameters = (): ReactElement => {
-  const { value, onChange } = Form.useField(PATH);
+  const { value: parameters, onChange } = Form.useField(PATH);
   const statuses = Form.useStatuses(PATH);
   Form.useCheck(PATH, parametersZ);
   const fields = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.device;
-  const shown = fields == null ? [] : visibleFields(fields, value);
+  const shown = fields == null ? [] : visibleFields(fields, parameters);
   const settingName = (address: ethercat.StartupParameter): string =>
     shown.find((f) => sameAddress(f, address))?.name ?? "";
-  const rows = value.map((p) =>
+  const rows = parameters.map((p) =>
     FIELDS.map((f) => (f === "name" && p.name === "" ? settingName(p) : p[f])),
   );
   const handleChange = (next: Input.TableCell[][]) =>
     onChange(
-      next.map(([index, subIndex, dataType, value, name]) => {
+      next.map(([index, subIndex, dataType, value, name], i) => {
         const parameter = {
           index: Number(index),
           subIndex: Number(subIndex),
@@ -173,7 +173,12 @@ export const StartupParameters = (): ReactElement => {
           value: Number(value),
           name: String(name),
         };
-        if (parameter.name === settingName(parameter)) parameter.name = "";
+        const before = parameters.at(i);
+        // A cell still showing the catalog name of an unnamed parameter stays unnamed.
+        const shownBefore =
+          before?.name === "" && parameter.name === settingName(before);
+        if (shownBefore || parameter.name === settingName(parameter))
+          parameter.name = "";
         return parameter;
       }),
     );
@@ -184,6 +189,7 @@ export const StartupParameters = (): ReactElement => {
       <Input.Table
         value={rows}
         onChange={handleChange}
+        onRemove={(i) => onChange(parameters.filter((_, j) => j !== i))}
         createRow={createRow}
         resourceName="parameter"
         cellStatus={cellStatus}
