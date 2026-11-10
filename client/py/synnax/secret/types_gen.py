@@ -53,7 +53,7 @@ class Base(BaseModel):
     Attributes:
         key: Is the unique identifier for this secret.
         name: Is a human-readable name for the secret.
-        updated: Is when the value or path of the secret last changed.
+        updated: Is when the value or file name of the secret last changed.
         uses: Are the resources that use the secret and that the caller can read, filled
             only when a retrieve request asks for them.
     """
@@ -122,10 +122,12 @@ class StoredSecret(Base):
 
 
 class FileSecret(Base):
-    """Is a secret whose value is a file on the computer that uses it."""
+    """Is a secret whose value is a file in the secrets folder that an admin sets on the
+    rack that uses it.
+    """
 
     source: Literal["file"] = "file"
-    path: str
+    file_name: str
 
 
 # Is a hidden value that a device or task uses to connect, such as a password, a

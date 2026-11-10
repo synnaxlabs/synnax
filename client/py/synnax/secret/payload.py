@@ -29,7 +29,7 @@ class NewStored(BaseModel):
 
 
 class NewFile(BaseModel):
-    """A secret whose value is a file on the computer that uses it.
+    """A secret whose value is a file in the secrets folder of the rack that uses it.
 
     :param key: Replaces the secret with this key when it exists.
     """
@@ -37,7 +37,7 @@ class NewFile(BaseModel):
     key: Key = Field(default_factory=uuid4)
     name: str
     source: Literal["file"] = "file"
-    path: str
+    file_name: str
 
 
 New = Annotated[NewStored | NewFile, Field(discriminator="source")]
