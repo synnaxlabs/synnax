@@ -111,12 +111,12 @@ describe("arc/Explorer", () => {
     });
   });
 
-  it("opens the create modal from Create arc, listed above New directory", async () => {
+  it("opens the create modal from Create Arc, listed above New directory", async () => {
     const arc = await createArc();
     await renderExplorer();
     await findTreeRow(arc.name);
     await openTreeRootContextMenu();
-    const createArcItem = await screen.findByText("Create arc");
+    const createArcItem = await screen.findByText("Create Arc");
     const newDirectoryItem = await screen.findByText("New directory");
     expect(
       createArcItem.compareDocumentPosition(newDirectoryItem) &
