@@ -8,8 +8,10 @@
 #  included in the file licenses/APL.txt.
 
 import functools
+import inspect
+import warnings
 from collections.abc import Callable
-from typing import ParamSpec, TypeVar, overload
+from typing import Any, ParamSpec, TypeVar, overload
 
 from x.exceptions import Error
 
@@ -79,3 +81,51 @@ def require_named_params(
     if func is None:
         return decorator
     return decorator(func)
+
+
+_POSITIONAL = (
+    inspect.Parameter.POSITIONAL_ONLY,
+    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+)
+
+
+def deprecate_positional(
+    *names: str,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
+    """Lets callers pass the given keyword-only parameters by position, in the given
+    order, after the positional parameters. Each such call emits a DeprecationWarning.
+
+    :param names: The keyword-only parameters that callers could once pass by position.
+    :raises ValueError: If a name is not a keyword-only parameter of the function.
+    """
+
+    def decorator(f: Callable[P, R]) -> Callable[P, R]:
+        params = inspect.signature(f).parameters
+        for name in names:
+            if (
+                name not in params
+                or params[name].kind != inspect.Parameter.KEYWORD_ONLY
+            ):
+                raise ValueError(f"{name} is not a keyword-only parameter of {f}")
+        n = sum(1 for p in params.values() if p.kind in _POSITIONAL)
+
+        @functools.wraps(f)
+        def wrapper(*args: Any, **kwargs: Any) -> R:
+            extra = args[n:]
+            if len(extra) == 0 or len(extra) > len(names):
+                return f(*args, **kwargs)
+            moved = dict(zip(names, extra, strict=False))
+            warnings.warn(
+                f"Passing {', '.join(moved)} to {f.__qualname__}() by position is "
+                "deprecated and stops working in the next minor release. Pass "
+                f"{', '.join(moved)} by keyword.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+            return f(*args[:n], **kwargs, **moved)
+
+        if inspect.iscoroutinefunction(f):
+            inspect.markcoroutinefunction(wrapper)
+        return wrapper
+
+    return decorator

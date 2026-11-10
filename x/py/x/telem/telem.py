@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, GetCoreSchemaHandler
 from pydantic_core import core_schema
 
 from x.exceptions import ContiguityError
+from x.params import deprecate_positional
 
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
@@ -761,6 +762,7 @@ def _div_toward_zero(a: int, b: int) -> int:
 TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
+@deprecate_positional("_from", "to")
 def convert_time_units(
     data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
@@ -823,6 +825,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
+    @deprecate_positional("density")
     def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
@@ -841,6 +844,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
+    @deprecate_positional("density")
     def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
@@ -996,6 +1000,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
+    @deprecate_positional("delta")
     def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
