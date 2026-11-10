@@ -111,26 +111,34 @@ func openTestService(ctx context.Context, db *gorp.DB) *testService {
 
 func (*testService) Type() resource.Type { return resource.TypeChannel }
 
-func (s *testService) Import(
+func (s *testService) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	env imex.Envelope,
-	opts imex.ImportOptions,
-) (resource.ID, error) {
+) (imex.Write, error) {
 	r, err := env.Decode[testResource](ctx)
 	if err != nil {
-		return resource.ID{}, err
+		return nil, err
 	}
-	key := uuid.New().String()
-	e := testEntry{Key: key, Name: env.Name, FieldOne: r.FieldOne, FieldTwo: r.FieldTwo}
-	if !opts.Parent.IsZero() {
-		e.Parent = opts.Parent.String()
-	}
-	if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
-		return resource.ID{}, err
-	}
-	id := resource.ID{Type: resource.TypeChannel, Key: key}
-	return id, nil
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		key := uuid.New().String()
+		e := testEntry{
+			Key:      key,
+			Name:     env.Name,
+			FieldOne: r.FieldOne,
+			FieldTwo: r.FieldTwo,
+		}
+		if !opts.Parent.IsZero() {
+			e.Parent = opts.Parent.String()
+		}
+		if err := s.table.NewCreate().Entry(&e).Exec(ctx, tx); err != nil {
+			return resource.ID{}, err
+		}
+		return resource.ID{Type: resource.TypeChannel, Key: key}, nil
+	}, nil
 }
 
 func (*testService) Match(map[string]any) bool { return false }
@@ -180,10 +188,8 @@ func (errorService) Type() resource.Type { return resource.TypeDevice }
 
 func (errorService) Match(map[string]any) bool { return false }
 
-func (errorService) Import(
-	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (resource.ID, error) {
-	return resource.ID{}, errors.New("importer error: forced failure")
+func (errorService) Decode(context.Context, imex.Envelope) (imex.Write, error) {
+	return nil, errors.New("importer error: forced failure")
 }
 
 func (errorService) Export(
@@ -198,10 +204,10 @@ type noopImporter struct{ typ resource.Type }
 
 func (noopImporter) Match(map[string]any) bool { return false }
 
-func (n noopImporter) Import(
-	context.Context, gorp.Tx, imex.Envelope, imex.ImportOptions,
-) (resource.ID, error) {
-	return resource.ID{Type: n.typ, Key: "noop-key"}, nil
+func (n noopImporter) Decode(context.Context, imex.Envelope) (imex.Write, error) {
+	return func(context.Context, gorp.Tx, imex.ImportOptions) (resource.ID, error) {
+		return resource.ID{Type: n.typ, Key: "noop-key"}, nil
+	}, nil
 }
 
 // matchImporter is a noopImporter that claims typeless envelopes whose body carries
