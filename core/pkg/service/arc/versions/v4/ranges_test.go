@@ -35,7 +35,7 @@ func wrap(body string) string {
 var _ = Describe("CastRanges", func() {
 	DescribeTable("Should cast mixed typed arguments to the type 0.60 picked",
 		func(ctx SpecContext, old, want string) {
-			Expect(analyze(ctx, wrap(old)).Ok()).To(BeFalse())
+			Expect(analyze(ctx, wrap(old)).String()).To(ContainSubstring("in range()"))
 			got := v4.CastRanges(ctx, wrap(old))
 			Expect(got).To(Equal(wrap(want)))
 			diag := analyze(ctx, got)
