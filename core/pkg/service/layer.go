@@ -216,6 +216,8 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// TaskStopper stops running tasks ahead of a delete.
+	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -820,6 +822,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
+		return nil, err
+	}
+	if l.TaskStopper, err = task.NewStopper(task.StopperConfig{
+		DB:     cfg.Distribution.DB,
+		Task:   l.Task,
+		Status: l.Status,
+		Framer: l.Framer,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(

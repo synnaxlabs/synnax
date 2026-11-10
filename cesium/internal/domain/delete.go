@@ -259,12 +259,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	var collected bool
-	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
+	for fileKey := 1; fileKey <= int(db.fc.counter.Value()); fileKey++ {
+		s, err := db.cfg.FS.Stat(fileKeyToName(uint16(fileKey)))
 		if err != nil {
 			return span.Error(err)
 		}
-		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		fileCollected, err := db.garbageCollectFile(uint16(fileKey), s.Size())
 		if err != nil {
 			return span.Error(err)
 		}

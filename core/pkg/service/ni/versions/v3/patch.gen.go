@@ -2677,14 +2677,6 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aocc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aocc.BaseAOChannel.Disabled, c.Next())
-	case "cmd_channel":
-		return patch.Value(&aocc.BaseAOChannel.CmdChannel, c.Next())
-	case "state_channel":
-		return patch.Value(&aocc.BaseAOChannel.StateChannel, c.Next())
-	case "cmd_channel_name":
-		return patch.Value(&aocc.BaseAOChannel.CmdChannelName, c.Next())
-	case "state_channel_name":
-		return patch.Value(&aocc.BaseAOChannel.StateChannelName, c.Next())
 	case "port":
 		return patch.Value(&aocc.BaseAOChannel.Port, c.Next())
 	case "min_val":
@@ -2696,6 +2688,14 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 			return patch.Value(&aocc.CustomScale.CustomScale, c)
 		}
 		return aocc.CustomScale.CustomScale.Patch(c)
+	case "cmd_channel":
+		return patch.Value(&aocc.CommandedAOChannel.CmdChannel, c.Next())
+	case "state_channel":
+		return patch.Value(&aocc.CommandedAOChannel.StateChannel, c.Next())
+	case "cmd_channel_name":
+		return patch.Value(&aocc.CommandedAOChannel.CmdChannelName, c.Next())
+	case "state_channel_name":
+		return patch.Value(&aocc.CommandedAOChannel.StateChannelName, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2704,14 +2704,14 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 // HashContent writes the content of the value to h, without its keys.
 func (aocc *AOCurrentChannel) HashContent(h *content.Hash) {
 	h.Bool(aocc.BaseAOChannel.Disabled)
-	h.Uint(uint64(aocc.BaseAOChannel.CmdChannel))
-	h.Uint(uint64(aocc.BaseAOChannel.StateChannel))
-	h.String(aocc.BaseAOChannel.CmdChannelName)
-	h.String(aocc.BaseAOChannel.StateChannelName)
 	h.Uint(uint64(aocc.BaseAOChannel.Port))
 	h.Float(aocc.MinMaxVal.MinVal)
 	h.Float(aocc.MinMaxVal.MaxVal)
 	aocc.CustomScale.CustomScale.HashContent(h)
+	h.Uint(uint64(aocc.CommandedAOChannel.CmdChannel))
+	h.Uint(uint64(aocc.CommandedAOChannel.StateChannel))
+	h.String(aocc.CommandedAOChannel.CmdChannelName)
+	h.String(aocc.CommandedAOChannel.StateChannelName)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
@@ -2721,14 +2721,6 @@ func (aofgc *AOFuncGenChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aofgc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aofgc.BaseAOChannel.Disabled, c.Next())
-	case "cmd_channel":
-		return patch.Value(&aofgc.BaseAOChannel.CmdChannel, c.Next())
-	case "state_channel":
-		return patch.Value(&aofgc.BaseAOChannel.StateChannel, c.Next())
-	case "cmd_channel_name":
-		return patch.Value(&aofgc.BaseAOChannel.CmdChannelName, c.Next())
-	case "state_channel_name":
-		return patch.Value(&aofgc.BaseAOChannel.StateChannelName, c.Next())
 	case "port":
 		return patch.Value(&aofgc.BaseAOChannel.Port, c.Next())
 	case "wave_type":
@@ -2747,10 +2739,6 @@ func (aofgc *AOFuncGenChannel) Patch(c patch.Cursor) error {
 // HashContent writes the content of the value to h, without its keys.
 func (aofgc *AOFuncGenChannel) HashContent(h *content.Hash) {
 	h.Bool(aofgc.BaseAOChannel.Disabled)
-	h.Uint(uint64(aofgc.BaseAOChannel.CmdChannel))
-	h.Uint(uint64(aofgc.BaseAOChannel.StateChannel))
-	h.String(aofgc.BaseAOChannel.CmdChannelName)
-	h.String(aofgc.BaseAOChannel.StateChannelName)
 	h.Uint(uint64(aofgc.BaseAOChannel.Port))
 	h.String(string(aofgc.WaveType))
 	h.Float(aofgc.Frequency)
@@ -2765,14 +2753,6 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&aovc.BaseAOChannel.Key, c.Next())
 	case "disabled":
 		return patch.Value(&aovc.BaseAOChannel.Disabled, c.Next())
-	case "cmd_channel":
-		return patch.Value(&aovc.BaseAOChannel.CmdChannel, c.Next())
-	case "state_channel":
-		return patch.Value(&aovc.BaseAOChannel.StateChannel, c.Next())
-	case "cmd_channel_name":
-		return patch.Value(&aovc.BaseAOChannel.CmdChannelName, c.Next())
-	case "state_channel_name":
-		return patch.Value(&aovc.BaseAOChannel.StateChannelName, c.Next())
 	case "port":
 		return patch.Value(&aovc.BaseAOChannel.Port, c.Next())
 	case "min_val":
@@ -2784,6 +2764,14 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 			return patch.Value(&aovc.CustomScale.CustomScale, c)
 		}
 		return aovc.CustomScale.CustomScale.Patch(c)
+	case "cmd_channel":
+		return patch.Value(&aovc.CommandedAOChannel.CmdChannel, c.Next())
+	case "state_channel":
+		return patch.Value(&aovc.CommandedAOChannel.StateChannel, c.Next())
+	case "cmd_channel_name":
+		return patch.Value(&aovc.CommandedAOChannel.CmdChannelName, c.Next())
+	case "state_channel_name":
+		return patch.Value(&aovc.CommandedAOChannel.StateChannelName, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -2792,14 +2780,14 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 // HashContent writes the content of the value to h, without its keys.
 func (aovc *AOVoltageChannel) HashContent(h *content.Hash) {
 	h.Bool(aovc.BaseAOChannel.Disabled)
-	h.Uint(uint64(aovc.BaseAOChannel.CmdChannel))
-	h.Uint(uint64(aovc.BaseAOChannel.StateChannel))
-	h.String(aovc.BaseAOChannel.CmdChannelName)
-	h.String(aovc.BaseAOChannel.StateChannelName)
 	h.Uint(uint64(aovc.BaseAOChannel.Port))
 	h.Float(aovc.MinMaxVal.MinVal)
 	h.Float(aovc.MinMaxVal.MaxVal)
 	aovc.CustomScale.CustomScale.HashContent(h)
+	h.Uint(uint64(aovc.CommandedAOChannel.CmdChannel))
+	h.Uint(uint64(aovc.CommandedAOChannel.StateChannel))
+	h.String(aovc.CommandedAOChannel.CmdChannelName)
+	h.String(aovc.CommandedAOChannel.StateChannelName)
 }
 
 // Patch applies the path action at c, which is not done, to the value.

@@ -16,8 +16,10 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import rack as rack_, task as task_
 from synnax.arc import directory
 from synnax.arc.graph import Graph
+from synnax.arc.task import Performance
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     AutomationPayload,
@@ -53,6 +55,16 @@ class _CreateResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
+
+
+class _UpdateTaskRequest(BaseModel):
+    key: Key
+    rack: rack_.Key | None = None
+    performance: Performance | None = None
+
+
+class _UpdateTaskResponse(BaseModel):
+    task: task_.Payload | None = None
 
 
 class Automation(AutomationPayload):
@@ -101,11 +113,13 @@ class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
+    _tasks: task_.Client
     directories: directory.Client
     """Creates, renames, deletes, and moves the directories of Arcs."""
 
-    def __init__(self, client: UnaryClient) -> None:
+    def __init__(self, client: UnaryClient, tasks: task_.Client) -> None:
         self._client = client
+        self._tasks = tasks
         self.directories = directory.Client(client)
 
     @overload
@@ -163,6 +177,8 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_changes: bool = ...,
+        include_status: bool = ...,
         one: bool = ...,
     ) -> Arc: ...
 
@@ -179,6 +195,8 @@ class Client:
         where: Where | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_changes: bool = ...,
+        include_status: bool = ...,
         one: bool = ...,
     ) -> Arc: ...
 
@@ -197,6 +215,8 @@ class Client:
         names: list[str] | None = ...,
         search_term: str = ...,
         include_program: bool = ...,
+        include_changes: bool = ...,
+        include_status: bool = ...,
         one: Literal[True],
     ) -> Arc: ...
 
@@ -218,6 +238,8 @@ class Client:
         order: Order | None = ...,
         after: Cursor | None = ...,
         include_program: bool = ...,
+        include_changes: bool = ...,
+        include_status: bool = ...,
         one: Literal[False] = ...,
     ) -> list[Arc]: ...
 
@@ -232,6 +254,8 @@ class Client:
         order: Order | None = None,
         after: Cursor | None = None,
         include_program: bool = False,
+        include_changes: bool = False,
+        include_status: bool = False,
         one: bool = False,
         **fields: Any,
     ) -> Arc | list[Arc]:
@@ -256,6 +280,9 @@ class Client:
             last Arc of the page before, and its value of the order field.
         :param include_program: Whether the Core compiles each automation and sets
             its program. The Core raises an error if any automation fails to compile.
+        :param include_changes: Whether the Core sets, on each automation, what changed
+            since its task was deployed.
+        :param include_status: Whether the Core sets each module's compile status.
         :param one: Returns one Arc for any filter.
         :returns: One Arc for a plain ``key`` or ``name`` or when ``one`` is set,
             otherwise a list of Arcs. The list leaves out keys that do not exist.
@@ -276,6 +303,8 @@ class Client:
             order=order,
             after=after,
             include_program=include_program,
+            include_changes=include_changes,
+            include_status=include_status,
         )
         res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
@@ -283,6 +312,31 @@ class Client:
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
+
+    def update_task(
+        self,
+        key: Key,
+        *,
+        rack: rack_.Key | None = None,
+        performance: Performance | None = None,
+    ) -> task_.Task | None:
+        """Changes the task of the automation with key. A field left as None stays as
+        it is.
+
+        :param key: The key of the automation.
+        :param rack: Binds the automation to the rack, creating its task or moving the
+            existing one. A rack of 0 unbinds it and deletes its task.
+        :param performance: Sets how closely the task's runtime holds timer deadlines.
+        :returns: The task, or None after an unbind.
+        :raises ValidationError: When unbinding while the task is running, or when
+            setting the performance of an automation with no rack.
+        """
+        res = self._client.send(
+            "/arc/update-task",
+            _UpdateTaskRequest(key=key, rack=rack, performance=performance),
+            _UpdateTaskResponse,
+        )
+        return None if res.task is None else self._tasks.sugar([res.task])[0]
 
     def _sugar(self, payloads: list[Payload]) -> list[Arc]:
         return [_ARCS[p.type].model_validate(p, from_attributes=True) for p in payloads]

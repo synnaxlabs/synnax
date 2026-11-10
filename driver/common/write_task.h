@@ -77,6 +77,8 @@ public:
     /// @brief the current state of all the outputs. This is shared between
     /// the command sink and state source.
     std::unordered_map<synnax::channel::Key, x::telem::SampleValue> chan_state;
+    /// @brief whether a command has changed the state since the last read.
+    bool chan_state_changed = false;
 
     explicit Sink(std::vector<synnax::channel::Key> cmd_channels):
         cmd_channels(std::move(cmd_channels)),
@@ -126,6 +128,7 @@ public:
 
     void set_state(const x::telem::Frame &frame) {
         std::lock_guard lock{this->chan_state_lock};
+        this->chan_state_changed = true;
         this->chan_state_cv.notify_all();
         for (const auto &[cmd_key, s]: frame) {
             const auto it = this->state_channels.find(cmd_key);
@@ -141,7 +144,10 @@ public:
         pipeline::Authorities &authorities
     ) override {
         std::unique_lock lock(chan_state_lock);
-        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono());
+        this->chan_state_cv.wait_for(lock, this->state_rate.period().chrono(), [this] {
+            return this->chan_state_changed;
+        });
+        this->chan_state_changed = false;
         fr.clear();
         fr.reserve(this->chan_state.size());
         for (const auto &[key, value]: this->chan_state)
@@ -266,6 +272,9 @@ class WriteTask final : public driver::task::Task {
     StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
+    /// @brief true while a sink with no command channels holds its hardware. Such a
+    /// sink never starts the command pipe.
+    bool running_without_commands = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
     /// @brief the hardware interface for writing data
@@ -354,11 +363,13 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        // The state pipe never starts without state channels, so only the command
-        // pipe records whether the sink holds hardware.
-        const auto stopped = this->cmd_write_pipe.stop();
+        // The state pipe never starts without state channels, so it does not record
+        // whether the sink holds hardware.
+        const auto pipe_stopped = this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
         std::lock_guard lock(this->state_mu);
+        const auto stopped = std::exchange(this->running_without_commands, false) ||
+                             pipe_stopped;
         if (stopped)
             this->state.error(this->sink->internal->stop(), "Failed to stop task");
         // A start the streamer never answered still needs its reply.
@@ -375,11 +386,12 @@ public:
     /// Will be used internally to communicate the task state. A task that is
     /// already running is not restarted: the command is answered with the current
     /// status. The start is answered once the command streamer opens, so commands
-    /// written after the answer reach the sink.
+    /// written after the answer reach the sink. A sink with no command channels is
+    /// answered at once and runs without pipelines.
     bool start(const std::string &cmd_key) {
         {
             std::lock_guard lock(this->state_mu);
-            if (this->cmd_write_pipe.running()) {
+            if (this->cmd_write_pipe.running() || this->running_without_commands) {
                 if (this->opening)
                     this->pending_starts.push_back(cmd_key);
                 else
@@ -392,6 +404,11 @@ public:
                     .error(this->sink->internal->start(), "Failed to start task")) {
                 this->state.send_start(cmd_key);
                 return false;
+            }
+            if (this->sink->internal->streamer_config().channels.empty()) {
+                this->running_without_commands = true;
+                this->state.send_start(cmd_key);
+                return true;
             }
             this->opening = true;
             this->state_source->writer_open = false;
