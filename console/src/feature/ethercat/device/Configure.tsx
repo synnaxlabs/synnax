@@ -57,6 +57,9 @@ const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
 
+/** The start of the name of a network that the IgH master runs. */
+const IGH_PREFIX = "igh:";
+
 const APPLY_NOTE =
   "A change applies the next time the network starts, after every task on it stops.";
 
@@ -306,7 +309,12 @@ export const Configure = ({
   const given =
     Form.useFieldValue(path.properties.settings, { ctx: form, optional: true })?.mode
       ?.opMode ?? null;
-  const catalog = given != null && !isStale(modes, given) ? given : null;
+  const network = Form.useFieldValue(path.properties.network, { ctx: form });
+  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
+  const catalog =
+    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
+      ? given
+      : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;
