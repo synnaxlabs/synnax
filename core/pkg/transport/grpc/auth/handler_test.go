@@ -107,7 +107,7 @@ func matchAPIKey(k auth.APIKey) types.GomegaMatcher {
 }
 
 var (
-	bob    = user.User{Key: uuid.New()}
+	bob    = auth.User{User: user.User{Key: uuid.New()}}
 	apiKey = auth.APIKey{
 		Key:     uuid.New(),
 		Subject: bob.ResourceID(),
