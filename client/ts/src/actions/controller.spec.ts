@@ -1686,6 +1686,75 @@ describe("actions.Controller", () => {
       await vi.advanceTimersByTimeAsync(11_000);
       expect(fetch).not.toHaveBeenCalled();
     });
+
+    it("drops each late echo of a create that spans several docs", async () => {
+      const { docs, controller } = setupStore({ fetch: createFetch() });
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      let dispatchKey = "";
+      await controller.create(["j", "k"], async (key) => {
+        dispatchKey = key;
+      });
+      await vi.advanceTimersByTimeAsync(11_000);
+      const create: Action = { type: "create", doc: { values: { a: 0 } } };
+      controller.applyRemote("j", 1, dispatchKey, [create]);
+      controller.applyRemote("k", 1, dispatchKey, [create]);
+      expect(docs.get("j")).toEqual({ key: "j", values: { a: 1 } });
+      expect(docs.get("k")).toEqual({ key: "k", values: { a: 1 } });
+    });
+
+    const invalid: Action = { type: "invalid" };
+
+    it("settles at the deadline an entry whose echo the base cannot hold", async () => {
+      const fetch = createFetch();
+      const { docs, controller, errors } = setupStore({
+        fetch,
+        send: async () => [invalid],
+      });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("b", 1)]);
+      const settled = controller.settled("k");
+      await vi.advanceTimersByTimeAsync(10_000);
+      await settled;
+      expect(errors.map(({ message }) => message)).toEqual([
+        "failed to apply a dispatch that the Core applied",
+      ]);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
+      expect(docs.get("k")).toEqual({ key: "k", values: { a: 1 } });
+    });
+
+    it("settles on stream down an entry whose echo the base cannot hold", async () => {
+      const fetch = createFetch();
+      const { docs, downs, controller, errors } = setupStore({
+        fetch,
+        send: async () => [invalid],
+      });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("b", 1)]);
+      downs.notify();
+      expect(controller.hasPending("k")).toBe(false);
+      expect(errors).toHaveLength(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
+    });
+
+    it("settles an entry whose echo frame the base cannot hold", async () => {
+      const fetch = createFetch();
+      const { docs, controller, errors, send } = setupStore({ fetch });
+      prime(docs, "j", { a: 0 });
+      await controller.dispatch("j", [set("b", 1)]);
+      await controller.dispatch("j", [set("c", 2)]);
+      const [first] = send.mock.calls;
+      controller.applyRemote("j", 1, first[2], [set("b", 1), invalid]);
+      expect(errors).toHaveLength(1);
+      expect(docs.get("j")).toEqual({ values: { a: 0, c: 2 } });
+      expect(controller.hasPending("j")).toBe(true);
+      controller.applyRemote("j", 2, send.mock.calls[1][2], [set("c", 2)]);
+      expect(controller.hasPending("j")).toBe(false);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["j"]);
+    });
   });
 
   describe("create", () => {

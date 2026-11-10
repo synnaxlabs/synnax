@@ -314,8 +314,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // Echoes whose seq does not exceed this are stale and are dropped. A seq of 0 is
   // "unstamped" and always applies.
   private readonly lastAppliedSeq = new Map<Key, number>();
-  /** Dispatch keys of entries settled at their echo deadline, so their echoes drop. */
-  private readonly expired = new Set<string>();
+  /** By doc, the dispatch keys of entries settled at their echo deadline. */
+  private readonly expired = new Map<Key, Set<string>>();
   /** Docs to fetch again once they hold no pending entry. */
   private readonly stale = new Set<Key>();
   private readonly rebases = new Map<Key, Rebase<State, Action>>();
@@ -619,7 +619,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   /**
    * Applies actions that the Core applied to the base, and removes the pending entry
-   * with the dispatch key. Returns whether an entry had the key, and the targets.
+   * with the dispatch key. When the base cannot hold the actions, it reports the error,
+   * keeps the base, and fetches the doc again. Returns whether an entry had the key,
+   * and the targets.
    */
   private settle(
     key: Key,
@@ -627,17 +629,26 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     dispatchKey: string,
     actions: Action[],
   ): { own: boolean; targets: readonly string[] } {
-    const { next, targets } = this.params.reduce(r.base, actions);
-    r.base = next;
     const i = r.pending.findIndex((p) => p.dispatchKey === dispatchKey);
+    let applied: ReturnType<Reducer<State, Action>> | null = null;
+    try {
+      applied = this.params.reduce(r.base, actions);
+    } catch (exc) {
+      this.params.onError(
+        new Error("failed to apply a dispatch that the Core applied", { cause: exc }),
+      );
+      this.refetch(key);
+    }
     // The doc already holds the first pending entry. It changes only when the echo
     // carries actions that the entry does not, such as fields the Core derives.
-    const held = i === 0 && deep.equal(r.pending[0].actions, actions);
+    const held =
+      applied != null && i === 0 && deep.equal(r.pending[0].actions, actions);
+    if (applied != null) r.base = applied.next;
     if (i !== -1) clearTimeout(r.pending.splice(i, 1)[0].deadline);
     if (held) this.docs.stampWrite(key);
     else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
-    return { own: i !== -1, targets };
+    return { own: i !== -1, targets: applied?.targets ?? [] };
   }
 
   /**
@@ -682,7 +693,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     dispatchKey: string,
     echo: Action[],
   ): void {
-    this.expired.add(dispatchKey);
+    const expired = this.expired.get(key) ?? new Set<string>();
+    expired.add(dispatchKey);
+    this.expired.set(key, expired);
     this.refetch(key);
     this.settle(key, r, dispatchKey, echo);
   }
@@ -1055,8 +1068,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * entry is that entry's echo: it moves into the base, and the doc changes only if
    * other frames came first. An echo that comes after its deadline drops. Any other
    * frame applies to the base, under the pending entries, and marks its targets as
-   * remote-touched. A frame that fails to apply reports the error, leaves its seq
-   * unapplied, and fetches the doc again.
+   * remote-touched. A frame that fails to apply reports the error and fetches the doc
+   * again.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     // Until the fetch caches the doc, a frame only marks that the Core may answer from
@@ -1077,7 +1090,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private applyFrame(key: Key, dispatchKey: string, actions: Action[]): void {
-    if (this.expired.delete(dispatchKey)) return;
+    const expired = this.expired.get(key);
+    if (expired?.delete(dispatchKey) === true) {
+      if (expired.size === 0) this.expired.delete(key);
+      return;
+    }
     const doc = this.docs.get(key);
     if (doc == null) {
       // Anything but a create predates our knowledge of the doc, so it drops.
