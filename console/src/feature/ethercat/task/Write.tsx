@@ -28,7 +28,7 @@ import {
   retrieveByName,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
+  bindWriteChannel,
   createEntryWriteChannel,
   createWriteChannel,
   deployWriteConfigZ,
@@ -37,11 +37,12 @@ import {
   getEntryChannelName,
   getPortLabel,
   hasEntry,
-  stateKey,
+  mappedChannels,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
   writeChannelNames,
+  writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
 import { type Selector } from "@/platform/selector";
@@ -117,10 +118,9 @@ const Form: FC = () => {
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    const { channels } = slave.properties.write;
     return {
-      cmdChannel: channels[addressKey(ch)] ?? 0,
-      stateChannel: channels[stateKey(ch)] ?? 0,
+      cmdChannel: writeChannelOf(slave, ch, "command"),
+      stateChannel: writeChannelOf(slave, ch, "state"),
     };
   };
   return (
@@ -158,15 +158,13 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     let modified = await checkOrCreateIndex(client, slave, WRITE_INDEX_OPTIONS);
-    const existingChannels = slave.properties.write.channels;
     // The command and state of a pair are checked apart: deleting one must recreate
     // only that one, leaving the other bound where the device already maps it.
-    const cmdMissing = await findChannelsToCreate(client, channels, existingChannels);
-    const stateMissing = await findChannelsToCreate(
-      client,
-      channels,
-      existingChannels,
-      stateKey,
+    const cmdMissing = await findChannelsToCreate(client, channels, (ch) =>
+      writeChannelOf(slave, ch, "command"),
+    );
+    const stateMissing = await findChannelsToCreate(client, channels, (ch) =>
+      writeChannelOf(slave, ch, "state"),
     );
     if (cmdMissing.length > 0 || stateMissing.length > 0) modified = true;
     const { identifier, pdos } = slave.properties;
@@ -187,15 +185,16 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         primitive.isZero(cmdMissing[i].cmdChannelName)
           ? orphanCmdIndexes.get(cmdIndexNames[i])?.key
           : undefined,
-      map: existingChannels,
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindWriteChannel(slave, ch, "command", key),
     });
     const stateToCreate = await bindOrphanedChannels({
       client,
       channels: stateMissing,
       names: stateMissing.map((ch) => writeChannelNames(slave, ch).state),
       index: () => slave.properties.writeStateIndex,
-      map: existingChannels,
-      mapKey: stateKey,
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindWriteChannel(slave, ch, "state", key),
     });
 
     if (cmdToCreate.length > 0) {
@@ -215,9 +214,9 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         })),
       );
 
-      cmdToCreate.forEach((ch, i) => {
-        existingChannels[addressKey(ch)] = cmdChannels[i].key;
-      });
+      cmdToCreate.forEach((ch, i) =>
+        bindWriteChannel(slave, ch, "command", cmdChannels[i].key),
+      );
     }
 
     if (stateToCreate.length > 0) {
@@ -229,16 +228,16 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
         })),
       );
 
-      stateToCreate.forEach((ch, i) => {
-        existingChannels[stateKey(ch)] = stateChannels[i].key;
-      });
+      stateToCreate.forEach((ch, i) =>
+        bindWriteChannel(slave, ch, "state", stateChannels[i].key),
+      );
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.cmdChannel = existingChannels[addressKey(ch)];
-      ch.stateChannel = existingChannels[stateKey(ch)];
+      ch.cmdChannel = writeChannelOf(slave, ch, "command");
+      ch.stateChannel = writeChannelOf(slave, ch, "state");
     });
   }
 

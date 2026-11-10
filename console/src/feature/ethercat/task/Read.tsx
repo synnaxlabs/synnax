@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { query, type Synnax } from "@synnaxlabs/client";
+import { type channel, query, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -30,20 +30,22 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
+  bindReadChannel,
   createEntryReadChannel,
   createReadChannel,
+  type DataTypes,
   deployReadConfigZ,
   entryAt,
   type EntryReadChannel,
   getPortLabel,
   hasEntry,
+  mappedChannels,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
   readChannelName,
+  readChannelOf,
   readDataType,
-  readKey,
   type ReadSchemas,
   uniqueEntries,
 } from "@/feature/ethercat/task/types";
@@ -59,6 +61,29 @@ const Properties = () => (
   </Flex.Box>
 );
 
+/** @returns the data type of each channel, keyed by the channel. */
+const toDataTypes = (channels: channel.Channel[]): DataTypes =>
+  new Map(channels.map((c) => [c.key, c.dataType.toString()]));
+
+/** @returns the read channels of the slaves. */
+const readChannelKeys = (slaves: SlaveDevice[]): number[] =>
+  unique.unique(
+    slaves.flatMap((s) => s.properties.read.channels.map(({ channel }) => channel)),
+  );
+
+/**
+ * @returns the data types of the read channels that the slaves map, or undefined while
+ * they load.
+ */
+const useDataTypes = (slaves: SlaveDevice[]): DataTypes | undefined => {
+  const keys = readChannelKeys(slaves);
+  const { data } = Channel.useResultMultiple(
+    keys.length === 0 ? null : query.keysRequest(keys),
+  );
+  if (keys.length === 0) return new Map();
+  return data == null ? undefined : toDataTypes(data);
+};
+
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const entry = path.config.channels[itemKey];
@@ -66,15 +91,12 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  const first =
-    slave == null || !hasEntry(ch)
-      ? 0
-      : (slave.properties.read.channels[addressKey(ch)] ?? 0);
-  const { data: mapped } = Channel.useResultDataType(
-    first === 0 ? null : { key: first },
-  );
+  const dataTypes = useDataTypes(slave == null ? [] : [slave]);
   const named =
-    slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.inputs, ch) != null;
+    slave != null &&
+    dataTypes != null &&
+    hasEntry(ch) &&
+    entryAt(slave.properties.pdos.inputs, ch) != null;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -83,11 +105,9 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
-      defaultName={named ? readChannelName(slave, ch, mapped?.toString()) : undefined}
+      defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
       formatName={
-        named
-          ? (name) => readChannelName(slave, { ...ch, name }, mapped?.toString())
-          : undefined
+        named ? (name) => readChannelName(slave, { ...ch, name }, dataTypes) : undefined
       }
       skipped={ch.disabled}
       hasTareButton={false}
@@ -119,20 +139,11 @@ const contextMenuItems = Component.renderProp(ContextMenuItems);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys(path.config.channels));
-  const mappedKeys = unique.unique(
-    (slaves ?? []).flatMap((s) => Object.values(s.properties.read.channels)),
-  );
-  const { data: mapped } = Channel.useResultMultiple(
-    mappedKeys.length === 0 ? null : query.keysRequest(mappedKeys),
-  );
+  const dataTypes = useDataTypes(slaves ?? []);
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
-    if (slave == null || !hasEntry(ch)) return null;
-    const { channels } = slave.properties.read;
-    const first = channels[addressKey(ch)] ?? 0;
-    if (first !== 0 && mapped == null) return null;
-    const held = mapped?.find(({ key }) => key === first)?.dataType.toString();
-    return { channel: channels[readKey(slave, ch, held)] ?? 0 };
+    if (slave == null || dataTypes == null || !hasEntry(ch)) return null;
+    return { channel: readChannelOf(slave, ch, dataTypes) };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -188,60 +199,33 @@ const checkNamesUnique = (names: string[]): void => {
     );
 };
 
-/**
- * @returns the data type of the channel that the slave maps for each channel's entry
- * before the deploy, keyed by the channel's key.
- */
-const retrieveHeldDataTypes = async (
-  client: Synnax,
-  slaves: SlaveDevice[],
-  channelsBySlaveKey: Map<string, EntryReadChannel[]>,
-): Promise<Map<string, string>> => {
-  const pairs = slaves.flatMap((slave) =>
-    (channelsBySlaveKey.get(slave.key) ?? []).map((ch) => ({
-      ch,
-      mapped: slave.properties.read.channels[addressKey(ch)] ?? 0,
-    })),
-  );
-  const found = await client.channels.retrieve(pairs.map(({ mapped }) => mapped));
-  const types = new Map(found.map((c) => [c.key, c.dataType.toString()]));
-  const held = new Map<string, string>();
-  for (const { ch, mapped } of pairs) {
-    const type = types.get(mapped);
-    if (type != null) held.set(ch.key, type);
-  }
-  return held;
-};
-
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
   // The data type and repeated name checks run before any create, so their failure
   // leaves nothing behind.
-  const held = await retrieveHeldDataTypes(client, slaves, channelsBySlaveKey);
-  const keyOf = (slave: SlaveDevice, ch: EntryReadChannel) =>
-    readKey(slave, ch, held.get(ch.key));
-  const nameOf = (slave: SlaveDevice, ch: EntryReadChannel) =>
-    readChannelName(slave, ch, held.get(ch.key));
+  const dataTypes = toDataTypes(await client.channels.retrieve(readChannelKeys(slaves)));
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
     const missing = await findChannelsToCreate(
       client,
       channels,
-      slave.properties.read.channels,
-      (ch) => keyOf(slave, ch),
+      (ch) => readChannelOf(slave, ch, dataTypes),
       readDataType,
     );
     plans.push({ slave, channels, missing });
   }
   checkNamesUnique(
-    plans.flatMap(({ slave, missing }) => missing.map((ch) => nameOf(slave, ch))),
+    plans.flatMap(({ slave, missing }) =>
+      missing.map((ch) => readChannelName(slave, ch, dataTypes)),
+    ),
   );
 
   for (const plan of plans) {
     const { slave, channels } = plan;
+    const nameOf = (ch: EntryReadChannel) => readChannelName(slave, ch, dataTypes);
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
     // A new index clears the slave's channel map, so every channel is missing.
     const missing = modified ? channels : plan.missing;
@@ -249,31 +233,29 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const toCreate = await bindOrphanedChannels({
       client,
       channels: missing,
-      names: missing.map((ch) => nameOf(slave, ch)),
+      names: missing.map(nameOf),
       index: () => slave.properties.readIndex,
-      map: slave.properties.read.channels,
-      mapKey: (ch) => keyOf(slave, ch),
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindReadChannel(slave, ch, key, dataTypes),
       getDataType: readDataType,
     });
 
     if (toCreate.length > 0) {
       const created = await client.channels.create(
         toCreate.map((ch) => ({
-          name: nameOf(slave, ch),
+          name: nameOf(ch),
           dataType: readDataType(ch),
           index: slave.properties.readIndex,
         })),
       );
 
-      created.forEach((c, i) => {
-        slave.properties.read.channels[keyOf(slave, toCreate[i])] = c.key;
-      });
+      created.forEach((c, i) => bindReadChannel(slave, toCreate[i], c.key, dataTypes));
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[keyOf(slave, ch)];
+      ch.channel = readChannelOf(slave, ch, dataTypes);
     });
   }
 
