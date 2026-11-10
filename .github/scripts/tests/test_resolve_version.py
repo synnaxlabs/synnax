@@ -41,11 +41,11 @@ class Repo:
         self.git("checkout", "-q", "-b", name, start)
 
     def run(
-        self, product: str, prerelease: bool, ref: str, bump: str
+        self, product: str, prerelease: bool, ref: str, bump: str, core: str
     ) -> subprocess.CompletedProcess[str]:
         prerelease_arg = "true" if prerelease else "false"
         return subprocess.run(
-            [str(SCRIPT), product, prerelease_arg, ref, bump],
+            [str(SCRIPT), product, prerelease_arg, ref, bump, core],
             cwd=self.path,
             capture_output=True,
             text=True,
@@ -58,13 +58,16 @@ class Repo:
         prerelease: bool = False,
         ref: str = "main",
         bump: str = "",
+        core: str = "",
     ) -> dict[str, str]:
-        result = self.run(product, prerelease, ref, bump)
+        result = self.run(product, prerelease, ref, bump, core)
         assert result.returncode == 0, result.stderr
         return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
-    def resolve_error(self, product: str, *, ref: str = "main", bump: str = "") -> str:
-        result = self.run(product, False, ref, bump)
+    def resolve_error(
+        self, product: str, *, ref: str = "main", bump: str = "", core: str = ""
+    ) -> str:
+        result = self.run(product, False, ref, bump, core)
         assert result.returncode != 0
         return result.stderr
 
@@ -113,6 +116,14 @@ class TestMain:
 
     def test_should_treat_any_other_branch_as_main(self, repo: Repo) -> None:
         assert repo.resolve("driver", ref="sy-1-feature")["version"] == "0.59.0"
+
+    @pytest.mark.parametrize(
+        "ref", ["release/core-0.58.x", "release/Core-0.58", "release/desktop-1.0"]
+    )
+    def test_should_reject_a_malformed_release_branch(
+        self, repo: Repo, ref: str
+    ) -> None:
+        assert "is not a release/" in repo.resolve_error("core", ref=ref)
 
     def test_should_reject_a_bump(self, repo: Repo) -> None:
         assert "takes no bump" in repo.resolve_error("core", bump="patch")
@@ -378,6 +389,16 @@ class TestPackages:
         repo.tag("ts/v0.59.0")
         repo.commit("more")
         assert "train rule" in repo.resolve_error("ts")
+
+    def test_should_count_the_core_the_run_releases(self, repo: Repo) -> None:
+        repo.tag("ts/v0.59.0")
+        repo.commit("more")
+        assert repo.resolve("ts", core="0.59.0")["version"] == "0.60.0"
+
+    def test_should_not_count_a_core_candidate(self, repo: Repo) -> None:
+        repo.tag("ts/v0.59.0")
+        repo.commit("more")
+        assert "train rule" in repo.resolve_error("ts", core="0.59.0-rc.1")
 
     def test_should_keep_a_version_claimed_at_head_on_main(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.4")

@@ -198,6 +198,7 @@ jobs:
         with:
           product: ts
           ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
 
       - name: Resolve Python version
         id: py
@@ -206,6 +207,7 @@ jobs:
         with:
           product: py
           ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.

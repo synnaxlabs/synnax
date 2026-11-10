@@ -11,28 +11,30 @@
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
 # outputs (key=value lines).
-# Usage: resolve_version.sh <product> <prerelease> [ref] [bump]
+# Usage: resolve_version.sh <product> <prerelease> [ref] [bump] [core]
 #
 # Console, Core, Driver, ts, and py: a release/<product>-X.Y ref resolves the next patch
-# on X.Y, or X.Y.0 when the train has no tag. Any other ref resolves the minor after the
-# product's newest stable tag. For a stable ts or py run, a tag at HEAD that the ref
-# builds on resolves to itself, so a rerun finishes its publish. Desktop: the bump applies to the
-# highest Desktop tag reachable from HEAD, and a patch counts from the highest tag on
-# that minor. The first Desktop release must be a major bump from 0.0.0, so it outranks
-# the 1.0.0 candidates.
+# on X.Y, or X.Y.0 when the train has no tag. Any other release/ ref fails. Any other ref
+# resolves the minor after the product's newest stable tag. For a stable ts or py run,
+# that tag at HEAD resolves to itself, so a rerun finishes its publish. Desktop: the bump
+# applies to the highest Desktop tag reachable from HEAD, and a patch counts from the
+# highest tag on that minor. The first Desktop release must be a major bump from 0.0.0,
+# so it outranks the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
-# rule caps every product but Desktop at one minor ahead of the Core's newest stable.
-# latest is true when no stable tag of the product outranks the result. previous_tag is
-# the highest stable product tag below the result, reachable or not.
+# rule caps every product but Desktop at one minor ahead of the Core's newest stable. A
+# stable core version, the Core the same run releases, counts as a stable tag. latest is
+# true when no stable tag of the product outranks the result. previous_tag is the
+# highest stable product tag below the result, reachable or not.
 
 set -euo pipefail
 
-USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [bump]"
+USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [bump] [core]"
 PRODUCT=${1:?$USAGE}
 PRERELEASE=${2:?$USAGE}
 REF=${3:-}
 BUMP=${4:-}
+RUN_CORE=${5:-}
 
 # Prints the highest X.Y.Z among stable tags of a product on stdin.
 highest() {
@@ -62,6 +64,9 @@ case "$PRODUCT" in
             TRAIN=${BASH_REMATCH[2]}
             CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
             NEXT=$(next_patch "$TRAIN")
+        elif [[ $REF == release/* ]]; then
+            echo "$REF is not a release/<console|core|driver>-X.Y branch" >&2
+            exit 1
         else
             CURRENT=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
             BASE=$CURRENT
@@ -109,7 +114,10 @@ IFS=. read -r NEXT_MAJOR NEXT_MINOR _ <<< "$NEXT"
 
 CORE=""
 if [ "$PRODUCT" != desktop ]; then
-    CORE=$(git tag --list 'core/v*' | highest core)
+    CORE=$({
+        git tag --list 'core/v*'
+        if [ -n "$RUN_CORE" ]; then echo "core/v$RUN_CORE"; fi
+    } | highest core)
     if [ -z "$CORE" ]; then
         echo "no stable core tag exists; the train rule needs one" >&2
         exit 1

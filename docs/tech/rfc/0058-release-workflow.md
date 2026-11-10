@@ -115,10 +115,11 @@ each language releases alone. The branch sets a language's version as it does fo
 binary product (§2.0): from `main`, the minor after the language's newest stable tag;
 from `release/<product>-X.Y`, the next patch on `X.Y`. A package patch never releases
 from `main`, and the train rule (§2.2) caps a language at one minor ahead of the Core's
-newest stable. The publish job waits for every product the run releases, then runs
-`stamp_versions.sh` to write the version into that language's manifests. It stops when
-the version's tag names another commit, or when the registry has the version without a
-tag, so one version never holds packages from two commits.
+newest stable. That count includes the Core of the same run, because the packages
+publish only after it. The publish job waits for every product the run releases, then
+runs `stamp_versions.sh` to write the version into that language's manifests. It stops
+when the version's tag names another commit, or when the registry has the version
+without a tag, so one version never holds packages from two commits.
 
 The Python job claims the version by pushing its tag at the run's commit, then
 publishes. A run at the same commit keeps the version, since the resolve stage keeps a

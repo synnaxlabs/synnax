@@ -21,12 +21,18 @@ inputs:
   ref:
     description:
       The branch the release runs from (all products but Desktop). A
-      release/<product>-X.Y branch resolves the next patch on X.Y; any other branch
-      resolves the next minor.
+      release/<product>-X.Y branch resolves the next patch on X.Y; any other release/
+      branch fails; any other branch resolves the next minor.
     required: false
     default: ""
   bump:
     description: patch, minor, or major (Desktop only)
+    required: false
+    default: ""
+  core:
+    description:
+      The stable Core version the same run releases, which the train rule counts as the
+      Core's newest stable
     required: false
     default: ""
 
@@ -60,6 +66,7 @@ runs:
         PRERELEASE: ${{ inputs.prerelease }}
         REF: ${{ inputs.ref }}
         BUMP: ${{ inputs.bump }}
+        CORE: ${{ inputs.core }}
       run:
-        .github/scripts/resolve_version.sh "$PRODUCT" "$PRERELEASE" "$REF" "$BUMP" >>
-        "$GITHUB_OUTPUT"
+        .github/scripts/resolve_version.sh "$PRODUCT" "$PRERELEASE" "$REF" "$BUMP"
+        "$CORE" >> "$GITHUB_OUTPUT"
