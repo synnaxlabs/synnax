@@ -7,8 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import urllib.error
 import urllib.request
 from datetime import UTC, datetime
+from email.message import Message
 
 import jwt
 import pytest
@@ -18,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from github import API, REPO, GitHub
 
 APP_ID = "5687191"
+RUNNERS = f"{API}/repos/{REPO}/actions/runners"
 INSTALLATION = 180309468
 NOW = datetime(2026, 11, 10, 12, tzinfo=UTC).timestamp()
 HOUR = 60 * 60
@@ -47,19 +50,24 @@ class Clock:
 
 class Server:
     """Answers GitHub requests from memory, minting token-1, token-2, and so on, each
-    valid for an hour from the clock."""
+    valid for an hour from the clock. Fails the next request to a URL in failures with
+    its status code."""
 
     def __init__(self, clock: Clock) -> None:
         self.clock = clock
         self.requests: list[urllib.request.Request] = []
         self.minted = 0
+        self.installation = INSTALLATION
+        self.failures: dict[str, int] = {}
 
     def __call__(self, req: urllib.request.Request) -> dict:
         self.requests.append(req)
         url = req.full_url
+        if code := self.failures.pop(url, None):
+            raise urllib.error.HTTPError(url, code, "failed", Message(), None)
         if url == f"{API}/repos/{REPO}/installation":
-            return {"id": INSTALLATION}
-        if url == f"{API}/app/installations/{INSTALLATION}/access_tokens":
+            return {"id": self.installation}
+        if url == f"{API}/app/installations/{self.installation}/access_tokens":
             assert req.get_method() == "POST"
             self.minted += 1
             expires = datetime.fromtimestamp(self.clock.now + HOUR, tz=UTC)
@@ -143,3 +151,27 @@ class TestGet:
         github.get("/actions/runners")
         lookups = [r for r in server.requests if r.full_url.endswith("/installation")]
         assert len(lookups) == 1
+
+    def test_should_mint_a_new_token_after_a_rejected_one(
+        self, github: GitHub, server: Server
+    ) -> None:
+        github.get("/actions/runners")
+        server.failures[RUNNERS] = 401
+        with pytest.raises(urllib.error.HTTPError):
+            github.get("/actions/runners")
+        github.get("/actions/runners")
+        assert server.minted == 2
+        assert server.auth(-1) == "Bearer token-2"
+
+    def test_should_look_up_a_reinstalled_app_again(
+        self, github: GitHub, server: Server, clock: Clock
+    ) -> None:
+        github.get("/actions/runners")
+        stale = f"{API}/app/installations/{server.installation}/access_tokens"
+        server.failures[stale] = 404
+        server.installation += 1
+        clock.now += HOUR
+        with pytest.raises(urllib.error.HTTPError):
+            github.get("/actions/runners")
+        github.get("/actions/runners")
+        assert server.auth(-1) == "Bearer token-2"
