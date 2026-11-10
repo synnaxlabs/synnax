@@ -23,6 +23,7 @@ import {
   type EntryChannel,
   getUnresolvedMessage,
   hasEntry,
+  mappedChannels,
   type PDOType,
   type ReadChannel,
   type WriteChannel,
@@ -180,7 +181,7 @@ const checkIndexFree = async (
     })
   ).filter(({ key }) => key !== slave.key);
   const commands = others.flatMap(({ properties }) =>
-    Object.values(properties.write.channels),
+    properties.write.channels.map(({ command }) => command).filter((key) => key !== 0),
   );
   const indexes = new Map(
     commands.length === 0
@@ -194,7 +195,7 @@ const checkIndexFree = async (
     ({ properties: { readIndex, writeStateIndex, write } }) =>
       readIndex === index.key ||
       writeStateIndex === index.key ||
-      Object.values(write.channels).some((key) => indexes.get(key) === index.key),
+      write.channels.some(({ command }) => indexes.get(command) === index.key),
   );
   if (owner != null)
     throw new Error(
@@ -248,7 +249,7 @@ export const checkOrCreateIndex = async (
       });
     if (indexProperty === "readIndex") slave.properties.readIndex = idx.key;
     else slave.properties.writeStateIndex = idx.key;
-    slave.properties[channelsProperty].channels = {};
+    slave.properties[channelsProperty].channels = [];
     return true;
   }
   return false;
@@ -262,26 +263,25 @@ export const checkOrCreateIndex = async (
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
-  existingChannels: Record<string, number>,
-  mapKey: (ch: C) => string = addressKey,
+  mapped: (ch: C) => number,
   getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
-    const existing = existingChannels[mapKey(ch)] ?? 0;
-    if (existing === 0) {
+    const key = mapped(ch);
+    if (key === 0) {
       toCreate.push(ch);
       continue;
     }
-    let mapped: channel.Channel;
+    let existing: channel.Channel;
     try {
-      mapped = await client.channels.retrieve(existing);
+      existing = await client.channels.retrieve(key);
     } catch (e) {
       if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       toCreate.push(ch);
       continue;
     }
-    checkDataType(mapped, getDataType(ch));
+    checkDataType(existing, getDataType(ch));
   }
   return toCreate;
 };
@@ -313,9 +313,10 @@ export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
    * when the channel must not reuse a Synnax channel.
    */
   index: (i: number) => number | undefined;
-  /** the device's map of channel keys, which receives each bound channel. */
-  map: Record<string, number>;
-  mapKey?: (ch: C) => string;
+  /** the Synnax channels that the device maps, which no channel may reuse. */
+  mapped: number[];
+  /** maps the channel to the Synnax channel with the key on the device. */
+  bind: (ch: C, key: number) => void;
   /** @returns the data type the Synnax channel of the channel must hold. */
   getDataType?: (ch: C) => string;
 }
@@ -335,8 +336,8 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
   channels,
   names,
   index,
-  map,
-  mapKey = addressKey,
+  mapped,
+  bind,
   getDataType = (ch) => ch.dataType,
 }: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
   const existing = await retrieveByName(client, names);
@@ -350,13 +351,8 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
           schemas: SLAVE_SCHEMAS,
         });
   const bound = new Set([
-    ...Object.values(map),
-    ...others
-      .filter(({ key }) => key !== slave)
-      .flatMap(({ properties: { read, write } }) => [
-        ...Object.values(read.channels),
-        ...Object.values(write.channels),
-      ]),
+    ...mapped,
+    ...others.filter(({ key }) => key !== slave).flatMap(mappedChannels),
   ]);
   return channels.filter((ch, i) => {
     const orphan = existing.get(names[i]);
@@ -372,7 +368,7 @@ export const bindOrphanedChannels = async <C extends EntryChannel>({
         `A channel named ${orphan.name} already exists. Give the channel another name.`,
       );
     checkDataType(orphan, getDataType(ch));
-    map[mapKey(ch)] = orphan.key;
+    bind(ch, orphan.key);
     bound.add(orphan.key);
     return false;
   });
