@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { z } from "zod";
+import { type $ZodRecordKey } from "zod/v4/core";
 
+import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
 import { mark } from "@/patch/kind";
 import { listMoveZ } from "@/patch/types.gen";
@@ -92,6 +94,52 @@ export type List<
   K extends z.ZodType,
   U extends z.ZodType,
 > = z.infer<ReturnType<typeof listZ<E, K, U>>>;
+
+/** The schemas of the values of a map that {@link mapZ} changes. */
+export interface MapSchemas<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> {
+  /** The schema of a key. */
+  k: K;
+  /** The schema of a value. */
+  v: V;
+  /**
+   * The schema of the update of a value. An object or union update merges into the
+   * value, and any other update replaces it.
+   */
+  u: U;
+}
+
+/**
+ * Builds the schema of the operators that change a map whose values have a schema. The
+ * operators apply in the order remove, update, then insert, and set replaces the map
+ * alone. The keys of the map keep their case when the operators convert case.
+ */
+export const mapZ = <
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+>({
+  k,
+  v,
+  u,
+}: MapSchemas<K, V, U>) =>
+  mark(
+    z.strictObject({
+      set: caseconv.preserveKeys(z.record(k, v).optional()),
+      insert: caseconv.preserveKeys(z.record(k, v).optional()),
+      remove: z.array(k).optional(),
+      update: caseconv.preserveKeys(z.record(k, u).optional()),
+    }),
+    { kind: "map", value: v, update: u },
+  );
+export type TypedMap<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> = z.infer<ReturnType<typeof mapZ<K, V, U>>>;
 
 /**
  * Builds the schema of the operators that change a list of values that are their own

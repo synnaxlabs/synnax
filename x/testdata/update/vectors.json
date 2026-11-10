@@ -594,6 +594,211 @@
         "limits": { "low": -1, "high": 1 },
         "tags": ["a", "b", "c"]
       }
+    },
+    {
+      "name": "map operators apply as remove, update, then insert",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": {
+        "value": {
+          "cells": {
+            "remove": ["c2"],
+            "update": { "c1": { "width": 3 } },
+            "insert": {
+              "c2": { "value": "Mass", "width": 1 },
+              "c3": { "value": "Level", "width": 4 }
+            }
+          }
+        }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 3 },
+          "c2": { "value": "Mass", "width": 1 },
+          "c3": { "value": "Level", "width": 4 }
+        }
+      }
+    },
+    {
+      "name": "set replaces a whole map",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": {
+        "value": { "cells": { "set": { "c9": { "value": "Mass", "width": 1 } } } }
+      },
+      "expected": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": { "c9": { "value": "Mass", "width": 1 } }
+      }
+    },
+    {
+      "name": "map set cannot be combined with another operator",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": { "value": { "cells": { "set": {}, "remove": ["c1"] } } },
+      "error": {
+        "kind": "validation",
+        "message": "set cannot be combined with other operators"
+      }
+    },
+    {
+      "name": "a missing map key on remove is stale",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": { "value": { "cells": { "remove": ["c9"] } } },
+      "error": { "kind": "stale", "message": "c9 not found" }
+    },
+    {
+      "name": "a missing map key on update is stale",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": { "value": { "cells": { "update": { "c9": { "width": 1 } } } } },
+      "error": { "kind": "stale", "message": "c9 not found" }
+    },
+    {
+      "name": "a map insert of a key that exists fails",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": {
+        "value": { "cells": { "insert": { "c1": { "value": "Mass", "width": 1 } } } }
+      },
+      "error": { "kind": "unique", "message": "c1 already exists" }
+    },
+    {
+      "name": "a map merge error starts with the key",
+      "doc": {
+        "name": "Hot fire",
+        "group": "Tests",
+        "config": {
+          "rate": 10,
+          "channels": [
+            { "key": "c1", "type": "ai", "port": 0, "range": 10, "units": "V" },
+            { "key": "c2", "type": "di", "port": 1, "line": 3 }
+          ]
+        },
+        "limits": { "low": 0, "high": 100 },
+        "tags": ["a", "b"],
+        "cells": {
+          "c1": { "value": "Pressure", "width": 2 },
+          "c2": { "value": "Flow", "width": 1 }
+        }
+      },
+      "update": { "value": { "cells": { "update": { "c1": { "value": null } } } } },
+      "error": {
+        "kind": "validation",
+        "message": "c1: a required field cannot be cleared"
+      }
     }
   ]
 }

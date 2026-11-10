@@ -18,6 +18,8 @@ from x.patch.types_gen import (
     Move,
     Remove,
     Set,
+    TypedMap,
+    TypedMapDict,
     ValueList,
     ValueListDict,
 )
@@ -36,6 +38,8 @@ __all__ = [
     "Replace",
     "Set",
     "Struct",
+    "TypedMap",
+    "TypedMapDict",
     "Update",
     "ValueList",
     "ValueListDict",

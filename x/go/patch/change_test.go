@@ -34,15 +34,17 @@ type settingsUpdate struct {
 type settingsField = patch.Struct[settingsUpdate, settings]
 
 // holder has the shape of a generated update: a required and an optional scalar, a
-// required and an optional struct, and the msgpack methods that carry its JSON form.
+// required and an optional struct, list and map operators, and the msgpack methods that
+// carry its JSON form.
 type holder struct {
-	Name     patch.Change[string]                `json:"name,omitzero"`
-	Group    patch.Change[string]                `json:"group,omitzero"`
-	Count    patch.Change[int64]                 `json:"count,omitzero"`
-	Settings settingsField                       `json:"settings,omitzero"`
-	Extra    patch.Change[settingsField]         `json:"extra,omitzero"`
-	Tags     patch.ValueList[string]             `json:"tags,omitzero"`
-	Pairs    patch.List[settings, int, settings] `json:"pairs,omitzero"`
+	Name     patch.Change[string]                             `json:"name,omitzero"`
+	Group    patch.Change[string]                             `json:"group,omitzero"`
+	Count    patch.Change[int64]                              `json:"count,omitzero"`
+	Settings settingsField                                    `json:"settings,omitzero"`
+	Extra    patch.Change[settingsField]                      `json:"extra,omitzero"`
+	Tags     patch.ValueList[string]                          `json:"tags,omitzero"`
+	Pairs    patch.List[settings, int, settings]              `json:"pairs,omitzero"`
+	Cells    patch.TypedMap[string, settings, settingsUpdate] `json:"cells,omitzero"`
 }
 
 func (h holder) EncodeMsgpack(enc *msgpack.Encoder) error {
@@ -198,6 +200,21 @@ var _ = Describe("Update wire forms", func() {
 				Move:   []patch.ListMove[int]{{Key: 2}},
 			}},
 			`{"pairs":{"remove":[1],"move":[{"key":2}]}}`,
+		),
+		Entry(
+			"map operators by key",
+			holder{Cells: patch.TypedMap[string, settings, settingsUpdate]{
+				Remove: []string{"c2"},
+				Update: map[string]settingsUpdate{"c1": {Rate: patch.To(5)}},
+			}},
+			`{"cells":{"remove":["c2"],"update":{"c1":{"rate":5}}}}`,
+		),
+		Entry(
+			"a set of a map to empty",
+			holder{Cells: patch.TypedMap[string, settings, settingsUpdate]{
+				Set: map[string]settings{},
+			}},
+			`{"cells":{"set":{}}}`,
 		),
 	)
 

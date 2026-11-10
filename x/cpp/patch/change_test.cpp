@@ -9,6 +9,8 @@
 
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include "gtest/gtest.h"
 
@@ -213,6 +215,33 @@ TEST(List, EmptySet) {
     ASSERT_TRUE(list.move.has_value());
     EXPECT_FALSE(list.move->at(0).after.has_value());
     EXPECT_EQ(list.to_json(), j);
+}
+
+/// @brief it should encode a designated initializer in the wire form, keyed by map key.
+TEST(TypedMap, DesignatedInitializer) {
+    const TypedMap<std::string, Settings, SettingsUpdate> cells{
+        .insert =
+            std::unordered_map<std::string, Settings>{
+                {"c3", Settings{.rate = 2}},
+            },
+        .remove = std::vector<std::string>{"c2"},
+        .update = std::unordered_map<std::string, SettingsUpdate>{
+            {"c1", SettingsUpdate{.rate = Change<int>::to(5)}},
+        },
+    };
+    const auto j = x::json::json::parse(R"({
+        "insert": {"c3": {"rate": 2, "stream": 0}},
+        "remove": ["c2"],
+        "update": {"c1": {"rate": 5}}
+    })");
+    EXPECT_EQ(cells.to_json(), j);
+    x::json::Parser parser(j);
+    const auto parsed = TypedMap<std::string, Settings, SettingsUpdate>::parse(parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    EXPECT_FALSE(parsed.set.has_value());
+    EXPECT_EQ(parsed.insert, cells.insert);
+    EXPECT_EQ(parsed.remove, cells.remove);
+    EXPECT_EQ(parsed.update, cells.update);
 }
 
 /// @brief it should carry a partial and its guards.
