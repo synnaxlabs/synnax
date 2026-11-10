@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack/versions/legacy"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/labjack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -79,6 +80,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ReadConfigLadder,
 			Legacy:             &legacy.Read,
+			Migrations:         []gorp.Migration{v3.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			PatchEntry:         (*ReadConfig).Patch,
 			HashEntry:          (*ReadConfig).HashContent,
@@ -113,10 +115,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.ScanConfigLadder,
 			Legacy:             &legacy.Scan,
+			Migrations:         []gorp.Migration{v3.ScanMigration},
 			SetEntryKey:        (*ScanConfig).SetKey,
 			PatchEntry:         (*ScanConfig).Patch,
 			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			ValidateEntry:      (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err

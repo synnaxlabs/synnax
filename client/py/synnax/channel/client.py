@@ -348,16 +348,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = []
-        if retrieve_if_name_exists:
-            created = self._sugar(
-                self._retriever.retrieve([ch.name for ch in _channels])
-            )
-            _channels = [
-                c for c in _channels if c.name not in [ch.name for ch in created]
-            ]
-
-        created.extend(self._sugar(self._creator.create(_channels)))
+        created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]
 
     @overload

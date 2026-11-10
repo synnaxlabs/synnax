@@ -167,6 +167,15 @@ var _ = Describe("Write task", func() {
 			},
 		)
 
+		It("Should publish bytes as base64", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.BytesT)
+			start(ctx, writeConfig(dev, plainTarget("plant/blob", ch, "/b", "string")))
+			value := telem.NewSeriesV([]byte{0x00, 0xff, 0x3f})
+			command(ctx, ch, value, func(g Gomega) {
+				g.Expect(payloads("plant/blob")).To(ContainElement(`{"b":"AP8/"}`))
+			})
+		})
+
 		It("Should publish a timestamp as ISO 8601 when no time format is set",
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx, telem.TimestampT)
@@ -191,6 +200,20 @@ var _ = Describe("Write task", func() {
 			command(ctx, ch, telem.NewSeriesV[uint8](1), func(g Gomega) {
 				g.Expect(payloads("plant/valve3/set")).
 					To(ContainElement(`{"state":"open"}`))
+			})
+		})
+
+		It("Should publish a value outside the enum as text", func(ctx SpecContext) {
+			ch := createVirtual(ctx, telem.Uint8T)
+			target := plainTarget("plant/valve4/set", ch, "/state", "string")
+			target["channel"].(map[string]any)["enum_values"] = []any{
+				map[string]any{"label": "closed", "value": 0},
+				map[string]any{"label": "open", "value": 1},
+			}
+			start(ctx, writeConfig(dev, target))
+			command(ctx, ch, telem.NewSeriesV[uint8](5), func(g Gomega) {
+				g.Expect(payloads("plant/valve4/set")).
+					To(ContainElement(`{"state":"5"}`))
 			})
 		})
 

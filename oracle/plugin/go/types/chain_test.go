@@ -2234,3 +2234,85 @@ Doc struct {
 		Expect(demoted).ToNot(ContainSubstring("Size int"))
 	})
 })
+
+var _ = Describe("Frozen type that only a frozen version embeds", func() {
+	It(
+		"Should give the frozen type defaults but no decode hooks",
+		func(ctx SpecContext) {
+			root := GinkgoT().TempDir()
+			write := func(rel, content string) {
+				GinkgoHelper()
+				full := filepath.Join(root, rel)
+				Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+				Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+			}
+			write("schemas/synnax/versions/cfg/v0.oracle", `
+Base struct {
+	rate float64 = 0.2
+}
+
+Cfg struct {
+	key uuid @key
+	name string
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/versions/cfg/v1.oracle", `
+Base = v0.Base
+
+Cfg struct extends Base {
+	key uuid @key
+	name string
+
+	@go marshal
+}
+`)
+			write("schemas/synnax/versions/cfg/v2.oracle", `
+Base = v0.Base
+
+Cfg struct {
+	key uuid @key
+	name string
+	rate float64 = 0.2
+
+	@go marshal
+}
+`)
+			chains := MustSucceed(versions.Discover(root))
+			resolver := versions.NewResolver(
+				chains,
+				analyzer.NewStandardFileLoader(root),
+			)
+			table := resolution.NewTable()
+			diag := analyzer.AnalyzeSeeded(ctx, `
+@go output "core/pkg/service/cfg"
+
+Base struct {
+	rate float64 = 0.2
+}
+
+Cfg struct {
+	key uuid @key
+	name string
+	rate float64 = 0.2
+}
+`, "schemas/synnax/cfg.oracle", "cfg", analyzer.NewStandardFileLoader(root), table)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{
+				Resolutions: table,
+				RepoRoot:    root,
+				Versions:    resolver,
+			}
+			resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+			files := make(map[string]string)
+			for _, f := range resp.Files {
+				files[f.Path] = string(f.Content)
+			}
+			frozen := files["core/pkg/service/cfg/versions/v0/types.gen.go"]
+			Expect(frozen).To(ContainSubstring("func (b *Base) SetDefaults() {"))
+			Expect(frozen).ToNot(ContainSubstring("func (b *Base) UnmarshalJSONFrom("))
+			Expect(frozen).ToNot(ContainSubstring("func (b *Base) DecodeMsgpack("))
+		},
+	)
+})

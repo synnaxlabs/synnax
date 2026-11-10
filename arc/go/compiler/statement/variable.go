@@ -67,19 +67,11 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 	//   sp2 := sp        (where sp is a variable with chan f32)
 	//   alias := channel (where channel is a global KindChannel)
 	if varType.Kind == types.KindChan || varScope.Kind == symbol.KindChannel {
-		if rhsScope, kind := resolveChannelSource(
+		if rhsScope := resolveChannelSource(
 			ctx,
 			ctx.AST.Expression(),
-		); kind != channelSourceNone {
-			switch kind {
-			case channelSourceLocal:
-				// Params and variables have WASM locals holding the channel key
-				ctx.Writer.WriteLocalGet(rhsScope.ID)
-			case channelSourceGlobal:
-				// Global channels don't have locals - their ID IS the channel key
-				ctx.Writer.WriteI32Const(int32(rhsScope.ID))
-			default:
-			}
+		); rhsScope != nil {
+			expression.EmitChannelKey(ctx, rhsScope)
 			ctx.Writer.WriteLocalSet(varScope.ID)
 			return nil
 		}
@@ -104,39 +96,33 @@ func compileLocalVariable(ctx context.Context[parser.ILocalVariableContext]) err
 }
 
 // channelSourceKind indicates the type of channel source found in an expression.
-type channelSourceKind int
-
-const (
-	channelSourceNone   channelSourceKind = iota // Not a channel source
-	channelSourceLocal                           // Param or variable with chan type (has WASM local)
-	channelSourceGlobal                          // Global channel (ID is the channel key)
-)
-
-// resolveChannelSource checks if an expression is a simple identifier referencing
-// a channel-related symbol. Returns the scope and what kind of channel source it is.
+// resolveChannelSource returns the channel symbol expr names when expr is a lone name
+// whose channel key a declaration can copy. It returns nil otherwise, and the
+// declaration compiles expr as a value.
 func resolveChannelSource(
 	ctx context.Context[parser.ILocalVariableContext],
 	expr parser.IExpressionContext,
-) (*symbol.Symbol, channelSourceKind) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
-		return nil, channelSourceNone
+) *symbol.Symbol {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
+		return nil
 	}
-	scope, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	scope, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil {
-		return nil, channelSourceNone
+		return nil
 	}
-	// Global channel - ID is the channel key directly
 	if scope.Kind == symbol.KindChannel {
-		return scope, channelSourceGlobal
+		return scope
 	}
-	// Param or variable with channel type - has a WASM local holding the key
-	if scope.Type.Kind == types.KindChan &&
-		(scope.Kind == symbol.KindInput ||
-			scope.Kind == symbol.KindVariable) {
-		return scope, channelSourceLocal
+	if scope.Type.Kind != types.KindChan ||
+		(scope.Kind != symbol.KindInput && scope.Kind != symbol.KindVariable) {
+		return nil
 	}
-	return nil, channelSourceNone
+	// A variable from outside the function has a key only when it aliases a channel.
+	if !expression.SameFunction(ctx.Scope, scope) && scope.SourceID == nil {
+		return nil
+	}
+	return scope
 }
 
 // compileStatefulVariable handles stateful variable declarations (x $= expr)
@@ -416,22 +402,10 @@ func compileAssignment(
 	sym := *scope
 	varType := sym.Type
 
-	// For channel writes, push the channel ID before compiling the expression.
-	// This avoids needing a temporary local variable to rearrange the stack.
-	if sym.Kind == symbol.KindChannel {
-		// For channel aliases, SourceID points to the original channel key.
-		// For direct channel references (not aliases), use scope.ID directly.
-		if sym.SourceID != nil {
-			// Alias: the channel key is stored in a WASM local
-			ctx.Writer.WriteLocalGet(scope.ID)
-		} else {
-			// Direct reference: scope.ID is the Synnax channel key
-			ctx.Writer.WriteI32Const(int32(scope.ID))
-		}
-	} else if varType.Kind == types.KindChan && (sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput) {
-		// For variables and input params with channel type,
-		// scope.ID is a WASM local index that holds the channel key at runtime
-		ctx.Writer.WriteLocalGet(scope.ID)
+	// A channel write pushes the key before the value, so the stack needs no temporary.
+	if sym.Kind == symbol.KindChannel || (varType.Kind == types.KindChan &&
+		(sym.Kind == symbol.KindVariable || sym.Kind == symbol.KindInput)) {
+		expression.EmitChannelKey(ctx, scope)
 	}
 
 	targetType := varType.UnwrapChan()
