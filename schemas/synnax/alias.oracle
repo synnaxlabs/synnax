@@ -24,9 +24,10 @@ Alias struct {
         @doc value "is the unique identifier of the channel being aliased."
     }
     alias   string      {
-        @doc value """
+        @doc value    """
             is the human-readable name for the channel within this range context.
         """
+        @index lookup
     }
 
     action Create {

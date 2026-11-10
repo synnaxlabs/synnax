@@ -9,6 +9,21 @@
 
 package strings
 
+import "github.com/synnaxlabs/x/errors"
+
+const (
+	// MaxBytes is the most bytes of transient strings a ProgramState holds between two
+	// calls to Clear. Each handle also counts HandleBytes, which keeps transient
+	// handles below the literal handle base.
+	MaxBytes = 16 << 20
+	// HandleBytes is the cost that each transient handle adds to MaxBytes.
+	HandleBytes = 64
+)
+
+// ErrLimit is the panic value of Create and CreateView when a string would pass
+// MaxBytes. A host function that panics traps the guest call that made it.
+var ErrLimit = errors.New("program made too many strings in one cycle")
+
 // literalHandleBase is the starting value for literal string handles.
 // Literal string handles are stable for the ProgramState lifetime and are never
 // cleared by Clear. Using a high base value ensures they cannot collide with
@@ -23,6 +38,7 @@ const literalHandleBase uint32 = 1 << 24
 type ProgramState struct {
 	strings              map[uint32]string
 	counter              uint32
+	bytes                int
 	literalStrings       map[uint32]string
 	literalStringCounter uint32
 }
@@ -41,13 +57,29 @@ func NewProgramState() *ProgramState {
 	}
 }
 
-// Create stores a string and returns a transient handle for later retrieval.
+// Create stores a string and returns a transient handle for later retrieval. It panics
+// with ErrLimit when the string would pass MaxBytes.
 func (s *ProgramState) Create(str string) uint32 {
+	return s.create(str, HandleBytes+len(str))
+}
+
+// CreateView stores a string that is held elsewhere, such as a stateful variable, and
+// returns a transient handle for it. Only its handle counts toward MaxBytes. It panics
+// with ErrLimit when the handle would pass MaxBytes.
+func (s *ProgramState) CreateView(str string) uint32 {
+	return s.create(str, HandleBytes)
+}
+
+func (s *ProgramState) create(str string, cost int) uint32 {
 	if str == "" {
 		return 0
 	}
+	if s.bytes+cost > MaxBytes {
+		panic(ErrLimit)
+	}
 	handle := s.counter
 	s.counter++
+	s.bytes += cost
 	s.strings[handle] = str
 	return handle
 }
@@ -84,4 +116,5 @@ func (s *ProgramState) Get(handle uint32) (string, bool) {
 func (s *ProgramState) Clear() {
 	clear(s.strings)
 	s.counter = 1
+	s.bytes = 0
 }
