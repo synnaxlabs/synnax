@@ -866,10 +866,39 @@ var _ = Describe("Import", func() {
 		Expect(childrenOf(ctx, project.ResourceID(proj.Key))).To(HaveLen(2))
 	})
 
+	It("Should reject a member with no registered importer", func(ctx SpecContext) {
+		tx = DeferClose(db.OpenTx())
+		files := zip.Files{
+			"manifest.json": bundleManifest("Plots"),
+			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
+		}
+		// PathedError breaks the errors.Is chain, so the assertion matches on text.
+		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(ContainSubstring("Plot.json")),
+			MatchError(ContainSubstring("no importer registered")),
+		))
+	})
+
+	It("Should reject a panel referencing a file outside the bundle", func(
+		ctx SpecContext,
+	) {
+		tx = DeferClose(db.OpenTx())
+		files := zip.Files{
+			"manifest.json": bundleManifest("Dangling"),
+			"Controls.json": bundlePanel("Controls", "Missing.json"),
+		}
+		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("Controls.json")),
+			MatchError(ContainSubstring(`"Missing.json"`)),
+		))
+	})
+})
+
+var _ = Describe("Decode", func() {
 	DescribeTable("Should reject an invalid bundle",
 		func(ctx SpecContext, files zip.Files, reason string) {
-			tx = DeferClose(db.OpenTx())
-			Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+			Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
 				MatchError(validate.ErrValidation),
 				MatchError(ContainSubstring(reason)),
 			))
@@ -902,55 +931,37 @@ var _ = Describe("Import", func() {
 			}, "have the same file name"),
 	)
 
-	It("Should reject a member with no registered importer", func(ctx SpecContext) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{
-			"manifest.json": bundleManifest("Plots"),
-			"Plot.json":     []byte(`{"version":1,"type":"lineplot","name":"Plot"}`),
-		}
-		// PathedError breaks the errors.Is chain, so the assertion matches on text.
-		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
-			MatchError(ContainSubstring("Plot.json")),
-			MatchError(ContainSubstring("no importer registered")),
-		))
-	})
-
 	It("Should reject a manifest version newer than supported", func(ctx SpecContext) {
-		tx = DeferClose(db.OpenTx())
 		files := zip.Files{"manifest.json": []byte(
 			`{"version":2,"type":"project","name":"Future"}`,
 		)}
-		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
 			MatchError(ContainSubstring("project version 2")),
 			MatchError(ContainSubstring("newer than this Core supports")),
-		))
-	})
-
-	It("Should reject a panel referencing a file outside the bundle", func(
-		ctx SpecContext,
-	) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{
-			"manifest.json": bundleManifest("Dangling"),
-			"Controls.json": bundlePanel("Controls", "Missing.json"),
-		}
-		Expect(importFiles(ctx, files, "Fallback.zip")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("Controls.json")),
-			MatchError(ContainSubstring(`"Missing.json"`)),
 		))
 	})
 
 	It("Should reject a member that does not decode to an envelope", func(
 		ctx SpecContext,
 	) {
-		tx = DeferClose(db.OpenTx())
 		files := zip.Files{
 			"manifest.json": bundleManifest("Broken"),
 			"Bad.json":      []byte("not json"),
 		}
-		Expect(importFiles(ctx, files, "Fallback.zip")).Error().
+		Expect(svc.Decode(ctx, files, "Fallback.zip")).Error().
 			To(MatchError(ContainSubstring("Bad.json")))
+	})
+
+	It("Should reject a layout whose component file is missing", func(
+		ctx SpecContext,
+	) {
+		files := zip.Files{"LAYOUT.json": legacyLayoutFile(map[string]map[string]any{
+			"k1": {"key": "k1", "type": "log", "name": "Metrics"},
+		})}
+		Expect(svc.Decode(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`data for layout "k1" not found`)),
+		))
 	})
 })
 
@@ -1064,17 +1075,6 @@ var _ = Describe("Legacy import", func() {
 			Entries(&tasks).
 			Exec(ctx, tx)).To(Succeed())
 		Expect(tasks).To(HaveLen(2))
-	})
-
-	It("Should reject a layout whose component file is missing", func(
-		ctx SpecContext,
-	) {
-		tx = DeferClose(db.OpenTx())
-		files := zip.Files{"LAYOUT.json": legacyLayoutFile(logLayout)}
-		Expect(importFiles(ctx, files, "Legacy.zip")).Error().To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring(`data for layout "k1" not found`)),
-		))
 	})
 })
 
