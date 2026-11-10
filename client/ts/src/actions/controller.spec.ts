@@ -1267,6 +1267,25 @@ describe("actions.Controller", () => {
         expect(docs.get("k")?.values).toEqual({ name: 1, a: 3 });
       });
 
+      it("fetches again when a frame arrives during a later fetch", async () => {
+        let onFetch = () => {};
+        let n = 0;
+        const fetch = vi.fn(async (keys: string[]) => {
+          n++;
+          onFetch();
+          return keys.map((key) => ({ key, values: { name: 1, a: n } }));
+        });
+        const { docs, controller } = setupStore({ fetch, listed });
+        onFetch = () => {
+          if (n <= 2) controller.applyRemote("k", n + 1, `f-${n + 1}`, [set("b", n)]);
+        };
+        controller.applyRemote("k", 1, "f-1", [set("name", 1)]);
+        await expect
+          .poll(() => docs.get("k"))
+          .toEqual({ key: "k", values: { name: 1, a: 3 } });
+        expect(fetch).toHaveBeenCalledTimes(3);
+      });
+
       it("applies a frame to a doc that another read cached during the fetch", async () => {
         const first = Promise.withResolvers<Array<Doc & { key: string }>>();
         const fetch = vi.fn(async () => await first.promise);
@@ -2037,6 +2056,33 @@ describe("actions.Controller", () => {
         .onInvalid?.({ key: "k", seq: -1 }, new Error("invalid seq"));
       await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
       expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
+    });
+
+    it("fetches a failed doc again when a later frame writes it", async () => {
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      controller.listener("docs_dispatch", frameZ).onChange([
+        { key: "k", dispatchKey: "f-1", seq: 1, actions: [{ type: "invalid" }] },
+        { key: "k", dispatchKey: "f-2", seq: 2, actions: [set("b", 2)] },
+      ]);
+      await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("fetches a failed doc again after a dispatch during the fetch", async () => {
+      const { send, calls } = createHeldSend();
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ send, fetch });
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "f-1", [{ type: "invalid" }]);
+      const dispatched = controller.dispatch("k", [set("b", 1)]);
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      calls[0].resolve();
+      await dispatched;
+      controller.applyRemote("k", 2, calls[0].dispatchKey, [set("b", 1)]);
+      await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
+      expect(fetch).toHaveBeenCalledTimes(2);
     });
   });
 

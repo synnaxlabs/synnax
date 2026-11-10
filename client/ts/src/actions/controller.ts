@@ -334,9 +334,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
-  // Documents fetched because a list may now admit them, each with whether a frame for
-  // it arrived during the fetch.
-  private readonly listing = new Map<Key, boolean>();
+  // Documents with a fetch in flight, each with whether a frame for it arrived during
+  // the fetch.
+  private readonly fetching = new Map<Key, boolean>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -706,7 +706,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    */
   private refetch(key: Key): void {
     if (this.rebases.has(key)) this.stale.add(key);
-    else this.docs.refetch([key]);
+    else void this.fetch(key);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
@@ -1053,7 +1053,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private release(key: Key): void {
     this.rebases.get(key)?.pending.forEach(({ deadline }) => clearTimeout(deadline));
     this.rebases.delete(key);
-    if (this.stale.delete(key)) this.docs.refetch([key]);
+    if (this.stale.delete(key)) void this.fetch(key);
     const waiting = this.settling.get(key);
     if (waiting == null) return;
     this.settling.delete(key);
@@ -1072,11 +1072,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * again.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
-    // Until the fetch caches the doc, a frame only marks that the Core may answer from
-    // before it.
-    if (this.listing.has(key) && this.docs.get(key) == null) {
-      this.listing.set(key, true);
-      return;
+    // The Core may answer a fetch in flight from before the frame. Until the fetch
+    // caches the doc, the frame only marks that.
+    if (this.fetching.has(key)) {
+      this.fetching.set(key, true);
+      if (this.docs.get(key) == null) return;
     }
     if (seq !== 0 && seq <= (this.lastAppliedSeq.get(key) ?? 0)) return;
     try {
@@ -1103,8 +1103,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         this.docs.set(key, this.params.reduce(created, actions.slice(1)).next);
         return;
       }
-      if (actions.some((action) => this.params.listed(action)))
-        void this.fetchListed(key);
+      if (actions.some((action) => this.params.listed(action))) void this.fetch(key);
       return;
     }
     const r = this.rebases.get(key);
@@ -1119,32 +1118,37 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Fetches a doc that a list may now admit. The Core may answer from before a frame
-   * that arrives during the fetch, so such a frame fetches the doc again. Never
-   * rejects.
+   * Fetches a doc until no frame for it arrives during the fetch, since the Core may
+   * answer from before such a frame. A doc that holds a pending entry after a fetch is
+   * fetched again once it holds none. Never rejects.
    */
-  private async fetchListed(key: Key): Promise<void> {
-    this.listing.set(key, false);
+  private async fetch(key: Key): Promise<void> {
+    if (this.fetching.has(key)) {
+      this.fetching.set(key, true);
+      return;
+    }
     try {
-      for (let refresh = false; ; refresh = true) {
-        await this.docs.retrieve([key], { refresh });
-        if (this.listing.get(key) !== true) return;
-        this.listing.set(key, false);
-      }
+      do {
+        this.fetching.set(key, false);
+        await this.docs.retrieve([key], { refresh: true });
+        // The table skips a fetched doc that a dispatch wrote during the fetch.
+        if (this.rebases.has(key)) {
+          this.stale.add(key);
+          return;
+        }
+      } while (this.fetching.get(key) === true);
     } catch (exc) {
       // A deleted or denied doc joins no list, and the reconcile after a reconnect
-      // fetches lists again.
+      // fetches every doc again.
       if (
         NotFoundError.matches(exc) ||
         AccessDeniedError.matches(exc) ||
         isConnectionError(exc)
       )
         return;
-      this.params.onError(
-        new Error("failed to fetch a listed document", { cause: exc }),
-      );
+      this.params.onError(new Error("failed to fetch a document", { cause: exc }));
     } finally {
-      this.listing.delete(key);
+      this.fetching.delete(key);
     }
   }
 
