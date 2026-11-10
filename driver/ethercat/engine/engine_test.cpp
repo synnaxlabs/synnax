@@ -1005,6 +1005,52 @@ TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
     EXPECT_EQ(written[0].second, settings.at(0));
 }
 
+/// @brief a 6xSTG that holds the mode in which DewesoftX sets it up.
+const x::json::json SHARED_SETTINGS{{"mode", {{"shared", true}}}};
+
+/// @brief it should write no settings to a slave that another program sets up when the
+/// bus starts.
+TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{
+                {1, {.startup_parameters = measurement(1, 3).at(1)}}
+            },
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        measurement(1, 6)
+    ));
+    EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+}
+
+/// @brief it should write no settings to a slave that another program sets up on a
+/// running bus.
+TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto second = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        measurement(1, 6)
+    ));
+    EXPECT_TRUE(this->master->written().empty());
+}
+
 /// @brief it should not write the settings of a reader that the running bus cannot map.
 TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
     const auto first = ASSERT_NIL_P(

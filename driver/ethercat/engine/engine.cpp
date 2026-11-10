@@ -417,6 +417,10 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            for (const auto &s: this->slaves)
+                if (const auto it = plan.slaves.find(s.properties.position);
+                    it != plan.slaves.end() && s.properties.shared())
+                    it->second.startup_parameters.clear();
             auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
@@ -675,9 +679,14 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     }
     // A reader that the running bus cannot map must leave the slaves as they are.
     if (!started)
-        for (const auto &[pos, params]: settings)
+        for (const auto &[pos, params]: settings) {
+            const auto slave = std::ranges::find(this->slaves, pos, [](const auto &s) {
+                return s.properties.position;
+            });
+            if (slave != this->slaves.end() && slave->properties.shared()) continue;
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
+        }
     return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 
