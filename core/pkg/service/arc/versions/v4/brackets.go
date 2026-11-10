@@ -60,10 +60,15 @@ func SwapBrackets(src string) string {
 			if n := len(open); n > 0 && !open[n-1].holdsItems {
 				continue
 			}
-			if end := s.itemCallEnd(i); end != -1 {
-				e.insert[s.tokens[i].GetStart()] += "("
-				e.insert[s.tokens[end].GetStop()+1] += ")"
+			end := s.itemCallEnd(i)
+			if end == -1 {
+				continue
 			}
+			if len(open) > 0 && i > 0 && endsItem(s.tokens[i-1].GetTokenType()) {
+				e.insert[s.tokens[i-1].GetStop()+1] += ","
+			}
+			e.insert[s.tokens[i].GetStart()] += "("
+			e.insert[s.tokens[end].GetStop()+1] += ")"
 		}
 	}
 	return e.apply()
@@ -94,7 +99,7 @@ func newStream(src string) stream {
 		match:     make([]int, len(tokens)),
 		nextBrace: make([]int, len(tokens)+1),
 	}
-	var braces, parens []int
+	var braces, parens, squares []int
 	for i, tok := range tokens {
 		s.match[i] = -1
 		switch tok.GetTokenType() {
@@ -106,6 +111,10 @@ func newStream(src string) stream {
 			parens = append(parens, i)
 		case parser.ArcLexerRPAREN:
 			parens = closeBracket(parens, s.match, i)
+		case parser.ArcLexerLBRACKET:
+			squares = append(squares, i)
+		case parser.ArcLexerRBRACKET:
+			squares = closeBracket(squares, s.match, i)
 		}
 	}
 	s.nextBrace[len(tokens)] = -1
@@ -133,7 +142,8 @@ func (s stream) itemCallEnd(i int) int {
 		return -1
 	}
 	paren := callee + 1
-	if paren >= len(tokens) || tokens[paren].GetTokenType() != parser.ArcLexerLPAREN {
+	if paren >= len(tokens) || tokens[paren].GetTokenType() != parser.ArcLexerLPAREN ||
+		!adjacent(tokens[callee], tokens[paren]) {
 		return -1
 	}
 	return s.match[paren]
@@ -155,6 +165,18 @@ func continuesExpression(t int) bool {
 		return true
 	}
 	return false
+}
+
+// endsItem reports whether a token of type t can end the item before a wrapped call.
+// The parser would read the wrap's paren as a call on that item, so a comma must split
+// them.
+func endsItem(t int) bool {
+	switch t {
+	case parser.ArcLexerLBRACE, parser.ArcLexerCOMMA, parser.ArcLexerCOLON,
+		parser.ArcLexerARROW, parser.ArcLexerTRANSITION:
+		return false
+	}
+	return true
 }
 
 // closeBracket pairs the closer at i with the innermost open bracket on the stack. A

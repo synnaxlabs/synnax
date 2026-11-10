@@ -179,7 +179,7 @@ start => main`),
 }`,
 			`sequence s {
     stage a {
-        flag -> select() -> {true: (math.abs(x)) -> y, false: 0 -> y}
+        flag -> select() -> {true: (math.abs(x)) -> y, false: 0 -> y},
         (len(ch)) => b
     }
     stage b {}
@@ -187,6 +187,11 @@ start => main`),
 		Entry("expression call inside an expression is unchanged",
 			"x := 1 + len(ch)\nsensor -> scale{factor=len(ch)} -> out",
 			"x := 1 + len(ch)\nsensor -> scale(factor=len(ch)) -> out"),
+		Entry("expression call inside an index is unchanged",
+			"x := arr[len(ch)]", "x := arr[len(ch)]"),
+		Entry("name apart from its paren is unchanged",
+			"sensor -> filter (50.0) -> out\nsensor -> filter\n(50.0) -> out",
+			"sensor -> filter (50.0) -> out\nsensor -> filter\n(50.0) -> out"),
 		Entry("import and authority blocks are unchanged",
 			`import (
     time
@@ -253,6 +258,27 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 			Expect(diags.Ok()).To(BeTrue(), diags.String())
 			MustSucceed(text.Compile(ctx, ir))
 		})
+
+	DescribeTable("Should keep a wrapped call apart from the stage item before it",
+		func(old, want string) {
+			got := v4.SwapBrackets(old)
+			Expect(got).To(Equal(want))
+			prog := MustSucceed(parser.Parse(got))
+			stage := prog.TopLevelItem(0).SequenceDeclaration().SequenceItem(0).
+				StageDeclaration()
+			Expect(stage.StageBody().AllStageItem()).To(HaveLen(2))
+		},
+		Entry(
+			"after a declaration",
+			"sequence s {\n    stage a {\n        n := 0\n        reset(n)\n    }\n}",
+			"sequence s {\n    stage a {\n        n := 0,\n        (reset(n))\n    }\n}",
+		),
+		Entry(
+			"after a flow that ends in an expression",
+			"sequence s {\n    stage a {\n        a -> b + 1\n        len(ch) -> out\n    }\n}",
+			"sequence s {\n    stage a {\n        a -> b + 1,\n        (len(ch)) -> out\n    }\n}",
+		),
+	)
 
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {
