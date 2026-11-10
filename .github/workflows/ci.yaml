@@ -1523,20 +1523,30 @@ jobs:
       always() && needs.ok.outputs.stamps != '' && needs.ok.outputs.stamps != '[]' &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
-    strategy:
-      matrix:
-        include: ${{ fromJSON(needs.ok.outputs.stamps) }}
     runs-on: ubuntu-latest
     steps:
-      - name: Write the stamp
-        run: echo "$GITHUB_RUN_ID" > pass
+      - name: Install the artifact client
+        run: npm install --prefix "$RUNNER_TEMP/stamp" @actions/artifact@6.3.1
 
-      - name: Upload the stamp
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+      - name: Upload the stamps
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          STAMPS: ${{ needs.ok.outputs.stamps }}
         with:
-          name: pass-${{ matrix.job }}-${{ matrix.key }}
-          path: pass
-          retention-days: 14
+          script: |
+            const lib = "stamp/node_modules/@actions/artifact/lib/artifact.js";
+            const { DefaultArtifactClient } = await import(
+              `${process.env.RUNNER_TEMP}/${lib}`
+            );
+            const client = new DefaultArtifactClient();
+            require("fs").writeFileSync("pass", process.env.GITHUB_RUN_ID);
+            await Promise.all(
+              JSON.parse(process.env.STAMPS).map(({ job, key }) =>
+                client.uploadArtifact(`pass-${job}-${key}`, ["pass"], ".", {
+                  retentionDays: 14,
+                }),
+              ),
+            );
 
   # GitHub sends no event to the default branch for a failed run of a pull request.
   shepherd:
