@@ -113,7 +113,7 @@ var _ = Describe("Grants", func() {
 				Path: "/k.pem",
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
-				return w.Create(ctx, &s, nil)
+				return w.Set(ctx, &s, nil)
 			})).To(Succeed())
 			g := MustSucceed(e.svc.Grant(ctx, e.db, rk, s.Base().Key))
 			Expect(e.svc.Resolve(ctx, rk, g, s.Base().Key)).Error().

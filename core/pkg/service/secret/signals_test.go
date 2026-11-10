@@ -82,7 +82,7 @@ var _ = Describe("Signals", Ordered, func() {
 	create := func(ctx context.Context, s *secret.Secret) {
 		GinkgoHelper()
 		write(ctx, func(w secret.Writer) error {
-			return w.Create(ctx, s, []byte("hunter2"))
+			return w.Set(ctx, s, []byte("hunter2"))
 		})
 	}
 	stored := func(name string) secret.Secret {

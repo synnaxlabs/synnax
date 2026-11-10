@@ -348,16 +348,7 @@ class Client:
         else:
             _channels = [c.to_payload() for c in channels]
 
-        created = []
-        if retrieve_if_name_exists:
-            created = self._sugar(
-                self._retriever.retrieve([ch.name for ch in _channels])
-            )
-            _channels = [
-                c for c in _channels if c.name not in [ch.name for ch in created]
-            ]
-
-        created.extend(self._sugar(self._creator.create(_channels)))
+        created = self._sugar(self._creator.create(_channels, retrieve_if_name_exists))
         return created if isinstance(channels, list) else created[0]
 
     @overload
@@ -631,6 +622,17 @@ class Client:
         :param group: The key of the group to move the channels into.
         """
         self._creator.set_group(normalize(keys), group)
+
+    def set_expression(self, key: Key, expression: str) -> None:
+        """Sets the expression of a calculated channel. The Core infers the data type
+        of the channel from the new expression.
+
+        :param key: The key of the calculated channel.
+        :param expression: The new expression.
+        :raises NotFoundError: If no channel has the given key.
+        :raises ValidationError: If the channel is not calculated.
+        """
+        self._creator.set_expression(key, expression)
 
     def _sugar(self, channels: list[Payload]) -> list[Channel]:
         return [

@@ -58,7 +58,7 @@ TEST(ReadTaskConfigTest, testBasicAnalogReadTaskConfigParse) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -105,7 +105,7 @@ TEST(ReadTaskConfigTest, testNonExistentAnalogReadChannel) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     const auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -129,7 +129,7 @@ TEST(ReadTaskConfigTest, testSampleRateLessThanStreamRate) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -159,7 +159,7 @@ TEST(ReadTaskConfigTest, testNoEnabledChannels) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -188,7 +188,7 @@ TEST(ReadTaskConfigTest, testUnknownChannelType) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("cat"));
     auto dev = synnax::device::Device{
-        .key = "abc123",
+        .key = make_unique_channel_name("ni"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",
@@ -245,7 +245,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
         auto dev = synnax::device::Device{
-            .key = "ni_device",
+            .key = make_unique_channel_name("ni_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -720,7 +720,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("digital_rack"));
 
         auto dev = synnax::device::Device{
-            .key = "130227d9-02aa-47e4-b370-0d590add1bc1",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "dev1",
             .make = "ni",
@@ -857,7 +857,7 @@ TEST(ReadTaskConfigTest, testDeviceLocationsFromChannels) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "device123",
+        .key = make_unique_channel_name("device123"),
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
@@ -916,7 +916,7 @@ protected:
         auto rack = ASSERT_NIL_P(client->racks.create("counter_rack"));
 
         auto dev = synnax::device::Device{
-            .key = "f8a9c7e6-1234-4567-890a-bcdef0123456",
+            .key = make_unique_channel_name("ni"),
             .rack = rack.key,
             .location = "Dev1",
             .make = "ni",
@@ -1177,7 +1177,7 @@ TEST(ReadTaskConfigTest, testCounterEdgeCountConfig) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "counter_dev_123",
+        .key = make_unique_channel_name("counter_dev"),
         .rack = rack.key,
         .location = "Dev1",
         .make = "ni",
@@ -1225,7 +1225,7 @@ TEST(ReadTaskConfigTest, testCounterPeriodConfig) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev = synnax::device::Device{
-        .key = "counter_dev_456",
+        .key = make_unique_channel_name("counter_dev"),
         .rack = rack.key,
         .location = "Dev2",
         .make = "ni",
@@ -1278,7 +1278,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev1 = synnax::device::Device{
-        .key = "d1",
+        .key = make_unique_channel_name("d1"),
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
@@ -1288,7 +1288,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceChannelLocations) {
     ASSERT_NIL(client->devices.create(dev1));
 
     auto dev2 = synnax::device::Device{
-        .key = "d2",
+        .key = make_unique_channel_name("d2"),
         .rack = rack.key,
         .location = "cDAQ1Mod2",
         .make = "ni",
@@ -1366,7 +1366,7 @@ TEST(ReadTaskConfigTest, testCrossDeviceMissingDevice) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "missing_cross_d1",
+        .key = make_unique_channel_name("missing_cross_d1"),
         .rack = rack.key,
         .location = "cDAQ1Mod1",
         .make = "ni",
@@ -1422,7 +1422,7 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
 
     auto dev1 = synnax::device::Device{
-        .key = "ci_d1",
+        .key = make_unique_channel_name("ci_d1"),
         .rack = rack.key,
         .location = "cDAQ2Mod1",
         .make = "ni",
@@ -1432,7 +1432,7 @@ TEST(ReadTaskConfigTest, testCounterReadCrossDeviceChannelLocations) {
     ASSERT_NIL(client->devices.create(dev1));
 
     auto dev2 = synnax::device::Device{
-        .key = "ci_d2",
+        .key = make_unique_channel_name("ci_d2"),
         .rack = rack.key,
         .location = "cDAQ2Mod2",
         .make = "ni",
@@ -1592,7 +1592,7 @@ TEST(ReadTaskConfigTest, testNIDriverSetsAutoCommitTrue) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
     auto rack = ASSERT_NIL_P(client->racks.create("test_rack"));
     auto dev = synnax::device::Device{
-        .key = "test_device_key",
+        .key = make_unique_channel_name("test_device_key"),
         .rack = rack.key,
         .location = "dev1",
         .make = "ni",

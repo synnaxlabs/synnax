@@ -22,7 +22,7 @@ import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 const client = createTestClient();
 
 const createSecret = async (name: string): Promise<secret.Secret> =>
-  await client.secrets.create({ name, source: "stored", value: "hunter2" });
+  await client.secrets.set({ name, source: "stored", value: "hunter2" });
 
 describe("queries", () => {
   let wrapper: FC<PropsWithChildren>;
@@ -88,7 +88,7 @@ describe("queries", () => {
     });
 
     it("should retrieve the resources that use a secret", async () => {
-      const cert = await client.certificates.create({
+      const cert = await client.certificates.set({
         name: "Uses certificate",
         source: "stored",
         pem: CERTIFICATE.pem,

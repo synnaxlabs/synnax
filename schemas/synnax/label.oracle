@@ -43,27 +43,17 @@ Label struct {
 
         @doc value """
             replaces the label with the given created state. Emitted by the Core when a
-            label is created or overwritten whole; clients never dispatch it.
+            label is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the label."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the label.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the label."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the label."
-    }
+    action Move = patch.Move
 
     @create
     @doc value       """

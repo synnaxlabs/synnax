@@ -113,7 +113,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{DB: db}))
+	mqttSvc := MustOpen(mqtt.OpenService(ctx, mqtt.ServiceConfig{
+		DB:      db,
+		Channel: channelSvc,
+	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,

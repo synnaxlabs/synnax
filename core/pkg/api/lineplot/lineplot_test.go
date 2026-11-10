@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -62,7 +63,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
-		r := lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"}
+		r := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: "unretrievable"})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.LinePlot.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
@@ -81,9 +82,9 @@ var _ = Describe("Create", func() {
 		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
 		res := MustSucceed(
 			create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Name: "broadcast", Project: &proj.Key},
-				},
+				}),
 				DispatchKey: "dk-create",
 			}),
 		)
@@ -97,25 +98,28 @@ var _ = Describe("Create", func() {
 	) {
 		u := newUser(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
-		lp := lineplot.LinePlot{Key: uuid.New(), Name: "Denied", Project: &proj.Key}
+		lp := defaults.Fill(
+			lineplot.LinePlot{Key: uuid.New(), Name: "Denied", Project: &proj.Key},
+		)
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{lp},
+			LinePlots: defaults.Fill([]lineplot.LinePlot{lp}),
 		})).Error().To(denied(u, access.ActionCreate, lp.ResourceID()))
 		Expect(svc.LinePlot.NewRetrieve().
 			Where(lineplot.MatchKeys(lp.Key)).
 			Entry(&lineplot.LinePlot{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
-	It("Should refuse to overwrite a line plot without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a line plot whose key exists", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		stored := createLinePlot(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{
+			LinePlots: defaults.Fill([]lineplot.LinePlot{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
-			},
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+			}),
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("lineplot %s already exists", stored.Key)),
+		))
 		Expect(retrieveLinePlot(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 	It("Should require retrieve on each channel the line plot plots", func(
@@ -131,11 +135,11 @@ var _ = Describe("Create", func() {
 			return svc.Channel.NewWriter(tx).Create(ctx, &ch)
 		})).To(Succeed())
 		req := apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{{
+			LinePlots: defaults.Fill([]lineplot.LinePlot{{
 				Name:     "Plotted",
 				Project:  &proj.Key,
 				Channels: lineplot.Channels{Y1: []channel.Key{ch.Key()}},
-			}},
+			}}),
 		}
 		Expect(create(AuthedCtx(ctx, u), req)).Error().
 			To(denied(u, access.ActionRetrieve, channel.ResourceID(ch.Key())))
@@ -214,7 +218,7 @@ var _ = Describe("Dispatch", func() {
 		rec = &Recorder[lineplot.Key, lineplot.Action]{}
 		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
 	})
-	dispatchAs := func(ctx SpecContext, acts ...lineplot.Action) (struct{}, error) {
+	dispatchAs := func(ctx SpecContext, acts ...lineplot.Action) (apilineplot.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apilineplot.DispatchRequest{
 			Key:         lp.Key,
 			DispatchKey: "dk-dispatch",
@@ -243,23 +247,6 @@ var _ = Describe("Dispatch", func() {
 			HaveField("Actions", []lineplot.Action{rename}),
 		)))
 	})
-	DescribeTable(
-		"Should refuse a patch of a field that only the Core sets",
-		func(ctx SpecContext, field string) {
-			grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
-			act := lineplot.NewSetAction(
-				lineplot.SetPayload{Path: []string{field}, Value: uuid.New()},
-			)
-			Expect(dispatchAs(ctx, act)).Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("unknown object member name %q", field)),
-			))
-			Expect(retrieveLinePlot(ctx, lp.Key).Project).To(Equal(&proj.Key))
-			Expect(rec.Snapshot()).To(BeEmpty())
-		},
-		Entry("the group", "group"),
-		Entry("the project", "project"),
-	)
 })
 
 // createGroup creates a group in the suite project.
@@ -274,7 +261,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 
 func createLinePlot(ctx SpecContext, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Project: &proj.Key, Name: name}
+	lp := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.LinePlot.NewWriter(tx).Create(ctx, &lp)
 	})).To(Succeed())
@@ -291,110 +278,6 @@ func retrieveLinePlot(ctx SpecContext, key lineplot.Key) lineplot.LinePlot {
 	return lp
 }
 
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			lp := createLinePlot(ctx, "Set group denied")
-			g := createGroup(ctx, "Set group denied")
-			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(lp.Key))
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apilineplot.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []lineplot.Key{lp.Key},
-				},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveLinePlot(ctx, lp.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the line plot with update on the destination group",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			lp := createLinePlot(ctx, "Set group granted")
-			g := createGroup(ctx, "Set group granted")
-			grant(
-				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				lineplot.ResourceID(lp.Key),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apilineplot.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []lineplot.Key{lp.Key},
-				},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveLinePlot(ctx, lp.Key).Group).To(Equal(&g.Key))
-		},
-	)
-	Context("Into a group under another project", func() {
-		var (
-			u    user.User
-			x    lineplot.LinePlot
-			dest project.Project
-			g    group.Group
-		)
-		BeforeEach(func(ctx SpecContext) {
-			u = newUser(ctx)
-			x = createLinePlot(ctx, "Cross project")
-			dest = project.Project{Name: "Destination"}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Project.NewWriter(tx).Create(ctx, &dest)
-			})).To(Succeed())
-			g = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.Group.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-		})
-		move := func(ctx SpecContext) (struct{}, error) {
-			return setGroup(
-				AuthedCtx(ctx, u),
-				apilineplot.SetGroupRequest{Group: &g.Key, Keys: []lineplot.Key{x.Key}},
-			)
-		}
-		DescribeTable(
-			"Should refuse the move without update on both projects",
-			func(ctx SpecContext, projects func() []resource.ID) {
-				objects := projects()
-				grant(ctx, access.ActionUpdate, u.ResourceID(), append(
-					objects,
-					lineplot.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				Expect(move(ctx)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveLinePlot(ctx, x.Key).Project).To(Equal(&proj.Key))
-			},
-			Entry("without the destination", func() []resource.ID {
-				return []resource.ID{project.ResourceID(proj.Key)}
-			}),
-			Entry("without the source", func() []resource.ID {
-				return []resource.ID{dest.ResourceID()}
-			}),
-		)
-		It(
-			"Should move the line plot with update on both projects",
-			func(ctx SpecContext) {
-				objects := []resource.ID{
-					project.ResourceID(proj.Key),
-					dest.ResourceID(),
-				}
-				grant(ctx, access.ActionUpdate, u.ResourceID(), append(
-					objects,
-					lineplot.ResourceID(x.Key),
-					g.ResourceID(),
-				)...)
-				MustSucceed(move(ctx))
-				Expect(retrieveLinePlot(ctx, x.Key).Project).To(Equal(&dest.Key))
-			},
-		)
-	})
-})
-
 var _ = Describe("Create in a group", func() {
 	It(
 		"Should refuse the create without update on the group",
@@ -402,9 +285,9 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createGroup(ctx, "Create denied")
 			Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: &proj.Key, Name: "Denied", Group: &g.Key},
-				},
+				}),
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -414,9 +297,9 @@ var _ = Describe("Create in a group", func() {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(
 			create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: &proj.Key, Name: "Granted", Group: &g.Key},
-				},
+				}),
 			}),
 		)
 		Expect(retrieveLinePlot(ctx, res.LinePlots[0].Key).Group).To(Equal(&g.Key))
@@ -443,9 +326,9 @@ var _ = Describe("Create in a group", func() {
 			carried *project.Key,
 		) (apilineplot.CreateResponse, error) {
 			return create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-				LinePlots: []lineplot.LinePlot{
+				LinePlots: defaults.Fill([]lineplot.LinePlot{
 					{Project: carried, Name: "Elsewhere", Group: &g.Key},
-				},
+				}),
 			})
 		}
 		DescribeTable(
@@ -492,102 +375,214 @@ var _ = Describe("Create with an owner", func() {
 			resource.ID{Type: resource.TypeLineplot},
 		)
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
-			LinePlots: []lineplot.LinePlot{{Project: &proj.Key, Name: "Denied"}},
+			LinePlots: defaults.Fill(
+				[]lineplot.LinePlot{{Project: &proj.Key, Name: "Denied"}},
+			),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })
 
-var _ = Describe("SetProject", func() {
-	createProject := func(ctx SpecContext) project.Project {
-		GinkgoHelper()
-		p := project.Project{Name: "destination"}
+var _ = Describe("Dispatch of a move", func() {
+	var (
+		u      user.User
+		target lineplot.LinePlot
+		g      group.Group
+		dest   project.Project
+		destG  group.Group
+		rec    *Recorder[lineplot.Key, lineplot.Action]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = newUser(ctx)
+		target = createLinePlot(ctx, "Moved")
+		g = createGroup(ctx, "Source")
+		dest = project.Project{Name: "Destination"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Project.NewWriter(tx).Create(ctx, &p)
+			return svc.Project.NewWriter(tx).Create(ctx, &dest)
 		})).To(Succeed())
-		return p
-	}
-	setProject := func(
-		ctx SpecContext,
-		u user.User,
-		to project.Key,
-		key lineplot.Key,
-	) (struct{}, error) {
-		GinkgoHelper()
-		return setProject(
-			AuthedCtx(ctx, u),
-			apilineplot.SetProjectRequest{
-				Project: to,
-				Keys:    []lineplot.Key{key},
-			},
+		destG = group.Group{Name: "Destination", Parent: new(dest.ResourceID())}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Group.NewWriter(tx).Create(ctx, &destG)
+		})).To(Succeed())
+		rec = &Recorder[lineplot.Key, lineplot.Action]{}
+	})
+	setGroup := func(k group.Key) lineplot.Action {
+		return lineplot.NewSetAction(
+			lineplot.SetPayload{Path: []string{"group"}, Value: k},
 		)
 	}
+	setProject := func(k project.Key) lineplot.Action {
+		return lineplot.NewSetAction(
+			lineplot.SetPayload{Path: []string{"project"}, Value: k},
+		)
+	}
+	removeGroup := lineplot.NewRemoveAction(lineplot.RemovePayload{Key: "group"})
+	// inGroup moves the line plot into g.
+	inGroup := func(ctx SpecContext) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			_, err := svc.LinePlot.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))
+			return err
+		})).To(Succeed())
+	}
+	// moveAs grants u update on the line plot and on objects, records the broadcasts
+	// that follow, and dispatches acts as u.
+	moveAs := func(
+		ctx SpecContext,
+		acts []lineplot.Action,
+		objects ...resource.ID,
+	) (apilineplot.DispatchResponse, error) {
+		GinkgoHelper()
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			append(objects, target.ResourceID())...,
+		)
+		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
+		return dispatch(AuthedCtx(ctx, u), apilineplot.DispatchRequest{
+			Key:         target.Key,
+			DispatchKey: "dk-move",
+			Actions:     acts,
+		})
+	}
+	It("Should move the line plot into a group", func(ctx SpecContext) {
+		Expect(moveAs(ctx, []lineplot.Action{setGroup(g.Key)}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLinePlot(ctx, target.Key).Group).To(Equal(&g.Key))
+		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
+			HaveField("DispatchKey", "dk-move"),
+			HaveField("Actions", []lineplot.Action{setGroup(g.Key)}),
+		)))
+	})
 	It(
-		"Should refuse the move without update on the destination project",
+		"Should move the line plot into the project of a group in another project",
 		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLinePlot(ctx, "Set project denied")
-			dest := createProject(ctx)
-			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(e.Key))
-			Expect(
-				setProject(ctx, u, dest.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&proj.Key))
-		},
-	)
-	It(
-		"Should refuse the move without update on the source project",
-		func(ctx SpecContext) {
-			u := newUser(ctx)
-			e := createLinePlot(ctx, "Set project denied")
-			dest := createProject(ctx)
-			grant(
+			res := MustSucceed(moveAs(
 				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				lineplot.ResourceID(e.Key),
-				project.ResourceID(dest.Key),
-			)
-			Expect(
-				setProject(ctx, u, dest.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&proj.Key))
+				[]lineplot.Action{setGroup(destG.Key)},
+				destG.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]lineplot.Action{setProject(dest.Key)}))
+			moved := retrieveLinePlot(ctx, target.Key)
+			Expect(moved.Group).To(Equal(&destG.Key))
+			Expect(moved.Project).To(Equal(&dest.Key))
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+				"Actions",
+				[]lineplot.Action{setGroup(destG.Key), setProject(dest.Key)},
+			)))
 		},
 	)
+	It("Should move the line plot out of its group", func(ctx SpecContext) {
+		inGroup(ctx)
+		Expect(moveAs(ctx, []lineplot.Action{removeGroup}, g.ResourceID())).
+			To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLinePlot(ctx, target.Key).Group).To(BeNil())
+	})
+	It("Should move the line plot into another project", func(ctx SpecContext) {
+		Expect(moveAs(
+			ctx,
+			[]lineplot.Action{setProject(dest.Key)},
+			project.ResourceID(proj.Key),
+			dest.ResourceID(),
+		)).To(HaveField("Actions", BeEmpty()))
+		Expect(retrieveLinePlot(ctx, target.Key).Project).To(Equal(&dest.Key))
+	})
 	It(
-		"Should move the line plot with update on both projects",
+		"Should move the line plot out of its group when it moves into another project",
 		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLinePlot(ctx, "Set project granted")
-			dest := createProject(ctx)
-			grant(
+			inGroup(ctx)
+			res := MustSucceed(moveAs(
 				ctx,
-				access.ActionUpdate,
-				u.ResourceID(),
-				lineplot.ResourceID(e.Key),
-				project.ResourceID(dest.Key),
-			)
-			MustSucceed(setProject(ctx, u, dest.Key, e.Key))
-			Expect(retrieveLinePlot(ctx, e.Key).Project).To(Equal(&dest.Key))
+				[]lineplot.Action{setProject(dest.Key)},
+				g.ResourceID(),
+				project.ResourceID(proj.Key),
+				dest.ResourceID(),
+			))
+			Expect(res.Actions).To(Equal([]lineplot.Action{removeGroup}))
+			moved := retrieveLinePlot(ctx, target.Key)
+			Expect(moved.Group).To(BeNil())
+			Expect(moved.Project).To(Equal(&dest.Key))
 		},
 	)
-	It(
-		"Should refuse a move out of a group the subject cannot update",
-		func(ctx SpecContext) {
-			u := newCreator(ctx)
-			e := createLinePlot(ctx, "Set project grouped")
-			g := createGroup(ctx, "Set project grouped")
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.LinePlot.NewWriter(tx).SetGroup(ctx, &g.Key, e.Key)
-			})).
-				To(Succeed())
-			grant(ctx, access.ActionUpdate, u.ResourceID(), lineplot.ResourceID(e.Key))
-			Expect(
-				setProject(ctx, u, proj.Key, e.Key),
-			).Error().
-				To(MatchError(access.ErrDenied))
-			Expect(retrieveLinePlot(ctx, e.Key).Group).To(Equal(&g.Key))
+	It("Should refuse a move into a group that does not exist", func(ctx SpecContext) {
+		missing := uuid.New()
+		Expect(moveAs(ctx, []lineplot.Action{setGroup(missing)})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("group: group %s does not exist", missing)),
+		))
+		Expect(retrieveLinePlot(ctx, target.Key).Group).To(BeNil())
+		Expect(rec.Snapshot()).To(BeEmpty())
+	})
+	DescribeTable(
+		"Should refuse a move without update on a record it changes",
+		func(
+			ctx SpecContext,
+			grouped bool,
+			move func() ([]lineplot.Action, []resource.ID, resource.ID),
+		) {
+			if grouped {
+				inGroup(ctx)
+			}
+			before := retrieveLinePlot(ctx, target.Key)
+			acts, granted, refused := move()
+			Expect(moveAs(ctx, acts, granted...)).Error().
+				To(denied(u, access.ActionUpdate, refused))
+			Expect(retrieveLinePlot(ctx, target.Key)).To(Equal(before))
+			Expect(rec.Snapshot()).To(BeEmpty())
 		},
+		Entry(
+			"into a group without the group",
+			false,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setGroup(g.Key)}, nil, g.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without that project",
+			false,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into a group of another project without the source project",
+			false,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setGroup(destG.Key)},
+					[]resource.ID{destG.ResourceID(), dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"into another project without that project",
+			false,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key)},
+					dest.ResourceID()
+			},
+		),
+		Entry(
+			"into another project without the source project",
+			false,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setProject(dest.Key)},
+					[]resource.ID{dest.ResourceID()},
+					project.ResourceID(proj.Key)
+			},
+		),
+		Entry(
+			"out of a group without the group",
+			true,
+			func() ([]lineplot.Action, []resource.ID, resource.ID) {
+				return []lineplot.Action{setProject(dest.Key)},
+					[]resource.ID{project.ResourceID(proj.Key), dest.ResourceID()},
+					g.ResourceID()
+			},
+		),
 	)
 })

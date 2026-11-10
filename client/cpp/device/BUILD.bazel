@@ -19,6 +19,7 @@ cc_library(
     name = "device",
     srcs = ["device.cpp"],
     hdrs = [
+        "actions.gen.h",
         "device.h",
         "json.gen.h",
         "proto.gen.h",
@@ -38,6 +39,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/filter",
         "//x/cpp/json",
+        "//x/cpp/patch",
         "//x/cpp/pb",
         "//x/go/filter:filter_grpc",
     ],
@@ -52,6 +54,17 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/pb",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":device",
+        "//x/cpp/json",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

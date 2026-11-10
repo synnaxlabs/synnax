@@ -41,17 +41,17 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates the certificate, or replaces the one with the same key, and writes its
+// Set creates the certificate, or replaces the one with the same key, and writes its
 // expiry status. It returns a validation error for an invalid certificate or key.
 //
-// For a stored certificate, Create reads the details from the PEM and keeps only its
+// For a stored certificate, Set reads the details from the PEM and keeps only its
 // certificate blocks. An optional PEM privateKey must match the leaf, and replaces the
 // value of the certificate's key secret. Without one, a replacement keeps the old key
 // only when the public key is unchanged, and renames its secret after a new name. A
 // file certificate takes no privateKey, and replacing a stored certificate with one
 // deletes the old key secret. The commit carries a create action that holds the
 // certificate.
-func (w Writer) Create(ctx context.Context, c *Certificate, privateKey []byte) error {
+func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) error {
 	if c.Variant == nil {
 		v := validate.New("certificate")
 		v.Ternary("source", true, "required")
@@ -139,7 +139,7 @@ func (w Writer) prepareStored(
 			Key:  lo.FromPtr(c.PrivateKey),
 			Name: keyName(c.Name),
 		}}}
-		if err = w.secrets.Create(ctx, &key, privateKey); err != nil {
+		if err = w.secrets.Set(ctx, &key, privateKey); err != nil {
 			return StoredCertificate{}, err
 		}
 		c.PrivateKey = new(key.Base().Key)

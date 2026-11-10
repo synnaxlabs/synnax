@@ -33,6 +33,7 @@ import {
   type ReadSchemas,
 } from "@/feature/http/task/types";
 import { CSS } from "@/platform/css";
+import { Device } from "@/platform/device";
 import { Form as PlatformForm } from "@/platform/form";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
@@ -395,7 +396,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         indexed: (f) => !isTimingField(f) && !new DataType(f.dataType).isVariable,
       });
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties))
+      await Device.setProperties(client, dev, SCHEMAS);
   }
   return [config, dev.rack];
 };
