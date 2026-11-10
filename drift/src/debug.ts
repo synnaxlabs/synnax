@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Logs only in debug mode.
 export const log = (debug: boolean = false, ...args: unknown[]): void => {
   if (debug) console.log(...args);
 };

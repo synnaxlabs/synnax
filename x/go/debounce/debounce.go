@@ -50,8 +50,8 @@ var _ config.Config[Config] = Config{}
 
 // Override returns c with any non-zero fields of other applied on top.
 func (c Config) Override(other Config) Config {
-	c.Delay = override.Numeric(c.Delay, other.Delay)
 	c.MaxDelay = override.Numeric(c.MaxDelay, other.MaxDelay)
+	c.Delay = override.Numeric(c.Delay, other.Delay)
 	c.Clock = override.Nil(c.Clock, other.Clock)
 	c.Callback = override.Nil(c.Callback, other.Callback)
 	return c
