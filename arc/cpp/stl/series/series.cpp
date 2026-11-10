@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
 #include <optional>
 #include <string>
 
@@ -27,6 +28,11 @@ std::optional<wasmtime::Trap> check_index(const uint32_t index, const size_t siz
         "index " + std::to_string(i) + " out of bounds for series of size " +
         std::to_string(size)
     );
+}
+
+/// @brief returns a trap for an index that does not fit in an i32.
+wasmtime::Trap index_overflow(const std::string &index) {
+    return wasmtime::Trap("index " + index + " out of bounds for an i32 series index");
 }
 }
 
@@ -624,6 +630,28 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
                 const auto *s = ss->get(handle);
                 if (s == nullptr) return 0;
                 return static_cast<int64_t>(s->size());
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "index_from_i64",
+            [](int64_t index) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
+                if (index < INT32_MIN || index > INT32_MAX)
+                    return index_overflow(std::to_string(index));
+                return static_cast<uint32_t>(index);
+            }
+        )
+        .unwrap();
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "index_from_u64",
+            [](uint64_t index) -> wasmtime::Result<uint32_t, wasmtime::Trap> {
+                if (index > static_cast<uint64_t>(INT32_MAX))
+                    return index_overflow(std::to_string(index));
+                return static_cast<uint32_t>(index);
             }
         )
         .unwrap();

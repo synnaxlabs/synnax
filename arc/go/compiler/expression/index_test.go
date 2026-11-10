@@ -10,8 +10,6 @@
 package expression_test
 
 import (
-	"math"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
@@ -19,7 +17,7 @@ import (
 )
 
 var _ = Describe("CompileIndex", func() {
-	DescribeTable("should not convert an index that is i32 in WASM",
+	DescribeTable("should not convert an index that fits in an i32",
 		func(bCtx SpecContext, indexType types.Type) {
 			expectSeriesExpression(
 				bCtx,
@@ -37,53 +35,46 @@ var _ = Describe("CompileIndex", func() {
 		Entry("i32", types.I32()),
 		Entry("u8", types.U8()),
 		Entry("u16", types.U16()),
-		Entry("u32", types.U32()),
 	)
 
-	DescribeTable("should clamp a 64-bit index to the i32 range",
-		func(bCtx SpecContext, indexType types.Type, convert Opcode) {
-			expectSeriesExpression(
-				bCtx,
-				"s[i]",
-				[]symbol.Symbol{
-					seriesSymbol("s", types.F64(), 0),
-					scalarSymbol("i", indexType, 1),
-				},
-				types.F64(),
-				OpLocalGet, 0,
-				OpLocalGet, 1,
-				convert,
-				OpF64Const, float64(math.MaxInt32), OpF64Min,
-				OpF64Const, float64(math.MinInt32), OpF64Max,
-				OpI32TruncF64S,
-				OpCall, uint32(0),
-			)
-		},
-		Entry("i64", types.I64(), OpF64ConvertI64S),
-		Entry("u64", types.U64(), OpF64ConvertI64U),
-	)
-
-	It("should clamp both 64-bit slice bounds", func(bCtx SpecContext) {
-		expectSeriesExpression(
-			bCtx,
-			"s[i:i]",
+	DescribeTable("should narrow a 64-bit index with a host call",
+		expectSeriesExpression,
+		Entry("i64 index", "s[i]",
+			[]symbol.Symbol{
+				seriesSymbol("s", types.F64(), 0),
+				scalarSymbol("i", types.I64(), 1),
+			},
+			types.F64(),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0), OpCall, uint32(1),
+		),
+		Entry("u64 index", "s[i]",
+			[]symbol.Symbol{
+				seriesSymbol("s", types.F64(), 0),
+				scalarSymbol("i", types.U64(), 1),
+			},
+			types.F64(),
+			OpLocalGet, 0, OpLocalGet, 1, OpCall, uint32(0), OpCall, uint32(1),
+		),
+		Entry("u32 index", "s[i]",
+			[]symbol.Symbol{
+				seriesSymbol("s", types.F64(), 0),
+				scalarSymbol("i", types.U32(), 1),
+			},
+			types.F64(),
+			OpLocalGet, 0,
+			OpLocalGet, 1, OpI64ExtendI32U, OpCall, uint32(0),
+			OpCall, uint32(1),
+		),
+		Entry("i64 slice bounds", "s[i:i]",
 			[]symbol.Symbol{
 				seriesSymbol("s", types.F64(), 0),
 				scalarSymbol("i", types.I64(), 1),
 			},
 			types.Series(types.F64()),
 			OpLocalGet, 0,
-			OpLocalGet, 1,
-			OpF64ConvertI64S,
-			OpF64Const, float64(math.MaxInt32), OpF64Min,
-			OpF64Const, float64(math.MinInt32), OpF64Max,
-			OpI32TruncF64S,
-			OpLocalGet, 1,
-			OpF64ConvertI64S,
-			OpF64Const, float64(math.MaxInt32), OpF64Min,
-			OpF64Const, float64(math.MinInt32), OpF64Max,
-			OpI32TruncF64S,
-			OpCall, uint32(0),
-		)
-	})
+			OpLocalGet, 1, OpCall, uint32(0),
+			OpLocalGet, 1, OpCall, uint32(0),
+			OpCall, uint32(1),
+		),
+	)
 })

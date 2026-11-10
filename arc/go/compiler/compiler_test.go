@@ -2719,7 +2719,7 @@ var _ = Describe("Compiler", func() {
 			}`, float64(-2.0)),
 		)
 
-		DescribeTable("64-bit index",
+		DescribeTable("index wider than an i32",
 			func(ctx SpecContext, body string, expected any) {
 				source := fmt.Sprintf(
 					`func test() %s %s`,
@@ -2751,6 +2751,11 @@ var _ = Describe("Compiler", func() {
 				i u64 := 1
 				return s[i]
 			}`, 2.0),
+			Entry("u32 index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 2
+				return s[i]
+			}`, 3.0),
 			Entry("literal-first index", `{
 				s series f64 := [1.0, 2.0, 3.0]
 				i i64 := 1
@@ -2776,42 +2781,109 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s[1:len(s)]
 				return t[1]
 			}`, 3.0),
-			Entry("i64 index of 2^32 + 1 is out of bounds", `{
-				s series f64 := [1.0, 2.0, 3.0]
-				i i64 := 4294967297
-				j i32 := 2147483647
-				return s[i] == s[j]
-			}`, true),
-			Entry("u64 index of 2^31 is out of bounds", `{
-				s series f64 := [1.0, 2.0, 3.0]
-				i u64 := 2147483648
-				j i32 := 2147483647
-				return s[i] == s[j]
-			}`, true),
-			Entry("u64 index of 2^32 + 1 is out of bounds", `{
-				s series f64 := [1.0, 2.0, 3.0]
-				i u64 := 4294967297
-				j i32 := 2147483647
-				return s[i] == s[j]
-			}`, true),
-			Entry("i64 index of -2^32 - 1 is out of bounds", `{
-				s series f64 := [1.0, 2.0, 3.0]
-				i i64 := -4294967297
-				j i32 := -2147483647
-				return s[i] == s[j]
-			}`, true),
-			Entry("assignment at an index of 2^32 + 1 writes no element", `{
-				s series f64 := [1.0, 2.0, 3.0]
-				i i64 := 4294967297
-				s[i] = 9.0
-				return s[0] + s[1] + s[2]
-			}`, 6.0),
 			Entry("negative i64 index matches a negative i32 index", `{
 				s series f64 := [1.0, 2.0, 3.0]
 				i i64 := -1
 				j i32 := -1
 				return s[i] == s[j]
 			}`, true),
+		)
+
+		DescribeTable("64-bit index outside the series traps",
+			func(ctx SpecContext, index string) {
+				source := fmt.Sprintf(`func test() f64 {
+					s series f64 := [1.0, 2.0, 3.0]
+					i i64 := %s
+					return s[i]
+				}`, index)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				Expect(test.Call(ctx)).Error().To(MatchError(ContainSubstring(
+					"index " + index + " out of bounds for series of size 3",
+				)))
+			},
+			Entry("past the end", "3"),
+			Entry("before the start", "-4"),
+		)
+
+		It("should count a negative 64-bit index from the end", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `func test() f64 {
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -3
+				return s[i]
+			}`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			results := MustSucceed(mod.ExportedFunction("test").Call(ctx))
+			assertResult(results[0], 1.0)
+		})
+
+		DescribeTable("index that does not fit in an i32 traps",
+			func(ctx SpecContext, body, index string) {
+				source := fmt.Sprintf(`func test() f64 %s`, body)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				Expect(test.Call(ctx)).Error().To(MatchError(ContainSubstring(
+					"index " + index + " out of bounds for an i32 series index",
+				)))
+			},
+			Entry("i64 above the range", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				return s[i]
+			}`, "4294967297"),
+			Entry("i64 below the range", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -4294967297
+				return s[i]
+			}`, "-4294967297"),
+			Entry("u64 of 2^31", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 2147483648
+				return s[i]
+			}`, "2147483648"),
+			Entry("u64 counter below zero", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 0
+				return s[i - 1]
+			}`, "18446744073709551615"),
+			Entry("u32 of 2^32 - 1", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 4294967295
+				return s[i]
+			}`, "4294967295"),
+			Entry("u32 counter below zero", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u32 := 0
+				return s[i - 1]
+			}`, "4294967295"),
+			Entry("indexed assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				s[i] = 9.0
+				return s[0]
+			}`, "4294967297"),
+			Entry("indexed compound assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				s[i] += 9.0
+				return s[0]
+			}`, "4294967297"),
+			Entry("slice start", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				t series f64 := s[i:]
+				return t[0]
+			}`, "4294967297"),
+			Entry("slice end", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				t series f64 := s[0:i]
+				return t[0]
+			}`, "4294967297"),
 		)
 	})
 
