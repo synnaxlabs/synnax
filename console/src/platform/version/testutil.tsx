@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { connection, type resource, type Synnax as Client } from "@synnaxlabs/client";
+import { migrate } from "@synnaxlabs/x";
 import { type Channel } from "@tauri-apps/api/core";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { type DownloadEvent } from "@tauri-apps/plugin-updater";
@@ -33,7 +34,10 @@ export const ENDPOINT = `http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.po
 export interface MockUpdaterParams {
   /** The version of the running Console. A 0.0.x version is a dev build. */
   version?: string;
-  /** The release that the Core serves, or null when it serves none. */
+  /**
+   * The release that the Core serves and that the Console may take, or null when it
+   * serves none.
+   */
   served?: string | null;
   /** The newest release on the docs site, or null when none is newer. */
   latest?: string | null;
@@ -59,6 +63,7 @@ export const mockUpdater = ({
     rid: ++rid,
     currentVersion: version,
     version: next,
+    downgrade: migrate.semVerNewer(version, next),
     rawJson: {},
   });
   const ipc: IPC = vi.fn(async (cmd: string, args?: unknown) => {

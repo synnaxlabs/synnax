@@ -42,7 +42,9 @@ const Mismatch = ({ clientVersion, nodeVersion }: MismatchProps): ReactElement =
   const check = Version.useCheck();
   // A breaking update moves the Console past the Core, so it cannot fix the mismatch.
   const updatable =
-    check.variant === "success" && check.available != null && !check.available.breaking;
+    check.variant === "success" &&
+    check.available != null &&
+    check.available.variant !== "breaking";
   const openInfo = Version.useInfoModal();
   const url =
     target == null

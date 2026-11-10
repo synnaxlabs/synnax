@@ -24,12 +24,14 @@ const MANIFEST_PATH = "/console/update/latest.json";
 export const STATUS_KEY_PREFIX = "versionUpdate";
 
 /**
- * An update that the Console can install. A breaking update takes the Console past the
- * minor version of the Core at coreVersion.
+ * An update that the Console can install. A downgrade installs an older Console. A
+ * breaking update takes the Console past the minor version of the Core at coreVersion.
  */
 export type Available =
-  | { update: Update; breaking: false }
-  | { update: Update; breaking: true; coreVersion: string };
+  | { update: Update; variant: "upgrade" | "downgrade" }
+  | { update: Update; variant: "breaking"; coreVersion: string };
+
+type Served = ConstructorParameters<typeof Update>[0] & { downgrade: boolean };
 
 /** The Core that the Console checks for updates. */
 export interface Target {
@@ -55,10 +57,6 @@ export const useTarget = (): Target | null => {
   };
 };
 
-const takesServed = (current: string, served: string): boolean =>
-  !migrate.versionsEqual(current, served, { checkPatch: false }) ||
-  migrate.semVerNewer(served, current);
-
 /**
  * Finds the update that the Console offers, or null. The update is breaking when it
  * takes a granted user past the minor version of the Core.
@@ -67,19 +65,18 @@ export const find = async (target: Target | null): Promise<Available | null> => 
   if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
   if (Session.Runtime.CORE_EMBEDDED) {
     const update = await check();
-    return update == null ? null : { update, breaking: false };
+    return update == null ? null : { update, variant: "upgrade" };
   }
   if (target == null) return null;
-  const served = await invoke<ConstructorParameters<typeof Update>[0] | null>(
-    "updater_check",
-    { endpoint: target.endpoint, coreVersion: target.version },
-  );
-  if (served != null) {
-    const update = new Update(served);
-    if (takesServed(update.currentVersion, update.version))
-      return { update, breaking: false };
-    await update.close();
-  }
+  const served = await invoke<Served | null>("updater_check", {
+    endpoint: target.endpoint,
+    coreVersion: target.version,
+  });
+  if (served != null)
+    return {
+      update: new Update(served),
+      variant: served.downgrade ? "downgrade" : "upgrade",
+    };
   if (!target.latestGranted || isDev(target.version)) return null;
   let latest: Update | null;
   try {
@@ -91,7 +88,7 @@ export const find = async (target: Target | null): Promise<Available | null> => 
   }
   if (latest == null) return null;
   if (migrate.semVerNewer(latest.version, target.version, { checkPatch: false }))
-    return { update: latest, breaking: true, coreVersion: target.version };
+    return { update: latest, variant: "breaking", coreVersion: target.version };
   await latest.close();
   return null;
 };

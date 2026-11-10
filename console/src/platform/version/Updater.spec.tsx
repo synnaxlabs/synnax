@@ -97,7 +97,7 @@ describe("version Provider", () => {
     const ipc = mockUpdater({ served: "1.6.0", latest: "1.5.3" });
     const { result } = await renderCheck({ coreVersion: null });
     await waitFor(() => expect(versionOf(result.current)).toBe("1.5.3"));
-    expect(result.current).toMatchObject({ available: { breaking: false } });
+    expect(result.current).toMatchObject({ available: { variant: "upgrade" } });
     expect(callsOf(ipc, "updater_check")).toHaveLength(0);
   });
 
@@ -118,10 +118,11 @@ describe("version Provider", () => {
     expect(callsOf(ipc, "updater_check")).toHaveLength(1);
   });
 
-  it("should take an older minor version that the Core serves", async () => {
+  it("should offer an older release that the Core serves as a downgrade", async () => {
     mockUpdater({ version: "1.5.0", served: "1.4.2" });
     const { result } = await renderCheck({ coreVersion: "1.4.1" });
     await waitFor(() => expect(versionOf(result.current)).toBe("1.4.2"));
+    expect(result.current).toMatchObject({ available: { variant: "downgrade" } });
   });
 
   it("should take a newer minor version that the Core serves", async () => {
@@ -130,17 +131,11 @@ describe("version Provider", () => {
     await waitFor(() => expect(versionOf(result.current)).toBe("1.6.0"));
   });
 
-  it("should take a newer patch that the Core serves", async () => {
+  it("should offer a newer patch that the Core serves as an upgrade", async () => {
     mockUpdater({ version: "1.5.0", served: "1.5.1" });
     const { result } = await renderCheck();
     await waitFor(() => expect(versionOf(result.current)).toBe("1.5.1"));
-  });
-
-  it("should skip and release an older patch that the Core serves", async () => {
-    const ipc = mockUpdater({ version: "1.5.2", served: "1.5.1" });
-    const { result } = await renderCheck();
-    await waitFor(() => expect(callsOf(ipc, "plugin:resources|close")).toHaveLength(1));
-    expect(result.current).toEqual(NONE);
+    expect(result.current).toMatchObject({ available: { variant: "upgrade" } });
   });
 
   it("should release the found update when it unmounts", async () => {
@@ -207,7 +202,7 @@ describe("version Provider", () => {
       await waitFor(() =>
         expect(result.current).toMatchObject({
           variant: "success",
-          available: { breaking: true, coreVersion: "1.5.0" },
+          available: { variant: "breaking", coreVersion: "1.5.0" },
         }),
       );
       expect(versionOf(result.current)).toBe("1.6.0");

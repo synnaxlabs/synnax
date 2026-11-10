@@ -19,18 +19,27 @@ pub struct Metadata {
     rid: ResourceId,
     current_version: String,
     version: String,
+    /// True when the release is older than the running Console.
+    downgrade: bool,
     raw_json: serde_json::Value,
 }
 
-/// Reports whether a Console at current may install release from a Core at core.
-fn takes(current: &Version, release: &Version, core: &Version) -> bool {
-    release != current && release.major == core.major && release.minor == core.minor
+fn minor(version: &Version) -> (u64, u64) {
+    (version.major, version.minor)
 }
 
-/// Checks the manifest at endpoint for a release that differs from the running Console,
-/// older or newer, and shares the major and minor of core_version. Returns None when the
-/// endpoint serves no manifest, or none for this platform. The plugin's download and
-/// install commands take the update by its rid.
+/// Reports whether a Console at current may install release from a Core at core. The
+/// release must have the minor of the Core, and it may not be older than current within
+/// the minor of current.
+fn takes(current: &Version, release: &Version, core: &Version) -> bool {
+    minor(release) == minor(core) && (release > current || minor(release) != minor(current))
+}
+
+/// Checks the manifest at endpoint for a release at the minor of core_version. Within the
+/// minor of the running Console, only a newer release qualifies. A release at an older
+/// minor comes back with downgrade set. Returns None when the endpoint serves no
+/// manifest, or none for this platform. The plugin's download and install commands take
+/// the update by its rid.
 #[tauri::command]
 pub async fn updater_check<R: Runtime>(
     webview: Webview<R>,
@@ -52,9 +61,14 @@ pub async fn updater_check<R: Runtime>(
         Err(Error::ReleaseNotFound | Error::TargetNotFound(_) | Error::TargetsNotFound(_)) => None,
         Err(err) => return Err(err),
     };
-    Ok(update.map(|update| Metadata {
+    let Some(update) = update else {
+        return Ok(None);
+    };
+    let downgrade = Version::parse(&update.version)? < webview.package_info().version;
+    Ok(Some(Metadata {
         current_version: update.current_version.clone(),
         version: update.version.clone(),
+        downgrade,
         raw_json: update.raw_json.clone(),
         rid: webview.resources_table().add(update),
     }))
@@ -72,6 +86,17 @@ mod tests {
     fn takes_a_release_at_the_minor_of_the_core() {
         assert!(takes(&v("0.60.2"), &v("0.61.0"), &v("0.61.1")));
         assert!(takes(&v("0.62.0"), &v("0.61.3"), &v("0.61.3")));
+    }
+
+    #[test]
+    fn rejects_an_older_patch_at_the_minor_of_the_console() {
+        assert!(!takes(&v("0.61.3"), &v("0.61.2"), &v("0.61.3")));
+        assert!(!takes(&v("0.61.0"), &v("0.61.0-rc.1"), &v("0.61.0")));
+    }
+
+    #[test]
+    fn takes_a_newer_patch_at_the_minor_of_the_console() {
+        assert!(takes(&v("0.61.2"), &v("0.61.3"), &v("0.61.0")));
     }
 
     #[test]
