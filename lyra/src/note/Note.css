@@ -22,6 +22,7 @@
         & p,
         & li,
         & span,
+        & small,
         & a {
             color: var(--pluto-primary-text);
         }
@@ -35,6 +36,7 @@
         & p,
         & li,
         & span,
+        & small,
         & a {
             color: var(--pluto-warning-text);
         }
@@ -48,6 +50,7 @@
         & p,
         & li,
         & span,
+        & small,
         & a {
             color: var(--pluto-error-text);
         }
