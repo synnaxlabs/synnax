@@ -16,6 +16,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
@@ -184,6 +185,9 @@ start => main`),
     }
     stage b {}
 }`),
+		Entry("expression call after a declaration that follows a flow",
+			"a -> b\nlimit := 1.0\nlen(ch) -> out",
+			"a -> b\nlimit := 1.0\n(len(ch)) -> out"),
 		Entry("expression call inside an expression is unchanged",
 			"x := 1 + len(ch)\nsensor -> scale{factor=len(ch)} -> out",
 			"x := 1 + len(ch)\nsensor -> scale(factor=len(ch)) -> out"),
@@ -293,7 +297,31 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 		Entry("after an assignment",
 			"count = 0\nlen(ch) -> out",
 			"count = 0\n(len(ch)) -> out"),
+		Entry("after a flow that ends in an expression",
+			"a -> b + 1\nlen(ch) -> out",
+			"a -> b + 1\nlen (ch) -> out"),
+		Entry("after a flow that ends in a channel",
+			"a -> b\nmath.abs(x) -> out",
+			"a -> b\nmath.abs (x) -> out"),
+		Entry("after a flow that ends in a stage",
+			"a => stage {\n  0 -> b\n} -> b + 1\nlen(ch) -> out",
+			"a => stage {\n  0 -> b\n} -> b + 1\nlen (ch) -> out"),
 	)
+
+	It("Should split a call from a top-level flow before it with the same graph",
+		func(ctx SpecContext) {
+			got := v4.SwapBrackets("a -> b + 1\nlen(ch) -> out")
+			Expect(got).To(Equal("a -> b + 1\nlen (ch) -> out"))
+			// An unused declaration ends the flow without adding to the graph.
+			want := analyzeAndCompile(
+				ctx,
+				"a -> b + 1\nfunc split() {}\n(len(ch)) -> out",
+			)
+			gotIR := analyzeAndCompile(ctx, got)
+			Expect(gotIR.Nodes).To(Equal(want.Nodes))
+			Expect(gotIR.Edges).To(Equal(want.Edges))
+			Expect(gotIR.Edges).To(HaveLen(3))
+		})
 
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {
@@ -322,6 +350,34 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 			"func f(0,0,0,0,0,0,0,0,0,0) ", "func f() {0,0,0,0,0,0,0,0,0,0} ", 150),
 	)
 })
+
+func analyzeAndCompile(ctx SpecContext, src string) ir.IR {
+	root := symboltestutil.NewRoot(nil,
+		symbol.Symbol{
+			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,
+		},
+		symbol.Symbol{
+			Name: "b", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 2,
+		},
+		symbol.Symbol{
+			Name: "ch",
+			Kind: symbol.KindChannel,
+			Type: types.Chan(types.String()),
+			ID:   3,
+		},
+		symbol.Symbol{
+			Name: "out",
+			Kind: symbol.KindChannel,
+			Type: types.WriteChan(types.I64()),
+			ID:   4,
+		},
+	)
+	parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
+	program, diags := text.Analyze(ctx, parsed, root)
+	Expect(diags.Ok()).To(BeTrue(), diags.String())
+	MustSucceed(text.Compile(ctx, program))
+	return program
+}
 
 const growthFactor = 32
 

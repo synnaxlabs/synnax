@@ -21,7 +21,9 @@ import (
 // triggers in parens. A declaration becomes `func name(inputs) {triggers}`, with an
 // empty `()` added when the old text had no input block. A flow call `name{...}`
 // becomes `name(...)`. An expression call `name(...)` that starts a flow node or stage
-// item becomes `(name(...))`, since the current grammar reads it as a flow call.
+// item becomes `(name(...))`, since the current grammar reads it as a flow call. One
+// that starts a top-level item after a flow becomes `name (...)` instead, since the
+// flow would read the wrapped call as a call on its last node.
 // Comments, strings and layout are kept. A bracket with no match leaves its construct
 // unchanged. Text already in the current grammar is not valid input.
 func SwapBrackets(src string) string {
@@ -34,11 +36,21 @@ func SwapBrackets(src string) string {
 	}
 	// open holds the matched brackets enclosing the current token.
 	var open []bracket
+	// afterFlow is set while the last top-level item read is a flow statement.
+	afterFlow := false
 	for i := 0; i < len(s.tokens); i++ {
 		for len(open) > 0 && open[len(open)-1].end <= i {
 			open = open[:len(open)-1]
 		}
-		switch s.tokens[i].GetTokenType() {
+		t := s.tokens[i].GetTokenType()
+		if len(open) == 0 {
+			if isFlowOperator(t) {
+				afterFlow = true
+			} else if startsNonFlowItem(t) {
+				afterFlow = false
+			}
+		}
+		switch t {
 		case parser.ArcLexerFUNC:
 			i = e.rewriteDeclaration(s, i)
 		case parser.ArcLexerLBRACE:
@@ -60,15 +72,20 @@ func SwapBrackets(src string) string {
 			if n := len(open); n > 0 && !open[n-1].holdsItems {
 				continue
 			}
-			end := s.itemCallEnd(i)
-			if end == -1 {
+			paren := s.itemCallParen(i)
+			if paren == -1 {
 				continue
 			}
-			if len(open) > 0 && i > 0 && endsItem(s.tokens[i-1].GetTokenType()) {
+			afterItem := i > 0 && endsItem(s.tokens[i-1].GetTokenType())
+			if len(open) == 0 && afterItem && afterFlow {
+				e.insert[s.tokens[paren].GetStart()] += " "
+				continue
+			}
+			if len(open) > 0 && afterItem {
 				e.insert[s.tokens[i-1].GetStop()+1] += ","
 			}
 			e.insert[s.tokens[i].GetStart()] += "("
-			e.insert[s.tokens[end].GetStop()+1] += ")"
+			e.insert[s.tokens[s.match[paren]].GetStop()+1] += ")"
 		}
 	}
 	return e.apply()
@@ -127,10 +144,10 @@ func newStream(src string) stream {
 	return s
 }
 
-// itemCallEnd returns the index of the paren closing the expression call whose callee
-// starts at i, or -1 when no such call starts a flow node or stage item there. The
-// caller checks that i is not inside an expression bracket.
-func (s stream) itemCallEnd(i int) int {
+// itemCallParen returns the index of the matched paren opening the expression call
+// whose callee starts at i, or -1 when no such call starts a flow node or stage item
+// there. The caller checks that i is not inside an expression bracket.
+func (s stream) itemCallParen(i int) int {
 	tokens := s.tokens
 	if i > 0 && continuesExpression(tokens[i-1].GetTokenType()) {
 		return -1
@@ -143,10 +160,26 @@ func (s stream) itemCallEnd(i int) int {
 	}
 	paren := callee + 1
 	if paren >= len(tokens) || tokens[paren].GetTokenType() != parser.ArcLexerLPAREN ||
-		!adjacent(tokens[callee], tokens[paren]) {
+		!adjacent(tokens[callee], tokens[paren]) || s.match[paren] == -1 {
 		return -1
 	}
-	return s.match[paren]
+	return paren
+}
+
+func isFlowOperator(t int) bool {
+	return t == parser.ArcLexerARROW || t == parser.ArcLexerTRANSITION
+}
+
+func startsNonFlowItem(t int) bool {
+	switch t {
+	case parser.ArcLexerFUNC, parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
+		parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,
+		parser.ArcLexerPLUS_ASSIGN, parser.ArcLexerMINUS_ASSIGN,
+		parser.ArcLexerSTAR_ASSIGN, parser.ArcLexerSLASH_ASSIGN,
+		parser.ArcLexerPERCENT_ASSIGN:
+		return true
+	}
+	return false
 }
 
 // continuesExpression reports whether a token of type t leaves an expression open, so
