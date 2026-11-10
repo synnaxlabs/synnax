@@ -585,9 +585,8 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, snap Snapshot) error {
 	if r.limit > 0 {
 		batch = max(r.limit, minWalkBatch)
 	}
-	// One snapshot of the index finds each key once, so the walk keeps an entry that
-	// moved after the snapshot and sorts it into place at the end.
-	snapshot := r.HasFilterKeys() || batch == 0
+	// A walk with no limit keeps every match and sorts them into place at the end.
+	snapshot := batch == 0
 	for k, holds := range r.orderBy.walk(bounded, batch) {
 		// A commit between two batches can move a counted key ahead of the walk.
 		if counted.Contains(k) {
