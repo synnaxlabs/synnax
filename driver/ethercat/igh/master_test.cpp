@@ -642,19 +642,18 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
     );
 }
 
-/// @brief it should accept a parameter that the bus started with and write nothing.
-TEST_F(IGHMasterTest, WriteAcceptsAParameterTheBusStartedWith) {
-    this->api->add_slave();
-    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+/// @brief it should accept a value that the slave holds on the running bus, and write
+/// nothing.
+TEST_F(IGHMasterTest, WriteAcceptsAValueThatTheSlaveHolds) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 3;
     ASSERT_NIL(this->scan_and_activate());
     ASSERT_NIL(this->master.write(1, {FILTER}));
-    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
-    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_TRUE(this->api->slaves[0].downloads.empty());
 }
 
-/// @brief it should refuse a value other than the one the bus started with, since IgH
-/// writes the starting value again each time the slave restarts.
-TEST_F(IGHMasterTest, WriteRefusesAValueOtherThanTheStartingOne) {
+/// @brief it should refuse a value that the slave does not hold on the running bus,
+/// since IgH writes its startup parameters again each time the slave restarts.
+TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
     this->api->add_slave();
     this->configs = {{1, {.startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
@@ -671,25 +670,18 @@ TEST_F(IGHMasterTest, WriteRefusesAValueOtherThanTheStartingOne) {
     EXPECT_EQ(this->api->slaves[0].downloads, expected);
 }
 
-/// @brief it should refuse a parameter that the bus did not start with.
-TEST_F(IGHMasterTest, WriteRefusesAParameterTheBusDidNotStartWith) {
+/// @brief it should return the reason a slave on the running bus fails to read a
+/// parameter.
+TEST_F(IGHMasterTest, WriteReturnsWhyASlaveFailedToReadAParameter) {
     this->api->add_slave();
     ASSERT_NIL(this->scan_and_activate());
     const auto err = this->master.write(1, {FILTER});
-    ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
-    EXPECT_TRUE(this->api->slaves[0].downloads.empty());
-}
-
-/// @brief it should refuse a parameter that only an earlier activation started with.
-TEST_F(IGHMasterTest, WriteForgetsTheParametersOfAnEarlierActivation) {
-    this->api->add_slave();
-    this->configs = {{1, {.startup_parameters = {FILTER}}}};
-    ASSERT_NIL(this->scan_and_activate());
-    this->master.deactivate();
-    this->configs = {};
-    ASSERT_NIL(this->scan_and_activate());
-    const auto err = this->master.write(1, {FILTER});
-    ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
+        "Object does not exist in the object dictionary"
+    );
 }
 
 /// @brief it should refuse to write to a position with no slave on the bus.

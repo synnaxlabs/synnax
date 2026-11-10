@@ -1013,7 +1013,7 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
     this->start(false);
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(status.message, "Waiting for a power restart");
     EXPECT_EQ(
         status.description,
         "The device runs Synnax only after a power restart. Until then, it sends data "

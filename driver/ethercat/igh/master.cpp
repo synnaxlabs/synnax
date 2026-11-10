@@ -267,13 +267,28 @@ x::errors::Error Master::write(
             if (auto err = this->download(slave, param)) return err;
         return x::errors::NIL;
     }
-    const auto started = this->startup_parameters.find(position);
-    for (const auto &param: parameters)
-        if (started == this->startup_parameters.end() ||
-            std::ranges::none_of(started->second, [&param](const auto &p) {
-                return p.index == param.index && p.sub_index == param.sub_index &&
-                       p.data_type == param.data_type && p.value == param.value;
-            }))
+    for (const auto &param: parameters) {
+        const auto want = param.bytes();
+        std::vector<uint8_t> held(want.size());
+        size_t size = 0;
+        uint32_t abort_code = 0;
+        if (this->api->master_sdo_upload(
+                this->ec_master,
+                ring_position(position),
+                param.index,
+                param.sub_index,
+                held.data(),
+                held.size(),
+                &size,
+                &abort_code
+            ) < 0)
+            return x::errors::Error(
+                errors::STARTUP_PARAMETER_ERROR,
+                "slave " + std::to_string(position) + " (" + slave.name +
+                    ") failed to read startup parameter " + param.to_string() + ": " +
+                    errors::sdo_abort_reason(abort_code)
+            );
+        if (size != want.size() || held != want)
             return x::errors::Error(
                 errors::SETTING_CONFLICT,
                 "the IgH master cannot change " + param.to_string() + " of slave " +
@@ -281,6 +296,7 @@ x::errors::Error Master::write(
                     ") while other tasks run the bus. Stop them, then start this "
                     "task first"
             );
+    }
     return x::errors::NIL;
 }
 
@@ -352,7 +368,6 @@ master::Activation Master::activate(
         const auto &params = config.startup_parameters;
         if (auto err = this->add_startup_parameters(slave.properties, sc, params))
             return {.err = err};
-        this->startup_parameters[pos] = params;
         if (!params.empty())
             if (auto err = this->configure_assigned_pdos(pos, sc)) return {.err = err};
         this->register_pdo_entries(slave.properties, sc, image);
@@ -471,7 +486,6 @@ void Master::deactivate() {
     this->activated = false;
     this->initialized = false;
     this->slave_configs.clear();
-    this->startup_parameters.clear();
     this->cached_slaves.clear();
     this->input_sz = 0;
     this->output_sz = 0;
