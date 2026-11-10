@@ -18,7 +18,7 @@ resolution-markers = [
 
 [[package]]
 name = "alamos"
-version = "0.59.0"
+version = "0.60.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "opentelemetry-api" },
@@ -26,9 +26,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "uptrace" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e4/69/b319f35332c4ea3eef0acde2bdfe2d4bd02c4affcdc27af2e7fca461902a/alamos-0.59.0.tar.gz", hash = "sha256:7358ef5a0e9409ddea845e97d325a51bb81703e92c3349461f4167c5de045cd3", size = 7356, upload-time = "2026-10-07T22:06:31.028Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/63/53/8643b3a9d9fa8609fc91c6ca2df46be8d9adc4f687289bf83b56ce20a199/alamos-0.60.0.tar.gz", hash = "sha256:f418509c0e76e586b1a1fb65435631a0ed3f461c935d2938091f3bf43a4baad8", size = 8016, upload-time = "2026-10-27T00:30:11.205Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/cf/22/20c3a199d5d1cf9e7159a0476e37134343d674d27ba1ec45d44c387022f6/alamos-0.59.0-py3-none-any.whl", hash = "sha256:cc6365183a1a36bc82d876b96abc7eff043f083cf61967bd79500d719f86df79", size = 8961, upload-time = "2026-10-07T22:06:26.146Z" },
+    { url = "https://files.pythonhosted.org/packages/80/96/9e8f44b50d5bebad732d2976360d2816ee0321357b3064c36c5b9a811428/alamos-0.60.0-py3-none-any.whl", hash = "sha256:fe60b95f525874c846cdf541405917c96e6e5ec0448ec32799d0c603a6a83044", size = 8957, upload-time = "2026-10-27T00:30:05.725Z" },
 ]
 
 [[package]]
@@ -1333,18 +1333,6 @@ wheels = [
 ]
 
 [[package]]
-name = "nptdms"
-version = "1.13.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "numpy" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/a3/8cf94148f2fbac695ff39dd787d3cfb494e0e794f94696a6109e5928916f/nptdms-1.13.0.tar.gz", hash = "sha256:d9209da06c21edc28c9a8620cf78466ace80d2e1d8a23cfea534b0938ed310cc", size = 186399, upload-time = "2026-10-18T08:49:46.173Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/47/87/29e1b9d0cabaac082851a8f8235bc50efae7ec48694170761a075f39ddc0/nptdms-1.13.0-py3-none-any.whl", hash = "sha256:b1001d832d18612c208177d1a76d4e63337444d0bbd4f4f3f5a096acc5b3b7d9", size = 174067, upload-time = "2026-10-18T08:49:44.384Z" },
-]
-
-[[package]]
 name = "numpy"
 version = "2.5.4"
 source = { registry = "https://pypi.org/simple" }
@@ -2058,30 +2046,30 @@ wheels = [
 
 [[package]]
 name = "synnax"
-version = "0.59.0"
+version = "0.60.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alamos" },
     { name = "click" },
     { name = "keyring" },
     { name = "matplotlib" },
-    { name = "nptdms" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "pydantic" },
     { name = "rich" },
     { name = "synnax-freighter" },
     { name = "synnax-x" },
+    { name = "typing-extensions" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/1d/1f/dfda1ee41f52fd5c5e6d3def16a536c52878a714803d9771917cda08cacf/synnax-0.59.0.tar.gz", hash = "sha256:997cb72e28172ae7a1ef619bab177bbd2013d504430506bfaab61b1907a3beb5", size = 275324, upload-time = "2026-10-07T22:06:33.025Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/fd/ba/ed5208d68f77b3459b44e85fc4147a21c85f57998008b82c78b534236adb/synnax-0.60.1.tar.gz", hash = "sha256:062ba404bb62e5979758c1e452c1ebdc635da0f21505839d0d4ed11ce0af29aa", size = 227791, upload-time = "2026-10-28T19:51:58.038Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8d/37/c19bcd357d4a27264bdaaf21a8948a50e958f9c6ece05cf5e4ceec920826/synnax-0.59.0-py3-none-any.whl", hash = "sha256:5f36a4638e2d2a16f5aa97a7d12c73ac1dc5a0a03b7d1290ce147a81a134d628", size = 361136, upload-time = "2026-10-07T22:06:27.361Z" },
+    { url = "https://files.pythonhosted.org/packages/41/df/178716bf0804525cf93f2b3d08df499d1be63c1dc013cf7aac4a782b653a/synnax-0.60.1-py3-none-any.whl", hash = "sha256:ec0c28032de091353d923efc232316c7ce0f6dfedde70c8d4202ddc5b660279c", size = 217348, upload-time = "2026-10-28T19:51:56.367Z" },
 ]
 
 [[package]]
 name = "synnax-freighter"
-version = "0.59.0"
+version = "0.60.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "alamos" },
@@ -2090,9 +2078,9 @@ dependencies = [
     { name = "urllib3" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e0/40/ac83fc2317d401079eb9078559cfc5ea2097bb6a90c81e51d8cd8cbd9733/synnax_freighter-0.59.0.tar.gz", hash = "sha256:81c60d80a2d4f7dd3b43318c95f606c8921f8b7d211ed07565dabdaa7a2e3265", size = 17664, upload-time = "2026-10-07T22:06:33.773Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3e/eb/702384239bee0702efd79a5ec13862f9aba0ef608bd4c1e4c6f2f4aac514/synnax_freighter-0.60.0.tar.gz", hash = "sha256:a440a2fcb8f079e13700d10411549b82a7b40cadd71f82ca2738f4840a006ef6", size = 23853, upload-time = "2026-10-27T00:30:13.159Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ec/2f/4102f07ff9343d879eee772315d8779f9119ab363f8212c9f63b73e0028e/synnax_freighter-0.59.0-py3-none-any.whl", hash = "sha256:3e9cf5071d0f6efc3e4272a22d28da823593f532bb3d1be057a7130f309be85f", size = 18163, upload-time = "2026-10-07T22:06:28.778Z" },
+    { url = "https://files.pythonhosted.org/packages/2c/b0/7f191623232e717bcfae72b9ab7934a30e7a7ab27f30f221f515940952ef/synnax_freighter-0.60.0-py3-none-any.whl", hash = "sha256:3fa25b615cd15e6743b9bc5fea985c7d58313e9c58441a72203a4ba2c9a0cba3", size = 19116, upload-time = "2026-10-27T00:30:08.896Z" },
 ]
 
 [[package]]
@@ -2118,7 +2106,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = ">=1.43,<2" },
     { name = "certifi", specifier = ">=2026.10.19,<2027" },
-    { name = "synnax", specifier = ">=0.59,<0.60" },
+    { name = "synnax", specifier = ">=0.60,<0.61" },
 ]
 
 [package.metadata.requires-dev]
@@ -2132,7 +2120,7 @@ dev = [
 
 [[package]]
 name = "synnax-x"
-version = "0.59.0"
+version = "0.60.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "msgpack" },
@@ -2140,9 +2128,9 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/27/dcea08a6e7eac6b6e03a3d548627662281d415dd1ebad72704cc16fcffff/synnax_x-0.59.0.tar.gz", hash = "sha256:c7ad42a5bd220eb1267e332e7ba619ff0e023d52d16a04c79b3d6614487d9919", size = 44486, upload-time = "2026-10-07T22:06:34.411Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/58/8e5837a3f34457494d122114ee5268dc6ac424e0ad7800c13db73d0520bb/synnax_x-0.60.0.tar.gz", hash = "sha256:5f610f2ca206ab9c4a9c836cb18eefdf9e3fe321a8528f337f0abed372e5bd8f", size = 54267, upload-time = "2026-10-27T00:30:13.97Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c8/44/becae853375e59e78bac42834d7b90f1f16e0abece2fff1af373b12fdd3a/synnax_x-0.59.0-py3-none-any.whl", hash = "sha256:624467f7571f2db6189a4c153add3309eec6d26144abc05f31274f0f48bb0a8e", size = 42136, upload-time = "2026-10-07T22:06:30.101Z" },
+    { url = "https://files.pythonhosted.org/packages/b3/29/b9c3499c83b1fdade7137a09e4d883d3de90d070dd3a9dedd46248c53539/synnax_x-0.60.0-py3-none-any.whl", hash = "sha256:06c94795ac1ccfc28cb80d43a8d1263cdfd0f71430d387949445643283d49c61", size = 44390, upload-time = "2026-10-27T00:30:09.972Z" },
 ]
 
 [[package]]

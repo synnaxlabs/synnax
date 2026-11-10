@@ -159,14 +159,14 @@ func (s *Service) Export(
 		if err != nil {
 			return nil, nil, err
 		}
-		if files[path], err = encoder.Encode(ctx, env); err != nil {
+		if files[path], err = encoder.Encode(env); err != nil {
 			return nil, nil, err
 		}
 	}
-	if err = w.encodePanels(ctx, files, encoder); err != nil {
+	if err = w.encodePanels(files, encoder); err != nil {
 		return nil, nil, err
 	}
-	manifest, err := encoder.Encode(ctx, imex.Manifest{
+	manifest, err := encoder.Encode(imex.Manifest{
 		Version: manifestVersion,
 		Type:    manifestType,
 		Name:    proj.Name,
@@ -403,17 +403,13 @@ func (w *bundleWalk) panelRefs(
 	return nil
 }
 
-func (w *bundleWalk) encodePanels(
-	ctx context.Context,
-	files zip.Files,
-	encoder encoding.FileEncoder,
-) error {
+func (w *bundleWalk) encodePanels(files zip.Files, encoder encoding.FileEncoder) error {
 	for _, bp := range w.panels {
 		env, err := panel.EncodeBundle(bp.panel, w.refs)
 		if err != nil {
 			return err
 		}
-		if files[bp.path], err = encoder.Encode(ctx, env); err != nil {
+		if files[bp.path], err = encoder.Encode(env); err != nil {
 			return err
 		}
 	}
@@ -441,7 +437,7 @@ func (s *Service) Import(
 			validate.ErrValidation, "bundle holds no %s", manifestFileName,
 		)
 	}
-	manifest, err := decodeManifest(ctx, manifestData, manifestFileName)
+	manifest, err := decodeManifest(manifestData, manifestFileName)
 	if err != nil {
 		return project.Project{}, err
 	}
@@ -449,7 +445,7 @@ func (s *Service) Import(
 	if name == "" {
 		name = filename.Stem(fileName)
 	}
-	members, err := s.bundleMembers(ctx, files)
+	members, err := s.bundleMembers(files)
 	if err != nil {
 		return project.Project{}, err
 	}
@@ -544,13 +540,9 @@ type importMember struct {
 
 // decodeManifest reads and guards the bundle manifest: the type must be "project" and
 // the version exactly the current one, since version 0 wrote no manifest.
-func decodeManifest(
-	ctx context.Context,
-	data []byte,
-	fileName string,
-) (imex.Manifest, error) {
+func decodeManifest(data []byte, fileName string) (imex.Manifest, error) {
 	var manifest imex.Manifest
-	if err := imex.Codec.Decode(ctx, data, &manifest); err != nil {
+	if err := imex.Codec.Decode(data, &manifest); err != nil {
 		return imex.Manifest{}, errors.Wrap(err, fileName)
 	}
 	if manifest.Type != manifestType {
@@ -575,10 +567,7 @@ func decodeManifest(
 
 // bundleMembers enumerates and decodes a version 1 bundle's members — every JSON file
 // under the root except the manifest — in sorted path order.
-func (s *Service) bundleMembers(
-	ctx context.Context,
-	files zip.Files,
-) ([]importMember, error) {
+func (s *Service) bundleMembers(files zip.Files) ([]importMember, error) {
 	var (
 		ext            = json.Codec.Extension()
 		foldedManifest = filename.Fold(imex.ManifestBaseName + ext)
@@ -599,7 +588,7 @@ func (s *Service) bundleMembers(
 	members := make([]importMember, 0, len(paths))
 	for _, path := range paths {
 		var env imex.Envelope
-		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
+		if err := imex.Codec.Decode(files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
 		if env.Type != string(resource.TypePanel) {
