@@ -106,11 +106,12 @@ jobs:
         run: |
           os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
           os="$os|plan9|solaris|unix|wasip1|windows"
-          files=$(git ls-files '*.go' ':(exclude)**/testdata/**')
+          tag="^//go:build(.*[^A-Za-z0-9_])?($os)([^A-Za-z0-9_]|$)"
           found=$(
             {
-              grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" <<< "$files" || true
-              xargs -r grep -lE "^//go:build .*\b($os)\b" <<< "$files" || true
+              git ls-files -z -- '*.go' ':(exclude)**/testdata/**' |
+                tr '\0' '\n' | grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" || true
+              git grep -lE "$tag" -- '*.go' ':(exclude)**/testdata/**' || true
             } | sort -u
           )
           if [ -n "$found" ]; then
@@ -169,6 +170,17 @@ jobs:
         env:
           DIRECTORY: ${{ inputs.directory }}
         run: .github/scripts/go_mod_download.sh "$DIRECTORY"
+
+      # Code with no build constraint can still use an API that some operating systems
+      # lack, so a module that lints only for Linux type-checks for the others.
+      - name: Type-check for Windows and macOS
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
+        working-directory: ${{ inputs.directory }}
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          GOOS=windows go vet ./...
+          GOOS=darwin go vet ./...
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
