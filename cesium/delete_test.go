@@ -1654,7 +1654,7 @@ var _ = Describe("Background removal", func() {
 	)
 	BeforeEach(func(ctx SpecContext) {
 		fsys = WrapFaultyFS(FileSystems["memFS"]())
-		db = openDBOnFS(ctx, fsys)
+		db = mustOpenDBOnFS(ctx, fsys)
 		key = GenerateChannelKey()
 		Expect(db.CreateChannel(ctx, cesium.Channel{
 			Key:      key,
@@ -1663,13 +1663,14 @@ var _ = Describe("Background removal", func() {
 			DataType: telem.TimestampT,
 		})).To(Succeed())
 	})
-	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
 
-	holdRemoval := func() (removing, release chan struct{}) {
-		removing, release = make(chan struct{}), make(chan struct{})
+	holdRemoval := func() (removing chan struct{}, release func()) {
+		removing, held := make(chan struct{}), make(chan struct{})
+		release = sync.OnceFunc(func() { close(held) })
+		DeferCleanup(release)
 		fsys.SetOptions(WithBeforeRemove(sync.OnceFunc(func() {
 			close(removing)
-			<-release
+			<-held
 		})))
 		return removing, release
 	}
@@ -1685,7 +1686,7 @@ var _ = Describe("Background removal", func() {
 			closed := make(chan error, 1)
 			go func() { closed <- db.Close() }()
 			Consistently(closed).ShouldNot(Receive())
-			close(release)
+			release()
 			Eventually(closed).Should(Receive(BeNil()))
 			Expect(deletedDirs(fsys, key)).To(BeEmpty())
 		},
@@ -1703,7 +1704,7 @@ var _ = Describe("Background removal", func() {
 		Expect(db.Close()).To(Succeed())
 		Expect(deletedDirs(fsys, key)).To(HaveLen(1))
 		fsys.SetOptions()
-		db = openDBOnFS(ctx, fsys)
+		db = mustOpenDBOnFS(ctx, fsys)
 		Eventually(deletedDirs).WithArguments(fsys, key).Should(BeEmpty())
 		Expect(db.RetrieveChannel(ctx, key)).Error().
 			To(MatchError(cesium.ErrChannelNotFound))
