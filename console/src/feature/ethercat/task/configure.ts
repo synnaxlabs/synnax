@@ -147,8 +147,8 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 
 /**
  * @returns the startup parameters of each slave: a value for every field of each input
- * that a channel reads, in the order of the slave's catalog. Values the task held stay.
- * A slave that other software sets up gets none.
+ * that an enabled channel reads, in the order of the slave's catalog. Values the task
+ * held stay. A slave that other software sets up gets none.
  * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
 export const fillStartupParameters = (
@@ -161,7 +161,8 @@ export const fillStartupParameters = (
     if (isShared(slave.properties)) continue;
     const inputs = slave.properties.settings?.channels ?? [];
     const entries = channels.filter(
-      (ch): ch is EntryReadChannel => hasEntry(ch) && ch.device === slave.key,
+      (ch): ch is EntryReadChannel =>
+        hasEntry(ch) && !ch.disabled && ch.device === slave.key,
     );
     const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
     const parameters: ethercat.StartupParameter[] = [];
