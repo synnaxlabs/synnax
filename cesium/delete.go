@@ -169,8 +169,13 @@ func (db *DB) unmarkClosed(ch ChannelKey) {
 // exist. The caller must hold db.mu.
 func (db *DB) detach(ch ChannelKey) (string, error) {
 	if uDB, ok := db.mu.dbs.unary[ch]; ok {
+		// The data of the channel is deleted anyway, so a close error loses nothing.
 		if err := uDB.Release(); err != nil {
-			return "", err
+			db.L.Error(
+				"failed to release a deleted channel",
+				zap.Stringer("channel", uDB.Channel()),
+				zap.Error(err),
+			)
 		}
 		delete(db.mu.dbs.unary, ch)
 	} else if _, ok = db.mu.dbs.virtual[ch]; ok {

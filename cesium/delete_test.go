@@ -1720,6 +1720,16 @@ var _ = Describe("Background removal", func() {
 		Expect(fr.Get(data).Series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
 	})
 
+	It("Should delete a channel whose files fail to close", func(ctx SpecContext) {
+		fsys.SetOptions(WithFailClose("index.domain"))
+		Expect(db.DeleteChannels([]cesium.ChannelKey{key})).To(Succeed())
+		fsys.SetOptions()
+		Expect(db.RetrieveChannel(ctx, key)).Error().
+			To(MatchError(cesium.ErrChannelNotFound))
+		Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
+		Expect(db.DeleteChannel(key)).To(Succeed())
+	})
+
 	It("Should not delete a channel once the DB is closed", func() {
 		Expect(db.Close()).To(Succeed())
 		Expect(db.DeleteChannel(key)).To(MatchError(cesium.ErrDBClosed))
