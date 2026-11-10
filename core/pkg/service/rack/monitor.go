@@ -262,11 +262,7 @@ func (m *monitor) handleChange(
 			m.L.Error("failed to decode status owner", zap.Error(err))
 			continue
 		}
-		// The Core writes only warnings to rack statuses, so a warning does not show
-		// that the Driver is running.
-		alive := ch.Value.Variant == status.VariantSuccess ||
-			ch.Value.Variant == status.VariantInfo ||
-			ch.Value.Variant == status.VariantError
+		alive := storedDetails(ch.Value.Details).Running
 		state, known := m.mu.racks[key]
 		if !known || (alive && ch.Value.Time != state.statusTime) {
 			state = rackState{lastUpdated: m.svc.Now()}
