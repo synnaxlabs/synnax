@@ -10,13 +10,10 @@
 package cmd
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
-	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -24,32 +21,56 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// stableTagRe matches a stable Core release tag. A release candidate carries a suffix.
-var stableTagRe = regexp.MustCompile(`^core/v[0-9]+\.[0-9]+\.[0-9]+$`)
+// stableTagRe matches a stable Core release tag and captures its X.Y train. A release
+// candidate carries a suffix.
+var stableTagRe = regexp.MustCompile(`^core/v([0-9]+\.[0-9]+)\.[0-9]+$`)
 
-// latestStableTag returns the highest stable Core release tag in the repository.
-func latestStableTag(ctx context.Context, repoRoot string) (string, error) {
-	out, err := exec.CommandContext(
-		ctx, "git", "-C", repoRoot, "tag", "--list", "core/v*", "--sort=-v:refname",
-	).Output()
+// stableTags returns the stable Core release tags that match pattern, newest first.
+func stableTags(
+	ctx context.Context, repoRoot, pattern string, args ...string,
+) ([]string, error) {
+	out, err := exec.CommandContext(ctx, "git", append(
+		[]string{"-C", repoRoot, "tag", "--list", pattern, "--sort=-v:refname"},
+		args...,
+	)...).Output()
 	if err != nil {
-		return "", errors.Wrap(err, "list the Core release tags")
+		return nil, errors.Wrap(err, "list the Core release tags")
 	}
+	var tags []string
 	for tag := range strings.Lines(string(out)) {
 		if tag = strings.TrimSpace(tag); stableTagRe.MatchString(tag) {
-			return tag, nil
+			tags = append(tags, tag)
 		}
 	}
-	return "", errors.New(
-		"no stable Core release tag (core/vX.Y.Z); fetch the tags with " +
-			"`git fetch --tags`",
-	)
+	return tags, nil
 }
 
-// extractRelease writes the schemas directory of the latest stable Core release into
-// a new temporary directory. The caller must remove the returned Root.
+// shippedTag returns the release whose data HEAD must still decode: the newest stable
+// tag on the train of the newest stable tag that HEAD descends from. On main, that is
+// the newest release. On a release/core-X.Y branch, it is the newest X.Y patch.
+func shippedTag(ctx context.Context, repoRoot string) (string, error) {
+	reachable, err := stableTags(ctx, repoRoot, "core/v*", "--merged", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	if len(reachable) == 0 {
+		return "", errors.New(
+			"HEAD descends from no stable Core release tag (core/vX.Y.Z); fetch " +
+				"the tags with `git fetch --tags`, plus `--unshallow` in a shallow clone",
+		)
+	}
+	train := stableTagRe.FindStringSubmatch(reachable[0])[1]
+	onTrain, err := stableTags(ctx, repoRoot, "core/v"+train+".*")
+	if err != nil {
+		return "", err
+	}
+	return onTrain[0], nil
+}
+
+// extractRelease writes the schemas directory of the shipped release into a new
+// temporary directory. The caller must remove the returned Root.
 func extractRelease(ctx context.Context, repoRoot string) (check.Release, error) {
-	tag, err := latestStableTag(ctx, repoRoot)
+	tag, err := shippedTag(ctx, repoRoot)
 	if err != nil {
 		return check.Release{}, err
 	}
@@ -63,35 +84,13 @@ func extractRelease(ctx context.Context, repoRoot string) (check.Release, error)
 	if err != nil {
 		return check.Release{}, err
 	}
-	if err := untar(archive, root); err != nil {
-		return check.Release{}, errors.Join(err, os.RemoveAll(root))
+	untar := exec.CommandContext(ctx, "tar", "-x", "-f", "-", "-C", root)
+	untar.Stdin = bytes.NewReader(archive)
+	if out, err := untar.CombinedOutput(); err != nil {
+		return check.Release{}, errors.Join(
+			errors.Wrapf(err, "extract the schemas of %s: %s", tag, out),
+			os.RemoveAll(root),
+		)
 	}
 	return check.Release{Tag: tag, Root: root}, nil
-}
-
-func untar(archive []byte, root string) error {
-	r := tar.NewReader(bytes.NewReader(archive))
-	for {
-		h, err := r.Next()
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if h.Typeflag != tar.TypeReg {
-			continue
-		}
-		dest := filepath.Join(root, filepath.FromSlash(h.Name))
-		if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
-			return err
-		}
-		data, err := io.ReadAll(r)
-		if err != nil {
-			return err
-		}
-		if err := os.WriteFile(dest, data, 0o644); err != nil {
-			return err
-		}
-	}
 }
