@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,6 +38,20 @@ var _ = Describe("Update", func() {
 			MatchError(ContainSubstring("length is required")),
 		))
 		Expect(ch).To(Equal(coil()))
+	})
+
+	It("Should name the channel when a list entry needs a field", func() {
+		config := modbus.ReadConfig{Channels: []modbus.ReadChannel{coil()}}
+		u := modbus.ReadConfigUpdate{
+			Channels: &patch.List[modbus.ReadChannel, string, modbus.ReadChannelUpdate]{
+				Update: []modbus.ReadChannelUpdate{{
+					Variant: modbus.HoldingRegisterStringReadChannelUpdate{Key: "c1"},
+				}},
+			},
+		}
+		Expect(u.ApplyTo(&config)).To(MatchError(
+			ContainSubstring("c1: length is required"),
+		))
 	})
 
 	It("Should change the variant when the update gives the field", func() {
