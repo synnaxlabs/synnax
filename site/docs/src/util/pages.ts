@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enabled } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
 interface Frontmatter {
@@ -16,7 +15,6 @@ interface Frontmatter {
   description?: string;
   /** An ISO 8601 date, set on blog posts. */
   published?: string;
-  flag?: string;
 }
 
 export interface Page {
@@ -24,7 +22,6 @@ export interface Page {
   title: string;
   description?: string;
   published?: string;
-  flag?: string;
 }
 
 // Astro does not route files that start with an underscore.
@@ -41,23 +38,16 @@ const toRoute = (file: string): string =>
       .replace(/(^|\/)index$/, "$1"),
   );
 
-/** Every published MDX page. A page behind a flag is published while the flag is on. */
+/** Every published MDX page. */
 export const PAGES: Page[] = Object.entries(FRONTMATTER)
   .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
-  .filter(({ flag }) => flag == null || enabled(flag))
-  .map(({ route, title, heading, description, published, flag }) => ({
+  .map(({ route, title, heading, description, published }) => ({
     route,
     title: (heading ?? title).replace(/`/g, ""),
     description,
     published,
-    flag,
   }))
   .sort((a, b) => a.route.localeCompare(b.route));
-
-/**
- * Every page a prerendered route can rewrite to. A flagged page renders per request.
- */
-export const PRERENDERED_PAGES: Page[] = PAGES.filter(({ flag }) => flag == null);
 
 /** The blog posts, newest first. */
 export const POSTS: Page[] = PAGES.filter(({ route }) =>
