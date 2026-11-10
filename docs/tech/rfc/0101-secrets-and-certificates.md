@@ -352,7 +352,7 @@ the Driver change, so they are separate phases.
 13. **Pins become items**: A pinned server certificate gets details and expiry warnings.
     The trade is real: one list entry per pinned server.
 14. **Set, not create**: A write carries the whole item, so one `set` creates it or
-    replaces it. A rename goes through dispatch, as edits to projects and users do. A
+    replaces it. A rename goes through dispatch, as edits to labels and ranges do. A
     replace needs only update access. The trade is real: a reused key replaces an item
     without a warning.
 
