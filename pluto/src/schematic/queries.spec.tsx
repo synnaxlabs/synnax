@@ -568,34 +568,15 @@ describe("schematic queries", () => {
       expect(retrieved.name).toBe("renamed_schematic");
     });
 
-    it("runs afterOptimistic against the renamed schematic", async () => {
+    it("holds the new name in the cache once the rename resolves", async () => {
       const schem = await createTestSchematic(proj.key);
-      const order: string[] = [];
-
-      const { result } = renderHook(
-        () =>
-          Schematic.useRename({
-            // The client applies the rename before it calls back, so the cached
-            // schematic already carries the new name here.
-            afterOptimistic: ({ client: c, data }) => {
-              const cached = c.schematics.watch(data.key).getCached();
-              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper: Wrapper },
-      );
-
+      const { result } = renderHook(() => Schematic.useRename(), { wrapper: Wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: schem.key,
-          name: "optimistically_renamed",
-        });
+        await result.current.updateAsync({ key: schem.key, name: "renamed_in_cache" });
       });
-
-      expect(order).toEqual(["optimistic:optimistically_renamed", "success"]);
+      expect(client.schematics.watch(schem.key).getCached()).toMatchObject({
+        name: "renamed_in_cache",
+      });
     });
   });
 

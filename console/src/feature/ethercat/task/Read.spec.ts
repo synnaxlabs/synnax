@@ -9,7 +9,6 @@
 
 import {
   channel,
-  device,
   type ethercat,
   type rack,
   type Synnax,
@@ -35,6 +34,7 @@ import {
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   clickDeploy,
@@ -947,9 +947,10 @@ describe("Read", () => {
       key: renamed.key,
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    await client.devices.create(
+    await Device.setProperties(
+      client,
       {
-        ...device.toUpdate(deployed),
+        key: deployed.key,
         properties: { ...deployed.properties, identifier: createIdentifier() },
       },
       EtherCAT.Device.SLAVE_SCHEMAS,

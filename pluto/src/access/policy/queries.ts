@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, resource } from "@synnaxlabs/client";
+import { access, actions, resource } from "@synnaxlabs/client";
 import { array, deep, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -59,11 +59,9 @@ export interface RenameParams {
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.access.policies.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.access.policies.rename(key, name);
     return data;
   },
 });
@@ -80,8 +78,19 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   },
   retrieve: async ({ client, query: { key } }) =>
     await client.access.policies.retrieve(key),
-  update: async ({ client, value, set }) => {
-    const p = await client.access.policies.create(value());
-    set(formPath.key, p.key);
+  update: async ({ client, value, set, stored }) => {
+    const values = value();
+    if (values.key == null) {
+      const created = await client.access.policies.create(values);
+      set(formPath.key, created.key);
+      return;
+    }
+    const edits = actions.diffFields(formSchema, stored, values, [
+      "name",
+      "objects",
+      "actions",
+      "role",
+    ]);
+    if (edits.length > 0) await client.access.policies.dispatch(values.key, edits);
   },
 });

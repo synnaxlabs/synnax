@@ -39,11 +39,11 @@ list values with spaces, not commas.
 
 <Field.Item name="--listen" short="-l" type="address" default='"localhost:9090"' env="SYNNAX_LISTEN">
 
-The address that clients and other Cores use to reach this Core. The host must be a name
-or address they can reach, and the TLS certificate must cover it. The Core binds the
-port on every network interface. To bind more than one address, each with its own
-certificate, give a list of listeners in a [configuration file](#configuration-files).
-See [Serve multiple listeners](/reference/enterprise/listeners).
+The address that clients use to reach this Core. The host must be a name or address they
+can reach, and the TLS certificate must cover it. The Core binds the port on every
+network interface. To bind more than one address, each with its own certificate, give a
+list of listeners in a [configuration file](#configuration-files). See
+[Serve multiple listeners](/reference/enterprise/listeners).
 
 </Field.Item>
 
@@ -98,6 +98,18 @@ a file that is missing or cannot be read, with no message.
 Creates a CA and a certificate for the `--listen` host in `--certs-dir`, and replaces
 the certificate when the host changes. See
 [Set up TLS](/reference/enterprise/tls#use-a-self-signed-certificate).
+
+</Field.Item>
+
+<Field.Item name="--key-size" type="int" default="2048" env="SYNNAX_KEY_SIZE">
+
+The size in bits of the keys that `--auto-cert` creates.
+
+</Field.Item>
+
+<Field.Item name="--allow-key-reuse" env="SYNNAX_ALLOW_KEY_REUSE">
+
+Lets the CA key that `--auto-cert` uses sign more than one certificate.
 
 </Field.Item>
 
@@ -357,6 +369,9 @@ node-key: node.key
 username: synnax
 password: seldon
 license-file: /usr/local/synnax/synnax.lic
+debug: false
+session-idle-timeout: 168h
+slow-consumer-timeout: 2.5s
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -388,6 +403,9 @@ node-key = "node.key"
 username = "synnax"
 password = "seldon"
 license-file = "/usr/local/synnax/synnax.lic"
+debug = false
+session-idle-timeout = "168h"
+slow-consumer-timeout = "2.5s"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -481,11 +499,8 @@ After code 65 or 78, the Core fails the same way at each start until you fix the
 ## Cert
 
 The `cert` commands create the files that `--auto-cert` creates, without starting the
-Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, and `--node-key`
-with the same defaults as `start`, and also:
-
-- `--key-size` -> the key size in bits. Default 2048.
-- `--allow-key-reuse` -> lets the CA key sign more than one certificate. Default false.
+Core. They take `--certs-dir`, `--ca-cert`, `--ca-key`, `--node-cert`, `--node-key`,
+`--key-size`, and `--allow-key-reuse`, with the same defaults as `start`.
 
 ### cert ca
 
@@ -529,9 +544,10 @@ to commit the update. If the new Core fails, the command puts the old Core back 
 starts it. Without a service, it only replaces the binary that runs the command, so stop
 the Core first and start it after. The old binary stays next to the new one, with an
 `.old` extension. When the installed Core is the same version, the command does nothing.
-It refuses while an update of the data has not finished. For a service, the new binary
-can also run the command, such as for an update from a Core that has no `update`
-command.
+It refuses while an update of the data has not finished. It also refuses when an update
+to that version failed before, until you run `synnax update retry`. For a service, the
+new binary can also run the command, such as for an update from a Core that has no
+`update` command.
 
 - `--file` -> the Core binary to update to, in place of a version.
 - `--timeout` -> how long to wait for the new Core to commit the update. Default `10m`.

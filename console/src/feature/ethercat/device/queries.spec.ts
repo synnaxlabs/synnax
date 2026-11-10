@@ -20,6 +20,7 @@ import {
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
+import { Device } from "@/platform/device";
 import {
   answerCommand,
   type CommandAnswer,
@@ -73,10 +74,7 @@ describe("useResultSlave", () => {
     await waitFor(() => expect(result.current?.name).toEqual("Original Name"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        name: "Updated Name",
-      });
+      await client.devices.rename(dev.key, "Updated Name");
     });
 
     await waitFor(() => {
@@ -236,10 +234,11 @@ describe("useCommonNetwork", () => {
     await waitFor(() => expect(result.current).toEqual("original-network"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        properties: { ...dev.properties, network: "updated-network" },
-      });
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties: { ...dev.properties, network: "updated-network" } },
+        EtherCAT.Device.SLAVE_SCHEMAS,
+      );
     });
 
     await waitFor(() => expect(result.current).toEqual("updated-network"));
@@ -358,58 +357,31 @@ describe("useToggleEnabled", () => {
     expect(updated2.properties.enabled).toBe(true);
   });
 
-  it("should hand the updated devices to afterSuccess", async () => {
+  it("should keep the other properties of the slave", async () => {
     const dev = await createSlaveDevice(rack.key, {
-      name: "After Success Device",
-      network: "eth0",
+      name: "Kept Properties Device",
+      network: "eth1",
+      position: 3,
       enabled: true,
     });
-    let updated: EtherCAT.Device.SlaveDevice[] = [];
 
-    const { result } = renderHook(
-      () =>
-        EtherCAT.Device.useToggleEnabled({
-          afterSuccess: ({ data }) => {
-            updated = data;
-          },
-        }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+      wrapper,
+    });
 
     await act(async () => {
       await result.current.updateAsync({ keys: dev.key });
     });
 
-    expect(updated.map(({ key }) => key)).toEqual([dev.key]);
-    expect(updated[0].properties.enabled).toBe(false);
-  });
-
-  it("should run afterOptimistic before the write commits", async () => {
-    const dev = await createSlaveDevice(rack.key, {
-      name: "Optimistic Toggle Device",
-      network: "eth0",
-      enabled: true,
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
-    const order: string[] = [];
-
-    const { result } = renderHook(
-      () =>
-        EtherCAT.Device.useToggleEnabled({
-          afterOptimistic: ({ data }) => {
-            order.push(`optimistic:${data[0].properties.enabled}`);
-          },
-          afterSuccess: () => {
-            order.push("success");
-          },
-        }),
-      { wrapper },
-    );
-
-    await act(async () => {
-      await result.current.updateAsync({ keys: dev.key });
+    expect(updated.properties).toMatchObject({
+      enabled: false,
+      network: "eth1",
+      position: 3,
     });
-
-    expect(order).toEqual(["optimistic:false", "success"]);
   });
 });
 

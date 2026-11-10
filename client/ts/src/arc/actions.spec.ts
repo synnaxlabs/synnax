@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { crdt, type record } from "@synnaxlabs/x";
+import { crdt, type record, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -88,6 +88,15 @@ describe("arc reducer", () => {
       const out = apply(state, setName("new"));
       expect(graphOf(out).nodes).toEqual(graphOf(state).nodes);
       expect(graphOf(out).edges).toEqual(graphOf(state).edges);
+    });
+  });
+
+  describe("setDirectory", () => {
+    it("should move the Arc into the directory", () => {
+      const directory = uuid.create();
+      expect(apply(empty(), arc.setDirectory({ directory })).directory).toEqual(
+        directory,
+      );
     });
   });
 
@@ -466,6 +475,19 @@ describe("arc reducer inverses", () => {
     });
     it("should target the name", () => {
       expect(arc.reduceAll(empty({}, "a"), [setName("b")]).targets).toEqual(["name"]);
+    });
+  });
+
+  describe("setDirectory", () => {
+    it("should invert to restore the prior directory", () => {
+      const state = { ...empty(), directory: uuid.create() };
+      expectRoundTrip(state, [arc.setDirectory({ directory: uuid.create() })]);
+    });
+    it("should produce an empty inverse when the Arc has no directory", () => {
+      expect(
+        arc.reduceAll(empty(), [arc.setDirectory({ directory: uuid.create() })])
+          .inverse,
+      ).toEqual([]);
     });
   });
 

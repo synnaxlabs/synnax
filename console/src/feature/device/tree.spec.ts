@@ -18,6 +18,7 @@ import { Device } from "@/feature/device";
 import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
+import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
 import { Tree } from "@/platform/tree";
@@ -181,6 +182,18 @@ describe("device/tree", () => {
     fireEvent.click(await screen.findByText("Edit connection"));
     expect(await screen.findByText("Modbus server")).toBeTruthy();
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
+  });
+});
+
+describe("device location", () => {
+  it("should read the location in the format of the device's integration", async () => {
+    const dev = await createTestDevice(client, {
+      make: OPCUA.Device.MAKE,
+      location: "opc.tcp://10.0.0.5:4840",
+    });
+    await renderDeviceTree(hostDevices(dev));
+    expect(await screen.findByText("10.0.0.5")).toBeTruthy();
+    expect(screen.queryByText(/opc\.tcp/)).toBeNull();
   });
 });
 
