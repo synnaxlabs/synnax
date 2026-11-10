@@ -19,6 +19,15 @@ on:
       - freighter/ts/package.json
       - x/ts/package.json
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "A dist-tag to move instead of publishing, such as latest"
+        type: string
+        default: ""
+      packages:
+        description: "Space-separated versions to tag, such as @synnaxlabs/x@0.60.1"
+        type: string
+        default: ""
 
 permissions:
   id-token: write
@@ -27,7 +36,9 @@ jobs:
   publish:
     name: Publish
     # A hotfix publishes from its release branch.
-    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/heads/release/')
+    if: >-
+      !inputs.tag && (github.ref == 'refs/heads/main' || startsWith(github.ref,
+      'refs/heads/release/'))
     runs-on: ubuntu-latest
     env:
       SYNNAX_TS_ENV: prod
@@ -46,3 +57,31 @@ jobs:
       - name: Publish
         # pnpm refuses a branch other than main unless it is named here.
         run: pnpm publish -r --publish-branch "$GITHUB_REF_NAME"
+
+  tag:
+    name: Tag
+    if: inputs.tag
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Tag
+        # npm moves a tag through trusted publishing from 12.2.0. It refuses to run in
+        # the repository, whose devEngines names pnpm.
+        working-directory: ${{ runner.temp }}
+        env:
+          TAG: ${{ inputs.tag }}
+          PACKAGES: ${{ inputs.packages }}
+        run: |
+          read -ra packages <<< "$PACKAGES"
+          if [ ${#packages[@]} -eq 0 ]; then
+            echo "::error::Name the package versions to tag."
+            exit 1
+          fi
+          for package in "${packages[@]}"; do
+            pnpm dlx npm@12.2.1 dist-tag add "$package" "$TAG"
+          done
