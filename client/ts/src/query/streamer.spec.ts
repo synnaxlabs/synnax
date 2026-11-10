@@ -177,14 +177,14 @@ describe("openStreamer", () => {
       ]);
     });
 
-    it("delivers the valid samples of a series and passes on the invalid one", async () => {
+    it("delivers the valid samples of a series and passes on the invalid ones", async () => {
       const onChange = vi.fn();
       const onInvalid = vi.fn();
       const onError = vi.fn();
       const schema = z.object({ name: z.string() });
       const frames = [
         new framer.Frame({
-          test: new Series([{ name: "a" }, { name: 1 }, { name: "c" }]),
+          test: new Series([{ name: "a" }, { name: 1 }, { name: 2 }, { name: "c" }]),
         }),
       ];
       const closeStreamer = await openStreamer(
@@ -197,7 +197,10 @@ describe("openStreamer", () => {
       await expect.poll(() => onChange.mock.calls.length).toBe(1);
       await closeStreamer();
       expect(onChange).toHaveBeenCalledExactlyOnceWith([{ name: "a" }, { name: "c" }]);
-      expect(onInvalid).toHaveBeenCalledExactlyOnceWith({ name: 1 }, expect.any(Error));
+      expect(onInvalid.mock.calls).toEqual([
+        [{ name: 1 }, expect.any(Error)],
+        [{ name: 2 }, expect.any(Error)],
+      ]);
       expect(onError).toHaveBeenCalledOnce();
       expect(onError.mock.calls[0][0].message).toBe(
         "failed to parse streamer change for test",

@@ -30,7 +30,8 @@ export interface Listener<Z extends z.ZodType = z.ZodType> {
   onChange(this: void, changed: z.output<Z>[]): Promise<unknown> | unknown;
   /**
    * Receives each sample that fails the schema, as the schema received it, before
-   * onChange gets the frame's valid values. The streamer reports the error too.
+   * onChange gets the frame's valid values. The streamer reports the first error of
+   * each frame too.
    */
   onInvalid?(this: void, raw: unknown, error: Error): void;
 }
@@ -170,6 +171,7 @@ export const createStreamer = ({
           const parseOpts = { label: `${name} sample` };
           for (const { onChange, onInvalid, schema } of listeners) {
             const parsed: z.output<typeof schema>[] = [];
+            let reported = false;
             for (const sample of samples) {
               let raw = sample;
               try {
@@ -178,7 +180,10 @@ export const createStreamer = ({
                   raw = caseconv.snakeToCamel(JSON.parse(sample as string), { schema });
                 parsed.push(zod.parse(schema, raw, parseOpts));
               } catch (exc) {
-                report(exc, `failed to parse streamer change for ${name}`);
+                // One report per frame, so a frame of bad samples cannot flood onError.
+                if (!reported)
+                  report(exc, `failed to parse streamer change for ${name}`);
+                reported = true;
                 if (onInvalid != null)
                   await deliver(
                     () => onInvalid(raw, errors.fromUnknown(exc)),
