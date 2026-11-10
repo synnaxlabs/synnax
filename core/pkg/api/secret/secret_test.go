@@ -278,6 +278,21 @@ var _ = Describe("Service", func() {
 				},
 			)
 			It(
+				"Should let a user with only update access replace a secret",
+				func(ctx SpecContext) {
+					editor := createUser(ctx)
+					allow(
+						ctx,
+						editor.ResourceID(),
+						[]access.Action{access.ActionUpdate},
+						existing.ResourceID(),
+					)
+					MustSucceed(replace(ctx, editor))
+					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
+						To(Equal("After"))
+				},
+			)
+			It(
 				"Should deny a replace that comes with a new key in the same request",
 				func(ctx SpecContext) {
 					key := uuid.New()
