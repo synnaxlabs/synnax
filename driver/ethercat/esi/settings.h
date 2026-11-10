@@ -21,9 +21,10 @@
 namespace driver::ethercat::esi {
 /// @brief returns the settings that the catalog describes for a product: the card-wide
 /// settings under "device", and under "channels" the settings of each input with the
-/// entries that read it in every PDO layout.
-/// Reads the option lists and limits that the catalog takes from the card through
-/// read. Returns nullopt when the catalog describes no settings for the product.
+/// entries that read it in every PDO layout. Each setting of an input holds the value
+/// of the card in "value". Reads the values, option lists, and limits from the card
+/// through read. Returns nullopt when the catalog describes no settings for the
+/// product.
 /// @returns the error of a failed read, or errors::SDO_READ_ERROR when the card counts
 /// no options, or more than its table can hold.
 std::pair<std::optional<x::json::json>, x::errors::Error>

@@ -26,22 +26,22 @@ constexpr uint32_t IOLITE_6XSTG = 252;
 /// @brief CoE objects keyed by index and sub-index.
 using Objects = std::map<std::pair<uint16_t, uint8_t>, uint32_t>;
 
-/// @brief returns the range, filter, and excitation tables of the six inputs of the
-/// 6xSTG on the station. Each input holds the tables of input 1 at its own indices.
+/// @brief the bits of 5 V in the float32 excitation voltage (0x8040:1C).
+constexpr uint32_t FIVE_VOLTS = 0x40A00000;
+
+/// @brief returns the settings and the range, filter, and excitation tables of the six
+/// inputs of the 6xSTG on the station. Input 1 is a full bridge at 5 V excitation, on
+/// its third range. Each input holds the objects of input 1 at its own indices.
 inline Objects stg_objects() {
     const Objects input_1{
-        {{0x8050, 3}, 5},
-        {{0x8050, 4}, 500},
-        {{0x8050, 5}, 100},
-        {{0x8050, 6}, 30},
-        {{0x8050, 7}, 10},
-        {{0x8050, 8}, 1},
-        {{0x8060, 1}, 2},
-        {{0x8060, 2}, 10000},
-        {{0x8060, 3}, 500},
-        {{0x8070, 2}, 240},
-        {{0x8070, 3}, 42},
-        {{0x8070, 4}, 120},
+        {{0x8040, 1}, 6},           {{0x8040, 2}, 0},   {{0x8040, 3}, 2},
+        {{0x8040, 4}, 1},           {{0x8040, 5}, 0},   {{0x8040, 8}, 0},
+        {{0x8040, 28}, FIVE_VOLTS}, {{0x8040, 31}, 0},  {{0x8040, 32}, 1},
+        {{0x8040, 33}, 0},          {{0x8040, 34}, 0},  {{0x8050, 3}, 5},
+        {{0x8050, 4}, 500},         {{0x8050, 5}, 100}, {{0x8050, 6}, 30},
+        {{0x8050, 7}, 10},          {{0x8050, 8}, 1},   {{0x8060, 1}, 2},
+        {{0x8060, 2}, 10000},       {{0x8060, 3}, 500}, {{0x8070, 2}, 240},
+        {{0x8070, 3}, 42},          {{0x8070, 4}, 120},
     };
     Objects objects;
     for (uint16_t input = 0; input < 6; input++)

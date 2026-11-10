@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <bit>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -96,6 +97,23 @@ x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
         if (auto err = resolve(setting, read)) return err;
     return x::errors::NIL;
 }
+
+/// @brief sets the "value" of each setting to the float32 or unsigned value that the
+/// card holds.
+x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
+    for (auto &setting: settings) {
+        const auto [raw, err] = read(
+            setting["index"].get<uint16_t>(),
+            setting["sub_index"].get<uint8_t>()
+        );
+        if (err) return err;
+        if (setting["data_type"] == "float32")
+            setting["value"] = std::bit_cast<float>(raw);
+        else
+            setting["value"] = raw;
+    }
+    return x::errors::NIL;
+}
 }
 
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
@@ -131,6 +149,8 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         for (auto &rule: channel["requires"])
             shift(rule, step);
         if (auto err = resolve_all(channel["settings"], read))
+            return {std::nullopt, err};
+        if (auto err = read_values(channel["settings"], read))
             return {std::nullopt, err};
         result["channels"].push_back(std::move(channel));
     }
