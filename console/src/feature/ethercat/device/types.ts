@@ -62,6 +62,18 @@ const startupParameterZ = z.object({
 });
 export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
+/** The mode that a slave held at the scan, as its catalog describes it. */
+const modeZ = z.object({
+  value: z.number(),
+  /** Whether other software also sets up the slave. */
+  shared: z.boolean(),
+  /** The sync mode that the mode needs. */
+  opMode: opModeChoiceZ.optional(),
+  /** The writes that make the slave standalone. Empty when it is. */
+  switch: z.array(startupParameterZ),
+});
+export interface Mode extends z.infer<typeof modeZ> {}
+
 const ZERO_PDOS: PDOs = {
   inputs: [],
   outputs: [],
@@ -92,7 +104,7 @@ export const slavePropertiesZ = z.object({
   opMode: opModeChoiceZ.optional(),
   startupParameters: z.array(startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
-  settings: descriptionZ.optional(),
+  settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 

@@ -23,6 +23,7 @@ import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
@@ -1203,6 +1204,27 @@ describe("Read", () => {
     const { container, statuses } = await render("int16");
     await clickDeploy(container);
     await awaitStatus(statuses, /holds uint16 data, not int16/);
+  });
+
+  it("should reject a channel of an input that only DewesoftX reads", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+          "reads\\. Open the device settings of the slave to change its setup\\.$",
+      ),
+    );
   });
 
   describe("a slave with the identifier of a deleted slave", () => {

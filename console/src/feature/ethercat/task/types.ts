@@ -11,7 +11,11 @@ import { channel, ethercat, type task } from "@synnaxlabs/client";
 import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  type SlaveDevice,
+  type SlaveProperties,
+} from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
@@ -146,6 +150,18 @@ export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[]
     return true;
   });
 };
+
+/**
+ * @returns the entries of the slave that a channel can use: one per address, without
+ * the inputs that only another program reads.
+ */
+export const usableEntries = (
+  props: SlaveProperties,
+  pdoType: PDOType,
+): ethercat.PDOEntry[] =>
+  uniqueEntries(props.pdos[pdoType]).filter(
+    (e) => pdoType === "outputs" || onlyReaderOf(props, e) == null,
+  );
 
 /** @returns the entry at the address, or undefined if the slave has none there. */
 export const entryAt = (

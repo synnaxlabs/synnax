@@ -13,10 +13,13 @@ import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
   createUnresolvedWriteChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 
 const roundTrip = (key: string): string =>
@@ -55,6 +58,17 @@ describe("uniqueEntries", () => {
   it("should keep entries that share a name but not an address", () => {
     const { inputs } = createRepeatedNamePDOs();
     expect(EtherCAT.Task.uniqueEntries(inputs)).toHaveLength(8);
+  });
+});
+
+describe("usableEntries", () => {
+  it("should leave out the inputs that only another program reads", () => {
+    const props = {
+      ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    };
+    expect(EtherCAT.Task.usableEntries(props, "inputs")).toEqual([STRAIN_ENTRY]);
   });
 });
 

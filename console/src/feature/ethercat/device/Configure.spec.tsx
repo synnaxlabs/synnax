@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -14,9 +15,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createIdentifier,
   createSettingsDescription,
   createSlaveDevice,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
@@ -59,7 +63,8 @@ interface SetupArgs {
   useOpen?: typeof Device.useConfigureModal;
   analytics?: Analytics.Sink;
   startupParameters?: EtherCAT.Device.StartupParameter[];
-  settings?: EtherCAT.Device.Settings.Description;
+  settings?: EtherCAT.Device.SlaveProperties["settings"];
+  inputs?: ethercat.PDOEntry[];
 }
 
 const setup = async ({
@@ -68,6 +73,7 @@ const setup = async ({
   analytics,
   startupParameters = [],
   settings,
+  inputs = [],
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -90,6 +96,7 @@ const setup = async ({
       opMode: OP_MODE,
       startupParameters,
       settings,
+      pdos: { inputs, outputs: [] },
     },
     configured,
   );
@@ -357,6 +364,30 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           FILTER,
         ]),
       );
+    });
+  });
+
+  describe("setup", () => {
+    it("should offer to switch a card that sends data only DewesoftX reads", async () => {
+      await setup({
+        settings: createDewesoftXSettings(true),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(findButton("Switch to Synnax only")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+    });
+
+    it("should hide the settings of a card that DewesoftX sets up", async () => {
+      await setup({ settings: createDewesoftXSettings(true), inputs: [STRAIN_ENTRY] });
+      expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
+      expect(
+        screen.getByText(
+          "DewesoftX sets up this device, so Synnax does not change its settings.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
     });
   });
 

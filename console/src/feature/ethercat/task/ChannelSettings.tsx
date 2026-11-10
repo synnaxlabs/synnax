@@ -22,6 +22,7 @@ import {
   valueAt,
   visibleFields,
 } from "@/feature/ethercat/device/settings";
+import { isShared } from "@/feature/ethercat/device/setup";
 import { type EntryReadChannel, type ReadSchemas } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -44,7 +45,8 @@ export interface ChannelSettingsProps {
 /**
  * Edits the settings that the read task writes to the input that the channel reads,
  * as the catalog of the channel's slave describes them. Channels that read one input
- * share its settings. Renders nothing for an entry that the catalog does not describe.
+ * share its settings. Renders nothing for an entry that the catalog does not describe,
+ * or for a slave that other software sets up.
  */
 export const ChannelSettings = ({
   path,
@@ -55,7 +57,7 @@ export const ChannelSettings = ({
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const channel = findChannel(slave?.properties.settings, ch);
-  if (channel == null) return null;
+  if (channel == null || slave == null || isShared(slave.properties)) return null;
   const fields = channel.settings;
   const values = settings.find((s) => s.device === ch.device)?.values ?? [];
   const problems = check(channel, values);

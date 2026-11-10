@@ -11,6 +11,7 @@ import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/clien
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
 import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
+import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -70,6 +71,12 @@ const validateEntries = <C extends Channel>(
           `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
             "Pick an entry.",
         );
+      const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
+      if (reader != null)
+        throw new Error(
+          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+            "reads. Open the device settings of the slave to change its setup.",
+        );
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
       if (
@@ -96,7 +103,8 @@ const validateEntries = <C extends Channel>(
  * Retrieves the slaves the channels use and checks the entries of the enabled channels.
  * @returns the slaves, their rack, and the enabled channels of each slave.
  * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, or an entry another channel uses.
+ * no entry, an entry its slave lacks, an input that only another program reads, or an
+ * entry another channel uses.
  */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
@@ -139,7 +147,8 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 
 /**
  * @returns the settings of each slave: a value for every field of each input that a
- * channel reads, in the order of the slave's catalog. Values the task held stay.
+ * channel reads, in the order of the slave's catalog. Values the task held stay. A
+ * slave that other software sets up gets none.
  * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
 export const fillSettings = (
@@ -149,6 +158,7 @@ export const fillSettings = (
 ): ethercat.SlaveSettings[] => {
   const filled: ethercat.SlaveSettings[] = [];
   for (const slave of slaves) {
+    if (isShared(slave.properties)) continue;
     const inputs = slave.properties.settings?.channels ?? [];
     const entries = channels.filter(
       (ch): ch is EntryReadChannel => hasEntry(ch) && ch.device === slave.key,

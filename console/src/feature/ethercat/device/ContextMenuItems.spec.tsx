@@ -367,6 +367,40 @@ describe("EtherCAT device ContextMenuItems", () => {
       ).toBeTruthy();
     });
 
+    it("should run the mode and cycles that the catalog gives in auto", async () => {
+      await openConfigure({
+        opModes: [SM_MODE, DC_MODE],
+        settings: {
+          device: [],
+          channels: [],
+          mode: {
+            value: 0,
+            shared: false,
+            opMode: {
+              index: 1,
+              assignActivate: 0x0300,
+              sync0Cycle: 1_000,
+              sync1Cycle: 1_000_000_000,
+            },
+            switch: [],
+          },
+        },
+      });
+      expect(
+        screen.getByText(
+          "SYNC0 ticks every 1μs. SYNC1 ticks every 1s. The cycle turns on SYNC1, " +
+            "which the mode leaves off.",
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+      expect(
+        await screen.findByText(
+          "The Driver uses DC, because the setup of the device needs it. Best for " +
+            "most needs.",
+        ),
+      ).toBeTruthy();
+    });
+
     it.each(MODE_TEXTS)(
       "should describe the clock ticks of a mode with $name",
       async ({ mode, option, help }) => {

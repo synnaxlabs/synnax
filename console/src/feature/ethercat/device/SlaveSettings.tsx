@@ -40,12 +40,14 @@ const setParameter = (
 
 /**
  * Edits the fields of the whole slave that its catalog describes. Each field is a
- * startup parameter. Renders nothing for a slave whose catalog describes none.
+ * startup parameter. Renders nothing for a slave whose catalog describes none, or that
+ * other software sets up.
  */
 export const SlaveSettings = (): ReactElement | null => {
-  const fields = Form.useFieldValue(PATH.settings, { optional: true })?.device ?? [];
+  const settings = Form.useFieldValue(PATH.settings, { optional: true });
   const { value: parameters, onChange } = Form.useField(PATH.startupParameters);
-  if (fields.length === 0) return null;
+  const fields = settings?.device ?? [];
+  if (fields.length === 0 || settings?.mode?.shared === true) return null;
   return (
     <Form.Section title="Settings">
       {visibleFields(fields, parameters).map((field) => (
