@@ -96,3 +96,23 @@ func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect 
 		handler(ctx, result)
 	})
 }
+
+// Merge returns an Observable that notifies a handler on a change to any of
+// observables. Disconnecting the merged handler disconnects it from every one.
+func Merge[T any](observables ...Observable[T]) Observable[T] {
+	return merged[T](observables)
+}
+
+type merged[T any] []Observable[T]
+
+func (m merged[T]) OnChange(handler func(context.Context, T)) Disconnect {
+	disconnects := make([]Disconnect, len(m))
+	for i, o := range m {
+		disconnects[i] = o.OnChange(handler)
+	}
+	return func() {
+		for _, disconnect := range disconnects {
+			disconnect()
+		}
+	}
+}

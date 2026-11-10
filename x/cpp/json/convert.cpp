@@ -13,6 +13,8 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <utility>
+#include <variant>
 
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/date/date.h"
@@ -232,6 +234,29 @@ telem::SampleValue number_to_numeric(const V v, const telem::DataType &target) {
     throw std::runtime_error("");
 }
 
+/// @brief converts the sample of an enum entry to target, throwing when an integer
+/// target cannot hold it exactly. A float target takes the nearest value, and throws
+/// past its range.
+telem::SampleValue
+enum_to_sample(const telem::SampleValue &sample, const telem::DataType &target) {
+    return std::visit(
+        [&target](const auto &v) -> telem::SampleValue {
+            using T = std::decay_t<decltype(v)>;
+            if constexpr (std::is_same_v<T, std::string>) {
+                if (target == telem::STRING_T) return telem::SampleValue(v);
+                throw std::runtime_error("a string enum value is not a number");
+            } else if constexpr (std::is_same_v<T, telem::TimeStamp>) {
+                throw std::runtime_error("a timestamp enum value is not a number");
+            } else {
+                if (target == telem::STRING_T)
+                    throw std::runtime_error("a numeric enum value is not a string");
+                return number_to_numeric(v, target);
+            }
+        },
+        sample
+    );
+}
+
 /// @brief returns true if the string contains only digits with an optional leading
 /// sign character ('+' or '-').
 bool is_integer_string(const std::string &str) {
@@ -357,7 +382,14 @@ telem::SampleValue convert(
     }
 
     if (target == telem::STRING_T) {
-        if (value.is_string()) return telem::SampleValue(value.get<std::string>());
+        if (value.is_string()) {
+            const auto &str = value.get_ref<const std::string &>();
+            if (enum_values != nullptr) {
+                auto it = enum_values->find(str);
+                if (it != enum_values->end()) return enum_to_sample(it->second, target);
+            }
+            return telem::SampleValue(str);
+        }
         return telem::SampleValue(value.dump());
     }
 
@@ -388,7 +420,7 @@ telem::SampleValue convert(
         const auto &str = value.get_ref<const std::string &>();
         if (enum_values != nullptr) {
             auto it = enum_values->find(str);
-            if (it != enum_values->end()) return number_to_numeric(it->second, target);
+            if (it != enum_values->end()) return enum_to_sample(it->second, target);
         }
         return string_to_numeric(str, target);
     }
@@ -430,24 +462,78 @@ bool check_to_sample_value(const telem::DataType &target) {
 }
 
 namespace {
-/// @brief returns CONVERSION_ERROR if v has no JSON form of type target. A NaN never
-/// matches an enum value, because NaN breaks the ordering of the enum map.
+/// @brief returns CONVERSION_ERROR if v has no JSON form of type target.
 template<typename T>
-errors::Error check_float(const T v, const Type target, const bool has_enum) {
+errors::Error check_float(const T v, const Type target) {
     if (std::isnan(v)) {
         if (target == Type::Number)
             return {CONVERSION_ERROR, "NaN is not a valid JSON number"};
         if (target == Type::Boolean)
             return {CONVERSION_ERROR, "NaN is not a valid JSON boolean"};
-        if (has_enum) return {CONVERSION_ERROR, "NaN matches no enum value"};
         return errors::NIL;
     }
     if (std::isinf(v) && target == Type::Number)
         return {
             CONVERSION_ERROR,
-            std::string(v > 0 ? "inf" : "-inf") + " is not a valid JSON number",
+            std::string(v > 0 ? "Infinity" : "-Infinity") +
+                " is not a valid JSON number",
         };
     return errors::NIL;
+}
+
+/// @brief returns true if the float f equals the integer i exactly.
+template<typename F, typename I>
+bool float_equals_integer(const F f, const I i) {
+    if (!std::isfinite(f) || f != std::trunc(f)) return false;
+    if (f < static_cast<F>(std::numeric_limits<I>::min()) ||
+        f >= std::ldexp(F(1), std::numeric_limits<I>::digits))
+        return false;
+    return static_cast<I>(f) == i;
+}
+
+/// @brief returns true if sample matches the enum value entry. A float entry narrows
+/// to the type of a float sample, and a NaN entry matches any NaN.
+bool matches(const telem::SampleValue &entry, const telem::SampleValue &sample) {
+    return std::visit(
+        [](const auto &e, const auto &s) -> bool {
+            using E = std::decay_t<decltype(e)>;
+            using S = std::decay_t<decltype(s)>;
+            if constexpr (
+                std::is_same_v<E, std::string> || std::is_same_v<S, std::string> ||
+                std::is_same_v<E, telem::TimeStamp> ||
+                std::is_same_v<S, telem::TimeStamp>
+            ) {
+                if constexpr (std::is_same_v<E, S>)
+                    return e == s;
+                else
+                    return false;
+            } else if constexpr (
+                std::is_floating_point_v<E> && std::is_floating_point_v<S>
+            ) {
+                if (std::isnan(e)) return std::isnan(s);
+                if (std::isfinite(e) && std::abs(e) > std::numeric_limits<S>::max())
+                    return false;
+                return static_cast<S>(e) == s;
+            } else if constexpr (std::is_floating_point_v<E>) {
+                return float_equals_integer(e, s);
+            } else if constexpr (std::is_floating_point_v<S>) {
+                return float_equals_integer(s, e);
+            } else {
+                return std::cmp_equal(e, s);
+            }
+        },
+        entry,
+        sample
+    );
+}
+
+/// @brief returns the text of a float: NaN, Infinity, or -Infinity when it is not
+/// finite.
+template<typename T>
+std::string float_text(const T v) {
+    if (std::isnan(v)) return "NaN";
+    if (std::isinf(v)) return v > 0 ? "Infinity" : "-Infinity";
+    return std::format("{}", v);
 }
 }
 
@@ -456,9 +542,11 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
     Type target,
     const ReverseEnumMap *enum_values
 ) {
+    if (enum_values != nullptr)
+        for (const auto &[entry, label]: *enum_values)
+            if (matches(entry, value)) return {nlohmann::json(label), errors::NIL};
     return std::visit(
-        [target,
-         enum_values](const auto &v) -> std::pair<nlohmann::json, errors::Error> {
+        [target](const auto &v) -> std::pair<nlohmann::json, errors::Error> {
             using T = std::decay_t<decltype(v)>;
             if constexpr (std::is_same_v<T, std::string>) {
                 if (target == Type::String) return {nlohmann::json(v), errors::NIL};
@@ -467,13 +555,10 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
                 return {nlohmann::json(), CONVERSION_ERROR};
             } else {
                 if constexpr (std::is_floating_point_v<T>) {
-                    if (auto err = check_float(v, target, enum_values != nullptr))
+                    if (auto err = check_float(v, target))
                         return {nlohmann::json(), err};
-                }
-                if (enum_values != nullptr && target == Type::String) {
-                    if (const auto it = enum_values->find(nlohmann::json(v));
-                        it != enum_values->end())
-                        return {nlohmann::json(it->second), errors::NIL};
+                    if (target == Type::String)
+                        return {nlohmann::json(float_text(v)), errors::NIL};
                 }
                 switch (target) {
                     case Type::Number:
@@ -529,23 +614,22 @@ from_series(const telem::Series &series, const int index) {
 }
 
 nlohmann::json from_timestamp(telem::TimeStamp ts, TimeFormat format) {
-    switch (format) {
-        case TimeFormat::UnixNanosecond:
-            return ts.nanoseconds();
-        case TimeFormat::UnixMicrosecond:
-            return static_cast<double>(ts.nanoseconds()) / 1e3;
-        case TimeFormat::UnixMillisecond:
-            return static_cast<double>(ts.nanoseconds()) / 1e6;
-        case TimeFormat::UnixSecond:
-            return static_cast<double>(ts.nanoseconds()) / 1e9;
-        case TimeFormat::ISO8601:
-            return ts.iso8601();
-        default:
-            throw std::runtime_error(
-                "unexpected TimeFormat value: " +
-                std::to_string(static_cast<int>(format))
-            );
-    }
+    if (format == TimeFormat::ISO8601) return ts.iso8601();
+    const int64_t unit = nanoseconds_per_unit(format);
+    const int64_t ns = ts.nanoseconds();
+    const int64_t whole = ns / unit;
+    const int64_t frac = ns % unit;
+    if (frac == 0) return whole;
+    // Parse the exact decimal text, so the double rounds once.
+    const auto digits = std::to_string(unit).size() - 1;
+    const auto text = std::format(
+        "{}{}.{:0{}}",
+        ns < 0 ? "-" : "",
+        whole < 0 ? -static_cast<uint64_t>(whole) : static_cast<uint64_t>(whole),
+        frac < 0 ? -frac : frac,
+        digits
+    );
+    return parse_string_double(text);
 }
 
 nlohmann::json zero_value(Type format) {
