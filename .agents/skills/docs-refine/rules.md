@@ -66,10 +66,11 @@ line.
 - The nav (`PageNavNode.edition`) marks whole pages and groups as Enterprise or Desktop.
   Never put an edition in front matter.
 - Content that only applies to the Python or TypeScript client goes inside that client's
-  tab. The tab already carries the Enterprise badge, so it needs no `Edition.Enterprise`
-  block. Repeating a sentence in two tabs is acceptable.
-- `Edition.Enterprise` blocks are for Enterprise-only content outside the client tabs,
-  such as the users toolbar.
+  tab. Repeating a sentence in two tabs is acceptable.
+- The client tabs apply to both editions, because a script on the same computer connects
+  to Synnax Desktop. Mark content Enterprise only when it needs a remote Core, users, or
+  TLS. Use an `Edition.Enterprise` block for such content inside a page, such as the
+  users toolbar.
 
 ## Presentation
 

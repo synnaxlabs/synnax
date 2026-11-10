@@ -45,10 +45,14 @@ module fails to start with an NI-DAQmx error that says the resource is reserved.
 
 1. In the devices toolbar, right-click a device and select **Create analog read task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**. In **Source**, select the **Device** and the **Port**.
-4. In **Signal**, select the **Channel type**, then set its fields. See the
-   [channel reference](#channel-reference).
-5. Click <Icon.Play /> (**Start**).
+3. The task starts with one channel. To add more, click **Add channel**, or select
+   **Ports** above the channel list and click a free port. See
+   [ports](/reference/hardware/tasks#ports).
+4. Select a channel. In **Source**, select the **Device**, then click a port in the
+   **Port** grid.
+5. In **Signal**, select the **Channel type**, then set its fields. The list shows only
+   the types that the port takes. See the [channel reference](#channel-reference).
+6. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
 `dev1_ai_0`, and the built-in temperature sensor gives `dev1_ai_temp`. Each device has
@@ -928,15 +932,86 @@ Stop the other task, or move its channels into this task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Port ... has already been used on another channel on the same device"}>
+<Problem.Item message={["Another channel uses ai3", "Another channel uses ai11, its negative input", "ai3 is the negative input of another channel"]}>
 <Problem.Cause>
 
-Two channels use the same port of one device.
+Two enabled channels use the same port of one device. A differential channel also uses
+the port of its negative input.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Change the port of one of them.
+Change the port of one of the channels, or disable one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device has no port ai3"}>
+<Problem.Cause>
+
+The channel uses a port that the device does not have. The Console checks the ports when
+it knows the port list of the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Click a port in the **Port** grid of the channel.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"ai3 does not take ... channels"}>
+<Problem.Cause>
+
+The port cannot read the channel type, such as a thermocouple on a voltage module.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a **Channel type** that the port takes, or move the channel to a port of another
+module.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"ai3 does not take ..."}>
+<Problem.Cause>
+
+The port does not support the **Terminal configuration** of the channel, such as
+differential.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a terminal configuration that the port takes, or **Default**.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... samples at most ... Hz"}>
+<Problem.Cause>
+
+The **Sample rate** is higher than the maximum rate of the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Sample rate** to the rate in the message.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... may not sample ... channels faster than ... Hz"} severity="warning">
+<Problem.Cause>
+
+The device shares its maximum rate between its channels. A device with thermocouple
+channels also scans two more channels. The task can start, but the device can fail to
+keep up.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Lower the **Sample rate**, or move channels to another module.
 
 </Problem.Fix>
 </Problem.Item>
