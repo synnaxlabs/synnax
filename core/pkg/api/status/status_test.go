@@ -130,6 +130,25 @@ var _ = Describe("Service.Set", func() {
 		}),
 	)
 
+	DescribeTable(
+		"Should store the details of a rack status as the rack decodes them",
+		func(ctx SpecContext, details any, expected rack.StatusDetails) {
+			owner := createRack(ctx)
+			s := newStatus(&owner, details)
+			Expect(MustSucceed(set(ctx, s)).Statuses[0].Details).To(Equal(expected))
+			var stored status.Status[rack.StatusDetails]
+			Expect(statusSvc.NewRetrieve[rack.StatusDetails]().
+				Where(status.MatchOwners[rack.StatusDetails](owner)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Details).To(Equal(expected))
+		},
+		Entry("no details", nil, rack.StatusDetails{}),
+		Entry("running", map[string]any{"running": true}, rack.StatusDetails{
+			Running: true,
+		}),
+	)
+
 	It(
 		"Should accept free-form details on a status with no owner",
 		func(ctx SpecContext) {
