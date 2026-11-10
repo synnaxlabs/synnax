@@ -388,9 +388,8 @@ run_build_matches() {
     local os_list=$3
     local file="${CACHE_DIR}/jobs-${run_id}.json"
     if [ ! -f "${file}" ]; then
-        local jobs
-        if ! jobs=$(gh api --paginate --jq '.jobs[]' 2> /dev/null \
-            "repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100"); then
+        local url="repos/:owner/:repo/actions/runs/${run_id}/jobs?per_page=100" jobs
+        if ! jobs=$(gh api --paginate --jq '.jobs[]' "${url}" 2> /dev/null); then
             log "jobs unreadable for run ${run_id}"
             return 1
         fi
