@@ -200,9 +200,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AccessDispatchRole = noop.UnaryServer[role.DispatchRequest, struct{}]{}
 
 	// SECRET
-	t.SecretCreate = noop.UnaryServer[apisecret.CreateRequest, apisecret.CreateResponse]{}
+	t.SecretSet = noop.UnaryServer[apisecret.SetRequest, apisecret.SetResponse]{}
 	t.SecretRetrieve = noop.UnaryServer[apisecret.RetrieveRequest, apisecret.RetrieveResponse]{}
-	t.SecretRename = noop.UnaryServer[apisecret.RenameRequest, struct{}]{}
 	t.SecretDelete = noop.UnaryServer[apisecret.DeleteRequest, struct{}]{}
 	t.SecretDispatch = noop.UnaryServer[apisecret.DispatchRequest, struct{}]{}
 	t.SecretGrantCreate = noop.UnaryServer[apisecret.GrantCreateRequest, apisecret.GrantCreateResponse]{}

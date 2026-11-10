@@ -36,12 +36,11 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates the secret, or replaces the secret with the same key. For a stored
-// secret, value is the plain text, which Create encrypts and must not be empty. For a
-// file secret, value must be empty. Create gives a secret without a key a new one, and
-// sets Updated. The commit carries a create action that holds the secret without its
-// value.
-func (w Writer) Create(ctx context.Context, s *Secret, value []byte) error {
+// Set creates the secret, or replaces the secret with the same key. For a stored
+// secret, value is the plain text, which Set encrypts and must not be empty. For a file
+// secret, value must be empty. Set gives a secret without a key a new one, and sets
+// Updated. The commit carries a create action that holds the secret without its value.
+func (w Writer) Set(ctx context.Context, s *Secret, value []byte) error {
 	if err := validateSecret(*s, value); err != nil {
 		return err
 	}

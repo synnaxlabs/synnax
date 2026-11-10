@@ -69,7 +69,7 @@ func (e *env) createStored(ctx SpecContext, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
 	Expect(e.write(ctx, func(w secret.Writer) error {
-		return w.Create(ctx, &s, []byte(value))
+		return w.Set(ctx, &s, []byte(value))
 	})).To(Succeed())
 	return s
 }
@@ -170,7 +170,7 @@ var _ = Describe("Service", func() {
 					Variant: secret.StoredSecret{Base: secret.Base{Name: "Created"}},
 				}
 				Expect(e.write(ctx, func(w secret.Writer) error {
-					if err := w.Create(ctx, &created, []byte("c")); err != nil {
+					if err := w.Set(ctx, &created, []byte("c")); err != nil {
 						return err
 					}
 					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {

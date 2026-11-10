@@ -53,7 +53,7 @@ var _ = Describe("Writer", func() {
 				Base: secret.Base{Key: key, Name: "Password"},
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
-				return w.Create(ctx, &s, []byte("a"))
+				return w.Set(ctx, &s, []byte("a"))
 			})).To(Succeed())
 			Expect(e.retrieve(ctx, key).Base().Name).To(Equal("Password"))
 		})
@@ -63,7 +63,7 @@ var _ = Describe("Writer", func() {
 				Path: "/etc/plant/key.pem",
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
-				return w.Create(ctx, &s, nil)
+				return w.Set(ctx, &s, nil)
 			})).To(Succeed())
 			file := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
 			Expect(file.Path).To(Equal("/etc/plant/key.pem"))
@@ -74,7 +74,7 @@ var _ = Describe("Writer", func() {
 				s := e.createStored(ctx, "Password", "old")
 				e.now += 10
 				Expect(e.write(ctx, func(w secret.Writer) error {
-					return w.Create(ctx, &s, []byte("new"))
+					return w.Set(ctx, &s, []byte("new"))
 				})).To(Succeed())
 				Expect(e.retrieve(ctx, s.Base().Key).Base().Updated).To(Equal(e.now))
 				Expect(resolve(ctx, s.Base().Key)).To(Equal("new"))
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 		DescribeTable("Should reject an invalid secret",
 			func(ctx SpecContext, s secret.Secret, value, msg string) {
 				Expect(e.write(ctx, func(w secret.Writer) error {
-					return w.Create(ctx, &s, []byte(value))
+					return w.Set(ctx, &s, []byte(value))
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},

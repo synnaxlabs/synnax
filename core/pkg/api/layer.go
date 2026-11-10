@@ -234,9 +234,8 @@ type Transport struct {
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// SECRET
-	SecretCreate   freighter.UnaryServer[secret.CreateRequest, secret.CreateResponse]
+	SecretSet      freighter.UnaryServer[secret.SetRequest, secret.SetResponse]
 	SecretRetrieve freighter.UnaryServer[secret.RetrieveRequest, secret.RetrieveResponse]
-	SecretRename   freighter.UnaryServer[secret.RenameRequest, struct{}]
 	SecretDelete   freighter.UnaryServer[secret.DeleteRequest, struct{}]
 	// SecretDispatch applies path actions to a secret.
 	SecretDispatch    freighter.UnaryServer[secret.DispatchRequest, struct{}]
@@ -494,9 +493,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.ViewDispatch,
 
 		// SECRET
-		t.SecretCreate,
+		t.SecretSet,
 		t.SecretRetrieve,
-		t.SecretRename,
 		t.SecretDelete,
 		t.SecretDispatch,
 		t.SecretGrantCreate,
@@ -728,9 +726,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.ViewDispatch.BindHandler(bind.Write(l.binder, l.View.Dispatch))
 
 	// SECRET
-	t.SecretCreate.BindHandler(bind.Write(l.binder, l.Secret.Create))
+	t.SecretSet.BindHandler(bind.Write(l.binder, l.Secret.Set))
 	t.SecretRetrieve.BindHandler(bind.Read(l.binder, l.Secret.Retrieve))
-	t.SecretRename.BindHandler(bind.Write(l.binder, l.Secret.Rename))
 	t.SecretDelete.BindHandler(bind.Write(l.binder, l.Secret.Delete))
 	t.SecretDispatch.BindHandler(bind.Write(l.binder, l.Secret.Dispatch))
 	t.SecretGrantCreate.BindHandler(

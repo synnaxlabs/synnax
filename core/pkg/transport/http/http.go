@@ -626,17 +626,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// SECRET
-		SecretCreate: unary[secret.CreateRequest, secret.CreateResponse](
+		SecretSet: unary[secret.SetRequest, secret.SetResponse](
 			router,
-			"/api/v1/secret/create",
+			"/api/v1/secret/set",
 		),
 		SecretRetrieve: unary[secret.RetrieveRequest, secret.RetrieveResponse](
 			router,
 			"/api/v1/secret/retrieve",
-		),
-		SecretRename: unary[secret.RenameRequest, struct{}](
-			router,
-			"/api/v1/secret/rename",
 		),
 		SecretDelete: unary[secret.DeleteRequest, struct{}](
 			router,
@@ -644,7 +640,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		SecretDispatch: unary[secret.DispatchRequest, struct{}](
 			router,
-			"/api/v1/secret/dispatch",
+			"/api/v1"+api.PathSecretDispatch,
 		),
 		SecretGrantCreate: unary[secret.GrantCreateRequest, secret.GrantCreateResponse](
 			router,

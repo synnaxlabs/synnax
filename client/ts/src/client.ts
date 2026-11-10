@@ -165,7 +165,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     schematic.symbol.ACTION_CHANNEL_NAME,
     schematic.symbol.DELETE_CHANNEL_NAME,
   ),
-  secret: changes(secret.SET_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
+  secret: changes(secret.ACTION_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
   status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
   table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
   task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
