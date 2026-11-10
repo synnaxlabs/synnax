@@ -25,6 +25,7 @@ import {
   scopedActionZ,
   set,
   setUsername,
+  update,
 } from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
@@ -36,6 +37,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type UpdateInput,
   type User,
   userZ,
 } from "@/user/types.gen";
@@ -142,6 +144,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/user/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/user/dispatch", dispatchResZ),
       reduce: reduceAll,
       createOf,
     });
@@ -225,6 +228,16 @@ export class Client extends query.Retriever<
         apply: () => query.partialUpdate(this.store, key, { role }),
       })),
     );
+  }
+
+  /**
+   * Applies each update to its cached user until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if an user cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, UpdateInput>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

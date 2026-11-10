@@ -47,6 +47,17 @@ describe("UpdateInput", () => {
   });
 });
 
+describe("Client.update", () => {
+  it("should not take a field that only the Core sets", () => {
+    const input: Parameters<task.Client["update"]>[0] = {
+      key: "00000000-0000-4000-8000-000000000004",
+      // @ts-expect-error - only the Core sets configHash.
+      configHash: "h1",
+    };
+    expect(input).toHaveProperty("configHash", "h1");
+  });
+});
+
 describe("reduceAll", () => {
   it("should replace the config whole", () => {
     const prev = task.payloadZ().parse({

@@ -16,6 +16,7 @@ import {
   type Frame,
   type Reducer,
   type SendDispatch,
+  type SendDispatches,
 } from "@/actions/controller";
 import { AccessDeniedError } from "@/errors";
 import { Table } from "@/query/table";
@@ -84,6 +85,7 @@ const setupStore = (
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
     encode: (doc: Doc, action: Action) => Action;
     send: SendDispatch<string, Action>;
+    sendAll: SendDispatches<string, Action>;
     listed: (a: Action) => boolean;
   }> = {},
 ) => {
@@ -92,12 +94,16 @@ const setupStore = (
   const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
   const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => []));
+  const sendAll = vi.fn<SendDispatches<string, Action>>(
+    opts.sendAll ?? (async (dispatches) => dispatches.map(() => [])),
+  );
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
     reduce: reducer,
     send,
+    sendAll,
     encode: opts.encode,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
@@ -109,7 +115,7 @@ const setupStore = (
   });
   // A live change stream, so echoes arrive.
   epochs.notify(1);
-  return { errors, docs, epochs, controller, send };
+  return { errors, docs, epochs, controller, send, sendAll };
 };
 
 const set = (key: string, value: number): Action => ({ type: "set", key, value });
@@ -1612,6 +1618,143 @@ describe("actions.Controller", () => {
       expect(await controller.create(["missing"], create)).toBe("created");
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
+    });
+  });
+
+  describe("update", () => {
+    const build = ({ value }: { value: { a: number } }): Action => set("a", value.a);
+
+    it("sends one update through the dispatch endpoint", async () => {
+      const { docs, controller, send, sendAll } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.update({ key: "k", a: 4 }, build);
+      expect(send).toHaveBeenCalledWith("k", [set("a", 4)], expect.any(String));
+      expect(sendAll).not.toHaveBeenCalled();
+      expect(docs.get("k")).toEqual({ values: { a: 4 } });
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+
+    it("sends several updates as one batch with a dispatch key each", async () => {
+      const { docs, controller, send, sendAll } = setupStore();
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(send).not.toHaveBeenCalled();
+      const [dispatches] = sendAll.mock.calls[0];
+      expect(dispatches.map(({ key, actions }) => ({ key, actions }))).toEqual([
+        { key: "j", actions: [set("a", 1)] },
+        { key: "k", actions: [set("a", 2)] },
+      ]);
+      expect(new Set(dispatches.map(({ dispatchKey }) => dispatchKey)).size).toBe(2);
+      expect(docs.get("j")).toEqual({ values: { a: 1 } });
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("applies a batch to the cached docs before the Core answers", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async (dispatches) => {
+          expect(docs.get("j")).toEqual({ values: { a: 1 } });
+          return dispatches.map(() => []);
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "missing", a: 2 },
+        ],
+        build,
+      );
+      expect(controller.hasPending("missing")).toBe(false);
+    });
+
+    it("recognizes the echo of each update in a batch", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async (dispatches) => {
+          dispatches.forEach(({ key, dispatchKey, actions }) =>
+            controller.applyRemote(key, 0, dispatchKey, actions),
+          );
+          return dispatches.map(() => []);
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(controller.hasPending("j")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("applies the actions that the Core adds to a batch", async () => {
+      const { docs, epochs, controller } = setupStore({
+        sendAll: async (dispatches) => dispatches.map(({ key }) => [set(key, 9)]),
+      });
+      epochs.notify(0);
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(docs.get("j")).toEqual({ values: { a: 1, j: 9 } });
+      expect(docs.get("k")).toEqual({ values: { a: 2, k: 9 } });
+    });
+
+    it("rolls back every update of a batch that fails", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async () => {
+          throw new Error("stale");
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await expect(
+        controller.update(
+          [
+            { key: "j", a: 1 },
+            { key: "k", a: 2 },
+          ],
+          build,
+        ),
+      ).rejects.toThrow("stale");
+      expect(docs.get("j")).toEqual({ values: { a: 0 } });
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      expect(controller.hasPending("j")).toBe(false);
+    });
+
+    it("sends nothing when a cached doc cannot take its update", async () => {
+      const { docs, controller, sendAll } = setupStore();
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      const invalid = ({ value }: { value: { a: number } }): Action =>
+        value.a === 2 ? { type: "invalid" } : set("a", value.a);
+      await expect(
+        controller.update(
+          [
+            { key: "j", a: 1 },
+            { key: "k", a: 2 },
+          ],
+          invalid,
+        ),
+      ).rejects.toThrow("the doc cannot hold the action");
+      expect(sendAll).not.toHaveBeenCalled();
+      expect(docs.get("j")).toEqual({ values: { a: 0 } });
+      expect(controller.hasPending("j")).toBe(false);
     });
   });
 

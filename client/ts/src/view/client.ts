@@ -14,7 +14,13 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { query } from "@/query";
 import { createOf, reduceAll } from "@/view/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/view/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/view/actions.gen";
 import {
   type Action,
   type Key,
@@ -23,6 +29,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
   type View,
   viewZ,
 } from "@/view/types.gen";
@@ -76,6 +83,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/view/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/view/dispatch", dispatchResZ),
       reduce: reduceAll,
       createOf,
     });
@@ -113,6 +121,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies each update to its cached view until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a view cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

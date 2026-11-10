@@ -17,7 +17,13 @@ import { z } from "zod/v4";
 
 import { actions } from "@/actions";
 import { createOf, encode, isUndoable, kindOf, reduceAll } from "@/arc/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/arc/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
@@ -30,6 +36,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
 } from "@/arc/types.gen";
 import { LINES } from "@/arc/where";
 import {
@@ -164,6 +171,7 @@ export class Client extends query.Retriever<
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/arc/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/arc/dispatch", dispatchResZ),
       encode,
       isUndoable,
       kindOf,
@@ -320,6 +328,16 @@ export class Client extends query.Retriever<
 
   async openLSP(): Promise<Stream<typeof lspMessageZ, typeof lspMessageZ>> {
     return await this.cfg.stream.stream("/arc/lsp", lspMessageZ, lspMessageZ);
+  }
+
+  /**
+   * Applies each update to its cached Arc until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if an Arc cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

@@ -36,7 +36,13 @@ import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
 import { createOf, encode, reduceAll } from "@/task/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/task/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/task/actions.gen";
 import {
   type Action,
   type Command,
@@ -53,6 +59,7 @@ import {
   type Status,
   type StatusDetailsZodObject,
   statusZ,
+  type UpdateInput,
   type Where,
 } from "@/task/types.gen";
 import { LINES } from "@/task/where";
@@ -423,6 +430,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/task/dispatch", dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
         const { next, inverse, targets } = reduceAll(payload, acts);
@@ -579,6 +587,16 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached task until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a task cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, UpdateInput>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

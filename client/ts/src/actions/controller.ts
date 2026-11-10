@@ -18,9 +18,12 @@ import {
   type record,
   TimeSpan,
   TimeStamp,
+  zod,
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { type DispatchPayload, updateEntries, type Updates } from "@/actions/actions";
+import { batch } from "@/batch";
 import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
 import { Table } from "@/query/table";
@@ -123,11 +126,39 @@ export const sender =
   <Key, Action>(
     unary: UnaryClient,
     target: string,
-    reqZ: z.ZodType<{ key: Key; dispatchKey: string; actions: Action[] }>,
+    reqZ: z.ZodType<Dispatch<Key, Action>>,
     resZ: z.ZodType<{ actions: Action[] }>,
   ): SendDispatch<Key, Action> =>
   async (key, actions, dispatchKey) =>
     (await unary.send(target, { key, dispatchKey, actions }, reqZ, resZ)).actions;
+
+/** One dispatch to a document's endpoint. */
+export interface Dispatch<Key, Action> {
+  key: Key;
+  dispatchKey: string;
+  actions: Action[];
+}
+
+/**
+ * Sends dispatches to the Core as one transaction, so it applies all of them or none.
+ * Resolves to the actions that the Core added to each dispatch, in order.
+ */
+export type SendDispatches<Key, Action> = (
+  dispatches: Dispatch<Key, Action>[],
+) => Promise<Action[][]>;
+
+/** Builds the send of dispatches to a domain's dispatch endpoint as one batch. */
+export const batchSender = <Key, Action>(
+  unary: UnaryClient,
+  endpoint: string,
+  resZ: z.ZodType<{ actions: Action[] }>,
+): SendDispatches<Key, Action> => {
+  const client = new batch.Client(unary);
+  return async (dispatches) => {
+    const res = await client.send(dispatches.map((payload) => ({ endpoint, payload })));
+    return res.map((r) => zod.parse(resZ, r, { label: "dispatch response" }).actions);
+  };
+};
 
 /** Rewrites an action batch against the current document before replay. */
 export type Preprocess<State, Action> = (state: State, actions: Action[]) => Action[];
@@ -189,6 +220,8 @@ export interface ControllerParams<
   /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
    *  of network concerns. */
   send: SendDispatch<Key, Action>;
+  /** Sends dispatches to several documents as one transaction. */
+  sendAll: SendDispatches<Key, Action>;
   /**
    * Converts an action that a caller dispatches or adds to a transaction into the form
    * the Core stores, against the cached doc that the actions before it produce. Undo
@@ -326,6 +359,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       onError: opts.onError,
       reduce: opts.reduce,
       send: opts.send,
+      sendAll: opts.sendAll,
       encode: opts.encode,
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
@@ -401,6 +435,53 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     };
     const first = made();
     await this.enqueue(key, (queue, result) => this.join(key, queue, first, result));
+  }
+
+  /**
+   * Applies each update to its cached doc until its echo arrives, as send does. One
+   * update sends in order with the document's other dispatches. Several send as one
+   * transaction, so the Core applies all of them or none.
+   * @param build - Builds the update action from the value of an update.
+   * @throws {Error} if a cached doc cannot take its update, before any send.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   * @throws {Error} if the send fails, after the updates roll back.
+   */
+  async update<U extends object>(
+    updates: Updates<Key, U>,
+    build: (payload: { value: U }) => Action,
+  ): Promise<void> {
+    const entries = updateEntries(updates, build);
+    if (entries.length === 1) await this.send(entries[0].key, entries[0].actions);
+    else if (entries.length > 1) await this.sendAll(entries);
+  }
+
+  // Sends each entry as its own dispatch in one transaction. A cached doc holds its
+  // dispatch as pending, as a create does.
+  private async sendAll(entries: DispatchPayload<Key, Action>[]): Promise<void> {
+    const dispatches = entries.map((e) => ({ ...e, dispatchKey: id.create() }));
+    const discardAll = () =>
+      dispatches.forEach(({ key, dispatchKey }) => this.discard(key, dispatchKey));
+    try {
+      dispatches.forEach(({ key, dispatchKey, actions }) => {
+        const current = this.docs.get(key);
+        if (current == null) return;
+        const { next } = this.params.reduce(current, actions);
+        this.track(key, current, this.createPending(dispatchKey, [...actions]), next);
+      });
+    } catch (e) {
+      discardAll();
+      throw errors.fromUnknown(e);
+    }
+    let added: Action[][];
+    try {
+      added = await this.params.sendAll(dispatches);
+    } catch (e) {
+      discardAll();
+      throw errors.fromUnknown(e);
+    }
+    dispatches.forEach(({ key, dispatchKey }, i) =>
+      this.accept(key, dispatchKey, added[i]),
+    );
   }
 
   /**

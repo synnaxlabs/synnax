@@ -22,6 +22,7 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
+  update,
 } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
@@ -34,6 +35,7 @@ import {
   retrieveResponseZ,
   type Schematic,
   schematicZ,
+  type Update,
 } from "@/schematic/types.gen";
 import {
   compareCursors,
@@ -128,6 +130,7 @@ export class Client extends query.Retriever<
         dispatchReqZ,
         dispatchResZ,
       ),
+      sendAll: actions.batchSender(cfg.unary, "/schematic/dispatch", dispatchResZ),
       encode,
       kindOf,
       createOf,
@@ -197,6 +200,16 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached schematic until the Core echoes it. Several
+   * updates apply in one transaction, all or none.
+   * @throws {ValidationError} if a schematic cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

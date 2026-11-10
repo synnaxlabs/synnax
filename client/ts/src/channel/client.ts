@@ -23,8 +23,15 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { type batch } from "@/batch";
-import { type Action, dispatchReqZ, dispatchResZ, rename } from "@/channel/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  rename,
+  update,
+} from "@/channel/actions";
 import {
   analyzeParams,
   isCalculated,
@@ -45,6 +52,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   statusZ,
+  type UpdateInput,
 } from "@/channel/types.gen";
 import { LINES } from "@/channel/where";
 import {
@@ -637,6 +645,22 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Applies each update to its channel, then fetches the channels into the cache, as
+   * dispatch does. Several updates apply in one transaction, all or none.
+   * @throws {ValidationError} if a channel cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, UpdateInput>): Promise<void> {
+    const entries = actions.updateEntries(updates, update);
+    if (entries.length === 1) await this.send(entries[0].key, entries[0].actions);
+    else
+      await this.cfg.batch.send(
+        entries.map((payload) => ({ endpoint: "/channel/dispatch", payload })),
+      );
+    await this.refetch(entries.map(({ key }) => key));
+  }
+
+  /**
    * Applies the actions to the channel in one transaction, then fetches the channel
    * into the cache before it resolves. The fetch catches the fields that the Core sets
    * itself, such as the data type of a calculated channel. A failed fetch goes to the
@@ -646,8 +670,12 @@ export class Client extends query.Retriever<
    */
   async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
     await this.send(key, array.toArray(actions));
+    await this.refetch([key]);
+  }
+
+  private async refetch(keys: Key[]): Promise<void> {
     try {
-      await this.store.retrieve([key], { refresh: true });
+      await this.store.retrieve(keys, { refresh: true });
     } catch (exc) {
       this.cfg.cache.onError(
         new Error("failed to fetch a dispatched channel", { cause: exc }),

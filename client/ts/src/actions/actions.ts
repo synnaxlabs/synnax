@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
+import { array, caseconv, deep, patch, type record, zod } from "@synnaxlabs/x";
 import { current, type Draft, isDraft, produce } from "immer";
 import { z } from "zod";
 
@@ -290,6 +290,23 @@ export interface DispatchPayload<K, A> {
   key: K;
   actions: A[];
 }
+
+/** An update of the record with the key, or several to apply in one transaction. */
+export type Updates<K extends record.Key, U> =
+  (record.Keyed<K> & U) | Array<record.Keyed<K> & U>;
+
+/**
+ * Builds a dispatch entry for each update, with the update action of its value.
+ * @param build - Builds the update action from the value of an update.
+ */
+export const updateEntries = <K extends record.Key, U extends object, A>(
+  updates: Updates<K, U>,
+  build: (payload: { value: U }) => A,
+): DispatchPayload<K, A>[] =>
+  array.toArray(updates).map(({ key, ...value }) => ({
+    key,
+    actions: [build({ value: value as U })],
+  }));
 
 /**
  * dispatchResZ builds the response body schema for the per-service dispatch endpoint:

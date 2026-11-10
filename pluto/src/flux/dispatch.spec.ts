@@ -54,6 +54,9 @@ const createHarness = (send: SendFn): Harness => {
       await send(actions);
       return [];
     },
+    sendAll: async () => {
+      throw new Error("unexpected batch");
+    },
   });
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>

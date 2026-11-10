@@ -16,7 +16,13 @@ import { actions } from "@/actions";
 import { group } from "@/group";
 import { query } from "@/query";
 import { createOf, reduceAll } from "@/rack/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/rack/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/rack/actions.gen";
 import {
   type Action,
   type Key,
@@ -31,6 +37,7 @@ import {
   retrieveResponseZ,
   type Status,
   statusZ,
+  type Update,
 } from "@/rack/types.gen";
 import { LINES } from "@/rack/where";
 import {
@@ -143,6 +150,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/rack/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/rack/dispatch", dispatchResZ),
       reduce: reduceAll,
       createOf,
     });
@@ -219,6 +227,16 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies each update to its cached rack until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a rack cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

@@ -26,7 +26,13 @@ import { type framer } from "@/framer";
 import { type label } from "@/label";
 import { query } from "@/query";
 import { createOf, encode, reduceAll } from "@/ranger/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/ranger/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/ranger/actions.gen";
 import { alias } from "@/ranger/alias";
 import { Client as AliasClient } from "@/ranger/alias/client";
 import { kv } from "@/ranger/kv";
@@ -41,6 +47,7 @@ import {
   resourceID,
   retrieveRequestZ,
   retrieveResponseZ,
+  type UpdateInput,
 } from "@/ranger/types.gen";
 import { LINES } from "@/ranger/where";
 import {
@@ -314,6 +321,7 @@ export class Client extends query.Retriever<
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/range/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/range/dispatch", dispatchResZ),
       reduce: (range, acts) => {
         const { payload } = range;
         const { next, inverse, targets } = reduceAll(payload, acts);
@@ -433,6 +441,16 @@ export class Client extends query.Retriever<
     return this.store.set(key, (p) =>
       p == null ? undefined : this.sugarOne({ ...p.payload, labels: update(p.labels) }),
     );
+  }
+
+  /**
+   * Applies each update to its cached range until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a range cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, UpdateInput>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

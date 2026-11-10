@@ -9,13 +9,16 @@
 
 export * from "@/actions/actions";
 export {
+  batchSender,
   Controller,
   type ControllerParams,
+  type Dispatch,
   type Domain,
   type Options,
   type Preprocess,
   type Reducer,
   type SendDispatch,
+  type SendDispatches,
   sender,
   type StackEntry,
   type Transaction,
