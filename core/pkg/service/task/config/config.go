@@ -31,6 +31,9 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// Field is the field of a task that holds its config.
+const Field = "config"
+
 // Store persists the configuration records of one task type. A record's key is the key
 // of its task, and deleting the task deletes the record.
 type Store interface {
@@ -60,12 +63,12 @@ type Store interface {
 	// Update applies updates in order to the record stored under key, then prepares the
 	// result as Prepare does. The value of each update is the JSON form of an update of
 	// the record type: an object merges into the record, and an object with only a set
-	// member replaces it. The paths of its guards start inside the record. Update
-	// returns the record to write, and whether it differs from the result of the
-	// updates alone, such as by a filled default. It returns an error wrapping
-	// query.ErrNotFound when no record exists, patch.ErrStale when a guard does not
-	// hold or an update names a missing list entry, or validate.ErrValidation when an
-	// update or the result is not valid.
+	// member replaces it. The paths of its guards start at the task, so each starts
+	// with Field. Update returns the record to write, and whether it differs from the
+	// result of the updates alone, such as by a filled default. It returns an error
+	// wrapping query.ErrNotFound when no record exists, patch.ErrStale when a guard
+	// does not hold or an update names a missing list entry, or validate.ErrValidation
+	// when an update or the result is not valid.
 	Update(
 		ctx context.Context,
 		snap gorp.Snapshot,
@@ -364,7 +367,7 @@ func (s *Service[E, U]) Update(
 
 // update applies the update that u holds to e when the guards of u hold in e.
 func (s *Service[E, U]) update(e *E, u patch.Update[msgpack.EncodedJSON]) error {
-	if err := u.Check(*e); err != nil {
+	if err := u.Check(map[string]any{Field: *e}); err != nil {
 		return err
 	}
 	if u.Value == nil {
