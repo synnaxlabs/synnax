@@ -299,6 +299,18 @@ describe("caseconv", () => {
       expect(configs.node_a1.strokeWidth).toBe(2);
     });
 
+    it("should keep the record keys of a lazy union option", () => {
+      const optionZ = z.object({
+        type: z.literal("create"),
+        configs: caseconv.preserveKeys(z.record(z.string(), configZ)),
+      });
+      const schema = z.discriminatedUnion("type", [z.lazy(() => optionZ)]);
+      const input = { type: "create", configs: { NodeA1: { stroke_width: 2 } } };
+      const result = caseconv.snakeToCamel(input, { schema }) as R;
+      const configs = result.configs as Record<string, R>;
+      expect(configs.NodeA1.strokeWidth).toBe(2);
+    });
+
     it("should preserve keys with primitive record values", () => {
       const schema = z.object({
         configs: caseconv.preserveKeys(z.record(z.string(), z.number())),
