@@ -216,7 +216,7 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
         "failed to read 0x8020:09: Object does not exist in the object dictionary"
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_FALSE(settings->contains("mode"));
+    EXPECT_FALSE(settings.value().contains("mode"));
     EXPECT_EQ(settings.value()["channels"].size(), 6);
 }
 

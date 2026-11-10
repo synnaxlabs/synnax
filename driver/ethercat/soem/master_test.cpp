@@ -1538,7 +1538,7 @@ TEST_F(SOEMMasterTest, ActivateRunsTheCatalogModeWhenNoModeIsChosen) {
     );
     const auto catalog = this->master->scan().first.at(0).properties.catalog_op_mode();
     ASSERT_TRUE(catalog.has_value());
-    EXPECT_EQ(catalog->assign_activate, 0x0300);
+    EXPECT_EQ(catalog.value().assign_activate, 0x0300);
     ASSERT_NIL(this->activate());
     ASSERT_EQ(this->mock->register_writes.size(), 7);
     EXPECT_EQ(this->mock->register_writes[3].address, 0x09A0);
