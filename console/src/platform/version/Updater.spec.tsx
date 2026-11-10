@@ -101,12 +101,12 @@ describe("version Provider", () => {
     expect(callsOf(ipc, "updater_check")).toHaveLength(0);
   });
 
-  it("should check the manifest of the selected Core", async () => {
+  it("should check the manifest of the selected Core at its version", async () => {
     const ipc = mockUpdater({ served: "1.4.0" });
-    await renderCheck();
+    await renderCheck({ coreVersion: "1.4.2" });
     await waitFor(() =>
       expect(callsOf(ipc, "updater_check")).toEqual([
-        ["updater_check", { endpoint: ENDPOINT }],
+        ["updater_check", { endpoint: ENDPOINT, coreVersion: "1.4.2" }],
       ]),
     );
   });

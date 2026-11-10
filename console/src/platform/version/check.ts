@@ -72,7 +72,7 @@ export const find = async (target: Target | null): Promise<Available | null> => 
   if (target == null) return null;
   const served = await invoke<ConstructorParameters<typeof Update>[0] | null>(
     "updater_check",
-    { endpoint: target.endpoint },
+    { endpoint: target.endpoint, coreVersion: target.version },
   );
   if (served != null) {
     const update = new Update(served);

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+use semver::Version;
 use serde::Serialize;
 use tauri::{Manager, ResourceId, Runtime, Url, Webview};
 use tauri_plugin_updater::{Error, UpdaterExt};
@@ -21,19 +22,27 @@ pub struct Metadata {
     raw_json: serde_json::Value,
 }
 
-/// Checks the manifest at endpoint for a release whose version differs from the running
-/// Console, older or newer. Returns None when the endpoint serves no manifest, or none
-/// for this platform. The plugin's download and install commands take the update by its
-/// rid.
+/// Reports whether a Console at current may install release from a Core at core.
+fn takes(current: &Version, release: &Version, core: &Version) -> bool {
+    release != current && release.major == core.major && release.minor == core.minor
+}
+
+/// Checks the manifest at endpoint for a release that differs from the running Console,
+/// older or newer, and shares the major and minor of core_version. Returns None when the
+/// endpoint serves no manifest, or none for this platform. The plugin's download and
+/// install commands take the update by its rid.
 #[tauri::command]
 pub async fn updater_check<R: Runtime>(
     webview: Webview<R>,
     endpoint: Url,
+    core_version: Version,
 ) -> Result<Option<Metadata>, Error> {
     let updater = webview
         .updater_builder()
         .endpoints(vec![endpoint])?
-        .version_comparator(|current, release| release.version != current)
+        .version_comparator(move |current, release| {
+            takes(&current, &release.version, &core_version)
+        })
         .build()?;
     let update = match updater.check().await {
         Ok(update) => update,
@@ -49,4 +58,39 @@ pub async fn updater_check<R: Runtime>(
         raw_json: update.raw_json.clone(),
         rid: webview.resources_table().add(update),
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn v(version: &str) -> Version {
+        Version::parse(version).unwrap()
+    }
+
+    #[test]
+    fn takes_a_release_at_the_minor_of_the_core() {
+        assert!(takes(&v("0.60.2"), &v("0.61.0"), &v("0.61.1")));
+        assert!(takes(&v("0.62.0"), &v("0.61.3"), &v("0.61.3")));
+    }
+
+    #[test]
+    fn rejects_a_release_older_than_the_minor_of_the_core() {
+        assert!(!takes(&v("0.61.0"), &v("0.60.0"), &v("0.61.0")));
+    }
+
+    #[test]
+    fn rejects_a_release_newer_than_the_minor_of_the_core() {
+        assert!(!takes(&v("0.61.0"), &v("0.62.0"), &v("0.61.0")));
+    }
+
+    #[test]
+    fn rejects_a_release_at_another_major_than_the_core() {
+        assert!(!takes(&v("0.61.0"), &v("1.61.0"), &v("0.61.0")));
+    }
+
+    #[test]
+    fn rejects_the_running_release() {
+        assert!(!takes(&v("0.61.0"), &v("0.61.0"), &v("0.61.0")));
+    }
 }
