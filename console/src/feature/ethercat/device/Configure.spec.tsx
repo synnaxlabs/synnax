@@ -27,6 +27,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
 import { fakePickedFile, interceptFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -535,6 +536,38 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
       expect(findButton("Switch to Synnax only")).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+    });
+
+    /** Opens a card that sends data only DewesoftX reads and clicks the switch. */
+    const clickSwitch = async (answer: Omit<CommandAnswer, "type"> = {}) => {
+      const slave = await setup({
+        settings: createDewesoftXSettings(true),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const scan = await rack.createTask({
+        name: uniqueName("ecat_scan"),
+        type: EtherCAT.Task.SCAN_TYPE,
+        config: {},
+      });
+      const driver = await answerNextCommand(client, scan, {
+        ...answer,
+        type: "set_standalone",
+      });
+      fireEvent.click(findButton("Switch to Synnax only"));
+      expect(await driver.answered).toMatchObject({ args: { device: slave.key } });
+    };
+
+    it("should ask for a power restart once the card switches", async () => {
+      await clickSwitch();
+      expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
+    it("should show why the card did not switch", async () => {
+      await clickSwitch({ variant: "error", message: "Slave 3 refused the switch" });
+      expect(await screen.findByText(/Slave 3 refused the switch/)).toBeTruthy();
+      expect(screen.queryByText("Restart the power of the device")).toBeNull();
     });
 
     it("should hide the settings of a card that DewesoftX sets up", async () => {

@@ -1021,6 +1021,32 @@ TEST_F(EngineTest, RefusesAReaderWhoseSettingsConflict) {
     );
 }
 
+/// @brief it should refuse a reader whose settings conflict with a reader that opened
+/// while it read the slave settings.
+TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
+    const auto calls = std::make_shared<std::atomic<int>>(0);
+    std::promise<void> release;
+    Config cfg;
+    cfg.slave_configs = [calls, released = release.get_future().share()] {
+        if (calls->fetch_add(1) == 0) released.wait();
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
+    std::thread opening([&] {
+        late = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0));
+    });
+    ASSERT_EVENTUALLY_EQ(calls->load(), 1);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    release.set_value();
+    opening.join();
+    ASSERT_OCCURRED_AS(late.second, errors::SETTING_CONFLICT);
+    EXPECT_TRUE(this->master->written().empty());
+}
+
 /// @brief it should let a reader set an object that a closed reader set to another
 /// value.
 TEST_F(EngineTest, ReleasesTheSettingsOfAClosedReader) {

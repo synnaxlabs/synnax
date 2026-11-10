@@ -259,6 +259,22 @@ TEST(PropertiesToJson, LeavesOutAMissingChoice) {
     EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
 }
 
+/// @brief it should write the settings that the catalog describes for a slave.
+TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    const Properties props{.name = "6xSTG", .settings = settings};
+    EXPECT_EQ(props.to_json().at("settings"), settings);
+}
+
+/// @brief it should leave out the settings of a slave that the catalog does not
+/// describe.
+TEST(PropertiesToJson, LeavesOutMissingSettings) {
+    EXPECT_FALSE(Properties{.name = "EL3102"}.to_json().contains("settings"));
+}
+
 TEST(PropertiesToJson, SerializesAllFields) {
     Properties props{
         .network = "eth0",

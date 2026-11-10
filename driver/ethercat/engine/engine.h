@@ -244,6 +244,7 @@ class Engine {
     /// rate that also serves rate as a read rate, or as a write rate when output is
     /// true. Starts the bus when it is stopped, with settings among the startup
     /// parameters, and stops it again on an error. Writes settings to a running bus.
+    /// Fails with errors::SETTING_CONFLICT as check_settings_locked() does.
     [[nodiscard]] std::pair<Joined, x::errors::Error> join_locked(
         std::unique_lock<std::mutex> &lock,
         const std::vector<pdo::Entry> &entries,

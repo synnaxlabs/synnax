@@ -67,6 +67,20 @@ describe("Settings", () => {
       const current = Settings.set(fields, voltage, MEASUREMENT, 1);
       expect(current.find((s) => Settings.sameAddress(s, RANGE))?.value).toBe(1);
     });
+
+    it("should give a hidden field its default when its value is outside its limits", () => {
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
+      const high = Settings.set(fields, bridge, EXCITATION, 30);
+      const voltage = Settings.set(fields, high, MEASUREMENT, 0);
+      expect(voltage.find((s) => Settings.sameAddress(s, EXCITATION))?.value).toBe(0);
+    });
+
+    it("should keep a value of a hidden field that is inside its limits", () => {
+      const bridge = Settings.set(fields, [], MEASUREMENT, 6);
+      const low = Settings.set(fields, bridge, EXCITATION, 10);
+      const voltage = Settings.set(fields, low, MEASUREMENT, 0);
+      expect(voltage.find((s) => Settings.sameAddress(s, EXCITATION))?.value).toBe(10);
+    });
   });
 
   describe("visibleFields", () => {

@@ -26,9 +26,11 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::soem {
 namespace {
@@ -161,8 +163,17 @@ protected:
     void initialize_with_dc_slave(const std::vector<dc::OpMode> &modes) {
         MockSlaveInfo slave;
         slave.state = EC_STATE_PRE_OP;
-        slave.hasdc = true;
         slave.name = "16xAO";
+        this->initialize_with_dc_slave(slave, modes);
+    }
+
+    /// @brief initializes the master with slave as its one DC slave, which lists modes,
+    /// and gives it a DC system time of 5 s.
+    void initialize_with_dc_slave(
+        MockSlaveInfo slave,
+        const std::vector<dc::OpMode> &modes
+    ) {
+        slave.hasdc = true;
         this->add_slave(slave);
         this->set_op_modes(modes);
         this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
@@ -940,6 +951,45 @@ TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
     EXPECT_TRUE(this->master->scan().first[0].properties.op_modes.empty());
 }
 
+/// @brief returns a standalone 6xSTG in PRE-OP that holds the objects of the 6xSTG on
+/// the station and lists the mailbox protocols in mbx_proto.
+MockSlaveInfo create_stg(const uint16_t mbx_proto) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_6XSTG;
+    slave.name = "6xSTG";
+    slave.mbx_proto = mbx_proto;
+    slave.sdo_objects = testutil::stg_objects(0);
+    return slave;
+}
+
+/// @brief it should store the settings that the catalog describes for a slave, read
+/// from that slave's own object dictionary.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
+    this->add_default_slave();
+    this->add_slave(create_stg(ECT_MBXPROT_COE));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    const auto expected = ASSERT_NIL_P(
+        esi::read_settings(
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG,
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
+        )
+    );
+    ASSERT_TRUE(expected.has_value());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(slaves[1].properties.settings, expected);
+}
+
+/// @brief it should read no settings from a slave that does not list CoE.
+TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
+    this->add_slave(create_stg(0));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+}
+
 ////////////////////// Activation //////////////////////
 
 /// @brief it should activate a scanned bus.
@@ -1464,6 +1514,26 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
         {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should run the DC mode that the catalog gives for the mode a slave holds
+/// when no mode is chosen, in place of the SM mode that it would pick.
+TEST_F(SOEMMasterTest, ActivateRunsTheCatalogModeWhenNoModeIsChosen) {
+    this->initialize_with_dc_slave(
+        create_stg(ECT_MBXPROT_COE),
+        {SM, {.name = "DC", .assign_activate = 0x0300}}
+    );
+    const auto catalog = this->master->scan().first.at(0).properties.catalog_op_mode();
+    ASSERT_TRUE(catalog.has_value());
+    EXPECT_EQ(catalog->assign_activate, 0x0300);
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].address, 0x09A0);
+    EXPECT_EQ(this->mock->register_writes[3].value, 1000);
+    EXPECT_EQ(this->mock->register_writes[4].address, 0x09A4);
+    EXPECT_EQ(this->mock->register_writes[4].value, 999'999'000);
+    EXPECT_EQ(this->mock->register_writes[6].address, 0x0981);
+    EXPECT_EQ(this->mock->register_writes[6].value, 0x07);
 }
 
 /// @brief it should leave DC sync off on a disabled slave.

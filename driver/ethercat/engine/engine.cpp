@@ -654,6 +654,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     const Settings &settings
 ) {
     auto [configs, configs_err] = this->read_slave_configs(lock);
+    if (auto err = this->check_settings_locked(settings)) return {{}, err};
     auto reads = this->read_rates_locked();
     auto writes = this->write_rates_locked();
     (output ? writes : reads).push_back(rate);
@@ -684,7 +685,6 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
     const Settings &settings
 ) {
     std::unique_lock lock(this->mu);
-    if (auto err = this->check_settings_locked(settings)) return {nullptr, err};
     auto [joined, err] = this->join_locked(lock, entries, sample_rate, false, settings);
     if (err) return {nullptr, err};
     auto input = std::make_shared<Input>(
