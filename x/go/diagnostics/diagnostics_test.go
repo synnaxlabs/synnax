@@ -78,6 +78,12 @@ var _ = Describe("Diagnostics", func() {
 		Expect(d).To(MatchError(context.Canceled))
 	})
 
+	It("Should drop a diagnostic whose cause was already reported", func() {
+		var d diagnostics.Diagnostics
+		d.Add(diagnostics.Error(errors.Wrap(diagnostics.ErrReported, "follow-up"), nil))
+		Expect(d.Empty()).To(BeTrue())
+	})
+
 	Describe("Deduplication", func() {
 		It("Should not add duplicate errors with same location and message", func() {
 			var d diagnostics.Diagnostics

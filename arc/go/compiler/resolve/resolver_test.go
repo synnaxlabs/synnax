@@ -93,6 +93,29 @@ var _ = Describe("Resolver", func() {
 			Expect(values).To(ConsistOf(uint32(0), uint32(1)))
 		})
 
+		It("Should map a user module's member to a local function", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			mod := &symbol.Symbol{
+				Name:        "lib.m",
+				Kind:        symbol.KindModule,
+				UserDefined: true,
+			}
+			mod.AddChild(&symbol.Symbol{Name: "f", Kind: symbol.KindFunction})
+			f := mod.FindChild("f")
+			r.EmitCall(w, wID, f, types.Function(types.FunctionProperties{}))
+			r.RegisterLocal("lib.m.f", 3)
+
+			m := wasm.NewModule()
+			patches := r.Finalize(m)
+			Expect(m.ImportCount()).To(Equal(uint32(0)))
+			Expect(patches).To(HaveLen(1))
+			for _, v := range patches {
+				Expect(v).To(Equal(uint32(3)))
+			}
+		})
+
 		It("Should deduplicate imports with identical WASM coordinates", func() {
 			r := resolve.NewResolver()
 			w := wasm.NewWriter()

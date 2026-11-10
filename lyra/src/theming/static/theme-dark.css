@@ -384,9 +384,9 @@
     --pluto-text-placeholder: #a2a5a8a6;
     --pluto-text-on-primary: #f1f2f3;
     --pluto-text-on-warning: #040506;
-    --pluto-primary-text: #93c5fd;
-    --pluto-error-text: #fca5a5;
-    --pluto-warning-text: #fcd34d;
+    --pluto-primary-text: #5e94ee;
+    --pluto-error-text: #f7555d;
+    --pluto-warning-text: #f4ca25;
     --pluto-auto-z: #635bff;
     --pluto-auto-z-95: #635bfff2;
     --pluto-auto-z-90: #635bffe6;
@@ -832,9 +832,9 @@
     --pluto-dark-text-placeholder: #a2a5a8a6;
     --pluto-dark-text-on-primary: #f1f2f3;
     --pluto-dark-text-on-warning: #040506;
-    --pluto-dark-primary-text: #93c5fd;
-    --pluto-dark-error-text: #fca5a5;
-    --pluto-dark-warning-text: #fcd34d;
+    --pluto-dark-primary-text: #5e94ee;
+    --pluto-dark-error-text: #f7555d;
+    --pluto-dark-warning-text: #f4ca25;
     --pluto-dark-auto-z: #635bff;
     --pluto-dark-auto-z-95: #635bfff2;
     --pluto-dark-auto-z-90: #635bffe6;

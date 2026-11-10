@@ -1,0 +1,89 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+
+RegisterValue = v2.RegisterValue
+
+RegisterBit = v2.RegisterBit
+
+RegisterString struct {
+    length        uint16 {
+        @doc value    "is the number of characters, two to each register."
+        @validate max 250
+        @validate min 1
+    }
+    bytes_swapped bool?  {
+        @doc value """
+            is true when the two characters of each register are swapped. When absent,
+            the device's byte order applies.
+        """
+    }
+
+    @doc value  "interprets consecutive 16-bit registers as a fixed-length string."
+    @go marshal
+}
+
+BaseReadChannel = v1.BaseReadChannel
+
+ReadChannel union on type extends v1.BaseReadChannel {
+    coil {
+        @doc value "reads a single bit from a coil."
+    }
+    discrete_input {
+        @doc value "reads a single bit from a discrete input."
+    }
+    holding_register extends RegisterValue {
+        @doc value "reads a typed value from one or more holding registers."
+    }
+    input_register extends RegisterValue {
+        @doc value "reads a typed value from one or more input registers."
+    }
+    holding_register_string extends RegisterString {
+        @doc value "reads a string from consecutive holding registers."
+    }
+    input_register_string extends RegisterString {
+        @doc value "reads a string from consecutive input registers."
+    }
+    holding_register_bit extends RegisterBit {
+        @doc value "reads one bit of a holding register."
+    }
+    input_register_bit extends RegisterBit {
+        @doc value "reads one bit of an input register."
+    }
+
+    @doc value  """
+        is a single Modbus read channel. The type field selects the register space the
+        channel reads from and the fields that accompany it.
+    """
+    @go marshal
+}
+
+BaseWriteChannel = v1.BaseWriteChannel
+
+WriteChannel = v2.WriteChannel
+
+ReadConfig struct extends task.ReadConfig {
+    device   device.Key = "" {
+        @doc value "is the key of the device the task acquires from."
+    }
+    channels ReadChannel[] {
+        @doc value "are the channels the task acquires."
+    }
+
+    @doc value  "configures a Modbus read task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+WriteConfig = v2.WriteConfig
+
+ScanConfig = v1.ScanConfig
