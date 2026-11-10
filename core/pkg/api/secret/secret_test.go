@@ -145,7 +145,7 @@ var _ = Describe("Service", func() {
 							Name:   "Password",
 							Value:  "hunter2",
 						},
-						{Source: secret.SourceFile, Name: "Key", Path: "/k.pem"},
+						{Source: secret.SourceFile, Name: "Key", FileName: "k.pem"},
 					}},
 				))
 				Expect(res.Secrets).To(HaveLen(2))
@@ -188,22 +188,22 @@ var _ = Describe("Service", func() {
 				`source: must be stored or file, not "cloud"`,
 			),
 			Entry(
-				"a stored secret with a path",
+				"a stored secret with a file name",
 				apisecret.Input{
-					Source: secret.SourceStored,
-					Name:   "A",
-					Value:  "v",
-					Path:   "/a",
+					Source:   secret.SourceStored,
+					Name:     "A",
+					Value:    "v",
+					FileName: "a",
 				},
-				"path: must be empty for a stored secret",
+				"file_name: must be empty for a stored secret",
 			),
 			Entry(
 				"a file secret with a value",
 				apisecret.Input{
-					Source: secret.SourceFile,
-					Name:   "A",
-					Value:  "v",
-					Path:   "/a",
+					Source:   secret.SourceFile,
+					Name:     "A",
+					Value:    "v",
+					FileName: "a",
 				},
 				"value: must be empty for a file secret",
 			),
@@ -255,10 +255,10 @@ var _ = Describe("Service", func() {
 						apisecret.SetRequest{Secrets: []apisecret.Input{
 							{Source: secret.SourceStored, Name: "New", Value: "v"},
 							{
-								Key:    key,
-								Source: secret.SourceFile,
-								Name:   "Keyed",
-								Path:   "/k",
+								Key:      key,
+								Source:   secret.SourceFile,
+								Name:     "Keyed",
+								FileName: "k",
 							},
 						}},
 					))

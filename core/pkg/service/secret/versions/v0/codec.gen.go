@@ -61,7 +61,7 @@ func (s Secret) EncodeOrc(w *orc.Writer) error {
 		if err := v.Base.EncodeOrc(w); err != nil {
 			return err
 		}
-		w.String(v.Path)
+		w.String(v.FileName)
 	default:
 		return errors.Newf("Secret: nil or unknown variant %T", s.Variant)
 	}
@@ -98,7 +98,7 @@ func (s *Secret) DecodeOrc(r *orc.Reader) error {
 		if err := v.Base.DecodeOrc(r); err != nil {
 			return err
 		}
-		if v.Path, err = r.String(); err != nil {
+		if v.FileName, err = r.String(); err != nil {
 			return err
 		}
 		s.Variant = v
