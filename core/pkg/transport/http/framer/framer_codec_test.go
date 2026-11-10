@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("FramerCodec", func() {
@@ -152,6 +153,49 @@ var _ = Describe("FramerCodec", func() {
 			var resMsg http.WSMessage[framer.WriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Type).To(Equal(http.WSMessageTypeClose))
+		})
+	})
+
+	Describe("Decode limit", func() {
+		It("Should reject a write larger than the router's message limit", func(
+			ctx SpecContext,
+		) {
+			router := MustSucceed(http.NewRouter(http.RouterConfig{
+				StreamMessageSizeLimit: 1 << 10,
+			}))
+			keys := channel.Keys{1}
+			dataTypes := []telem.DataType{telem.BooleanT}
+			encoder := framer.Codec{
+				Codec:          codec.NewStatic(keys, dataTypes),
+				LowerPerfCodec: json.Codec,
+			}
+			decoder := framer.Codec{
+				Codec: codec.NewStatic(
+					keys,
+					dataTypes,
+					codec.WithDecodeLimit(router.StreamMessageSizeLimit()),
+				),
+				LowerPerfCodec: json.Codec,
+			}
+			write := func(samples int) []byte {
+				GinkgoHelper()
+				return MustSucceed(
+					encoder.Encode(ctx, http.WSMessage[framer.WriterRequest]{
+						Type: "data",
+						Payload: framer.WriterRequest{
+							Command: apiframer.WriterCommandWrite,
+							Frame: frame.NewUnary(1, telem.Series{
+								DataType: telem.BooleanT,
+								Data:     make([]byte, samples),
+							}),
+						},
+					}),
+				)
+			}
+			var msg http.WSMessage[framer.WriterRequest]
+			Expect(decoder.Decode(ctx, write(1<<10), &msg)).To(Succeed())
+			Expect(decoder.Decode(ctx, write(1<<10+1), &msg)).
+				To(MatchError(validate.ErrValidation))
 		})
 	})
 

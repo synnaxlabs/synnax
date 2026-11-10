@@ -19,6 +19,7 @@ import (
 	"math/rand/v2"
 	"runtime"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -563,6 +564,36 @@ var _ = Describe("Codec", func() {
 				Expect(after.TotalAlloc - before.TotalAlloc).
 					To(BeNumerically("<", 1<<20))
 			})
+
+			DescribeTable(
+				"Should count the decoded size of each data type",
+				func(ctx SpecContext, dataType telem.DataType, fits, passes telem.Series) {
+					enc := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})
+					dec := codec.NewStatic(
+						channel.Keys{1},
+						[]telem.DataType{dataType},
+						codec.WithDecodeLimit(int64(fits.Size())),
+					)
+					MustSucceed(dec.Decode(
+						MustSucceed(enc.Encode(ctx, frame.NewUnary(1, fits))),
+					))
+					Expect(dec.Decode(
+						MustSucceed(enc.Encode(ctx, frame.NewUnary(1, passes))),
+					)).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry(
+					"fixed size, 8 bytes a sample",
+					telem.Float64T,
+					telem.NewSeries(make([]float64, 128)),
+					telem.NewSeries(make([]float64, 129)),
+				),
+				Entry(
+					"variable size, by encoded bytes",
+					telem.StringT,
+					telem.NewSeriesV(strings.Repeat("a", 1<<10)),
+					telem.NewSeriesV(strings.Repeat("a", 1<<10+1)),
+				),
+			)
 
 			It("Should count every series of a frame against the limit", func(
 				ctx SpecContext,
