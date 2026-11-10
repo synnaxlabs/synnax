@@ -106,6 +106,9 @@ client.racks.update(rk, {.integrations = {.insert = {"labjack"}}});
 | Map with a value schema | Compile error    | `set`, `insert`, `remove`, `update`         |
 | Record without a schema | Replaces it      | -                                           |
 
+A struct with a hand-written JSON form, such as `color.Color`, and a filter, such as
+`ranger.Where`, act as scalars: a plain value replaces them.
+
 ```ts
 await client.racks.update({ key: rk, group: null });
 await client.tasks.update({ key: t, config: { sampleRate: 1000 } });
