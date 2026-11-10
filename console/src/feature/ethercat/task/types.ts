@@ -11,10 +11,12 @@ import { channel, ethercat, type task } from "@synnaxlabs/client";
 import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Address } from "@/feature/ethercat/device/settings";
 import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   type SlaveDevice,
   type SlaveProperties,
+  type WriteBinding,
 } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
@@ -99,11 +101,6 @@ export type EntryChannel = EntryReadChannel | EntryWriteChannel;
  */
 export type PDOType = "inputs" | "outputs";
 
-export interface Address {
-  index: number;
-  subIndex: number;
-}
-
 const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: "" } as const;
 
 /** @returns whether the channel has an entry picked. */
@@ -116,29 +113,88 @@ export const DIRECTIONS: Record<PDOType, string> = {
   outputs: "output",
 };
 
-/**
- * @returns the key that maps the entry at the address to its Synnax channel in the
- * slave's device properties. The key survives the wire's case conversion unchanged.
- */
+/** @returns a key that is unique to the address among the entries of a slave. */
 export const addressKey = ({ index, subIndex }: Address): string =>
   `${index}_${subIndex}`;
 
+const isAt =
+  ({ index, subIndex }: Address) =>
+  (b: Address): boolean =>
+    b.index === index && b.subIndex === subIndex;
+
 /** @returns whether the read channel scales its samples. */
 const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
-
-/**
- * @returns the device properties key of the read channel's Synnax channel. A scaled
- * channel writes float64 samples, so it maps to its own Synnax channel.
- */
-export const readKey = (ch: EntryReadChannel): string =>
-  isScaled(ch) ? `scaled_${addressKey(ch)}` : addressKey(ch);
 
 /** @returns the data type of the read channel's Synnax channel. */
 export const readDataType = (ch: EntryReadChannel): string =>
   isScaled(ch) ? "float64" : ch.dataType;
 
-/** @returns the device properties key of the write state channel at the address. */
-export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
+/**
+ * @returns the Synnax channel that the slave maps for the read channel, or 0. A scaled
+ * channel writes float64 samples, so it maps to its own Synnax channel.
+ */
+export const readChannelOf = (slave: SlaveDevice, ch: EntryReadChannel): number => {
+  const at = isAt(ch);
+  const scaled = isScaled(ch);
+  return (
+    slave.properties.read.channels.find((b) => at(b) && b.scaled === scaled)?.channel ??
+    0
+  );
+};
+
+/** Maps the read channel to the Synnax channel with the key on the slave. */
+export const bindReadChannel = (
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+  key: number,
+): void => {
+  const at = isAt(ch);
+  const scaled = isScaled(ch);
+  const { channels } = slave.properties.read;
+  const binding = channels.find((b) => at(b) && b.scaled === scaled);
+  if (binding != null) binding.channel = key;
+  else channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
+};
+
+/** The Synnax channel of an output entry: its command or its state. */
+type WriteRole = keyof Pick<WriteBinding, "command" | "state">;
+
+/** @returns the channel that the slave maps for the role at the address, or 0. */
+export const writeChannelOf = (
+  slave: SlaveDevice,
+  address: Address,
+  role: WriteRole,
+): number => slave.properties.write.channels.find(isAt(address))?.[role] ?? 0;
+
+/** Maps the role at the address to the Synnax channel with the key on the slave. */
+export const bindWriteChannel = (
+  slave: SlaveDevice,
+  address: Address,
+  role: WriteRole,
+  key: number,
+): void => {
+  const { channels } = slave.properties.write;
+  let binding = channels.find(isAt(address));
+  if (binding == null) {
+    binding = {
+      index: address.index,
+      subIndex: address.subIndex,
+      command: 0,
+      state: 0,
+    };
+    channels.push(binding);
+  }
+  binding[role] = key;
+};
+
+/** @returns every Synnax channel that the slave maps. */
+export const mappedChannels = ({
+  properties: { read, write },
+}: SlaveDevice): number[] =>
+  [
+    ...read.channels.map(({ channel }) => channel),
+    ...write.channels.flatMap(({ command, state }) => [command, state]),
+  ].filter((key) => key !== 0);
 
 /** @returns the entries of a slave with each address listed once. */
 const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
@@ -166,9 +222,8 @@ export const usableEntries = (
 /** @returns the entry at the address, or undefined if the slave has none there. */
 export const entryAt = (
   entries: ethercat.PDOEntry[],
-  { index, subIndex }: Address,
-): ethercat.PDOEntry | undefined =>
-  entries.find((e) => e.index === index && e.subIndex === subIndex);
+  address: Address,
+): ethercat.PDOEntry | undefined => entries.find(isAt(address));
 
 /** @returns the entry label, e.g. "Channel 2 › Input", or the name alone. */
 export const getEntryLabel = ({ name, pdoName }: ethercat.PDOEntry): string =>

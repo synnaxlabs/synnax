@@ -30,18 +30,20 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
+  bindReadChannel,
   createEntryReadChannel,
   createReadChannel,
   deployReadConfigZ,
   entryAt,
   getPortLabel,
   hasEntry,
+  mappedChannels,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
   readChannelName,
+  readChannelOf,
   readDataType,
-  readKey,
   type ReadSchemas,
   usableEntries,
 } from "@/feature/ethercat/task/types";
@@ -113,7 +115,7 @@ const Form: FC = () => {
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    return { channel: slave.properties.read.channels[readKey(ch)] ?? 0 };
+    return { channel: readChannelOf(slave, ch) };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -186,8 +188,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const missing = await findChannelsToCreate(
       client,
       channels,
-      slave.properties.read.channels,
-      readKey,
+      (ch) => readChannelOf(slave, ch),
       readDataType,
     );
     plans.push({ slave, channels, missing });
@@ -201,7 +202,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   for (const plan of plans) {
     const { slave, channels } = plan;
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
-    // A new index clears the slave's channel map, so every channel is missing.
+    // A new index clears the read channels of the slave, so every channel is missing.
     const missing = modified ? channels : plan.missing;
     if (missing.length > 0) modified = true;
     const toCreate = await bindOrphanedChannels({
@@ -209,8 +210,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       channels: missing,
       names: missing.map((ch) => readChannelName(slave, ch)),
       index: () => slave.properties.readIndex,
-      map: slave.properties.read.channels,
-      mapKey: readKey,
+      mapped: mappedChannels(slave),
+      bind: (ch, key) => bindReadChannel(slave, ch, key),
       getDataType: readDataType,
     });
 
@@ -223,15 +224,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
         })),
       );
 
-      created.forEach((c, i) => {
-        slave.properties.read.channels[readKey(toCreate[i])] = c.key;
-      });
+      created.forEach((c, i) => bindReadChannel(slave, toCreate[i], c.key));
     }
 
     if (modified) await Device.setProperties(client, slave, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[readKey(ch)];
+      ch.channel = readChannelOf(slave, ch);
     });
   }
 
