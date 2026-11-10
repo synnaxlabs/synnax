@@ -141,9 +141,9 @@ export class Client extends query.Retriever<
     const usesStore = cache.createTable<Key, Uses>({
       name: "secret.uses",
       fetch: async (keys) =>
-        (
-          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true })
-        ).map(toUses),
+        this.usesOf(
+          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true }),
+        ),
     });
     // A secret created again under a deleted key reads its uses again.
     store.subscribe((event) => {
@@ -309,8 +309,15 @@ export class Client extends query.Retriever<
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
     const secrets = await this.execRetrieve(req);
     if (req.includeUses !== true) return secrets;
-    this.usesStore.set(secrets.map(toUses));
+    this.usesStore.set(this.usesOf(secrets));
     return secrets.map(stripUses);
+  }
+
+  // A fetch that a delete overtakes must not restore the uses of the deleted secret.
+  private usesOf(secrets: Secret[]): Uses[] {
+    return secrets
+      .filter(({ key }) => this.store.status(key) !== "tombstoned")
+      .map(toUses);
   }
 
   private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
