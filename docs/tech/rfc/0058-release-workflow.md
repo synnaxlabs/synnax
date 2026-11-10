@@ -46,13 +46,23 @@ carries `0.0.0`.
 template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main` and
 `release/**` build and test only.
 
-The branch sets the version of the Console, Core, Driver, and packages. A release from
-`main` is always the next minor: when the newest stable tag is `X.Y.Z`, it is
-`X.(Y+1).0`, and its candidates are `X.(Y+1).0-rc.N`. A patch from `main` is not
-possible. Release branches exist only for patches: when train `X.Y` needs one,
-`release/<product>-X.Y` is cut from the `X.Y.0` tag, and the fix lands on `main` first,
-then is cherry-picked by PR onto the branch. A release from the branch is always the
-next patch on `X.Y`, or `X.Y.0` when the train has no tag.
+Every release, candidates included, runs only from `main` or a release branch,
+`release/<console|core|driver>-X.Y`; Desktop also allows `release/desktop-X.Y`. Any
+other branch fails.
+
+The branch sets the version of the Console, Core, Driver, and packages. A release of the
+Console, Core, or Driver from `main` is always the next minor: when the newest stable
+tag is `X.Y.Z`, it is `X.(Y+1).0`, and its candidates are `X.(Y+1).0-rc.N`. A patch from
+`main` is not possible. Release branches exist only for patches: when train `X.Y` needs
+one, `release/<product>-X.Y` is cut from the `X.Y.0` tag, and the fix lands on `main`
+first, then is cherry-picked by PR onto the branch. A release from the branch is always
+the next patch on `X.Y`, or `X.Y.0` when the train has no tag.
+
+Packages share the Core's minor, since the TypeScript and Python clients connect only to
+a Core with the same major.minor. From `main`, packages release only in the same run as
+the Core, at the next patch on the minor the Core releases; a packages-only run from
+`main` fails and asks for `release/core-X.Y`. From a release branch, packages release
+the next patch on `X.Y`, with or without the Core.
 
 ### 2.1 Release workflow
 
@@ -111,15 +121,14 @@ ever already published.
 
 Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
 `py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
-each language releases alone. The branch sets a language's version as it does for a
-binary product (§2.0): from `main`, the minor after the language's newest stable tag;
-from `release/<product>-X.Y`, the next patch on `X.Y`. A package patch never releases
-from `main`, and the train rule (§2.2) caps a language at one minor ahead of the Core's
-newest stable. That count includes the Core of the same run, because the packages
-publish only after it. The publish job waits for every product the run releases, then
-runs `stamp_versions.sh` to write the version into that language's manifests. It stops
-when the version's tag names another commit, or when the registry has the version
-without a tag, so one version never holds packages from two commits.
+each language releases alone. A language takes the Core's minor (§2.0): from `main`, the
+next patch on the minor of the run's Core; from `release/<product>-X.Y`, the next patch
+on `X.Y`. A version a registry once held is never reused, even after a yank, so the next
+patch skips it: with `ts/v0.61.0` and `py/v0.61.0` yanked, the run that ships Core
+0.61.0 publishes packages 0.61.1. The publish job waits for every product the run
+releases, then runs `stamp_versions.sh` to write the version into that language's
+manifests. It stops when the version's tag names another commit, or when the registry
+has the version without a tag, so one version never holds packages from two commits.
 
 The Python job claims the version by pushing its tag at the run's commit, then
 publishes. A run at the same commit keeps the version, since the resolve stage keeps a
@@ -149,13 +158,11 @@ and the Core release fails unless the Console and Driver it embeds share its min
 Console and Driver open a train; the Core closes it. Every product and every package
 shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
 while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-Each language releases its packages together at one version. Once a language ships
-`X.(Y+1).0` from `main` while the Core's newest stable is `X.Y.Z`, the next release of
-that language from `main` waits for the Core to ship `X.(Y+1).0`. The C++ client and the
-C library are on no registry and ship with the Driver, so they carry the Driver's
-`SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog pins internal deps as
-`workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch mix inside a
-train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
+Each language releases its packages together at one version, on the Core's minor. The
+C++ client and the C library are on no registry and ship with the Driver, so they carry
+the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog pins
+internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch
+mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
 `@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
 the catalog.
 
@@ -259,11 +266,12 @@ flag and workflow file.
    Go-only change must not re-release the Driver or Console.
 4. **No approval gate**: Environment reviewers rejected; the dispatch is the approval.
 5. **The branch sets the version**: `main` releases the next minor and a release branch
-   the next patch. A `bump` input rejected: a patch from `main` tagged next-minor code
-   on the old train once that train had moved to its release branch. release-please
-   rejected because it writes version files; typed versions rejected because they invite
-   skipped numbers. Desktop keeps a `bump`, since its version line is apart from the
-   train.
+   the next patch; packages follow the Core's minor. Any other branch fails, so a
+   feature branch never opens a train. A `bump` input rejected: a patch from `main`
+   tagged next-minor code on the old train once that train had moved to its release
+   branch. release-please rejected because it writes version files; typed versions
+   rejected because they invite skipped numbers. Desktop keeps a `bump`, since its
+   version line is apart from the train.
 6. **Updater endpoint on the docs site**: `releases/latest/download` is repo-wide and
    breaks under per-product tags; a rolling `console/latest` release abuses tags.
 7. **Request-time docs versions**: The site is already SSR; a deploy hook fixes a race

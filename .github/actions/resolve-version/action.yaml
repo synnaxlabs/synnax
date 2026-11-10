@@ -20,19 +20,17 @@ inputs:
     default: "false"
   ref:
     description:
-      The branch the release runs from (all products but Desktop). A
-      release/<product>-X.Y branch resolves the next patch on X.Y; any other release/
-      branch fails; any other branch resolves the next minor.
-    required: false
-    default: ""
+      The branch the release runs from, main or a release/<product>-X.Y branch. Any
+      other branch fails.
+    required: true
   bump:
     description: patch, minor, or major (Desktop only)
     required: false
     default: ""
   core:
     description:
-      The stable Core version the same run releases, which the train rule counts as the
-      Core's newest stable
+      The stable Core version the same run releases. ts and py take its minor from main,
+      and fail from main without it.
     required: false
     default: ""
 

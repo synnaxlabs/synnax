@@ -11,25 +11,33 @@
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
 # outputs (key=value lines).
-# Usage: resolve_version.sh <product> <prerelease> [ref] [bump] [core]
+# Usage: resolve_version.sh <product> <prerelease> <ref> [bump] [core]
 #
-# Console, Core, Driver, ts, and py: a release/<product>-X.Y ref resolves the next patch
-# on X.Y, or X.Y.0 when the train has no tag. Any other release/ ref fails. Any other ref
-# resolves the minor after the product's newest stable tag. For a stable ts or py run,
-# that tag at HEAD resolves to itself, so a rerun finishes its publish. Desktop: the bump
-# applies to the highest Desktop tag reachable from HEAD, and a patch counts from the
-# highest tag on that minor. The first Desktop release must be a major bump from 0.0.0,
-# so it outranks the 1.0.0 candidates.
+# Every product releases only from main or a release branch:
+# release/<console|core|driver>-X.Y, or release/desktop-X.Y for Desktop.
+#
+# Console, Core, and Driver: main resolves the minor after the product's newest stable
+# tag. A release branch resolves the next patch on X.Y, or X.Y.0 when the train has no
+# tag.
+#
+# ts and py share the Core's minor, since the clients connect only to a Core with the
+# same major.minor. From main, they release only with the Core: core is the stable
+# version the same run releases, and they take the next patch on its minor. From a
+# release branch, they take the next patch on X.Y. For a stable run, a package tag at
+# HEAD on that train resolves to itself, so a rerun finishes its publish.
+#
+# Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
+# counts from the highest tag on that minor. The first Desktop release must be a major
+# bump from 0.0.0, so it outranks the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
-# rule caps every product but Desktop at one minor ahead of the Core's newest stable. A
-# stable core version, the Core the same run releases, counts as a stable tag. latest is
-# true when no stable tag of the product outranks the result. previous_tag is the
-# highest stable product tag below the result, reachable or not.
+# rule caps every product but Desktop at one minor ahead of the Core's newest stable.
+# latest is true when no stable tag of the product outranks the result. previous_tag is
+# the highest stable product tag below the result, reachable or not.
 
 set -euo pipefail
 
-USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [bump] [core]"
+USAGE="usage: resolve_version.sh <product> <prerelease> <ref> [bump] [core]"
 PRODUCT=${1:?$USAGE}
 PRERELEASE=${2:?$USAGE}
 REF=${3:-}
@@ -53,20 +61,41 @@ next_patch() {
     echo "$1.$((patch + 1))"
 }
 
+# Prints X.Y when the ref is a release branch of one of the products in pattern $1.
+release_train() {
+    if [[ $REF =~ ^release/($1)-([0-9]+\.[0-9]+)$ ]]; then
+        echo "${BASH_REMATCH[2]}"
+    fi
+}
+
 case "$PRODUCT" in
     console | core | driver | ts | py)
         if [ -n "$BUMP" ]; then
             echo "$PRODUCT takes no bump; the ref sets its version" >&2
             exit 1
         fi
-        if [[ $REF =~ ^release/(console|core|driver)-([0-9]+\.[0-9]+)$ ]]; then
-            BASE=$REF
-            TRAIN=${BASH_REMATCH[2]}
+        TRAIN=$(release_train "console|core|driver")
+        if [ -z "$TRAIN" ] && [ "$REF" != main ]; then
+            echo "releases run only from main or release/<console|core|driver>-X.Y," \
+                "not '$REF'" >&2
+            exit 1
+        fi
+        if [ -z "$TRAIN" ] && [[ $PRODUCT =~ ^(ts|py)$ ]]; then
+            if [ -z "$RUN_CORE" ]; then
+                echo "$PRODUCT releases from main only with the Core. To release it" \
+                    "alone, run from release/core-X.Y" >&2
+                exit 1
+            fi
+            if ! [[ $RUN_CORE =~ ^([0-9]+\.[0-9]+)\.[0-9]+$ ]]; then
+                echo "core $RUN_CORE is not a stable version" >&2
+                exit 1
+            fi
+            TRAIN=${BASH_REMATCH[1]}
+        fi
+        if [ -n "$TRAIN" ]; then
+            BASE=$TRAIN
             CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
             NEXT=$(next_patch "$TRAIN")
-        elif [[ $REF == release/* ]]; then
-            echo "$REF is not a release/<console|core|driver>-X.Y branch" >&2
-            exit 1
         else
             CURRENT=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
             BASE=$CURRENT
@@ -86,6 +115,10 @@ case "$PRODUCT" in
         fi
         ;;
     desktop)
+        if [ "$REF" != main ] && [ -z "$(release_train desktop)" ]; then
+            echo "desktop releases only from main or release/desktop-X.Y, not '$REF'" >&2
+            exit 1
+        fi
         BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
         if [ -z "$BASE" ]; then
             if [ "$BUMP" != major ]; then
@@ -114,10 +147,7 @@ IFS=. read -r NEXT_MAJOR NEXT_MINOR _ <<< "$NEXT"
 
 CORE=""
 if [ "$PRODUCT" != desktop ]; then
-    CORE=$({
-        git tag --list 'core/v*'
-        if [ -n "$RUN_CORE" ]; then echo "core/v$RUN_CORE"; fi
-    } | highest core)
+    CORE=$(git tag --list 'core/v*' | highest core)
     if [ -z "$CORE" ]; then
         echo "no stable core tag exists; the train rule needs one" >&2
         exit 1

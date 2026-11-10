@@ -151,14 +151,6 @@ jobs:
           echo "no product selected; a candidate run never publishes packages" >&2
           exit 1
 
-      - name: Require a release branch for packages
-        if: >-
-          (inputs.typescript || inputs.python) && !inputs.prerelease && github.ref !=
-          'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/')
-        run: |
-          echo "packages publish only from main or a release/ branch" >&2
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

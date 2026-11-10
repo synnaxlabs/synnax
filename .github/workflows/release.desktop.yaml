@@ -96,6 +96,7 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: desktop
+          ref: ${{ github.ref_name }}
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
