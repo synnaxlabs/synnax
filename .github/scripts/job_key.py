@@ -14,10 +14,11 @@
     python3 job_key.py changes <pull request> <head>
 
 A key hashes the job's block, the workflows it calls, and the files its filters match.
-Only its own module counts unit tests. Go and Python files count without comments where
-the job reads none. A lint job also gets a code key, whose pass runs only its lint.
-The Go jobs key HEAD_SHA, the pull request head they test. changes prints the Go files
-each Go job's inputs changed since its last pass on the pull request, or all.
+Only its own module counts unit tests. A test workflow counts no prose. Go and Python
+files count without comments where the job reads none. A lint job also gets a code key,
+whose pass runs only its lint. The Go jobs key HEAD_SHA, the pull request head they
+test. changes prints the Go files each Go job's inputs changed since its last pass on
+the pull request, or all.
 """
 
 import hashlib
@@ -45,6 +46,8 @@ CALLS = re.compile(r"uses:\s*\./(\.github/workflows/[\w.-]+)")
 ARTIFACT = "pass-{job}-{key}"
 # Which unit tests a filter counts. Any other value names a filter.
 ALL, NONE = "", "-"
+# No test workflow reads prose.
+PROSE = ".md"
 # The Go and Python comments each workflow reads. Lint reads its own in lint only, code
 # reads none, and any other job reads all.
 LINT, CODE = "lint", "code"
@@ -204,7 +207,7 @@ def keys(
 
     def hasher(snap: Snapshot) -> Callable[..., str]:
         stripped: dict[str, str] = {}
-        cache: dict[tuple[str, str, bool], str] = {}
+        cache: dict[tuple[str, str, bool, bool], str] = {}
 
         def version(path: str, blob: str, code: bool) -> str:
             if (
@@ -218,16 +221,19 @@ def keys(
                 stripped[path] = blob if text is None else digest([text])
             return stripped[path]
 
-        def of(name: str, patterns: Iterable[str], *, own: str, code: bool) -> str:
-            if (name, own, code) not in cache:
+        def of(
+            name: str, patterns: Iterable[str], *, own: str, code: bool, prose: bool
+        ) -> str:
+            if (name, own, code, prose) not in cache:
                 pattern, mine = matcher(patterns), matcher(owned[own])
-                cache[name, own, code] = digest(
+                cache[name, own, code, prose] = digest(
                     f"{p} {version(p, b, code)}"
                     for p, b in snap.entries
                     if pattern.fullmatch(p)
                     and (not tests.fullmatch(p) or mine.fullmatch(p))
+                    and (prose or not p.endswith(PROSE))
                 )
-            return cache[name, own, code]
+            return cache[name, own, code, prose]
 
         return of
 
@@ -250,21 +256,24 @@ def keys(
         of = heads if uses == GO else base
         workflows = called(uses[2:], read) if uses.startswith("./") else set()
         own, deps = refs[0], refs[1:]
-        tested = own if uses in MODES else ALL
+        tested, prose = (own, False) if uses in MODES else (ALL, True)
         return digest(
             [
                 VERSION,
                 job,
                 f"{own_code} {dep_code}",
                 json.dumps(block, sort_keys=True, default=str),
-                of("", COMMON, own=ALL, code=False),
+                of("", COMMON, own=ALL, code=False, prose=True),
                 *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
                 *(
-                    f"{w} {base(w, [w], own=ALL, code=False)}"
+                    f"{w} {base(w, [w], own=ALL, code=False, prose=True)}"
                     for w in sorted(workflows)
                 ),
-                f"{own} {of(own, globs[own], own=tested, code=own_code)}",
-                *(f"{r} {of(r, globs[r], own=NONE, code=dep_code)}" for r in deps),
+                f"{own} {of(own, globs[own], own=tested, code=own_code, prose=prose)}",
+                *(
+                    f"{r} {of(r, globs[r], own=NONE, code=dep_code, prose=prose)}"
+                    for r in deps
+                ),
             ]
         )[:40]
 
@@ -344,7 +353,11 @@ def changes(
             continue
         last = max(passes, key=lambda a: a["created_at"])["workflow_run"]["head_sha"]
         pattern = matcher(set().union(*(globs[r] for r in refs)))
-        changed = [f for f in diff(last) if pattern.fullmatch(f) or shared.fullmatch(f)]
+        changed = [
+            f
+            for f in diff(last)
+            if (pattern.fullmatch(f) and not f.endswith(PROSE)) or shared.fullmatch(f)
+        ]
         go = all(f.endswith(".go") for f in changed)
         out[job] = " ".join(changed) if go else "all"
     return out

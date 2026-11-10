@@ -101,6 +101,7 @@ FILES = {
     "client/a.spec.ts": "it();\n",
     "client/a.ts": "export const a = 1;\n",
     "client/b.py": "a = 1  # One.\n",
+    "core/AGENTS.md": "# Core\n",
     "core/a.go": "package a\n\n// A is one.\nfunc A() int { return 1 }\n",
     "core/a_test.go": "package a\n\n// Output: 1\n",
     "core/testdata/a.json": "{}\n",
@@ -259,6 +260,12 @@ class TestKeys:
     ) -> None:
         assert run()["knip"] != run(edit("client/a.spec.ts", "c4"))["knip"]
 
+    def test_should_skip_prose_in_a_test_job(self) -> None:
+        before, after = run(), run(edit("core/AGENTS.md", "# Core 2\n"))
+        assert before["core"] == after["core"]
+        assert before["client"] == after["client"]
+        assert before["exports"] != after["exports"]
+
     def test_should_change_with_a_filter_value_the_inputs_read(self) -> None:
         before = run(outputs={"client": "true", "core": "false"})
         after = run(outputs={"client": "false", "core": "false"})
@@ -405,6 +412,9 @@ class TestChanges:
 
     def test_should_ignore_files_the_job_does_not_read(self) -> None:
         assert self.check(["docs/a.md", "client/a.ts"]) == {"core": ""}
+
+    def test_should_ignore_prose(self) -> None:
+        assert self.check(["core/a.go", "core/AGENTS.md"]) == {"core": "core/a.go"}
 
     @pytest.mark.parametrize(
         "path", ["core/testdata/a.json", ".golangci.yaml", WORKFLOW, FILTERS]
