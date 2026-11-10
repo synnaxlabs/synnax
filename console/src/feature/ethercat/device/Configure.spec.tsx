@@ -609,9 +609,10 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
 
       it("should read a file in the encoding that its declaration names", async () => {
         const slave = await setup({ productCode: 0x67, revision: 1 });
-        const text =
-          '<?xml version="1.0" encoding="ISO-8859-1"?>' +
-          esiOf([`<CoE>${initCmd("PS", "#x8050", "1", "01", "Offset in °C")}</CoE>`]);
+        const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");
+        const text = `<?xml version="1.0" encoding="ISO-8859-1"?>${esiOf([
+          `<CoE>${command}</CoE>`,
+        ])}`;
         importFile(
           "latin.xml",
           Uint8Array.from(text, (c) => c.charCodeAt(0)),

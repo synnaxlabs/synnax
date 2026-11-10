@@ -114,9 +114,10 @@ const decode = (file: Uint8Array): string => {
   const encoding = DECLARED_ENCODING.exec(head)?.[1] ?? "utf-8";
   try {
     return new TextDecoder(encoding).decode(file);
-  } catch {
+  } catch (e) {
     throw new Error(
       `The ESI file uses ${encoding}, an encoding that Synnax cannot read.`,
+      { cause: e },
     );
   }
 };
