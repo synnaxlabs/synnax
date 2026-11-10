@@ -62,13 +62,13 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the MQTT task types.
 type Service struct {
 	// Read stores mqtt_read task configuration records.
-	Read *config.Service[ReadConfig]
+	Read *config.Service[ReadConfig, ReadConfigUpdate]
 	// Write stores mqtt_write task configuration records.
-	Write *config.Service[WriteConfig]
+	Write *config.Service[WriteConfig, WriteConfigUpdate]
 	// Scan stores mqtt_scan task configuration records.
-	Scan *config.Service[ScanConfig]
+	Scan *config.Service[ScanConfig, ScanConfigUpdate]
 	// Edge stores mqtt_sparkplug_edge task configuration records.
-	Edge   *config.Service[EdgeConfig]
+	Edge   *config.Service[EdgeConfig, EdgeConfigUpdate]
 	closer xio.MultiCloser
 }
 
@@ -84,7 +84,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
-		ctx, config.ServiceConfig[ReadConfig]{
+		ctx, config.ServiceConfig[ReadConfig, ReadConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         readConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
@@ -92,6 +92,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.ReadConfigLadder,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			PatchEntry:         (*ReadConfig).Patch,
+			ApplyUpdate:        ReadConfigUpdate.ApplyTo,
 			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
@@ -100,7 +101,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
-		ctx, config.ServiceConfig[WriteConfig]{
+		ctx, config.ServiceConfig[WriteConfig, WriteConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         writeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
@@ -108,6 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			PatchEntry:         (*WriteConfig).Patch,
+			ApplyUpdate:        WriteConfigUpdate.ApplyTo,
 			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
@@ -116,13 +118,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
-		ctx, config.ServiceConfig[ScanConfig]{
+		ctx, config.ServiceConfig[ScanConfig, ScanConfigUpdate]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               ScanTaskType,
 			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			PatchEntry:         (*ScanConfig).Patch,
+			ApplyUpdate:        ScanConfigUpdate.ApplyTo,
 			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
@@ -130,7 +133,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Edge, err = config.OpenService(
-		ctx, config.ServiceConfig[EdgeConfig]{
+		ctx, config.ServiceConfig[EdgeConfig, EdgeConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         edgeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
@@ -138,6 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.EdgeConfigLadder,
 			SetEntryKey:        (*EdgeConfig).SetKey,
 			PatchEntry:         (*EdgeConfig).Patch,
+			ApplyUpdate:        EdgeConfigUpdate.ApplyTo,
 			HashEntry:          (*EdgeConfig).HashContent,
 			ApplyEntryDefaults: (*EdgeConfig).ApplyDefaults,
 			ValidateEntry:      (*EdgeConfig).Validate,

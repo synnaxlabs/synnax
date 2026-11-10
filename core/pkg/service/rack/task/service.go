@@ -51,7 +51,7 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the rack status task type.
 type Service struct {
 	// Status stores rack_status task configuration records.
-	Status *config.Service[StatusConfig]
+	Status *config.Service[StatusConfig, StatusConfigUpdate]
 	closer xio.MultiCloser
 }
 
@@ -67,7 +67,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Status, err = config.OpenService(
-		ctx, config.ServiceConfig[StatusConfig]{
+		ctx, config.ServiceConfig[StatusConfig, StatusConfigUpdate]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
 			Type:            "rack_status",
@@ -75,6 +75,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:          versions.StatusConfigLadder,
 			SetEntryKey:     (*StatusConfig).SetKey,
 			PatchEntry:      (*StatusConfig).Patch,
+			ApplyUpdate:     StatusConfigUpdate.ApplyTo,
 			HashEntry:       (*StatusConfig).HashContent,
 		},
 	); !ok(err, s.Status) {

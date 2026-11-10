@@ -41,6 +41,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/telem"
@@ -660,6 +661,17 @@ var _ = Describe("Task", Ordered, func() {
 		set := func(path []string, value any) task.Action {
 			return task.NewSetAction(task.SetPayload{Path: path, Value: value})
 		}
+		update := func(u task.Update, guards ...patch.Guard) task.Action {
+			return task.NewUpdateAction(task.UpdatePayload{Value: u, Guards: guards})
+		}
+		setHash := func(hash string) task.Action {
+			return update(task.Update{ConfigHash: &hash})
+		}
+		replaceConfig := func(cfg msgpack.EncodedJSON) task.Action {
+			return update(task.Update{
+				Config: msgpack.EncodedJSON{"set": map[string]any(cfg)},
+			})
+		}
 		dispatch := func(
 			ctx context.Context,
 			key task.Key,
@@ -764,9 +776,140 @@ var _ = Describe("Task", Ordered, func() {
 			}))
 			Expect(applied).To(Equal([]task.Action{
 				set([]string{"config", "alerts", "z", "status"}, "st-b"),
-				set([]string{"config_hash"}, alerts.ConfigHash),
+				setHash(alerts.ConfigHash),
 			}))
 			expectUnchanged(ctx)
+		})
+
+		It("Should merge the config of an update into the stored config", func(
+			ctx SpecContext,
+		) {
+			acts := []task.Action{update(task.Update{
+				Config: msgpack.EncodedJSON{"routing_key": "rk-2"},
+			})}
+			applied := MustSucceed(dispatch(ctx, alerts.Key, "dk", acts))
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-2"))
+			Expect(res.Config).To(HaveKeyWithValue("alerts", alerts.Config["alerts"]))
+			Expect(applied).To(Equal(append(acts, setHash(res.ConfigHash))))
+		})
+
+		It("Should replace the config with the set of an update", func(
+			ctx SpecContext,
+		) {
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				update(task.Update{Config: msgpack.EncodedJSON{
+					"set": map[string]any{"routing_key": "rk-2"},
+				}}),
+			}))
+			res := retrieve(ctx, alerts.Key)
+			Expect(res.Config).To(HaveKeyWithValue("routing_key", "rk-2"))
+			Expect(res.Config["alerts"]).To(BeEmpty())
+		})
+
+		It("Should apply list operators to the config of an update", func(
+			ctx SpecContext,
+		) {
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				update(task.Update{Config: msgpack.EncodedJSON{
+					"alerts": map[string]any{
+						"insert": []any{map[string]any{"key": "b", "status": "st-b"}},
+						"update": []any{map[string]any{"key": "a", "status": "st-b"}},
+						"move":   []any{map[string]any{"key": "b"}},
+					},
+				}}),
+			}))
+			Expect(retrieve(ctx, alerts.Key).Config["alerts"]).To(HaveExactElements(
+				HaveKeyWithValue("key", "b"),
+				SatisfyAll(
+					HaveKeyWithValue("key", "a"),
+					HaveKeyWithValue("status", "st-b"),
+				),
+			))
+		})
+
+		It("Should check a guard on the config against the stored config", func(
+			ctx SpecContext,
+		) {
+			guarded := func(value string) task.Action {
+				return update(
+					task.Update{Config: msgpack.EncodedJSON{"routing_key": "rk-2"}},
+					patch.Guard{Path: []string{"config", "routing_key"}, Value: value},
+				)
+			}
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{guarded("rk-9")})).
+				Error().To(SatisfyAll(
+				MatchError(patch.ErrStale),
+				MatchError(ContainSubstring("routing_key] is not rk-9")),
+			))
+			expectUnchanged(ctx)
+			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{guarded("rk-1")}))
+			Expect(retrieve(ctx, alerts.Key).Config).
+				To(HaveKeyWithValue("routing_key", "rk-2"))
+		})
+
+		It("Should return a stale error for a missing entry of the config", func(
+			ctx SpecContext,
+		) {
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				update(task.Update{Config: msgpack.EncodedJSON{
+					"alerts": map[string]any{"remove": []any{"z"}},
+				}}),
+			})).Error().To(SatisfyAll(
+				MatchError(patch.ErrStale),
+				MatchError(ContainSubstring("z not found")),
+			))
+			expectUnchanged(ctx)
+		})
+
+		It("Should reject an update of a member the config does not declare", func(
+			ctx SpecContext,
+		) {
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				update(task.Update{Config: msgpack.EncodedJSON{"routing_kye": "rk-2"}}),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring(`unknown object member name "routing_kye"`),
+				),
+			))
+			expectUnchanged(ctx)
+		})
+
+		It("Should reject path actions and updates on the config together", func(
+			ctx SpecContext,
+		) {
+			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{
+				set([]string{"config", "routing_key"}, "rk-2"),
+				update(task.Update{Config: msgpack.EncodedJSON{"routing_key": "rk-3"}}),
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"cannot edit the config with both path actions and updates",
+				)),
+			))
+			expectUnchanged(ctx)
+		})
+
+		It("Should replace the config of a task whose type has no config store", func(
+			ctx SpecContext,
+		) {
+			storeless := task.Task{
+				Key:    uuid.New(),
+				Type:   "storeless",
+				Rack:   testRack.Key,
+				Name:   "Storeless",
+				Config: msgpack.EncodedJSON{"a": "1", "b": "2"},
+			}
+			Expect(gorp.NewCreate[task.Key, task.Task]().
+				Entry(&storeless).
+				Exec(ctx, db)).To(Succeed())
+			acts := []task.Action{update(task.Update{
+				Config: msgpack.EncodedJSON{"a": "3"},
+			})}
+			Expect(dispatch(ctx, storeless.Key, "dk", acts)).To(Equal(acts))
+			Expect(retrieve(ctx, storeless.Key).Config).
+				To(Equal(msgpack.EncodedJSON{"a": "3"}))
 		})
 
 		It("Should leave the config and its hash alone for a rename", func(
@@ -890,6 +1033,29 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(res.ConfigHash).To(Equal(snap.ConfigHash))
 		})
 
+		It("Should rename a snapshot by an update", func(ctx SpecContext) {
+			snap := &task.Task{
+				Type:     testType,
+				Rack:     testRack.Key,
+				Name:     "Snapshot",
+				Snapshot: true,
+			}
+			createCommitted(ctx, snap)
+			MustSucceed(dispatch(ctx, snap.Key, "dk", []task.Action{
+				update(task.Update{Name: new("Renamed")}),
+			}))
+			Expect(retrieve(ctx, snap.Key).Name).To(Equal("Renamed"))
+			Expect(dispatch(ctx, snap.Key, "dk", []task.Action{
+				update(task.Update{
+					Name:   new("Again"),
+					Config: msgpack.EncodedJSON{"routing_key": "rk-2"},
+				}),
+			})).Error().To(MatchError(
+				ContainSubstring("is a snapshot, so only its name can change"),
+			))
+			Expect(retrieve(ctx, snap.Key).Name).To(Equal("Renamed"))
+		})
+
 		It("Should reject any other edit to a snapshot", func(ctx SpecContext) {
 			snap := &task.Task{
 				Type:     testType,
@@ -916,7 +1082,7 @@ var _ = Describe("Task", Ordered, func() {
 			})).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should broadcast and return a set of the new config hash", func(
+		It("Should broadcast and return an update of the new config hash", func(
 			ctx SpecContext,
 		) {
 			frames := collect()
@@ -925,7 +1091,7 @@ var _ = Describe("Task", Ordered, func() {
 			hash := retrieve(ctx, alerts.Key).ConfigHash
 			Expect(applied).To(Equal([]task.Action{
 				set([]string{"config", "routing_key"}, "rk-2"),
-				set([]string{"config_hash"}, hash),
+				setHash(hash),
 			}))
 			Expect(*frames).To(HaveLen(1))
 			f := (*frames)[0]
@@ -957,8 +1123,8 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
 				Expect(applied).To(Equal([]task.Action{
 					set([]string{"config", "performance"}, ""),
-					set([]string{"config"}, stored.Config),
-					set([]string{"config_hash"}, stored.ConfigHash),
+					replaceConfig(stored.Config),
+					setHash(stored.ConfigHash),
 				}))
 				Expect(*frames).To(HaveLen(1))
 				Expect((*frames)[0].Actions).To(Equal(applied))
@@ -1017,8 +1183,8 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(*frames).To(HaveLen(1))
 			Expect((*frames)[0].Key).To(Equal(detached.Key))
 			Expect((*frames)[0].Actions).To(Equal([]task.Action{
-				set([]string{"config"}, stored.Config),
-				set([]string{"config_hash"}, stored.ConfigHash),
+				replaceConfig(stored.Config),
+				setHash(stored.ConfigHash),
 			}))
 		})
 	})

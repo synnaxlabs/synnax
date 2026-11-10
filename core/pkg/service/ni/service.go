@@ -52,17 +52,17 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the NI task types.
 type Service struct {
 	// AnalogRead stores ni_analog_read task configuration records.
-	AnalogRead *config.Service[AnalogReadConfig]
+	AnalogRead *config.Service[AnalogReadConfig, AnalogReadConfigUpdate]
 	// AnalogWrite stores ni_analog_write task configuration records.
-	AnalogWrite *config.Service[AnalogWriteConfig]
+	AnalogWrite *config.Service[AnalogWriteConfig, AnalogWriteConfigUpdate]
 	// CounterRead stores ni_counter_read task configuration records.
-	CounterRead *config.Service[CounterReadConfig]
+	CounterRead *config.Service[CounterReadConfig, CounterReadConfigUpdate]
 	// DigitalRead stores ni_digital_read task configuration records.
-	DigitalRead *config.Service[DigitalReadConfig]
+	DigitalRead *config.Service[DigitalReadConfig, DigitalReadConfigUpdate]
 	// DigitalWrite stores ni_digital_write task configuration records.
-	DigitalWrite *config.Service[DigitalWriteConfig]
+	DigitalWrite *config.Service[DigitalWriteConfig, DigitalWriteConfigUpdate]
 	// Scanner stores ni_scanner task configuration records.
-	Scanner *config.Service[ScanConfig]
+	Scanner *config.Service[ScanConfig, ScanConfigUpdate]
 	closer  xio.MultiCloser
 }
 
@@ -78,7 +78,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.AnalogRead, err = config.OpenService(
-		ctx, config.ServiceConfig[AnalogReadConfig]{
+		ctx, config.ServiceConfig[AnalogReadConfig, AnalogReadConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         analogReadConfigReferences(),
 			Migrations:         []gorp.Migration{v3.AnalogReadMigration},
@@ -89,6 +89,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.AnalogRead,
 			SetEntryKey:        (*AnalogReadConfig).SetKey,
 			PatchEntry:         (*AnalogReadConfig).Patch,
+			ApplyUpdate:        AnalogReadConfigUpdate.ApplyTo,
 			HashEntry:          (*AnalogReadConfig).HashContent,
 			ApplyEntryDefaults: (*AnalogReadConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogReadConfig).Validate,
@@ -97,7 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.AnalogWrite, err = config.OpenService(
-		ctx, config.ServiceConfig[AnalogWriteConfig]{
+		ctx, config.ServiceConfig[AnalogWriteConfig, AnalogWriteConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         analogWriteConfigReferences(),
 			Migrations:         []gorp.Migration{v3.AnalogWriteMigration},
@@ -108,6 +109,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.AnalogWrite,
 			SetEntryKey:        (*AnalogWriteConfig).SetKey,
 			PatchEntry:         (*AnalogWriteConfig).Patch,
+			ApplyUpdate:        AnalogWriteConfigUpdate.ApplyTo,
 			HashEntry:          (*AnalogWriteConfig).HashContent,
 			ApplyEntryDefaults: (*AnalogWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*AnalogWriteConfig).Validate,
@@ -116,7 +118,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.CounterRead, err = config.OpenService(
-		ctx, config.ServiceConfig[CounterReadConfig]{
+		ctx, config.ServiceConfig[CounterReadConfig, CounterReadConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         counterReadConfigReferences(),
 			Migrations:         []gorp.Migration{v3.CounterReadMigration},
@@ -127,6 +129,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.CounterRead,
 			SetEntryKey:        (*CounterReadConfig).SetKey,
 			PatchEntry:         (*CounterReadConfig).Patch,
+			ApplyUpdate:        CounterReadConfigUpdate.ApplyTo,
 			HashEntry:          (*CounterReadConfig).HashContent,
 			ApplyEntryDefaults: (*CounterReadConfig).ApplyDefaults,
 			ValidateEntry:      (*CounterReadConfig).Validate,
@@ -135,7 +138,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.DigitalRead, err = config.OpenService(
-		ctx, config.ServiceConfig[DigitalReadConfig]{
+		ctx, config.ServiceConfig[DigitalReadConfig, DigitalReadConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         digitalReadConfigReferences(),
 			Migrations:         []gorp.Migration{v3.DigitalReadMigration},
@@ -146,6 +149,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Digital,
 			SetEntryKey:        (*DigitalReadConfig).SetKey,
 			PatchEntry:         (*DigitalReadConfig).Patch,
+			ApplyUpdate:        DigitalReadConfigUpdate.ApplyTo,
 			HashEntry:          (*DigitalReadConfig).HashContent,
 			ApplyEntryDefaults: (*DigitalReadConfig).ApplyDefaults,
 			ValidateEntry:      (*DigitalReadConfig).Validate,
@@ -154,7 +158,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.DigitalWrite, err = config.OpenService(
-		ctx, config.ServiceConfig[DigitalWriteConfig]{
+		ctx, config.ServiceConfig[DigitalWriteConfig, DigitalWriteConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         digitalWriteConfigReferences(),
 			Migrations:         []gorp.Migration{v3.DigitalWriteMigration},
@@ -165,6 +169,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Digital,
 			SetEntryKey:        (*DigitalWriteConfig).SetKey,
 			PatchEntry:         (*DigitalWriteConfig).Patch,
+			ApplyUpdate:        DigitalWriteConfigUpdate.ApplyTo,
 			HashEntry:          (*DigitalWriteConfig).HashContent,
 			ApplyEntryDefaults: (*DigitalWriteConfig).ApplyDefaults,
 			ValidateEntry:      (*DigitalWriteConfig).Validate,
@@ -173,7 +178,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Scanner, err = config.OpenService(
-		ctx, config.ServiceConfig[ScanConfig]{
+		ctx, config.ServiceConfig[ScanConfig, ScanConfigUpdate]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "ni_scanner",
@@ -183,6 +188,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:         []gorp.Migration{v3.ScanMigration},
 			SetEntryKey:        (*ScanConfig).SetKey,
 			PatchEntry:         (*ScanConfig).Patch,
+			ApplyUpdate:        ScanConfigUpdate.ApplyTo,
 			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},

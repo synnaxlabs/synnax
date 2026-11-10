@@ -52,11 +52,11 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the OPC UA task types.
 type Service struct {
 	// Read stores opc_read task configuration records.
-	Read *config.Service[ReadConfig]
+	Read *config.Service[ReadConfig, ReadConfigUpdate]
 	// Write stores opc_write task configuration records.
-	Write *config.Service[WriteConfig]
+	Write *config.Service[WriteConfig, WriteConfigUpdate]
 	// Scan stores opc_scan task configuration records.
-	Scan   *config.Service[ScanConfig]
+	Scan   *config.Service[ScanConfig, ScanConfigUpdate]
 	closer xio.MultiCloser
 }
 
@@ -72,7 +72,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Read, err = config.OpenService(
-		ctx, config.ServiceConfig[ReadConfig]{
+		ctx, config.ServiceConfig[ReadConfig, ReadConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         readConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
@@ -83,6 +83,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Read,
 			SetEntryKey:        (*ReadConfig).SetKey,
 			PatchEntry:         (*ReadConfig).Patch,
+			ApplyUpdate:        ReadConfigUpdate.ApplyTo,
 			HashEntry:          (*ReadConfig).HashContent,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 		},
@@ -90,7 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Write, err = config.OpenService(
-		ctx, config.ServiceConfig[WriteConfig]{
+		ctx, config.ServiceConfig[WriteConfig, WriteConfigUpdate]{
 			DB:                 cfg.DB,
 			References:         writeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
@@ -99,6 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
 			PatchEntry:         (*WriteConfig).Patch,
+			ApplyUpdate:        WriteConfigUpdate.ApplyTo,
 			HashEntry:          (*WriteConfig).HashContent,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 		},
@@ -106,7 +108,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
-		ctx, config.ServiceConfig[ScanConfig]{
+		ctx, config.ServiceConfig[ScanConfig, ScanConfigUpdate]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               "opc_scan",
@@ -115,6 +117,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Scan,
 			SetEntryKey:        (*ScanConfig).SetKey,
 			PatchEntry:         (*ScanConfig).Patch,
+			ApplyUpdate:        ScanConfigUpdate.ApplyTo,
 			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},

@@ -216,9 +216,8 @@ var _ = Describe("Dispatch", func() {
 		Expect(stored.ConfigHash).ToNot(Equal(t.ConfigHash))
 		Expect(res.Actions).To(Equal(slices.Concat(
 			setRoutingKey,
-			[]task.Action{task.NewSetAction(task.SetPayload{
-				Path:  []string{"config_hash"},
-				Value: stored.ConfigHash,
+			[]task.Action{task.NewUpdateAction(task.UpdatePayload{
+				Value: task.Update{ConfigHash: &stored.ConfigHash},
 			})},
 		)))
 	})

@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"reflect"
 	"slices"
 	"uuid"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/query"
@@ -137,12 +139,16 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 }
 
 // Apply applies the actions to the task with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w, then a
-// set of the stored config when storing changed it, such as by filling a default, then
-// a set of the new config hash. Apply returns every action that it attaches. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create, an
-// action other than a set of the name targets a snapshot, or the result fails to decode
-// or validate, and an error wrapping query.ErrNotFound when no task has the key.
+// transaction of w, so its commit broadcasts them with the dispatch key of w, then an
+// update that replaces the config with the stored one when storing changed it, such as
+// by filling a default, then an update of the new config hash. The config store of the
+// task's type merges the config of an update. An update replaces the config of a task
+// whose type has no store. Apply returns every action that it attaches. It returns an
+// error wrapping validate.ErrValidation when an action is a create, an action that
+// changes more than the name targets a snapshot, the config takes both path actions and
+// updates, or the result fails to decode or validate. It returns an error wrapping
+// patch.ErrStale when a guard does not hold or an update names a missing list entry,
+// and query.ErrNotFound when no task has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	added, err := w.apply(ctx, key, acts)
 	if err != nil {
@@ -154,8 +160,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 }
 
 // apply applies the actions to the task with the given key and stores the result. It
-// returns the actions that only the Core computes for an edit of the config: a set of
-// the stored config when storing changed it, such as by filling a default, then a set
+// returns the actions that only the Core computes for an edit of the config: an update
+// that replaces the config with the stored one when storing changed it, then an update
 // of the new config hash.
 func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, error) {
 	var prev Task
@@ -172,7 +178,8 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 			key,
 		)
 	}
-	others, cursors, err := splitConfig(acts)
+	_, stored := w.configs.Store(prev.Type)
+	others, cursors, updates, err := splitConfig(acts, stored)
 	if err != nil {
 		return nil, err
 	}
@@ -184,8 +191,8 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 		return nil, err
 	}
 	var computed []Action
-	if len(cursors) > 0 {
-		if computed, err = w.editConfig(ctx, &next, cursors); err != nil {
+	if len(cursors) > 0 || len(updates) > 0 {
+		if computed, err = w.editConfig(ctx, &next, cursors, updates); err != nil {
 			return nil, err
 		}
 	}
@@ -200,40 +207,91 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	return computed, nil
 }
 
+// configField is the field of a task that its config store edits.
+const configField = "config"
+
 // splitConfig returns the actions that do not edit the task's config, then the cursors
-// of the actions that do, each past the segment that names the config.
-func splitConfig(acts []Action) ([]Action, []patch.Cursor, error) {
+// of the path actions that do, each past the segment that names the config, then the
+// update of the config that each update holds when the config is stored. An update in
+// the returned actions then holds no config and no guard on it.
+func splitConfig(
+	acts []Action,
+	stored bool,
+) ([]Action, []patch.Cursor, []patch.Update[msgpack.EncodedJSON], error) {
 	var (
 		others  []Action
 		cursors []patch.Cursor
+		updates []patch.Update[msgpack.EncodedJSON]
 	)
 	for _, a := range acts {
+		if u, ok := a.Variant.(UpdatePayload); ok && stored {
+			rest, cfg := splitUpdate(u)
+			others = append(others, NewUpdateAction(rest))
+			if cfg.Value != nil || len(cfg.Guards) > 0 {
+				updates = append(updates, cfg)
+			}
+			continue
+		}
 		c, ok, err := a.cursor()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
-		if ok && c.Segment() == "config" {
+		if ok && c.Segment() == configField {
 			cursors = append(cursors, c.Next())
 		} else {
 			others = append(others, a)
 		}
 	}
-	return others, cursors, nil
+	return others, cursors, updates, nil
 }
 
-// editConfig applies the cursors to the config of t, stores it, and sets the config
-// hash of t. It returns a set of the stored config when storing changed it, then a set
-// of the hash.
+// splitUpdate returns u without its config or its guards on the config, then the update
+// of the config, whose guards are the guards of u on the config, each past the segment
+// that names the config.
+func splitUpdate(u UpdatePayload) (UpdatePayload, patch.Update[msgpack.EncodedJSON]) {
+	cfg := patch.Update[msgpack.EncodedJSON]{Value: u.Value.Config}
+	var guards []patch.Guard
+	for _, g := range u.Guards {
+		if len(g.Path) > 0 && g.Path[0] == configField {
+			g.Path = g.Path[1:]
+			cfg.Guards = append(cfg.Guards, g)
+		} else {
+			guards = append(guards, g)
+		}
+	}
+	u.Value.Config, u.Guards = nil, guards
+	return u, cfg
+}
+
+// editConfig applies the cursors or the updates to the config of t, stores it, and
+// sets the config hash of t. It returns an update that replaces the config with the
+// stored one when storing changed it, then an update of the hash.
 func (w Writer) editConfig(
 	ctx context.Context,
 	t *Task,
 	cursors []patch.Cursor,
+	updates []patch.Update[msgpack.EncodedJSON],
 ) ([]Action, error) {
 	store, ok := w.configs.Store(t.Type)
 	if !ok {
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown task type %q", t.Type)
 	}
-	rec, changed, err := store.Edit(ctx, w.tx, t.Key, cursors)
+	var (
+		rec     config.Record
+		changed bool
+		err     error
+	)
+	switch {
+	case len(cursors) > 0 && len(updates) > 0:
+		return nil, errors.Wrap(
+			validate.ErrValidation,
+			"a dispatch cannot edit the config with both path actions and updates",
+		)
+	case len(updates) > 0:
+		rec, changed, err = store.Update(ctx, w.tx, t.Key, updates)
+	default:
+		rec, changed, err = store.Edit(ctx, w.tx, t.Key, cursors)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -247,19 +305,26 @@ func (w Writer) editConfig(
 		if err != nil {
 			return nil, err
 		}
-		computed = append(computed, NewSetAction(SetPayload{
-			Path:  []string{"config"},
-			Value: stored,
-		}))
+		computed = append(computed, replaceConfig(stored))
 	}
-	return append(computed, NewSetAction(SetPayload{
-		Path:  []string{"config_hash"},
-		Value: t.ConfigHash,
-	})), nil
+	return append(computed, setConfigHash(t.ConfigHash)), nil
+}
+
+// replaceConfig returns the update that replaces the config of a task with data.
+func replaceConfig(data msgpack.EncodedJSON) Action {
+	return NewUpdateAction(UpdatePayload{Value: Update{
+		Config: msgpack.EncodedJSON{"set": map[string]any(data)},
+	}})
+}
+
+// setConfigHash returns the update that sets the config hash of a task to hash.
+func setConfigHash(hash string) Action {
+	return NewUpdateAction(UpdatePayload{Value: Update{ConfigHash: &hash}})
 }
 
 // syncConfig stores the hash of the config stored for the task with the given key, and
-// attaches a set of the stored config, then a set of the hash.
+// attaches an update that replaces the config with the stored one, then an update of
+// the hash.
 func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	var t Task
 	if err := w.table.NewRetrieve().
@@ -282,19 +347,23 @@ func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	if err = w.table.NewCreate().Entry(&t).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	w.dispatcher.Attach(
-		w.tx,
-		key,
-		NewSetAction(SetPayload{Path: []string{"config"}, Value: stored}),
-		NewSetAction(SetPayload{Path: []string{"config_hash"}, Value: t.ConfigHash}),
-	)
+	w.dispatcher.Attach(w.tx, key, replaceConfig(stored), setConfigHash(t.ConfigHash))
 	return nil
 }
 
+// renamesOnly reports whether each action is a set of the name, or an update that sets
+// only the name.
 func renamesOnly(acts []Action) bool {
 	return lo.EveryBy(acts, func(a Action) bool {
-		set, ok := a.Variant.(SetPayload)
-		return ok && slices.Equal(set.Path, []string{"name"})
+		switch v := a.Variant.(type) {
+		case SetPayload:
+			return slices.Equal(v.Path, []string{"name"})
+		case UpdatePayload:
+			rest := v.Value
+			rest.Name = nil
+			return v.Value.Name != nil && reflect.DeepEqual(rest, Update{})
+		}
+		return false
 	})
 }
 
