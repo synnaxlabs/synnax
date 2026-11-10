@@ -1630,18 +1630,6 @@ var _ = Describe("Graph", func() {
 			"Should not wait for the write lock on a report that changes nothing",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)
-				reconciled := make(chan struct{}, 1)
-				DeferCleanup(g.Observe().OnChange(func(
-					_ context.Context,
-					r graph.Changes,
-				) {
-					if batchWrites(r, "rt_repeat") {
-						select {
-						case reconciled <- struct{}{}:
-						default:
-						}
-					}
-				}))
 				createDep(ctx, "rt_repeat_dep")
 				calc := channel.Channel{
 					Name: "rt_repeat", DataType: telem.Int64T, Virtual: true,
@@ -1650,23 +1638,41 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				// A reconcile in flight holds the graph and waits for the write lock.
-				Eventually(reconciled).Should(Receive())
-				report := func() error {
-					return g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				report := func() {
+					GinkgoHelper()
+					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
 						Name:    "rt_repeat",
 						Variant: status.VariantError,
 						Message: "Failed to run calculation",
 						Time:    telem.Now(),
-					})
+					})).To(Succeed())
 				}
-				Expect(report()).To(Succeed())
-				done := make(chan error, 1)
-				Expect(db.WithSnapshot(ctx, func(gorp.Snapshot) error {
-					go func() { done <- report() }()
-					Eventually(done).Should(Receive(BeNil()))
-					return nil
-				})).To(Succeed())
+				report()
+				// reportsUnderSnapshot reports whether a report finishes while another
+				// goroutine holds a snapshot for up to 100 ms. A writer that waits for
+				// the lock can hold the report back, so Eventually retries.
+				reportsUnderSnapshot := func() bool {
+					held, reported := make(chan struct{}), make(chan struct{})
+					timedOut := make(chan bool, 1)
+					go func() {
+						defer GinkgoRecover()
+						Expect(db.WithSnapshot(ctx, func(gorp.Snapshot) error {
+							close(held)
+							select {
+							case <-reported:
+								timedOut <- false
+							case <-time.After(100 * time.Millisecond):
+								timedOut <- true
+							}
+							return nil
+						})).To(Succeed())
+					}()
+					<-held
+					report()
+					close(reported)
+					return !<-timedOut
+				}
+				Eventually(reportsUnderSnapshot, 2*time.Second).Should(BeTrue())
 			},
 		)
 
