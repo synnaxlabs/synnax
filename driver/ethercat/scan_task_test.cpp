@@ -9,6 +9,7 @@
 
 #include <cstdint>
 #include <map>
+#include <random>
 #include <string>
 #include <utility>
 
@@ -896,6 +897,7 @@ protected:
     std::shared_ptr<testutil::Master> master;
     std::shared_ptr<engine::Pool> pool;
     std::unique_ptr<Scanner> scanner;
+    std::mt19937 rng = random_generator("EtherCATScanModeTest");
 
     /// @brief puts the slave on eth0. Only DewesoftX reads the entry at
     /// only_read_index, and shared says whether DewesoftX also sets up the slave.
@@ -914,7 +916,7 @@ protected:
             .position = 1,
             .vendor_id = 0x1,
             .product_code = 0x2,
-            .serial = 12345,
+            .serial = std::uniform_int_distribution<uint32_t>(1)(this->rng),
             .name = "Test Slave",
             .input_pdos =
                 {{.pdo_index = 0x1A00,
@@ -970,7 +972,7 @@ protected:
     /// it. Returns the status that the command sets.
     synnax::task::Status set_standalone() {
         synnax::device::Device dev{
-            .key = make_unique_channel_name("ethercat_1_2_12345"),
+            .key = "ethercat_1_2_" + std::to_string(this->props.serial),
             .rack = this->rack.key,
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
