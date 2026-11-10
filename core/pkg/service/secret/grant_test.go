@@ -148,8 +148,8 @@ var _ = Describe("Grants", func() {
 		})
 		It("Should refuse to reveal a file secret", func(ctx SpecContext) {
 			s := secret.Secret{Variant: secret.FileSecret{
-				Base: secret.Base{Name: "Client key"},
-				Path: "/k.pem",
+				Base:     secret.Base{Name: "Client key"},
+				FileName: "k.pem",
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
 				return w.Set(ctx, &s, nil)
