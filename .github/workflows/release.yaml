@@ -499,8 +499,8 @@ jobs:
             case "$code" in
               200) ;;
               404)
-                echo "client $pending is not out. Approve it, or reject it and delete" >&2
-                echo "the ts/v$pending tag." >&2
+                echo "client $pending is not out. Approve it, or reject it" >&2
+                echo "and delete the ts/v$pending tag." >&2
                 exit 1
                 ;;
               *)
