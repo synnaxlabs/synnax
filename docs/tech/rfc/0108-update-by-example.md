@@ -101,7 +101,8 @@ client.racks.update(rk, {.integrations = {.insert = {"labjack"}}});
 | Optional field          | `null` clears it | -                                           |
 | Struct                  | Merges into it   | `{ set: value }` replaces it                |
 | List with entry keys    | Compile error    | `set`, `insert`, `remove`, `move`, `update` |
-| List of values          | Compile error    | `set`, `insert`, `remove`, `move`           |
+| List of values          | Compile error    | `set`                                       |
+| Unique list             | Compile error    | `set`, `insert`, `remove`, `move`           |
 | Map with a value schema | Compile error    | `set`, `insert`, `remove`, `update`         |
 | Record without a schema | Replaces it      | -                                           |
 
@@ -243,8 +244,8 @@ rejects them from a client.
 
 ### 4.6 Core
 
-The operator types (`List`, `ValueList`, `TypedMap`) are generic structs in
-`schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
+The operator types (`List`, `ValueList`, `UniqueList`, `TypedMap`) are generic structs
+in `schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
 generates an `Apply` method on each record for its update type, built from the typed
 helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service
 writer applies the update, validates the result, writes it, and attaches the update to
@@ -311,9 +312,11 @@ actions, so phase 8 deletes them with no migration.
 2. **7.1 Lists always take operators.** A filtered list sent as a merge by key compiles
    and removes nothing, with no error. With operators, that list does not compile. The
    trade is real: a whole-list write is `{ set: [...] }`, one word longer.
-3. **7.2 A list of values is keyed by value.** `insert` and `remove` on `integrations`
-   or `roles` then merge with concurrent edits. The trade is real: such a list acts as a
-   set, so its values must be unique.
+3. **7.2 Only a unique list is keyed by value.** A list of values is replaced whole.
+   A list marked `@validate unique`, such as `integrations` or `labels`, takes `insert`
+   and `remove` by value, so concurrent edits merge. Most lists of values repeat or
+   keep an order, such as scale tables (`[0, 0]`) and coefficients. The trade is real:
+   two concurrent edits of a plain list keep only the last one.
 4. **7.3 `type` declares the variant.** A separate replace operation adds little static
    safety, because most variants are complete with `type` alone, and the Core must check
    either way. Forms state their intent with guards instead. The trade is real: a script
