@@ -613,11 +613,30 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
 }
 
+// RejectOuterSeries adds an error at ast and returns true when sym is a series
+// declared outside a function, which no code can use.
+func RejectOuterSeries[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	sym *symbol.Symbol,
+	ast antlr.ParserRuleContext,
+) bool {
+	if !sym.IsComputed() || sym.Type.Kind != basetypes.KindSeries {
+		return false
+	}
+	ctx.Diagnostics.Add(diagnostics.Errorf(ast,
+		"series '%s' declared outside a function cannot be used", sym.Name))
+	return true
+}
+
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
 		resolved, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
+		}
+		_, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+		if fnErr == nil && RejectOuterSeries(ctx, resolved, ctx.AST) {
 			return
 		}
 		if tracksChannelRead(resolved) {

@@ -2016,27 +2016,19 @@ var _ = Describe("Text", func() {
 				"sequence main {\nstage a {\ndata := [1, 2]\ndata[0] -> out_ch\n}\n}",
 			),
 			Entry(
+				"assignment",
+				"sequence main {\nstage a {\ndata := [1, 2]\ndata = [3, 4]\n}\n}",
+			),
+			Entry(
+				"function",
+				"data := [1, 2]\nfunc f() i64 { return data[0] }\n"+
+					"count_ch -> f() -> out_ch",
+			),
+			Entry(
 				"argument",
 				"func f(s series i64) i64 { return s[0] }\n"+
 					"data := [1, 2]\ncount_ch -> f(s=data) -> out_ch",
 			),
-		)
-
-		It("Should not compile a function that reads a series declared outside it",
-			func(ctx SpecContext) {
-				source := "data := [1, 2]\nfunc f() i64 { return data[0] }\n" +
-					"count_ch -> f() -> out_ch"
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(
-					ctx,
-					parsedText,
-					NewRoot(nil, varResolver...),
-				)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(text.Compile(ctx, inter)).Error().To(MatchError(
-					ContainSubstring("cannot read 'data'"),
-				))
-			},
 		)
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",

@@ -16,6 +16,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/analyzer/statement"
 	"github.com/synnaxlabs/arc/ir"
@@ -56,6 +57,9 @@ func analyzeReactiveAssignment[T antlr.ParserRuleContext](
 	if assign.CompoundOp() != nil || assign.IndexOrSlice() != nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(assign,
 			"compound and indexed assignment to a variable are not yet supported"))
+		return
+	}
+	if expression.RejectOuterSeries(ctx, sym, assign) {
 		return
 	}
 	switch {

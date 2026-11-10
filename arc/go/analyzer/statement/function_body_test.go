@@ -133,7 +133,7 @@ var _ = Describe("AnalyzeFunctionBody", func() {
 					},
 					{
 						Name: "f32_series",
-						Kind: symbol.KindVariable,
+						Kind: symbol.KindInput,
 						Type: types.Series(types.F32()),
 					},
 				}

@@ -382,7 +382,7 @@ func analyzeIdentifier(
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
-	if rejectOuterSeries(ctx, sym, ctx.AST) {
+	if expression.RejectOuterSeries(ctx, sym, ctx.AST) {
 		return
 	}
 
@@ -544,7 +544,7 @@ func inputArguments[T antlr.ParserRuleContext](
 	for _, arg := range args {
 		if head, tail := parser.ExpressionNameParts(arg.Expr); head != "" {
 			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
-			if err == nil && rejectOuterSeries(ctx, sym, arg.Expr) {
+			if err == nil && expression.RejectOuterSeries(ctx, sym, arg.Expr) {
 				continue
 			}
 		}
