@@ -318,6 +318,30 @@ describe("useList", () => {
     expect(result.current.answered).toBe(false);
   });
 
+  it("should read the first page again on more after it fails", async () => {
+    const a = await create("a");
+    const local = createTestClient();
+    const { result } = renderHook(
+      () => Flux.useList(ranges, { name: "ranges", query: byName() }),
+      { wrapper: createSynnaxWrapper({ client: local }) },
+    );
+    const reject = rejectRequests(
+      local,
+      (target, req) =>
+        target === "/range/retrieve" &&
+        ranger.retrieveRequestZ.parse(req).order != null,
+      new Error("boom"),
+    );
+    act(() => result.current.more());
+    await waitFor(() => expect(result.current.variant).toEqual("error"));
+    reject.mockRestore();
+    act(() => result.current.more());
+    await waitFor(() => {
+      expect(result.current.variant).toEqual("success");
+      expect(result.current.data).toEqual([a.key]);
+    });
+  });
+
   it("should read nothing on more while a read runs", async () => {
     await create("a");
     await create("b");

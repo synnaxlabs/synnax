@@ -187,7 +187,10 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
 
   const more = () => {
     if (!started) return setStarted(true);
-    if (list == null || reading.current != null || current?.end == null) return;
+    if (list == null || reading.current != null) return;
+    // A failed first read leaves no window, so the first page reads again.
+    if (current == null) return void read(op, async () => await list.retrieve());
+    if (current.end == null) return;
     void read(`retrieve more ${name}`, async () => await list.more(pageSize));
   };
 
