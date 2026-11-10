@@ -21,9 +21,9 @@ const { icon: Icon } = Astro.props;
     <Icon />
 </span>
 
-<style is:global>
+<style>
     /* The icon chip of a block in `Diagram.Block`. */
-    article .part-icon {
+    .part-icon {
         display: flex;
         flex-shrink: 0;
         align-items: center;
@@ -35,7 +35,7 @@ const { icon: Icon } = Astro.props;
         background: var(--pluto-primary-z-20);
         color: var(--pluto-primary-p1);
 
-        & svg {
+        & :global(svg) {
             width: 3rem;
             height: 3rem;
         }

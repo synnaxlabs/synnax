@@ -11,6 +11,8 @@
 // Programs side by side in the order of the diagram above them, joined by its line. The
 // paragraph after the definition renders as a note.
 
+import Label from "@/components/part/Label.astro";
+
 interface Props {
     label: string;
 }
@@ -18,13 +20,13 @@ interface Props {
 const { label } = Astro.props;
 ---
 
-<p class="part-label">{label}</p>
+<Label>{label}</Label>
 <ol class="part-flow" role="list">
     <slot />
 </ol>
 
-<style is:global>
-    article .part-flow {
+<style>
+    .part-flow {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 0 5rem;
@@ -32,33 +34,34 @@ const { label } = Astro.props;
         padding: 0;
         list-style: none;
 
-        & > .part-item {
-            display: flex;
-            flex-direction: column;
-            gap: 3rem;
+        & > :global(.part-item) {
             margin: 0;
         }
 
-        & > .part-item:not(:last-child) .part-item__head::after {
-            content: "";
-            flex: 1;
-            height: 1.5px;
-            margin-right: -5rem;
-            background: var(--pluto-primary-z-30);
-        }
-
-        & .part-item__body > p + p {
+        & :global(.part-item__body > p + p) {
             color: var(--pluto-gray-l8);
             font-size: var(--pluto-small-size);
+        }
+
+        @media (width > 600px) {
+            & > :global(.part-item) {
+                display: flex;
+                flex-direction: column;
+                gap: 3rem;
+            }
+
+            & > :global(.part-item:not(:last-child) .part-item__head)::after {
+                content: "";
+                flex: 1;
+                height: 1.5px;
+                margin-right: -5rem;
+                background: var(--pluto-primary-z-30);
+            }
         }
 
         @media (width <= 600px) {
             grid-template-columns: minmax(0, 1fr);
             gap: 5rem;
-
-            & > .part-item:not(:last-child) .part-item__head::after {
-                display: none;
-            }
         }
     }
 </style>

@@ -11,6 +11,8 @@
 // Parts with an icon rail. Put a lead-in paragraph and a code block after the
 // definition to show an example.
 
+import Label from "@/components/part/Label.astro";
+
 interface Props {
     label: string;
 }
@@ -18,38 +20,29 @@ interface Props {
 const { label } = Astro.props;
 ---
 
-<p class="part-label">{label}</p>
+<Label>{label}</Label>
 <ul class="docs-entry-list part-list" role="list">
     <slot />
 </ul>
 
-<style is:global>
-    article .part-label {
-        margin: 8rem 0 3rem;
-        color: var(--pluto-gray-l8);
-        font-size: var(--pluto-small-size);
-        font-weight: 500;
-    }
+<style>
+    @media (width > 600px) {
+        .part-list > :global(.part-item) {
+            display: grid;
+            grid-template-columns: 6rem minmax(0, 1fr);
+            gap: 0 4rem;
+        }
 
-    article :is(h2, h2.lyra-text) + .part-label {
-        margin-top: 0;
-    }
-
-    article .part-list > .part-item {
-        display: grid;
-        grid-template-columns: 6rem minmax(0, 1fr);
-        gap: 0 4rem;
-
-        & .part-item__head {
+        .part-list :global(.part-item__head) {
             align-items: start;
         }
 
-        & h3 {
+        .part-list :global(.part-item__body > h3) {
             margin-top: 0.5rem;
         }
+    }
 
-        & .part-item__body > :is(pre, figure, div) {
-            margin-top: 0.5rem;
-        }
+    .part-list :global(.part-item__body > :is(pre, figure, div)) {
+        margin-top: 0.5rem;
     }
 </style>

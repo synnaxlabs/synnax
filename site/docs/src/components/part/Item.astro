@@ -29,42 +29,41 @@ const { icon } = Astro.props;
     </div>
 </li>
 
-<style is:global>
-    article .part-item__head {
+<style>
+    .part-item__head {
         display: flex;
         align-items: center;
     }
 
-    article .part-item__body {
+    .part-item__body {
         display: flex;
         flex-direction: column;
         gap: 1.5rem;
         min-width: 0;
 
-        & > * {
+        & > :global(*) {
             margin: 0;
         }
     }
 
     /* On a phone, the icon sits beside the title and the text takes the full width. */
     @media (width <= 600px) {
-        article :is(.part-flow, .part-list) > li.part-item {
+        .part-item {
             display: grid;
             grid-template-columns: 6rem minmax(0, 1fr);
             gap: 2rem 3rem;
             align-items: center;
+        }
 
-            & .part-item__body {
-                display: contents;
-            }
+        .part-item__body {
+            display: contents;
 
-            & .part-item__body > * {
+            & > :global(*) {
                 grid-column: 1 / -1;
             }
 
-            & .part-item__body > h3:first-child {
+            & > :global(h3:first-child) {
                 grid-column: 2;
-                margin: 0;
             }
         }
     }

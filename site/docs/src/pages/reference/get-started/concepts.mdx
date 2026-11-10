@@ -133,6 +133,8 @@ In the sample project, the Press sequence fills the tank to 300 psi, waits 10 se
 then vents the tank:
 
 ```arc
+import time
+
 sequence press {
     stage pressurize {
         1 -> sample_press_vlv_cmd
@@ -144,7 +146,6 @@ sequence press {
     }
     stage vent {
         1 -> sample_vent_vlv_cmd
-        sample_tank_pt < 5 => idle
     }
 }
 ```
