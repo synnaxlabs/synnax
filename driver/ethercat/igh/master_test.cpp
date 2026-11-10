@@ -308,6 +308,20 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     EXPECT_EQ(slaves[1].properties.settings, expected);
 }
 
+/// @brief it should report why the settings of a slave could not be read.
+TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
+    auto objects = testutil::stg_objects();
+    objects.erase({0x8050, 3});
+    this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
+        .objects = objects;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(
+        slaves[0].status.settings_error,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+}
+
 /// @brief it should return the number of slaves on the bus.
 TEST_F(IGHMasterTest, CountSlavesReportsTheSlavesOnTheBus) {
     this->api->add_slave();

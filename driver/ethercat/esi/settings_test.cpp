@@ -200,6 +200,26 @@ TEST(ReadSettings, ReturnsNoneForAnUndescribedProduct) {
     EXPECT_FALSE(settings.has_value());
 }
 
+/// @brief it should keep the other settings of a card whose mode it cannot read.
+TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
+    auto objects = testutil::stg_objects(0);
+    objects.erase({0x8020, 9});
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_OP_MODES,
+        testutil::read_of(std::move(objects))
+    );
+    ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8020:09: Object does not exist in the object dictionary"
+    );
+    ASSERT_TRUE(settings.has_value());
+    EXPECT_FALSE(settings->contains("mode"));
+    EXPECT_EQ((*settings)["channels"].size(), 6);
+}
+
 /// @brief it should return the error of a failed read of a card table.
 TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
     const coe::Read missing = [](const uint16_t index, const uint8_t sub_index) {

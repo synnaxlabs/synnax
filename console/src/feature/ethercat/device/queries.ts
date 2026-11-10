@@ -108,7 +108,8 @@ export interface SetStandaloneParams {
 
 /**
  * Stops each EtherCAT task that runs on the network of the slave, then switches the
- * slave to Synnax only. The slave changes after its power restarts.
+ * slave to Synnax only. The slave changes after its power restarts. When a stop or the
+ * switch fails, starts the tasks again.
  */
 export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandaloneParams>({
   name: "EtherCAT slave",
@@ -131,21 +132,34 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
         .filter((s) => s.properties.network === properties.network)
         .map((s) => s.key),
     );
-    await Promise.all(
-      running
-        .filter((t) => devicesOf(t.config).some((k) => onNetwork.has(k)))
-        .map(async (t) => {
+    const tasks = running.filter((t) =>
+      devicesOf(t.config).some((k) => onNetwork.has(k)),
+    );
+    try {
+      await Promise.all(
+        tasks.map(async (t) => {
           const res = await t.executeCommandSync({ type: "stop" });
           if (res.variant === "error") throw status.toError(res);
         }),
-    );
-    const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
-    const res = await scanTask.executeCommandSync({
-      type: SET_STANDALONE_COMMAND,
-      args: { device: key },
-      timeout: TimeSpan.seconds(30),
-    });
-    if (res.variant === "error") throw status.toError(res);
+      );
+      const scanTask = await client.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack,
+        one: true,
+      });
+      const res = await scanTask.executeCommandSync({
+        type: SET_STANDALONE_COMMAND,
+        args: { device: key },
+        timeout: TimeSpan.seconds(30),
+      });
+      if (res.variant === "error") throw status.toError(res);
+    } catch (e) {
+      // A task that fails to start shows its own error.
+      await Promise.allSettled(
+        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+      );
+      throw e;
+    }
     return data;
   },
 });

@@ -20,7 +20,11 @@ import {
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
-import { answerCommand, reportTaskRunning } from "@/platform/task/testutil";
+import {
+  answerCommand,
+  type CommandAnswer,
+  reportTaskRunning,
+} from "@/platform/task/testutil";
 import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -420,12 +424,14 @@ describe("useSetStandalone", () => {
     });
 
   /**
-   * Answers each command sent to the tasks as a Driver does. Resolves with the commands
-   * once it answers one of the type last.
+   * Answers each command sent to the tasks as a Driver does, with the answer that
+   * answers holds for its type. Resolves with the commands once it answers one of the
+   * type last.
    */
   const answerCommandsUntil = async (
     tasks: task.Task[],
     last: string,
+    answers: Record<string, Omit<CommandAnswer, "type">> = {},
   ): Promise<{ answered: Promise<task.Command[]> }> => {
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
     const answer = async (): Promise<task.Command[]> => {
@@ -438,7 +444,7 @@ describe("useSetStandalone", () => {
             const tsk = tasks.find((t) => t.key === cmd.task);
             if (tsk == null) continue;
             commands.push(cmd);
-            await answerCommand(client, tsk, cmd);
+            await answerCommand(client, tsk, cmd, answers[cmd.type]);
             if (cmd.type === last) return commands;
           }
         }
@@ -490,5 +496,56 @@ describe("useSetStandalone", () => {
       type: "set_standalone",
       args: { device: slave.key },
     });
+  });
+
+  /**
+   * Runs a read task on the network of a slave, then switches the slave while the
+   * Driver gives answers. Resolves with the commands in the order they arrive.
+   */
+  const switchWithAnswers = async (
+    answers: Record<string, Omit<CommandAnswer, "type">>,
+  ): Promise<{ commands: string[]; switched: boolean }> => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil([read, scan], "start", answers);
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    let switched = true;
+    await act(async () => {
+      switched = await result.current.updateAsync({ slave });
+    });
+    const names = new Map([
+      [read.key, "read"],
+      [scan.key, "scan"],
+    ]);
+    const commands = (await driver.answered).map(
+      (c) => `${names.get(c.task)} ${c.type}`,
+    );
+    return { commands, switched };
+  };
+
+  it("should start the stopped tasks again when the switch fails", async () => {
+    const result = await switchWithAnswers({
+      set_standalone: { variant: "error", message: "Slave 3 refused the switch" },
+    });
+    expect(result).toEqual({
+      commands: ["read stop", "scan set_standalone", "read start"],
+      switched: false,
+    });
+  });
+
+  it("should start the tasks again when a stop fails", async () => {
+    const result = await switchWithAnswers({
+      stop: { variant: "error", message: "Failed to stop" },
+    });
+    expect(result).toEqual({ commands: ["read stop", "read start"], switched: false });
   });
 });

@@ -538,12 +538,13 @@ void Master::populate_slaves() {
 
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
         auto slave = this->discover_slave(i);
-        this->read_settings(slave.properties);
+        this->read_settings(slave);
         this->slave_list.push_back(std::move(slave));
     }
 }
 
-void Master::read_settings(slave::Properties &props) {
+void Master::read_settings(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
     const auto pos = props.position;
     if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
     auto [settings, err] = esi::read_settings(
@@ -554,9 +555,7 @@ void Master::read_settings(slave::Properties &props) {
             return this->read_sdo(pos, index, sub_index);
         }
     );
-    if (err)
-        LOG(WARNING) << "[ethercat] failed to read the settings of slave " << pos
-                     << ": " << err.message();
+    slave.status.settings_error = err.data;
     props.settings = std::move(settings);
 }
 

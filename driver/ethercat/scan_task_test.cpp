@@ -395,6 +395,35 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
+/// @brief it should show a failed settings read as a warning that says the Driver tries
+/// again.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadShowsAWarning) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the settings: failed to read 0x8050:03: Object does not exist in the object dictionary. "
+        "The Driver tries again while no task uses the port."
+    );
+}
+
+/// @brief it should discover the slaves again every sixth scan while a slave has a
+/// failed settings read.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadRediscoversEverySixthScan) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    for (size_t i = 0; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
 /// @brief it should not discover the slaves again for a disabled slave whose PDO
 /// discovery failed.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
@@ -882,6 +911,11 @@ protected:
                  {{"value", shared ? 1 : 0}, {"shared", shared}, {"switch", change}}},
             },
         };
+        this->serve();
+    }
+
+    /// @brief serves props on eth0 to a new scanner.
+    void serve() {
         this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(this->props);
         auto manager = std::make_unique<testutil::Manager>();
@@ -943,6 +977,35 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
         "On this port, the device sends data that only DewesoftX reads. In the device "
         "settings, switch the device to Synnax only, or connect Synnax to the port "
         "that DewesoftX does not use."
+    );
+}
+
+/// @brief it should ask for a power restart of a slave that holds Synnax only but still
+/// sends data that only DewesoftX reads.
+TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
+    this->start(false);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(
+        status.description,
+        "The device runs Synnax only after a power restart. Until then, it sends data "
+        "that only DewesoftX reads."
+    );
+}
+
+/// @brief it should not advise a switch for a slave whose mode the scan did not read.
+TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherPortWithoutAMode) {
+    this->start(true);
+    this->props.settings->erase("mode");
+    this->serve();
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "On this port, the device sends data that only DewesoftX reads. Connect "
+        "Synnax to the port that DewesoftX does not use."
     );
 }
 
