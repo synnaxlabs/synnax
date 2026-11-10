@@ -77,15 +77,14 @@ the resource type `secret`. `value` carries `@go wire omit`, `@ts omit`, and `@p
 as the session hash does (`schemas/synnax/auth.oracle:33-38`), so no endpoint or signal
 can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <date>".
 
-| Endpoint              | Caller                                          | Does                                       |
-| --------------------- | ----------------------------------------------- | ------------------------------------------ |
-| `secret/create`       | Can create secrets, and update each it replaces | Saves a value or path, or replaces it      |
-| `secret/retrieve`     | Can retrieve secrets                            | Returns records without values             |
-| `secret/rename`       | Can update secrets                              | Renames a secret                           |
-| `secret/dispatch`     | Can update secrets                              | Applies edits as actions, such as a rename |
-| `secret/delete`       | Can delete secrets                              | Refuses while anything uses the secret     |
-| `secret/grant/create` | Can create devices and retrieve the secrets     | Stores a one-time grant (§3.3)             |
-| `secret/resolve`      | A rack only                                     | Returns stored values; refuses file values |
+| Endpoint              | Caller                                        | Does                                       |
+| --------------------- | --------------------------------------------- | ------------------------------------------ |
+| `secret/set`          | Create for a new secret, update for a replace | Saves a value or path, or replaces it      |
+| `secret/retrieve`     | Can retrieve secrets                          | Returns records without values             |
+| `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename |
+| `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret     |
+| `secret/grant/create` | Can create devices and retrieve the secrets   | Stores a one-time grant (§3.3)             |
+| `secret/resolve`      | A rack only                                   | Returns stored values; refuses file values |
 
 The write binder (`core/pkg/api/bind/write.go`) makes the create, update, and delete
 checks on each record that a write changes. Owner and Engineer get every action on
@@ -117,8 +116,8 @@ The package is `core/pkg/service/certificate`. For a stored certificate, the Cor
 `pem` with `crypto/x509` on every write and fills the details, so no client parses a
 certificate. A write may carry a private key as PEM: the Core checks that it matches the
 leaf and saves it as a secret in the same transaction, so the caller must also be able
-to create secrets. A `pem` that holds a private key is refused, so a key never lands in
-the public record. For a file certificate, the details come from the file browser and
+to write that secret. A `pem` that holds a private key is refused, so a key never lands
+in the public record. For a file certificate, the details come from the file browser and
 from the reader (§3.5). Certificates are public: anyone who can retrieve one can
 download it as PEM or DER. The endpoints match the secret endpoints, without grants and
 resolve, and add `certificate/refresh` (§3.5).
@@ -284,7 +283,7 @@ Console change in one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
-`client.secrets.create(name=..., value=...)` and puts its key on the device.
+`client.secrets.set(name=..., value=...)` and puts its key on the device.
 
 ## 4 Implementation phases
 
@@ -352,6 +351,10 @@ the Driver change, so they are separate phases.
     each write updates the index.
 13. **Pins become items**: A pinned server certificate gets details and expiry warnings.
     The trade is real: one list entry per pinned server.
+14. **Set, not create**: A write carries the whole item, so one `set` creates it or
+    replaces it. A rename goes through dispatch, as edits to projects and users do. A
+    replace needs only update access. The trade is real: a reused key replaces an item
+    without a warning.
 
 ## 6 What this RFC does not cover
 
