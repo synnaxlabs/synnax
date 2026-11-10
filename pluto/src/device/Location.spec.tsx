@@ -104,6 +104,14 @@ describe("Device location", () => {
     expect(c.getByText(":8080")).toBeTruthy();
   });
 
+  it("should keep an IPv6 host without brackets whole", () => {
+    const c = render(
+      <Device.Location value="mqtt://fd00::5/topic" format={{ shape: "address" }} />,
+    );
+    expect(c.getByText("fd00::5")).toBeTruthy();
+    expect(c.getByText("/topic")).toBeTruthy();
+  });
+
   it("should show the first address of a list and a count of the rest", () => {
     const c = render(
       <Device.Location
