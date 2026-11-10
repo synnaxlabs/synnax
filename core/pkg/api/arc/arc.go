@@ -240,12 +240,16 @@ type (
 	}
 )
 
-// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction. It
-// returns query.ErrNotFound when the arc does not exist.
+// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction. An
+// unbind compiles nothing. It returns query.ErrNotFound when the arc to compile does
+// not exist.
 func (s *Service) PrepareUpdateTask(
 	ctx context.Context,
 	req UpdateTaskRequest,
 ) (arc.Build, error) {
+	if req.Rack != nil && *req.Rack == 0 {
+		return arc.Build{}, nil
+	}
 	return s.internal.Build(ctx, req.Key)
 }
 
