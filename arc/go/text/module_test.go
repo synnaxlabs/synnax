@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Loader", func() {
@@ -336,9 +337,36 @@ sequence main {
 			)
 		})
 
-		It("Should not search import paths", func(ctx SpecContext) {
-			loader := text.NewLoader(text.LoaderConfig{})
-			Expect(loader.Search(ctx, "m")).To(BeEmpty())
+		Describe("Search", func() {
+			It(
+				"Should return the paths that start with the term",
+				func(ctx SpecContext) {
+					loader := text.NewLoader(text.LoaderConfig{
+						Paths: func(context.Context) ([]string, error) {
+							return []string{"lib.m", "lib.sub.n", "other"}, nil
+						},
+					})
+					modules := MustSucceed(loader.Search(ctx, "lib."))
+					Expect(modules).To(HaveLen(2))
+					Expect(modules[0].Name).To(Equal("lib.m"))
+					Expect(modules[0].Kind).To(Equal(symbol.KindModule))
+					Expect(modules[1].Name).To(Equal("lib.sub.n"))
+				},
+			)
+
+			It("Should return nothing without paths", func(ctx SpecContext) {
+				loader := text.NewLoader(text.LoaderConfig{})
+				Expect(loader.Search(ctx, "m")).To(BeEmpty())
+			})
+
+			It("Should return the error of paths", func(ctx SpecContext) {
+				loader := text.NewLoader(text.LoaderConfig{
+					Paths: func(context.Context) ([]string, error) {
+						return nil, errors.New("cat")
+					},
+				})
+				Expect(loader.Search(ctx, "m")).Error().To(MatchError("cat"))
+			})
 		})
 
 		It("Should report an unknown module", func(ctx SpecContext) {

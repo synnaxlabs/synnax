@@ -11,6 +11,7 @@ package arc
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/arc/symbol"
@@ -30,6 +31,48 @@ func (s *Service) moduleSource(
 ) func(context.Context, string) (arctext.Text, error) {
 	return func(ctx context.Context, path string) (arctext.Text, error) {
 		return s.retrieveModuleText(ctx, snap, path, filters...)
+	}
+}
+
+// modulePaths returns a loader function that lists the import path of each text
+// module that every filter matches.
+func (s *Service) modulePaths(
+	snap gorp.Snapshot,
+	filters ...Filter,
+) func(context.Context) ([]string, error) {
+	return func(ctx context.Context) ([]string, error) {
+		var dirs []directory.Directory
+		if err := s.directories.NewRetrieve().
+			Entries(&dirs).
+			Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		byKey := make(map[directory.Key]directory.Directory, len(dirs))
+		for _, d := range dirs {
+			byKey[d.Key] = d
+		}
+		var arcs []Arc
+		q := s.NewRetrieve()
+		for _, f := range filters {
+			q = q.Where(f)
+		}
+		if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
+			return nil, err
+		}
+		paths := make([]string, 0, len(arcs))
+		for _, a := range arcs {
+			if _, ok := a.Base().Source.Variant.(TextSource); !ok ||
+				a.Type() != TypeModule {
+				continue
+			}
+			segments := []string{a.Base().Name}
+			for p := a.Base().Directory; p != nil && *p != s.root; p = byKey[*p].Parent {
+				segments = append(segments, byKey[*p].Name)
+			}
+			slices.Reverse(segments)
+			paths = append(paths, strings.Join(segments, "."))
+		}
+		return paths, nil
 	}
 }
 

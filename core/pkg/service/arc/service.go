@@ -185,15 +185,18 @@ func (s *Service) NewRoot(snap gorp.Snapshot, lookups *channel.Lookups) *symbol.
 	return s.newRoot(
 		s.cfg.Channel.NewCheckedResolver(snap, lookups),
 		s.checkedModuleSource(snap, lookups),
+		nil,
 	)
 }
 
 func (s *Service) newRoot(
 	channels symbol.Resolver,
 	source func(context.Context, string) (arctext.Text, error),
+	paths func(context.Context) ([]string, error),
 ) *symbol.Symbol {
 	modules := arctext.NewLoader(arctext.LoaderConfig{
 		Source:   source,
+		Paths:    paths,
 		Channels: channels,
 		Ambient:  standardSymbols,
 		Config:   parser.Config{AllowDashedNames: s.AllowDashedNames()},
@@ -288,6 +291,9 @@ func (s *Service) newLSPRoot(
 	allowed func(context.Context) (func(resource.ID) bool, error),
 ) *symbol.Symbol {
 	access := &readAccess{read: allowed}
+	readable := Match(func(ctx gorp.Context, _ Retrieve, a *Arc) (bool, error) {
+		return access.allows(ctx, a.ResourceID())
+	})
 	return s.newRoot(
 		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(
 			s.cfg.DB,
@@ -299,13 +305,8 @@ func (s *Service) newLSPRoot(
 				return access.allows(ctx, ch.ResourceID())
 			}),
 		)),
-		s.moduleSource(s.cfg.DB, Match(func(
-			ctx gorp.Context,
-			_ Retrieve,
-			a *Arc,
-		) (bool, error) {
-			return access.allows(ctx, a.ResourceID())
-		})),
+		s.moduleSource(s.cfg.DB, readable),
+		s.modulePaths(s.cfg.DB, readable),
 	)
 }
 
@@ -373,6 +374,7 @@ func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
 	return s.newRoot(
 		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
 		s.moduleSource(snap),
+		nil,
 	)
 }
 

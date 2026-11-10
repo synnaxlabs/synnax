@@ -460,7 +460,7 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx == ContextImportPath {
-		return getImportPathCompletions(doc, prefix, pos, root)
+		return s.getImportPathCompletions(ctx, doc, prefix, pos, root)
 	}
 
 	// A block document is a func body, so a call in it takes positional arguments.
@@ -687,11 +687,10 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 	}
 }
 
-// getImportPathCompletions returns the modules reachable from doc's
-// scope chain, surfaced as Module completion items. Used when the cursor
-// sits in the module-name slot of an `import` statement, where only
-// module names are valid suggestions.
-func getImportPathCompletions(
+// getImportPathCompletions returns the modules in doc's scope chain and the user
+// module paths that start with prefix. Used in the module-name slot of an `import`.
+func (s *Server) getImportPathCompletions(
+	ctx context.Context,
 	doc *Document,
 	prefix string,
 	pos protocol.Position,
@@ -706,8 +705,8 @@ func getImportPathCompletions(
 	}
 	var items []protocol.CompletionItem
 	seen := make(set.Set[string])
-	for s := scope; s != nil; s = s.Parent {
-		for _, child := range s.Children() {
+	for sc := scope; sc != nil; sc = sc.Parent {
+		for _, child := range sc.Children() {
 			if child.Kind != symbol.KindModule || child.Internal {
 				continue
 			}
@@ -724,6 +723,31 @@ func getImportPathCompletions(
 				Detail: protocol.NewOptional("module"),
 			})
 		}
+	}
+	if root == nil || root.ModuleResolver() == nil {
+		return items
+	}
+	modules, err := root.ModuleResolver().Search(ctx, prefix)
+	if err != nil {
+		s.cfg.L.Error("failed to search modules", zap.Error(err))
+		return items
+	}
+	// A path holds dots, which the client does not count as part of the word, so
+	// each item replaces the whole typed prefix.
+	start := protocol.Position{
+		Line:      pos.Line,
+		Character: pos.Character - uint32(len(prefix)),
+	}
+	for _, m := range modules {
+		items = append(items, protocol.CompletionItem{
+			Label:  m.Name,
+			Kind:   protocol.CompletionItemKindModule,
+			Detail: protocol.NewOptional("module"),
+			TextEdit: &protocol.TextEdit{
+				Range:   protocol.Range{Start: start, End: pos},
+				NewText: m.Name,
+			},
+		})
 	}
 	return items
 }

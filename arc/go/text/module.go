@@ -26,6 +26,8 @@ import (
 type LoaderConfig struct {
 	// Source returns the module text at path, or an error wrapping ErrModuleNotFound.
 	Source func(ctx context.Context, path string) (Text, error)
+	// Paths returns the import path of each module the root can read. May be nil.
+	Paths func(ctx context.Context) ([]string, error)
 	// Channels resolves channel names for each module's root. May be nil.
 	Channels symbol.Resolver
 	// Ambient returns the prelude symbols for each module's root. May be nil.
@@ -170,7 +172,23 @@ func (l *Loader) cycleError() error {
 	return errors.Newf("import cycle: %s", strings.Join(l.cycle, " -> "))
 }
 
-// Search implements symbol.Resolver. Import paths are not searched.
-func (l *Loader) Search(context.Context, string) ([]*symbol.Symbol, error) {
-	return nil, nil
+// Search implements symbol.Resolver. It returns the import paths that start with term.
+func (l *Loader) Search(ctx context.Context, term string) ([]*symbol.Symbol, error) {
+	if l.cfg.Paths == nil {
+		return nil, nil
+	}
+	paths, err := l.cfg.Paths(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var modules []*symbol.Symbol
+	for _, path := range paths {
+		if strings.HasPrefix(path, term) {
+			modules = append(
+				modules,
+				&symbol.Symbol{Name: path, Kind: symbol.KindModule},
+			)
+		}
+	}
+	return modules, nil
 }
