@@ -1,0 +1,72 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Fails when the runner scaler's workflow_job webhook stops getting through. Without it,
+# the scaler misses queued jobs and they get cancelled.
+
+name: Check - Runners
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+env:
+  HOOK: 670634079
+
+jobs:
+  webhook:
+    name: Check the webhook
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          sparse-checkout: .github/scripts
+
+      # GITHUB_TOKEN cannot read repository hooks.
+      - name: Create an App token
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.RUNNERS_GH_APP_ID }}
+          private-key: ${{ secrets.RUNNERS_GH_APP_KEY }}
+          permission-actions: read
+          permission-repository-hooks: read
+
+      - name: Check the deliveries
+        # An explicit bash sets pipefail, so tee keeps the script's exit code.
+        shell: bash
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+        run: |
+          python3 -I .github/scripts/hook_health.py "$HOOK" |
+            tee "$RUNNER_TEMP/summary.txt"
+
+      - name: Post the failure to Slack
+        if: failure() && github.event_name == 'schedule'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
+          RUN_URL:
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
+            github.run_id }}
+        run: |
+          summary=$(cat "$RUNNER_TEMP/summary.txt" 2> /dev/null || true)
+          text="Runner webhook failing: $summary. $RUN_URL"
+          # The check prints a summary only when it could read the deliveries.
+          if [ -z "$summary" ]; then
+            text="Runner webhook check could not run. $RUN_URL"
+          fi
+          jq --null-input --arg text "$text" '{text: $text}' |
+            curl --fail --silent --show-error \
+              --header "Content-Type: application/json" --data @- "$SLACK_WEBHOOK_URL"
