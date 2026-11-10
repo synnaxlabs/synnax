@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -174,7 +173,7 @@ func sessionForward(s svcauth.Session) *Session {
 	}
 }
 
-func userForward(u *user.User) *User {
+func userForward(u *auth.User) *User {
 	if u == nil {
 		return nil
 	}

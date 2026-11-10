@@ -11,7 +11,6 @@ package driver_test
 
 import (
 	"context"
-	"slices"
 	"sync"
 	"sync/atomic"
 	"uuid"
@@ -124,8 +123,7 @@ var _ = Describe("WriteTask", func() {
 		return retrieveStatus[task.StatusDetails](ctx, t.ResourceID())
 	}
 
-	// command writes value to the command channel until check passes, because a
-	// streamer misses the frames written before it connects.
+	// command writes value to the command channel once and waits until check passes.
 	command := func(ctx context.Context, value float32, check func(g Gomega)) {
 		GinkgoHelper()
 		w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
@@ -133,11 +131,9 @@ var _ = Describe("WriteTask", func() {
 			Start: telem.Now(),
 		}))
 		defer func() { Expect(w.Close()).To(Succeed()) }()
-		Eventually(func(g Gomega) {
-			g.Expect(w.Write(frame.NewUnary(cmdCh.Key(), telem.NewSeriesV(value)))).
-				To(BeTrue())
-			check(g)
-		}).Should(Succeed())
+		Expect(w.Write(frame.NewUnary(cmdCh.Key(), telem.NewSeriesV(value)))).
+			To(BeTrue())
+		Eventually(check).Should(Succeed())
 	}
 
 	Describe("NewWriteTask", func() {
@@ -243,11 +239,7 @@ var _ = Describe("WriteTask", func() {
 					g.Expect(stat.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(sink.received()).To(ContainElement(float32(2)))
 				})
-				// A write of 1 still in flight when the error clears may land, but
-				// the dropped ones are never replayed after the recovery.
-				received := sink.received()
-				Expect(received[slices.Index(received, 2):]).
-					ToNot(ContainElement(float32(1)))
+				Expect(sink.received()).To(Equal([]float32{2}))
 			},
 			Entry("temporary", driver.ErrTemporary),
 			Entry("degraded", driver.ErrDegraded),

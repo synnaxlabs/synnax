@@ -18,8 +18,11 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 )
 
 // SessionCookieParam is the request parameter a handler sets to ask the transport to
@@ -34,6 +37,19 @@ type SessionCookie struct {
 	Token string
 	// Lifetime is how long the browser keeps the cookie.
 	Lifetime time.Duration
+}
+
+// User is the user record that session responses send. Username, FirstName, and
+// LastName let clients from before the user record dropped them parse the response.
+type User struct {
+	user.User
+	// Username is the login name of the user's password, or empty when the user has
+	// no password.
+	Username string `json:"username" msgpack:"username"`
+	// FirstName is the user's name.
+	FirstName string `json:"first_name" msgpack:"first_name"`
+	// LastName is always empty.
+	LastName string `json:"last_name" msgpack:"last_name"`
 }
 
 // SessionCreateRequest logs a subject in with a proof.
@@ -52,7 +68,7 @@ type SessionCreateResponse struct {
 	// Session is the session the proof opened.
 	Session auth.Session `json:"session" msgpack:"session"`
 	// User is the user record of the subject, when the subject is a user.
-	User *user.User `json:"user,omitempty" msgpack:"user,omitempty"`
+	User *User `json:"user,omitempty" msgpack:"user,omitempty"`
 }
 
 // CreateSession logs the subject in with the proof in req and returns the session, its
@@ -95,7 +111,7 @@ type SessionRenewResponse struct {
 	// Session is the caller's session.
 	Session auth.Session `json:"session" msgpack:"session"`
 	// User is the user record of the subject, when the subject is a user.
-	User *user.User `json:"user,omitempty" msgpack:"user,omitempty"`
+	User *User `json:"user,omitempty" msgpack:"user,omitempty"`
 }
 
 // RenewSession reports activity on the caller's session and returns it. The middleware
@@ -112,7 +128,7 @@ func (s *Service) RenewSession(
 	return SessionRenewResponse{Session: session, User: u}, nil
 }
 
-func (s *Service) userOf(ctx context.Context, subject resource.ID) (*user.User, error) {
+func (s *Service) userOf(ctx context.Context, subject resource.ID) (*User, error) {
 	if subject.Type != resource.TypeUser {
 		return nil, nil
 	}
@@ -120,12 +136,26 @@ func (s *Service) userOf(ctx context.Context, subject resource.ID) (*user.User, 
 	if err != nil {
 		return nil, err
 	}
-	var u user.User
+	var (
+		u User
+		p password.Password
+	)
 	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
-		return s.user.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, snap)
+		if err := s.user.NewRetrieve().
+			Where(user.MatchKeys(key)).
+			Entry(&u.User).
+			Exec(ctx, snap); err != nil {
+			return err
+		}
+		return errors.Skip(s.password.NewRetrieve().
+			Where(password.MatchSubjects(subject)).
+			Entry(&p).
+			Exec(ctx, snap), query.ErrNotFound)
 	}); err != nil {
 		return nil, err
 	}
+	u.Username = p.Username
+	u.FirstName = u.Name
 	return &u, nil
 }
 

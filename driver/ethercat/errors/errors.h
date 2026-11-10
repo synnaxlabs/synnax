@@ -38,6 +38,9 @@ const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.
 const x::errors::Error STARTUP_PARAMETER_ERROR = BASE_ERROR.sub("startup_parameter");
+/// @brief error returned when two open tasks set one object of a slave to different
+/// values.
+const x::errors::Error SETTING_CONFLICT = BASE_ERROR.sub("setting_conflict");
 /// @brief error returned when cyclic communication fails.
 const x::errors::Error CYCLIC_ERROR = BASE_ERROR.sub("cyclic");
 /// @brief error returned when the working counter does not match expected value.

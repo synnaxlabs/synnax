@@ -10,9 +10,9 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
-  inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3} {4}{5}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.packages && '
+  Packages' || '', inputs.bump, inputs.prerelease && ' candidate' || '') }}
 
 on:
   workflow_dispatch:
@@ -27,6 +27,10 @@ on:
         default: true
       core:
         description: Release the Core
+        type: boolean
+        default: true
+      packages:
+        description: Publish the npm and PyPI packages whose versions are not published
         type: boolean
         default: true
       bump:
@@ -136,9 +140,19 @@ jobs:
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        if: >-
+          !inputs.console && !inputs.driver && !inputs.core && (!inputs.packages ||
+          inputs.prerelease)
         run: |
-          echo "no product selected" >&2
+          echo "no product selected; a candidate run never publishes packages" >&2
+          exit 1
+
+      - name: Require a release branch for packages
+        if: >-
+          inputs.packages && !inputs.prerelease && github.ref != 'refs/heads/main' &&
+          !startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          echo "packages publish only from main or a release/ branch" >&2
           exit 1
 
       - name: Checkout repository
@@ -172,6 +186,20 @@ jobs:
           product: core
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+
+      # A manifest off the train would ship a Console and clients that report the wrong
+      # minor to the Core.
+      - name: Check manifests against the train
+        if: inputs.console || inputs.driver || inputs.core
+        env:
+          MINORS: >-
+            ${{ steps.console.outputs.minor }} ${{ steps.driver.outputs.minor }} ${{
+            steps.core.outputs.minor }}
+        run: |
+          read -ra minors <<< "$MINORS"
+          for minor in $(printf '%s\n' "${minors[@]}" | sort -u); do
+            scripts/check_versions.sh --train "$minor"
+          done
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -352,6 +380,89 @@ jobs:
     steps:
       - name: Publish release
         run: gh release edit "$TAG" --draft=false --latest=false
+
+  # Packages have no candidate channel, so a candidate run never publishes them. The
+  # registries trust this file by name, so the publish jobs live here and not in a called
+  # workflow. pnpm and the prune step skip versions already on the registry.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    env:
+      SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Build
+        run: pnpm build:client
+
+      # A hotfix on an older train must not move `latest` back. Every package shares the
+      # client's minor.
+      - name: Pick the dist-tag
+        id: dist-tag
+        shell: bash
+        run: |
+          minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
+          latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
+          newest=$(printf '%s\n%s\n' "$minor" "$latest" | sort -V | tail -n 1)
+          if [ "$minor" = "$newest" ]; then
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=train-$minor" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        env:
+          TAG: ${{ steps.dist-tag.outputs.tag }}
+        # pnpm refuses a branch other than main unless it is named here.
+        run: pnpm publish -r --tag "$TAG" --publish-branch "$GITHUB_REF_NAME"
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            (cd "$package" && uv build)
+          done
+
+      - name: Prune already-published distributions
+        run: uv run --no-project python .github/scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
