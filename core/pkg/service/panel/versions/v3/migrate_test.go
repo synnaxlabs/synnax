@@ -104,3 +104,26 @@ var _ = Describe("ArcExplorerTabsMigration", func() {
 		Expect(migrate(ctx, p)).To(Equal([]v3.Panel{p}))
 	})
 })
+
+var _ = Describe("StripArcExplorerTabs", func() {
+	It("Should remove the Arc explorer tabs of a leaf", func() {
+		docs := viewTab("docs")
+		n := leaf(viewTab("arc_explorer"), docs)
+		Expect(v3.StripArcExplorerTabs(&n)).To(BeTrue())
+		Expect(n).To(Equal(leaf(docs)))
+	})
+
+	It("Should change only the side of a split that holds one", func() {
+		docs, selector := viewTab("docs"), viewTab("selector")
+		n := split(leaf(docs), leaf(viewTab("arc_explorer"), selector))
+		Expect(v3.StripArcExplorerTabs(&n)).To(BeTrue())
+		Expect(n).To(Equal(split(leaf(docs), leaf(selector))))
+	})
+
+	It("Should report no change for a tree with no Arc explorer tab", func() {
+		n := split(leaf(viewTab("docs")), leaf(viewTab("selector")))
+		want := n
+		Expect(v3.StripArcExplorerTabs(&n)).To(BeFalse())
+		Expect(n).To(Equal(want))
+	})
+})
