@@ -458,14 +458,15 @@ jobs:
 
       # npm hides a staged version until a maintainer approves it, so the tag goes up
       # only after a stage succeeds, and a run whose tag already names this commit has
-      # nothing to stage. While the newest version on any train waits for approval,
-      # nothing new stages, so approvals always move `latest` forward. `client` is
-      # approved last.
+      # nothing to stage. While the newest version overall or on this train waits for
+      # approval, nothing new stages, so approvals never move a dist-tag back. `client`
+      # is approved last.
       - name: Claim the version
         id: claim
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG: ${{ needs.resolve.outputs.ts_tag }}
+          MINOR: ${{ needs.resolve.outputs.ts_minor }}
         run: |
           status() {
             curl -s -o /dev/null -w '%{http_code}' \
@@ -487,14 +488,18 @@ jobs:
               exit 1
             fi
           done
-          newest=$(git ls-remote --tags --refs origin 'refs/tags/ts/v*' \
-            | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
-            | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)
-          if [ -n "$newest" ] && [ "$(status client "$newest")" != 200 ]; then
-            echo "client $newest is not out. Approve it, or reject it and delete" >&2
-            echo "the ts/v$newest tag." >&2
-            exit 1
-          fi
+          newest() {
+            git ls-remote --tags --refs origin "refs/tags/ts/v$1*" \
+              | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
+          }
+          for pending in "$(newest "")" "$(newest "$MINOR.")"; do
+            if [ -n "$pending" ] && [ "$(status client "$pending")" != 200 ]; then
+              echo "client $pending is not out. Approve it, or reject it and delete" >&2
+              echo "the ts/v$pending tag." >&2
+              exit 1
+            fi
+          done
 
       - name: Stamp package versions
         env:
