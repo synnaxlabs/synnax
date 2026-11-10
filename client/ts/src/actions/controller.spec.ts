@@ -91,11 +91,13 @@ const setupStore = (
   const onError = (error: Error) => errors.push(error);
   const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
+  const downs = new observe.Observer<void>();
   const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => []));
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
+    onStreamDown: (callback) => downs.onChange(callback),
     reduce: reducer,
     send,
     encode: opts.encode,
@@ -109,7 +111,7 @@ const setupStore = (
   });
   // A live change stream, so echoes arrive.
   epochs.notify(1);
-  return { errors, docs, epochs, controller, send };
+  return { errors, docs, epochs, downs, controller, send };
 };
 
 const set = (key: string, value: number): Action => ({ type: "set", key, value });
@@ -1182,6 +1184,19 @@ describe("actions.Controller", () => {
       docs.delete("k");
       expect(await done()).toBe(true);
     });
+
+    it("resolves for an answered dispatch when the stream goes down", async () => {
+      const { docs, downs, controller } = setupStore({
+        send: async () => [set("h", 9)],
+      });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      const done = watch(controller.settled("k"));
+      expect(await done()).toBe(false);
+      downs.notify();
+      expect(await done()).toBe(true);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+    });
   });
 
   describe("applyRemote", () => {
@@ -1565,6 +1580,27 @@ describe("actions.Controller", () => {
       epochs.notify(2);
       controller.applyRemote("k", 1, "foreign", [set("a", 2)]);
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("settles a dispatch that the Core answers while the stream is down", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, downs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      downs.notify();
+      expect(controller.hasPending("k")).toBe(true);
+      calls[0].resolve();
+      await dispatched;
+      expect(controller.hasPending("k")).toBe(false);
+    });
+
+    it("waits for echoes again once the stream reopens", async () => {
+      const { docs, epochs, downs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      downs.notify();
+      epochs.notify(2);
+      await controller.dispatch("k", [set("a", 1)]);
+      expect(controller.hasPending("k")).toBe(true);
     });
 
     it("clears pending dispatches and undo stacks when the cache resets", async () => {

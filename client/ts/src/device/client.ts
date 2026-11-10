@@ -183,6 +183,7 @@ export class Client extends query.Retriever<
         action.type === "set_rack" || actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/device/dispatch", dispatchReqZ, dispatchResZ),
       reduce: reduceAll,
       createOf,

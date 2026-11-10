@@ -185,6 +185,11 @@ export interface ControllerParams<
    * means echoes may have been lost, and epoch 0 means the cache was reset.
    */
   onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
+  /**
+   * Subscribes to the change stream of the cache going down. No echo arrives until the
+   * next epoch.
+   */
+  onStreamDown: (callback: () => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
   /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
    *  of network concerns. */
@@ -296,7 +301,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private readonly docs: Table<Key, State>;
   private readonly undos: Table<Key, UndoState<Action>>;
   private readonly params: Required<
-    Omit<ControllerParams<Key, State, Action>, "store" | "onEpoch" | "encode">
+    Omit<
+      ControllerParams<Key, State, Action>,
+      "store" | "onEpoch" | "onStreamDown" | "encode"
+    >
   > &
     Pick<ControllerParams<Key, State, Action>, "encode">;
   // lastAppliedSeq tracks the highest broadcast sequence number applied for each key.
@@ -307,6 +315,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   /** Callers of settled, waiting for a doc to hold no pending entry. */
   private readonly settling = new Map<Key, Array<() => void>>();
   private epoch = 0;
+  /** Whether the change stream is live, so echoes can arrive. */
+  private live = false;
   /** Whether this controller is writing the table, so its interceptor stays out. */
   private writing = false;
   // Monotonic counter ordering entry pushes against remote touches. Program
@@ -356,6 +366,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       apply: (key, doc) => this.overlay(key, doc),
     });
     opts.onEpoch((epoch) => this.changeEpoch(epoch));
+    opts.onStreamDown(() => {
+      this.live = false;
+      this.settleAnswered();
+    });
   }
 
   private drop(key: Key): void {
@@ -366,6 +380,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
 
   private changeEpoch(epoch: number): void {
     this.epoch = epoch;
+    this.live = epoch !== 0;
     // Sequence numbers restart with the Core.
     this.lastAppliedSeq.clear();
     if (epoch === 0) {
@@ -374,6 +389,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       return;
     }
     // The echoes of applied dispatches may have been lost in the gap.
+    this.settleAnswered();
+  }
+
+  /** Settles each entry that the Core applied, without its echo. */
+  private settleAnswered(): void {
     for (const [key, r] of [...this.rebases])
       for (const { dispatchKey, echo } of [...r.pending])
         if (echo != null) this.settle(key, r, dispatchKey, echo);
@@ -628,10 +648,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
     p.echo = [...p.actions, ...added];
-    // No echo arrives in epoch 0, which has no change stream. The echo may also have
-    // been lost when the epoch changed during the send.
-    if (this.epoch === 0 || p.epoch !== this.epoch)
-      this.settle(key, r, dispatchKey, p.echo);
+    // No echo arrives while the stream is down. The echo may also have been lost when
+    // the epoch changed during the send.
+    if (!this.live || p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.echo);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
