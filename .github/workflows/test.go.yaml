@@ -83,8 +83,9 @@ env:
 
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
-  # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
-  # one GOOS, which fits the Ubuntu runner's disk.
+  # for a cold lint. A module with OS-specific code lints each GOOS in its own job, which
+  # keeps each runner's cache to one GOOS. Other modules lint only for Linux, and that job
+  # also type-checks for Windows and macOS.
   lint:
     name: Lint (${{ matrix.goos }})
     runs-on: ubuntu-latest
