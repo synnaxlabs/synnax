@@ -10,7 +10,7 @@
 
 import Buttons from "@/components/download/Buttons.astro";
 
-const version = await Astro.locals.releases.latest("console");
+const version = await Astro.locals.releases.documented("console");
 ---
 
 <Buttons
