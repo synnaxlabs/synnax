@@ -201,7 +201,7 @@ describe("secret/Toolbar", () => {
     });
   });
 
-  it("offers no replacement to a user who cannot create secrets", async () => {
+  it("offers a replacement to a user who can update but not create secrets", async () => {
     const s = await createSecret(client, createdSecrets);
     const editor = await createTestClientWithGrants(client, {
       retrieve: [secret.TYPE_RESOURCE_ID],
@@ -209,8 +209,7 @@ describe("secret/Toolbar", () => {
     });
     await renderToolbar(editor);
     await openMenu(s.name);
-    await screen.findByText("Rename");
-    expect(screen.queryByText("Replace value")).toBeNull();
+    await screen.findByText("Replace value");
   });
 
   it("offers no replacement for a file secret", async () => {
