@@ -148,8 +148,8 @@ export interface Handle {
   /** Subscribes to status changes. Returns a destructor that unsubscribes. */
   onChange: (callback: (status: Status) => void) => destructor.Destructor;
   /**
-   * Resets the retry backoff and checks immediately. Auth and incompatibility
-   * errors are not cleared: those rest until the user supplies something new.
+   * Resets the retry backoff and checks immediately. Auth errors are not cleared: those
+   * rest until the user supplies new credentials.
    */
   retryNow: () => void;
 }
@@ -274,8 +274,7 @@ const enterError = (
   details: { ...prev.details, ...details },
 });
 
-export const isSelfHealing = (reason: Reason): boolean =>
-  reason === "unreachable" || reason === "unlicensed";
+export const isSelfHealing = (reason: Reason): boolean => reason !== "auth";
 
 // A 0.0 major.minor marks a development build, which pairs with anything.
 const isDev = (version: string): boolean => version.startsWith("0.0.");
@@ -337,9 +336,9 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live. A parked unreachable or unlicensed
-  // error must lift out of error: the short circuit it drives would starve
-  // the very stream reopen this state waits on.
+  // stay degraded until it reports live. A parked self-healing error must lift
+  // out of error: an unreachable or unlicensed one drives a short circuit that
+  // would starve the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.details.streamDenied) return enterStreamDenied(prev, facts);
     if (prev.variant === "error" && isSelfHealing(prev.details.reason))
@@ -478,8 +477,8 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "retry.exhausted":
       return reduceRetryExhausted(prev);
     case "retry.requested":
-      // deliberately does not clear auth or incompatibility: those rest until
-      // the user supplies something new
+      // deliberately does not clear auth: it rests until the user supplies new
+      // credentials
       if (prev.variant !== "error" || !isSelfHealing(prev.details.reason)) return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
