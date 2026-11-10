@@ -94,6 +94,10 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
             });
         return result;
     }();
+    result.startup_parameters = parser.field<std::vector<SlaveStartupParameters>>(
+        "startup_parameters",
+        std::vector<SlaveStartupParameters>{}
+    );
     return result;
 }
 
@@ -107,6 +111,7 @@ inline x::json::json ReadConfig::to_json() const {
             arr.push_back(::synnax::ethercat::to_json(item));
         j["channels"] = arr;
     }
+    j["startup_parameters"] = x::json::to_array(this->startup_parameters);
     return j;
 }
 
@@ -162,6 +167,43 @@ inline x::json::json ScanConfig::to_json() const {
     x::json::json j = x::json::json::object();
     if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
         j.update(parent);
+    return j;
+}
+
+inline StartupParameter StartupParameter::parse(x::json::Parser parser) {
+    return StartupParameter{
+        .index = parser.field<std::uint16_t>("index"),
+        .sub_index = parser.field<std::uint8_t>("sub_index"),
+        .data_type = parser.field<::x::telem::DataType>("data_type"),
+        .value = parser.field<double>("value"),
+        .name = parser.field<std::string>("name", ""),
+    };
+}
+
+inline x::json::json StartupParameter::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["index"] = this->index;
+    j["sub_index"] = this->sub_index;
+    j["data_type"] = this->data_type;
+    j["value"] = this->value;
+    j["name"] = this->name;
+    return j;
+}
+
+inline SlaveStartupParameters SlaveStartupParameters::parse(x::json::Parser parser) {
+    return SlaveStartupParameters{
+        .device = parser.field<::synnax::device::Key>("device", ""),
+        .parameters = parser.field<std::vector<StartupParameter>>(
+            "parameters",
+            std::vector<StartupParameter>{}
+        ),
+    };
+}
+
+inline x::json::json SlaveStartupParameters::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["device"] = this->device;
+    j["parameters"] = x::json::to_array(this->parameters);
     return j;
 }
 

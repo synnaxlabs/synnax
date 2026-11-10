@@ -367,6 +367,65 @@ describe("EtherCAT device ContextMenuItems", () => {
       ).toBeTruthy();
     });
 
+    it("should run the mode and cycles that the catalog gives in auto", async () => {
+      await openConfigure({
+        opModes: [SM_MODE, DC_MODE],
+        settings: {
+          device: [],
+          channels: [],
+          mode: {
+            index: 0x8020,
+            subIndex: 9,
+            value: 0,
+            shared: false,
+            opMode: {
+              index: 1,
+              assignActivate: 0x0300,
+              sync0Cycle: 1_000,
+              sync1Cycle: 1_000_000_000,
+            },
+            switch: [],
+          },
+        },
+      });
+      expect(
+        screen.getByText(
+          "SYNC0 ticks every 1μs. SYNC1 ticks every 1s. The cycle turns on SYNC1, " +
+            "which the mode leaves off.",
+        ),
+      ).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: /^Mode/ }));
+      expect(
+        await screen.findByText(
+          "The Driver uses DC, because the setup of the device needs it. Best for " +
+            "most needs.",
+        ),
+      ).toBeTruthy();
+    });
+
+    it("should not run the mode that the catalog gives on an IgH network", async () => {
+      await openConfigure({
+        network: "igh:0",
+        opModes: [SM_MODE, DC_MODE],
+        settings: {
+          device: [],
+          channels: [],
+          mode: {
+            index: 0x8020,
+            subIndex: 9,
+            value: 0,
+            shared: false,
+            opMode: { index: 1, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 },
+            switch: [],
+          },
+        },
+      });
+      const auto = screen.getAllByText(
+        "The Driver uses SM sync, because the device lists it. Best for most needs.",
+      );
+      expect(auto.length).toBeGreaterThan(0);
+    });
+
     it.each(MODE_TEXTS)(
       "should describe the clock ticks of a mode with $name",
       async ({ mode, option, help }) => {

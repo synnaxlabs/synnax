@@ -17,6 +17,7 @@ import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SelectSlave } from "@/feature/ethercat/device/SelectSlave";
+import { ChannelSettings } from "@/feature/ethercat/task/ChannelSettings";
 import { SelectEntryField } from "@/feature/ethercat/task/SelectEntryField";
 import {
   type Channel,
@@ -83,6 +84,7 @@ export const ReadChannelDetails: FC<Task.Views.DetailsProps<ReadChannel>> = ({
   path,
 }) => (
   <ChannelDetails path={path} pdoType="inputs" schema={READ_CHANNEL_SCHEMAS.entry}>
+    <ChannelSettings path={deep.variant(path, "type", "entry")} />
     <PForm.Section title="Scale">
       <Task.ScaleForm path={deep.variant(path, "type", "entry").scale} />
     </PForm.Section>

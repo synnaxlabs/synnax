@@ -25,6 +25,7 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
+  fillStartupParameters,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
@@ -42,7 +43,7 @@ import {
   readDataType,
   readKey,
   type ReadSchemas,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -133,7 +134,7 @@ const createSlaveChannels = async (
   key: string,
 ): Promise<ReadChannel[]> => {
   const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const inputs = uniqueEntries(slave.properties.pdos.inputs);
+  const inputs = usableEntries(slave.properties, "inputs");
   if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
   return inputs.map((entry) => createEntryReadChannel(key, entry));
 };
@@ -172,8 +173,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
-  // The data type and repeated name checks run before any create, so their failure
-  // leaves nothing behind.
+  // The settings, data type, and repeated name checks run before any create, so their
+  // failure leaves nothing behind.
+  config.startupParameters = fillStartupParameters(
+    slaves,
+    config.channels,
+    config.startupParameters,
+  );
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

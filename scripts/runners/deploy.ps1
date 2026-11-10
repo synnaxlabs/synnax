@@ -23,8 +23,7 @@ $Lock = [IO.File]::Open(
 
 $Dir = 'C:\Users\Administrator\Desktop\runner_telemetry'
 $Uv = 'C:\Program Files\Python313\Scripts\uv.exe'
-# The certificate the Core serves. It signs itself, so ca.crt cannot verify it.
-$Cert = 'C:\ProgramData\Synnax\certs\node.crt'
+$Cert = 'C:\ProgramData\Synnax\certs\ca.crt'
 $UvCache = 'C:\Windows\system32\config\systemprofile\AppData\Local\uv'
 $Base = "https://raw.githubusercontent.com/synnaxlabs/synnax/$Sha/scripts/runners"
 $Tasks = [ordered]@{
