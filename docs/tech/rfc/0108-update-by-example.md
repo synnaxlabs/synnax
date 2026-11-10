@@ -119,8 +119,9 @@ await client.racks.update({ key: rk, integrations: { insert: ["labjack"] } });
 `set` cannot share an operator object with other operators. The other operators apply in
 a fixed order: remove, update, insert, move. `insert` adds entries at the end. `move`
 takes `{ key, after }`, where `after` names the neighbor, and `null` or no `after` puts
-the entry first. An entry key, never an index, names each entry, because an index
-changes when another user adds or removes an entry first.
+the entry first. When no entry has the `after` key, the entry goes last. An entry key,
+never an index, names each entry, because an index changes when another user adds or
+removes an entry first.
 
 ```ts
 await client.tasks.update({
