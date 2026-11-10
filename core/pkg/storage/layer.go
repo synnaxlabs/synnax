@@ -483,7 +483,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		err = errors.Wrap(err, "failed to delete the Aspen digest and version keys")
 		return nil, errors.Combine(err, db.Close())
 	}
-	return pebblekv.Wrap(db), nil
+	return pebblekv.Wrap(db, logger), nil
 }
 
 func openTS(ctx context.Context, cfg LayerConfig, fs xfs.FS) (*ts.DB, error) {

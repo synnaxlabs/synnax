@@ -29,12 +29,18 @@ import (
 	"go.uber.org/zap"
 )
 
-type db struct{ *pebble.DB }
+type db struct {
+	*pebble.DB
+	logger pebble.Logger
+}
 
 var _ kv.DB = (*db)(nil)
 
-// Wrap wraps a pebble.DB to satisfy the kv.DB interface.
-func Wrap(base *pebble.DB) kv.DB { return &db{DB: base} }
+// Wrap wraps a pebble.DB to satisfy the kv.DB interface. logger receives the fatal
+// errors of the DB, and should be the Logger that opened base.
+func Wrap(base *pebble.DB, logger pebble.Logger) kv.DB {
+	return &db{DB: base, logger: logger}
+}
 
 type logger struct{ alamos.Instrumentation }
 
@@ -114,7 +120,12 @@ func (d db) apply(txn *tx, opts []any) error {
 			applied()
 		}
 	}
-	return txn.SyncWait()
+	err := txn.SyncWait()
+	if err != nil {
+		// Readers already see the batch, and Pebble cannot recover a failed WAL sync.
+		d.logger.Fatalf("failed to sync the WAL: %v", err)
+	}
+	return err
 }
 
 // Report implement alamos.ReportProvider.

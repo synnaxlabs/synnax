@@ -212,11 +212,12 @@ var _ = Describe("DB", func() {
 					held:    make(chan struct{}),
 					release: make(chan struct{}),
 				}
+				logger := pebblekv.NewNoopLogger()
 				syncDB := DeferClose(gorp.Wrap(
 					pebblekv.Wrap(MustSucceed(pebble.Open("", &pebble.Options{
 						FS:     fs,
-						Logger: pebblekv.NewNoopLogger(),
-					}))),
+						Logger: logger,
+					})), logger),
 					gorp.WithCodec(msgpack.Codec),
 				))
 				release := sync.OnceFunc(func() { close(fs.release) })
