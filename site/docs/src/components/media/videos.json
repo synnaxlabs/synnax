@@ -6,6 +6,7 @@
   "client/channels/delete": "8ce780820ca5",
   "client/channels/find": "8c96a95d9bd3",
   "client/channels/rename": "efcc77a18db9",
+  "client/channels/search": "0f02f4df34e8",
   "client/channels/toolbar": "e637876ff7ea",
   "client/ranges/create": "62135bb1c7f7",
   "client/ranges/create-child": "1ff7540749c3",
