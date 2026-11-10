@@ -304,14 +304,12 @@ export const checkOrCreateIndex = async (
 
 /**
  * @returns the channels whose mapped Synnax channel is missing.
- * @throws {Error} if a mapped channel holds a different data type than getDataType
- * gives for its channel.
+ * @throws {Error} if a mapped channel holds a different data type than its channel.
  */
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   channelOf: (ch: C) => number,
-  getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
@@ -328,7 +326,7 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
-    checkDataType(existing, getDataType(ch));
+    checkDataType(existing, ch.dataType);
   }
   return toCreate;
 };
