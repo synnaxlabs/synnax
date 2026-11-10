@@ -55,6 +55,8 @@ Console browse the disk of the computer that uses a file.
    or task on its rack uses it, or a grant names it (§3.3).
 4. **Certificates move as contents**: A path stays possible only as an item that names a
    file on the computer that uses it.
+5. **No user picks the file behind a secret**: A file secret names a file in a folder
+   that an admin sets on its rack (§3.5).
 
 ## 3 Design
 
@@ -62,13 +64,13 @@ Console browse the disk of the computer that uses a file.
 
 ```
 Secret struct {
-    key     uuid = create
-    name    string
-    source  Source = stored     // stored | file
-    path    string = ""         // file: a path on the rack's computer
-    rack    rack.Key = 0        // file: the rack that reads the path
-    value   bytes               // stored: ciphertext
-    updated telem.TimeStamp
+    key       uuid = create
+    name      string
+    source    Source = stored   // stored | file
+    file_name string = ""       // file: a file in the rack's secrets folder
+    rack      rack.Key = 0      // file: the rack that reads the file
+    value     bytes             // stored: ciphertext
+    updated   telem.TimeStamp
 }
 ```
 
@@ -79,7 +81,7 @@ can carry it. Secrets have no exporter. The Console shows `updated` as "Set on <
 
 | Endpoint              | Caller                                        | Does                                       |
 | --------------------- | --------------------------------------------- | ------------------------------------------ |
-| `secret/set`          | Create for a new secret, update for a replace | Saves a value or path, or replaces it      |
+| `secret/set`          | Create for a new secret, update for a replace | Saves a value or file name, or replaces it |
 | `secret/retrieve`     | Can retrieve secrets                          | Returns records without values             |
 | `secret/dispatch`     | Can update secrets                            | Applies edits as actions, such as a rename |
 | `secret/delete`       | Can delete secrets                            | Refuses while anything uses the secret     |
@@ -192,28 +194,36 @@ a union on its source, and Oracle reads `@ref` inside a union variant (#4920).
 
 ### 3.5 File items and the file integration
 
-A file item names a path and the rack that reads it: a Driver's rack for OPC UA and
-HTTP, or the Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT,
-and PagerDuty. Each integration's Core service refuses a device or task that names a
-file item of another rack, directly or through a certificate. A replace of an item in
-use keeps its source and rack, or fails as a delete does. So an item has one file and
-one set of details. The reader opens the file at each connect, and the value never
-enters the store.
+A file item names the rack that reads it: a Driver's rack for OPC UA and HTTP, or the
+Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT, and PagerDuty.
+A file certificate names the paths of its certificate and key. A file secret names only
+a file in the rack's secrets folder. An admin sets the folder with `secrets_dir` in the
+Driver's config (`driver/rack/file.cpp`), or with `--secrets-dir` on the Core. With no
+folder set, a file secret fails at connect. The Core refuses a file name that holds `/`
+or `\`, or that is `.` or `..`, so a file secret cannot reach outside its folder. A
+secret's bytes go to a server that the user picks, such as a Kafka broker, so a path
+would let the user send any file that the reader can open, the secrets key included. TLS
+sends no private key, so a certificate's paths can point anywhere. Each integration's
+Core service refuses a device or task that names a file item of another rack, directly
+or through a certificate. A replace of an item in use keeps its source and rack, or
+fails as a delete does. So an item has one file and one set of details. The reader opens
+the file at each connect, and the value never enters the store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
 `configure_initial_tasks` in the C++ Driver. Its one command, `list`, takes a path, or
-nothing for the roots and home folder. The reply gives each entry's name, kind, size,
-and modified time. For a certificate file it adds the subject, issuer, expiry, and
-fingerprints, which the Console saves with a file certificate so expiry warnings work
-for files too. At each connect, the reader compares the file's SHA-256 fingerprint with
-the saved one. When they differ, it saves the new details. A Core reader saves them in
-process. A rack calls `certificate/refresh`, which changes only the details. Like
-`secret/resolve`, it skips the write binder: the Core checks that the caller is the rack
-that the certificate names. So a replaced file gets new details at its next connect, and
-a typed path gets its first details there, with or without the file browser. For a key
-file it gives the name only. The whole disk is visible, as it is to a path typed by
-hand. A site that does not want browsing leaves `file` out of the Driver's integrations.
+nothing for the roots, the home folder, and the secrets folder when one is set. The
+reply gives each entry's name, kind, size, and modified time. For a certificate file it
+adds the subject, issuer, expiry, and fingerprints, which the Console saves with a file
+certificate so expiry warnings work for files too. At each connect, the reader compares
+the file's SHA-256 fingerprint with the saved one. When they differ, it saves the new
+details. A Core reader saves them in process. A rack calls `certificate/refresh`, which
+changes only the details. Like `secret/resolve`, it skips the write binder: the Core
+checks that the caller is the rack that the certificate names. So a replaced file gets
+new details at its next connect, and a typed path gets its first details there, with or
+without the file browser. For a key file it gives the name only. The whole disk is
+visible, as it is to a path typed by hand. A site that does not want browsing leaves
+`file` out of the Driver's integrations.
 
 ### 3.6 Integrations
 
@@ -297,7 +307,7 @@ the Driver change, so they are separate phases.
 | 2     | Add the secret service                                 | `schemas/synnax`, `core/pkg/service/secret`, `core/pkg/service/auth`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `core/cmd/start`, `client/ts`, `client/py`                                                         | 1          |
 | 3     | Add the certificate service                            | `schemas/synnax`, `core/pkg/service/certificate`, `core/pkg/service/access`, `core/pkg/service/layer.go`, `core/pkg/api`, `client/ts`, `client/py`                                                                                               | 2          |
 | 4     | Pick secrets in the Console and move PagerDuty to them | `console/src/feature/secret`, `console/src/feature/pagerduty`, `core/pkg/service/pagerduty`, `schemas/synnax`                                                                                                                                    | 3          |
-| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `core/pkg/service/pagerduty`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`                        | 4          |
+| 5     | Add the file integration and remote file browser       | `driver/file`, `driver/rack`, `core/cmd/start`, `core/pkg/service/file`, `core/pkg/service/secret`, `core/pkg/service/certificate`, `core/pkg/service/pagerduty`, `schemas/synnax`, `core/pkg/service/layer.go`, `console/src/feature/file`      | 4          |
 | 6     | Move Kafka and MQTT to secrets and certificates        | `core/pkg/service/kafka`, `core/pkg/service/mqtt`, `core/pkg/service/certificate`, `schemas/synnax`, `console/src/feature/kafka`, `console/src/feature/mqtt`, `client/py`                                                                        | 5          |
 | 7     | Move OPC UA and HTTP to secrets and certificates       | `driver/opcua`, `driver/http`, `client/cpp`, `core/pkg/service/secret`, `core/pkg/api/certificate`, `core/pkg/service/opcua`, `core/pkg/service/http`, `console/src/feature/opcua`, `console/src/feature/http`, `client/py`, `integration/tests` | 5          |
 | 8     | Report the expiry of the Core's own certificates       | `core/pkg/service/certificate`, `core/pkg/security/cert`, `core/pkg/service/layer.go`                                                                                                                                                            | 3          |
@@ -355,6 +365,14 @@ the Driver change, so they are separate phases.
     replaces it. A rename goes through dispatch, as edits to labels and ranges do. A
     replace needs only update access. The trade is real: a reused key replaces an item
     without a warning.
+15. **File secrets read from a folder that an admin sets**: Kafka Connect let a user
+    name any file and sent its bytes to the user's broker (CVE-2024-31141). Its fix,
+    KIP-993, lists the folders that an admin allows. Docker, Kubernetes, and Telegraf
+    read secrets by name from a folder that the operator sets, and Vault Agent and the
+    Kubernetes CSI driver write secrets into such a folder. Files for certificates only,
+    as in Node-RED, also closes the leak, but keeps every secret of a site in Synnax.
+    The trade is real: an admin must set the folder on each rack before a file secret
+    works.
 
 ## 6 What this RFC does not cover
 
