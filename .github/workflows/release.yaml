@@ -494,11 +494,20 @@ jobs:
               | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
           }
           for pending in "$(newest "")" "$(newest "$MINOR.")"; do
-            if [ -n "$pending" ] && [ "$(status client "$pending")" != 200 ]; then
-              echo "client $pending is not out. Approve it, or reject it and delete" >&2
-              echo "the ts/v$pending tag." >&2
-              exit 1
-            fi
+            [ -n "$pending" ] || continue
+            code=$(status client "$pending")
+            case "$code" in
+              200) ;;
+              404)
+                echo "client $pending is not out. Approve it, or reject it and delete" >&2
+                echo "the ts/v$pending tag." >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for client $pending" >&2
+                exit 1
+                ;;
+            esac
           done
 
       - name: Stamp package versions
@@ -537,7 +546,8 @@ jobs:
             echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
             echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
             echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`."
-            echo "No later release on this train stages until \`client\` is approved."
+            echo "Until \`client\` is approved, no release stages on this train, or on"
+            echo "any train while $VERSION is the newest."
             echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
           } >> "$GITHUB_STEP_SUMMARY"
 
