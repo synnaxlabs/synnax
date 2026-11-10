@@ -132,16 +132,14 @@ describe("slavePropertiesZ", () => {
     ]);
   });
 
-  it("should reject a stored channel key that is not the address of an entry", () => {
-    const result = EtherCAT.Device.slavePropertiesZ.safeParse({
-      read: { channels: { "24592_1:float32": 5 } },
+  it("should drop the stored channel keys that name no address", () => {
+    const parsed = EtherCAT.Device.slavePropertiesZ.parse({
+      read: { channels: { "24576_1": 5, autoGone: 6, manual_24576_1: 7 } },
+      write: { channels: { autoOutputState: 8 } },
     });
-    expect(result.error?.issues).toEqual([
-      expect.objectContaining({
-        code: "invalid_union",
-        path: ["read", "channels"],
-        message: "Invalid input",
-      }),
+    expect(parsed.read.channels).toEqual([
+      { index: 0x6000, subIndex: 1, scaled: false, channel: 5 },
     ]);
+    expect(parsed.write.channels).toEqual([]);
   });
 });

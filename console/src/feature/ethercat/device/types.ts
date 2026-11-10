@@ -87,23 +87,26 @@ export interface Address {
 
 /**
  * Reads bindings stored as a map keyed by the address of the entry, such as 24592_1.
- * prefix is the optional prefix of a key for the second channel of the entry.
+ * prefix is the optional prefix of a key for the second channel of the entry. The map
+ * can keep keys from older Consoles that name no address. 0.60.1 read none of them, so
+ * they hold no binding.
  */
 const bindingMapZ = <B>(
   prefix: string,
   add: (bindings: B[], address: Address, prefixed: boolean, channel: number) => void,
-) =>
-  z
-    .record(z.string().regex(new RegExp(`^(${prefix}_)?\\d+_\\d+$`)), z.number())
-    .transform((map) => {
-      const bindings: B[] = [];
-      for (const [key, channel] of Object.entries(map)) {
-        const [subIndex, index, prefixed] = key.split("_").reverse();
-        const address = { index: Number(index), subIndex: Number(subIndex) };
-        add(bindings, address, prefixed != null, channel);
-      }
-      return bindings;
-    });
+) => {
+  const keyPattern = new RegExp(`^(${prefix}_)?(\\d+)_(\\d+)$`);
+  return z.record(z.string(), z.number()).transform((map) => {
+    const bindings: B[] = [];
+    for (const [key, channel] of Object.entries(map)) {
+      const match = keyPattern.exec(key);
+      if (match == null) continue;
+      const address = { index: Number(match[2]), subIndex: Number(match[3]) };
+      add(bindings, address, match[1] != null, channel);
+    }
+    return bindings;
+  });
+};
 
 const readBindingsZ = z
   .array(readBindingZ)
