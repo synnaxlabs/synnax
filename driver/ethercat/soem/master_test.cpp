@@ -2873,6 +2873,16 @@ TEST_F(SOEMMasterTest, WriteReachesTheRunningBusAndReplaysOnRecovery) {
     );
 }
 
+/// @brief it should write parameters to a slave when no task runs the bus.
+TEST_F(SOEMMasterTest, WriteReachesASlaveOnAStoppedBus) {
+    this->initialize_with_slave();
+    ASSERT_NIL(this->master->write(1, {RANGE}));
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{{1, 0x8000, 0x19, {0x02}}})
+    );
+}
+
 /// @brief it should return the reason a slave rejects a parameter on the running bus,
 /// and leave the slave on the bus without a fault.
 TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {

@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { useResultSlave, useSetStandalone } from "@/feature/ethercat/device/queries";
-import { setupOf } from "@/feature/ethercat/device/setup";
+import { canSwitch, of } from "@/feature/ethercat/device/setup";
 
 interface NoteBodyProps {
   variant: "warning" | "info";
@@ -59,7 +59,7 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
     status: result,
   } = useSetStandalone({ afterSuccess: () => setSwitched(true) });
   if (slave == null) return null;
-  const setup = setupOf(slave.properties);
+  const setup = of(slave.properties);
   if (switched || setup.kind === "switched")
     return (
       <NoteBody variant="warning" title="Restart the power of the device">
@@ -85,7 +85,7 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
         On this port, the device sends data that only {reader} reads. Choose how to use
         the device.
       </Detail>
-      {(slave.properties.settings?.mode?.switch.length ?? 0) > 0 && (
+      {canSwitch(slave.properties) && (
         <Flex.Box y gap="tiny">
           <Text.Text weight={500}>Synnax only</Text.Text>
           <Detail>

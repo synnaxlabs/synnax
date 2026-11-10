@@ -141,7 +141,7 @@ export const readDataType = (ch: EntryReadChannel): string =>
 export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
 
 /** @returns the entries of a slave with each address listed once. */
-export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
+const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
   const seen = new Set<string>();
   return entries.filter((entry) => {
     const key = addressKey(entry);

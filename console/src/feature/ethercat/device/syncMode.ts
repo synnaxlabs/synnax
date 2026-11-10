@@ -45,15 +45,15 @@ export const isStale = (modes: OpMode[], choice: OpModeChoice): boolean =>
   modes[choice.index]?.assignActivate !== choice.assignActivate;
 
 /**
- * The index of the mode the Driver runs with no choice: the mode of catalog, the
- * choice that the catalog of the device gives, else the SM mode when the device lists
- * one, else its first mode. Null when the device lists no modes.
+ * The index of the mode that the Driver runs with no choice: that of catalog, the
+ * choice that the catalog of the device gives and the device lists, else the SM mode
+ * when the device lists one, else its first mode. Null when the device lists no modes.
  */
 export const autoIndex = (
   modes: OpMode[],
   catalog: OpModeChoice | null = null,
 ): number | null => {
-  if (catalog != null && !isStale(modes, catalog)) return catalog.index;
+  if (catalog != null) return catalog.index;
   if (modes.length === 0) return null;
   const sm = modes.findIndex(isSM);
   return sm === -1 ? 0 : sm;
