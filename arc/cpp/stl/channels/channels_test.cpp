@@ -486,6 +486,8 @@ protected:
     std::vector<float> deliver(const std::vector<double> &seconds) {
         std::vector<::x::telem::TimeStamp> stamps;
         std::vector<float> values;
+        stamps.reserve(seconds.size());
+        values.reserve(seconds.size());
         for (const auto sec: seconds) {
             stamps.push_back(at(sec));
             values.push_back(static_cast<float>(sec));
@@ -503,11 +505,7 @@ protected:
         EXPECT_NIL(this->node->next(ctx));
         if (!this->changed) return {};
         auto checker = ASSERT_NIL_P(this->s->node("source"));
-        const auto &out = checker.output(0);
-        std::vector<float> emitted;
-        for (size_t i = 0; i < out->size(); i++)
-            emitted.push_back(out->at<float>(static_cast<int>(i)));
-        return emitted;
+        return checker.output(0)->values<float>();
     }
 };
 
