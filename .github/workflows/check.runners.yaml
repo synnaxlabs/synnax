@@ -35,9 +35,20 @@ jobs:
           sparse-checkout: .github/scripts
 
       # GITHUB_TOKEN cannot read repository hooks.
+      - name: Create an App token
+        id: token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          app-id: ${{ secrets.RUNNERS_GH_APP_ID }}
+          private-key: ${{ secrets.RUNNERS_GH_APP_KEY }}
+          permission-actions: read
+          permission-repository-hooks: read
+
       - name: Check the deliveries
+        # An explicit bash sets pipefail, so tee keeps the script's exit code.
+        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GH_SERVICE_TOKEN }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           python3 -I .github/scripts/hook_health.py "$HOOK" |
             tee "$RUNNER_TEMP/summary.txt"
