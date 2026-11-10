@@ -17,6 +17,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
+	symboltestutil "github.com/synnaxlabs/arc/symbol/testutil"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/arc/types"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -162,9 +166,27 @@ start => main`),
 		Entry("dotted call whose last segment is a keyword",
 			"sensor -> stable.for{duration=1s} -> out",
 			"sensor -> stable.for(duration=1s) -> out"),
-		Entry("expression call is unchanged",
+		Entry("expression call that starts a flow",
 			"len(ch) -> out",
-			"len(ch) -> out"),
+			"(len(ch)) -> out"),
+		Entry("expression calls in a routing table and a stage",
+			`sequence s {
+    stage a {
+        flag -> select{} -> {true: math.abs(x) -> y, false: 0 -> y}
+        len(ch) => b
+    }
+    stage b {}
+}`,
+			`sequence s {
+    stage a {
+        flag -> select() -> {true: (math.abs(x)) -> y, false: 0 -> y}
+        (len(ch)) => b
+    }
+    stage b {}
+}`),
+		Entry("expression call inside an expression is unchanged",
+			"x := 1 + len(ch)\nsensor -> scale{factor=len(ch)} -> out",
+			"x := 1 + len(ch)\nsensor -> scale(factor=len(ch)) -> out"),
 		Entry("import and authority blocks are unchanged",
 			`import (
     time
@@ -200,6 +222,37 @@ time.interval(1s) -> valve`),
 			"// température — ok\nsensor -> scale(factor=2.0) -> out"),
 		Entry("empty", "", ""),
 	)
+
+	It("Should rewrite a function call in a flow to a program that compiles",
+		func(ctx SpecContext) {
+			got := v4.SwapBrackets(`func median3(a f64, b f64, c f64) f64 {
+    return a
+}
+median3(pt_1, pt_2, pt_3) -> tank_pt`)
+			Expect(got).To(Equal(`func median3() {a f64, b f64, c f64} f64 {
+    return a
+}
+(median3(pt_1, pt_2, pt_3)) -> tank_pt`))
+			channels := []symbol.Symbol{{
+				Name: "tank_pt",
+				Kind: symbol.KindChannel,
+				Type: types.WriteChan(types.F64()),
+				ID:   4,
+			}}
+			for i, name := range []string{"pt_1", "pt_2", "pt_3"} {
+				channels = append(channels, symbol.Symbol{
+					Name: name,
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   i + 1,
+				})
+			}
+			root := symboltestutil.NewRoot(nil, channels...)
+			parsed := MustSucceed(text.Parse(text.Text{Raw: got}))
+			ir, diags := text.Analyze(ctx, parsed, root)
+			Expect(diags.Ok()).To(BeTrue(), diags.String())
+			MustSucceed(text.Compile(ctx, ir))
+		})
 
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {

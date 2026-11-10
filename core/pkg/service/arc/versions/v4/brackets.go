@@ -20,9 +20,10 @@ import (
 // SwapBrackets rewrites src from the grammar that wrote function inputs in braces and
 // triggers in parens. A declaration becomes `func name(inputs) {triggers}`, with an
 // empty `()` added when the old text had no input block. A flow call `name{...}`
-// becomes `name(...)`. Comments, strings and layout are kept. A bracket with no match
-// leaves its construct unchanged. Text already in the current grammar is not valid
-// input.
+// becomes `name(...)`. An expression call `name(...)` that starts a flow node or stage
+// item becomes `(name(...))`, since the current grammar reads it as a flow call.
+// Comments, strings and layout are kept. A bracket with no match leaves its construct
+// unchanged. Text already in the current grammar is not valid input.
 func SwapBrackets(src string) string {
 	s := newStream(src)
 	e := editor{
@@ -31,18 +32,48 @@ func SwapBrackets(src string) string {
 		insert:  map[int]string{},
 		drop:    make(set.Set[int]),
 	}
+	// open holds the matched brackets enclosing the current token.
+	var open []bracket
 	for i := 0; i < len(s.tokens); i++ {
+		for len(open) > 0 && open[len(open)-1].end <= i {
+			open = open[:len(open)-1]
+		}
 		switch s.tokens[i].GetTokenType() {
 		case parser.ArcLexerFUNC:
 			i = e.rewriteDeclaration(s, i)
 		case parser.ArcLexerLBRACE:
-			if end := s.match[i]; end != -1 && isCallBrace(s.tokens, i) {
+			end := s.match[i]
+			if end == -1 {
+				continue
+			}
+			call := isCallBrace(s.tokens, i)
+			if call {
 				e.swapPair(s.tokens, i, end, '(', ')')
 				e.moveGap(s.tokens[i-1], s.tokens[i], s.tokens[end])
+			}
+			open = append(open, bracket{end: end, holdsItems: !call})
+		case parser.ArcLexerLPAREN, parser.ArcLexerLBRACKET:
+			if end := s.match[i]; end != -1 {
+				open = append(open, bracket{end: end})
+			}
+		case parser.ArcLexerIDENTIFIER, parser.ArcLexerAUTHORITY:
+			if n := len(open); n > 0 && !open[n-1].holdsItems {
+				continue
+			}
+			if end := s.itemCallEnd(i); end != -1 {
+				e.insert[s.tokens[i].GetStart()] += "("
+				e.insert[s.tokens[end].GetStop()+1] += ")"
 			}
 		}
 	}
 	return e.apply()
+}
+
+// bracket is a matched opening bracket. holdsItems is set for a brace that holds flow
+// nodes or stage items: a stage or sequence body, or a routing table.
+type bracket struct {
+	end        int
+	holdsItems bool
 }
 
 // stream is the visible token stream with every bracket resolved up front, so a
@@ -85,6 +116,45 @@ func newStream(src string) stream {
 		}
 	}
 	return s
+}
+
+// itemCallEnd returns the index of the paren closing the expression call whose callee
+// starts at i, or -1 when no such call starts a flow node or stage item there. The
+// caller checks that i is not inside an expression bracket.
+func (s stream) itemCallEnd(i int) int {
+	tokens := s.tokens
+	if i > 0 && continuesExpression(tokens[i-1].GetTokenType()) {
+		return -1
+	}
+	callee := i
+	if i+2 < len(tokens) && tokens[i+1].GetTokenType() == parser.ArcLexerDOT {
+		callee = i + 2
+	} else if tokens[i].GetTokenType() == parser.ArcLexerAUTHORITY {
+		return -1
+	}
+	paren := callee + 1
+	if paren >= len(tokens) || tokens[paren].GetTokenType() != parser.ArcLexerLPAREN {
+		return -1
+	}
+	return s.match[paren]
+}
+
+// continuesExpression reports whether a token of type t leaves an expression open, so
+// a name after it is an operand and not the start of an item.
+func continuesExpression(t int) bool {
+	switch t {
+	case parser.ArcLexerDOT, parser.ArcLexerASSIGN, parser.ArcLexerDECLARE,
+		parser.ArcLexerSTATE_DECLARE, parser.ArcLexerPLUS_ASSIGN,
+		parser.ArcLexerMINUS_ASSIGN, parser.ArcLexerSTAR_ASSIGN,
+		parser.ArcLexerSLASH_ASSIGN, parser.ArcLexerPERCENT_ASSIGN,
+		parser.ArcLexerPLUS, parser.ArcLexerMINUS, parser.ArcLexerSTAR,
+		parser.ArcLexerSLASH, parser.ArcLexerPERCENT, parser.ArcLexerCARET,
+		parser.ArcLexerEQ, parser.ArcLexerNEQ, parser.ArcLexerLT, parser.ArcLexerGT,
+		parser.ArcLexerLEQ, parser.ArcLexerGEQ, parser.ArcLexerAND, parser.ArcLexerOR,
+		parser.ArcLexerNOT:
+		return true
+	}
+	return false
 }
 
 // closeBracket pairs the closer at i with the innermost open bracket on the stack. A
