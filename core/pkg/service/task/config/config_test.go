@@ -613,6 +613,28 @@ var _ = Describe("Service", func() {
 			Expect(out).To(HaveKeyWithValue("performance", ""))
 		})
 
+		It("Should keep an explicit zero when the legacy version is the latest", func(
+			ctx SpecContext,
+		) {
+			latestLegacy := MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:            DeferClose(gorp.Wrap(memkv.New())),
+					Type:          "latest_legacy_test",
+					Ladder:        arcversions.ConfigLadder,
+					LegacyVersion: arcversions.Latest,
+					SetEntryKey:   (*arctask.Config).SetKey,
+					PatchEntry:    (*arctask.Config).Patch,
+					HashEntry:     (*arctask.Config).HashContent,
+				},
+			))
+			out := MustSucceed(latestLegacy.Normalize(ctx, db,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+			))
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
 		It("Should fill the defaults of a legacy config", func(ctx SpecContext) {
 			out := MustSucceed(versioned.Normalize(ctx, db, 0, msgpack.EncodedJSON{
 				"module":      uuid.New().String(),

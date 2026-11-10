@@ -460,8 +460,10 @@ func (s *Service[E]) Decode(
 	data msgpack.EncodedJSON,
 ) (Decoded, error) {
 	ladder := s.cfg.Ladder
-	rewritten := version < ladder.First || version <= s.cfg.LegacyVersion
-	if rewritten {
+	// A legacy rewrite or a migration gives a field that its source lacks the zero
+	// value.
+	older := version < ladder.Latest
+	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
@@ -485,9 +487,7 @@ func (s *Service[E]) Decode(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	// A legacy rewrite or a migration gives a field that its source lacks the zero
-	// value.
-	if rewritten || version < ladder.Latest {
+	if older {
 		e = defaults.Fill(e)
 	}
 	return Decoded{normalize: func(
