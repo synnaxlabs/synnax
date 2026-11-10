@@ -181,6 +181,31 @@ x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
         if (auto err = resolve(setting, read)) return err;
     return x::errors::NIL;
 }
+
+/// @brief appends the settings of each input that channels describes to out, with the
+/// option lists and limits that the card holds.
+x::errors::Error read_channels(
+    const x::json::json &channels,
+    const coe::Read &read,
+    x::json::json &out
+) {
+    const auto index_step = channels["index_step"].get<uint16_t>();
+    for (int n = 0; n < channels["count"].get<int>(); n++) {
+        x::json::json channel{
+            {"entries", entries_of(channels["entries"], n)},
+            {"settings", channels["settings"]},
+            {"requires", channels["requires"]},
+        };
+        const auto step = static_cast<uint16_t>(n * index_step);
+        for (auto &setting: channel["settings"])
+            shift(setting, step);
+        for (auto &rule: channel["requires"])
+            shift(rule, step);
+        if (auto err = resolve_all(channel["settings"], read)) return err;
+        out.push_back(std::move(channel));
+    }
+    return x::errors::NIL;
+}
 }
 
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
@@ -202,29 +227,13 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         {"channels", x::json::json::array()},
     };
     if (auto err = resolve_all(result["device"], read)) return {std::nullopt, err};
-    if (it->contains("mode")) {
-        auto [mode, err] = read_mode((*it)["mode"], op_modes, read);
-        if (err) return {std::nullopt, err};
-        result["mode"] = std::move(mode);
-    }
-    if (!it->contains("channels")) return {std::move(result), x::errors::NIL};
-    const auto &channels = (*it)["channels"];
-    const auto index_step = channels["index_step"].get<uint16_t>();
-    for (int n = 0; n < channels["count"].get<int>(); n++) {
-        x::json::json channel{
-            {"entries", entries_of(channels["entries"], n)},
-            {"settings", channels["settings"]},
-            {"requires", channels["requires"]},
-        };
-        const auto step = static_cast<uint16_t>(n * index_step);
-        for (auto &setting: channel["settings"])
-            shift(setting, step);
-        for (auto &rule: channel["requires"])
-            shift(rule, step);
-        if (auto err = resolve_all(channel["settings"], read))
+    if (it->contains("channels"))
+        if (auto err = read_channels((*it)["channels"], read, result["channels"]))
             return {std::nullopt, err};
-        result["channels"].push_back(std::move(channel));
-    }
+    if (!it->contains("mode")) return {std::move(result), x::errors::NIL};
+    auto [mode, err] = read_mode((*it)["mode"], op_modes, read);
+    if (err) return {std::move(result), err};
+    result["mode"] = std::move(mode);
     return {std::move(result), x::errors::NIL};
 }
 }
