@@ -12,6 +12,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -185,7 +186,7 @@ class WriteTask final : public driver::task::Task {
                 } else
                     this->p.state.error(err, "Failed to write commands");
             }
-            this->p.stop("", true);
+            this->p.stop_async();
         }
 
         // The start status waits for the streamer, so a client that waits for it can
@@ -245,7 +246,7 @@ class WriteTask final : public driver::task::Task {
                     this->p.state.error(err, "Failed to write commands");
                 if (this->p.opening) this->p.answer_pending_starts();
             }
-            this->p.stop("", true);
+            this->p.stop_async();
         }
 
         x::errors::Error read(
@@ -275,6 +276,8 @@ class WriteTask final : public driver::task::Task {
     /// @brief true while a sink with no command channels holds its hardware. Such a
     /// sink never starts the command pipe.
     bool running_without_commands = false;
+    /// @brief true from a successful sink start until the task stops.
+    bool sink_started = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
     /// @brief the hardware interface for writing data
@@ -287,6 +290,33 @@ class WriteTask final : public driver::task::Task {
     /// @brief the pipeline used to receive state changes from the device and write
     /// to Synnax.
     driver::pipeline::Acquisition state_write_pipe;
+
+    /// @brief serializes stops, which join both pipelines.
+    std::mutex stop_mu;
+    /// @brief guards stopper.
+    std::mutex stopper_mu;
+    /// @brief stops the task after a pipeline fails. A pipeline thread cannot stop the
+    /// task itself, since the stop joins the other pipeline, which may be stopping the
+    /// task too.
+    std::thread stopper;
+
+    /// @brief stops the task on the stopper thread. Safe to call from a pipeline
+    /// thread.
+    void stop_async() {
+        std::lock_guard lock(this->stopper_mu);
+        if (!this->stopper.joinable())
+            this->stopper = std::thread([this] { this->stop("", true); });
+    }
+
+    /// @brief waits for the stopper thread to finish.
+    void join_stopper() {
+        std::thread t;
+        {
+            std::lock_guard lock(this->stopper_mu);
+            t = std::move(this->stopper);
+        }
+        if (t.joinable()) t.join();
+    }
 
     /// @brief answers every pending start with the current status. Requires state_mu.
     void answer_pending_starts() {
@@ -342,6 +372,8 @@ public:
             bypass::pipeline::create_streamer_factory(ctx, {task.name, task.name})
         ) {}
 
+    ~WriteTask() override { this->join_stopper(); }
+
     /// @brief implements driver::task::Task to execute the provided command on the
     /// task.
     void exec(synnax::task::Command &cmd) override {
@@ -363,13 +395,12 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        // The state pipe never starts without state channels, so it does not record
-        // whether the sink holds hardware.
-        const auto pipe_stopped = this->cmd_write_pipe.stop();
+        std::lock_guard stop_lock(this->stop_mu);
+        this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
         std::lock_guard lock(this->state_mu);
-        const auto stopped = std::exchange(this->running_without_commands, false) ||
-                             pipe_stopped;
+        this->running_without_commands = false;
+        const auto stopped = std::exchange(this->sink_started, false);
         if (stopped)
             this->state.error(this->sink->internal->stop(), "Failed to stop task");
         // A start the streamer never answered still needs its reply.
@@ -389,6 +420,7 @@ public:
     /// written after the answer reach the sink. A sink with no command channels is
     /// answered at once and runs without pipelines.
     bool start(const std::string &cmd_key) {
+        this->join_stopper();
         {
             std::lock_guard lock(this->state_mu);
             if (this->cmd_write_pipe.running() || this->running_without_commands) {
@@ -405,6 +437,7 @@ public:
                 this->state.send_start(cmd_key);
                 return false;
             }
+            this->sink_started = true;
             if (this->sink->internal->streamer_config().channels.empty()) {
                 this->running_without_commands = true;
                 this->state.send_start(cmd_key);

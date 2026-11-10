@@ -621,6 +621,52 @@ TEST(TestCommonWriteTask, StateWriterReopenErrorFailsWrite) {
     write_task->stop("stop_cmd", true);
 }
 
+/// @brief it should stop when both pipelines run out of retries while the Core is
+/// unreachable.
+TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    const std::vector unreachable(10, freighter::UNREACHABLE);
+    synnax::channel::Channel state;
+    state.key = 2;
+    state.data_type = x::telem::UINT8_T;
+    state.is_virtual = true;
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto write_task = std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::Config{
+            .name = "cat",
+            .base_interval = x::telem::MILLISECOND,
+            .max_retries = 2,
+        },
+        std::make_unique<MockSink>(
+            x::telem::HERTZ * 100,
+            std::vector<Sink::Output>{{1, state}},
+            false,
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            std::make_shared<std::vector<x::errors::Error>>()
+        ),
+        std::make_shared<pipeline::testutil::WriterFactory>(
+            std::make_shared<x::sync::List<x::telem::Frame>>(),
+            unreachable
+        ),
+        std::make_shared<pipeline::testutil::StreamerFactory>(
+            unreachable,
+            std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
+        )
+    );
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    EXPECT_EQ(ctx->snapshot()[0].message, "Failed to start task");
+    EXPECT_FALSE(write_task->stop("stop_cmd", true));
+    const auto status = ctx->snapshot().back();
+    EXPECT_EQ(status.details.cmd, "stop_cmd");
+    EXPECT_FALSE(status.details.running);
+}
+
 /// @brief a task whose sink has no state channels never starts the state pipeline.
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
