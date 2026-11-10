@@ -142,7 +142,11 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
           if (res.variant === "error") throw status.toError(res);
         }),
       );
-      const scanTask = await client.tasks.retrieve({ type: SCAN_TYPE, rack, one: true });
+      const scanTask = await client.tasks.retrieve({
+        type: SCAN_TYPE,
+        rack,
+        one: true,
+      });
       const res = await scanTask.executeCommandSync({
         type: SET_STANDALONE_COMMAND,
         args: { device: key },

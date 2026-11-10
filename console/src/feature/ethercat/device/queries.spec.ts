@@ -526,7 +526,9 @@ describe("useSetStandalone", () => {
       [read.key, "read"],
       [scan.key, "scan"],
     ]);
-    const commands = (await driver.answered).map((c) => `${names.get(c.task)} ${c.type}`);
+    const commands = (await driver.answered).map(
+      (c) => `${names.get(c.task)} ${c.type}`,
+    );
     return { commands, switched };
   };
 

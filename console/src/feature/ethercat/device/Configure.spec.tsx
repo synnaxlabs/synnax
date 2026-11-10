@@ -426,7 +426,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
       });
       expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
-      expect(screen.getByText(/Connect Synnax to the other EtherCAT port/)).toBeTruthy();
+      expect(
+        screen.getByText(/Connect Synnax to the other EtherCAT port/),
+      ).toBeTruthy();
       expect(screen.queryByText("Switch to Synnax only")).toBeNull();
     });
 

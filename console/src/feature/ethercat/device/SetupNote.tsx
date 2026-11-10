@@ -89,8 +89,8 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
         <Flex.Box y gap="tiny">
           <Text.Text weight={500}>Synnax only</Text.Text>
           <Detail>
-            Synnax stops the tasks on the network of the device, then switches it. Restart
-            the power of the device to finish.
+            Synnax stops the tasks on the network of the device, then switches it.
+            Restart the power of the device to finish.
           </Detail>
           <Flex.Box x>
             <Button.Button

@@ -19,8 +19,7 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
  * - shared: reader also sets it up, and it sends data that Synnax reads on this port.
  */
 export type Setup =
-  | { kind: "synnax" }
-  | { kind: "other" | "switched" | "shared"; reader: string };
+  { kind: "synnax" } | { kind: "other" | "switched" | "shared"; reader: string };
 
 interface Marked {
   address: Address;
