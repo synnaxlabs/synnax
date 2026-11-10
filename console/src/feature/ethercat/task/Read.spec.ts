@@ -1058,33 +1058,60 @@ describe("Read", () => {
     expect(await deploy()).toBe(first);
   });
 
-  it("should reject a data type that differs from the mapped channel's", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: createPDOs(),
+  describe("a data type that differs from the type of the entry's channel", () => {
+    const createStatusSlave = async () => {
+      const identifier = createIdentifier();
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier,
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+      const statusChannel = (dataType: string) =>
+        EtherCAT.Task.createEntryReadChannel(slave.key, { ...STATUS_ENTRY, dataType });
+      const deploy = async (dataTypes: string[]) => {
+        const rendered = await renderRead({
+          ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+          channels: dataTypes.map(statusChannel),
+        });
+        const deployed = await deployAndAwaitTask(
+          client,
+          rendered.container,
+          rendered.draft.key,
+          EtherCAT.Task.READ_SCHEMAS,
+        );
+        rendered.unmount();
+        return deployed.config.channels.map(({ channel }) => channel);
+      };
+      return { identifier, slave, statusChannel, deploy };
+    };
+
+    it("should get its own channel, and the first type should keep its channel", async () => {
+      const { identifier, slave, deploy } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      const [typed] = await deploy(["int16"]);
+      expect(typed).not.toBe(first);
+      const created = await client.channels.retrieve(typed);
+      expect(created.name).toBe(`${identifier}_Status_int16`);
+      expect(created.dataType.toString()).toBe("int16");
+      const updated = await client.devices.retrieve({
+        key: slave.key,
+        schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+      });
+      expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(first);
+      expect(updated.properties.read.channels[`${0x6000}_1:int16`]).toBe(typed);
+      expect(await deploy(["uint16"])).toEqual([first]);
     });
-    const render = async (dataType: string) =>
+
+    it("should show the name of its own channel before deploying", async () => {
+      const { identifier, statusChannel, deploy } = await createStatusSlave();
+      await deploy(["uint16"]);
       await renderRead({
         ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [
-          EtherCAT.Task.createEntryReadChannel(slave.key, {
-            ...STATUS_ENTRY,
-            dataType,
-          }),
-        ],
+        channels: [statusChannel("int16")],
       });
-    const first = await render("uint16");
-    await deployAndAwaitTask(
-      client,
-      first.container,
-      first.draft.key,
-      EtherCAT.Task.READ_SCHEMAS,
-    );
-    first.unmount();
-    const { container, statuses } = await render("int16");
-    await clickDeploy(container);
-    await awaitStatus(statuses, /holds uint16 data, not int16/);
+      const item = await findChannelListItem(`${identifier}_Status_int16`);
+      expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+    });
   });
 
   describe("a slave with the identifier of a deleted slave", () => {
@@ -1241,7 +1268,13 @@ describe("Read", () => {
       await deleteSlave(first.slave.key, first.task);
       const { container, statuses } = await renderSlave(identifier, "int16");
       await clickDeploy(container);
-      await awaitStatus(statuses, /holds uint16 data, not int16/);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `^Channel ${identifier}_Status holds uint16 data, not int16\\. Set the ` +
+            "data type to uint16\\.$",
+        ),
+      );
     });
   });
 

@@ -122,12 +122,21 @@ export const addressKey = ({ index, subIndex }: Address): string =>
 /** @returns whether the read channel scales its samples. */
 const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
 
+/** @returns whether the unscaled read channel needs a channel apart from held's. */
+const isTyped = (ch: EntryReadChannel, held: string | undefined): boolean =>
+  !isScaled(ch) && held != null && held !== ch.dataType;
+
 /**
  * @returns the device properties key of the read channel's Synnax channel. A scaled
- * channel writes float64 samples, so it maps to its own Synnax channel.
+ * channel writes float64 samples, so it maps to its own Synnax channel. So does a
+ * channel whose data type differs from held, the type of the channel that the slave
+ * maps for the entry. A colon comes before its type, because the wire's case conversion
+ * changes an underscore before a letter.
  */
-export const readKey = (ch: EntryReadChannel): string =>
-  isScaled(ch) ? `scaled_${addressKey(ch)}` : addressKey(ch);
+export const readKey = (ch: EntryReadChannel, held: string | undefined): string => {
+  if (isScaled(ch)) return `scaled_${addressKey(ch)}`;
+  return isTyped(ch, held) ? `${addressKey(ch)}:${ch.dataType}` : addressKey(ch);
+};
 
 /** @returns the data type of the read channel's Synnax channel. */
 export const readDataType = (ch: EntryReadChannel): string =>
@@ -266,16 +275,22 @@ export const getEntryChannelName = (
 
 /**
  * The name deploying the task gives a read channel. The default name of a scaled
- * channel ends in `_scaled`, apart from the raw channel of its entry.
+ * channel ends in `_scaled`, and that of a channel whose data type differs from held
+ * ends in its type, apart from the channel that the slave maps for the entry.
  */
-export const readChannelName = (slave: SlaveDevice, ch: EntryReadChannel): string => {
+export const readChannelName = (
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+  held: string | undefined,
+): string => {
   if (primitive.isNonZero(ch.name)) return ch.name;
   const name = getEntryChannelName(
     slave.properties.identifier,
     slave.properties.pdos.inputs,
     ch,
   );
-  return isScaled(ch) ? `${name}_scaled` : name;
+  if (isScaled(ch)) return `${name}_scaled`;
+  return isTyped(ch, held) ? `${name}_${ch.dataType}` : name;
 };
 
 /** The names deploying the task gives a write channel's command and state channels. */
