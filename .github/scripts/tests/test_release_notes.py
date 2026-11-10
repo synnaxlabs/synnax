@@ -231,6 +231,20 @@ class TestCherryPicks:
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
 
+    def test_leaves_out_a_fix_picked_from_a_kept_pr_branch(self, train: Train) -> None:
+        train.git("checkout", "-q", "-b", "fix-stall", "main~3")
+        branch = train.commit("Fix a stall")
+        train.git("checkout", "-q", "release/core-0.60")
+        train.git("cherry-pick", "-x", branch)
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve(
+            f"api */commits/{branch}/pulls",
+            [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a stage by @someone in {PULL}/14" in notes
+
     def test_keeps_every_fix_when_github_lacks_the_source(self, train: Train) -> None:
         local = "0123456789abcdef0123456789abcdef01234567"
         train.commit("Pick the stall fix (0.60.1) (#13)")

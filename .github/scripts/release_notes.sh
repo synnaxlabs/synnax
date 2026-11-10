@@ -44,18 +44,21 @@ if [ -n "$PREVIOUS_TAG" ]; then
     done
 fi
 
-# A source on `main` names its PR in its subject. A source picked from a PR branch is
-# not in the clone, so GitHub resolves its merged PR. A source picked from a commit
-# that was never pushed has no PR.
+# A source on `main` names its PR in its subject. GitHub resolves the merged PR of any
+# other source, such as one picked from a PR branch. A source picked from a commit that
+# was never pushed has no PR.
 SHIPPED=""
 SOURCES=$(sed -nE 's/^\(cherry picked from commit ([0-9a-f]+)\)$/\1/p' \
     <<< "$MESSAGES" | sort -u)
 ERR=$(mktemp)
 trap 'rm -f "$ERR"' EXIT
 for source in $SOURCES; do
+    PR=""
     if git cat-file -e "$source^{commit}" 2> /dev/null; then
-        SHIPPED+=" $(git log -1 --format=%s "$source" \
-            | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')"
+        PR=$(git log -1 --format=%s "$source" | sed -nE 's/.*\(#([0-9]+)\)$/\1/p')
+    fi
+    if [ -n "$PR" ]; then
+        SHIPPED+=" $PR"
     elif PRS=$("$GH_API" "repos/$GITHUB_REPOSITORY/commits/$source/pulls" \
         --jq '.[] | select(.merged_at) | .number' 2> "$ERR"); then
         SHIPPED+=" $PRS"
