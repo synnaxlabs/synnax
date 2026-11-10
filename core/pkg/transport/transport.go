@@ -14,6 +14,8 @@
 package transport
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	fhttp "github.com/synnaxlabs/freighter/http"
@@ -74,12 +76,13 @@ type Layer struct {
 }
 
 // NewLayer binds the configured API layer to the HTTP router and gRPC transports,
-// returning a Layer that exposes the gRPC transports for server registration.
-func NewLayer(cfgs ...LayerConfig) (Layer, error) {
+// returning a Layer that exposes the gRPC transports for server registration. ctx
+// bounds the iterators that HTTP frame reads open, so it must outlive every request.
+func NewLayer(ctx context.Context, cfgs ...LayerConfig) (Layer, error) {
 	cfg, err := config.New(LayerConfig{}, cfgs...)
 	if err != nil {
 		return Layer{}, err
 	}
-	http.Bind(cfg.API, cfg.Router)
+	http.Bind(ctx, cfg.API, cfg.Router)
 	return Layer{GRPC: grpc.Bind(cfg.API)}, nil
 }

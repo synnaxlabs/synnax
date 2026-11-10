@@ -62,7 +62,7 @@ func execBatch(
 ) (batch.ExecResponse, error) {
 	GinkgoHelper()
 	var req batch.ExecRequest
-	Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
+	Expect(json.Codec.Decode([]byte(body), &req)).To(Succeed())
 	return exec(AuthedCtx(ctx, u), req)
 }
 

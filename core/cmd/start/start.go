@@ -311,7 +311,7 @@ func BootupCore(
 	}); !ok(err, nil) {
 		return err
 	}
-	transportLayer, err := transport.NewLayer(transport.LayerConfig{
+	transportLayer, err := transport.NewLayer(ctx, transport.LayerConfig{
 		Instrumentation: cfg.Child("transport"),
 		API:             apiLayer,
 		Router:          r,

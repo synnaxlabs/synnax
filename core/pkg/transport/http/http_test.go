@@ -66,7 +66,7 @@ func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 		Distribution: node.Layer,
 	}))
 	router := MustSucceed(fhttp.NewRouter())
-	thttp.Bind(layer, router)
+	thttp.Bind(ctx, layer, router)
 	app := fiber.New()
 	router.BindTo(app)
 	DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
@@ -102,9 +102,9 @@ func postJSON(
 var _ = Describe("HTTP", func() {
 	Describe("Bind", func() {
 		var app *fiber.App
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			router := MustSucceed(fhttp.NewRouter())
-			thttp.Bind(apiLayer, router)
+			thttp.Bind(ctx, apiLayer, router)
 			app = fiber.New()
 			router.BindTo(app)
 		})
@@ -159,7 +159,7 @@ var _ = Describe("HTTP", func() {
 				Distribution: node.Layer,
 			}))
 			router := MustSucceed(fhttp.NewRouter())
-			thttp.Bind(layer, router)
+			thttp.Bind(ctx, layer, router)
 			app = fiber.New()
 			router.BindTo(app)
 			DeferCleanup(func() { Expect(app.Shutdown()).To(Succeed()) })
@@ -196,7 +196,7 @@ var _ = Describe("HTTP", func() {
 					http.MethodPost,
 					path,
 					bytes.NewReader(
-						MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{})),
+						MustSucceed(msgpack.Codec.Encode(map[string]any{})),
 					),
 				)
 				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())

@@ -10,7 +10,6 @@
 package schematic
 
 import (
-	"context"
 	"encoding/json/v2"
 	"slices"
 
@@ -199,7 +198,7 @@ func (p *SetNodePayload) UnmarshalJSON(data []byte) error {
 // UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
 func (p *SetNodePayload) UnmarshalMsgpack(data []byte) error {
 	var raw rawSetNodePayload
-	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+	if err := msgpack.Codec.Decode(data, &raw); err != nil {
 		return err
 	}
 	return p.fromRaw(raw)
@@ -231,7 +230,7 @@ func (p *SetConfigPayload) UnmarshalJSON(data []byte) error {
 // UnmarshalMsgpack decodes the payload the way UnmarshalJSON does.
 func (p *SetConfigPayload) UnmarshalMsgpack(data []byte) error {
 	var raw rawSetConfigPayload
-	if err := msgpack.Codec.Decode(context.Background(), data, &raw); err != nil {
+	if err := msgpack.Codec.Decode(data, &raw); err != nil {
 		return err
 	}
 	return p.fromRaw(raw)

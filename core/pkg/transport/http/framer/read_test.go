@@ -148,9 +148,9 @@ func splitRecords(body []byte) (data [][]byte, terminator []byte) {
 }
 
 var _ = Describe("Read", func() {
-	Describe("FrameEncoder", func() {
-		It("Should emit the frame media type", func() {
-			Expect(framer.FrameEncoder.ContentType()).
+	Describe("NewFrameEncoder", func() {
+		It("Should emit the frame media type", func(ctx SpecContext) {
+			Expect(framer.NewFrameEncoder(ctx).ContentType()).
 				To(Equal("application/vnd.synnax.frame"))
 		})
 
@@ -166,7 +166,7 @@ var _ = Describe("Read", func() {
 				telem.NewSeriesV[float32](1, 2, 3),
 			)
 			b := MustSucceed(
-				framer.FrameEncoder.Encode(ctx, read(ctx, index, channels...)),
+				framer.NewFrameEncoder(ctx).Encode(read(ctx, index, channels...)),
 			)
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
@@ -199,7 +199,7 @@ var _ = Describe("Read", func() {
 				}},
 			})
 			data, terminator := splitRecords(
-				MustSucceed(framer.FrameEncoder.Encode(ctx, res)),
+				MustSucceed(framer.NewFrameEncoder(ctx).Encode(res)),
 			)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -230,7 +230,7 @@ var _ = Describe("Read", func() {
 				svcframer.IteratorConfig{ChunkSize: 2},
 			)
 			res.Latest = 2
-			b := MustSucceed(framer.FrameEncoder.Encode(ctx, res))
+			b := MustSucceed(framer.NewFrameEncoder(ctx).Encode(res))
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -260,7 +260,7 @@ var _ = Describe("Read", func() {
 				svcframer.IteratorConfig{ChunkSize: 2},
 			)
 			res.Earliest = 2
-			b := MustSucceed(framer.FrameEncoder.Encode(ctx, res))
+			b := MustSucceed(framer.NewFrameEncoder(ctx).Encode(res))
 			data, terminator := splitRecords(b)
 			Expect(terminator).To(BeEmpty())
 			Expect(data).To(HaveLen(1))
@@ -278,7 +278,7 @@ var _ = Describe("Read", func() {
 		) {
 			index, channels := createIndexed(ctx, telem.Float32T)
 			b := MustSucceed(
-				framer.FrameEncoder.Encode(ctx, read(ctx, index, channels...)),
+				framer.NewFrameEncoder(ctx).Encode(read(ctx, index, channels...)),
 			)
 			data, terminator := splitRecords(b)
 			Expect(data).To(BeEmpty())
@@ -289,7 +289,7 @@ var _ = Describe("Read", func() {
 			ctx SpecContext,
 		) {
 			var buf bytes.Buffer
-			Expect(framer.FrameEncoder.EncodeStream(ctx, &buf, 42)).
+			Expect(framer.NewFrameEncoder(ctx).EncodeStream(&buf, 42)).
 				To(MatchError(ContainSubstring("cannot encode a value of type int")))
 		})
 	})

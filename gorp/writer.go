@@ -153,7 +153,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 			return err
 		}
 	}
-	data, err := w.tx.Encode(ctx, entry)
+	data, err := w.tx.Encode(entry)
 	if err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (w *Writer[K, E]) find(
 		w.tx,
 		NewTarget(w.tableName, k),
 		encoded,
-		func(stored []byte) ([]Link, error) { return w.storedLinks(ctx, k, stored) },
+		func(stored []byte) ([]Link, error) { return w.storedLinks(k, stored) },
 	)
 }
 
@@ -212,11 +212,7 @@ func (w *Writer[K, E]) find(
 // tx. It reads them from the index of each reference that has loaded, and else from
 // stored, the encoded record. A record that cannot be decoded fails the write, so that
 // no change misses a removed link.
-func (w *Writer[K, E]) storedLinks(
-	ctx context.Context,
-	k K,
-	stored []byte,
-) ([]Link, error) {
+func (w *Writer[K, E]) storedLinks(k K, stored []byte) ([]Link, error) {
 	var (
 		links []Link
 		known bool
@@ -228,7 +224,7 @@ func (w *Writer[K, E]) storedLinks(
 		}
 		if e == nil {
 			e = new(E)
-			if err := w.tx.Decode(ctx, stored, e); err != nil {
+			if err := w.tx.Decode(stored, e); err != nil {
 				return nil, errors.Wrapf(
 					err,
 					"[gorp] - read the links of %s %s",

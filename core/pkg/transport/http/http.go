@@ -10,6 +10,8 @@
 package http
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
@@ -48,9 +50,11 @@ import (
 
 // Bind registers an HTTP endpoint for every API service onto router and binds the API
 // layer's handlers and middleware to them. The frame codec resolves channel keys
-// through the API layer's channel service.
-func Bind(layer *api.Layer, router *http.Router) {
+// through the API layer's channel service. ctx bounds the iterators that frame reads
+// open, so it must outlive every request.
+func Bind(ctx context.Context, layer *api.Layer, router *http.Router) {
 	framerServerOption := framer.WithCodec(layer.Channel)
+	csvEncoder := framer.NewCSVEncoder(ctx)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](
@@ -190,14 +194,14 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/frame/read",
 			http.WithResponseEncoders(
-				framer.FrameEncoder,
-				framer.CSVEncoder,
-				framer.TDMSEncoder,
+				framer.NewFrameEncoder(ctx),
+				csvEncoder,
+				framer.NewTDMSEncoder(ctx),
 			),
 			// CSV is decimal text and compresses by 70% or more. Frame and TDMS
 			// bodies are binary samples: gzip shrinks them by under 10% and costs more
 			// time than the smaller body saves on all but a slow link.
-			http.WithStreamingResponse(framer.CSVEncoder),
+			http.WithStreamingResponse(csvEncoder),
 		),
 
 		// CONTROL

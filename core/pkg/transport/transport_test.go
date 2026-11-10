@@ -25,13 +25,13 @@ var _ = Describe("Transport", func() {
 	Describe("NewLayer", func() {
 		DescribeTable(
 			"Should return a validation error when a required field is missing",
-			func(field string, omit func(*transport.LayerConfig)) {
+			func(ctx SpecContext, field string, omit func(*transport.LayerConfig)) {
 				cfg := transport.LayerConfig{
 					API:    apiLayer,
 					Router: MustSucceed(fhttp.NewRouter()),
 				}
 				omit(&cfg)
-				Expect(transport.NewLayer(cfg)).Error().
+				Expect(transport.NewLayer(ctx, cfg)).Error().
 					To(MatchError(ContainSubstring(field + ": must be non-nil")))
 			},
 			Entry("missing API", "api", func(c *transport.LayerConfig) { c.API = nil }),
@@ -42,9 +42,11 @@ var _ = Describe("Transport", func() {
 			),
 		)
 
-		It("Should bind the API layer to both transport protocols", func() {
+		It("Should bind the API layer to both transport protocols", func(
+			ctx SpecContext,
+		) {
 			router := MustSucceed(fhttp.NewRouter())
-			tl := MustSucceed(transport.NewLayer(transport.LayerConfig{
+			tl := MustSucceed(transport.NewLayer(ctx, transport.LayerConfig{
 				API:    apiLayer,
 				Router: router,
 			}))

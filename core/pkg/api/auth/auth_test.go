@@ -462,8 +462,7 @@ var _ = Describe("CreateSession", func() {
 		Expect(res.Session.Hash).To(HaveLen(32))
 		var decoded map[string]any
 		Expect(json.Codec.Decode(
-			ctx,
-			MustSucceed(json.Codec.Encode(ctx, res.Session)),
+			MustSucceed(json.Codec.Encode(res.Session)),
 			&decoded,
 		)).To(Succeed())
 		Expect(decoded).To(HaveKey("key"))
