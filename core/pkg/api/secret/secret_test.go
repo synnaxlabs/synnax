@@ -62,7 +62,7 @@ func createSecret(ctx SpecContext, name, value string) secret.Secret {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: name}}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Secret.NewWriter(tx).Create(ctx, &s, []byte(value))
+		return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte(value))
 	})).To(Succeed())
 	return s
 }
@@ -97,7 +97,7 @@ func createCertificate(ctx SpecContext) certificate.Certificate {
 	}}
 	privateKey := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDER})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Certificate.NewWriter(tx).Create(ctx, &c, privateKey)
+		return svc.Certificate.NewWriter(tx).Set(ctx, &c, privateKey)
 	})).To(Succeed())
 	return c
 }
@@ -130,13 +130,13 @@ var _ = Describe("ServiceConfig", func() {
 })
 
 var _ = Describe("Service", func() {
-	Describe("Create", func() {
+	Describe("Set", func() {
 		It("Should create stored and file secrets and never return a value",
 			func(ctx SpecContext) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
-				res := MustSucceed(create(AuthedCtx(ctx, u),
-					apisecret.CreateRequest{Secrets: []apisecret.Input{
+				res := MustSucceed(set(AuthedCtx(ctx, u),
+					apisecret.SetRequest{Secrets: []apisecret.Input{
 						{
 							Source: secret.SourceStored,
 							Name:   "Password",
@@ -160,8 +160,8 @@ var _ = Describe("Service", func() {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
 				s := createSecret(ctx, "Before", "a")
-				MustSucceed(create(AuthedCtx(ctx, u),
-					apisecret.CreateRequest{Secrets: []apisecret.Input{{
+				MustSucceed(set(AuthedCtx(ctx, u),
+					apisecret.SetRequest{Secrets: []apisecret.Input{{
 						Key:    s.Base().Key,
 						Source: secret.SourceStored,
 						Name:   "After",
@@ -175,8 +175,8 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext, in apisecret.Input, msg string) {
 				u := createUser(ctx)
 				allow(ctx, u.ResourceID(), all, secretType)
-				Expect(create(AuthedCtx(ctx, u),
-					apisecret.CreateRequest{Secrets: []apisecret.Input{in}},
+				Expect(set(AuthedCtx(ctx, u),
+					apisecret.SetRequest{Secrets: []apisecret.Input{in}},
 				)).Error().To(MatchError(ContainSubstring(msg)))
 			},
 			Entry(
@@ -207,8 +207,8 @@ var _ = Describe("Service", func() {
 		)
 		It("Should deny a user without create access", func(ctx SpecContext) {
 			u := createUser(ctx)
-			Expect(create(AuthedCtx(ctx, u),
-				apisecret.CreateRequest{Secrets: []apisecret.Input{
+			Expect(set(AuthedCtx(ctx, u),
+				apisecret.SetRequest{Secrets: []apisecret.Input{
 					{Source: secret.SourceStored, Name: "A", Value: "v"},
 				}},
 			)).Error().To(MatchError(access.ErrDenied))
@@ -231,10 +231,10 @@ var _ = Describe("Service", func() {
 			replace := func(
 				ctx SpecContext,
 				subject user.User,
-			) (apisecret.CreateResponse, error) {
-				return create(
+			) (apisecret.SetResponse, error) {
+				return set(
 					AuthedCtx(ctx, subject),
-					apisecret.CreateRequest{
+					apisecret.SetRequest{
 						Secrets: []apisecret.Input{{
 							Key:    existing.Base().Key,
 							Source: secret.SourceStored,
@@ -248,8 +248,8 @@ var _ = Describe("Service", func() {
 				"Should let a user without update access create new secrets",
 				func(ctx SpecContext) {
 					key := uuid.New()
-					res := MustSucceed(create(AuthedCtx(ctx, u),
-						apisecret.CreateRequest{Secrets: []apisecret.Input{
+					res := MustSucceed(set(AuthedCtx(ctx, u),
+						apisecret.SetRequest{Secrets: []apisecret.Input{
 							{Source: secret.SourceStored, Name: "New", Value: "v"},
 							{
 								Key:    key,
@@ -278,11 +278,26 @@ var _ = Describe("Service", func() {
 				},
 			)
 			It(
+				"Should let a user with only update access replace a secret",
+				func(ctx SpecContext) {
+					editor := createUser(ctx)
+					allow(
+						ctx,
+						editor.ResourceID(),
+						[]access.Action{access.ActionUpdate},
+						existing.ResourceID(),
+					)
+					MustSucceed(replace(ctx, editor))
+					Expect(retrieveSecret(ctx, existing.Base().Key).Base().Name).
+						To(Equal("After"))
+				},
+			)
+			It(
 				"Should deny a replace that comes with a new key in the same request",
 				func(ctx SpecContext) {
 					key := uuid.New()
-					Expect(create(AuthedCtx(ctx, u),
-						apisecret.CreateRequest{Secrets: []apisecret.Input{
+					Expect(set(AuthedCtx(ctx, u),
+						apisecret.SetRequest{Secrets: []apisecret.Input{
 							{
 								Key:    key,
 								Source: secret.SourceStored,
@@ -481,30 +496,6 @@ var _ = Describe("Service", func() {
 				)),
 			))
 			Expect(retrieveSecret(ctx, s.Base().Key).Base().Name).To(Equal("Before"))
-		})
-	})
-
-	Describe("Rename", func() {
-		It("Should rename the secret when update is granted", func(ctx SpecContext) {
-			u := createUser(ctx)
-			s := createSecret(ctx, "Before", "a")
-			allow(
-				ctx,
-				u.ResourceID(),
-				[]access.Action{access.ActionUpdate},
-				s.ResourceID(),
-			)
-			MustSucceed(rename(AuthedCtx(ctx, u),
-				apisecret.RenameRequest{Key: s.Base().Key, Name: "After"},
-			))
-			Expect(retrieveSecret(ctx, s.Base().Key).Base().Name).To(Equal("After"))
-		})
-		It("Should deny a user without update access", func(ctx SpecContext) {
-			u := createUser(ctx)
-			s := createSecret(ctx, "Before", "a")
-			Expect(rename(AuthedCtx(ctx, u),
-				apisecret.RenameRequest{Key: s.Base().Key, Name: "After"},
-			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 

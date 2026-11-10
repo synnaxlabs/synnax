@@ -11,16 +11,18 @@ import { NotFoundError, resource, type Synnax as Client } from "@synnaxlabs/clie
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { Access, Synnax } from "@synnaxlabs/pluto";
-import { array, state as xstate, unique } from "@synnaxlabs/x";
+import { array, state as xstate } from "@synnaxlabs/x";
 import {
+  type ClipboardEvent,
   type FC,
+  type FocusEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -31,23 +33,20 @@ import {
 
 import { CSS } from "@/platform/css";
 import { type Source } from "@/platform/tree/children";
+import { useContextMenus, useItems } from "@/platform/tree/context";
 import { LIMIT } from "@/platform/tree/createSearch";
-import {
-  DefaultContextMenu,
-  type DefaultContextMenuProps,
-} from "@/platform/tree/DefaultContextMenu";
 import { type DragAndDrop, useDragAndDrop } from "@/platform/tree/dragAndDrop";
 import { DefaultItem, type Item } from "@/platform/tree/item";
 import { useMenu } from "@/platform/tree/menu";
-import { useItems } from "@/platform/tree/Provider";
+import { MatchProvider, type Search, type SearchAnswer } from "@/platform/tree/search";
+import { isMoreKey, type Results, Store } from "@/platform/tree/store";
 import {
-  MatchProvider,
-  type ResultNodes,
-  type Search,
-  type SearchAnswer,
-} from "@/platform/tree/search";
-import { Store } from "@/platform/tree/store";
-import { type GetResource, type Resource, type TreeState } from "@/platform/tree/types";
+  type GetResource,
+  type Resource,
+  type RootContextMenuProps,
+  type TreeState,
+} from "@/platform/tree/types";
+import { useCopy } from "@/platform/tree/useCopy";
 
 interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
   client: Client;
@@ -58,9 +57,9 @@ interface InternalProps extends Pick<List.ScrollProps, "ref" | "onKeyDown"> {
    */
   listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
-  /** The menu for a right-click on empty space. */
-  rootContextMenu?: FC<DefaultContextMenuProps>;
-  results?: ResultNodes;
+  /** The menu for a right-click on empty space. Defaults to the provider's menu. */
+  rootContextMenu?: FC<RootContextMenuProps>;
+  results?: Results;
   className?: string;
 }
 
@@ -73,7 +72,30 @@ const [Context, useContext] = context.create<ContextValue>({
   providerName: "Tree.Tree",
 });
 
-const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+// Loads the next page of its folder on a click, or on Enter, which double-clicks it.
+const MoreItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
+  const { itemKey } = rest;
+  const { store } = useContext("Tree.MoreItem");
+  const loading = useSyncExternalStore(
+    (handler) => store.subscribeKey(handler, itemKey),
+    () => store.isLoading(itemKey),
+  );
+  const handleMore = () => store.more(itemKey);
+  return (
+    <Base.Item
+      {...rest}
+      onClick={handleMore}
+      onDoubleClick={handleMore}
+      loading={loading}
+    >
+      <Text.Text level="small" color={9}>
+        Show more
+      </Text.Text>
+    </Base.Item>
+  );
+};
+
+const ResourceItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   const { itemKey } = rest;
   const id = resource.parseID(itemKey);
   const treeResource = List.useItem<string, Resource>(itemKey);
@@ -125,6 +147,9 @@ const TreeItem = ({ onDrop: _, ...rest }: Base.ItemProps<string>) => {
   );
 };
 
+const TreeItem = (props: Base.ItemProps<string>) =>
+  isMoreKey(props.itemKey) ? <MoreItem {...props} /> : <ResourceItem {...props} />;
+
 const itemRenderProp = Component.renderProp(TreeItem);
 
 interface CreateStoreParams extends Pick<
@@ -152,10 +177,7 @@ const createStore = ({
       return children({ client, id, root });
     },
     hasChildren: (type) => resolveItem(type).hasChildren,
-    visible: (r) => {
-      const { visible } = resolveItem(r.id.type);
-      return visible == null || visible(r);
-    },
+    isFolder: (type) => resolveItem(type).folder,
     onError: (e) => handleError(e, "Failed to retrieve resources"),
     results,
   });
@@ -165,13 +187,14 @@ const Internal = ({
   root,
   listRoot,
   emptyContent,
-  rootContextMenu = DefaultContextMenu,
+  rootContextMenu,
   results,
   className,
   ref,
   onKeyDown,
 }: InternalProps): ReactElement => {
   const items = useItems();
+  const contextMenus = useContextMenus();
   const resolveItem = (type: resource.Type): Item => items[type] ?? DefaultItem;
   const handleError = Status.useErrorHandler();
   const rootKey = resource.idToString(root);
@@ -193,15 +216,8 @@ const Internal = ({
 
   useEffect(() => store.start(), [store]);
 
-  // Groups open on arrival once, so a group the user closes stays closed.
-  const openedRef = useInitializerRef(() => new Set<string>());
   useEffect(() => {
-    if (results == null) return;
-    store.setResults(results);
-    const opening = results.expanded.filter((key) => !openedRef.current.has(key));
-    opening.forEach((key) => openedRef.current.add(key));
-    if (opening.length > 0)
-      handleExpandedChange((prev) => unique.unique([...prev, ...opening]));
+    if (results != null) store.setResults(results);
   }, [store, results]);
 
   // Selection drives the context menu, and a key with no node poisons every later
@@ -254,7 +270,6 @@ const Internal = ({
     client,
     store,
     root,
-    results,
     resolveItem,
     selectedRef,
     contract,
@@ -265,14 +280,36 @@ const Internal = ({
     client,
     store,
     root,
-    results,
     selected,
     state,
-    rootContextMenu,
+    rootContextMenu: rootContextMenu ?? contextMenus.root,
+    mixedContextMenu: contextMenus.mixed,
     resolveItem,
     handleError,
   });
   const menuProps = Menu.useContextMenu();
+  const { intoEvent } = useCopy();
+  // Chromium keeps a text selection elsewhere after a click on a row, and sends Cmd+C
+  // to that selection. Dropping it sends Cmd+C to the tree.
+  const handleFocus = (e: FocusEvent<HTMLDivElement>) => {
+    const text = window.getSelection();
+    if (text == null || text.isCollapsed) return;
+    if (!text.getRangeAt(0).intersectsNode(e.currentTarget)) text.removeAllRanges();
+  };
+  const handleCopy = (e: ClipboardEvent<HTMLDivElement>) => {
+    // Text selected in the tree, such as part of a name being renamed, copies as text.
+    const text = window.getSelection();
+    if (
+      text != null &&
+      !text.isCollapsed &&
+      text.getRangeAt(0).intersectsNode(e.currentTarget)
+    )
+      return;
+    const resources = getItem(selectedRef.current);
+    if (resources.length === 0) return;
+    e.preventDefault();
+    intoEvent(resources, e.clipboardData);
+  };
 
   return (
     <Context value={{ store, ...dragAndDrop }}>
@@ -293,6 +330,8 @@ const Internal = ({
         // the editable then scrolls the row into view.
         pinned={shape.keys.filter(store.isDraft)}
         onContextMenu={menuProps.open}
+        onFocus={handleFocus}
+        onCopy={handleCopy}
         ref={ref}
         onKeyDown={onKeyDown}
       >
@@ -313,7 +352,7 @@ const NoMatches = ({ noun, term }: NoMatchesProps): ReactElement => (
   </Text.Text>
 );
 
-interface ResultsProps extends Pick<
+interface AnswerProps extends Pick<
   Search,
   "noun" | "layout" | "fieldRef" | "resultsRef"
 > {
@@ -322,7 +361,7 @@ interface ResultsProps extends Pick<
   answer: SearchAnswer;
 }
 
-const Results = ({
+const Answer = ({
   client,
   root,
   noun,
@@ -330,7 +369,7 @@ const Results = ({
   answer,
   fieldRef,
   resultsRef,
-}: ResultsProps): ReactElement => {
+}: AnswerProps): ReactElement => {
   // A second Escape, in the field, closes the search.
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "Escape" || e.target !== e.currentTarget) return;
@@ -374,8 +413,8 @@ export interface TreeProps {
    */
   listRoot?: (client: Client) => Source[];
   emptyContent?: ReactNode;
-  /** The menu for a right-click on empty space. */
-  rootContextMenu?: FC<DefaultContextMenuProps>;
+  /** The menu for a right-click on empty space. Defaults to the provider's menu. */
+  rootContextMenu?: FC<RootContextMenuProps>;
   /** Shows the search answer in place of the tree while the search has one. */
   search?: Search;
 }
@@ -395,7 +434,7 @@ export const Tree = ({
       {/* The results come ahead of the hidden tree, so a lookup by item ID, such as
           the start of a rename, finds the result first. */}
       {search?.answer != null && (
-        <Results
+        <Answer
           client={client}
           root={root}
           noun={search.noun}

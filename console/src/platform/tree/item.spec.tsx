@@ -24,7 +24,6 @@ describe("Tree.createItem", () => {
     const named = <Icon.Group />;
     const other = <Icon.Channel />;
     const item = Tree.createItem({
-      type: "group",
       icon: (r) => (r.name === "named" ? named : other),
     });
     expect(item.icon(createResource("a", "named"))?.type).toBe(named.type);
@@ -32,14 +31,12 @@ describe("Tree.createItem", () => {
   });
 
   it("returns no icon for an item without one", () => {
-    expect(
-      Tree.createItem({ type: "group" }).icon(createResource("a", "a")),
-    ).toBeUndefined();
+    expect(Tree.createItem({}).icon(createResource("a", "a"))).toBeUndefined();
   });
 
   it("hands its children the handler that a double click runs", () => {
     const onSelect = vi.fn();
-    const item = Tree.createItem({ type: "group", useOnSelect: () => onSelect });
+    const item = Tree.createItem({ useOnSelect: () => onSelect });
     const target = createResource("a", "a");
     render(
       <item.OnSelect>

@@ -12,6 +12,7 @@ from typing import Any, Literal, overload
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax.certificate import actions_gen
 from synnax.certificate.payload import New
 from synnax.certificate.types_gen import (
     Certificate,
@@ -28,17 +29,18 @@ from x import filter
 from x.lists import normalize
 
 
-class _CreateRequest(BaseModel):
+class _SetRequest(BaseModel):
     certificates: list[New]
 
 
-class _CreateResponse(BaseModel):
+class _SetResponse(BaseModel):
     certificates: list[Certificate]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -52,15 +54,15 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, certificates: New) -> Certificate: ...
+    def set(self, certificates: New) -> Certificate: ...
 
     @overload
-    def create(self, certificates: list[New]) -> list[Certificate]: ...
+    def set(self, certificates: list[New]) -> list[Certificate]: ...
 
-    def create(self, certificates: New | list[New]) -> Certificate | list[Certificate]:
+    def set(self, certificates: New | list[New]) -> Certificate | list[Certificate]:
         """Creates certificates, or replaces the certificates whose keys exist.
 
-        :param certificates: The certificates to create.
+        :param certificates: The certificates to create or replace.
         :returns: The saved certificates.
         :raises PathError: If a certificate has no name, a PEM does not parse, or a
             private key does not match its certificate.
@@ -69,8 +71,8 @@ class Client:
             private key.
         """
         is_single = not isinstance(certificates, list)
-        req = _CreateRequest(certificates=normalize(certificates))
-        res = self._client.send("/certificate/create", req, _CreateResponse)
+        req = _SetRequest(certificates=normalize(certificates))
+        res = self._client.send("/certificate/set", req, _SetResponse)
         return res.certificates[0] if is_single else res.certificates
 
     def delete(self, keys: Key | list[Key]) -> None:
@@ -94,9 +96,9 @@ class Client:
         :raises AccessDenied: If the caller may not update the certificate, or the
             secret of its private key, which takes the new name.
         """
-        self._client.send(
-            "/certificate/rename", _RenameRequest(key=key, name=name), Empty
-        )
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/certificate/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key) -> Certificate: ...

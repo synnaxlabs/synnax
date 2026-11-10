@@ -39,7 +39,7 @@ var _ = Describe("Writer", func() {
 	var e *env
 	BeforeEach(func(ctx SpecContext) { e = newEnv(ctx, telem.Hour) })
 
-	Describe("Create", func() {
+	Describe("Set", func() {
 		It("Should read the details of a stored certificate", func(ctx SpecContext) {
 			pemText := newCertificate(newKey(), "plant", 24*time.Hour)
 			c := e.create(ctx, stored("Plant", pemText), nil)
@@ -140,7 +140,7 @@ var _ = Describe("Writer", func() {
 			) {
 				c := stored("Plant", pemText())
 				Expect(e.write(ctx, func(w certificate.Writer) error {
-					return w.Create(ctx, &c, privateKey())
+					return w.Set(ctx, &c, privateKey())
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
@@ -214,14 +214,14 @@ var _ = Describe("Writer", func() {
 		It("Should reject a certificate with no name", func(ctx SpecContext) {
 			c := stored("", newCertificate(newKey(), "a", time.Hour))
 			Expect(e.write(ctx, func(w certificate.Writer) error {
-				return w.Create(ctx, &c, nil)
+				return w.Set(ctx, &c, nil)
 			})).
 				To(MatchError(ContainSubstring("name: required")))
 		})
 		It("Should reject a certificate with no source", func(ctx SpecContext) {
 			c := certificate.Certificate{}
 			Expect(e.write(ctx, func(w certificate.Writer) error {
-				return w.Create(ctx, &c, nil)
+				return w.Set(ctx, &c, nil)
 			})).
 				To(MatchError(ContainSubstring("source: required")))
 		})
@@ -232,7 +232,7 @@ var _ = Describe("Writer", func() {
 					CertificatePath: path,
 				}}
 				Expect(e.write(ctx, func(w certificate.Writer) error {
-					return w.Create(ctx, &c, privateKey)
+					return w.Set(ctx, &c, privateKey)
 				})).
 					To(MatchError(ContainSubstring(msg)))
 			},
@@ -312,7 +312,7 @@ var _ = Describe("Writer", func() {
 					variant.Pem = newCertificate(newKey(), "b", time.Hour)
 					c.Variant = variant
 					Expect(e.write(ctx, func(w certificate.Writer) error {
-						return w.Create(ctx, &c, nil)
+						return w.Set(ctx, &c, nil)
 					})).To(MatchError(
 						ContainSubstring(
 							"private_key_pem: required, because the new certificate " +

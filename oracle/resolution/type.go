@@ -261,7 +261,15 @@ type Action struct {
 	// payload. The analyzer resolves these and prepends the inherited fields to
 	// Fields, so by code-generation time Fields already holds the unified list.
 	Extends []TypeRef
+	// Alias names the struct that an `action Name = Struct` declaration uses as its
+	// payload. Fields is then empty, and the analyzer copies the struct's doc into
+	// Domains when the action declares no doc of its own. The zero TypeRef means the
+	// action declares its own payload.
+	Alias TypeRef
 }
+
+// IsAlias reports whether the action uses an existing struct as its payload.
+func (a Action) IsAlias() bool { return a.Alias.Name != "" }
 
 type Field struct {
 	AST     any

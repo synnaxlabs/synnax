@@ -27,7 +27,7 @@ var _ = Describe("OpenService", func() {
 		svc := secrettestutil.OpenService(ctx, db)
 		s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.NewWriter(tx).Create(ctx, &s, []byte("hunter2"))
+			return svc.NewWriter(tx).Set(ctx, &s, []byte("hunter2"))
 		})).To(Succeed())
 		grant := MustSucceed(svc.Grant(ctx, db, r, s.Base().Key))
 		Expect(svc.Resolve(ctx, r, grant, s.Base().Key)).

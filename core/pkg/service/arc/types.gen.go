@@ -57,6 +57,20 @@ type AutomationArc = versions.AutomationArc
 
 // ModuleArc is an Arc that holds code for other Arcs to import.
 type ModuleArc = versions.ModuleArc
+type Status = versions.Status
+
+// ChangeKind is how a piece of an automation's content differs from what its task last
+// ran.
+type ChangeKind = versions.ChangeKind
+
+const (
+	ChangeKindChanged ChangeKind = versions.ChangeKindChanged
+	ChangeKindAdded   ChangeKind = versions.ChangeKindAdded
+	ChangeKindRemoved ChangeKind = versions.ChangeKindRemoved
+)
+
+// Change is one difference between an automation's content and what its task last ran.
+type Change = versions.Change
 
 // Type specifies whether an Arc runs on a rack as an automation or holds code for other
 // Arcs to import as a module.

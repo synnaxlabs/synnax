@@ -113,7 +113,7 @@ var _ = Describe("Observable", func() {
 				Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
 
 				obs.Notify(context.Background(), 2)
-				obs.GoNotify(context.Background(), 3)
+				go obs.Notify(context.Background(), 3)
 
 				pubCancel()
 				Eventually(

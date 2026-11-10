@@ -11,6 +11,15 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
+import { createOf, reduceAll } from "@/certificate/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/certificate/actions.gen";
 import {
   type Certificate,
   certificateZ,
@@ -25,6 +34,7 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
@@ -32,7 +42,7 @@ import {
 } from "@/certificate/where.gen";
 import { query } from "@/query";
 
-export const SET_CHANNEL_NAME = "sy_certificate_set";
+export const ACTION_CHANNEL_NAME = "sy_certificate_action_set";
 export const DELETE_CHANNEL_NAME = "sy_certificate_delete";
 
 const newStoredZ = storedCertificateZ.omit({ details: true, privateKey: true }).extend({
@@ -50,10 +60,9 @@ const newStoredZ = storedCertificateZ.omit({ details: true, privateKey: true }).
 export const newZ = z.discriminatedUnion("source", [newStoredZ, fileCertificateZ]);
 export type New = z.input<typeof newZ>;
 
-const createReqZ = z.object({ certificates: newZ.array() });
-const createResZ = z.object({ certificates: certificateZ.array() });
+const setReqZ = z.object({ certificates: newZ.array() });
+const setResZ = z.object({ certificates: certificateZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = filter.requestInputZ(
@@ -76,17 +85,31 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Certificate>;
+  private readonly dispatcher: actions.Controller<Key, Certificate, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Certificate>({
       name: "certificates",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, certificateZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a certificate reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Certificate, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(
+        cfg.unary,
+        "/certificate/dispatch",
+        dispatchReqZ,
+        dispatchResZ,
+      ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "certificate",
       table: store,
@@ -101,6 +124,7 @@ export class Client extends query.Retriever<
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -111,15 +135,15 @@ export class Client extends query.Retriever<
    * secrets for private keys, or update a certificate it replaces and the secret of its
    * private key.
    */
-  async create(certificate: New): Promise<Certificate>;
-  async create(certificates: New[]): Promise<Certificate[]>;
-  async create(certificates: New | New[]): Promise<Certificate | Certificate[]> {
+  async set(certificate: New): Promise<Certificate>;
+  async set(certificates: New[]): Promise<Certificate[]>;
+  async set(certificates: New | New[]): Promise<Certificate | Certificate[]> {
     const isMany = Array.isArray(certificates);
     const res = await this.cfg.unary.send(
-      "/certificate/create",
+      "/certificate/set",
       { certificates: array.toArray(certificates) },
-      createReqZ,
-      createResZ,
+      setReqZ,
+      setResZ,
     );
     this.store.set(res.certificates);
     return isMany ? res.certificates : res.certificates[0];
@@ -132,20 +156,22 @@ export class Client extends query.Retriever<
    * @throws {AccessDeniedError} if the caller may not update the certificate, or the
    * secret of its private key, which takes the new name.
    */
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/certificate/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies the actions to the cached certificate until the Core echoes them, and sends
+   * them to the Core to apply in one transaction. Path actions edit only the name, and
+   * a new name also renames the secret of the private key.
+   * @throws {Error} if the cached certificate cannot hold an action, before any send.
+   * @throws {ValidationError} if the certificate cannot hold an action.
+   * @throws {NotFoundError} if the certificate does not exist.
+   * @throws {AccessDeniedError} if the caller may not update the certificate, or the
+   * secret of its private key.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /**

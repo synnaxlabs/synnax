@@ -14,31 +14,33 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
+import {
+  getIcon,
+  getIntegration,
+  isHardware,
+  useConfigureModal,
+} from "@/feature/device/make";
 import { getKeyFromStatus } from "@/feature/device/useListenForChanges";
 import { type Notifications } from "@/platform/notifications";
-
-const shouldShowConfigureButton = (make: Make): boolean =>
-  make === "NI" || make === "LabJack" || make === "ethercat";
 
 const detailsZ = z.object({ make: z.unknown() });
 
 const Notification: Notifications.Notification = ({ status, silence }) => {
   const configure = useConfigureModal();
   const key = getKeyFromStatus(status);
-  const make = getMake(detailsZ.safeParse(status.details).data?.make);
-  const showConfigure = make != null && key != null && shouldShowConfigureButton(make);
+  const integration = getIntegration(detailsZ.safeParse(status.details).data?.make);
+  const showConfigure = integration != null && key != null && isHardware(integration);
   return (
     <Status.Notification
       status={status}
       silence={silence}
-      icon={getIcon(make)}
+      icon={getIcon(integration)}
       actions={
         showConfigure ? (
           <Button.Button
             variant="outlined"
             size="tiny"
-            onClick={() => configure(make, key)}
+            onClick={() => configure(integration, key)}
           >
             <Icon.Hardware />
             Configure

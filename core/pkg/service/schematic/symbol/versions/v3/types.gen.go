@@ -12,9 +12,14 @@
 package v3
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	group "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a schematic symbol.
@@ -50,6 +55,30 @@ type Symbol struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *Symbol) ApplyDefaults() {
 	s.Data.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *Symbol) SetDefaults() {
+	s.Data.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *Symbol) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Symbol
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *Symbol) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Symbol
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

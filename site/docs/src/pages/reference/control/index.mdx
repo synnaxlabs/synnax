@@ -7,7 +7,6 @@ description: "Learn what control is in Synnax, what it is for, and which way to 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Diagram } from "@/components/diagram";
-import { Edition } from "@/components/edition";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -18,8 +17,9 @@ each value to the device: it opens a valve, starts a pump, or changes a setpoint
 write tasks also write what the device did to a
 [state channel](/reference/hardware/tasks#state-channels), such as `press_vlv_state`.
 [Modbus](/reference/hardware/modbus/write-task),
-[OPC UA](/reference/hardware/opc-ua/write-task), and
-[HTTP](/reference/hardware/http/write-task) write tasks have
+[OPC UA](/reference/hardware/opc-ua/write-task),
+[HTTP](/reference/hardware/http/write-task), and
+[MQTT](/reference/hardware/mqtt/write-task) write tasks have
 [no state channels](/reference/hardware/tasks#outputs-with-no-state-channel), so a
 [read task](/reference/hardware/tasks#read-tasks) on the same device reads the state
 back. For how commands and state work, see
@@ -96,24 +96,20 @@ An automation controls the valves at a low authority. An operator takes control 
 higher authority, and the automation gets control back when the operator releases it.
 See [control authority](/reference/control/authority).
 
-<Edition.Enterprise>
-
 ### Script a sequence in Python
 
 A Python script takes control of channels, sets values, and waits for conditions. See
 [write a control sequence in Python](/reference/control/python/write-sequences).
 
-</Edition.Enterprise>
-
 <Divider.Divider x />
 
 ## Ways to control
 
-| Way                                                                                               | Who acts      | Where it runs         | Timing                   | Use it to                                                                                                                |
-| ------------------------------------------------------------------------------------------------- | ------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| [Schematic](/reference/control/manual)                                                            | An operator   | The Console           | When the operator clicks | [Command hardware by hand](#open-a-valve-by-hand), and [take over](#hand-control-between-an-operator-and-an-automation). |
-| [Arc automation](/reference/control/arc)                                                          | Your Arc code | A Driver, or the Core | Steady, next to the data | [Run sequences](#run-a-test-sequence-with-aborts), [control loops](#hold-a-value-in-a-band), and checks.                 |
-| [Python script](/reference/control/python/write-sequences) <Edition.Badge edition="enterprise" /> | Your script   | Your computer         | Depends on the network   | [Use Python libraries](#script-a-sequence-in-python), or connect to other software.                                      |
+| Way                                                        | Who acts      | Where it runs         | Timing                   | Use it to                                                                                                                |
+| ---------------------------------------------------------- | ------------- | --------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| [Schematic](/reference/control/manual)                     | An operator   | The Console           | When the operator clicks | [Command hardware by hand](#open-a-valve-by-hand), and [take over](#hand-control-between-an-operator-and-an-automation). |
+| [Arc automation](/reference/control/arc)                   | Your Arc code | A Driver, or the Core | Steady, next to the data | [Run sequences](#run-a-test-sequence-with-aborts), [control loops](#hold-a-value-in-a-band), and checks.                 |
+| [Python script](/reference/control/python/write-sequences) | Your script   | Your computer         | Depends on the network   | [Use Python libraries](#script-a-sequence-in-python), or connect to other software.                                      |
 
 A Python script sends each command over the network to the Synnax Core, so network
 delays change its timing. An Arc automation runs where the data arrives, so its timing

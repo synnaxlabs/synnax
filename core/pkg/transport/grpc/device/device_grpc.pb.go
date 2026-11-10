@@ -328,3 +328,103 @@ var DeviceDeleteService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/device/device.proto",
 }
+
+const (
+	DeviceDispatchService_Exec_FullMethodName = "/grpc.device.DeviceDispatchService/Exec"
+)
+
+// DeviceDispatchServiceClient is the client API for DeviceDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DeviceDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type deviceDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDeviceDispatchServiceClient(cc grpc.ClientConnInterface) DeviceDispatchServiceClient {
+	return &deviceDispatchServiceClient{cc}
+}
+
+func (c *deviceDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, DeviceDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DeviceDispatchServiceServer is the server API for DeviceDispatchService service.
+// All implementations should embed UnimplementedDeviceDispatchServiceServer
+// for forward compatibility.
+type DeviceDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedDeviceDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedDeviceDispatchServiceServer struct{}
+
+func (UnimplementedDeviceDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedDeviceDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeDeviceDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DeviceDispatchServiceServer will
+// result in compilation errors.
+type UnsafeDeviceDispatchServiceServer interface {
+	mustEmbedUnimplementedDeviceDispatchServiceServer()
+}
+
+func RegisterDeviceDispatchServiceServer(s grpc.ServiceRegistrar, srv DeviceDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedDeviceDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&DeviceDispatchService_ServiceDesc, srv)
+}
+
+func _DeviceDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DeviceDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DeviceDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DeviceDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DeviceDispatchService_ServiceDesc is the grpc.ServiceDesc for DeviceDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DeviceDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.device.DeviceDispatchService",
+	HandlerType: (*DeviceDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _DeviceDispatchService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/device/device.proto",
+}

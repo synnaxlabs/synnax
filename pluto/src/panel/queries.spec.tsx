@@ -432,36 +432,18 @@ describe("Panel queries", () => {
       expect(fetched.name).toEqual("after-rename");
     });
 
-    it("should run afterOptimistic against the renamed panel", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const target = await client.panels.create({
-        name: "before-optimistic-rename",
+        name: "before-cache-rename",
         project: defaultProject,
       });
-      const order: string[] = [];
-      const { result } = renderHook(
-        () =>
-          Panel.useRename({
-            // The client applies the rename before it calls back, so the cached panel
-            // already carries the new name here.
-            afterOptimistic: ({ client: c, data }) => {
-              const cached = c.panels.watch(data.key).getCached();
-              order.push(`optimistic:${query.isLive(cached) ? cached.name : ""}`);
-            },
-            afterSuccess: () => {
-              order.push("success");
-            },
-          }),
-        { wrapper },
-      );
-
+      const { result } = renderHook(() => Panel.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: target.key,
-          name: "after-optimistic-rename",
-        });
+        await result.current.updateAsync({ key: target.key, name: "renamed-in-cache" });
       });
-
-      expect(order).toEqual(["optimistic:after-optimistic-rename", "success"]);
+      expect(client.panels.watch(target.key).getCached()).toMatchObject({
+        name: "renamed-in-cache",
+      });
     });
   });
 
@@ -1016,6 +998,64 @@ describe("Panel queries", () => {
 
       expect(result.current).toBe(firstTab);
       expect(renderCount()).toEqual(countBefore);
+    });
+  });
+
+  describe("useResultAppearance", () => {
+    it("should follow a change to the icon or the color of a panel", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data).toEqual({ icon: undefined, color: undefined }),
+      );
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.setIcon({ icon: "valve" }),
+            panel.setColor({ color: "#dc136c" }),
+          ],
+        });
+      });
+      await waitFor(() =>
+        expect(result.current.data).toEqual({
+          icon: "valve",
+          color: color.construct("#dc136c"),
+        }),
+      );
+    });
+
+    it("should keep the appearance when only the layout or an equal color changes", async () => {
+      const created = await createPanel();
+      const ops = await loadAndUse(created.key, () => Panel.useDispatch());
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [panel.setColor({ color: "#dc136c" })],
+        });
+      });
+      const { result } = renderHook(
+        () => Panel.useResultAppearance({ key: created.key }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.data?.color).toEqual(color.construct("#dc136c")),
+      );
+      const before = result.current.data;
+      await act(async () => {
+        await ops.result.current.dispatchAsync({
+          key: created.key,
+          actions: [
+            panel.insertTabs({ tabs: [newTab()], targetLeaf: panel.ROOT_NODE_KEY }),
+            panel.setColor({ color: "#dc136c" }),
+          ],
+        });
+      });
+      expect(result.current.data).toBe(before);
     });
   });
 

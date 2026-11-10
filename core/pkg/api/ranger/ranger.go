@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -84,8 +83,8 @@ type (
 	}
 )
 
-// Create creates the ranges. A range whose key exists is updated and keeps its stored
-// labels.
+// Create creates the ranges. It returns a validation error when a range with one of
+// their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -164,45 +163,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-type RenameRequest struct {
-	Name string     `json:"name" msgpack:"name"`
-	Key  ranger.Key `json:"key"  msgpack:"key"`
-}
-
-// Rename renames the range with the given key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		ranger.NewSetAction(ranger.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	)
-}
-
-type SetEndRequest struct {
-	Key ranger.Key      `json:"key" msgpack:"key"`
-	End telem.TimeStamp `json:"end" msgpack:"end"`
-}
-
-// SetEnd sets the end of the time range of the range with the given key.
-func (s *Service) SetEnd(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetEndRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		ranger.NewSetAction(ranger.SetPayload{
-			Path:  []string{"time_range", "end"},
-			Value: req.End,
-		}),
-	)
 }
 
 type DeleteRequest struct {

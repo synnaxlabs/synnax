@@ -10,15 +10,16 @@
 package types
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"go.lsp.dev/protocol"
@@ -108,6 +109,13 @@ func InferRelational(
 
 func inferBinaryType(elemType, nextElem types.Type) (types.Type, bool) {
 	if elemType.Kind == types.KindVariable && nextElem.Kind != types.KindVariable {
+		elemType = nextElem
+	}
+	// An integer literal takes the type of a float literal beside it.
+	if elemType.Kind == types.KindVariable && nextElem.Kind == types.KindVariable &&
+		elemType.Constraint != nil && nextElem.Constraint != nil &&
+		elemType.Constraint.Kind == types.KindIntegerConstant &&
+		nextElem.Constraint.Kind == types.KindFloatConstant {
 		elemType = nextElem
 	}
 	// Only early-return on incompatibility when both types are concrete.
@@ -327,17 +335,18 @@ func inferPrimaryType(
 		if err != nil {
 			return types.Type{}
 		}
+		if resolved.Kind == symbol.KindConstant {
+			return inferConstantType(ctx, resolved)
+		}
 		return resolved.Type
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		text := id.GetText()
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {
-				// When a variable is referenced, resolve literal constraints to
-				// concrete types. This ensures `x := 10; x + 3.2` fails (x becomes i64,
-				// can't add float to int), while `2 + 3.2` (both fresh literals) can
-				// still promote to float.
-				return resolveLiteralConstraint(varScope.Type)
+				// A read gives an untyped variable one type, so `x := 10; x + 3.2`
+				// fails while `2 + 3.2` (both fresh literals) promotes to float.
+				return bindOnRead(ctx.Constraints, varScope.Type, ctx.AST)
 			}
 		}
 		return types.Type{}
@@ -363,6 +372,18 @@ func inferPrimaryType(
 		}
 	}
 	return types.Type{}
+}
+
+// inferConstantType gives each reference to a module constant its own type variable,
+// so one program can use the same constant as both f32 and f64.
+func inferConstantType(
+	ctx context.Context[parser.IPrimaryExpressionContext],
+	sym *symbol.Symbol,
+) types.Type {
+	tv := types.Freshen(sym.Type, ctx.ScopedKey("const", ctx.AST))
+	ctx.Constraints.AddVariable(tv)
+	ctx.TypeMap[ctx.AST] = tv
+	return tv
 }
 
 func inferLiteralType(ctx context.Context[parser.ILiteralContext]) types.Type {
@@ -392,59 +413,57 @@ func inferSeriesLiteralType(
 	ctx context.Context[parser.ISeriesLiteralContext],
 ) types.Type {
 	exprList := ctx.AST.ExpressionList()
-	if exprList == nil {
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
-		constraint := types.NumericConstraint()
-		elemType := types.Variable(tvName, &constraint)
+	if exprList == nil || len(exprList.AllExpression()) == 0 {
+		// An empty literal has no element to constrain its type, so the declared type
+		// can be any element type, numeric or not. Undeclared, it is f64.
+		elemType := types.Variable(ctx.ScopedKey("series_elem", ctx.AST), nil)
+		ctx.Constraints.AddDefault(elemType, types.F64())
 		t := types.Series(elemType)
 		ctx.TypeMap[ctx.AST] = t
 		return t
 	}
 
 	exprs := exprList.AllExpression()
-	if len(exprs) == 0 {
-		line := ctx.AST.GetStart().GetLine()
-		col := ctx.AST.GetStart().GetColumn()
-		tvName := fmt.Sprintf("series_elem_%d_%d", line, col)
-		constraint := types.NumericConstraint()
-		elemType := types.Variable(tvName, &constraint)
-		t := types.Series(elemType)
-		ctx.TypeMap[ctx.AST] = t
-		return t
-	}
-
 	firstExpr := exprs[0]
 	elemType := InferFromExpression(ctx.Child(firstExpr)).UnwrapChan()
-	allLiterals := parser.IsNumericLiteral(firstExpr)
+	allLiterals := parser.IsNumericLiteral(firstExpr) || isUntypedNumber(elemType)
 
 	for i := 1; i < len(exprs); i++ {
 		nextType := InferFromExpression(ctx.Child(exprs[i])).UnwrapChan()
-		thisIsLiteral := parser.IsNumericLiteral(exprs[i])
+		thisIsLiteral := parser.IsNumericLiteral(exprs[i]) || isUntypedNumber(nextType)
 		// Literals can unify across int/float (like Go), but variables cannot
+		compatible := seriesElementCompatible(elemType, nextType)
 		if allLiterals && thisIsLiteral {
-			if !literalsCompatible(elemType, nextType) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					exprs[i],
-					"series element %d has incompatible type %s, expected %s",
-					i+1,
-					nextType,
-					elemType,
-				))
-			}
+			compatible = literalsCompatible(elemType, nextType)
 		} else {
 			allLiterals = false
-			if !seriesElementCompatible(elemType, nextType) {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					exprs[i],
-					"series element %d has incompatible type %s, expected %s", i+1,
-					nextType,
-					elemType,
-				))
+		}
+		if !compatible {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				exprs[i],
+				"series element %d has incompatible type %s, expected %s",
+				i+1,
+				nextType,
+				elemType,
+			))
+		} else if elemType.Kind == types.KindVariable ||
+			nextType.Kind == types.KindVariable {
+			// Linking each element to the first keeps a float literal at the end of
+			// the chain, so an integer literal takes the float type.
+			if err := ctx.Constraints.AddCompatible(
+				nextType,
+				elemType,
+				exprs[i],
+				"series element type",
+			); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, exprs[i]))
 			}
 		}
 		if elemType.Kind == types.KindVariable && nextType.Kind != types.KindVariable {
+			elemType = nextType
+		}
+		// A float element makes a series of untyped numbers a float series.
+		if allLiterals && constrainedTo(nextType, types.KindFloatConstant) {
 			elemType = nextType
 		}
 	}
@@ -452,6 +471,18 @@ func inferSeriesLiteralType(
 	t := types.Series(elemType)
 	ctx.TypeMap[ctx.AST] = t
 	return t
+}
+
+// constrainedTo reports whether t is a type variable with the constraint kind k.
+func constrainedTo(t types.Type, k types.Kind) bool {
+	return t.Kind == types.KindVariable && t.Constraint != nil && t.Constraint.Kind == k
+}
+
+// isUntypedNumber reports whether t is the type of an untyped numeric value, such as
+// a literal or a module constant, which mixes with other literals like a literal.
+func isUntypedNumber(t types.Type) bool {
+	return t.Kind == types.KindVariable && t.Constraint != nil &&
+		isNumericConstraint(t.Constraint.Kind)
 }
 
 // seriesElementCompatible checks if two types are compatible for use in the same series
@@ -559,9 +590,6 @@ func inferNumericLiteralType(
 	var (
 		floatLit = numLit.FLOAT_LITERAL()
 		isFloat  = floatLit != nil
-		line     = ctx.AST.GetStart().GetLine()
-		col      = ctx.AST.GetStart().GetColumn()
-		tvName   = fmt.Sprintf("lit_%d_%d", line, col)
 	)
 
 	var constraint types.Type
@@ -576,7 +604,7 @@ func inferNumericLiteralType(
 	} else {
 		constraint = types.IntegerConstraint()
 	}
-	tv := types.Variable(tvName, &constraint)
+	tv := types.Variable(ctx.ScopedKey("lit", ctx.AST), &constraint)
 
 	// Check for unit suffix (e.g., 5psi, 3s, 100Hz)
 	if unitID := numLit.IDENTIFIER(); unitID != nil {
@@ -599,10 +627,36 @@ func inferNumericLiteralType(
 	return tv
 }
 
-// resolveLiteralConstraint converts a type variable with a literal constraint to a
-// concrete type. This is used when a variable is referenced in an expression to
-// distinguish between: - Direct literals (2 + 3.2) which can be promoted - Variable
-// references (x := 10; x + 3.2) which should fail
+// bindOnRead returns the type a read of a variable of type t sees. An untyped literal
+// type, or a series of one, takes the type an earlier use bound it to. With none, the
+// read binds it to its default, so every later use sees the same type. The element of
+// an empty series literal stays open for a later use to bind.
+func bindOnRead(
+	cs *constraints.System,
+	t types.Type,
+	source antlr.ParserRuleContext,
+) types.Type {
+	resolved := cs.ApplySubstitutions(t)
+	if resolved.Kind == types.KindSeries && resolved.Elem != nil {
+		return types.Series(bindOnRead(cs, *resolved.Elem, source))
+	}
+	if constrainedTo(resolved, types.KindNumericConstant) {
+		return resolved
+	}
+	if resolved.Kind != types.KindVariable {
+		return resolved
+	}
+	def := resolveLiteralConstraint(resolved)
+	if def.Kind == types.KindVariable {
+		return resolved
+	}
+	// An unbound variable always unifies with its own default.
+	lo.Must0(cs.AddEquality(resolved, def, source, "variable type"))
+	return def
+}
+
+// resolveLiteralConstraint returns the default type of a type variable with a literal
+// constraint, or t unchanged.
 func resolveLiteralConstraint(t types.Type) types.Type {
 	if t.Kind != types.KindVariable || t.Constraint == nil {
 		return t

@@ -19,7 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError, type Synnax } from "@/index";
+import { NotFoundError, type Synnax, ValidationError } from "@/index";
 import { query } from "@/query";
 import { ranger } from "@/ranger";
 import {
@@ -154,7 +154,7 @@ describe("range", () => {
       });
       expect(rng.labels).toEqual([lbl.key]);
     });
-    it("should keep the stored labels of a range that is created again", async () => {
+    it("should refuse a range whose key exists and keep its labels", async () => {
       const [held, carried] = await client.labels.create([
         { name: "Held", color: "#E774D0" },
         { name: "Carried", color: "#E774D0" },
@@ -164,34 +164,32 @@ describe("range", () => {
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
         labels: [held.key],
       });
-      const again = await client.ranges.create({
-        ...rng.payload,
-        labels: [carried.key],
-      });
-      expect(again.labels).toEqual([held.key]);
+      const create = client.ranges.create({ ...rng.payload, labels: [carried.key] });
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`range ${rng.key} already exists`);
+      const retrieved = await createTestClient().ranges.retrieve(rng.key);
+      expect(retrieved.labels).toEqual([held.key]);
     });
     it("should keep a label change that arrives before the create reply", async () => {
       const lbl = await client.labels.create({ name: "Late", color: "#E774D0" });
-      const rng = await client.ranges.create({
-        name: "Created again",
-        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
-      });
+      const key = uuid.create();
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
-      await local.ranges.retrieve(rng.key);
       const { responded, release } = holdResponses(local, "/range/create");
-      const creating = local.ranges.create(rng.payload);
+      const creating = local.ranges.create({
+        key,
+        name: "Labeled late",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
       await responded;
-      await client.labels.label(rng.resourceID, [lbl.key]);
+      await client.labels.label(ranger.resourceID(key), [lbl.key]);
       await expect
-        .poll(() => expectLive(local.ranges.watch(rng.key).getCached()).labels)
+        .poll(() => expectLive(local.ranges.watch(key).getCached()).labels)
         .toContain(lbl.key);
       release();
       await creating;
-      expect(expectLive(local.ranges.watch(rng.key).getCached()).labels).toContain(
-        lbl.key,
-      );
+      expect(expectLive(local.ranges.watch(key).getCached()).labels).toContain(lbl.key);
     });
   });
 
@@ -449,6 +447,22 @@ describe("range", () => {
         await rng.setAlias(ch.key, "myalias");
         const resolved = await rng.resolveAlias("myalias");
         expect(resolved).toEqual(ch.key);
+      });
+
+      it("should resolve an alias to the channel it moved to", async () => {
+        const [first, second] = await client.channels.create([
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+          { name: id.create(), dataType: DataType.FLOAT32, virtual: true },
+        ]);
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        await rng.setAlias(first.key, "myalias");
+        expect(await rng.resolveAlias("myalias")).toEqual(first.key);
+        await rng.setAlias(first.key, "otheralias");
+        await rng.setAlias(second.key, "myalias");
+        expect(await rng.resolveAlias("myalias")).toEqual(second.key);
       });
 
       it("should reject an alias named after an object member", async () => {

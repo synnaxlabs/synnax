@@ -118,6 +118,17 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 		"expected status to be cleared for channel %d", key)
 }
 
+// setExpression applies a set of the expression of the calculated channel with key.
+func setExpression(ctx context.Context, key channel.Key, expr string) {
+	GinkgoHelper()
+	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+		_, err := channelSvc.NewWriter(tx).Apply(ctx, key, channel.NewSetAction(
+			channel.SetPayload{Path: []string{"expression"}, Value: expr},
+		))
+		return err
+	})).To(Succeed())
+}
+
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
 	GinkgoHelper()
 	var ch channel.Channel
@@ -851,10 +862,7 @@ var _ = Describe("Graph", func() {
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Updating expression to use a different base")
-					calc.Expression = "return rc_upd_b2 * 2"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc)
-					})).To(Succeed())
+					setExpression(ctx, calc.Key(), "return rc_upd_b2 * 2")
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Verifying old base deletion does not affect calc")
@@ -1033,10 +1041,7 @@ var _ = Describe("Graph", func() {
 					By(
 						"Updating calc1 expression - calc2 should be re-inspected via BFS",
 					)
-					calc1.Expression = "return rc_reins_base + 100"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc1)
-					})).To(Succeed())
+					setExpression(ctx, calc1.Key(), "return rc_reins_base + 100")
 					eventuallyExpectNoStatus(ctx, calc1.Key())
 					eventuallyExpectNoStatus(ctx, calc2.Key())
 				},
@@ -1068,11 +1073,7 @@ var _ = Describe("Graph", func() {
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Updating the calc expression to return a different type")
-					calc.Expression = "return i64(rc_dtp_base)"
-					calc.DataType = telem.Int64T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc)
-					})).To(Succeed())
+					setExpression(ctx, calc.Key(), "return i64(rc_dtp_base)")
 					eventuallyExpectNoStatus(ctx, calc.Key())
 
 					By("Verifying the DataType was persisted to the DB")
@@ -1114,11 +1115,7 @@ var _ = Describe("Graph", func() {
 					By(
 						"Updating calc1 to return a different type, which should cascade to calc2",
 					)
-					calc1.Expression = "return i64(rc_dtpc_base)"
-					calc1.DataType = telem.Int64T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc1)
-					})).To(Succeed())
+					setExpression(ctx, calc1.Key(), "return i64(rc_dtpc_base)")
 
 					By("Verifying calc1 DataType was persisted")
 					Eventually(func() telem.DataType {
@@ -1424,10 +1421,7 @@ var _ = Describe("Graph", func() {
 				expectStatus(ctx, calc.Key())
 
 				By("Editing the expression to a different valid one")
-				calc.Expression = "return st_expr_dep * 2"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				setExpression(ctx, calc.Key(), "return st_expr_dep * 2")
 				eventuallyExpectNoStatus(ctx, calc.Key())
 			},
 		)
@@ -2137,23 +2131,16 @@ var _ = Describe("Graph", func() {
 				return channelSvc.NewWriter(tx).Create(ctx, &calc)
 			})).To(Succeed())
 
-			// Alternate the expression between two valid dependencies; an update to an
-			// invalid expression is rejected at creation, so the reachable form of
-			// "rapid updates" churns between valid states.
+			// Apply refuses an invalid expression, so the updates alternate between two
+			// valid dependencies.
 			for i := range 10 {
-				if i%2 == 0 {
-					calc.Expression = "return cc_rapid_base + 1"
-				} else {
-					calc.Expression = "return cc_rapid_base2 * 2"
+				expr := "return cc_rapid_base + 1"
+				if i%2 == 1 {
+					expr = "return cc_rapid_base2 * 2"
 				}
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return channelSvc.NewWriter(tx).Create(ctx, &calc)
-				})).To(Succeed())
+				setExpression(ctx, calc.Key(), expr)
 			}
-			calc.Expression = "return cc_rapid_base + 1"
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calc)
-			})).To(Succeed())
+			setExpression(ctx, calc.Key(), "return cc_rapid_base + 1")
 			eventuallyExpectNoStatus(ctx, calc.Key())
 		})
 	})
