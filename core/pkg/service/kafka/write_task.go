@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -525,7 +526,20 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	t.client = cl
 	t.sCtx = sCtx
 	t.lastErr = ""
-	t.closer = append(xio.MultiCloser{xio.CloserFunc(t.closeClient)}, shutdown...)
+	t.closer = xio.MultiCloser{
+		xio.CloserFunc(t.closeClient),
+		xio.CloserFunc(func() error {
+			// Produce blocks on a full buffer until its context ends, so a lost cluster
+			// would hold the graceful wait forever.
+			timeout := t.factoryCfg.PingTimeout.Duration()
+			deadline := time.AfterFunc(timeout, cancel)
+			err := shutdown.Close()
+			if !deadline.Stop() {
+				return errors.Newf("timed out producing records after %s", timeout)
+			}
+			return err
+		}),
+	}
 	sCtx.Go(func(ctx context.Context) error {
 		// The client has finished with a record by the time it calls the promise.
 		promise := func(rec *kgo.Record, err error) {

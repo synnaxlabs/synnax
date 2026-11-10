@@ -33,6 +33,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
 
@@ -331,6 +332,43 @@ var _ = Describe("Write task", func() {
 			stat := taskStatus(ctx, t)
 			Expect(stat.Message).To(Equal("Failed to start task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+		},
+	)
+
+	It("Should stop when the cluster is lost with a full producer buffer",
+		func(ctx SpecContext) {
+			lost := MustSucceed(kfake.NewCluster(
+				kfake.NumBrokers(1),
+				kfake.AllowAutoTopicCreation(),
+			))
+			DeferCleanup(lost.Close)
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: lost.ListenAddrs()})
+			f = newFactory(kafka.FactoryConfig{PingTimeout: 200 * telem.Millisecond})
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
+			lost.Close()
+			// More samples than the producer buffers by default.
+			const n = 60_000
+			stamps := make([]telem.TimeStamp, n)
+			values := make([]float64, n)
+			for i := range n {
+				stamps[i] = telem.TimeStamp(i+1) * telem.MillisecondTS
+				values[i] = float64(i)
+			}
+			writeFrame(ctx, index, data, stamps, telem.NewSeries(values))
+			stopped := make(chan error, 1)
+			go func() { stopped <- dt.Stop(false) }()
+			Eventually(stopped).WithTimeout(10 * time.Second).
+				Should(Receive(MatchError(ContainSubstring("timed out producing"))))
 		},
 	)
 
