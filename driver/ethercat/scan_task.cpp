@@ -137,7 +137,7 @@ void set_mode_status(
     status.variant = synnax::status::VARIANT_WARNING;
     const auto mode = settings.find("mode");
     if (mode != settings.end() && mode->at("switch").empty()) {
-        status.message = "Restart the power of the device";
+        status.message = "Waiting for a power restart";
         status.description = "The device runs Synnax only after a power restart. Until "
                              "then, it sends data that only " +
                              reader + " reads.";
