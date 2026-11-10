@@ -246,7 +246,7 @@ func compileIndexedCompoundAssignment(
 	if elemType.Kind == types.KindString && op == "+" {
 		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
-		if err = ctx.Writer.WriteBinaryOpInferred(op, elemType); err != nil {
+		if err = ctx.Writer.WriteArithmetic(op, elemType); err != nil {
 			return err
 		}
 	}
@@ -345,7 +345,7 @@ func compileCompoundAssignment(
 	if varType.Kind == types.KindString && op == "+" {
 		ctx.Resolver.EmitStringConcat(ctx.Writer, ctx.WriterID)
 	} else {
-		if err = ctx.Writer.WriteBinaryOpInferred(op, varType); err != nil {
+		if err = ctx.Writer.WriteArithmetic(op, varType); err != nil {
 			return err
 		}
 	}

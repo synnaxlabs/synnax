@@ -144,19 +144,22 @@ func (e *Writer) WriteBrIf(labelIdx uint32) {
 	e.WriteLEB128Unsigned(uint64(labelIdx))
 }
 
-// WriteBinaryOpInferred writes the binary operation op for operands of resultType. An
-// arithmetic result wraps to the width of resultType.
 func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
 	opcode, err := binaryOpcode(op, resultType)
 	if err != nil {
 		return err
 	}
 	e.WriteBinaryOp(opcode)
-	switch op {
-	case "+", "-", "*", "/", "%":
-		e.WriteNarrow(resultType)
-	default:
+	return nil
+}
+
+// WriteArithmetic writes the arithmetic operation op for operands of type t and wraps
+// the result to the width of t.
+func (e *Writer) WriteArithmetic(op string, t types.Type) error {
+	if err := e.WriteBinaryOpInferred(op, t); err != nil {
+		return err
 	}
+	e.WriteNarrow(t)
 	return nil
 }
 

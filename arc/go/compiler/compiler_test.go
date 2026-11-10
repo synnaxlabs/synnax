@@ -2346,6 +2346,66 @@ var _ = Describe("Compiler", func() {
 			}`, float64(-2147483648)),
 		)
 
+		DescribeTable("a stepped range loop should end at the bound of the type",
+			narrowResult,
+			Entry("u8 to the maximum", `{
+				count i64 := 0
+				for i := range(u8(0), u8(255), u8(2)) {
+					count += 1
+				}
+				return count
+			}`, float64(128)),
+			Entry("u16 to the maximum", `{
+				count i64 := 0
+				for i := range(u16(0), u16(65535), u16(30000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i8 to the maximum", `{
+				count i64 := 0
+				for i := range(i8(0), i8(127), i8(10)) {
+					count += 1
+				}
+				return count
+			}`, float64(13)),
+			Entry("i8 with a negative step", `{
+				count i64 := 0
+				for i := range(i8(0), i8(-125), i8(-10)) {
+					count += 1
+				}
+				return count
+			}`, float64(13)),
+			Entry("i16 to the maximum", `{
+				count i64 := 0
+				for i := range(i16(0), i16(32767), i16(10000)) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("i16 with a negative step", `{
+				count i64 := 0
+				for i := range(i16(0), i16(-32000), i16(-10000)) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("u8 loop variable keeps its value", `{
+				total i64 := 0
+				for i := range(u8(0), u8(255), u8(2)) {
+					total += i64(i)
+				}
+				return total
+			}`, float64(16256)),
+			Entry("i8 loop variable keeps its value", `{
+				total i64 := 0
+				for i := range(i8(0), i8(-125), i8(-10)) {
+					total += i64(i)
+				}
+				return total
+			}`, float64(-780)),
+		)
+
 		DescribeTable("an integer cast should wrap to the width of the target",
 			narrowResult,
 			Entry("i32 above the range to u8", `{

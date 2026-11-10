@@ -77,9 +77,9 @@ var _ = Describe("WASM Writer", func() {
 			)
 
 			DescribeTable(
-				"WriteBinaryOpInferred should wrap narrow arithmetic",
+				"WriteArithmetic should wrap a narrow result",
 				func(op string, t types.Type, expected []byte) {
-					Expect(encoder.WriteBinaryOpInferred(op, t)).To(Succeed())
+					Expect(encoder.WriteArithmetic(op, t)).To(Succeed())
 					Expect(encoder.Bytes()).To(Equal(expected))
 				},
 				Entry("u8 add", "+", types.U8(), []byte{0x6a, 0x41, 0xff, 0x01, 0x71}),
@@ -119,9 +119,26 @@ var _ = Describe("WASM Writer", func() {
 					types.I16(),
 					[]byte{0x6d, 0x41, 0x10, 0x74, 0x41, 0x10, 0x75},
 				),
-				Entry("u8 comparison", "<", types.U8(), []byte{0x49}),
 				Entry("i32 add", "+", types.I32(), []byte{0x6a}),
 				Entry("i64 add", "+", types.I64(), []byte{0x7c}),
+			)
+
+			It(
+				"WriteArithmetic should return an error for an unknown operator",
+				func() {
+					Expect(encoder.WriteArithmetic("?", types.U8())).
+						To(MatchError(ContainSubstring("unknown operator: ?")))
+					Expect(encoder.Bytes()).To(BeEmpty())
+				},
+			)
+
+			DescribeTable("WriteBinaryOpInferred should not wrap",
+				func(op string, expected []byte) {
+					Expect(encoder.WriteBinaryOpInferred(op, types.U8())).To(Succeed())
+					Expect(encoder.Bytes()).To(Equal(expected))
+				},
+				Entry("add", "+", []byte{0x6a}),
+				Entry("comparison", "<", []byte{0x49}),
 			)
 		})
 
