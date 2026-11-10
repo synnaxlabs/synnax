@@ -215,7 +215,18 @@ func (f *Factory) CreateNodePairIfStale() error {
 			zap.String("cert", f.cfg.AbsoluteNodeCertPath()),
 			zap.String("key", f.cfg.AbsoluteNodeKeyPath()),
 		)
-		return f.replaceNodePair()
+		if rErr := f.replaceNodePair(); rErr != nil {
+			return errors.Wrapf(
+				rErr,
+				"node certificate %s does not chain to the CA (%v), and replacing it "+
+					"failed. Restore the CA key at %s, or replace the node certificate "+
+					"and key by hand",
+				f.cfg.AbsoluteNodeCertPath(),
+				err,
+				f.cfg.AbsoluteCAKeyPath(),
+			)
+		}
+		return nil
 	}
 	uncovered := f.uncoveredHosts(c)
 	if len(uncovered) == 0 {

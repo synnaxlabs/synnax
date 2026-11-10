@@ -243,6 +243,24 @@ var _ = Describe("Factory", func() {
 			Expect(c.Subject.String()).ToNot(Equal(ca.Subject.String()))
 			Expect(c.CheckSignatureFrom(ca)).To(Succeed())
 		})
+		It(
+			"Should fail when it cannot replace a certificate another CA signed",
+			func() {
+				f := newFactory("synnaxlabs.com")
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(Succeed())
+				before := serialOf(f)
+				Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+				Expect(fs.Remove("/usr/local/synnax/certs/ca.crt")).To(Succeed())
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(MatchError(And(
+					ContainSubstring("does not chain to the CA"),
+					ContainSubstring("Restore the CA key"),
+				)))
+				Expect(serialOf(f)).To(Equal(before))
+			},
+		)
 		It("Should replace a certificate another CA signed", func() {
 			f := newFactory("synnaxlabs.com")
 			Expect(f.CreateCAPair()).To(Succeed())
