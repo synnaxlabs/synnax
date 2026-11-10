@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -302,6 +303,62 @@ var _ = Describe("NewLSP", func() {
 				DiagnosticMessage,
 				ContainSubstring(`unknown module "lsp_hidden_module"`),
 			)))
+		})
+
+		It("Should complete the path of each readable text module", func(
+			ctx SpecContext,
+		) {
+			textSource := func(raw string) arc.Source {
+				return arc.Source{Variant: arc.TextSource{Text: text.Text{Raw: raw}}}
+			}
+			listed := newModule(arc.Base{Name: "m", Source: textSource("func f() {}")})
+			hiddenModule := newModule(arc.Base{
+				Name:   "lsp_hidden_path",
+				Source: textSource("func f() {}"),
+			})
+			graph := newModule(arc.Base{
+				Name:   "lsp_graph_path",
+				Source: arc.Source{Variant: arc.GraphSource{}},
+			})
+			automation := newAutomation(arc.Base{
+				Name:   "lsp_automation_path",
+				Source: textSource("func f() {}"),
+			})
+			lib := directory.Directory{Name: "lsp_lib"}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				w := svc.NewWriter(tx)
+				root := rootDirectory(ctx, tx).Key
+				if err := w.CreateDirectory(ctx, &lib, root); err != nil {
+					return err
+				}
+				for _, a := range []*arc.Arc{&listed, &hiddenModule, &graph, &automation} {
+					if err := w.Create(ctx, a); err != nil {
+						return err
+					}
+				}
+				return w.Move(ctx, root, lib.Key, listed.ResourceID())
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					w := svc.NewWriter(tx)
+					if err := w.Delete(
+						ctx,
+						listed.Base().Key,
+						hiddenModule.Base().Key,
+						graph.Base().Key,
+						automation.Base().Key,
+					); err != nil {
+						return err
+					}
+					return w.DeleteDirectory(ctx, lib.Key)
+				})).To(Succeed())
+			})
+			server, _ := open(ctx, hide(hiddenModule.ResourceID()), "import lsp_")
+			items := Completion(server, ctx, docURI, 0, 11).Items
+			Expect(HasCompletion(items, "lsp_lib.m")).To(BeTrue())
+			Expect(HasCompletion(items, "lsp_hidden_path")).To(BeFalse())
+			Expect(HasCompletion(items, "lsp_graph_path")).To(BeFalse())
+			Expect(HasCompletion(items, "lsp_automation_path")).To(BeFalse())
 		})
 
 		It("Should read the access again for each analysis", func(ctx SpecContext) {

@@ -58,7 +58,7 @@ func (t *Table[K, E]) Changes(ctx context.Context, c Commit) TxReader[K, E] {
 			if !t.holds(ch) {
 				continue
 			}
-			op, err := t.decode(ctx, ch)
+			op, err := t.decode(ch)
 			if err != nil {
 				t.db.Instrumentation.L.DPanic(
 					"failed to decode a change",
@@ -78,10 +78,7 @@ func (t *Table[K, E]) Changes(ctx context.Context, c Commit) TxReader[K, E] {
 // holds reports whether ch changed an entry of the table.
 func (t *Table[K, E]) holds(ch Change) bool { return ch.Record.Table == t.name }
 
-func (t *Table[K, E]) decode(
-	ctx context.Context,
-	ch Change,
-) (EntryChange[K, E], error) {
+func (t *Table[K, E]) decode(ch Change) (EntryChange[K, E], error) {
 	var (
 		op  = EntryChange[K, E]{Kind: ch.Kind, Derived: ch.Derived}
 		err error
@@ -92,5 +89,5 @@ func (t *Table[K, E]) decode(
 	if ch.Kind == ChangeDelete {
 		return op, nil
 	}
-	return op, t.db.Decode(ctx, ch.Value, &op.Value)
+	return op, t.db.Decode(ch.Value, &op.Value)
 }

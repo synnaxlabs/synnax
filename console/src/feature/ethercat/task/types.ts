@@ -11,9 +11,11 @@ import { channel, ethercat, type task } from "@synnaxlabs/client";
 import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Address } from "@/feature/ethercat/device/settings";
+import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
-  type Address,
   type SlaveDevice,
+  type SlaveProperties,
   type WriteBinding,
 } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
@@ -195,7 +197,7 @@ export const mappedChannels = ({
   ].filter((key) => key !== 0);
 
 /** @returns the entries of a slave with each address listed once. */
-export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
+const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
   const seen = new Set<string>();
   return entries.filter((entry) => {
     const key = addressKey(entry);
@@ -204,6 +206,18 @@ export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[]
     return true;
   });
 };
+
+/**
+ * @returns the entries of the slave that a channel can use: one per address, without
+ * the inputs that only another program reads.
+ */
+export const usableEntries = (
+  props: SlaveProperties,
+  pdoType: PDOType,
+): ethercat.PDOEntry[] =>
+  uniqueEntries(props.pdos[pdoType]).filter(
+    (e) => pdoType === "outputs" || onlyReaderOf(props, e) == null,
+  );
 
 /** @returns the entry at the address, or undefined if the slave has none there. */
 export const entryAt = (

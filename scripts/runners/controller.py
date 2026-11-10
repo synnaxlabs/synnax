@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.60,<0.61"]
 # ///
 
 """Polls GitHub and EC2 every --interval and writes the fleet's state to Synnax.
@@ -103,7 +103,6 @@ from common import (
     gh_channels,
     instance_status,
     parameter_store,
-    patch_client,
     seconds,
     secret,
     shield,
@@ -395,7 +394,6 @@ def main() -> None:
     args = parse_args()
     store = parameter_store()
     github = GitHub(secret("GH_TOKEN", store=store))
-    patch_client()
     client = connect(args, store=store)
     channels = Channels(client=client, enabled=args.create_channels)
     log = Log(client=client, channels=channels, channel=LOG)

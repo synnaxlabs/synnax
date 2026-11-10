@@ -48,6 +48,7 @@ from synnax.options import Options
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
 from x.exceptions import Registry
+from x.params import deprecate_positional
 
 
 class Synnax(framer.Client):
@@ -103,6 +104,20 @@ class Synnax(framer.Client):
 
     _transport: Transport
 
+    @deprecate_positional(
+        "host",
+        "port",
+        "username",
+        "password",
+        "secure",
+        "open_timeout",
+        "read_timeout",
+        "keep_alive",
+        "max_retries",
+        "instrumentation",
+        "clock_skew_threshold",
+        "ca_cert",
+    )
     def __init__(
         self,
         *,

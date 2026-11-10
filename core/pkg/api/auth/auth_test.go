@@ -25,7 +25,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -72,6 +74,20 @@ func createUser(ctx context.Context, username, pwd string) user.User {
 	return u
 }
 
+// expectLegacyUser asserts that u encodes with every field a 0.60 client requires of a
+// user.
+func expectLegacyUser(u apiauth.User, username string) {
+	GinkgoHelper()
+	for _, codec := range []encoding.Codec{json.Codec, msgpack.Codec} {
+		var decoded map[string]any
+		Expect(codec.Decode(MustSucceed(codec.Encode(u)), &decoded)).To(Succeed())
+		Expect(decoded).To(HaveKey("key"))
+		Expect(decoded).To(HaveKeyWithValue("username", username))
+		Expect(decoded).To(HaveKeyWithValue("first_name", u.Name))
+		Expect(decoded).To(HaveKeyWithValue("last_name", ""))
+	}
+}
+
 func passwordProof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
 		Credentials: auth.Credentials{Username: username, Password: pwd},
@@ -112,6 +128,7 @@ var _ = Describe("Login", func() {
 				apiSvc.Login(requestCtx(ctx), request(creds.Username, creds.Password)),
 			)
 			Expect(res.User.Key).To(Equal(root.Key))
+			expectLegacyUser(res.User, creds.Username)
 			session := MustSucceed(authSvc.Authenticate(ctx, res.Token))
 			Expect(session.Subject).To(Equal(root.ResourceID()))
 			Expect(res.ClusterInfo.ClusterKey).To(Equal(node.Identity.Key.String()))
@@ -451,6 +468,16 @@ var _ = Describe("CreateSession", func() {
 		Expect(res.Session.Credential).To(Equal(session.Credential))
 		Expect(res.User.Key).To(Equal(root.Key))
 	})
+	It("Should send the user fields that 0.60 clients require", func(ctx SpecContext) {
+		res := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(
+				creds.Username,
+				creds.Password,
+			)},
+		))
+		expectLegacyUser(*res.User, creds.Username)
+	})
 	It("Should leave the hash off the wire", func(ctx SpecContext) {
 		res := MustSucceed(apiSvc.CreateSession(
 			requestCtx(ctx),
@@ -462,8 +489,7 @@ var _ = Describe("CreateSession", func() {
 		Expect(res.Session.Hash).To(HaveLen(32))
 		var decoded map[string]any
 		Expect(json.Codec.Decode(
-			ctx,
-			MustSucceed(json.Codec.Encode(ctx, res.Session)),
+			MustSucceed(json.Codec.Encode(res.Session)),
 			&decoded,
 		)).To(Succeed())
 		Expect(decoded).To(HaveKey("key"))
@@ -496,6 +522,7 @@ var _ = Describe("RenewSession", func() {
 		Expect(res.Session.Subject).To(Equal(root.ResourceID()))
 		Expect(res.User).ToNot(BeNil())
 		Expect(res.User.Key).To(Equal(root.Key))
+		expectLegacyUser(*res.User, creds.Username)
 	})
 })
 

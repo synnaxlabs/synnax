@@ -10,6 +10,8 @@
 import { type device, ethercat } from "@synnaxlabs/client";
 import { z } from "zod";
 
+import { type Address, descriptionZ } from "@/feature/ethercat/device/settings";
+
 export const MAKE = "ethercat";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
@@ -50,15 +52,19 @@ const opModeChoiceZ = z.object({
   sync1Cycle: z.number().default(0),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
-/** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
-const startupParameterZ = z.object({
+/** The mode that a slave held at the scan, as its catalog describes it. */
+const modeZ = z.object({
+  /** The address of the CoE object that holds the mode. */
   index: z.number(),
   subIndex: z.number(),
-  dataType: z.string(),
   value: z.number(),
-  name: z.string().default(""),
+  /** Whether other software also sets up the slave. */
+  shared: z.boolean(),
+  /** The sync mode that the mode needs. */
+  opMode: opModeChoiceZ.optional(),
+  /** The writes that make the slave standalone. Empty when it is. */
+  switch: z.array(ethercat.startupParameterZ),
 });
-export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
 /** The Synnax channel that a slave maps for an input entry. */
 const readBindingZ = z.object({
@@ -78,12 +84,6 @@ const writeBindingZ = z.object({
   state: z.number().default(0),
 });
 export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
-
-/** The CoE index and sub-index of a PDO entry. */
-export interface Address {
-  index: number;
-  subIndex: number;
-}
 
 /**
  * Reads bindings stored as a map keyed by the address of the entry, such as 24592_1.
@@ -157,7 +157,9 @@ export const slavePropertiesZ = z.object({
   opModes: z.array(opModeZ).default(() => []),
   /** The mode the Driver sets up. Unset means the Driver picks it. */
   opMode: opModeChoiceZ.optional(),
-  startupParameters: z.array(startupParameterZ).default(() => []),
+  startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
+  /** The fields that the slave's catalog describes, read from the slave at scan. */
+  settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
