@@ -51,28 +51,29 @@ class IndexCase:
 
 
 # Each series holds 3 values. Consecutive expectations on one output differ, so each
-# wait proves a new write landed. Each out-of-range index is unique, so its warning
-# traces to one case.
+# wait proves a new write landed. Each out-of-range index is unique, so its status
+# traces to one case. The out-of-range cases come last because a Driver stops the task
+# on the first one.
 CASES = [
     IndexCase("ReadFirst", "series_read_idx", "series_read_out", 0, 1.5),
     IndexCase("ReadLast", "series_read_idx", "series_read_out", -1, 3.5),
     IndexCase("ReadSecondToLast", "series_read_idx", "series_read_out", -2, 2.5),
-    IndexCase("ReadPastEnd", "series_read_idx", "series_read_out", 3, None),
     IndexCase("ReadNegativeFirst", "series_read_idx", "series_read_out", -3, 1.5),
-    IndexCase("ReadBeforeStart", "series_read_idx", "series_read_out", -4, None),
     IndexCase("ReadMiddle", "series_read_idx", "series_read_out", 1, 2.5),
     IndexCase("WriteFirst", "series_write_idx", "series_write_out", 0, 15.5),
     IndexCase("WriteLast", "series_write_idx", "series_write_out", -1, 13.5),
-    IndexCase("WritePastEnd", "series_write_idx", "series_write_out", 4, None),
     IndexCase("WriteMiddle", "series_write_idx", "series_write_out", 1, 14.5),
-    IndexCase("WriteBeforeStart", "series_write_idx", "series_write_out", -5, None),
     IndexCase("WriteNegativeFirst", "series_write_idx", "series_write_out", -3, 15.5),
     IndexCase("FlagFirst", "series_flag_idx", "series_flag_out", 0, 2),
     IndexCase("FlagLast", "series_flag_idx", "series_flag_out", -1, 1),
-    IndexCase("FlagPastEnd", "series_flag_idx", "series_flag_out", 5, None),
     IndexCase("FlagNegativeFirst", "series_flag_idx", "series_flag_out", -3, 2),
-    IndexCase("FlagBeforeStart", "series_flag_idx", "series_flag_out", -6, None),
     IndexCase("FlagMiddle", "series_flag_idx", "series_flag_out", 1, 1),
+    IndexCase("ReadPastEnd", "series_read_idx", "series_read_out", 3, None),
+    IndexCase("ReadBeforeStart", "series_read_idx", "series_read_out", -4, None),
+    IndexCase("WritePastEnd", "series_write_idx", "series_write_out", 4, None),
+    IndexCase("WriteBeforeStart", "series_write_idx", "series_write_out", -5, None),
+    IndexCase("FlagPastEnd", "series_flag_idx", "series_flag_out", 5, None),
+    IndexCase("FlagBeforeStart", "series_flag_idx", "series_flag_out", -6, None),
 ]
 
 OUTPUTS = ["series_read_out", "series_write_out", "series_flag_out"]
@@ -99,24 +100,25 @@ class SeriesIndex(ArcCase):
     def _expect_out_of_bounds(self, case: IndexCase, last: float | None) -> None:
         """Fail unless the task reported the index and the output kept its last
         value."""
-        key = self.task_key(self.arc_name)
         description = f"index {case.index} out of bounds for series of size 3"
+        key = self.task_key(self.arc_name)
         if not self.wait_for_task_status(key, description):
             self.fail(f"[{case.label}] no status surfaced for index {case.index}")
         actual = self.read_tlm(case.out_ch)
         if actual != last:
             self.fail(f"[{case.label}] {case.out_ch} changed from {last} to {actual}")
-        # A Driver stops the task on a runtime error. The Core keeps it running.
-        if not self.task_is_running(key):
-            self.start_arc_task(self._arc(self.arc_name).task)
 
     def verify_sequence_execution(self) -> None:
+        key = self.task_key(self.arc_name)
         last: dict[str, float | None] = dict.fromkeys(OUTPUTS)
         for case in CASES:
             self.log(f"[{case.label}] Writing {case.index} to {case.in_ch}")
             self.writer.write(case.in_ch, case.index)
-            if case.expected is None:
-                self._expect_out_of_bounds(case, last[case.out_ch])
+            if case.expected is not None:
+                self.wait_for_eq(case.out_ch, case.expected)
+                last[case.out_ch] = case.expected
                 continue
-            self.wait_for_eq(case.out_ch, case.expected)
-            last[case.out_ch] = case.expected
+            self._expect_out_of_bounds(case, last[case.out_ch])
+            # A Driver stops the task on a runtime error. The Core keeps it running.
+            if not self.task_is_running(key):
+                return
