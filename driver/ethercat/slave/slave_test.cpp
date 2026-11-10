@@ -259,6 +259,41 @@ TEST(PropertiesToJson, LeavesOutAMissingChoice) {
     EXPECT_FALSE(Properties{.name = "6xSTG"}.to_json().contains("op_mode"));
 }
 
+/// @brief it should write the settings that the catalog describes for a slave.
+TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array({{{"entries", x::json::json::array()}}})},
+    };
+    const Properties props{.name = "6xSTG", .settings = settings};
+    EXPECT_EQ(props.to_json().at("settings"), settings);
+}
+
+/// @brief it should replace a startup parameter at the same address in place, and add a
+/// parameter at a new address last.
+TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
+    const auto param = [](const uint8_t sub_index, const double value) {
+        return StartupParameter{
+            .index = 0x8040,
+            .sub_index = sub_index,
+            .data_type = x::telem::UINT16_T,
+            .value = value,
+        };
+    };
+    Config config{.startup_parameters = {param(1, 1), param(2, 2)}};
+    config.add_startup_parameters({param(1, 5), param(3, 7)});
+    EXPECT_EQ(
+        config.startup_parameters,
+        (std::vector<StartupParameter>{param(1, 5), param(2, 2), param(3, 7)})
+    );
+}
+
+/// @brief it should leave out the settings of a slave that the catalog does not
+/// describe.
+TEST(PropertiesToJson, LeavesOutMissingSettings) {
+    EXPECT_FALSE(Properties{.name = "EL3102"}.to_json().contains("settings"));
+}
+
 TEST(PropertiesToJson, SerializesAllFields) {
     Properties props{
         .network = "eth0",

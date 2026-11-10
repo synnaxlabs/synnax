@@ -10,6 +10,7 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
+import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -21,6 +22,7 @@ import {
   DIRECTIONS,
   entryAt,
   type EntryChannel,
+  type EntryReadChannel,
   getUnresolvedMessage,
   hasEntry,
   type PDOType,
@@ -133,6 +135,42 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     );
 
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
+};
+
+/**
+ * @returns the startup parameters of each slave: a value for every field of each input
+ * that an enabled channel reads, in the order of the slave's catalog. Values the task
+ * held stay.
+ * @throws {Error} if a value breaks a limit or a rule of the catalog.
+ */
+export const fillStartupParameters = (
+  slaves: SlaveDevice[],
+  channels: ReadChannel[],
+  held: ethercat.SlaveStartupParameters[],
+): ethercat.SlaveStartupParameters[] => {
+  const filled: ethercat.SlaveStartupParameters[] = [];
+  for (const slave of slaves) {
+    const inputs = slave.properties.settings?.channels ?? [];
+    const entries = channels.filter(
+      (ch): ch is EntryReadChannel =>
+        hasEntry(ch) && !ch.disabled && ch.device === slave.key,
+    );
+    const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
+    const parameters: ethercat.StartupParameter[] = [];
+    for (const input of inputs) {
+      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
+      if (ch == null) continue;
+      const filledInput = fill(input.settings, prior);
+      const [problem] = check(input, filledInput);
+      if (problem != null)
+        throw new Error(
+          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
+        );
+      parameters.push(...filledInput);
+    }
+    if (parameters.length > 0) filled.push({ device: slave.key, parameters });
+  }
+  return filled;
 };
 
 export interface IndexOptions {

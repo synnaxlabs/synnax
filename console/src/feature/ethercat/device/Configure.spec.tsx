@@ -7,13 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
-import { createIdentifier, createSlaveDevice } from "@/feature/ethercat/testutil";
+import {
+  createIdentifier,
+  createSettingsDescription,
+  createSlaveDevice,
+} from "@/feature/ethercat/testutil";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
@@ -42,7 +47,7 @@ const IDENTIFIER_FORMAT_ERROR =
 
 const OP_MODE = { index: 0, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 };
 
-const FILTER: EtherCAT.Device.StartupParameter = {
+const FILTER: ethercat.StartupParameter = {
   index: 0x8000,
   subIndex: 0x15,
   dataType: "uint16",
@@ -54,7 +59,8 @@ interface SetupArgs {
   configured?: boolean;
   useOpen?: typeof Device.useConfigureModal;
   analytics?: Analytics.Sink;
-  startupParameters?: EtherCAT.Device.StartupParameter[];
+  startupParameters?: ethercat.StartupParameter[];
+  settings?: EtherCAT.Device.Settings.Description;
 }
 
 const setup = async ({
@@ -62,6 +68,7 @@ const setup = async ({
   useOpen = Device.useConfigureModal,
   analytics,
   startupParameters = [],
+  settings,
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -83,6 +90,7 @@ const setup = async ({
       ],
       opMode: OP_MODE,
       startupParameters,
+      settings,
     },
     configured,
   );
@@ -312,6 +320,81 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       await save();
       await waitFor(async () =>
         expect((await retrieve(slave.key)).properties.startupParameters).toEqual([]),
+      );
+    });
+  });
+
+  describe("settings", () => {
+    const SAMPLE_RATE: ethercat.StartupParameter = {
+      index: 0x8020,
+      subIndex: 1,
+      dataType: "uint16",
+      value: 12,
+      name: "",
+    };
+
+    it("should save a setting picked as a startup parameter", async () => {
+      const settings = createSettingsDescription();
+      const slave = await setup({ settings, startupParameters: [FILTER] });
+      fireEvent.click(screen.getByRole("button", { name: "Sample rate" }));
+      fireEvent.click(await screen.findByRole("option", { name: "1 kS/s" }));
+      await save();
+      await waitFor(async () => {
+        const { properties } = await retrieve(slave.key);
+        expect(properties.startupParameters).toEqual([FILTER, SAMPLE_RATE]);
+        expect(properties.settings).toEqual(settings);
+      });
+    });
+
+    it("should show the name of the setting for a parameter with no name", async () => {
+      await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [SAMPLE_RATE],
+      });
+      expect(cell("Name 1").value).toBe("Sample rate");
+    });
+
+    it("should not store the name of a setting after its address changes", async () => {
+      const slave = await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [SAMPLE_RATE],
+      });
+      commit("Subindex 1", "0x02");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { ...SAMPLE_RATE, subIndex: 2 },
+        ]),
+      );
+    });
+
+    it("should keep the name that the user gave the parameter of a setting", async () => {
+      const named = { ...SAMPLE_RATE, value: 4, name: "Rate" };
+      const slave = await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [named],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Sample rate 20 kS/s" }));
+      fireEvent.click(await screen.findByRole("option", { name: "1 kS/s" }));
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { ...named, value: 12 },
+        ]),
+      );
+    });
+
+    it("should remove the startup parameter of a cleared setting", async () => {
+      const slave = await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [SAMPLE_RATE, FILTER],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Clear 1 kS/s" }));
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          FILTER,
+        ]),
       );
     });
   });

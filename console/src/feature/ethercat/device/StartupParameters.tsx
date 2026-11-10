@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -15,10 +16,8 @@ import { DataType, deep, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import {
-  type SlaveDevice,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+import { sameAddress, visibleFields } from "@/feature/ethercat/device/settings";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 
 const DATA_TYPES = [
   DataType.INT8,
@@ -76,7 +75,7 @@ const parametersZ = z.array(
   }),
 );
 
-const FIELDS: (keyof StartupParameter)[] = [
+const FIELDS: (keyof ethercat.StartupParameter)[] = [
   "index",
   "subIndex",
   "dataType",
@@ -146,25 +145,42 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
 
 const createRow = (): Input.TableCell[] => [0, 0, DataType.UINT8.toString(), 0, ""];
 
-const PATH = deep.path<SlaveDevice>().properties.startupParameters;
+const PROPERTIES = deep.path<SlaveDevice>().properties;
+const PATH = PROPERTIES.startupParameters;
 
 /**
  * Edits the CoE values that the Driver writes to a slave each time the network starts.
+ * A parameter with no name shows the name of the shown catalog setting at its address.
  */
 export const StartupParameters = (): ReactElement => {
-  const { value, onChange } = Form.useField(PATH);
+  const { value: parameters, onChange } = Form.useField(PATH);
   const statuses = Form.useStatuses(PATH);
   Form.useCheck(PATH, parametersZ);
-  const rows = value.map((p) => FIELDS.map((f) => p[f]));
+  const fields = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.device;
+  const shown = fields == null ? [] : visibleFields(fields, parameters);
+  const settingName = (address: ethercat.StartupParameter): string =>
+    shown.find((f) => sameAddress(f, address))?.name ?? "";
+  const rows = parameters.map((p) =>
+    FIELDS.map((f) => (f === "name" && p.name === "" ? settingName(p) : p[f])),
+  );
   const handleChange = (next: Input.TableCell[][]) =>
     onChange(
-      next.map(([index, subIndex, dataType, value, name]) => ({
-        index: Number(index),
-        subIndex: Number(subIndex),
-        dataType: String(dataType),
-        value: Number(value),
-        name: String(name),
-      })),
+      next.map(([index, subIndex, dataType, value, name], i) => {
+        const parameter = {
+          index: Number(index),
+          subIndex: Number(subIndex),
+          dataType: String(dataType),
+          value: Number(value),
+          name: String(name),
+        };
+        const before = parameters.at(i);
+        // A cell still showing the catalog name of an unnamed parameter stays unnamed.
+        const shownBefore =
+          before?.name === "" && parameter.name === settingName(before);
+        if (shownBefore || parameter.name === settingName(parameter))
+          parameter.name = "";
+        return parameter;
+      }),
     );
   const cellStatus = ({ x, y }: xy.XY) =>
     statuses.find(({ key }) => key === `${String(PATH)}.${y}.${FIELDS[x]}`);
@@ -173,6 +189,7 @@ export const StartupParameters = (): ReactElement => {
       <Input.Table
         value={rows}
         onChange={handleChange}
+        onRemove={(i) => onChange(parameters.filter((_, j) => j !== i))}
         createRow={createRow}
         resourceName="parameter"
         cellStatus={cellStatus}

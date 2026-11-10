@@ -210,6 +210,23 @@ struct Config {
     std::vector<StartupParameter> startup_parameters;
 
     bool operator==(const Config &) const = default;
+
+    /// @brief adds each parameter to the startup parameters, in place of one at the
+    /// same index and sub-index.
+    void add_startup_parameters(const std::vector<StartupParameter> &parameters) {
+        for (const auto &param: parameters) {
+            const auto it = std::ranges::find_if(
+                this->startup_parameters,
+                [&param](const StartupParameter &p) {
+                    return p.index == param.index && p.sub_index == param.sub_index;
+                }
+            );
+            if (it == this->startup_parameters.end())
+                this->startup_parameters.push_back(param);
+            else
+                *it = param;
+        }
+    }
 };
 
 /// @brief static properties of an EtherCAT slave device stored in device.properties.
@@ -237,6 +254,10 @@ struct Properties {
     /// @brief the settings the user chose. to_json leaves out the startup parameters,
     /// so a scan keeps them.
     Config config;
+    /// @brief the settings that the ESI catalog describes for the slave, as
+    /// esi::read_settings returns them, or nullopt when it describes none. Only a scan
+    /// sets it.
+    std::optional<nlohmann::json> settings;
 
     /// @brief returns the entry at the given address in one direction, or nullopt when
     /// the slave has no such entry. Padding never matches.
@@ -311,6 +332,7 @@ struct Properties {
             if (!pdo.is_padding()) outputs.push_back(pdo.to_json());
 
         props["pdos"] = {{"inputs", inputs}, {"outputs", outputs}};
+        if (this->settings) props["settings"] = *this->settings;
         return props;
     }
 };
@@ -321,6 +343,8 @@ struct Status {
     State state = State::UNKNOWN;
     /// @brief why PDO discovery failed, or empty when it succeeded.
     std::string pdo_discovery_error;
+    /// @brief why the read of the settings failed, or empty when it succeeded.
+    std::string settings_error;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A

@@ -395,6 +395,35 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
+/// @brief it should show a failed settings read as a warning that says the Driver tries
+/// again.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadShowsAWarning) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the settings: failed to read 0x8050:03: Object does not exist in the object dictionary. "
+        "The Driver tries again while no task uses the port."
+    );
+}
+
+/// @brief it should discover the slaves again every sixth scan while a slave has a
+/// failed settings read.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadRediscoversEverySixthScan) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    for (size_t i = 0; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
 /// @brief it should not discover the slaves again for a disabled slave whose PDO
 /// discovery failed.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {
@@ -421,6 +450,60 @@ TEST_F(EtherCATScanStatusTest, KeepsTheChosenModeOnARescan) {
         this->scanner->scan({.count = 1, .devices = &devices})
     );
     EXPECT_EQ(rescanned.at(0).properties.at("op_mode"), choice.to_json());
+}
+
+/// @brief it should store the settings that a scan reads in the device properties, in
+/// place of the stored ones.
+TEST_F(EtherCATScanStatusTest, StoresTheSettingsThatAScanReads) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array()},
+    };
+    this->master->add_slave(
+        slave::Properties{
+            .network = "eth0",
+            .position = 2,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .serial = 6789,
+            .name = "6xSTG",
+            .settings = settings,
+        }
+    );
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(1);
+    EXPECT_EQ(dev.properties.at("settings"), settings);
+    dev.properties["settings"] = {{"device", x::json::json::array()}};
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_FALSE(rescanned.at(0).properties.contains("settings"));
+    EXPECT_EQ(rescanned.at(1).properties.at("settings"), settings);
+}
+
+/// @brief it should keep the stored settings of a slave when a rescan fails to read
+/// them.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredSettingsWhenTheirReadFails) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    EXPECT_FALSE(dev.properties.contains("settings"));
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array()},
+    };
+    dev.properties["settings"] = settings;
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_EQ(rescanned.at(0).properties.at("settings"), settings);
 }
 
 /// @brief it should keep the invalid properties error of a saved device on a rescan.

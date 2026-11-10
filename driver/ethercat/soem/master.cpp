@@ -24,6 +24,7 @@
 #include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/slave/slave.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/sii.h"
@@ -183,11 +184,10 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
-bool Master::write_startup_parameters(
+x::errors::Error Master::write_parameters(
     const uint16_t pos,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    std::string failure;
     for (const auto &param: parameters) {
         const auto data = param.bytes();
         if (this->api->SDOwrite(
@@ -200,17 +200,27 @@ bool Master::write_startup_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
-        failure = "rejected startup parameter " + param.to_string() + ": " +
-                  errors::sdo_abort_reason(
-                      pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-                  );
-        break;
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "rejected startup parameter " + param.to_string() + ": " +
+                errors::sdo_abort_reason(
+                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
+                )
+        );
     }
-    if (failure.empty())
-        this->session.value().startup_failures.erase(pos);
+    return x::errors::NIL;
+}
+
+bool Master::write_startup_parameters(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    const auto err = this->write_parameters(pos, parameters);
+    if (err)
+        this->session.value().startup_failures[pos] = err.data;
     else
-        this->session.value().startup_failures[pos] = failure;
-    return failure.empty();
+        this->session.value().startup_failures.erase(pos);
+    return !err;
 }
 
 master::Activation Master::activate(
@@ -421,6 +431,7 @@ std::optional<x::telem::TimeStamp> Master::dc_time() const {
 }
 
 std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
+    std::lock_guard lock(this->mailbox_mu);
     this->api->readstate();
     std::vector<slave::Health> health;
     for (int i = 1; i <= this->api->context.slavecount; ++i) {
@@ -451,6 +462,21 @@ std::vector<slave::Health> Master::check(const x::breaker::Breaker &breaker) {
         if (breaker.running()) this->recover(i, breaker);
     }
     return health;
+}
+
+x::errors::Error Master::write(
+    const uint16_t pos,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::lock_guard lock(this->mailbox_mu);
+    if (const auto err = this->write_parameters(pos, parameters))
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
+                err.data
+        );
+    this->session.value().plan.slaves[pos].add_startup_parameters(parameters);
+    return x::errors::NIL;
 }
 
 void Master::update_lost(const uint16_t pos) {
@@ -500,8 +526,26 @@ void Master::populate_slaves() {
     this->slave_list.clear();
     this->slave_list.reserve(this->api->context.slavecount);
 
-    for (int i = 1; i <= this->api->context.slavecount; ++i)
-        this->slave_list.push_back(this->discover_slave(i));
+    for (int i = 1; i <= this->api->context.slavecount; ++i) {
+        auto slave = this->discover_slave(i);
+        this->read_settings(slave);
+        this->slave_list.push_back(std::move(slave));
+    }
+}
+
+void Master::read_settings(slave::DiscoveryResult &slave) {
+    auto &props = slave.properties;
+    const auto pos = props.position;
+    if ((this->record(pos).mbx_proto & ECT_MBXPROT_COE) == 0) return;
+    auto [settings, err] = esi::read_settings(
+        props.vendor_id,
+        props.product_code,
+        [this, pos](const uint16_t index, const uint8_t sub_index) {
+            return this->read_sdo(pos, index, sub_index);
+        }
+    );
+    slave.status.settings_error = err.data;
+    props.settings = std::move(settings);
 }
 
 slave::DiscoveryResult Master::discover_slave(const uint16_t pos) {

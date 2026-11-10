@@ -19,10 +19,12 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/igh/master.h"
 #include "driver/ethercat/igh/mock_api.h"
 #include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/telem/telem.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::igh {
 namespace {
@@ -284,6 +286,39 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
     ASSERT_EQ(inputs.size(), 1);
     EXPECT_EQ(inputs[0].name, known->name);
     EXPECT_EQ(inputs[0].data_type, known->data_type);
+}
+
+/// @brief it should store the settings that the catalog describes for a slave, read
+/// from that slave's own object dictionary.
+TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
+    this->api->add_slave();
+    this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
+        .objects = testutil::stg_objects();
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    const auto expected = ASSERT_NIL_P(
+        esi::read_settings(
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG,
+            testutil::read_of(testutil::stg_objects())
+        )
+    );
+    ASSERT_TRUE(expected.has_value());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(slaves[1].properties.settings, expected);
+}
+
+/// @brief it should report why the settings of a slave could not be read.
+TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
+    auto objects = testutil::stg_objects();
+    objects.erase({0x8050, 3});
+    this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
+        .objects = objects;
+    const auto slaves = ASSERT_NIL_P(this->master.scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(
+        slaves[0].status.settings_error,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
 }
 
 /// @brief it should return the number of slaves on the bus.
@@ -581,6 +616,57 @@ TEST_F(IGHMasterTest, ActivateSkipsTheStartupParametersOfADisabledSlave) {
     this->configs = {{1, {.enabled = false, .startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+}
+
+/// @brief it should accept a value that the slave holds on the running bus, and write
+/// nothing.
+TEST_F(IGHMasterTest, WriteAcceptsAValueThatTheSlaveHolds) {
+    this->api->add_slave().objects[{0x8000, 0x15}] = 3;
+    ASSERT_NIL(this->scan_and_activate());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+}
+
+/// @brief it should refuse a value that the slave does not hold on the running bus,
+/// since IgH writes its startup parameters again each time the slave restarts.
+TEST_F(IGHMasterTest, WriteRefusesAValueThatTheSlaveDoesNotHold) {
+    this->api->add_slave();
+    this->configs = {{1, {.startup_parameters = {FILTER}}}};
+    ASSERT_NIL(this->scan_and_activate());
+    auto changed = FILTER;
+    changed.value = 4;
+    const auto err = this->master.write(1, {changed});
+    ASSERT_OCCURRED_AS(err, errors::SETTING_CONFLICT);
+    EXPECT_EQ(
+        err.data,
+        "the IgH master cannot change 0x8000:15 (Filter) of slave 1 (TestSlave) while "
+        "other tasks run the bus. Stop them, then start this task first"
+    );
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+}
+
+/// @brief it should return the reason a slave on the running bus fails to read a
+/// parameter.
+TEST_F(IGHMasterTest, WriteReturnsWhyASlaveFailedToReadAParameter) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto err = this->master.write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) failed to read startup parameter 0x8000:15 (Filter): "
+        "Object does not exist in the object dictionary"
+    );
+}
+
+/// @brief it should refuse to write to a position with no slave on the bus.
+TEST_F(IGHMasterTest, WriteRejectsAPositionWithNoSlave) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto err = this->master.write(2, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(err.data, "no slave at position 2");
 }
 
 /// @brief it should register the entries of the PDO a startup parameter assigns, and
