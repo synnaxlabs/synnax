@@ -15,6 +15,7 @@ import {
 } from "zod/v4/core";
 
 import { deep } from "@/deep";
+import { errors } from "@/errors";
 import { narrow } from "@/narrow";
 import { type StructSchemas } from "@/patch/field";
 import { type Kind, kindOf } from "@/patch/kind";
@@ -32,6 +33,14 @@ interface Union {
   schema: $ZodDiscriminatedUnion;
   discriminator: string;
   options: $ZodType[];
+  /** The strict schema of an update that holds only base fields. */
+  base?: $ZodType;
+}
+
+interface UnionDef {
+  type: string;
+  discriminator?: string;
+  options?: $ZodType[];
 }
 
 interface ListOps {
@@ -42,26 +51,40 @@ interface ListOps {
   move?: { key: unknown; after?: unknown }[];
 }
 
-type StructKind = Extract<Kind, { kind: "struct" }>;
+const VALUE: Kind = { kind: "value" };
+
+// Types of an unmarked field schema that must come from a field factory.
+const FACTORY_TYPES = new Set(["object", "array"]);
 
 const asObject = (value: unknown): record.Unknown =>
   narrow.isObject(value) ? value : {};
 
 const asList = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 
-const unionOf = (schema: $ZodType): Union | undefined => {
+const taggedOf = (schema: $ZodType): Union | undefined => {
   const unwrapped = zod.unwrap(schema);
-  const def = unwrapped._zod.def as {
-    type: string;
-    discriminator?: string;
-    options?: $ZodType[];
-  };
+  const def = unwrapped._zod.def as UnionDef;
   if (def.type !== "union" || def.discriminator == null) return undefined;
   return {
     schema: unwrapped as $ZodDiscriminatedUnion,
     discriminator: def.discriminator,
     options: def.options ?? [],
   };
+};
+
+/**
+ * @returns the discriminated union that the schema holds, or the one that it joins to
+ * the strict object of an update with only base fields.
+ */
+const unionOf = (schema: $ZodType): Union | undefined => {
+  const tagged = taggedOf(schema);
+  if (tagged != null) return tagged;
+  const def = zod.unwrap(schema)._zod.def as UnionDef;
+  if (def.type !== "union" || def.options?.length !== 2) return undefined;
+  const [base, variants] = def.options;
+  const union = taggedOf(variants);
+  if (union == null || zod.unwrap(base)._zod.def.type !== "object") return undefined;
+  return { ...union, base };
 };
 
 const shapeOf = (schema: $ZodType): Shape => {
@@ -78,9 +101,10 @@ const optionOf = (union: Union, value: unknown): $ZodType => {
   return option;
 };
 
-const recordUnionOf = (schema: $ZodType): Union => {
+const requireUnion = (schema: $ZodType): Union => {
   const union = unionOf(schema);
-  if (union == null) throw new Error("The record schema of a union is not a union");
+  if (union == null)
+    throw new Error(`Expected a union schema, got ${zod.unwrap(schema)._zod.def.type}`);
   return union;
 };
 
@@ -92,11 +116,19 @@ const baseFields = (union: Union): string[] => {
   );
 };
 
+// An unmarked schema merges as a union, or sets a value.
+const kindIn = (schema: z.ZodType): Kind => {
+  const kind = kindOf(schema);
+  if (kind != null) return kind;
+  return unionOf(schema) == null ? VALUE : { kind: "union", update: schema };
+};
+
 const kindAt = (shape: Shape, field: string): Kind => {
   const schema = shape[field];
   if (schema == null) throw new Error(`The update schema holds no field ${field}`);
-  const kind = kindOf(schema);
-  if (kind == null) throw new Error(`${field} is not an update field`);
+  const kind = kindIn(schema);
+  if (kind.kind === "value" && FACTORY_TYPES.has(zod.unwrap(schema)._zod.def.type))
+    throw new Error(`${field} is not an update field`);
   return kind;
 };
 
@@ -137,13 +169,19 @@ const merge = (
     if (current == null) return build(shapeOf(u), shapeOf(t), {}, partial);
     return mergeObject(shapeOf(u), shapeOf(t), asObject(current), partial);
   }
-  const records = recordUnionOf(t);
+  const records = requireUnion(t);
   const { discriminator } = union;
   const type = partial[discriminator];
   const fields = omit(partial, discriminator);
+  const base = asObject(current);
+  if (type === undefined) {
+    if (current == null) throw new Error(`${discriminator} is required`);
+    const baseShape = union.base == null ? {} : shapeOf(union.base);
+    const recordShape = shapeOf(optionOf(records, base[discriminator]));
+    return mergeObject(baseShape, recordShape, base, fields);
+  }
   const updateShape = shapeOf(optionOf(union, type));
   const recordShape = shapeOf(optionOf(records, type));
-  const base = asObject(current);
   if (current != null && base[discriminator] === type)
     return mergeObject(updateShape, recordShape, base, fields);
   const seed: record.Unknown = { [discriminator]: type };
@@ -198,18 +236,22 @@ const applyField = (
   current: unknown,
   change: unknown,
 ): unknown => {
+  if (change === null) {
+    if (kind.kind !== "change" || field._zod.optout !== "optional")
+      throw new Error("a required field cannot be cleared");
+    return undefined;
+  }
   switch (kind.kind) {
-    case "change": {
-      if (change === null) {
-        if (field._zod.optout !== "optional")
-          throw new Error("a required field cannot be cleared");
-        return undefined;
-      }
-      const inner = kindOf(kind.value);
-      return inner?.kind === "struct" ? applyStruct(inner, current, change) : change;
-    }
+    case "value":
+      return change;
+    case "change":
+      return applyField(kindIn(kind.value), field, current, change);
     case "struct":
-      return applyStruct(kind, current, change);
+      return replaces(change)
+        ? change[SET]
+        : merge(kind.update, kind.full, current, change as record.Unknown);
+    case "union":
+      return merge(kind.update, field, current, change as record.Unknown);
     case "list":
       return applyList(
         current,
@@ -221,11 +263,6 @@ const applyField = (
       return applyList(current, change as ListOps, (e) => e);
   }
 };
-
-const applyStruct = (kind: StructKind, current: unknown, change: unknown): unknown =>
-  replaces(change)
-    ? change[SET]
-    : merge(kind.update, kind.full, current, change as record.Unknown);
 
 const applyList = (
   current: unknown,
@@ -251,7 +288,7 @@ const applyList = (
   update?.forEach((u) => {
     const i = indexOf(u[KEY]);
     if (mergeEntry == null) throw new Error("A value list has no update operator");
-    list[i] = mergeEntry(list[i], u);
+    list[i] = withKey(u[KEY], () => mergeEntry(list[i], u));
   });
   list = appendUnique(list, insert ?? [], keyOf);
   move?.forEach(({ key, after }) => {
@@ -261,6 +298,17 @@ const applyList = (
     list.splice(after == null ? 0 : indexOf(after) + 1, 0, entry);
   });
   return list;
+};
+
+// Runs fn, and starts the message of an error that it throws with the key of an entry.
+const withKey = <R>(key: unknown, fn: () => R): R => {
+  try {
+    return fn();
+  } catch (e) {
+    const message = `${String(key)}: ${errors.fromUnknown(e).message}`;
+    if (StaleError.matches(e)) throw new StaleError(message, { cause: e });
+    throw new Error(message, { cause: e });
+  }
 };
 
 const appendUnique = (
@@ -286,15 +334,16 @@ export interface AppliedUpdate<U extends z.ZodType, T extends z.ZodType> {
 
 /**
  * Applies an update to a record without changing the record. A merge into an absent
- * struct starts from its defaults. A union that changes its discriminator keeps the
+ * struct starts from its defaults. A union partial with no discriminator merges base
+ * fields into the current variant. A union that changes its discriminator keeps the
  * fields that every variant holds, and fills absent variant fields with their
  * defaults.
  *
  * @param schemas - The schema of the update value, and the record schema for defaults.
  * @throws {StaleError} if a guard does not hold or a list key is missing.
  * @throws {Error} if the update clears a required field, combines set with another
- * operator, inserts a key that exists, or leaves out a field with no default of a new
- * struct or variant.
+ * operator, inserts a key that exists, gives no discriminator for an absent union, or
+ * leaves out a field with no default of a new struct or variant.
  */
 export const applyUpdate = <U extends z.ZodType, T extends z.ZodType>(
   { u, t }: StructSchemas<U, T>,
@@ -374,15 +423,15 @@ const diffField = (
   guards: Guard[],
 ): unknown => {
   switch (kind.kind) {
-    case "change": {
+    case "value":
+      return cur;
+    case "change":
       if (cur === undefined) return null;
-      const inner = kindOf(kind.value);
-      return inner?.kind === "struct"
-        ? diffStruct(inner, prev, cur, path, guards)
-        : cur;
-    }
+      return diffField(kindIn(kind.value), prev, cur, path, guards);
     case "struct":
-      return diffStruct(kind, prev, cur, path, guards);
+    case "union":
+      if (prev == null) return replaceWith(kind, cur);
+      return diffMerge(kind.update, prev, cur, path, guards);
     case "list":
       return diffList(
         asList(prev),
@@ -399,18 +448,33 @@ const diffField = (
   }
 };
 
-const diffStruct = (
-  kind: StructKind,
-  prev: unknown,
-  cur: unknown,
-  path: string[],
-  guards: Guard[],
-): unknown =>
-  prev == null ? { [SET]: cur } : diffMerge(kind.update, prev, cur, path, guards);
-
+// Builds the change that turns any value of the field into value.
 const replaceWith = (kind: Kind, value: unknown): unknown => {
-  if (kind.kind === "change" && kindOf(kind.value)?.kind !== "struct") return value;
-  return { [SET]: value };
+  switch (kind.kind) {
+    case "value":
+      return value;
+    case "change":
+      return replaceWith(kindIn(kind.value), value);
+    case "union":
+      return replaceUnion(kind.update, asObject(value));
+    case "struct":
+    case "list":
+    case "valueList":
+      return { [SET]: value };
+  }
+};
+
+// A union has no set, so the change names the variant and replaces each field.
+const replaceUnion = (u: $ZodType, value: record.Unknown): record.Unknown => {
+  const union = requireUnion(u);
+  const { discriminator } = union;
+  const type = value[discriminator];
+  const shape = shapeOf(optionOf(union, type));
+  const partial: record.Unknown = { [discriminator]: type };
+  Object.entries(omit(value, discriminator)).forEach(([k, v]) => {
+    if (v !== undefined) partial[k] = replaceWith(kindAt(shape, k), v);
+  });
+  return partial;
 };
 
 const diffList = (
@@ -507,28 +571,31 @@ const nestAt = (
   const field = path[i];
   const kind = kindAt(shapeOf(schema), field);
   if (i + 1 === path.length) return { [field]: leaf };
-  const child = asObject(doc)[field];
+  return { [field]: nestInto(kind, asObject(doc)[field], path, i + 1, leaf) };
+};
+
+const nestInto = (
+  kind: Kind,
+  doc: unknown,
+  path: string[],
+  i: number,
+  leaf: unknown,
+): unknown => {
   switch (kind.kind) {
-    case "change": {
-      const inner = kindOf(kind.value);
-      if (inner?.kind !== "struct")
-        throw new Error(`${formatPath(path.slice(0, i + 1))} holds no fields`);
-      return { [field]: nestAt(inner.update, child, path, i + 1, leaf) };
-    }
+    case "change":
+      return nestInto(kindIn(kind.value), doc, path, i, leaf);
     case "struct":
-      return { [field]: nestAt(kind.update, child, path, i + 1, leaf) };
+    case "union":
+      return nestAt(kind.update, doc, path, i, leaf);
     case "list": {
-      const key = path[i + 1];
-      const entry = asList(child).find((e) => String(asObject(e)[KEY]) === key);
-      const inner = nestAt(kind.update, entry, path, i + 2, leaf);
-      return {
-        [field]: {
-          update: [{ [KEY]: asObject(entry)[KEY] ?? key, ...asObject(inner) }],
-        },
-      };
+      const key = path[i];
+      const entry = asList(doc).find((e) => String(asObject(e)[KEY]) === key);
+      const inner = nestAt(kind.update, entry, path, i + 1, leaf);
+      return { update: [{ [KEY]: asObject(entry)[KEY] ?? key, ...asObject(inner) }] };
     }
+    case "value":
     case "valueList":
-      throw new Error(`${formatPath(path.slice(0, i + 1))} holds no fields`);
+      throw new Error(`${formatPath(path.slice(0, i))} holds no fields`);
   }
 };
 
