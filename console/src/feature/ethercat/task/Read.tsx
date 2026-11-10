@@ -26,6 +26,7 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
+  fillStartupParameters,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
@@ -46,7 +47,7 @@ import {
   readChannelOf,
   readDataType,
   type ReadSchemas,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -162,7 +163,7 @@ const createSlaveChannels = async (
   key: string,
 ): Promise<ReadChannel[]> => {
   const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const inputs = uniqueEntries(slave.properties.pdos.inputs);
+  const inputs = usableEntries(slave.properties, "inputs");
   if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
   return inputs.map((entry) => createEntryReadChannel(key, entry));
 };
@@ -201,6 +202,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
+  // The settings and name checks run before any create, so their failure leaves
+  // nothing behind.
+  config.startupParameters = fillStartupParameters(
+    slaves,
+    config.channels,
+    config.startupParameters,
+  );
   const dataTypes = toDataTypes(
     await client.channels.retrieve(readChannelKeys(slaves)),
   );
@@ -209,7 +217,6 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const missing = channels.filter((ch) => readChannelOf(slave, ch, dataTypes) === 0);
     return { slave, channels, missing };
   });
-  // The name check runs before any create, so its failure leaves nothing behind.
   checkNamesUnique(
     plans.flatMap(({ slave, missing }) =>
       missing.map((ch) => readChannelName(slave, ch, dataTypes)),

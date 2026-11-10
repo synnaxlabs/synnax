@@ -54,6 +54,8 @@ type options struct {
 	after FaultOp
 	// beforeWrite runs at the start of every File.Write.
 	beforeWrite func()
+	// beforeRemove runs at the start of every FS.Remove.
+	beforeRemove func()
 }
 
 func newOptions(opts ...FaultyFSOption) options {
@@ -124,6 +126,12 @@ func WithFailAfter(op FaultOp) FaultyFSOption {
 // test can use it to hold a write in progress.
 func WithBeforeWrite(f func()) FaultyFSOption {
 	return func(o *options) { o.beforeWrite = f }
+}
+
+// WithBeforeRemove runs f at the start of every FS.Remove, and the removal waits for f.
+// A test can use it to hold a removal in progress.
+func WithBeforeRemove(f func()) FaultyFSOption {
+	return func(o *options) { o.beforeRemove = f }
 }
 
 // FaultyFS wraps an FS to fail the operations its options select. It also counts the
@@ -220,6 +228,12 @@ func (fs *FaultyFS) Stat(name string) (xfs.FileInfo, error) {
 
 // Remove returns ErrFault when WithFailRemove covers name, and removes otherwise.
 func (fs *FaultyFS) Remove(name string) error {
+	fs.mu.Lock()
+	before := fs.mu.opts.beforeRemove
+	fs.mu.Unlock()
+	if before != nil {
+		before()
+	}
 	if err := fs.fault(FaultOpRemove, name); err != nil {
 		return err
 	}

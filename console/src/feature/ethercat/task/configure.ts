@@ -10,6 +10,8 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
+import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
+import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
@@ -21,6 +23,7 @@ import {
   DIRECTIONS,
   entryAt,
   type EntryChannel,
+  type EntryReadChannel,
   getUnresolvedMessage,
   hasEntry,
   mappedChannels,
@@ -69,6 +72,12 @@ const validateEntries = <C extends Channel>(
           `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
             "Pick an entry.",
         );
+      const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
+      if (reader != null)
+        throw new Error(
+          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+            "reads. Open the device settings of the slave to change its setup.",
+        );
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
       if (
@@ -95,7 +104,8 @@ const validateEntries = <C extends Channel>(
  * Retrieves the slaves the channels use and checks the entries of the enabled channels.
  * @returns the slaves, their rack, and the enabled channels of each slave.
  * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, or an entry another channel uses.
+ * no entry, an entry its slave lacks, an input that only another program reads, or an
+ * entry another channel uses.
  */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
@@ -134,6 +144,43 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
     );
 
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
+};
+
+/**
+ * @returns the startup parameters of each slave: a value for every field of each input
+ * that an enabled channel reads, in the order of the slave's catalog. Values the task
+ * held stay. A slave that other software sets up gets none.
+ * @throws {Error} if a value breaks a limit or a rule of the catalog.
+ */
+export const fillStartupParameters = (
+  slaves: SlaveDevice[],
+  channels: ReadChannel[],
+  held: ethercat.SlaveStartupParameters[],
+): ethercat.SlaveStartupParameters[] => {
+  const filled: ethercat.SlaveStartupParameters[] = [];
+  for (const slave of slaves) {
+    if (isShared(slave.properties)) continue;
+    const inputs = slave.properties.settings?.channels ?? [];
+    const entries = channels.filter(
+      (ch): ch is EntryReadChannel =>
+        hasEntry(ch) && !ch.disabled && ch.device === slave.key,
+    );
+    const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
+    const parameters: ethercat.StartupParameter[] = [];
+    for (const input of inputs) {
+      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
+      if (ch == null) continue;
+      const filledInput = fill(input.settings, prior);
+      const [problem] = check(input, filledInput);
+      if (problem != null)
+        throw new Error(
+          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
+        );
+      parameters.push(...filledInput);
+    }
+    if (parameters.length > 0) filled.push({ device: slave.key, parameters });
+  }
+  return filled;
 };
 
 export interface IndexOptions {
