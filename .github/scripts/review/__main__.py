@@ -89,9 +89,15 @@ def claude(args: list[str], stdin: str, cwd: Path) -> Iterator[str]:
                 proc.stdin.write(stdin)
             with contextlib.suppress(BrokenPipeError):
                 proc.stdin.close()
-            yield from proc.stdout
+            last = ""
+            for line in proc.stdout:
+                last = line if line.strip() else last
+                yield line
         if proc.returncode:
-            raise subprocess.CalledProcessError(proc.returncode, args)
+            # Claude Code prints why it failed on stdout, as its last stream-json event.
+            e = subprocess.CalledProcessError(proc.returncode, args, output=last)
+            e.add_note(f"claude printed last: {last.strip() or 'nothing'}")
+            raise e
 
 
 def review(target: Target, path: Path, *, replay: bool) -> None:

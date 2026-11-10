@@ -707,6 +707,25 @@ class TestLaunch:
             list(launch(["claude"], "x" * 1_000_000, tmp_path))
         assert e.value.returncode == 3
 
+    def test_should_report_the_last_event_when_claude_fails(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        bindir = tmp_path / "bin"
+        bindir.mkdir()
+        executable(
+            bindir / "claude",
+            "sys.stdin.read()\n"
+            "print(json.dumps({'type': 'system'}))\n"
+            "print(json.dumps({'type': 'result', 'is_error': True,"
+            " 'result': 'Usage limit reached.'}))\n"
+            "sys.exit(1)\n",
+        )
+        monkeypatch.setenv("PATH", f"{bindir}{os.pathsep}{os.environ['PATH']}")
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "claude-token")
+        with pytest.raises(subprocess.CalledProcessError) as e:
+            list(launch(["claude"], "Review it.", tmp_path))
+        assert "Usage limit reached." in e.value.__notes__[0]
+
 
 def executable(path: Path, body: str) -> None:
     path.write_text(f"#!/usr/bin/env python3\nimport json, sys\n{body}")
