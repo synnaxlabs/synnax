@@ -749,6 +749,15 @@ var _ = Describe("Expressions", func() {
 					result := identity(identity(identity(5)))
 				}
 			`),
+			Entry("a call added to a literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + identity(5.0)
+				}
+			`),
 		)
 
 		DescribeTable(
@@ -869,6 +878,49 @@ var _ = Describe("Expressions", func() {
 					return x()
 				}
 			`, "cannot call non-function"),
+			Entry("calling an integer literal", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := 1 + 2(identity(5))
+				}
+			`, "cannot call non-function 2"),
+			Entry("calling a float literal", `
+				func identity() {x f64} f64 {
+					return x
+				}
+
+				func testFunc() {
+					result := 2.0 + 1.0(identity(5.0))
+				}
+			`, "cannot call non-function 1.0"),
+			Entry("calling a parenthesized expression", `
+				func testFunc() {
+					result := (1 + 2)(3)
+				}
+			`, "cannot call non-function (1+2)"),
+			Entry("calling a type cast", `
+				func testFunc() {
+					result := f32(1)(2)
+				}
+			`, "cannot call non-function f32(1)"),
+			Entry("calling the result of a call", `
+				func identity() {x i32} i32 {
+					return x
+				}
+
+				func testFunc() {
+					result := identity(1)(2)
+				}
+			`, "cannot call non-function identity(1)"),
+			Entry("calling an indexed value", `
+				func testFunc() {
+					s series i32 := [1, 2, 3]
+					result := s[0](2)
+				}
+			`, "cannot call non-function s[0]"),
 		)
 
 		It(
