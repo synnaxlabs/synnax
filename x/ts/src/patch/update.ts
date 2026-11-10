@@ -96,10 +96,16 @@ const unionOf = (schema: $ZodType): Union | undefined => {
   return { ...union, base };
 };
 
+const objectShapeOf = (schema: $ZodType): Shape | undefined =>
+  (zod.unwrap(schema)._zod.def as { shape?: Shape }).shape;
+
 const shapeOf = (schema: $ZodType): Shape => {
-  const def = zod.unwrap(schema)._zod.def as { type: string; shape?: Shape };
-  if (def.shape == null) throw new Error(`Expected an object schema, got ${def.type}`);
-  return def.shape;
+  const shape = objectShapeOf(schema);
+  if (shape == null)
+    throw new Error(
+      `Expected an object schema, got ${zod.unwrap(schema)._zod.def.type}`,
+    );
+  return shape;
 };
 
 const optionOf = (union: Union, value: unknown): $ZodType => {
@@ -179,8 +185,10 @@ const merge = (
 ): record.Unknown => {
   const union = unionOf(u);
   if (union == null) {
-    if (current == null) return build(shapeOf(u), shapeOf(t), {}, partial);
-    return mergeObject(shapeOf(u), shapeOf(t), asObject(current), partial);
+    const recordShape = objectShapeOf(t);
+    if (recordShape == null) return mergeParsed(u, t, current, partial);
+    if (current == null) return build(shapeOf(u), recordShape, {}, partial);
+    return mergeObject(shapeOf(u), recordShape, asObject(current), partial);
   }
   const records = requireUnion(t);
   const { discriminator } = union;
@@ -202,6 +210,22 @@ const merge = (
     if (base[k] !== undefined) seed[k] = base[k];
   });
   return build(updateShape, recordShape, seed, fields);
+};
+
+// Merges partial by the shape of u into a record whose schema t has no object shape,
+// such as a class with its own schema, and parses the result with t.
+const mergeParsed = (
+  u: $ZodType,
+  t: $ZodType,
+  current: unknown,
+  partial: record.Unknown,
+): record.Unknown => {
+  const shape = shapeOf(u);
+  const merged =
+    current == null
+      ? build(shape, shape, {}, partial)
+      : mergeObject(shape, shape, asObject(current), partial);
+  return (t as z.ZodType).parse(merged) as record.Unknown;
 };
 
 // Builds a value from the defaults of recordShape and seed, merged with partial.

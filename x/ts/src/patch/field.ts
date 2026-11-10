@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { z } from "zod";
-import { type $ZodRecordKey } from "zod/v4/core";
+import { type $strict, type $ZodRecordKey } from "zod/v4/core";
 
 import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
@@ -70,6 +70,25 @@ export interface ListSchemas<
 }
 
 /**
+ * The schema that {@link listZ} returns. A named type keeps the declarations of large
+ * update schemas under the length that the compiler serializes.
+ */
+export interface ListZ<
+  E extends z.ZodType,
+  K extends z.ZodType,
+  U extends z.ZodType,
+> extends z.ZodObject<
+  {
+    set: z.ZodOptional<z.ZodArray<E>>;
+    insert: z.ZodOptional<z.ZodArray<E>>;
+    remove: z.ZodOptional<z.ZodArray<K>>;
+    update: z.ZodOptional<z.ZodArray<U>>;
+    move: z.ZodOptional<z.ZodArray<ReturnType<typeof listMoveZ<K>>>>;
+  },
+  $strict
+> {}
+
+/**
  * Builds the schema of the operators that change a list of entries with a key. The
  * operators apply in the order remove, update, insert, then move, and set replaces the
  * list alone.
@@ -78,7 +97,7 @@ export const listZ = <E extends z.ZodType, K extends z.ZodType, U extends z.ZodT
   e,
   k,
   u,
-}: ListSchemas<E, K, U>) =>
+}: ListSchemas<E, K, U>): ListZ<E, K, U> =>
   mark(
     z.strictObject({
       set: e.array().optional(),
@@ -112,6 +131,21 @@ export interface MapSchemas<
   u: U;
 }
 
+/** The schema that {@link typedMapZ} returns, named as {@link ListZ} is. */
+export interface TypedMapZ<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> extends z.ZodObject<
+  {
+    set: z.ZodOptional<z.ZodRecord<K, V>>;
+    insert: z.ZodOptional<z.ZodRecord<K, V>>;
+    remove: z.ZodOptional<z.ZodArray<K>>;
+    update: z.ZodOptional<z.ZodRecord<K, U>>;
+  },
+  $strict
+> {}
+
 /**
  * Builds the schema of the operators that change a map whose values have a schema. The
  * operators apply in the order remove, update, then insert, and set replaces the map
@@ -125,7 +159,7 @@ export const typedMapZ = <
   k,
   v,
   u,
-}: MapSchemas<K, V, U>) =>
+}: MapSchemas<K, V, U>): TypedMapZ<K, V, U> =>
   mark(
     z.strictObject({
       set: caseconv.preserveKeys(z.record(k, v).optional()),
