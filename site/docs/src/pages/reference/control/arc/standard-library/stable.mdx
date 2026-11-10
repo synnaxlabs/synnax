@@ -43,7 +43,7 @@ change of the trigger value.
 `stable.for` compares sample timestamps only, so a batch that arrives late does not
 close the window early. A hold needs a second sample with the same value, so a channel
 that writes only new values never triggers `stable.for`. `stable.for` resets on stage
-entry.
+entry. In this example, `high_pt` is a `boolean` channel:
 
 ```arc channels="tank_pt, high_pt"
 import stable

@@ -233,10 +233,21 @@ Then names can have any characters, and two channels can have the same name.
 <Problem.List>
 
 <Problem.Item
-  message={"cannot delete channel <index> because it indexes data in channel <data>"}
+  id="index-in-use"
+  message={"cannot delete channel <index> because channel <data> uses it as its index"}
 >
   <Problem.Cause>Data channels use this index.</Problem.Cause>
   <Problem.Fix>Delete them first, or in the same call.</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item
+  id="task-uses-channel"
+  message={"cannot delete channel <name> because task <task> uses it"}
+>
+  <Problem.Cause>A hardware task reads or writes the channel.</Problem.Cause>
+  <Problem.Fix>
+    Remove the channel from the task, or delete the task. Then delete the channel.
+  </Problem.Fix>
 </Problem.Item>
 
 <Problem.Item message={"there are <n> unclosed writers/iterators accessing it"}>

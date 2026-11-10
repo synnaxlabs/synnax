@@ -7,48 +7,72 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
+import { arc as clientArc, type resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Haul } from "@synnaxlabs/lyra/haul";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { retrieveRootDirectoryID } from "@/platform/arc/testutil";
 import { Modals } from "@/platform/modals";
 import { createActiveState } from "@/platform/project/testutil";
+import { Tree } from "@/platform/tree";
+import {
+  expandTreeRow,
+  findTreeRow,
+  itemName,
+  openTreeRootContextMenu,
+  openTreeRowContextMenu,
+  searchTree,
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
-  awaitTextEditing,
+  awaitTextEditingElement,
   commitTextEdit,
   createConsoleWrapper,
   getIconButton,
+  renderSuspended,
   resolveFocusedTab,
   type TestStore,
   uniqueName,
+  uniqueToken,
 } from "@/testutil";
 
 const client = createTestClient();
 
-const createArc = async () =>
+const createArc = async (name: string = uniqueName("arc")) =>
   await client.arcs.create({
-    name: uniqueName("arc"),
+    name,
     type: "automation",
     source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
+
+const createDirectory = async (parent: resource.ID) =>
+  await client.arcs.directories.create({ parent: parent.key, name: uniqueName("dir") });
 
 const renderToolbar = async (): Promise<{ store: TestStore }> => {
   const proj = await client.projects.create({
     name: uniqueName("project"),
   });
-  const { wrapper, store } = await createConsoleWrapper({
+  const { wrapper: Console, store } = await createConsoleWrapper({
     client,
     preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
   });
-  render(
+  const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Haul.Provider>
+        <Tree.Provider items={Arc.TREE_ITEMS}>{children}</Tree.Provider>
+      </Haul.Provider>
+    </Console>
+  );
+  await renderSuspended(
     <>
       {Arc.TOOLBAR.content}
       <Modals.Stack />
     </>,
-    { wrapper },
+    { wrapper: Wrapper },
   );
   return { store };
 };
@@ -59,20 +83,26 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
   return tab.resource.key;
 };
 
-const openTabs = async (store: TestStore): Promise<panel.Tab[]> => {
-  const panelKey = Session.Panel.selectSelected(store.getState());
-  if (panelKey == null) throw new Error("no panel selected");
-  const { root } = await client.panels.retrieve(panelKey);
-  if (root.variant !== "leaf") throw new Error("expected a leaf panel root");
-  return root.tabs;
-};
-
 describe("arc/Toolbar", () => {
-  it("renders a created arc with its deployment state", async () => {
+  it("shows an Arc in the Arcs directory as a tree row", async () => {
     const arc = await createArc();
     await renderToolbar();
-    expect(await screen.findByText(arc.name)).toBeTruthy();
-    expect((await screen.findAllByText("Stopped")).length).toBeGreaterThan(0);
+    expect(await findTreeRow(arc.name)).toBeTruthy();
+  });
+
+  it("shows an Arc inside a directory once the directory is expanded", async () => {
+    const arcsID = await retrieveRootDirectoryID(client);
+    const dir = await createDirectory(arcsID);
+    const arc = await createArc();
+    await client.arcs.directories.move(
+      arcsID,
+      clientArc.directory.resourceID(dir.key),
+      clientArc.resourceID(arc.key),
+    );
+    await renderToolbar();
+    await findTreeRow(dir.name);
+    expandTreeRow(dir.name);
+    expect(await findTreeRow(arc.name)).toBeTruthy();
   });
 
   it("opens the explorer view from the explorer action", async () => {
@@ -102,36 +132,15 @@ describe("arc/Toolbar", () => {
   it("opens the arc editor on double click", async () => {
     const arc = await createArc();
     const { store } = await renderToolbar();
-    fireEvent.doubleClick(await screen.findByText(arc.name));
+    fireEvent.doubleClick(await findTreeRow(arc.name));
     expect(await focusedResourceKey(store)).toBe(arc.key);
-  });
-
-  it("keeps the editor closed when the start button is double clicked", async () => {
-    const started = await createArc();
-    const opened = await createArc();
-    const { store } = await renderToolbar();
-    await screen.findByText(started.name);
-    await screen.findByText(opened.name);
-    // The start button mounts only once the update permission resolves, so poll the
-    // row for it instead of reading it off the first render.
-    const start = await waitFor(() => {
-      const row = document.getElementById(started.key);
-      if (row == null) throw new Error(`no list item for ${started.name}`);
-      return getIconButton(row, "play");
-    });
-    fireEvent.doubleClick(start);
-    // Opening the other arc gives a leaked double click time to land, so the tab count
-    // below is not read before the editor would have appeared.
-    fireEvent.doubleClick(screen.getByText(opened.name));
-    expect(await focusedResourceKey(store)).toBe(opened.key);
-    expect(await openTabs(store)).toHaveLength(1);
   });
 
   describe("context menu", () => {
     it("opens the editor from Edit", async () => {
       const arc = await createArc();
       const { store } = await renderToolbar();
-      fireEvent.contextMenu(await screen.findByText(arc.name));
+      await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Edit"));
       expect(await focusedResourceKey(store)).toBe(arc.key);
     });
@@ -139,14 +148,105 @@ describe("arc/Toolbar", () => {
     it("renames the arc through the inline editor", async () => {
       const arc = await createArc();
       await renderToolbar();
-      fireEvent.contextMenu(await screen.findByText(arc.name));
+      await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Rename"));
-      const editor = await awaitTextEditing(`text-${arc.key}`);
       const renamed = uniqueName("renamed");
-      commitTextEdit(editor, renamed);
+      commitTextEdit(await awaitTextEditingElement(), renamed);
       await waitFor(async () =>
         expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
       );
     });
+
+    it("moves an Arc into a new directory from its menu", async () => {
+      const arc = await createArc();
+      const arcsID = await retrieveRootDirectoryID(client);
+      await renderToolbar();
+      await openTreeRowContextMenu(arc.name);
+      await act(async () => {
+        fireEvent.click(await screen.findByText("New directory"));
+      });
+      const name = uniqueName("dir");
+      commitTextEdit(await awaitTextEditingElement(), name);
+      await waitFor(async () => {
+        const children = await client.arcs.directories.retrieve({
+          parents: [arcsID.key],
+        });
+        const dir = children.find((d) => d.name === name);
+        expect(dir).toBeDefined();
+        expect((await client.arcs.retrieve(arc.key)).directory).toBe(dir?.key);
+      });
+    });
+
+    it("creates a directory from the menu on empty space", async () => {
+      const arc = await createArc();
+      const arcsID = await retrieveRootDirectoryID(client);
+      await renderToolbar();
+      await findTreeRow(arc.name);
+      await openTreeRootContextMenu();
+      await act(async () => {
+        fireEvent.click(await screen.findByText("New directory"));
+      });
+      const name = uniqueName("dir");
+      commitTextEdit(await awaitTextEditingElement(), name);
+      await waitFor(async () => {
+        const children = await client.arcs.directories.retrieve({
+          parents: [arcsID.key],
+        });
+        expect(children.some((r) => r.name === name)).toBe(true);
+      });
+    });
+  });
+});
+
+describe("arc/Toolbar search", () => {
+  it("finds an Arc by name and shows its directory", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_arc`;
+    const arcsID = await retrieveRootDirectoryID(client);
+    const dir = await createDirectory(arcsID);
+    const arc = await createArc(name);
+    await client.arcs.directories.move(
+      arcsID,
+      clientArc.directory.resourceID(dir.key),
+      clientArc.resourceID(arc.key),
+    );
+    await renderToolbar();
+    searchTree(tok);
+    const row = await findTreeRow(itemName(name));
+    expect(row.querySelector("mark")?.textContent).toBe(tok);
+    expect(row.textContent).toContain(dir.name);
+  });
+
+  it("finds a directory by name", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_dir`;
+    await client.arcs.directories.create({
+      parent: (await retrieveRootDirectoryID(client)).key,
+      name,
+    });
+    await renderToolbar();
+    searchTree(tok);
+    expect(await findTreeRow(itemName(name))).toBeTruthy();
+  });
+
+  it("never finds the Arcs directory itself", async () => {
+    const root = await client.arcs.directories.retrieveRoot();
+    const name = `${root.name}_${uniqueToken()}`;
+    await client.arcs.directories.create({ parent: root.key, name });
+    await renderToolbar();
+    searchTree(root.name);
+    await findTreeRow(itemName(name));
+    const rows = [...document.querySelectorAll(".lyra-tree__item")];
+    expect(rows.map((r) => r.textContent)).not.toContain(root.name);
+  });
+
+  it("opens the arc editor from a search result on double click", async () => {
+    const tok = uniqueToken();
+    const name = `${tok}_arc`;
+    const arc = await createArc(name);
+    const { store } = await renderToolbar();
+    searchTree(tok);
+    fireEvent.doubleClick(await findTreeRow(itemName(name)));
+    expect(await focusedResourceKey(store)).toBe(arc.key);
   });
 });
