@@ -35,12 +35,14 @@ const diZ = z.object({
 const channelZ = z.discriminatedUnion("type", [aiZ, diZ]);
 const configZ = z.object({ rate: z.number(), channels: channelZ.array() });
 const limitsZ = z.object({ low: z.number().default(0), high: z.number() });
+const vectorCellZ = z.object({ value: z.string(), width: z.number() });
 const docZ = z.object({
   name: z.string(),
   group: z.string().optional(),
   config: configZ,
   limits: limitsZ.optional(),
   tags: z.string().array(),
+  cells: z.record(z.string(), vectorCellZ).optional(),
 });
 type Doc = z.infer<typeof docZ>;
 
@@ -73,6 +75,16 @@ const docUpdateZ = z.strictObject({
   config: patch.structZ({ u: configUpdateZ, t: configZ }).optional(),
   limits: patch.changeZ(patch.structZ({ u: limitsUpdateZ, t: limitsZ })).optional(),
   tags: patch.valueListZ(z.string()).optional(),
+  cells: patch
+    .typedMapZ({
+      k: z.string(),
+      v: vectorCellZ,
+      u: z.strictObject({
+        value: patch.changeZ(z.string()).optional(),
+        width: patch.changeZ(z.number()).optional(),
+      }),
+    })
+    .optional(),
 });
 const schemas = { u: docUpdateZ, t: docZ };
 const updateZ = patch.updateZ(docUpdateZ);
@@ -255,7 +267,7 @@ describe("nest", () => {
       "The update schema holds no field speed",
     );
     expect(() => patch.nest(docUpdateZ, vectors.doc, ["name", "first"], 1)).toThrow(
-      "[name] holds no fields",
+      "name holds no fields",
     );
   });
 
@@ -712,7 +724,194 @@ describe("generated update shapes", () => {
         props: { slot: 2 },
       });
       expect(() => patch.nest(taskUpdateZ, task, ["props", "rack"], 2)).toThrow(
-        "[props] holds no fields",
+        "props holds no fields",
+      );
+    });
+  });
+});
+
+const cellZ = z.object({ value: z.string(), width: z.number().default(1) });
+const cellUpdateZ = z.object({
+  value: z.string().optional(),
+  width: z.number().optional(),
+});
+const sheetZ = z.object({
+  cells: z.record(z.string(), cellZ),
+  widths: z.record(z.string(), z.number()),
+  scales: z.record(z.string(), scaleZ),
+});
+type Sheet = z.infer<typeof sheetZ>;
+const sheetUpdateZ = z.object({
+  cells: patch.typedMapZ({ k: z.string(), v: cellZ, u: cellUpdateZ }).optional(),
+  widths: patch.typedMapZ({ k: z.string(), v: z.number(), u: z.number() }).optional(),
+  scales: patch.typedMapZ({ k: z.string(), v: scaleZ, u: scaleUpdateZ }).optional(),
+});
+const sheetSchemas = { u: sheetUpdateZ, t: sheetZ };
+const sheetPayloadZ = patch.updateZ(sheetUpdateZ);
+const sheet: Sheet = {
+  cells: { c1: { value: "Pressure", width: 2 }, c2: { value: "Flow", width: 1 } },
+  widths: { c1: 10 },
+  scales: { s1: { type: "linear", slope: 2, offset: 0 } },
+};
+
+const applySheet = (value: unknown, doc: Sheet = sheet): Sheet =>
+  patch.applyUpdate(sheetSchemas, doc, sheetPayloadZ.parse({ value })).next;
+
+describe("typed maps", () => {
+  describe("applyUpdate", () => {
+    it("should remove, merge, and insert by key", () => {
+      expect(
+        applySheet({
+          cells: {
+            remove: ["c2"],
+            update: { c1: { value: "Temperature" } },
+            insert: { c3: { value: "Level", width: 1 } },
+          },
+        }).cells,
+      ).toEqual({
+        c1: { value: "Temperature", width: 2 },
+        c3: { value: "Level", width: 1 },
+      });
+    });
+
+    it("should remove a key before an insert of the same key", () => {
+      expect(
+        applySheet({
+          cells: { remove: ["c2"], insert: { c2: { value: "Mass", width: 3 } } },
+        }).cells.c2,
+      ).toEqual({ value: "Mass", width: 3 });
+    });
+
+    it("should replace the whole map with set", () => {
+      expect(applySheet({ cells: { set: {} } }).cells).toEqual({});
+    });
+
+    it("should replace a plain value with its update", () => {
+      expect(applySheet({ widths: { update: { c1: 4 } } }).widths).toEqual({ c1: 4 });
+    });
+
+    it("should merge a union value of the same variant", () => {
+      expect(
+        applySheet({ scales: { update: { s1: { type: "linear", offset: 1 } } } }).scales
+          .s1,
+      ).toEqual({ type: "linear", slope: 2, offset: 1 });
+    });
+
+    it("should fill the defaults of a union value that changes variant", () => {
+      expect(
+        applySheet({ scales: { update: { s1: { type: "map", max: 5 } } } }).scales.s1,
+      ).toEqual({ type: "map", min: 0, max: 5 });
+    });
+
+    const failures: [string, unknown, Required<Vector>["error"]][] = [
+      [
+        "a set beside another operator",
+        { cells: { set: {}, remove: ["c1"] } },
+        { kind: "validation", message: "set cannot be combined with other operators" },
+      ],
+      [
+        "a remove of a missing key",
+        { cells: { remove: ["c9"] } },
+        { kind: "stale", message: "c9 not found" },
+      ],
+      [
+        "an update of a missing key",
+        { cells: { update: { c9: { value: "Mass" } } } },
+        { kind: "stale", message: "c9 not found" },
+      ],
+      [
+        "an insert of a key that exists",
+        { cells: { insert: { c1: { value: "Mass", width: 1 } } } },
+        { kind: "unique", message: "c1 already exists" },
+      ],
+      [
+        "a variant change without a required field",
+        { scales: { update: { s1: { type: "map" } } } },
+        { kind: "validation", message: "s1: max is required" },
+      ],
+    ];
+    failures.forEach(([name, value, error]) =>
+      it(`should throw for ${name}`, () => expectError(() => applySheet(value), error)),
+    );
+  });
+
+  describe("diffUpdate", () => {
+    it("should remove gone keys, insert new keys, and update changed values", () => {
+      const next: Sheet = {
+        cells: {
+          c1: { value: "Pressure", width: 3 },
+          c3: { value: "Level", width: 1 },
+        },
+        widths: { c1: 11 },
+        scales: { s1: { type: "linear", slope: 3, offset: 0 } },
+      };
+      expect(patch.diffUpdate(sheetUpdateZ, sheet, next)).toEqual({
+        value: {
+          cells: {
+            remove: ["c2"],
+            update: { c1: { width: 3 } },
+            insert: { c3: { value: "Level", width: 1 } },
+          },
+          widths: { update: { c1: 11 } },
+          scales: { update: { s1: { type: "linear", slope: 3 } } },
+        },
+        guards: [{ path: ["scales", "s1", "type"], value: "linear" }],
+      });
+    });
+
+    const roundTrips: [string, Sheet, Sheet][] = [
+      [
+        "changed values",
+        sheet,
+        {
+          cells: {
+            c1: { value: "Pressure", width: 3 },
+            c3: { value: "Level", width: 1 },
+          },
+          widths: {},
+          scales: { s1: { type: "linear", slope: 3, offset: 0 } },
+        },
+      ],
+      [
+        "a union value that changes variant",
+        sheet,
+        { ...sheet, scales: { s1: { type: "map", min: 0, max: 4 } } },
+      ],
+      ["emptied maps", sheet, { cells: {}, widths: {}, scales: {} }],
+      ["filled maps", { cells: {}, widths: {}, scales: {} }, sheet],
+    ];
+    roundTrips.forEach(([name, base, next]) =>
+      it(`should give an update that applies: ${name}`, () => {
+        const diffed = patch.diffUpdate(sheetUpdateZ, base, next);
+        expect(sheetPayloadZ.parse(diffed)).toEqual(diffed);
+        const applied = patch.applyUpdate(sheetSchemas, base, diffed);
+        expect(applied.next).toEqual(next);
+        expect(patch.applyUpdate(sheetSchemas, next, applied.inverse).next).toEqual(
+          base,
+        );
+      }),
+    );
+  });
+
+  describe("nest", () => {
+    it("should nest into a map value by key", () => {
+      const value = patch.nest(sheetUpdateZ, sheet, ["cells", "c1", "value"], "Mass");
+      expect(value).toEqual({ cells: { update: { c1: { value: "Mass" } } } });
+      expect(applySheet(value).cells.c1).toEqual({ value: "Mass", width: 2 });
+    });
+
+    it("should nest into a union value with the variant that doc holds", () => {
+      expect(patch.nest(sheetUpdateZ, sheet, ["scales", "s1", "slope"], 3)).toEqual({
+        scales: { update: { s1: { type: "linear", slope: 3 } } },
+      });
+    });
+
+    it("should nest a plain value as a leaf", () => {
+      expect(patch.nest(sheetUpdateZ, sheet, ["widths", "c1"], 4)).toEqual({
+        widths: { update: { c1: 4 } },
+      });
+      expect(() => patch.nest(sheetUpdateZ, sheet, ["widths", "c1", "px"], 4)).toThrow(
+        "widths.c1 holds no fields",
       );
     });
   });

@@ -85,7 +85,7 @@ var _ = Describe("Update", func() {
 			})
 			Expect(err).To(And(
 				MatchError(patch.ErrStale),
-				MatchError(ContainSubstring("[type] is not status")),
+				MatchError(ContainSubstring("type is not status")),
 			))
 			Expect(next).To(Equal(v))
 		})

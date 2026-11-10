@@ -840,7 +840,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(dispatch(ctx, alerts.Key, "dk", []task.Action{guarded("rk-9")})).
 				Error().To(SatisfyAll(
 				MatchError(patch.ErrStale),
-				MatchError(ContainSubstring("routing_key] is not rk-9")),
+				MatchError("routing_key is not rk-9: stale"),
 			))
 			expectUnchanged(ctx)
 			MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{guarded("rk-1")}))

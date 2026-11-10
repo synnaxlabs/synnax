@@ -29,13 +29,20 @@ const updateVectorsPath = "../../testdata/update/vectors.json"
 
 // testDoc and its update stand for a generated record and its generated Apply. A
 // channel is a union on type: "ai" has a range and units with defaults, and "di" has a
-// line without one. Limits have a low with a default, and a high without one.
+// line without one. Limits have a low with a default, and a high without one. Cells are
+// a map of structs.
 type testDoc struct {
-	Name   string      `json:"name"`
-	Group  *string     `json:"group,omitzero"`
-	Config testConfig  `json:"config"`
-	Limits *testLimits `json:"limits,omitzero"`
-	Tags   []string    `json:"tags"`
+	Name   string              `json:"name"`
+	Group  *string             `json:"group,omitzero"`
+	Config testConfig          `json:"config"`
+	Limits *testLimits         `json:"limits,omitzero"`
+	Tags   []string            `json:"tags"`
+	Cells  map[string]testCell `json:"cells,omitzero"`
+}
+
+type testCell struct {
+	Value string `json:"value"`
+	Width int    `json:"width"`
 }
 
 type testConfig struct {
@@ -60,11 +67,17 @@ type testLimits struct {
 type testLimitsField = patch.Struct[testLimitsUpdate, testLimits]
 
 type testDocUpdate struct {
-	Name   patch.Change[string]                       `json:"name,omitzero"`
-	Group  patch.Change[string]                       `json:"group,omitzero"`
-	Config patch.Struct[testConfigUpdate, testConfig] `json:"config,omitzero"`
-	Limits patch.Change[testLimitsField]              `json:"limits,omitzero"`
-	Tags   patch.ValueList[string]                    `json:"tags,omitzero"`
+	Name   patch.Change[string]                             `json:"name,omitzero"`
+	Group  patch.Change[string]                             `json:"group,omitzero"`
+	Config patch.Struct[testConfigUpdate, testConfig]       `json:"config,omitzero"`
+	Limits patch.Change[testLimitsField]                    `json:"limits,omitzero"`
+	Tags   patch.ValueList[string]                          `json:"tags,omitzero"`
+	Cells  patch.TypedMap[string, testCell, testCellUpdate] `json:"cells,omitzero"`
+}
+
+type testCellUpdate struct {
+	Value patch.Change[string] `json:"value,omitzero"`
+	Width patch.Change[int]    `json:"width,omitzero"`
 }
 
 type testConfigUpdate struct {
@@ -102,7 +115,17 @@ func (u testDocUpdate) apply(d *testDoc) error {
 	); err != nil {
 		return err
 	}
-	return patch.ApplyValueList(&d.Tags, u.Tags)
+	if err := patch.ApplyValueList(&d.Tags, u.Tags); err != nil {
+		return err
+	}
+	return patch.ApplyMap(&d.Cells, u.Cells, mergeTestCell)
+}
+
+func mergeTestCell(c *testCell, u testCellUpdate) error {
+	if err := u.Value.ApplyTo(&c.Value); err != nil {
+		return err
+	}
+	return u.Width.ApplyTo(&c.Width)
 }
 
 func mergeTestConfig(c *testConfig, u testConfigUpdate) error {

@@ -10,6 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { caseconv } from "@/caseconv";
 import { patch } from "@/patch";
 
 const settingsZ = z.object({ rate: z.number(), stream: z.number().default(0) });
@@ -29,6 +30,9 @@ const updateZ = z.object({
       k: z.string(),
       u: z.object({ key: z.string(), port: patch.changeZ(z.number()).optional() }),
     })
+    .optional(),
+  cells: patch
+    .typedMapZ({ k: z.string(), v: settingsZ, u: settingsUpdateZ })
     .optional(),
 });
 
@@ -111,6 +115,62 @@ describe("update fields", () => {
 
     it("should reject an unknown operator", () => {
       expect(() => updateZ.parse({ tags: { append: ["a"] } })).toThrow();
+    });
+  });
+
+  describe("typedMapZ", () => {
+    it("should accept operators keyed by map key", () => {
+      const update = {
+        cells: {
+          remove: ["c2"],
+          update: { c1: { rate: 4 } },
+          insert: { c3: { rate: 1, stream: 0 } },
+        },
+      };
+      expect(updateZ.parse(update)).toEqual(update);
+      expect(updateZ.parse({ cells: { set: {} } })).toEqual({ cells: { set: {} } });
+    });
+
+    it("should reject a plain map", () => {
+      expect(() => updateZ.parse({ cells: { c1: { rate: 4 } } })).toThrow();
+      const cells: patch.TypedMap<
+        z.ZodString,
+        typeof settingsZ,
+        typeof settingsUpdateZ
+      > =
+        // @ts-expect-error - a map field takes operators, never a plain map.
+        { c1: { rate: 4 } };
+      expect(cells).toEqual({ c1: { rate: 4 } });
+    });
+
+    it("should reject a move", () => {
+      expect(() => updateZ.parse({ cells: { move: [{ key: "c1" }] } })).toThrow();
+    });
+
+    it("should keep map keys and convert value keys through case conversion", () => {
+      const schema = z.object({
+        cells: patch
+          .typedMapZ({
+            k: z.string(),
+            v: z.object({ maxRate: z.number() }),
+            u: z.object({ maxRate: z.number().optional() }),
+          })
+          .optional(),
+      });
+      const camel = {
+        cells: {
+          update: { cellOne: { maxRate: 1 } },
+          insert: { cell_two: { maxRate: 2 } },
+        },
+      };
+      const snake = caseconv.camelToSnake(camel, { schema });
+      expect(snake).toEqual({
+        cells: {
+          update: { cellOne: { max_rate: 1 } },
+          insert: { cell_two: { max_rate: 2 } },
+        },
+      });
+      expect(caseconv.snakeToCamel(snake, { schema })).toEqual(camel);
     });
   });
 });
