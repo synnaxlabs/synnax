@@ -254,6 +254,40 @@ TEST(RackTests, testDispatchSetsIntegrationsAndVersion) {
     ASSERT_EQ(got.name, "test_rack_dispatch");
 }
 
+/// @brief it should change the fields that an update holds, and keep the rest.
+TEST(RackTests, testUpdate) {
+    const auto client = new_test_client();
+    auto r = Rack{.name = "test_rack_update", .integrations = {"ni", "opc"}};
+    ASSERT_NIL(client.racks.create(r));
+    ASSERT_NIL(client.racks.update(
+        r.key,
+        {
+            .integrations =
+                x::patch::ValueList<std::string>{
+                    .insert = std::vector<std::string>{"labjack"},
+                    .remove = std::vector<std::string>{"ni"},
+                },
+            .version = x::patch::Change<std::string>::to("1.2.3"),
+        }
+    ));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(got.integrations, (std::vector<std::string>{"opc", "labjack"}));
+    ASSERT_EQ(got.version, "1.2.3");
+    ASSERT_EQ(got.name, "test_rack_update");
+}
+
+/// @brief it should return a not found error when it updates a rack that does not
+/// exist.
+TEST(RackTests, testUpdateNotFound) {
+    const auto client = new_test_client();
+    const auto r = ASSERT_NIL_P(client.racks.create("test_rack_update_deleted"));
+    ASSERT_NIL(client.racks.del(r.key));
+    ASSERT_OCCURRED_AS(
+        client.racks.update(r.key, {.name = "renamed"}),
+        x::errors::NOT_FOUND
+    );
+}
+
 /// @brief it should return a not found error when it dispatches to a rack that does not
 /// exist.
 TEST(RackTests, testDispatchNotFound) {

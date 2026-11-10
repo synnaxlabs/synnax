@@ -69,6 +69,26 @@ class TestRackClient:
         client.racks.rename(rack.key, "After Rename")
         assert client.racks.retrieve(key=rack.key).name == "After Rename"
 
+    def test_update(self, client: sy.Synnax) -> None:
+        """Should apply a keyword update and a list of updates to racks."""
+        a = client.racks.create(
+            racks=sy.Rack(name="Update A", integrations=["ni", "opc"])
+        )
+        b = client.racks.create(name="Update B")
+        client.racks.update(
+            key=a.key, name="A2", integrations={"insert": ["modbus"], "remove": ["ni"]}
+        )
+        res = client.racks.retrieve(key=a.key)
+        assert res.name == "A2"
+        assert res.integrations == ["opc", "modbus"]
+        client.racks.update(
+            [{"key": a.key, "name": "A3"}, {"key": b.key, "name": "B3"}]
+        )
+        assert {r.name for r in client.racks.retrieve(keys=[a.key, b.key])} == {
+            "A3",
+            "B3",
+        }
+
     def test_rename_embedded(self, client: sy.Synnax) -> None:
         """Should rename the embedded rack and keep it embedded."""
         rack = client.racks.retrieve_embedded_rack()
