@@ -163,7 +163,7 @@ describe("auth guard", () => {
       expect(Session.Core.selectSelectedKey(store.getState())).toBeDefined(),
     );
     const key = Session.Core.selectSelectedKey(store.getState());
-    expect(await screen.findByText(/invalid credentials/i)).toBeTruthy();
+    expect(await screen.findByText("Incorrect username or password.")).toBeTruthy();
     expect(screen.getAllByText("Log in").length).toBeGreaterThan(0);
     expect(screen.queryByText("authenticated content")).toBeNull();
     submitCredentials("synnax", "seldon");
@@ -176,7 +176,7 @@ describe("auth guard", () => {
     expect(
       await screen.findByText("authenticated content", {}, { timeout: 10000 }),
     ).toBeTruthy();
-    expect(screen.queryByText(/invalid credentials/i)).toBeNull();
+    expect(screen.queryByText("Incorrect username or password.")).toBeNull();
     // A retry after a rejected login reuses the served entry rather than minting a
     // duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
