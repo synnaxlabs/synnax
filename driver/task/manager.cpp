@@ -96,7 +96,10 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.retrieve(synnax::task::Where{});
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve(
+        synnax::task::Where{},
+        {.include_status = true}
+    );
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;
@@ -106,6 +109,19 @@ x::errors::Error Manager::configure_initial_tasks() {
             if (task.snapshot) {
                 VLOG(1) << "ignoring snapshot task " << task;
                 continue;
+            }
+            // No task runs before this Driver starts it, so a running status is left
+            // from an earlier Driver process.
+            if (task.status && task.status->details.running) {
+                synnax::task::Status stopped{
+                    .name = task.name,
+                    .variant = synnax::status::VARIANT_WARNING,
+                    .message = "Task stopped",
+                    .description = "The Driver restarted. Start the task again.",
+                    .details = {.running = false, .config_hash = task.config_hash},
+                    .owner = synnax::task::resource_id(task.key),
+                };
+                this->ctx->set_status(stopped);
             }
             VLOG(1) << "queuing configure for task " << task;
             const auto entry = this->entry_for(task.key);
