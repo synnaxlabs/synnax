@@ -1077,7 +1077,7 @@ func analyzeChannelAssignment(
 	} else {
 		isLiteral := isLiteralExpression(ctx.Child(expr))
 		if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, chanValueType, exprType, ctx.AST)) ||
-			(!isLiteral && !atypes.Compatible(chanValueType, exprType)) {
+			(!isLiteral && !assignable(chanValueType, exprType)) {
 			channelName := ctx.AST.IDENTIFIER().GetText()
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				ctx.AST, "type mismatch: cannot write %s to channel '%s' (type %s)",
@@ -1146,7 +1146,7 @@ func analyzeIndexedAssignment(
 
 	isLiteral := isLiteralExpression(ctx.Child(valueExpr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
-		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		(!isLiteral && !assignable(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"type mismatch: cannot assign %s to series element of type %s",
@@ -1226,7 +1226,7 @@ func analyzeIndexedCompoundAssignment(
 
 	isLiteral := isLiteralExpression(ctx.Child(expr))
 	if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, elemType, exprType, ctx.AST)) ||
-		(!isLiteral && !atypes.Compatible(elemType, exprType)) {
+		(!isLiteral && !assignable(elemType, exprType)) {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"type mismatch: cannot use %s in compound assignment to series element of type %s",
@@ -1375,7 +1375,7 @@ func analyzeCompoundAssignment(
 		}
 		return
 	}
-	if atypes.Compatible(varType, exprType) {
+	if assignable(varType, exprType) {
 		return
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(

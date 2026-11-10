@@ -1269,7 +1269,7 @@ TEST(SeriesModule, SliceNullHandleReturnsZero) {
     EXPECT_EQ(result[0].i32(), 0);
 }
 
-TEST(SeriesModule, SliceOutOfBoundsReturnsZero) {
+TEST(SeriesModule, SliceEndPastLengthStopsAtLength) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")
                    .call(f.store, {wasmtime::Val(int32_t{3})})
@@ -1279,8 +1279,65 @@ TEST(SeriesModule, SliceOutOfBoundsReturnsZero) {
                       .call(
                           f.store,
                           {wasmtime::Val(h),
-                           wasmtime::Val(int32_t{0}),
+                           wasmtime::Val(int32_t{1}),
                            wasmtime::Val(int32_t{10})}
+                      )
+                      .unwrap();
+    auto *s = f.state->get(result[0].i32());
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->size(), 2);
+}
+
+TEST(SeriesModule, SliceOpenEndGivesTheTail) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h_r = f.get("create_empty_i32")
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
+                   .unwrap();
+    auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{2}),
+                           wasmtime::Val(int32_t{-1})}
+                      )
+                      .unwrap();
+    auto rh = result[0].i32();
+    auto *s = f.state->get(rh);
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->size(), 2);
+    auto v0 = f.get("index_i32")
+                  .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{0})})
+                  .unwrap();
+    auto v1 = f.get("index_i32")
+                  .call(f.store, {wasmtime::Val(rh), wasmtime::Val(int32_t{1})})
+                  .unwrap();
+    EXPECT_EQ(v0[0].i32(), 30);
+    EXPECT_EQ(v1[0].i32(), 40);
+}
+
+TEST(SeriesModule, SliceStartPastLengthReturnsZero) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h_r = f.get("create_empty_i32")
+                   .call(f.store, {wasmtime::Val(int32_t{3})})
+                   .unwrap();
+    auto h = h_r[0].i32();
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{3}),
+                           wasmtime::Val(int32_t{-1})}
                       )
                       .unwrap();
     EXPECT_EQ(result[0].i32(), 0);

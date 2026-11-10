@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "wasmtime.hh"
 
 #include "arc/cpp/stl/series/series.h"
@@ -607,9 +609,10 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             [ss](uint32_t handle, uint32_t start, uint32_t end) -> uint32_t {
                 const auto *src = ss->get(handle);
                 if (src == nullptr) return 0;
-                const auto src_size = src->size();
-                if (start >= src_size || end > src_size || start >= end) return 0;
-                const auto slice_len = end - start;
+                // An open end arrives as -1, the largest uint32_t.
+                const auto stop = std::min<size_t>(end, src->size());
+                if (start >= stop) return 0;
+                const auto slice_len = stop - start;
                 auto sliced = x::telem::Series(src->data_type(), slice_len);
                 const auto density = src->data_type().density();
                 std::memcpy(

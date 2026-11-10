@@ -1242,5 +1242,46 @@ var _ = Describe("Series", func() {
 				),
 			).To(Equal(uint32(0)))
 		})
+
+		DescribeTable("Should stop at the length",
+			func(ctx SpecContext, end uint32) {
+				h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+				for i := range uint32(4) {
+					callU32(
+						ctx,
+						"set_element_i32",
+						testutil.U32(h),
+						testutil.U32(i),
+						testutil.U32((i+1)*10),
+					)
+				}
+				rh := callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(2),
+					testutil.U32(end),
+				)
+				ser := MustBeOk(ss.Get(rh))
+				Expect(ser.Len()).To(Equal(int64(2)))
+				Expect(ser.ValueAt[int32](0)).To(Equal(int32(30)))
+				Expect(ser.ValueAt[int32](1)).To(Equal(int32(40)))
+			},
+			Entry("for an open end", ^uint32(0)),
+			Entry("for an end past the length", uint32(10)),
+		)
+
+		It("Should return 0 for a start past the length", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(3))
+			Expect(
+				callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(3),
+					testutil.U32(^uint32(0)),
+				),
+			).To(Equal(uint32(0)))
+		})
 	})
 })

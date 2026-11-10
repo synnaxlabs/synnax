@@ -424,6 +424,15 @@ func slice_into_scalar() {
 start_edge_case_cmd -> slice_into_scalar()
 """
 
+# A slice is a series, so an f32 channel cannot take it.
+ARC_SLICE_WRITTEN_TO_SCALAR_CHANNEL = """
+func slice_into_channel() {
+    data series f32 := [1.0, 2.0, 3.0]
+    edge_diamond = data[1:3]
+}
+start_edge_case_cmd -> slice_into_channel()
+"""
+
 
 TYPE_MISMATCH_CASES = [
     Case(
@@ -440,6 +449,11 @@ TYPE_MISMATCH_CASES = [
         "SliceDeclaredAsScalar",
         ARC_SLICE_DECLARED_AS_SCALAR,
         "cannot assign series f64 to 'x' (type f64)",
+    ),
+    Case(
+        "SliceWrittenToScalarChannel",
+        ARC_SLICE_WRITTEN_TO_SCALAR_CHANNEL,
+        "cannot write series f32 to channel 'edge_diamond' (type f32)",
     ),
 ]
 

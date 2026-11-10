@@ -23,12 +23,22 @@ func slice_values() {
         sum = sum + v
     }
     slice_sum_out = sum
+    tail := data[2:]
+    head := data[:2]
+    slice_tail_out = tail[1]
+    slice_head_out = head[0] + head[1]
 }
 
 start_series_slice_cmd -> slice_values()
 """
 
-OUTPUTS = ["slice_first_out", "slice_typed_out", "slice_sum_out"]
+OUTPUTS = [
+    "slice_first_out",
+    "slice_typed_out",
+    "slice_sum_out",
+    "slice_tail_out",
+    "slice_head_out",
+]
 
 
 class SeriesSlice(ArcCase):
@@ -48,10 +58,16 @@ class SeriesSlice(ArcCase):
 
     def verify_sequence_execution(self) -> None:
         self.log("[untyped] Waiting for sub[0] == 2.5")
-        self.wait_for_near("slice_first_out", 2.5, tolerance=0.01)
+        self.wait_for_eq("slice_first_out", 2.5)
 
         self.log("[typed] Waiting for typed[1] == 2.5")
-        self.wait_for_near("slice_typed_out", 2.5, tolerance=0.01)
+        self.wait_for_eq("slice_typed_out", 2.5)
 
         self.log("[iterate] Waiting for the sum of sub == 6.2")
-        self.wait_for_near("slice_sum_out", 6.2, tolerance=0.01)
+        self.wait_for_eq("slice_sum_out", 6.2)
+
+        self.log("[open end] Waiting for data[2:][1] == 4.2")
+        self.wait_for_eq("slice_tail_out", 4.2)
+
+        self.log("[open start] Waiting for the sum of data[:2] == 3.5")
+        self.wait_for_eq("slice_head_out", 3.5)
