@@ -57,7 +57,7 @@ setting(const x::json::json &channel, const uint8_t sub_index, const size_t nth 
 TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
     ASSERT_TRUE(settings.has_value());
-    const auto &channels = (*settings)["channels"];
+    const auto &channels = settings.value()["channels"];
     ASSERT_EQ(channels.size(), 6);
     const auto &input_2 = channels[1];
     const auto &range = setting(input_2, 3);
@@ -77,7 +77,7 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     EXPECT_EQ(setting(input_2, 34)["max"], 42);
     EXPECT_EQ(input_2["requires"][0]["then"]["index"], 0x8041);
     EXPECT_EQ(input_2["requires"][0]["when"][0]["index"], 0x8041);
-    EXPECT_EQ((*settings)["device"][0]["index"], 0x8020);
+    EXPECT_EQ(settings.value()["device"][0]["index"], 0x8020);
 }
 
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
@@ -85,7 +85,7 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
 TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
     const auto settings = ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, read_stg));
     ASSERT_TRUE(settings.has_value());
-    const auto &entries = (*settings)["channels"][1]["entries"];
+    const auto &entries = settings.value()["channels"][1]["entries"];
     std::vector<std::pair<int, int>> addresses;
     for (const auto &e: entries)
         addresses.emplace_back(e["index"].get<int>(), e["sub_index"].get<int>());

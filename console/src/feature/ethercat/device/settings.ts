@@ -18,7 +18,7 @@ interface Address {
 }
 
 /** Holds when the value of a setting is one of values, or above above. */
-export const conditionZ = z.object({
+const conditionZ = z.object({
   ...ADDRESS,
   values: z.array(z.number()).optional(),
   above: z.number().optional(),
@@ -26,10 +26,10 @@ export const conditionZ = z.object({
 export interface Condition extends z.infer<typeof conditionZ> {}
 
 const optionZ = z.object({ value: z.number(), name: z.string() });
-export interface Option extends z.infer<typeof optionZ> {}
+interface Option extends z.infer<typeof optionZ> {}
 
 /** A CoE object of a slave that a user sets by name. */
-export const fieldZ = z.object({
+const fieldZ = z.object({
   ...ADDRESS,
   name: z.string(),
   dataType: z.string(),
@@ -43,15 +43,15 @@ export const fieldZ = z.object({
 export interface Field extends z.infer<typeof fieldZ> {}
 
 /** Rejects values that meet every condition in when but not then. */
-export const requirementZ = z.object({
+const requirementZ = z.object({
   when: z.array(conditionZ),
   then: conditionZ,
   message: z.string(),
 });
-export interface Requirement extends z.infer<typeof requirementZ> {}
+interface Requirement extends z.infer<typeof requirementZ> {}
 
 /** The fields of one input, and the entries that read it in every PDO layout. */
-export const channelZ = z.object({
+const channelZ = z.object({
   entries: z.array(z.object(ADDRESS)),
   settings: z.array(fieldZ),
   requires: z.array(requirementZ),
