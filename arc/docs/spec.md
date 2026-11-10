@@ -508,8 +508,8 @@ ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 
 `for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
 The widest typed `range()` argument types the loop variable, signed if any argument is
-signed. An unsigned argument above that signed maximum wraps. Untyped literals adopt it.
-All literals give `i64`.
+signed. Untyped literals adopt it. All literals give `i64`. At 32 and 64 bits, an
+unsigned argument above the signed maximum wraps.
 
 ```arc
 if pressure > 100 {
