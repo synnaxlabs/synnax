@@ -40,6 +40,7 @@ import (
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -101,6 +102,16 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
+	// Compile compiles the source of an automation against root. It is injectable for
+	// testing.
+	//
+	// [OPTIONAL] - Defaults to compiling the text or graph of the automation.
+	Compile func(
+		ctx context.Context,
+		automation AutomationArc,
+		root *symbol.Symbol,
+		opts ...arc.Option,
+	) (arc.Program, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -130,6 +141,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	)
 	c.TaskSyncDebounce = override.Numeric(c.TaskSyncDebounce, other.TaskSyncDebounce)
 	c.Now = override.Nil(c.Now, other.Now)
+	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
 }
 
@@ -173,6 +185,11 @@ type Service struct {
 	editedModules *gorp.Attachment[Key]
 	// importerSync schedules a resync of every importer of an edited module.
 	importerSync *debounce.Keyed[Key]
+	// pathChanges marks each transaction that created, moved, renamed, or deleted a
+	// module or a directory. followCommit then triggers importingSync, which resyncs
+	// every Arc with an import.
+	pathChanges   *gorp.Attachment[struct{}]
+	importingSync *debounce.Keyed[struct{}]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -369,29 +386,77 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 	return automation, nil
 }
 
-// snapshotRoot builds an analysis root that reads snap.
-func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
-	return s.newRoot(
-		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
-		s.moduleSource(snap),
-		nil,
-	)
+// Build is a compile of an Arc that Service.Build makes outside any transaction. The
+// zero Build holds no compile.
+type Build struct {
+	program arc.Program
+	// loaded holds the path of each module that the compile loaded, at any depth.
+	loaded []string
+	// err is the reason that the Arc does not compile.
+	err error
+	// lookups holds each read that the compile made, the read of the Arc included.
+	lookups *channel.Lookups
 }
 
-// compile compiles the automation's source against a root that reads snap. It also
-// returns the path of every module the compile loaded, at any depth. An error means
-// the automation does not compile.
-func (s *Service) compile(
+// Build compiles the automation with key, or analyzes the module with key, as
+// channel.CompileConsistent does, for TaskUpdate.Build. A source that does not compile
+// is not an error, since the Build holds the failure. Build returns query.ErrNotFound
+// when no Arc has key.
+func (s *Service) Build(ctx context.Context, key Key) (Build, error) {
+	return channel.CompileConsistent(ctx, s.cfg.DB, func(
+		snap gorp.Snapshot,
+		lookups *channel.Lookups,
+	) (Build, error) {
+		return s.buildIn(ctx, snap, lookups, key)
+	})
+}
+
+// buildIn builds the Arc with key against a root that reads snap and records each
+// lookup in lookups.
+func (s *Service) buildIn(
 	ctx context.Context,
 	snap gorp.Snapshot,
-	automation AutomationArc,
-) (arc.Program, []string, error) {
-	root := s.snapshotRoot(snap)
-	prog, err := s.compileWith(ctx, root, automation)
+	lookups *channel.Lookups,
+	key Key,
+) (Build, error) {
+	a, hash, err := s.retrieveHashed(ctx, snap, key)
 	if err != nil {
-		return arc.Program{}, nil, err
+		return Build{}, err
 	}
-	return prog, arctext.LoadedPaths(root), nil
+	lookups.Record(func(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+		_, again, err := s.retrieveHashed(ctx, snap, key)
+		if errors.Is(err, query.ErrNotFound) {
+			return false, nil
+		}
+		return again == hash, err
+	})
+	b := Build{lookups: lookups}
+	root := s.NewRoot(snap, lookups)
+	switch v := a.Variant.(type) {
+	case AutomationArc:
+		b.program, b.err = s.compileWith(ctx, root, v)
+		b.loaded = arctext.LoadedPaths(root)
+	case ModuleArc:
+		b.err = s.analyzeModule(ctx, root, v)
+	}
+	return b, nil
+}
+
+// retrieveHashed returns the Arc with key in snap and the hash of its content.
+func (s *Service) retrieveHashed(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key Key,
+) (Arc, string, error) {
+	var a Arc
+	if err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, snap); err != nil {
+		return Arc{}, "", err
+	}
+	hash, err := Hash(a.Base())
+	return a, hash, err
 }
 
 // compileWith compiles the automation's source against root.
@@ -400,12 +465,22 @@ func (s *Service) compileWith(
 	root *symbol.Symbol,
 	automation AutomationArc,
 ) (arc.Program, error) {
-	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
+	return s.cfg.Compile(
+		ctx, automation, root, arc.WithAllowDashedNames(s.AllowDashedNames()),
+	)
+}
+
+func compileSource(
+	ctx context.Context,
+	automation AutomationArc,
+	root *symbol.Symbol,
+	opts ...arc.Option,
+) (arc.Program, error) {
 	switch src := automation.Source.Variant.(type) {
 	case TextSource:
-		return arc.CompileText(ctx, src.Text.Materialize(), root, opt)
+		return arc.CompileText(ctx, src.Text.Materialize(), root, opts...)
 	case GraphSource:
-		return arc.CompileGraph(ctx, src.Graph, root, opt)
+		return arc.CompileGraph(ctx, src.Graph, root, opts...)
 	}
 	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
 }
@@ -436,11 +511,11 @@ func (s *Service) hashModules(
 	return hashes, nil
 }
 
-// analyzeModule checks the module's source under the module rules against a root that
-// reads snap. A module links no code of its own, so analysis is its whole compile.
+// analyzeModule checks the module's source under the module rules against root. A
+// module links no code of its own, so analysis is its whole compile.
 func (s *Service) analyzeModule(
 	ctx context.Context,
-	snap gorp.Snapshot,
+	root *symbol.Symbol,
 	module ModuleArc,
 ) error {
 	src, ok := module.Source.Variant.(TextSource)
@@ -453,7 +528,7 @@ func (s *Service) analyzeModule(
 		return diag
 	}
 	if _, diag = arctext.AnalyzeModule(
-		ctx, parsed, s.snapshotRoot(snap), cfg,
+		ctx, parsed, root, cfg,
 	); diag != nil && !diag.Ok() {
 		return diag
 	}
@@ -472,6 +547,7 @@ func OpenService(
 		TextSweepThreshold:  128,
 		TaskSyncDebounce:    500 * telem.Millisecond,
 		Now:                 telem.Now,
+		Compile:             compileSource,
 	}, configs...)
 	if err != nil {
 		return nil, err
@@ -488,6 +564,7 @@ func OpenService(
 		resyncs:       gorp.NewAttachment[Key](),
 		deletes:       gorp.NewAttachment[Key](),
 		editedModules: gorp.NewAttachment[Key](),
+		pathChanges:   gorp.NewAttachment[struct{}](),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -509,6 +586,13 @@ func OpenService(
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resyncImporters,
 	}); !ok(err, s.importerSync) {
+		return nil, err
+	}
+	if s.importingSync, err = debounce.NewKeyed(debounce.KeyedConfig[struct{}]{
+		Delay:    cfg.TaskSyncDebounce.Duration(),
+		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
+		Callback: s.resyncImporting,
+	}); !ok(err, s.importingSync) {
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
@@ -596,11 +680,10 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		resyncs:             s.resyncs,
 		deletes:             s.deletes,
 		editedModules:       s.editedModules,
-		compile:             s.compile,
-		analyze:             s.analyzeModule,
+		pathChanges:         s.pathChanges,
+		rebuild:             s.buildIn,
 		hashModules:         s.hashModules,
 		now:                 s.cfg.Now,
-		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}
 }
 

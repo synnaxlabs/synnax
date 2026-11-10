@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -91,7 +92,8 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.resyncs.Add(w.tx, key)
 	if module && pathChanged {
-		return w.resyncImporting(ctx)
+		w.pathChanges.Add(w.tx, struct{}{})
+		return nil
 	}
 	if module && containsTextEdit(acts) {
 		w.editedModules.Add(w.tx, key)
@@ -109,6 +111,9 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	for _, key := range s.editedModules.Of(c) {
 		s.importerSync.Trigger(key)
 	}
+	if len(s.pathChanges.Of(c)) > 0 {
+		s.importingSync.Trigger(struct{}{})
+	}
 	for _, key := range s.deletes.Of(c) {
 		s.sweeper.forget(key)
 		s.taskSync.Forget(key)
@@ -117,54 +122,80 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 }
 
 // resync rewrites an automation's task config or a module's compile status from its
-// content. It runs on the task-sync debouncer.
+// content. It runs on the task-sync debouncer and compiles before its transaction
+// opens. An automation with no task has nothing to rewrite.
 func (s *Service) resync(ctx context.Context, key Key) {
-	s.withArc(ctx, key, "failed to resync arc", Writer.sync)
-}
-
-// resyncImporters schedules a resync of every importer of the module with key. It
-// runs on the importer-sync debouncer.
-func (s *Service) resyncImporters(ctx context.Context, key Key) {
-	s.withArc(ctx, key, "failed to resync arc importers", func(
-		w Writer,
-		ctx context.Context,
-		a Arc,
-	) error {
-		path, err := w.pathOf(ctx, a)
+	s.withArc(ctx, key, "failed to resync arc", func(a Arc) error {
+		if a.Type() == TypeAutomation {
+			tasks, err := retrieveTaskKeys(ctx, s.cfg.Task, s.cfg.DB, task.And(
+				s.cfg.MatchTasks(key), task.MatchSnapshot(false),
+			))
+			if err != nil || len(tasks) == 0 {
+				return err
+			}
+		}
+		b, err := s.Build(ctx, key)
 		if err != nil {
 			return err
 		}
-		keys, err := w.importersOf(ctx, path)
-		if err != nil {
-			return err
-		}
-		w.resyncs.Add(w.tx, keys...)
-		return nil
+		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+			// A write committed after the compile. A channel change schedules no resync
+			// of its own, so skip the write and resync again.
+			if same, err := b.lookups.Unchanged(ctx, tx); !same || err != nil {
+				s.taskSync.Trigger(key)
+				return err
+			}
+			if err := s.table.NewRetrieve().
+				Where(gorp.MatchKeys[Key, Arc](key)).
+				Entry(&a).
+				Exec(ctx, tx); err != nil {
+				return err
+			}
+			return s.NewWriter(tx).sync(ctx, a, b)
+		})
 	})
 }
 
-// withArc runs fn on the Arc with key in its own transaction. A debouncer callback has
-// no caller to return errors to, so withArc logs them under msg. A cancelled context
-// (the service closed) and a deleted Arc are not errors.
+// resyncImporters schedules a resync of every importer of the module with key. It runs
+// on the importer-sync debouncer and reads committed state with no lock.
+func (s *Service) resyncImporters(ctx context.Context, key Key) {
+	s.withArc(ctx, key, "failed to resync arc importers", func(a Arc) error {
+		path, err := s.pathOf(ctx, s.cfg.DB, a)
+		if err != nil {
+			return err
+		}
+		keys, err := s.importersOf(ctx, s.cfg.DB, path)
+		for _, k := range keys {
+			s.taskSync.Trigger(k)
+		}
+		return err
+	})
+}
+
+// withArc runs fn on the Arc with key, read with no lock. A debouncer callback has no
+// caller to return errors to, so withArc logs them under msg.
 func (s *Service) withArc(
 	ctx context.Context,
 	key Key,
 	msg string,
-	fn func(Writer, context.Context, Arc) error,
+	fn func(Arc) error,
 ) {
-	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		var a Arc
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Arc](key)).
-			Entry(&a).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		return fn(s.NewWriter(tx), ctx, a)
-	})
-	if err == nil || errors.Is(err, context.Canceled) ||
-		errors.Is(err, query.ErrNotFound) {
-		return
+	var a Arc
+	err := s.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Arc](key)).
+		Entry(&a).
+		Exec(ctx, s.cfg.DB)
+	if err == nil {
+		err = fn(a)
 	}
-	s.cfg.L.Error(msg, zap.Error(err), zap.Stringer("key", key))
+	if failed(err) {
+		s.cfg.L.Error(msg, zap.Error(err), zap.Stringer("key", key))
+	}
+}
+
+// failed reports whether a debouncer callback should log err. A cancelled context (the
+// service closed) and a deleted Arc are not failures.
+func failed(err error) bool {
+	return err != nil && !errors.Is(err, context.Canceled) &&
+		!errors.Is(err, query.ErrNotFound)
 }

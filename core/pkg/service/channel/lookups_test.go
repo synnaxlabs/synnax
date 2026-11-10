@@ -131,3 +131,37 @@ var _ = Describe("CompileConsistent", func() {
 		Expect(compiles).To(Equal(2))
 	})
 })
+
+var _ = Describe("Lookups", func() {
+	DescribeTable(
+		"Unchanged",
+		func(ctx SpecContext, answers []bool, unchanged bool) {
+			lookups := &channel.Lookups{}
+			for _, same := range answers {
+				lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+					return same, nil
+				})
+			}
+			Expect(lookups.Unchanged(ctx, db)).To(Equal(unchanged))
+		},
+		Entry("Should hold with no lookups", nil, true),
+		Entry(
+			"Should hold when each lookup gives the same answer",
+			[]bool{true, true},
+			true,
+		),
+		Entry(
+			"Should not hold when a lookup gives another answer",
+			[]bool{true, false},
+			false,
+		),
+	)
+
+	It("Should return the error of a lookup", func(ctx SpecContext) {
+		lookups := &channel.Lookups{}
+		lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+			return false, errors.New("lookup failed")
+		})
+		Expect(lookups.Unchanged(ctx, db)).Error().To(MatchError("lookup failed"))
+	})
+})

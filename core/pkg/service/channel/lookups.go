@@ -31,7 +31,9 @@ func (l *Lookups) Record(check func(context.Context, gorp.Snapshot) (bool, error
 	l.checks = append(l.checks, check)
 }
 
-func (l *Lookups) unchanged(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+// Unchanged runs each lookup of l again in snap and reports whether every one gives the
+// same answer. A lookup that fails returns its error.
+func (l *Lookups) Unchanged(ctx context.Context, snap gorp.Snapshot) (bool, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	for _, check := range l.checks {
@@ -60,7 +62,7 @@ func CompileConsistent[T any](
 		res, err := compile(db, lookups)
 		var unchanged bool
 		if checkErr := db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-			unchanged, err = lookups.unchanged(ctx, snap)
+			unchanged, err = lookups.Unchanged(ctx, snap)
 			return err
 		}); checkErr != nil {
 			var zero T
