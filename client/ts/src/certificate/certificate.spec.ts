@@ -10,9 +10,15 @@
 import { id, TimeStamp, uuid } from "@synnaxlabs/x";
 import { assert, describe, expect, it } from "vitest";
 
+import { certificate } from "@/certificate";
 import { NotFoundError, PathError, ValidationError } from "@/index";
 import { rack } from "@/rack";
-import { CERTIFICATE, createTestClient, waitForStreamLive } from "@/testutil";
+import {
+  CERTIFICATE,
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@/testutil";
 
 const { pem: PEM, privateKeyPem: PRIVATE_KEY } = CERTIFICATE;
 // A key that does not match the certificate.
@@ -224,6 +230,42 @@ describe("Certificate", () => {
       await client.certificates.rename(c.key, "After");
       const retrieved = await createTestClient().certificates.retrieve(c.key);
       expect(retrieved).toMatchObject({ name: "After", pem: PEM });
+    });
+
+    it("should update the cache of another client", async () => {
+      const client = createTestClient();
+      const remote = createTestClient();
+      const c = await client.certificates.set({
+        name: "Remote",
+        source: "stored",
+        pem: PEM,
+      });
+      expect((await client.certificates.retrieve(c.key)).name).toBe("Remote");
+      const name = `renamed-${id.create()}`;
+      await waitForStreamLive(client.connection);
+      await remote.certificates.rename(c.key, name);
+      await expect
+        .poll(async () => (await client.certificates.retrieve(c.key)).name)
+        .toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should refuse a set of the PEM before it sends", async () => {
+      const client = createTestClient();
+      const c = await client.certificates.set({
+        name: "Fixed",
+        source: "stored",
+        pem: PEM,
+      });
+      const send = spyOnSend(client);
+      await expect(
+        client.certificates.dispatch(
+          c.key,
+          certificate.set({ path: ["pem"], value: "x" }),
+        ),
+      ).rejects.toThrow('no editable field at "pem"');
+      expect(send).not.toHaveBeenCalled();
     });
   });
 
