@@ -543,7 +543,7 @@ export class Client {
         }
       }
       // a cookie session has no token to send; the browser attaches the cookie
-      const { authState } = this;
+      const { authState, generation } = this;
       if (authState.authenticated && authState.token !== "")
         reqCtx.params.Authorization = `Bearer ${authState.token}`;
       try {
@@ -560,8 +560,9 @@ export class Client {
           }
           return await attempt(reqCtx, next, retries + 1);
         }
-        // the Core rejects every fresh session, so logging in again cannot fix it
-        this.observer.onFailure?.(parsed);
+        // the Core rejects every fresh session, so logging in again cannot fix it. A
+        // session from before a setCredentials says nothing about the new credentials.
+        if (generation === this.generation) this.observer.onFailure?.(parsed);
         throw parsed;
       }
     };

@@ -120,6 +120,29 @@ describe("auth", () => {
       expect(onFailure).toHaveBeenCalledOnce();
       expect(InvalidTokenError.matches(onFailure.mock.calls[0][0])).toBe(true);
     });
+
+    it("should not report a rejected session that new credentials replaced", async () => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const onFailure = vi.fn();
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS },
+        { onFailure },
+      );
+      const mw = client.middleware();
+      await expect(
+        mw(DUMMY_CTX, async () => {
+          client.setCredentials(TEST_CREDENTIALS);
+          throw new InvalidTokenError();
+        }),
+      ).rejects.toThrow(InvalidTokenError);
+      expect(onFailure).not.toHaveBeenCalled();
+    });
   });
 
   describe("sessions", () => {
