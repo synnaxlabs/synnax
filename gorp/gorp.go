@@ -129,7 +129,8 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 // WithSnapshot runs f with a Snapshot of the DB and returns the error of f. No
 // transaction of the DB opens while f runs, so the entries and indexes that f reads
 // agree. Snapshots run at the same time as each other. f must not open a transaction,
-// write through the DB, or call WithSnapshot, since each can deadlock.
+// write through the DB, or call WithSnapshot, since each can deadlock. f can read a
+// commit that is not yet durable, and a crash before its sync loses it.
 func (db *DB) WithSnapshot(_ context.Context, f func(Snapshot) error) error {
 	start := time.Now()
 	db.lock.RLock()
