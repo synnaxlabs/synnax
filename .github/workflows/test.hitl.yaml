@@ -49,14 +49,14 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           skip=false
-          for id in $(gh run list --workflow test.hitl.yaml --branch main \
+          ids=$(gh run list --workflow test.hitl.yaml --branch main \
             --status success --created ">=$(date -u +%F)" --json databaseId \
-            --jq '.[].databaseId'); do
-            if gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs" --jq '.jobs[] |
-              select(.name == "Test (synnax-server-1)" and .conclusion == "success")' |
-              grep -q .; then
-              skip=true
-            fi
+            --jq '.[].databaseId')
+          for id in $ids; do
+            passed=$(gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs" \
+              --jq '.jobs[] | select(.name == "Test (synnax-server-1)" and
+                .conclusion == "success")')
+            if [ -n "$passed" ]; then skip=true; fi
           done
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
