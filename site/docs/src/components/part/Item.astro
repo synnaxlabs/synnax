@@ -10,19 +10,19 @@
 
 import { type ComponentType } from "react";
 
+import Icon from "@/components/part/Icon.astro";
+
 interface Props {
     /** The icon of the part's block in the diagram. */
     icon: ComponentType;
 }
 
-const { icon: Icon } = Astro.props;
+const { icon } = Astro.props;
 ---
 
 <li class="part-item">
     <span class="part-item__head">
-        <span class="part-item__icon">
-            <Icon />
-        </span>
+        <Icon icon={icon} />
     </span>
     <div class="part-item__body">
         <slot />
@@ -33,25 +33,6 @@ const { icon: Icon } = Astro.props;
     article .part-item__head {
         display: flex;
         align-items: center;
-    }
-
-    /* The icon chip of a block in `Diagram.Block`. */
-    article .part-item__icon {
-        display: flex;
-        flex-shrink: 0;
-        align-items: center;
-        justify-content: center;
-        width: 6rem;
-        height: 6rem;
-        border: var(--pluto-border-width) solid var(--pluto-primary-p1);
-        border-radius: 1rem;
-        background: var(--pluto-primary-z-20);
-        color: var(--pluto-primary-p1);
-
-        & svg {
-            width: 3rem;
-            height: 3rem;
-        }
     }
 
     article .part-item__body {

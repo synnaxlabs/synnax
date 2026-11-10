@@ -173,7 +173,7 @@ df = frame.to_df()
 ## Words the docs use
 
 <Grid columns={2}>
-<Term>
+<Term icon={Icon.Channel}>
 
 ### Channel
 
@@ -184,7 +184,7 @@ In the sample project, `sample_tank_pt` holds the tank pressure, and
 `sample_press_vlv_cmd` holds the commands to the press valve.
 
 </Term>
-<Term>
+<Term icon={Icon.Device}>
 
 ### Device
 
@@ -195,7 +195,7 @@ The sample project has no devices. The Tank simulator Arc automation writes the 
 pressure instead.
 
 </Term>
-<Term>
+<Term icon={Icon.Task}>
 
 ### Task
 
@@ -205,7 +205,7 @@ commands from channels to a device. The Driver runs each task in the background.
 For example, an NI analog read task reads a pressure transducer into a channel.
 
 </Term>
-<Term>
+<Term icon={Icon.Range}>
 
 ### Range
 
@@ -216,7 +216,7 @@ For example, mark each tank pressurization as a range, then plot two ranges toge
 compare them.
 
 </Term>
-<Term>
+<Term icon={Icon.Project}>
 
 ### Project
 
@@ -227,7 +227,7 @@ The sample project is a project that holds the Tank schematic and the Tank press
 plot.
 
 </Term>
-<Term>
+<Term icon={Icon.LinePlot}>
 
 ### Line plot
 
@@ -237,7 +237,7 @@ shows live data as it arrives, or data from the past.
 In the sample project, the Tank pressure line plot shows `sample_tank_pt`.
 
 </Term>
-<Term>
+<Term icon={Icon.Schematic}>
 
 ### Schematic
 
@@ -248,7 +248,7 @@ In the sample project, the Tank schematic shows the tank pressure and has Start 
 Abort buttons.
 
 </Term>
-<Term>
+<Term icon={Icon.Control}>
 
 ### Control authority
 
@@ -261,7 +261,7 @@ at 1. To take a valve from the sequence, an operator clicks its control chip, wh
 writes at 255.
 
 </Term>
-<Term>
+<Term icon={Icon.Status}>
 
 ### Status
 
