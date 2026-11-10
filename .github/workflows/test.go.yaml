@@ -134,6 +134,13 @@ jobs:
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
 
+      # A download repairs go.sum, so the check runs first. Tidiness does not depend on
+      # GOOS, so one leg checks it.
+      - name: Check that go.mod and go.sum are tidy
+        if: matrix.goos == 'linux'
+        working-directory: ${{ inputs.directory }}
+        run: go mod tidy -diff
+
       - name: Download the Go modules
         env:
           DIRECTORY: ${{ inputs.directory }}
@@ -144,12 +151,6 @@ jobs:
       - name: Verify the Go module cache
         working-directory: ${{ inputs.directory }}
         run: go mod verify
-
-      # Tidiness does not depend on GOOS, so one leg checks it.
-      - name: Check that go.mod and go.sum are tidy
-        if: matrix.goos == 'linux'
-        working-directory: ${{ inputs.directory }}
-        run: go mod tidy -diff
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
