@@ -9,6 +9,7 @@
 
 import {
   channel,
+  device,
   type ethercat,
   type rack,
   type Synnax,
@@ -1090,23 +1091,13 @@ describe("Read", () => {
     };
     const deploy = async () => (await deployRead(config)).config.channels[0].channel;
     const first = await deploy();
-    const stored = await client.devices.retrieve({
-      key: slave.key,
-      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
-    });
-    await client.devices.create({
-      key: stored.key,
-      name: stored.name,
-      rack: stored.rack,
-      location: stored.location,
-      make: stored.make,
-      model: stored.model,
-      configured: true,
-      properties: {
-        ...stored.properties,
-        read: { channels: { [`${0x6000}_1`]: first } },
-      },
-    });
+    await client.devices.dispatch(
+      slave.key,
+      device.set({
+        path: ["properties", "read", "channels"],
+        value: { [`${0x6000}_1`]: first },
+      }),
+    );
     expect(await deploy()).toBe(first);
     const updated = await client.devices.retrieve({
       key: slave.key,
