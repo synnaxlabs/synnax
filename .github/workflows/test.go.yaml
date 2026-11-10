@@ -179,9 +179,11 @@ jobs:
         working-directory: ${{ inputs.directory }}
         env:
           CGO_ENABLED: "0"
+        # go vet would also report on generated files, so the test binaries are built,
+        # and run with `true` in place of the binary.
         run: |
-          GOOS=windows go vet ./...
-          GOOS=darwin go vet ./...
+          GOOS=windows go test -exec=true -run='^$' ./...
+          GOOS=darwin go test -exec=true -run='^$' ./...
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
