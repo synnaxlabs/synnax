@@ -208,17 +208,21 @@ describe("diffUpdate", () => {
 });
 
 describe("nest", () => {
-  it("should nest a leaf into the structs on its path", () => {
+  const c2Guard = { path: ["config", "channels", "c2", "type"], value: "di" };
+
+  it("should nest a leaf into the structs on its path with no guards", () => {
     expect(patch.nest(docUpdateZ, vectors.doc, ["config", "rate"], 5)).toEqual({
-      config: { rate: 5 },
+      value: { config: { rate: 5 } },
+      guards: [],
     });
   });
 
-  it("should nest into a list entry by key, with the variant that doc holds", () => {
+  it("should nest into a list entry by key and guard its variant", () => {
     expect(
       patch.nest(docUpdateZ, vectors.doc, ["config", "channels", "c2", "line"], 9),
     ).toEqual({
-      config: { channels: { update: [{ key: "c2", type: "di", line: 9 }] } },
+      value: { config: { channels: { update: [{ key: "c2", type: "di", line: 9 }] } } },
+      guards: [c2Guard],
     });
   });
 
@@ -226,28 +230,57 @@ describe("nest", () => {
     expect(
       patch.nest(docUpdateZ, vectors.doc, ["config", "channels", "c1"], { port: 2 }),
     ).toEqual({
-      config: { channels: { update: [{ key: "c1", type: "ai", port: 2 }] } },
+      value: { config: { channels: { update: [{ key: "c1", type: "ai", port: 2 }] } } },
+      guards: [{ path: ["config", "channels", "c1", "type"], value: "ai" }],
+    });
+  });
+
+  it("should guard the old variant when the leaf changes it", () => {
+    const update = patch.nest(
+      docUpdateZ,
+      vectors.doc,
+      ["config", "channels", "c2", "type"],
+      "ai",
+    );
+    expect(update).toEqual({
+      value: { config: { channels: { update: [{ key: "c2", type: "ai" }] } } },
+      guards: [c2Guard],
     });
   });
 
   it("should nest into an optional struct", () => {
     expect(patch.nest(docUpdateZ, vectors.doc, ["limits", "low"], -5)).toEqual({
-      limits: { low: -5 },
+      value: { limits: { low: -5 } },
+      guards: [],
     });
   });
 
   it("should give an update that applies", () => {
-    const value = patch.nest(
+    const update = patch.nest(
       docUpdateZ,
       vectors.doc,
       ["config", "channels", "c1", "port"],
       3,
     );
-    const { next } = patch.applyUpdate(schemas, vectors.doc, { value, guards: [] });
+    const { next } = patch.applyUpdate(schemas, vectors.doc, update);
     expect(next.config.channels[0]).toEqual({
       ...vectors.doc.config.channels[0],
       port: 3,
     });
+  });
+
+  it("should go stale when another client changes the variant", () => {
+    const update = patch.nest(
+      docUpdateZ,
+      vectors.doc,
+      ["config", "channels", "c2", "line"],
+      9,
+    );
+    const changed = patch.applyUpdate(schemas, vectors.doc, {
+      value: { config: { channels: { update: [{ key: "c2", type: "ai", port: 0 }] } } },
+      guards: [],
+    }).next;
+    expect(() => patch.applyUpdate(schemas, changed, update)).toThrow(patch.StaleError);
   });
 
   it("should throw for a path that the schema does not hold", () => {
@@ -679,37 +712,53 @@ describe("generated update shapes", () => {
   });
 
   describe("nest", () => {
-    it("should nest into a union field with the variant that doc holds", () => {
+    it("should nest into a union field and guard its variant", () => {
       expect(patch.nest(taskUpdateZ, task, ["scale", "slope"], 3)).toEqual({
-        scale: { type: "linear", slope: 3 },
+        value: { scale: { type: "linear", slope: 3 } },
+        guards: [{ path: ["scale", "type"], value: "linear" }],
       });
     });
 
     it("should nest into an optional union field", () => {
       expect(patch.nest(taskUpdateZ, task, ["fallback", "max"], 4)).toEqual({
-        fallback: { type: "map", max: 4 },
+        value: { fallback: { type: "map", max: 4 } },
+        guards: [{ path: ["fallback", "type"], value: "map" }],
       });
     });
 
-    it("should nest into a union field of an untagged list entry", () => {
+    it("should guard each union on the path into a nested union of an entry", () => {
       const path = ["sensors", "s1", "scale", "offset"];
-      const value = patch.nest(taskUpdateZ, task, path, 2);
-      expect(value).toEqual({
-        sensors: {
-          update: [
-            { key: "s1", type: "voltage", scale: { type: "linear", offset: 2 } },
-          ],
+      const update = patch.nest(taskUpdateZ, task, path, 2);
+      expect(update).toEqual({
+        value: {
+          sensors: {
+            update: [
+              { key: "s1", type: "voltage", scale: { type: "linear", offset: 2 } },
+            ],
+          },
         },
+        guards: [
+          { path: ["sensors", "s1", "type"], value: "voltage" },
+          { path: ["sensors", "s1", "scale", "type"], value: "linear" },
+        ],
       });
-      expect(applyTask(value).sensors[0]).toEqual({
+      expect(patch.applyUpdate(taskSchemas, task, update).next.sensors[0]).toEqual({
         ...task.sensors[0],
         scale: { type: "linear", slope: 1, offset: 2 },
       });
     });
 
+    it("should guard a root union", () => {
+      expect(patch.nest(viewUpdateZ, view, ["name"], "Errors")).toEqual({
+        value: { type: view.type, name: "Errors" },
+        guards: [{ path: ["type"], value: view.type }],
+      });
+    });
+
     it("should treat an unmarked field as a leaf", () => {
       expect(patch.nest(taskUpdateZ, task, ["props"], { slot: 2 })).toEqual({
-        props: { slot: 2 },
+        value: { props: { slot: 2 } },
+        guards: [],
       });
       expect(() => patch.nest(taskUpdateZ, task, ["props", "rack"], 2)).toThrow(
         "[props] holds no fields",

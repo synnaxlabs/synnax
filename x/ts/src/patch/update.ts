@@ -356,6 +356,13 @@ export const applyUpdate = <U extends z.ZodType, T extends z.ZodType>(
   return { next, inverse: diffUpdate(u, next, state) };
 };
 
+// Builds the guard that holds an update to the variant of the union at path.
+const guardOn = (path: string[], discriminator: string, type: unknown): Guard => {
+  if (typeof type !== "string")
+    throw new Error(`The discriminator at ${path.join(".")} is not a string`);
+  return { path: [...path, discriminator], value: type };
+};
+
 const diffMerge = (
   u: $ZodType,
   base: unknown,
@@ -379,9 +386,7 @@ const diffMerge = (
       guards,
     );
     if (partial == null) return undefined;
-    if (typeof type !== "string")
-      throw new Error(`The discriminator at ${path.join(".")} is not a string`);
-    guards.push({ path: [...path, discriminator], value: type });
+    guards.push(guardOn(path, discriminator, type));
     return { [discriminator]: type, ...partial };
   }
   const shared = new Set(baseFields(union));
@@ -560,18 +565,22 @@ const nestAt = (
   path: string[],
   i: number,
   leaf: unknown,
+  guards: Guard[],
 ): unknown => {
   const union = unionOf(schema);
   if (union != null) {
-    const type = asObject(doc)[union.discriminator];
-    const inner = nestAt(optionOf(union, type), doc, path, i, leaf);
-    return { [union.discriminator]: type, ...asObject(inner) };
+    const { discriminator } = union;
+    const type = asObject(doc)[discriminator];
+    const option = optionOf(union, type);
+    guards.push(guardOn(path.slice(0, i), discriminator, type));
+    const inner = nestAt(option, doc, path, i, leaf, guards);
+    return { [discriminator]: type, ...asObject(inner) };
   }
   if (i === path.length) return leaf;
   const field = path[i];
   const kind = kindAt(shapeOf(schema), field);
   if (i + 1 === path.length) return { [field]: leaf };
-  return { [field]: nestInto(kind, asObject(doc)[field], path, i + 1, leaf) };
+  return { [field]: nestInto(kind, asObject(doc)[field], path, i + 1, leaf, guards) };
 };
 
 const nestInto = (
@@ -580,17 +589,18 @@ const nestInto = (
   path: string[],
   i: number,
   leaf: unknown,
+  guards: Guard[],
 ): unknown => {
   switch (kind.kind) {
     case "change":
-      return nestInto(kindIn(kind.value), doc, path, i, leaf);
+      return nestInto(kindIn(kind.value), doc, path, i, leaf, guards);
     case "struct":
     case "union":
-      return nestAt(kind.update, doc, path, i, leaf);
+      return nestAt(kind.update, doc, path, i, leaf, guards);
     case "list": {
       const key = path[i];
       const entry = asList(doc).find((e) => String(asObject(e)[KEY]) === key);
-      const inner = nestAt(kind.update, entry, path, i + 1, leaf);
+      const inner = nestAt(kind.update, entry, path, i + 1, leaf, guards);
       return { update: [{ [KEY]: asObject(entry)[KEY] ?? key, ...asObject(inner) }] };
     }
     case "value":
@@ -600,10 +610,10 @@ const nestInto = (
 };
 
 /**
- * Wraps the update of the value at a path into the update value of the whole record. A
+ * Wraps the update of the value at a path into an update of the whole record. A
  * segment into a struct nests as a merge, and a segment into a keyed list names the key
  * of an entry and nests as an update of that entry. A union that the path goes into
- * takes the discriminator that doc holds there.
+ * takes the discriminator that doc holds there, and the update holds a guard on it.
  *
  * @param u - The schema of the update value.
  * @param doc - The record, which gives the discriminator of each union on the path.
@@ -616,4 +626,9 @@ export const nest = <U extends z.ZodType>(
   doc: unknown,
   path: string[],
   leaf: unknown,
-): z.output<U> => nestAt(u, doc, path, 0, leaf) as z.output<U>;
+): Update<U> => {
+  const guards: Guard[] = [];
+  const value = nestAt(u, doc, path, 0, leaf, guards);
+  const update: Update<z.ZodType> = { value, guards };
+  return update;
+};
