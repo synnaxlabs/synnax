@@ -176,9 +176,9 @@ func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	return nil
 }
 
-// liveTasks matches the tasks of the arc with the given key that are not snapshots.
-func (w Writer) liveTasks(key Key) task.Filter {
-	return task.And(w.matchTasks(key), task.MatchSnapshot(false))
+// liveTasks matches the tasks of the arc with key that are not snapshots.
+func liveTasks(matchTasks func(arcs ...Key) task.Filter, key Key) task.Filter {
+	return task.And(matchTasks(key), task.MatchSnapshot(false))
 }
 
 func retrieveTaskKeys(
@@ -222,7 +222,7 @@ func (w Writer) UpdateTask(
 	key Key,
 	update TaskUpdate,
 ) (*task.Task, error) {
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(key))
+	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, liveTasks(w.matchTasks, key))
 	if err != nil {
 		return nil, err
 	}
@@ -431,7 +431,9 @@ func (w Writer) retrieveTask(
 // for edits, like graph layout moves, that change neither.
 func (w Writer) syncTask(ctx context.Context, a Arc, built Build) error {
 	b := a.Base()
-	existing, err := retrieveTaskKeys(ctx, w.tasks, w.tx, w.liveTasks(b.Key))
+	existing, err := retrieveTaskKeys(
+		ctx, w.tasks, w.tx, liveTasks(w.matchTasks, b.Key),
+	)
 	if err != nil || len(existing) == 0 {
 		return err
 	}

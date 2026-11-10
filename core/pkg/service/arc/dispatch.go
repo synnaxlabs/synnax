@@ -14,7 +14,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/crdt"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -127,9 +126,9 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 func (s *Service) resync(ctx context.Context, key Key) {
 	s.withArc(ctx, key, "failed to resync arc", func(a Arc) error {
 		if a.Type() == TypeAutomation {
-			tasks, err := retrieveTaskKeys(ctx, s.cfg.Task, s.cfg.DB, task.And(
-				s.cfg.MatchTasks(key), task.MatchSnapshot(false),
-			))
+			tasks, err := retrieveTaskKeys(
+				ctx, s.cfg.Task, s.cfg.DB, liveTasks(s.cfg.MatchTasks, key),
+			)
 			if err != nil || len(tasks) == 0 {
 				return err
 			}
