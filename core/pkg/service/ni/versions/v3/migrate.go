@@ -50,8 +50,8 @@ func narrowCount(old float64, lower uint32) uint32 {
 	return uint32(min(old, math.MaxUint32))
 }
 
-// narrowCountOrDefault is narrowCount, except that 0 stays 0 so that ApplyDefaults
-// fills the schema default, as it did at v2.
+// narrowCountOrDefault is narrowCount, except that 0 stays 0 so that an import fills
+// the schema default, as it did at v2.
 func narrowCountOrDefault(old float64, lower uint32) uint32 {
 	if old == 0 {
 		return 0
@@ -59,8 +59,8 @@ func narrowCountOrDefault(old float64, lower uint32) uint32 {
 	return narrowCount(old, lower)
 }
 
-// narrowDivisor clamps a divisor to at least 1. 0 stays 0 so that ApplyDefaults fills
-// the schema default, as it did at v2.
+// narrowDivisor clamps a divisor to at least 1. 0 stays 0 so that an import fills the
+// schema default, as it did at v2.
 func narrowDivisor(old int32) uint32 {
 	if old == 0 {
 		return 0
@@ -157,7 +157,7 @@ func MigrateCJC(ctx context.Context, old v2.CJC) (CJC, error) {
 
 // MigrateCIChannel lifts a v2 counter input channel to v3. A divisor or pulse count
 // below 1 becomes 1, a negative initial count becomes 0, and a fraction truncates. An
-// absent divisor or pulse count stays absent for ApplyDefaults to fill.
+// absent divisor or pulse count stays absent for an import to fill.
 func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) {
 	ch, err := autoMigrateCIChannel(ctx, old)
 	if err != nil {

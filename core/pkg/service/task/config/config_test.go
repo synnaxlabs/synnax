@@ -33,8 +33,7 @@ import (
 )
 
 // testType is the task type the suite registers its store under. The record type
-// is the Arc task config, picked because it exercises both the ApplyDefaults and
-// Validate hooks.
+// is the Arc task config, picked because it has schema defaults and validation.
 const testType = "arc_task"
 
 var _ = Describe("Service", func() {
@@ -46,14 +45,13 @@ var _ = Describe("Service", func() {
 		svc = MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 db,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
-				ValidateEntry:      (*arctask.Config).Validate,
+				DB:            db,
+				Type:          testType,
+				Ladder:        arcversions.ConfigLadder,
+				SetEntryKey:   (*arctask.Config).SetKey,
+				PatchEntry:    (*arctask.Config).Patch,
+				HashEntry:     (*arctask.Config).HashContent,
+				ValidateEntry: (*arctask.Config).Validate,
 			},
 		))
 		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
@@ -243,7 +241,7 @@ var _ = Describe("Service", func() {
 			Expect(MustSucceed(rec.Data())).To(Equal(data))
 		})
 
-		It("Should report a change when storing fills a default", func(
+		It("Should report a change when a removal leaves a default", func(
 			ctx SpecContext,
 		) {
 			key := createTask(ctx)
@@ -251,7 +249,10 @@ var _ = Describe("Service", func() {
 				ctx,
 				db,
 				key,
-				[]patch.Cursor{set([]string{"performance"}, "")},
+				[]patch.Cursor{MustSucceed(patch.Begin(patch.Remove{
+					Path: []string{"config"},
+					Key:  "performance",
+				})).Next()},
 			))
 			Expect(changed).To(BeTrue())
 			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
@@ -631,13 +632,12 @@ var _ = Describe("Service", func() {
 				reconciling = MustOpen(config.OpenService(
 					ctx,
 					config.ServiceConfig[arctask.Config]{
-						DB:                 reconDB,
-						Type:               "reconcile_test",
-						Ladder:             arcversions.ConfigLadder,
-						SetEntryKey:        (*arctask.Config).SetKey,
-						PatchEntry:         (*arctask.Config).Patch,
-						HashEntry:          (*arctask.Config).HashContent,
-						ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+						DB:          reconDB,
+						Type:        "reconcile_test",
+						Ladder:      arcversions.ConfigLadder,
+						SetEntryKey: (*arctask.Config).SetKey,
+						PatchEntry:  (*arctask.Config).Patch,
+						HashEntry:   (*arctask.Config).HashContent,
 						ReconcileEntry: func(
 							ctx context.Context,
 							tx gorp.Tx,
@@ -919,13 +919,12 @@ var _ = Describe("With a detach reference", func() {
 		return MustOpen(config.OpenService(
 			ctx,
 			config.ServiceConfig[arctask.Config]{
-				DB:                 ldb,
-				Type:               testType,
-				Ladder:             arcversions.ConfigLadder,
-				SetEntryKey:        (*arctask.Config).SetKey,
-				PatchEntry:         (*arctask.Config).Patch,
-				HashEntry:          (*arctask.Config).HashContent,
-				ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+				DB:          ldb,
+				Type:        testType,
+				Ladder:      arcversions.ConfigLadder,
+				SetEntryKey: (*arctask.Config).SetKey,
+				PatchEntry:  (*arctask.Config).Patch,
+				HashEntry:   (*arctask.Config).HashContent,
 				References: []gorp.Reference[uuid.UUID, arctask.Config]{
 					reference(),
 				},

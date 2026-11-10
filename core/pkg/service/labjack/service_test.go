@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -180,6 +181,77 @@ var _ = Describe("Service", func() {
 			})).Error().To(MatchError(ContainSubstring(
 				"device_scan_backlog_warn_on_count",
 			)))
+		})
+	})
+	Describe("Explicit zeros", func() {
+		analog := func(scale map[string]any) msgpack.EncodedJSON {
+			return msgpack.EncodedJSON{"channels": []any{map[string]any{
+				"type":  "analog",
+				"key":   "ai",
+				"port":  "AIN0",
+				"scale": scale,
+			}}}
+		}
+		linear := func(slope float64) map[string]any {
+			return map[string]any{"type": "linear", "slope": slope, "offset": 5}
+		}
+		scaleOf := func(data msgpack.EncodedJSON) map[string]any {
+			GinkgoHelper()
+			channels := data["channels"].([]any)
+			Expect(channels).To(HaveLen(1))
+			return channels[0].(map[string]any)["scale"].(map[string]any)
+		}
+		edit := func(ctx SpecContext, key uuid.UUID, a patch.Action) {
+			GinkgoHelper()
+			c := MustSucceed(patch.Begin(a)).Next()
+			rec, _ := MustSucceed2(svc.Read.Edit(ctx, db, key, []patch.Cursor{c}))
+			Expect(rec.Write(ctx, db)).To(Succeed())
+		}
+		slopePath := []string{"config", "channels", "ai", "scale", "slope"}
+
+		It("Should keep a linear scale slope of 0 on create", func(ctx SpecContext) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, analog(linear(0))))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(scaleOf(data)).To(HaveKeyWithValue("slope", BeNumerically("==", 0)))
+		})
+
+		It("Should keep a linear scale slope of 0 on edit", func(ctx SpecContext) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, analog(linear(2))))
+			edit(ctx, key, patch.Set{Path: slopePath, Value: 0.0})
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(scaleOf(data)).To(HaveKeyWithValue("slope", BeNumerically("==", 0)))
+		})
+
+		It("Should give a removed linear scale slope its default", func(
+			ctx SpecContext,
+		) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, analog(linear(2))))
+			edit(ctx, key, patch.Remove{Path: slopePath[:4], Key: "slope"})
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(scaleOf(data)).To(HaveKeyWithValue("slope", BeNumerically("==", 1)))
+		})
+
+		It("Should keep a linear scale slope of 0 on import", func(ctx SpecContext) {
+			out := MustSucceed(svc.Read.Normalize(ctx, db, svc.Read.Version(),
+				analog(linear(0)),
+			))
+			Expect(scaleOf(out)).To(HaveKeyWithValue("slope", BeNumerically("==", 0)))
+		})
+
+		It("Should keep a thermocouple CJC slope of 0", func(ctx SpecContext) {
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"type":      "thermocouple",
+					"key":       "tc",
+					"port":      "AIN0",
+					"cjc_slope": 0,
+					"scale":     map[string]any{"type": "none"},
+				}},
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
+			Expect(data["channels"]).To(ConsistOf(
+				HaveKeyWithValue("cjc_slope", BeNumerically("==", 0)),
+			))
 		})
 	})
 })
