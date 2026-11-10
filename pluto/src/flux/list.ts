@@ -157,9 +157,7 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
   const [last, setLast] = useState(current);
   if (current != null && current !== last) setLast(current);
   const [status, setStatus] = useState<Result<null>>(() => loadingResult<null>(op));
-  // A failed read shows no records from an earlier query.
-  const window =
-    list == null ? undefined : status.variant === "error" ? current : (current ?? last);
+  const window = list == null ? undefined : (current ?? last);
   const reading = useRef<object | null>(null);
 
   const read = async (step: string, run: () => Promise<unknown>): Promise<void> => {
@@ -174,6 +172,9 @@ export const useList = <Q, E extends record.Keyed<record.Key>, I = E["key"]>(
     }
     if (reading.current !== token) return;
     reading.current = null;
+    // A failed read drops the last answer, so neither the error nor a retry shows
+    // records from an earlier query.
+    if (next.variant === "error") setLast(undefined);
     setStatus(next);
   };
 
