@@ -266,7 +266,11 @@ var _ = Describe("Go Actions Plugin", func() {
 								"\t}\n"+
 								"\tswitch path[0] {\n"+
 								"\tcase \"hash\", \"note\":\n"+
-								"\t\treturn errors.Wrap(actions.ErrCoreOnly, path[0])\n"+
+								"\t\treturn errors.Mark(\n"+
+								"\t\t\terrors.Wrapf(validate.ErrValidation, "+
+								"\"%s is set by the Core\", path[0]),\n"+
+								"\t\t\tactions.ErrCoreOnly,\n"+
+								"\t\t)\n"+
 								"\t}\n"+
 								"\treturn nil\n}",
 						)

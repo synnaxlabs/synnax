@@ -462,7 +462,10 @@ var _ = Describe("Service", func() {
 				createTask(ctx),
 				updates(
 					performance("high"),
-					patch.Guard{Path: []string{"performance"}, Value: "auto"},
+					patch.Guard{
+						Path:  []string{config.Field, "performance"},
+						Value: "auto",
+					},
 				),
 			))
 			Expect(MustSucceed(rec.Data())).To(HaveKeyWithValue("performance", "high"))
@@ -473,10 +476,10 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Update(ctx, db, createTask(ctx), updates(
 				performance("high"),
-				patch.Guard{Path: []string{"performance"}, Value: "low"},
+				patch.Guard{Path: []string{config.Field, "performance"}, Value: "low"},
 			))).Error().To(SatisfyAll(
 				MatchError(patch.ErrStale),
-				MatchError(ContainSubstring("is not low")),
+				MatchError("config.performance is not low: stale"),
 			))
 		})
 
@@ -485,7 +488,7 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Update(ctx, db, createTask(ctx), updates(
 				nil,
-				patch.Guard{Path: []string{"performance"}, Value: "low"},
+				patch.Guard{Path: []string{config.Field, "performance"}, Value: "low"},
 			))).Error().To(MatchError(patch.ErrStale))
 		})
 

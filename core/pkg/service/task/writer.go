@@ -207,9 +207,6 @@ func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, er
 	return computed, nil
 }
 
-// configField is the field of a task that its config store edits.
-const configField = "config"
-
 // splitConfig returns the actions that do not edit the task's config, then the cursors
 // of the path actions that do, each past the segment that names the config, then the
 // update of the config that each update holds when the config is stored. An update in
@@ -236,7 +233,7 @@ func splitConfig(
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		if ok && c.Segment() == configField {
+		if ok && c.Segment() == config.Field {
 			cursors = append(cursors, c.Next())
 		} else {
 			others = append(others, a)
@@ -246,14 +243,12 @@ func splitConfig(
 }
 
 // splitUpdate returns u without its config or its guards on the config, then the update
-// of the config, whose guards are the guards of u on the config, each past the segment
-// that names the config.
+// of the config, whose guards are the guards of u on the config.
 func splitUpdate(u UpdatePayload) (UpdatePayload, patch.Update[msgpack.EncodedJSON]) {
 	cfg := patch.Update[msgpack.EncodedJSON]{Value: u.Value.Config}
 	var guards []patch.Guard
 	for _, g := range u.Guards {
-		if len(g.Path) > 0 && g.Path[0] == configField {
-			g.Path = g.Path[1:]
+		if len(g.Path) > 0 && g.Path[0] == config.Field {
 			cfg.Guards = append(cfg.Guards, g)
 		} else {
 			guards = append(guards, g)
