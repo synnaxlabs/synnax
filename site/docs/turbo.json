@@ -3,6 +3,7 @@
   "extends": ["//"],
   "tasks": {
     "build": {
+      "cache": false,
       "env": ["DOCS_VERSION"]
     }
   }
