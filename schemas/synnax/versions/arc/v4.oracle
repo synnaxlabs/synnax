@@ -10,6 +10,7 @@
 import "schemas/arc/program"
 import "schemas/arc/versions/graph/v1"
 import "schemas/arc/versions/text/v1"
+import "schemas/synnax/versions/status/v2"
 
 Key = v1.Key
 
@@ -64,6 +65,34 @@ Base struct {
     @go marshal
 }
 
+Status = status.Status<nil>
+
+ChangeKind enum {
+    changed = "changed"
+    added   = "added"
+    removed = "removed"
+
+    @doc value """
+        is how a piece of an automation's content differs from what its task last ran.
+    """
+}
+
+Change struct {
+    type Type       {
+        @doc value "is whether the automation's own text or a module changed."
+    }
+    path string = "" {
+        @doc value "is the import path of the module. Empty for the automation."
+    }
+    kind ChangeKind {
+        @doc value "is how the content differs from what the task last ran."
+    }
+
+    @doc value """
+        is one difference between an automation's content and what its task last ran.
+    """
+}
+
 Arc union on type Type extends Base {
     automation {
         program program.Program? {
@@ -72,10 +101,19 @@ Arc union on type Type extends Base {
             """
             @go marshal omit
         }
+        changes Change[]?        {
+            @doc value  "is what changed in the automation since its task was deployed."
+            @go marshal omit
+        }
 
         @doc value "is an Arc that runs on a rack as a task."
     }
     module {
+        status Status? {
+            @doc value  "is the result of the module's last compile on the Core."
+            @go marshal omit
+        }
+
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 

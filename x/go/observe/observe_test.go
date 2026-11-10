@@ -141,3 +141,28 @@ var _ = Describe("Noop", func() {
 		Expect(called).To(BeFalse())
 	})
 })
+
+var _ = Describe("Merge", func() {
+	It("Should notify on a change to any observable", func(ctx SpecContext) {
+		a, b := observe.New[int](), observe.New[int]()
+		var results []int
+		observe.Merge[int](a, b).OnChange(func(ctx context.Context, v int) {
+			results = append(results, v)
+		})
+		a.Notify(ctx, 1)
+		b.Notify(ctx, 2)
+		Expect(results).To(Equal([]int{1, 2}))
+	})
+
+	It("Should disconnect from every observable", func(ctx SpecContext) {
+		a, b := observe.New[int](), observe.New[int]()
+		calls := 0
+		disconnect := observe.Merge[int](a, b).OnChange(func(context.Context, int) {
+			calls++
+		})
+		disconnect()
+		a.Notify(ctx, 1)
+		b.Notify(ctx, 2)
+		Expect(calls).To(BeZero())
+	})
+})

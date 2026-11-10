@@ -53,7 +53,8 @@ type Config struct {
 	task.PersistConfig
 	// ArcKey is the key of the Arc module the task executes.
 	ArcKey arc.Key `json:"arc_key" msgpack:"arc_key"`
-	// Hash is the semantic hash of the Arc module at deploy time.
+	// Hash is the hash of the automation's compiled program, or of its source when it
+	// does not compile.
 	Hash string `json:"hash" msgpack:"hash"`
 	// Performance sets how closely the runtime holds timer deadlines.
 	Performance Performance `json:"performance" msgpack:"performance"`

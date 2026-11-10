@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { crdt, id, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { assert, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { arc } from "@/arc";
 import { AccessDeniedError, NotFoundError } from "@/index";
@@ -65,6 +65,17 @@ describe("arc", () => {
         where: { name: { regex: `^${prefix}` }, not: { key: { eq: a.key } } },
       });
       expect(res.map(({ key }) => key)).toEqual([b.key]);
+    });
+
+    it("should store a module's compile status under its status key", async () => {
+      const created = await client.arcs.create({
+        name: `status_module_${id.create()}`,
+        type: "module",
+        source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
+      });
+      const stat = await client.arcs.status.retrieve(created.key);
+      expect(stat?.message).toEqual("Compiled");
+      expect(stat?.name).toEqual(created.name);
     });
 
     it("should throw a NotFoundError for a missing key in a key list", async () => {
@@ -240,6 +251,51 @@ describe("arc", () => {
       } finally {
         off();
       }
+    });
+  });
+
+  describe("retrieveChanges", () => {
+    it("should return nothing before the task is deployed", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`changes-${id.create()}`));
+      await client.arcs.updateTask(created.key, { rack: rack.key });
+      expect(await client.arcs.retrieveChanges(created.key)).toEqual([]);
+    });
+
+    it("should name the automation edited after its deploy", async () => {
+      const rack = await client.racks.create({ name: `rack-${id.create()}` });
+      const created = await client.arcs.create(newTextArc(`changes-${id.create()}`));
+      const tsk = await client.arcs.updateTask(created.key, { rack: rack.key });
+      assert(tsk != null);
+      await client.statuses.set(
+        status.create<ReturnType<typeof task.statusDetailsZ>>({
+          owner: task.resourceID(tsk.key),
+          variant: "success",
+          message: "Task running",
+          details: {
+            running: true,
+            cmd: "",
+            configHash: tsk.configHash,
+            rack: rack.key,
+            data: {},
+          },
+        }),
+      );
+      const gen = new crdt.Text(2);
+      const ops = gen.insert(0, "on -> off").map((op) => arc.insertChar(op));
+      await client.arcs.dispatch(created.key, ops);
+      await expect
+        .poll(async () => await client.arcs.retrieveChanges(created.key))
+        .toEqual([{ type: "automation", path: "", kind: "changed" }]);
+    });
+
+    it("should return nothing for a module", async () => {
+      const created = await client.arcs.create({
+        name: `changes_module_${id.create()}`,
+        type: "module",
+        source: { mode: "text", text: { raw: "export func f() i64 { return 1 }" } },
+      });
+      expect(await client.arcs.retrieveChanges(created.key)).toEqual([]);
     });
   });
 

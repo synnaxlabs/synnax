@@ -138,6 +138,8 @@ func RetrieveRequestToPB(r arc.RetrieveRequest) (*RetrieveRequest, error) {
 	pb := &RetrieveRequest{
 		SearchTerm:     r.SearchTerm,
 		IncludeProgram: r.IncludeProgram,
+		IncludeChanges: r.IncludeChanges,
+		IncludeStatus:  r.IncludeStatus,
 	}
 	if r.Where != nil {
 		var err error
@@ -178,6 +180,8 @@ func RetrieveRequestFromPB(pb *RetrieveRequest) (arc.RetrieveRequest, error) {
 	defaults.Prefill(&r)
 	r.SearchTerm = pb.SearchTerm
 	r.IncludeProgram = pb.IncludeProgram
+	r.IncludeChanges = pb.IncludeChanges
+	r.IncludeStatus = pb.IncludeStatus
 	if pb.Where != nil {
 		val, err := arcpb.WhereFromPB(pb.Where)
 		if err != nil {
