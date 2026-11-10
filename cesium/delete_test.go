@@ -13,7 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -545,11 +545,7 @@ var _ = Describe("Delete", func() {
 							fs.Exists,
 						).WithArguments(channelKeyToPath(key)).
 							Should(BeFalse())
-						for _, f := range MustSucceed(fs.List("")) {
-							Expect(
-								f.Name(),
-							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
-						}
+						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -596,11 +592,7 @@ var _ = Describe("Delete", func() {
 							fs.Exists,
 						).WithArguments(channelKeyToPath(key)).
 							Should(BeFalse())
-						for _, f := range MustSucceed(fs.List("")) {
-							Expect(
-								f.Name(),
-							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
-						}
+						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -640,11 +632,7 @@ var _ = Describe("Delete", func() {
 							fs.Exists,
 						).WithArguments(channelKeyToPath(key)).
 							Should(BeFalse())
-						for _, f := range MustSucceed(fs.List("")) {
-							Expect(
-								f.Name(),
-							).ToNot(HavePrefix(channelKeyToPath(key) + "-DELETE-"))
-						}
+						Eventually(deletedDirs).WithArguments(fs, key).Should(BeEmpty())
 						Expect(
 							db.RetrieveChannel(ctx, key),
 						).Error().
@@ -727,11 +715,10 @@ var _ = Describe("Delete", func() {
 					).To(Succeed())
 					for _, c := range channels {
 						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
-						for _, f := range MustSucceed(fs.List("")) {
-							Expect(
-								f.Name(),
-							).ToNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
-						}
+						Eventually(
+							deletedDirs,
+						).WithArguments(fs, c.Key).
+							Should(BeEmpty())
 					}
 				})
 				Describe("Happy paths", func() {
@@ -759,11 +746,10 @@ var _ = Describe("Delete", func() {
 									fs.Exists,
 								).WithArguments(channelKeyToPath(c)).
 									Should(BeFalse())
-								for _, f := range MustSucceed(fs.List("")) {
-									Expect(
-										f.Name(),
-									).ToNot(HavePrefix(strconv.Itoa(int(c)) + "-DELETE-"))
-								}
+								Eventually(
+									deletedDirs,
+								).WithArguments(fs, c).
+									Should(BeEmpty())
 							}
 						},
 						Entry("1 index 1 data", index1, data1),
@@ -1658,3 +1644,19 @@ var _ = Describe("Delete", func() {
 		})
 	}
 })
+
+// deletedDirs returns the detached directories of key that still wait for removal.
+func deletedDirs(fsys fs.FS, key cesium.ChannelKey) ([]string, error) {
+	prefix := channelKeyToPath(key) + "-DELETE-"
+	entries, err := fsys.List("")
+	if err != nil {
+		return nil, err
+	}
+	var dirs []string
+	for _, f := range entries {
+		if strings.HasPrefix(f.Name(), prefix) {
+			dirs = append(dirs, f.Name())
+		}
+	}
+	return dirs, nil
+}

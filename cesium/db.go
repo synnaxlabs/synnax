@@ -23,6 +23,7 @@ import (
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -53,6 +54,8 @@ func NewAlignmentCounter() *AlignmentCounter {
 
 type DB struct {
 	shutdown io.Closer
+	// routines runs the background work of the DB. Close waits for it to exit.
+	routines signal.Go
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.

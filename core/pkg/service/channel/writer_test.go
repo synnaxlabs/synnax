@@ -12,10 +12,13 @@ package channel_test
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -23,8 +26,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/storage"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	xfstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -1337,6 +1344,53 @@ var _ = Describe("Writer", func() {
 					).
 						Error().
 						To(MatchError(ts.ErrChannelNotFound))
+				},
+			)
+		})
+		Context("Slow data removal", func() {
+			It(
+				"Should not block Gorp reads while removing data",
+				func(ctx SpecContext) {
+					base := DeferClose(storagetestutil.OpenLayer(ctx))
+					fsys := xfstestutil.WrapFaultyFS(xfs.NewMem())
+					tsDB := DeferClose(
+						MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fsys))),
+					)
+					slow := testutil.NewNode(ctx, distribution.LayerConfig{
+						Storage: &storage.Layer{KV: base.KV, TS: tsDB},
+					})
+					slowSvc := openService(ctx, slow)
+					ch := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.TimestampT,
+						IsIndex:     true,
+						Leaseholder: 1,
+					}
+					Expect(slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+						return slowSvc.NewWriter(tx).Create(ctx, &ch)
+					})).To(Succeed())
+					removing := make(chan struct{})
+					release := make(chan struct{})
+					DeferCleanup(sync.OnceFunc(func() { close(release) }))
+					fsys.SetOptions(xfstestutil.WithBeforeRemove(sync.OnceFunc(func() {
+						close(removing)
+						<-release
+					})))
+					deleted := make(chan error, 1)
+					go func() {
+						deleted <- slow.DB.WithTx(ctx, func(tx gorp.Tx) error {
+							return slowSvc.NewWriter(tx).Delete(ctx, ch.Key(), true)
+						})
+					}()
+					Eventually(removing).Should(BeClosed())
+					read := make(chan bool, 1)
+					go func() {
+						read <- MustSucceed(slowSvc.NewRetrieve().
+							Where(channel.MatchKeys(ch.Key())).
+							Exists(ctx, slow.DB))
+					}()
+					Eventually(read).Should(Receive(BeFalse()))
+					Eventually(deleted).Should(Receive(BeNil()))
 				},
 			)
 		})

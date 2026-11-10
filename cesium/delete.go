@@ -71,7 +71,8 @@ func dirNameToKey(name string) (ChannelKey, error) {
 	return ChannelKey(key), nil
 }
 
-// DeleteChannel deletes a channel by its key.
+// DeleteChannel deletes a channel by its key. It returns once the channel is detached
+// and removes its data in the background. Close waits for the removal to finish.
 //
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
@@ -81,30 +82,26 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	// Rename the file first, so we can avoid hogging the mutex while deleting the
-	// directory, which may take a longer time. Rename the file to have a random suffix
-	// in case the channel is repeatedly created and deleted.
+	// The random suffix lets a channel be created and deleted again while an earlier
+	// removal runs.
 	oldName := keyToDirName(ch)
 	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := func() error {
-		db.mu.Lock()
-		defer db.mu.Unlock()
-		if err := db.removeChannel(ch); err != nil {
-			return err
-		}
-		err := db.fs.Rename(oldName, newName)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
-	}(); err != nil {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if err := db.removeChannel(ch); err != nil {
 		return err
 	}
-	return db.fs.Remove(newName)
+	if err := db.fs.Rename(oldName, newName); err != nil {
+		return errors.Skip(err, fs.ErrNotExist)
+	}
+	db.removeDirs(newName)
+	return nil
 }
 
 // DeleteChannels deletes many channels by their keys. This operation is not guaranteed
-// to be atomic: it is possible some channels in chs are deleted and some are not.
+// to be atomic: it is possible some channels in chs are deleted and some are not. It
+// returns once the channels are detached and removes their data in the background.
+// Close waits for the removal to finish.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -114,16 +111,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		directoriesToRemove = make([]string, 0, len(chs))
 	)
 	db.mu.Lock()
-	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.dbs.unary and db.mu.dbs.virtual are also
-	// deleted on FS.
 	defer func() {
+		db.removeDirs(directoriesToRemove...)
 		db.mu.Unlock()
-		var errRemove error
-		for _, name := range directoriesToRemove {
-			errRemove = errors.Join(errRemove, db.fs.Remove(name))
-		}
-		err = errors.Combine(err, errRemove)
 	}()
 
 	// Do a pass first to remove all non-index channels
@@ -172,6 +162,26 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	}
 
 	return err
+}
+
+// removeDirs removes the named detached channel directories in the background. A
+// failed removal leaves the directory on disk and logs the error.
+func (db *DB) removeDirs(names ...string) {
+	if len(names) == 0 {
+		return
+	}
+	db.routines.Go(func(context.Context) error {
+		for _, name := range names {
+			if err := db.fs.Remove(name); err != nil {
+				db.L.Error(
+					"failed to remove deleted channel data",
+					zap.String("dir", name),
+					zap.Error(err),
+				)
+			}
+		}
+		return nil
+	})
 }
 
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
