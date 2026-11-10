@@ -140,9 +140,19 @@ jobs:
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core && !inputs.packages }}
+        if: >-
+          !inputs.console && !inputs.driver && !inputs.core && (!inputs.packages ||
+          inputs.prerelease)
         run: |
-          echo "no product selected" >&2
+          echo "no product selected; a candidate run never publishes packages" >&2
+          exit 1
+
+      - name: Require a release branch for packages
+        if: >-
+          inputs.packages && !inputs.prerelease && github.ref != 'refs/heads/main' &&
+          !startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          echo "packages publish only from main or a release/ branch" >&2
           exit 1
 
       - name: Checkout repository
@@ -357,24 +367,71 @@ jobs:
       - name: Publish release
         run: gh release edit "$TAG" --draft=false --latest=false
 
-  # Packages have no candidate channel, so a candidate run never publishes them.
+  # Packages have no candidate channel, so a candidate run never publishes them. The
+  # registries trust this file by name, so the publish jobs live here and not in a called
+  # workflow. pnpm and the prune step skip versions already on the registry.
   publish-ts:
     name: Publish TypeScript packages
     needs: [resolve, ci]
     if: inputs.packages && !inputs.prerelease
     permissions:
+      contents: read
       id-token: write
-    uses: ./.github/workflows/deploy.ts.yaml
-    secrets:
+    runs-on: ubuntu-latest
+    env:
+      SYNNAX_TS_ENV: prod
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Build
+        run: pnpm build:client
+
+      - name: Publish
+        # pnpm refuses a branch other than main unless it is named here.
+        run: pnpm publish -r --publish-branch "$GITHUB_REF_NAME"
 
   publish-py:
     name: Publish Python packages
     needs: [resolve, ci]
     if: inputs.packages && !inputs.prerelease
     permissions:
+      contents: read
       id-token: write
-    uses: ./.github/workflows/deploy.py.yaml
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            (cd "$package" && uv build)
+          done
+
+      - name: Prune already-published distributions
+        run: uv run --no-project python .github/scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.

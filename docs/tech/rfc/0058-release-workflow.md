@@ -12,10 +12,10 @@ are hand-edited files, and the Console updater polls a JSON file a bot force-pus
 `main`. This RFC moves to trunk-based development on `main`, one dispatched release
 workflow with a checkbox per binary product, Git tags as the only version source for
 those products, an updater manifest hosted on the GitHub release, and static feature
-flags. Python and TypeScript packages keep their current flow: versioned in their
-manifests, published on merge. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and
-retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
-survives: every product and package shares one minor, and patches move independently.
+flags. Python and TypeScript packages stay versioned in their manifests and publish from
+the same workflow. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and retires the
+`rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor survives: every
+product and package shares one minor, and patches move independently.
 
 ## 1 Motivation
 
@@ -35,9 +35,9 @@ survives: every product and package shares one minor, and patches move independe
 ## 2 Design
 
 Three binary products release by dispatch: Console, Core, Driver. The Python and
-TypeScript packages publish on merge, as today. Compatible products and packages share a
-major.minor, the train, such as `0.59`. `main` is always releasable: unfinished work
-ships dark behind a flag. No binary publishes on push; a person dispatches every
+TypeScript packages publish from the same dispatch. Compatible products and packages
+share a major.minor, the train, such as `0.59`. `main` is always releasable: unfinished
+work ships dark behind a flag. No binary publishes on push; a person dispatches every
 release. No file in Git carries a binary product version; the tag is the version. A
 package manifest carries its own version.
 
@@ -105,12 +105,14 @@ with that product alone, and a Core rerun's defaults pick up the others.
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
 
-Python and TypeScript keep `deploy.py.yaml` and `deploy.ts.yaml`. A merge to `main` that
-touches a package publishes every package whose manifest version is not yet on the
-registry; `uv publish --check-url` and `pnpm publish -r` skip the rest. The version bump
-in the PR is the release decision, and a package that did not change is never
-republished. Both publish through OIDC trusted publishing with `id-token: write`, so no
-registry token lives in the repo's secrets. Packages have no candidate channel.
+`release.yaml` has a `packages` checkbox. With it on, the run publishes every Python and
+TypeScript package whose manifest version is not yet on the registry;
+`uv publish --check-url` and `pnpm publish -r` skip the rest, so a package that did not
+change is never republished. A merge publishes nothing. Both publish through OIDC
+trusted publishing with `id-token: write`, so no registry token lives in the repo's
+secrets. The registries trust `release.yaml` by name, so the publish jobs live in it,
+not in a called workflow. Packages have no candidate channel: a candidate run never
+publishes them.
 
 ### 2.2 Versions
 
@@ -239,13 +241,15 @@ flag and workflow file.
    without a deploy.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
-10. **Packages keep the merge-publish flow**: Tag-resolved lockstep versions rejected
-    for Python and TypeScript; they republished every package on every patch and cost a
-    product tag, a workflow, and version injection to replace a flow that already works.
-    Per-package tags rejected because the cascade through internal ranges then needs a
-    person or Changesets. The manifest version is the release decision, the registry's
-    skip of published versions is the change detection, and the published `^X.Y.0`
-    ranges lock the minor on 0.x, so any patch mix inside a train resolves.
+10. **Packages publish by dispatch from manifest versions**: Publish on merge rejected;
+    a version bump then shipped before anyone chose to release it. Tag-resolved lockstep
+    versions rejected for Python and TypeScript; they republished every package on every
+    patch and cost a product tag, a workflow, and version injection to replace a flow
+    that already works. Per-package tags rejected because the cascade through internal
+    ranges then needs a person or Changesets. The manifest version is the release
+    decision, the registry's skip of published versions is the change detection, and the
+    published `^X.Y.0` ranges lock the minor on 0.x, so any patch mix inside a train
+    resolves.
 11. **One workflow, a checkbox per product**: `release.yaml` ships a minor with one
     click and a hotfix with one box ticked. A workflow per product plus a train over
     them was rejected as four files for one job; separate dispatches as three clicks in
