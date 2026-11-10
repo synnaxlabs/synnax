@@ -10,6 +10,7 @@
 package validate_test
 
 import (
+	"math"
 	"runtime"
 	"uuid"
 
@@ -238,6 +239,31 @@ var _ = Describe("Validate", func() {
 					Expect(v.Error()).To(MatchError(ContainSubstring("[1, 10)")))
 				})
 			})
+		})
+
+		Describe("NaN", func() {
+			nan := math.NaN()
+			DescribeTable("Should reject NaN in every numeric comparison",
+				func(check func() bool) {
+					Expect(check()).To(BeTrue())
+					Expect(v.Error()).To(MatchError(ContainSubstring("field: must")))
+				},
+				Entry("Positive", func() bool {
+					return v.Positive("field", nan)
+				}),
+				Entry("InBounds", func() bool {
+					return v.InBounds("field", nan, 0, 1)
+				}),
+				Entry("GreaterThan", func() bool {
+					return v.GreaterThan("field", nan, 0)
+				}),
+				Entry("GreaterThanEq", func() bool {
+					return v.GreaterThanEq("field", nan, 0)
+				}),
+				Entry("LessThanEq", func() bool {
+					return v.LessThanEq("field", nan, 0)
+				}),
+			)
 		})
 
 		Describe("Collection Validations", func() {

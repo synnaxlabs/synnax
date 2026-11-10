@@ -4652,6 +4652,13 @@ type BaseAOChannel struct {
 	Key string `json:"key" msgpack:"key"`
 	// Disabled is true when the channel is excluded from the task.
 	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// Port is the physical port the channel writes to.
+	Port uint32 `json:"port" msgpack:"port"`
+}
+
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel struct {
 	// CmdChannel is the Synnax channel commands are read from.
 	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
 	// StateChannel is the Synnax channel the output state is written to.
@@ -4660,8 +4667,6 @@ type BaseAOChannel struct {
 	CmdChannelName string `json:"cmd_channel_name" msgpack:"cmd_channel_name"`
 	// StateChannelName is the human-readable name of the state channel.
 	StateChannelName string `json:"state_channel_name" msgpack:"state_channel_name"`
-	// Port is the physical port the channel writes to.
-	Port uint32 `json:"port" msgpack:"port"`
 }
 
 // AOChannelType is the "type" value that selects a variant of AOChannel.
@@ -4670,7 +4675,8 @@ type AOChannelType string
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = "ao_current"
-	// AOFuncGenChannelType drives a function-generator output.
+	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
+	// commands.
 	AOFuncGenChannelType AOChannelType = "ao_func_gen"
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = "ao_voltage"
@@ -4686,6 +4692,7 @@ type AOCurrentChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
+	CommandedAOChannel
 }
 
 func (AOCurrentChannel) isAOChannelVariant() {}
@@ -4726,7 +4733,7 @@ func (a AOCurrentChannel) Validate() error {
 	return v.Error()
 }
 
-// AOFuncGenChannel drives a function-generator output.
+// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
 type AOFuncGenChannel struct {
 	BaseAOChannel
 	// WaveType selects the waveform to generate.
@@ -4766,6 +4773,7 @@ type AOVoltageChannel struct {
 	BaseAOChannel
 	MinMaxVal
 	CustomScale
+	CommandedAOChannel
 }
 
 func (AOVoltageChannel) isAOChannelVariant() {}
