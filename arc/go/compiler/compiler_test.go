@@ -2776,11 +2776,36 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s[1:len(s)]
 				return t[1]
 			}`, 3.0),
-			Entry("index of 2^32 + 1 wraps to 1", `{
+			Entry("i64 index of 2^32 + 1 is out of bounds", `{
 				s series f64 := [1.0, 2.0, 3.0]
 				i i64 := 4294967297
-				return s[i]
-			}`, 2.0),
+				j i32 := 2147483647
+				return s[i] == s[j]
+			}`, true),
+			Entry("u64 index of 2^31 is out of bounds", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 2147483648
+				j i32 := 2147483647
+				return s[i] == s[j]
+			}`, true),
+			Entry("u64 index of 2^32 + 1 is out of bounds", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 4294967297
+				j i32 := 2147483647
+				return s[i] == s[j]
+			}`, true),
+			Entry("i64 index of -2^32 - 1 is out of bounds", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -4294967297
+				j i32 := -2147483647
+				return s[i] == s[j]
+			}`, true),
+			Entry("assignment at an index of 2^32 + 1 writes no element", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				s[i] = 9.0
+				return s[0] + s[1] + s[2]
+			}`, 6.0),
 			Entry("negative i64 index matches a negative i32 index", `{
 				s series f64 := [1.0, 2.0, 3.0]
 				i i64 := -1

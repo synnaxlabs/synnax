@@ -10,8 +10,11 @@
 package expression
 
 import (
+	"math"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -301,7 +304,8 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 }
 
 // CompileIndex compiles a series index or slice bound and converts it to the i32 that
-// the series host functions take.
+// the series host functions take. A 64-bit value outside the i32 range becomes the
+// nearest i32 limit, which is out of bounds for every series.
 func CompileIndex[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	expr parser.IExpressionContext,
@@ -310,7 +314,19 @@ func CompileIndex[T antlr.ParserRuleContext](
 	if err != nil {
 		return err
 	}
-	return EmitCast(ctx, t, types.I32())
+	if wasm.ConvertType(t) != wasm.I64 {
+		return nil
+	}
+	// An f64 holds every i32 exactly, so the clamp does not change an index in range.
+	if err = EmitCast(ctx, t, types.F64()); err != nil {
+		return err
+	}
+	ctx.Writer.WriteF64Const(math.MaxInt32)
+	ctx.Writer.WriteOpcode(wasm.OpF64Min)
+	ctx.Writer.WriteF64Const(math.MinInt32)
+	ctx.Writer.WriteOpcode(wasm.OpF64Max)
+	ctx.Writer.WriteOpcode(wasm.OpI32TruncF64S)
+	return nil
 }
 
 func compileIndexOrSlice(
