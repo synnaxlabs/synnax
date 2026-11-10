@@ -17,7 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { Access, Device } from "@synnaxlabs/pluto";
 
-import { ContextMenuItems, getIcon, getMake } from "@/feature/device/make";
+import { ContextMenuItems, getIcon, getIntegration } from "@/feature/device/make";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -57,9 +57,11 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const group = Group.useCreateFromSelection();
   const handleLink = Core.useCopyLinkToClipboard();
   if (ids.length === 0) return null;
-  const make = singleResource ? getMake(firstMake) : null;
+  const integration = singleResource ? getIntegration(firstMake) : null;
   const customMenuItems =
-    make == null ? null : <ContextMenuItems {...props} make={make} />;
+    integration == null ? null : (
+      <ContextMenuItems {...props} integration={integration} />
+    );
   return (
     <ContextMenu.Menu>
       {hasUpdatePermission && singleResource && (
@@ -111,10 +113,12 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   const { data: devStatus } = Device.useResultStatus(query);
   const { data: make } = Device.useResultMake(query);
   const { data: location = "" } = Device.useResultLocation(query);
+  const integration = getIntegration(make);
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item className={CSS.cls(className, CSS.B("device-tree-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
-        {getIcon(getMake(make))}
+        <span className={CSS.B("device-icon")}>{getIcon(integration)}</span>
         <Text.MaybeEditable
           id={List.itemNameID(itemKey)}
           className={CSS.B("name")}
@@ -123,16 +127,15 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
           onChange
           overflow="fade"
           status={status.keepVariants(devStatus?.variant, "disabled")}
+          highlight={highlight}
         />
+        <Tree.MatchGroup id={resource.id} />
         {location !== "" && (
-          <Text.Text
-            level="small"
-            color={9}
-            className={CSS.B("location")}
-            overflow="fade"
-          >
-            {location}
-          </Text.Text>
+          <Device.Location
+            value={location}
+            format={integration?.location}
+            className={CSS.B("device-location")}
+          />
         )}
       </Flex.Box>
       <Device.StatusIndicator status={devStatus} />

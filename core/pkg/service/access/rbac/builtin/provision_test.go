@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -90,6 +91,28 @@ var _ = Describe("Provision", func() {
 			Entry(&renamed).
 			Exec(ctx, db)).To(Succeed())
 		Expect(renamed.Name).To(Equal("Driver Edit Access"))
+	})
+
+	It("Should restore the actions of a stored built-in policy", func(ctx SpecContext) {
+		provision(ctx)
+		var edit policy.Policy
+		Expect(policySvc.NewRetrieve().
+			Where(policy.MatchNames("Driver Edit Access")).
+			Entry(&edit).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+			Where(gorp.MatchKeys[policy.Key, policy.Policy](edit.Key)).
+			Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
+				p.Actions = []access.Action{access.ActionRetrieve}
+				return p
+			}).Exec(ctx, db)).To(Succeed())
+		provision(ctx)
+		var restored policy.Policy
+		Expect(policySvc.NewRetrieve().
+			Where(policy.MatchKeys(edit.Key)).
+			Entry(&restored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(restored).To(Equal(edit))
 	})
 
 	It("Should leave a custom role named Driver alone", func(ctx SpecContext) {

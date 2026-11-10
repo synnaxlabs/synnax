@@ -26,6 +26,7 @@ Sends each trigger value to its `true` output or its `false` output.
 
 `select` has no parameters. Connect its outputs with an
 [output routing table](/reference/control/arc/reference/flow). Each entry is optional.
+In this example, `vlv_open` is a `boolean` channel:
 
 ```arc channels="vlv_open, open_cmd, close_cmd"
 vlv_open -> select() -> {

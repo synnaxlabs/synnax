@@ -15,6 +15,7 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import group as group_, rack as rack_
+from synnax.device import actions_gen
 from synnax.device.types_gen import (
     Cursor,
     Device,
@@ -25,6 +26,7 @@ from synnax.device.types_gen import (
     Where,
     WhereInput,
 )
+from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
 from x.lists import normalize
@@ -37,18 +39,14 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
     keys: list[Key]
-
-
-class _SetGroupRequest(BaseModel):
-    keys: list[Key]
-    group: group_.Key | None = None
 
 
 class Client:
@@ -141,7 +139,9 @@ class Client:
         :param name: The new name for the device.
         :raises NotFoundError: If no device has the given key.
         """
-        self._client.send("/device/rename", _RenameRequest(key=key, name=name), Empty)
+        self.dispatch(
+            key, actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        )
 
     def set_group(self, keys: list[Key], group: group_.Key | None = None) -> None:
         """Moves devices into a group, or out of their group when group is None.
@@ -150,8 +150,27 @@ class Client:
         :param group: The key of the group to move the devices into. The group must
             sit under the rack of each device.
         """
-        req = _SetGroupRequest(keys=keys, group=group)
-        self._client.send("/device/set-group", req, Empty)
+        value = None if group is None else str(group)
+        action = actions_gen.set(actions_gen.SetPayload(path=["group"], value=value))
+        send_batch(
+            self._client,
+            "/device/dispatch",
+            [_DispatchRequest(key=k, actions=[action]) for k in keys],
+        )
+
+    def dispatch(
+        self, key: Key, actions: actions_gen.Action | list[actions_gen.Action]
+    ) -> None:
+        """Applies actions to a device, in order, in one transaction.
+
+        :param key: The key of the device.
+        :param actions: The actions to apply, such as ``device.set`` and
+            ``device.set_rack``.
+        :raises NotFoundError: If no device has the given key.
+        :raises ValidationError: If an action is invalid.
+        """
+        req = _DispatchRequest(key=key, actions=normalize(actions))
+        self._client.send("/device/dispatch", req, Empty)
 
     @overload
     def retrieve(

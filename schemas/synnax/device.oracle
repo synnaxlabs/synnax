@@ -133,27 +133,17 @@ Device struct<
 
         @doc value """
             replaces the device with the given created state. Emitted by the Core when a
-            device is created or overwritten whole; clients never dispatch it.
+            device is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the device."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the device.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the device."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the device."
-    }
+    action Move = patch.Move
 
     action SetRack {
         rack   rack.Key
