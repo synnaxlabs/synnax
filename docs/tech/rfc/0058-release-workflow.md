@@ -128,10 +128,10 @@ while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.
 and that minor is the Core's latest stable minor or the next one, read from the `core/`
 tags instead of the `VERSION` file. A split, with some manifests on each train, fails
 the check, so a package minor bump is one PR that moves every manifest to the new train.
-The C++ client ships only inside the Driver, so it carries the Driver's
-`SYNNAX_DRIVER_VERSION` define and has no manifest. The catalog pins internal deps as
-`workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch mix inside a
-train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
+The C++ client and the C library are on no registry and ship with the Driver, so they
+carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The catalog pins
+internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch
+mix inside a train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
 `@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
 the catalog.
 
@@ -151,8 +151,9 @@ in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
 major.minor today and gain one rule: a `0.0` on either side is compatible. Any client
 then connects to a dev Core without a mismatch warning. A release build of the Console
-or Desktop runs `stamp_versions.sh`, which writes its version into the package
-manifests, so the Console's guard reports the Console's version and not the manifest's.
+runs `stamp_versions.sh`, which writes its version into the package manifests, so the
+Console's guard reports the Console's version. Each Desktop build stamps the version of
+the Core that it embeds.
 
 `bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
 package manifests.

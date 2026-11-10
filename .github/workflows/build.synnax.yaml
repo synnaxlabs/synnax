@@ -241,7 +241,7 @@ jobs:
               exit 1
             fi
           done
-          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$'
+          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?)?$'
           for VALUE in "$VERSION" "$DESKTOP_VERSION"; do
             if ! [[ "$VALUE" =~ $SEMVER ]]; then
               echo "malformed version: $VALUE" >&2
