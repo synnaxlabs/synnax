@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -57,6 +58,7 @@ var (
 	arcSvc     *arc.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
+	statusSvc  *status.Service
 	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
@@ -103,6 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskSvc = svc.Task
 	channelSvc = svc.Channel
 	arcSvc = svc.Arc
+	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		DB:      db,
 		RBAC:    rbacSvc,

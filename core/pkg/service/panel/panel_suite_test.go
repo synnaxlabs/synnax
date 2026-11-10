@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -105,7 +106,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 // createPlot stores the line plot that tab(key) displays.
 func createPlot(ctx context.Context, tx gorp.Tx, key uuid.UUID) {
 	GinkgoHelper()
-	p := lineplot.LinePlot{Key: key, Name: "plot", Project: &proj.Key}
+	p := defaults.Fill(lineplot.LinePlot{Key: key, Name: "plot", Project: &proj.Key})
 	Expect(plotSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 }
 

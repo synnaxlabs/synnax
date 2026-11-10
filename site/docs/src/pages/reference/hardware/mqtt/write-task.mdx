@@ -1,224 +1,199 @@
 ---
 layout: "@/layouts/Reference.astro"
-flag: "mqtt"
 title: "MQTT write task"
-description: "Learn how to publish commands to an MQTT broker with Synnax."
+description:
+  "Publish a message to an MQTT topic each time a command channel gets a value."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
 import { Fragment } from "react";
-import Details from "@/components/details/Details.astro";
 import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-The MQTT write task publishes a message each time a value is written to a command
-channel in Synnax. Use it to send setpoints and commands to devices that listen on MQTT
-topics. It can also send commands for [Sparkplug B](/reference/hardware/mqtt/sparkplug)
-tags.
+An MQTT write task publishes a message each time a value is written to a command
+channel. Use it to send setpoints and commands to devices that listen on MQTT topics. It
+can also command [Sparkplug B](/reference/hardware/mqtt/sparkplug#command-tags) tags.
+Before you start, [connect an MQTT broker](/reference/hardware/mqtt/connect-broker).
+
+The task has no state channels and no data saving option. To confirm a command, read the
+value back from the device with a [read task](/reference/hardware/mqtt/read-task).
 
 <Divider.Divider x />
 
-## Task configuration reference
+## Targets
 
-| Parameter    | Type    | Required | Default | Description                                                   |
-| ------------ | ------- | -------- | ------- | ------------------------------------------------------------- |
-| `device`     | string  | Yes      | -       | Key of the broker device                                      |
-| `targets`    | array   | Yes      | -       | List of [targets](#target-configuration-reference)            |
-| `auto_start` | boolean | No       | `false` | Start the task when it is configured and when the Core starts |
+A target is one topic and one command channel. Each value written to the command channel
+publishes one message to the topic:
 
-<Divider.Divider x />
+- **Pointer** -> where the value goes in a JSON payload, such as `/position`. An empty
+  pointer sends the bare value as the whole payload, with no other fields.
+- **JSON type** -> the value goes out as a number, a string, or a boolean. With a
+  string, the **Enum mapping** turns numbers into text labels, such as `1` into `OPEN`.
+- **Additional fields** -> the same fields in each payload. A static field adds a fixed
+  value, and a generated field adds a new UUID or the current time.
 
-## Target configuration reference
+With the pointer `/position`, a static field `/source`, and a generated UUID at `/id`, a
+command of 42 publishes:
 
-Each target publishes to one topic. The task needs at least one target that is not
-disabled. A topic may not hold the wildcards `+` or `#`.
-
-| Parameter  | Type    | Required | Default           | Description                                                                |
-| ---------- | ------- | -------- | ----------------- | -------------------------------------------------------------------------- |
-| `type`     | string  | Yes      | -                 | The kind of target. `"plain"` publishes a JSON payload to one topic        |
-| `topic`    | string  | Yes      | -                 | The topic to publish to (e.g., `plant/valve1/set`)                         |
-| `qos`      | string  | No       | `"at_least_once"` | `"at_most_once"` (0), `"at_least_once"` (1), or `"exactly_once"` (2)       |
-| `retained` | boolean | No       | `false`           | Ask the broker to keep the message for clients that subscribe later        |
-| `channel`  | object  | Yes      | -                 | The [command channel](#command-channel-reference) and where its value goes |
-| `fields`   | array   | No       | `[]`              | [Extra fields](#extra-field-reference) to add to each payload              |
-| `disabled` | boolean | No       | `false`           | Excludes the target from the task                                          |
+```json
+{ "position": 42, "source": "synnax", "id": "6f1c2e3a-..." }
+```
 
 <Divider.Divider x />
 
-## Command channel reference
-
-| Parameter     | Type    | Required | Default     | Description                                                                         |
-| ------------- | ------- | -------- | ----------- | ----------------------------------------------------------------------------------- |
-| `channel`     | integer | Yes      | -           | Key of the command channel                                                          |
-| `pointer`     | string  | No       | `""`        | JSON Pointer where the value goes (e.g., `/position`). `""` is the whole payload    |
-| `json_type`   | string  | No       | `"number"`  | JSON type of the value: `"number"`, `"string"`, or `"boolean"`                      |
-| `data_type`   | string  | No       | `"float64"` | Data type of the command channel                                                    |
-| `time_format` | string  | No       | `"iso8601"` | Format of the value when the command channel holds timestamps                       |
-| `enum_values` | array   | No       | `[]`        | Maps numbers to string labels (e.g., `1` to `"OPEN"`). Needs `json_type` `"string"` |
-
-With an empty pointer, the value is the whole payload and the target allows no extra
-fields.
-
-<Divider.Divider x />
-
-## Extra field reference
-
-A static field adds a fixed value to each payload. A generated field adds a new UUID or
-the current time.
-
-| Parameter     | Type   | Required | Default     | Description                                     |
-| ------------- | ------ | -------- | ----------- | ----------------------------------------------- |
-| `type`        | string | Yes      | -           | `"static"` or `"generated"`                     |
-| `pointer`     | string | No       | `""`        | JSON Pointer where the value goes               |
-| `json_type`   | string | No       | `"number"`  | Static only. JSON type of `value`               |
-| `value`       | any    | Yes      | -           | Static only. The fixed value                    |
-| `generator`   | string | No       | `"uuid"`    | Generated only. `"uuid"` or `"timestamp"`       |
-| `time_format` | string | No       | `"iso8601"` | Generated only. Format of a generated timestamp |
-
-<Divider.Divider x />
-
-## Behavior during an outage
-
-The task never holds a command back for later. If the broker is not connected when a
-command arrives, the task drops the command and shows a warning. A command that waited
-out an outage would reach the device long after the operator sent it, which is not safe.
-The warning also shows while the task is idle, so you can see the outage before you send
-a command.
-
-<Divider.Divider x />
-
-## How-to
+## Create an MQTT write task
 
 <Client.Tabs exclude={["typescript"]}>
   <Fragment slot="console">
 
-1. Open the command palette and run **Create MQTT write task**, then select the broker.
-2. Click **Add targets**. Select a topic, select the field that carries the command
-   value, then click the **Add** button. Each field becomes a target. For a topic that
-   publishes rarely, use **Add a topic by name**.
-3. Set the pointer and the JSON type of the command value, and add any extra fields that
-   the device expects.
-4. Click **Start**. The Console creates the command channels and starts the task.
+1. In the devices toolbar, right-click the broker and select **Create write task**. You
+   can also run the "Create MQTT write task" command.
+2. Click **Add targets**. Select a topic, then select the field that carries the command
+   value. For a topic that publishes rarely, click **Add a topic by name**.
+3. Click **Add** _N_ **targets**. Each field becomes a target.
+4. Select a target to set its **Pointer** and **JSON type**. To add fields to the
+   payload, click **Static** or **Generated** under **Additional fields**.
+5. Click <Icon.Play /> (**Start**).
+
+The Console creates a command channel for each target.
+
+<Video id="hardware/mqtt/write-task" />
 
   </Fragment>
   <Fragment slot="python">
 
-<Details open>
-<Text.Text slot="summary" level="p"><Icon.Play /> Configure and run task</Text.Text>
+Python does not create channels. Create the command channel and its index first.
 
 ```python
 import synnax as sy
 from synnax import mqtt
 
-client = sy.Synnax()
-
-# Retrieve the broker device
-dev = client.devices.retrieve(name="My MQTT Broker")
-
-# Create the command channel and its index
+broker = client.devices.retrieve(name="Plant broker")
 cmd_time = client.channels.create(
-    name="mqtt_valve_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
+    name="valve1_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
 )
 cmd = client.channels.create(
-    name="mqtt_valve_cmd",
-    index=cmd_time.key,
-    data_type=sy.DataType.FLOAT64,
-    retrieve_if_name_exists=True,
+    name="valve1_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
 )
 
-# Each command publishes this payload to plant/valve1/set:
-# {"position": 42.0, "source": "synnax", "id": "<uuid>"}
-tsk = mqtt.WriteTask(
-    name="My MQTT Write Task",
-    device=dev.key,
+task = mqtt.WriteTask(
+    name="Valve 1 commands",
+    device=broker.key,
     targets=[
         mqtt.PlainWriteTarget(
             topic="plant/valve1/set",
-            channel=mqtt.ChannelField(
-                pointer="/position",
-                json_type="number",
-                channel=cmd.key,
-                data_type="float64",
-            ),
+            channel=mqtt.ChannelField(pointer="/position", channel=cmd.key),
             fields=[
                 mqtt.StaticWriteField(
                     pointer="/source", json_type="string", value="synnax"
                 ),
                 mqtt.GeneratedWriteField(pointer="/id", generator="uuid"),
             ],
-        ),
+        )
     ],
 )
-
-client.tasks.configure(tsk)
-
-# Run the task and send a command
-with tsk.run():
-    with client.open_writer(
-        start=sy.TimeStamp.now(),
-        channels=[cmd_time.key, cmd.key],
-    ) as writer:
-        writer.write({cmd_time.key: sy.TimeStamp.now(), cmd.key: 42.0})
+client.tasks.configure(task)
+task.start()
 ```
-
-</Details>
-
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Play /> Publish a label as the whole payload</Text.Text>
-
-```python
-import synnax as sy
-from synnax import mqtt
-
-client = sy.Synnax()
-dev = client.devices.retrieve(name="My MQTT Broker")
-
-pump_cmd_time = client.channels.create(
-    name="mqtt_pump_cmd_time",
-    is_index=True,
-    data_type=sy.DataType.TIMESTAMP,
-    retrieve_if_name_exists=True,
-)
-pump_cmd = client.channels.create(
-    name="mqtt_pump_cmd",
-    index=pump_cmd_time.key,
-    data_type=sy.DataType.UINT8,
-    retrieve_if_name_exists=True,
-)
-
-# Writing 1 publishes the text "ON" to tank/pump/set, and the broker retains it.
-tsk = mqtt.WriteTask(
-    name="My MQTT Pump Task",
-    device=dev.key,
-    targets=[
-        mqtt.PlainWriteTarget(
-            topic="tank/pump/set",
-            retained=True,
-            channel=mqtt.ChannelField(
-                pointer="",
-                json_type="string",
-                channel=pump_cmd.key,
-                data_type="uint8",
-                enum_values=[
-                    mqtt.EnumEntry(label="OFF", value=0),
-                    mqtt.EnumEntry(label="ON", value=1),
-                ],
-            ),
-        ),
-    ],
-)
-
-client.tasks.configure(tsk)
-```
-
-</Details>
 
   </Fragment>
 </Client.Tabs>
+
+<Divider.Divider x />
+
+## When the broker is down
+
+The task never holds a command back for later. If the broker is not connected when a
+command arrives, the task drops the command and shows a warning. A command that waited
+out an outage would reach the device long after the operator sent it, which is not safe.
+The warning also shows while no command arrives, so you can see the outage before you
+send one.
+
+<Divider.Divider x />
+
+## Task options
+
+| Setting                                | Default | Notes                                      |
+| -------------------------------------- | ------- | ------------------------------------------ |
+| Auto start <small>`auto_start`</small> | Off     | Starts the task each time the Core starts. |
+
+<Divider.Divider x />
+
+## Target reference
+
+A target has these settings:
+
+| Setting                                           | Default       | Notes                                                      |
+| ------------------------------------------------- | ------------- | ---------------------------------------------------------- |
+| Topic <small>`topic`</small>                      |               | The topic to publish to. No wildcards.                     |
+| Quality of service <small>`qos`</small>           | At least once | At most once (0), at least once (1), or exactly once (2).  |
+| Retain <small>`retained`</small>                  | Off           | Asks the broker to keep the message for later subscribers. |
+| Pointer <small>`channel.pointer`</small>          | Empty         | Empty sends the bare value as the whole payload.           |
+| JSON type <small>`channel.json_type`</small>      | Number        | Number, string, or boolean.                                |
+| Time format <small>`channel.time_format`</small>  | ISO 8601      | For a `timestamp` command channel.                         |
+| Channel <small>`channel.channel`</small>          |               | The command channel.                                       |
+| Enum mapping <small>`channel.enum_values`</small> | None          | With a string JSON type, maps numbers to text labels.      |
+
+An additional field has these settings:
+
+| Setting                                  | Default  | Notes                                      |
+| ---------------------------------------- | -------- | ------------------------------------------ |
+| Pointer <small>`pointer`</small>         |          | Where the value goes.                      |
+| JSON type <small>`json_type`</small>     | Number   | Static fields only. The type of the value. |
+| Value <small>`value`</small>             |          | Static fields only. The fixed value.       |
+| Generator <small>`generator`</small>     | UUID     | Generated fields only. UUID or timestamp.  |
+| Time format <small>`time_format`</small> | ISO 8601 | Generated timestamps only.                 |
+
+In code, a target is `PlainWriteTarget`, its command channel is `ChannelField`, and the
+additional fields are `StaticWriteField` and `GeneratedWriteField`.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item message={"broker is not connected"}>
+<Problem.Cause>
+
+The connection to the broker is down, so the task drops each command that arrives. The
+Core connects again on its own, and the warning clears when the connection returns.
+
+</Problem.Cause>
+</Problem.Item>
+
+<Problem.Item message={"targets: the task has no enabled targets"}>
+<Problem.Cause>
+
+The task has no targets, or each target is disabled.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Add a target, or enable one.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"target ...: channel ... does not exist"}>
+<Problem.Cause>
+
+The command channel of a target was deleted.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Remove the target, then add it again with **Add targets**. The Console creates a new
+command channel when you start the task.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For problems with the connection, see
+[Connect an MQTT broker](/reference/hardware/mqtt/connect-broker#troubleshooting).

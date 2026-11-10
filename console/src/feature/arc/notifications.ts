@@ -7,4 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as Explorer from "@/feature/arc/explorer/external";
+import { type Notifications } from "@/platform/notifications";
+
+/**
+ * The notification rule for Arc statuses, which only modules have. A compile problem
+ * shows in the module's editor, so it never notifies.
+ */
+export const NOTIFICATION_RULE: Notifications.Rule = {
+  kind: () => "state",
+  inUse: async () => false,
+};

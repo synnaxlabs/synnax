@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -42,15 +43,16 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // generated. An existing symbol keeps its group, and a new symbol takes s.Group. The
 // commit carries a create action that holds the stored symbol.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
-	s.ApplyDefaults()
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	var exists bool
+	var (
+		exists bool
+		stored Symbol
+	)
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
 	} else {
-		var stored Symbol
 		err := w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Symbol](s.Key)).
 			Entry(&stored).
@@ -61,6 +63,13 @@ func (w Writer) Create(ctx context.Context, s *Symbol) error {
 		if exists = err == nil; exists {
 			s.Group = stored.Group
 		}
+	}
+	var prev *Symbol
+	if exists {
+		prev = &stored
+	}
+	if err := validateScale(prev, *s); err != nil {
+		return err
 	}
 	if !exists {
 		if err := group.CheckMember(
@@ -93,8 +102,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Symbol{}, err
 			}
-			next.ApplyDefaults()
 			if err = next.Validate(); err != nil {
+				return Symbol{}, err
+			}
+			if err = validateScale(&s, next); err != nil {
 				return Symbol{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
@@ -116,6 +127,21 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// validateScale returns an error wrapping validate.ErrValidation when next has a scale
+// that is not positive and differs from the scale of prev. A zero scale draws the
+// symbol at size zero. A stored scale that the write keeps passes, so a stored zero
+// does not block a rename or another edit. prev is nil for a new symbol.
+func validateScale(prev *Symbol, next Symbol) error {
+	if next.Data.Scale > 0 || (prev != nil && next.Data.Scale == prev.Data.Scale) {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"data.scale: must be positive, got %v",
+		next.Data.Scale,
+	)
 }
 
 // CreateMany creates the given symbols. If symbols with the same key already exist,

@@ -12,12 +12,11 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { ReadSelectable } from "@/feature/kafka/task/Read";
 import { PREFIX } from "@/feature/kafka/task/types";
 import { WriteSelectable } from "@/feature/kafka/task/Write";
-import { FLAGS } from "@/flags";
 import { type Task } from "@/platform/task";
 
 export const INTEGRATION: Task.Integration = {
   prefix: PREFIX,
   name: "Kafka",
   icon: <Icon.Logo.Kafka />,
-  selectables: FLAGS.kafka ? [ReadSelectable, WriteSelectable] : [],
+  selectables: [ReadSelectable, WriteSelectable],
 };

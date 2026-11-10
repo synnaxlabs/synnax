@@ -21,6 +21,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -138,6 +140,42 @@ var _ = Describe("Layer", func() {
 				Where(group.MatchKeys(key)).
 				Entry(&group.Group{}).
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+		},
+	)
+
+	It(
+		"Should create an Arc directory and move an Arc into it in one transaction",
+		func(ctx SpecContext) {
+			u := newUser(ctx, resource.TypeArc, resource.TypeArcDirectory)
+			var root directory.Directory
+			Expect(svc.Arc.NewDirectoryRetrieve().
+				Where(directory.MatchNested(false)).
+				Entry(&root).
+				Exec(ctx, db)).To(Succeed())
+			a := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Name:   "batched",
+				Source: arc.Source{Variant: arc.GraphSource{}},
+			}}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Arc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
+			key := uuid.New()
+			MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+				{
+					"endpoint": "/arc/directory/create",
+					"payload": {"parent": %[1]q, "directory": {"key": %[2]q, "name": "Batched"}}
+				},
+				{
+					"endpoint": "/arc/move",
+					"payload": {"from": %[1]q, "to": %[2]q, "ids": [{"type": "arc", "key": %[3]q}]}
+				}
+			]}`, root.Key, key, a.Base().Key)))
+			var stored arc.Arc
+			Expect(svc.Arc.NewRetrieve().
+				Where(arc.MatchDirectories(key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Base().Key).To(Equal(a.Base().Key))
 		},
 	)
 

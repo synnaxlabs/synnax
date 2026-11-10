@@ -12,10 +12,14 @@
 package ni
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 	"strconv"
 )
 
@@ -938,6 +942,30 @@ func (a *AnalogInputPort) ApplyDefaults() {
 	if a.DefaultTerminalConfig == "" {
 		a.DefaultTerminalConfig = TerminalConfigCfgDefault
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogInputPort) SetDefaults() {
+	a.DefaultTerminalConfig = TerminalConfigCfgDefault
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

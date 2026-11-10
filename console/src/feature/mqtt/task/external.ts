@@ -11,7 +11,6 @@ import { Edge } from "@/feature/mqtt/task/Edge";
 import { Read } from "@/feature/mqtt/task/Read";
 import { EDGE_TYPE, READ_TYPE, WRITE_TYPE } from "@/feature/mqtt/task/types";
 import { Write } from "@/feature/mqtt/task/Write";
-import { FLAGS } from "@/flags";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/mqtt/task/commands";
@@ -21,6 +20,8 @@ export * from "@/feature/mqtt/task/Read";
 export * from "@/feature/mqtt/task/types";
 export * from "@/feature/mqtt/task/Write";
 
-export const FORMS: Task.Forms = FLAGS.mqtt
-  ? { [READ_TYPE]: Read, [WRITE_TYPE]: Write, [EDGE_TYPE]: Edge }
-  : {};
+export const FORMS: Task.Forms = {
+  [READ_TYPE]: Read,
+  [WRITE_TYPE]: Write,
+  [EDGE_TYPE]: Edge,
+};
