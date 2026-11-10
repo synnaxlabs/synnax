@@ -58,19 +58,19 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
     variant,
     status: result,
   } = useSetStandalone({ afterSuccess: () => setSwitched(true) });
+  if (switched)
+    return (
+      <NoteBody variant="warning" title="Restart the power of the device">
+        <Detail>
+          The device runs Synnax only after a power restart. Until then, it refuses to
+          start.
+        </Detail>
+      </NoteBody>
+    );
   if (slave == null) return null;
   const setup = setupOf(slave.properties);
   if (setup.kind === "synnax") return null;
   const { reader } = setup;
-  if (setup.kind === "restart" || (setup.kind === "other" && switched))
-    return (
-      <NoteBody variant="warning" title="Restart the power of the device">
-        <Detail>
-          The device changes to Synnax only after a power restart. Until then, it sends
-          data that only {reader} reads.
-        </Detail>
-      </NoteBody>
-    );
   if (setup.kind === "shared")
     return (
       <NoteBody variant="info" title={`Set up by ${reader}`}>
@@ -79,7 +79,6 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
         </Detail>
       </NoteBody>
     );
-  const { network } = slave.properties;
   return (
     <NoteBody variant="warning" title={`Set up for ${reader}`}>
       <Detail>
@@ -89,8 +88,8 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
       <Flex.Box y gap="tiny">
         <Text.Text weight={500}>Synnax only</Text.Text>
         <Detail>
-          Synnax stops the tasks on {network}, then changes the device. Restart the
-          power of the device to finish.
+          Synnax stops the tasks on the network of the device, then switches it. Restart
+          the power of the device to finish.
         </Detail>
         <Flex.Box x>
           <Button.Button

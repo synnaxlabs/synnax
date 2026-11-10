@@ -40,9 +40,9 @@ describe("setupOf", () => {
     });
   });
 
-  it("should ask for a restart of a switched card that still sends DewesoftX data", () => {
+  it("should find a standalone card that sends DewesoftX data set up for DewesoftX", () => {
     expect(setupOf(props(createDewesoftXSettings(false)))).toEqual({
-      kind: "restart",
+      kind: "other",
       reader: "DewesoftX",
     });
   });
