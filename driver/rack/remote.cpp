@@ -130,13 +130,19 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     Config cfg;
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
     const auto &saved = cfg.connection;
-    // Only the Core that issued the saved key may receive it, and never in plaintext
-    // when the key was saved with TLS.
-    if (!saved.api_key.empty() && saved.host == conn.host && saved.port == conn.port &&
-        (conn.secure || !saved.secure)) {
-        const auto [info, err] = retrieve_key_rack(conn, saved.api_key);
-        if (err) return {cfg, err};
-        if (info.rack_key != 0) cfg.remote_info = info;
+    if (!saved.api_key.empty()) {
+        // Only the Core that issued the saved key may receive it, and never in
+        // plaintext when the key was saved with TLS.
+        if (saved.host == conn.host && saved.port == conn.port &&
+            (conn.secure || !saved.secure)) {
+            const auto [info, err] = retrieve_key_rack(conn, saved.api_key);
+            if (err) return {cfg, err};
+            if (info.rack_key != 0) cfg.remote_info = info;
+        } else
+            LOG(WARNING) << "the saved API key is for " << saved.address()
+                         << (saved.secure ? " with TLS" : "")
+                         << ", so login does not send it to " << conn.address()
+                         << " and does not keep the rack of that key";
     }
     cfg.connection = conn;
     if (auto err = cfg.enroll()) return {cfg, err};
