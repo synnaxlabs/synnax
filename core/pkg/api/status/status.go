@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -89,7 +90,9 @@ func validateDetails(s status.Status[any]) error {
 		return decodeDetails[device.StatusDetails](s.Details)
 	case resource.TypeTask:
 		return decodeDetails[task.StatusDetails](s.Details)
-	case resource.TypeRack, resource.TypeChannel:
+	case resource.TypeRack:
+		return decodeDetails[rack.StatusDetails](s.Details)
+	case resource.TypeChannel:
 		return decodeDetails[struct{}](s.Details)
 	default:
 		return nil

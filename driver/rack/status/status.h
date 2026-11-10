@@ -99,6 +99,7 @@ public:
                 .message = this->health.message,
                 .description = this->health.description,
                 .time = x::telem::TimeStamp::now(),
+                .details = synnax::rack::StatusDetails{.running = true},
                 .owner = synnax::rack::resource_id(this->rack_key),
             };
             if (const auto err = this->ctx->client->statuses.set(status); err) {
