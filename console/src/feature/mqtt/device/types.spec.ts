@@ -19,12 +19,12 @@ describe("MQTT Device Properties", () => {
         ...MQTT.Device.ZERO_PROPERTIES,
         secure: true,
         port: 8883,
-        caFile: "/etc/ssl/ca.pem",
-        certFile: "/etc/ssl/client.pem",
-        keyFile: "/etc/ssl/client.key",
+        caCertificate: "-----BEGIN CERTIFICATE-----",
+        clientCertificate: "-----BEGIN CERTIFICATE-----",
+        clientPrivateKey: "-----BEGIN PRIVATE KEY-----",
       });
       expect(result.secure).toBe(true);
-      expect(result.keyFile).toBe("/etc/ssl/client.key");
+      expect(result.clientPrivateKey).toBe("-----BEGIN PRIVATE KEY-----");
     });
 
     it("should leave the port and keep alive absent, so the Core picks them", () => {
@@ -103,7 +103,11 @@ describe("MQTT Device Properties", () => {
 
     it("should send the connection properties in the snake case the Core reads", () => {
       const wire = caseconv.camelToSnake({ ...properties, keepAlive: 45 }, { schema });
-      expect(wire).toMatchObject({ client_id: "console", keep_alive: 45, ca_file: "" });
+      expect(wire).toMatchObject({
+        client_id: "console",
+        keep_alive: 45,
+        ca_certificate: "",
+      });
     });
 
     it("should leave an unset port and keep alive off the wire", () => {

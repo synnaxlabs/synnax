@@ -162,10 +162,10 @@ class Device(device.Device):
         when secure.
     :param secure: Whether to connect with TLS.
     :param verification_skipped: Whether to accept any broker certificate.
-    :param ca_file: Path on the Core host to the CA certificates that verify the
+    :param ca_certificate: PEM contents of the CA certificates that verify the
         broker. Empty uses the system roots.
-    :param cert_file: Path on the Core host to a client certificate.
-    :param key_file: Path on the Core host to the key of the client certificate.
+    :param client_certificate: PEM contents of a client certificate.
+    :param client_private_key: PEM contents of the key of the client certificate.
     :param username: Optional username.
     :param password: Optional password.
     :param client_id: MQTT client ID. Empty derives one from the device key.
@@ -188,9 +188,9 @@ class Device(device.Device):
         port: int | None = None,
         secure: bool = False,
         verification_skipped: bool = False,
-        ca_file: str = "",
-        cert_file: str = "",
-        key_file: str = "",
+        ca_certificate: str = "",
+        client_certificate: str = "",
+        client_private_key: str = "",
         username: str = "",
         password: str = "",
         client_id: str = "",
@@ -212,9 +212,9 @@ class Device(device.Device):
         properties: dict[str, JsonValue] = {
             "secure": secure,
             "verification_skipped": verification_skipped,
-            "ca_file": ca_file,
-            "cert_file": cert_file,
-            "key_file": key_file,
+            "ca_certificate": ca_certificate,
+            "client_certificate": client_certificate,
+            "client_private_key": client_private_key,
             "username": username,
             "password": password,
             "client_id": client_id,

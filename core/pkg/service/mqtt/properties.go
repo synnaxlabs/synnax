@@ -15,7 +15,6 @@ import (
 	"crypto/x509"
 	"encoding/hex"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -63,15 +62,15 @@ func (p sparkplugProperties) validate() error {
 // properties are the connection settings stored in the properties of a broker device.
 // The host is the location of the device.
 type properties struct {
-	// CAFile is the path on the Core host to the CA certificates that verify the
-	// broker. Empty uses the system roots.
-	CAFile string `json:"ca_file"`
-	// CertFile is the path on the Core host to the client certificate.
-	CertFile string `json:"cert_file"`
-	// KeyFile is the path on the Core host to the key of the client certificate.
-	KeyFile  string `json:"key_file"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	// CACertificate is the PEM-encoded CA certificates that verify the broker. Empty
+	// uses the system roots.
+	CACertificate string `json:"ca_certificate"`
+	// ClientCertificate is the PEM-encoded client certificate.
+	ClientCertificate string `json:"client_certificate"`
+	// ClientPrivateKey is the PEM-encoded key of the client certificate.
+	ClientPrivateKey string `json:"client_private_key"`
+	Username         string `json:"username"`
+	Password         string `json:"password"`
 	// ClientID is the MQTT client ID. Empty derives one from the device key.
 	ClientID  string              `json:"client_id"`
 	Sparkplug sparkplugProperties `json:"sparkplug"`
@@ -114,9 +113,8 @@ func parseProperties(dev device.Device) (properties, error) {
 	return props, nil
 }
 
-// newClientConfig parses and validates the properties of dev, and loads the TLS files
-// that they name. Errors wrap validate.ErrValidation, except for certificate files that
-// fail to load.
+// newClientConfig parses and validates the properties of dev, and parses their TLS
+// certificates. Errors wrap validate.ErrValidation.
 func newClientConfig(dev device.Device) (clientConfig, error) {
 	props, err := parseProperties(dev)
 	if err != nil {
@@ -139,7 +137,7 @@ func newClientConfigOf(dev device.Device, props properties) (clientConfig, error
 }
 
 // newClientSettings validates props, the decoded properties of dev, and returns the
-// config of its client with no TLS config. It reads no files.
+// config of its client with no TLS config.
 func newClientSettings(dev device.Device, props properties) (clientConfig, error) {
 	v := validate.New("mqtt.properties")
 	v.NotEmptyString("location", dev.Location)
@@ -154,9 +152,9 @@ func newClientSettings(dev device.Device, props properties) (clientConfig, error
 		"must be 1 to 65535",
 	)
 	v.Ternary(
-		"key_file",
-		(props.CertFile == "") != (props.KeyFile == ""),
-		"cert_file and key_file must be set together",
+		"client_private_key",
+		(props.ClientCertificate == "") != (props.ClientPrivateKey == ""),
+		"client_certificate and client_private_key must be set together",
 	)
 	if err := v.Error(); err != nil {
 		return clientConfig{}, errors.Wrapf(
@@ -183,9 +181,9 @@ func newClientSettings(dev device.Device, props properties) (clientConfig, error
 	if props.Secure {
 		port, scheme = defaultSecurePort, "ssl"
 		cfg.tlsID = strings.Join([]string{
-			props.CAFile,
-			props.CertFile,
-			props.KeyFile,
+			props.CACertificate,
+			props.ClientCertificate,
+			props.ClientPrivateKey,
 			strconv.FormatBool(props.VerificationSkipped),
 		}, "|")
 	}
@@ -212,23 +210,26 @@ func loadTLS(props properties) (*tls.Config, error) {
 		MinVersion:         tls.VersionTLS12,
 		InsecureSkipVerify: props.VerificationSkipped,
 	}
-	if props.CAFile != "" {
-		pem, err := os.ReadFile(props.CAFile)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to read the CA file")
-		}
+	if props.CACertificate != "" {
 		cfg.RootCAs = x509.NewCertPool()
-		if !cfg.RootCAs.AppendCertsFromPEM(pem) {
-			return nil, errors.Wrapf(
+		if !cfg.RootCAs.AppendCertsFromPEM([]byte(props.CACertificate)) {
+			return nil, errors.Wrap(
 				validate.ErrValidation,
-				"CA file %s holds no PEM certificates", props.CAFile,
+				"invalid broker properties: ca_certificate: holds no PEM certificates",
 			)
 		}
 	}
-	if props.CertFile != "" {
-		cert, err := tls.LoadX509KeyPair(props.CertFile, props.KeyFile)
+	if props.ClientCertificate != "" {
+		cert, err := tls.X509KeyPair(
+			[]byte(props.ClientCertificate),
+			[]byte(props.ClientPrivateKey),
+		)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to load the client certificate")
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"invalid broker properties: client_certificate: %s",
+				err.Error(),
+			)
 		}
 		cfg.Certificates = []tls.Certificate{cert}
 	}

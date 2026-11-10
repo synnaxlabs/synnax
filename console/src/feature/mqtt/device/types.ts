@@ -81,9 +81,9 @@ export const propertiesZ = z.object({
     .min(1, "Keep alive must be 1 to 65535")
     .max(65535, "Keep alive must be 1 to 65535")
     .optional(),
-  caFile: z.string().default(""),
-  certFile: z.string().default(""),
-  keyFile: z.string().default(""),
+  caCertificate: z.string().default(""),
+  clientCertificate: z.string().default(""),
+  clientPrivateKey: z.string().default(""),
   username: z.string().default(""),
   password: z.string().default(""),
   clientId: z.string().default(""),

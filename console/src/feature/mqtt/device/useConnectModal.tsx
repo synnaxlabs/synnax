@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/mqtt/device/Connect.css";
+
 import { type device, status, TimeSpan } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -28,6 +30,7 @@ import {
 } from "@/feature/mqtt/device/types";
 import { TEST_CONNECTION_COMMAND_TYPE } from "@/feature/mqtt/task/types";
 import { Analytics } from "@/platform/analytics";
+import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
 const path = deep.path<Device>();
@@ -184,26 +187,26 @@ export const Connect = ({
                     padHelpText={false}
                   />
                   <Form.TextField
-                    path={properties.caFile}
-                    label="CA file"
+                    path={properties.caCertificate}
+                    label="CA certificate"
                     padHelpText={false}
-                    inputProps={CA_FILE_INPUT_PROPS}
+                    inputProps={CERTIFICATE_INPUT_PROPS}
                   />
                   <Form.TextField
-                    path={properties.certFile}
+                    path={properties.clientCertificate}
                     label="Client certificate"
                     padHelpText={false}
-                    inputProps={CERT_FILE_INPUT_PROPS}
+                    inputProps={CERTIFICATE_INPUT_PROPS}
                   />
                   <Form.TextField
-                    path={properties.keyFile}
-                    label="Client key"
+                    path={properties.clientPrivateKey}
+                    label="Client private key"
                     padHelpText={false}
-                    inputProps={KEY_FILE_INPUT_PROPS}
+                    inputProps={PRIVATE_KEY_INPUT_PROPS}
                   />
                   <Text.Text level="small" color={9}>
-                    Certificate and key files are paths on the Core host. An empty CA
-                    file uses the system roots.
+                    Paste each certificate and key in PEM format. An empty CA
+                    certificate uses the system roots.
                   </Text.Text>
                 </>
               )}
@@ -295,11 +298,16 @@ const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 
 const PASSWORD_INPUT_PROPS = { type: "password" } as const;
 
-const CA_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/ca.pem" } as const;
+const CERTIFICATE_INPUT_PROPS = {
+  placeholder: "-----BEGIN CERTIFICATE-----",
+  area: true,
+  className: CSS.BE("mqtt-connect", "pem"),
+} as const;
 
-const CERT_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/certs/client.pem" } as const;
-
-const KEY_FILE_INPUT_PROPS = { placeholder: "/etc/ssl/private/client.key" } as const;
+const PRIVATE_KEY_INPUT_PROPS = {
+  ...CERTIFICATE_INPUT_PROPS,
+  placeholder: "-----BEGIN PRIVATE KEY-----",
+} as const;
 
 const HOST_ID_INPUT_PROPS = { placeholder: "Passive host" } as const;
 

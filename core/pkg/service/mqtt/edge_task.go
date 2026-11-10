@@ -276,7 +276,7 @@ func (e *edgeSession) Close() error {
 }
 
 // brokerConfig reads the broker device and returns the client config of the edge node.
-// It returns false, and reads no TLS files, when the config matches current.
+// It returns false, and parses no certificates, when the config matches current.
 func (n *edgeNode) brokerConfig(
 	ctx context.Context,
 	current clientConfig,

@@ -13,6 +13,8 @@ from pydantic import ValidationError
 import synnax as sy
 from tests.task_targets import TaskTargets
 
+CA_CERTIFICATE = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+
 
 @pytest.mark.mqtt
 class TestMQTTReadTask:
@@ -311,9 +313,9 @@ class TestMQTTDevice:
         assert dev.properties == {
             "secure": False,
             "verification_skipped": False,
-            "ca_file": "",
-            "cert_file": "",
-            "key_file": "",
+            "ca_certificate": "",
+            "client_certificate": "",
+            "client_private_key": "",
             "username": "",
             "password": "",
             "client_id": "",
@@ -327,7 +329,7 @@ class TestMQTTDevice:
             host="broker.local",
             port=8884,
             secure=True,
-            ca_file="/etc/synnax/ca.crt",
+            ca_certificate=CA_CERTIFICATE,
             username="operator",
             password="valve-7",
             client_id="synnax-line-7",
@@ -337,7 +339,7 @@ class TestMQTTDevice:
         assert dev.rack == 42
         assert dev.properties["port"] == 8884
         assert dev.properties["secure"] is True
-        assert dev.properties["ca_file"] == "/etc/synnax/ca.crt"
+        assert dev.properties["ca_certificate"] == CA_CERTIFICATE
         assert dev.properties["username"] == "operator"
         assert dev.properties["client_id"] == "synnax-line-7"
         assert dev.properties["keep_alive"] == 15

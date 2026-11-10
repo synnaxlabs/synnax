@@ -87,19 +87,19 @@ status shows the result.
 Turn on **TLS** when the broker uses TLS. The default port then changes from 1883
 to 8883.
 
-- **CA file** -> the certificates of the authority that signed the certificate of the
-  broker. Empty uses the system roots.
-- **Client certificate** and **Client key** -> a client certificate, for a broker that
-  asks for one.
+- **CA certificate** -> the certificates of the authority that signed the certificate of
+  the broker. Empty uses the system roots.
+- **Client certificate** and **Client private key** -> a client certificate, for a
+  broker that asks for one.
 - **Skip verification** -> accepts any certificate from the broker.
 
-Each file is a path on the computer that runs the Core, not on the computer that runs
-the Console. In code, the fields are `ca_file`, `cert_file`, and `key_file`.
+Paste the contents of each certificate and key in PEM format, not a path to a file. In
+code, the fields are `ca_certificate`, `client_certificate`, and `client_private_key`.
 
 <Note.Note variant="warning">
   Turn on **Skip verification** only for a broker with a self-signed certificate on a
-  network that you trust. A **CA file** with the certificate of your own authority is
-  safer.
+  network that you trust. A **CA certificate** with the certificate of your own
+  authority is safer.
 </Note.Note>
 
 <Divider.Divider x />
@@ -117,9 +117,9 @@ the Console. In code, the fields are `ca_file`, `cert_file`, and `key_file`.
 | Password <small>`password`</small>                      | Empty   |                                                                                    |
 | TLS <small>`secure`</small>                             | Off     | See [TLS](#tls).                                                                   |
 | Skip verification <small>`verification_skipped`</small> | Off     | Shows when **TLS** is on.                                                          |
-| CA file <small>`ca_file`</small>                        | Empty   | A path on the computer of the Core.                                                |
-| Client certificate <small>`cert_file`</small>           | Empty   | A path on the computer of the Core.                                                |
-| Client key <small>`key_file`</small>                    | Empty   | A path on the computer of the Core.                                                |
+| CA certificate <small>`ca_certificate`</small>          | Empty   | PEM contents.                                                                      |
+| Client certificate <small>`client_certificate`</small>  | Empty   | PEM contents.                                                                      |
+| Client private key <small>`client_private_key`</small>  | Empty   | PEM contents.                                                                      |
 | Host ID <small>`host_id`</small>                        | Empty   | See [host application ID](/reference/hardware/mqtt/sparkplug#host-application-id). |
 | Groups <small>`groups`</small>                          | All     | Sparkplug B groups to browse, separated by commas.                                 |
 

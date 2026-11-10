@@ -63,8 +63,7 @@ type testConnectionArgs struct {
 // first stage that fails. A broker whose tasks hold a connection with the same settings
 // reports that connection instead. A test does not connect with the client ID of a
 // connection that tasks hold, because the broker would drop that connection. It
-// returns a validation error when the properties of args are not valid, and an error
-// when a certificate file fails to load.
+// returns a validation error when the properties of args are not valid.
 func (s *scanner) test(ctx context.Context, args testConnectionArgs) error {
 	dev := device.Device{
 		Key:        args.Device,

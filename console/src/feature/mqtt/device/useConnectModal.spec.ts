@@ -21,6 +21,8 @@ import { getSwitchInput } from "@/testutil";
 
 const client = createTestClient();
 
+const PLANT_CA = "-----BEGIN CERTIFICATE----- MIIB -----END CERTIFICATE-----";
+
 const createRack = async () =>
   await createRunningRack(client, MQTT.Device.INTEGRATION_KEY);
 
@@ -69,25 +71,25 @@ describe("MQTT.Device.useConnectModal", () => {
 
   it("should reveal the certificate fields and the TLS port when TLS is on", async () => {
     await renderConnectModal();
-    expect(screen.queryByText("CA file")).toBeNull();
+    expect(screen.queryByText("CA certificate")).toBeNull();
     fireEvent.click(getSwitchInput("TLS"));
-    await screen.findByText("CA file");
+    await screen.findByText("CA certificate");
     expect(screen.getByText("Skip verification")).toBeTruthy();
     expect(screen.getByText("Client certificate")).toBeTruthy();
-    expect(screen.getByText("Client key")).toBeTruthy();
-    expect(screen.getByText(/paths on the Core host/)).toBeTruthy();
+    expect(screen.getByText("Client private key")).toBeTruthy();
+    expect(screen.getByText(/in PEM format/)).toBeTruthy();
     expect(screen.getByPlaceholderText("8883")).toBeTruthy();
     fireEvent.click(getSwitchInput("TLS"));
-    await waitFor(() => expect(screen.queryByText("CA file")).toBeNull());
+    await waitFor(() => expect(screen.queryByText("CA certificate")).toBeNull());
     expect(screen.getByPlaceholderText("1883")).toBeTruthy();
   });
 
   it("should open the certificate fields for a device saved with TLS", async () => {
     const dev = await createBroker(client, {
-      properties: { secure: true, caFile: "/etc/ssl/plant_ca.pem" },
+      properties: { secure: true, caCertificate: PLANT_CA },
     });
     await renderEditModal(dev.key);
-    expect(await screen.findByDisplayValue("/etc/ssl/plant_ca.pem")).toBeTruthy();
+    expect(await screen.findByDisplayValue(PLANT_CA)).toBeTruthy();
     expect(getSwitchInput("TLS").checked).toBe(true);
   });
 

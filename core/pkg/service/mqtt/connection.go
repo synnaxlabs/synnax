@@ -1065,9 +1065,10 @@ func (p *pool) reconfigure(ctx context.Context, key device.Key) {
 	}
 }
 
-// refresh points conn at the current properties of the broker device key, and reads the
-// TLS files of the device only when those properties changed. The caller holds
-// conn.lifecycle, so a refresh that starts later reads a later version of the device.
+// refresh points conn at the current properties of the broker device key, and parses
+// the TLS certificates of the device only when those properties changed. The caller
+// holds conn.lifecycle, so a refresh that starts later reads a later version of the
+// device.
 func (p *pool) refresh(
 	ctx context.Context,
 	conn *connection,
