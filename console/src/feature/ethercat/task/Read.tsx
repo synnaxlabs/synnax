@@ -26,7 +26,6 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
-  findChannelsToCreate,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
@@ -61,11 +60,9 @@ const Properties = () => (
   </Flex.Box>
 );
 
-/** @returns the data type of each channel, keyed by the channel. */
 const toDataTypes = (channels: channel.Channel[]): DataTypes =>
   new Map(channels.map((c) => [c.key, c.dataType.toString()]));
 
-/** @returns the read channels of the slaves. */
 const readChannelKeys = (slaves: SlaveDevice[]): number[] =>
   unique.unique(
     slaves.flatMap((s) => s.properties.read.channels.map(({ channel }) => channel)),
@@ -203,22 +200,17 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   const { slaves, rack, channelsBySlaveKey } =
     await retrieveAndValidateSlaves<ReadChannel>(client, config.channels, "inputs");
 
-  // The data type and repeated name checks run before any create, so their failure
-  // leaves nothing behind.
   const dataTypes = toDataTypes(
     await client.channels.retrieve(readChannelKeys(slaves)),
   );
-  const plans = [];
-  for (const slave of slaves) {
+  const plans = slaves.map((slave) => {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    const missing = await findChannelsToCreate(
-      client,
-      channels,
-      (ch) => readChannelOf(slave, ch, dataTypes),
-      readDataType,
+    const missing = channels.filter(
+      (ch) => !dataTypes.has(readChannelOf(slave, ch, dataTypes)),
     );
-    plans.push({ slave, channels, missing });
-  }
+    return { slave, channels, missing };
+  });
+  // The name check runs before any create, so its failure leaves nothing behind.
   checkNamesUnique(
     plans.flatMap(({ slave, missing }) =>
       missing.map((ch) => readChannelName(slave, ch, dataTypes)),

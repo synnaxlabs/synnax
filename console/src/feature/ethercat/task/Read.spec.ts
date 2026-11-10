@@ -1223,6 +1223,22 @@ describe("Read", () => {
       expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
     });
 
+    it("should keep one scaled channel for every raw type", async () => {
+      const { identifier, statusChannel } = await createStatusSlave();
+      const deployScaled = async (dataType: string) =>
+        (
+          await deployRead({
+            ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+            channels: [{ ...statusChannel(dataType), scale: LINEAR }],
+          })
+        ).config.channels[0].channel;
+      const first = await deployScaled("uint16");
+      expect(await deployScaled("int16")).toBe(first);
+      expect((await client.channels.retrieve(first)).name).toBe(
+        `${identifier}_Status_scaled`,
+      );
+    });
+
     it("should not add its type to a name that ends in it", async () => {
       const { deploy } = await createStatusSlave();
       const name = uniqueName("ecat_pressure");

@@ -40,8 +40,8 @@ export interface ChannelNameProps extends optional.Optional<
   /** The name deploying the task gives the channel; shown while the form has none. */
   defaultName?: string;
   /**
-   * Gives the name deploying the task creates from the name in the form, shown in
-   * place of it. A rename still stores the text that the user enters.
+   * Gives the name deploying the task creates from the name in the form, shown in place
+   * of it. A rename still stores the text that the user enters.
    */
   formatName?: (name: string) => string;
   /**
