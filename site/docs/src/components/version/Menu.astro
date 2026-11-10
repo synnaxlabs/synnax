@@ -26,10 +26,7 @@ const nameOf = (name: string, url: string): string => {
     if (url === ROOT && !latest) return "Latest";
     return `v${name}`;
 };
-const current =
-    version.name === NEXT
-        ? "Next"
-        : `v${await Astro.locals.releases.documented("core")}`;
+const current = version.release == null ? "Next" : `v${version.release}`;
 ---
 
 <details class="version-menu">
