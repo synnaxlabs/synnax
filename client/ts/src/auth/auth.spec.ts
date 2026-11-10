@@ -422,6 +422,9 @@ describe("auth", () => {
       await expect(client.retrieveSessions()).rejects.toThrow(SessionEndedError);
       expect(onFailure).toHaveBeenCalledOnce();
       expect(SessionEndedError.matches(onFailure.mock.calls[0][0])).toBe(true);
+      // the next request logs in again instead of going out with no session
+      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+      expect(onFailure).toHaveBeenCalledTimes(2);
       await owner.logout();
     });
 

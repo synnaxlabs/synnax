@@ -559,7 +559,10 @@ export class Client {
           authState.authenticated &&
           authState.token === "";
         if (cookieLost && this.proof() == null) {
-          if (this.authState === authState) this.authState = { authenticated: false };
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
           const ended = new SessionEndedError(parsed.message);
           if (generation === this.generation) this.observer.onFailure?.(ended);
           throw ended;
