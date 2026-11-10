@@ -179,8 +179,8 @@ func (f *Factory) CreateCAPairIfMissing() error {
 }
 
 // CreateAll creates everything a Core needs to serve securely: the CA pair if it does
-// not exist, and the node pair if it is missing or does not cover every host in Hosts.
-// Callers that do not own the files on disk must not use it.
+// not exist, and the node pair if CreateNodePairIfStale finds it stale. Callers that do
+// not own the files on disk must not use it.
 func (f *Factory) CreateAll() error {
 	if err := f.CreateCAPairIfMissing(); err != nil {
 		return err
