@@ -10,75 +10,206 @@
 package v2_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
 	"github.com/synnaxlabs/gorp"
+	groupv0 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v0"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v2"
 	ontology "github.com/synnaxlabs/synnax/pkg/service/ontology/versions/v0"
-	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
+	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var _ = Describe("MembersMigration", func() {
-	It("Should keep a device only in a group under its rack", func(ctx SpecContext) {
-		db := DeferClose(gorp.Wrap(memkv.New()))
-		r := rack.Key(65538)
-		under := groupv1.Group{
-			Key:    uuid.New(),
-			Name:   "Under rack",
-			Scope:  resource.TypeDevice,
-			Parent: new(r.ResourceID()),
-		}
-		loose := groupv1.Group{
-			Key:   uuid.New(),
-			Name:  "Loose",
-			Scope: resource.TypeDevice,
-		}
-		groups := []groupv1.Group{under, loose}
-		Expect(gorp.NewCreate[groupv1.Key, groupv1.Group]().
-			Entries(&groups).
-			Exec(ctx, db)).To(Succeed())
-		devices := []v2.Device{
-			{Key: "kept", Rack: r, Name: "Kept"},
-			{Key: "dropped", Rack: r, Name: "Dropped"},
-		}
-		Expect(gorp.NewCreate[v2.Key, v2.Device]().Entries(&devices).Exec(ctx, db)).
-			To(Succeed())
-		edges := []ontology.Relationship{
-			{
-				From: resource.ID{Type: resource.TypeGroup, Key: under.Key.String()},
-				Type: ontology.RelationshipTypeParentOf,
-				To:   devices[0].ResourceID(),
-			},
-			{
-				From: resource.ID{Type: resource.TypeGroup, Key: loose.Key.String()},
-				Type: ontology.RelationshipTypeParentOf,
-				To:   devices[1].ResourceID(),
-			},
+var rootID = resource.ID{Type: resource.TypeBuiltin, Key: "root"}
+
+func groupID(k uuid.UUID) resource.ID {
+	return resource.ID{Type: resource.TypeGroup, Key: k.String()}
+}
+
+var _ = Describe("Group migrations", func() {
+	var (
+		db      *gorp.DB
+		r1      = rack.Key(65537)
+		r2      = rack.Key(65538)
+		devices = uuid.New()
+		inRack  = uuid.New()
+		loose   = uuid.New()
+		nested  = uuid.New()
+		racks   = uuid.New()
+	)
+
+	// migrate creates a 0.60.1 store of the given groups, racks, devices, and parent
+	// edges, then runs the group and device migrations on it.
+	migrate := func(
+		ctx context.Context,
+		names map[uuid.UUID]string,
+		rackRows []rack.Rack,
+		deviceRows []v2.Device,
+		edges ...ontology.Relationship,
+	) {
+		GinkgoHelper()
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		for k, name := range names {
+			g := groupv0.Group{Key: k, Name: name}
+			Expect(gorp.NewCreate[groupv0.Key, groupv0.Group]().
+				Entry(&g).
+				Exec(ctx, db)).To(Succeed())
 		}
 		Expect(gorp.NewCreate[string, ontology.Relationship]().
 			Entries(&edges).
 			Exec(ctx, db)).To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
-			Namespace:  "device",
-			Migrations: []gorp.Migration{v2.MembersMigration},
+			Namespace:  "group",
+			Migrations: []gorp.Migration{groupv1.Migration, groupv1.ParentMigration},
 		})).To(Succeed())
-		var out []v2.Device
-		Expect(gorp.NewRetrieve[v2.Key, v2.Device]().
-			Where(gorp.MatchKeys[v2.Key, v2.Device]("kept", "dropped")).
+		Expect(gorp.NewCreate[rack.Key, rack.Rack]().
+			Entries(&rackRows).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewCreate[v2.Key, v2.Device]().
+			Entries(&deviceRows).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "device",
+			Migrations: []gorp.Migration{
+				v2.SplitGroupsMigration,
+				v2.MembersMigration,
+			},
+		})).To(Succeed())
+	}
+
+	retrieveGroups := func(ctx context.Context) map[groupv1.Key]groupv1.Group {
+		GinkgoHelper()
+		var out []groupv1.Group
+		Expect(gorp.NewRetrieve[groupv1.Key, groupv1.Group]().
 			Entries(&out).
 			Exec(ctx, db)).To(Succeed())
-		groupOf := make(map[v2.Key]*groupv1.Key, len(out))
-		for _, d := range out {
-			groupOf[d.Key] = d.Group
+		byKey := make(map[groupv1.Key]groupv1.Group, len(out))
+		for _, g := range out {
+			byKey[g.Key] = g
 		}
-		Expect(groupOf).To(HaveKeyWithValue("kept", HaveValue(Equal(under.Key))))
-		Expect(groupOf).To(HaveKeyWithValue("dropped", BeNil()))
+		return byKey
+	}
+
+	retrieveDevice := func(ctx context.Context, key v2.Key) v2.Device {
+		GinkgoHelper()
+		var d v2.Device
+		Expect(gorp.NewRetrieve[v2.Key, v2.Device]().
+			Where(gorp.MatchKeys[v2.Key, v2.Device](key)).
+			Entry(&d).
+			Exec(ctx, db)).To(Succeed())
+		return d
+	}
+
+	device := func(key v2.Key, r rack.Key) v2.Device {
+		return v2.Device{Key: key, Rack: r, Name: key}
+	}
+
+	It("Should keep a device in a group under its rack", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{inRack: "Under rack"},
+			nil,
+			[]v2.Device{device("a", r1)},
+			parentOf(r1.ResourceID(), groupID(inRack)),
+			parentOf(groupID(inRack), deviceID("a")),
+		)
+		Expect(retrieveDevice(ctx, "a").Group).To(HaveValue(Equal(inRack)))
+		Expect(retrieveGroups(ctx)).To(HaveKey(inRack))
+	})
+
+	It("Should split a group under the Devices root by rack", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", loose: "Thermocouples"},
+			nil,
+			[]v2.Device{device("a", r1), device("b", r2), device("c", r1)},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(loose)),
+			parentOf(groupID(loose), deviceID("a")),
+			parentOf(groupID(loose), deviceID("b")),
+			parentOf(groupID(loose), deviceID("c")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(groups).ToNot(HaveKey(loose))
+		a, b, c := retrieveDevice(ctx, "a"), retrieveDevice(ctx, "b"),
+			retrieveDevice(ctx, "c")
+		Expect(c.Group).To(Equal(a.Group))
+		Expect(groups[*a.Group]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":   Equal("Thermocouples"),
+			"Scope":  Equal(resource.TypeDevice),
+			"Parent": HaveValue(Equal(r1.ResourceID())),
+		}))
+		Expect(groups[*b.Group]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":   Equal("Thermocouples"),
+			"Scope":  Equal(resource.TypeDevice),
+			"Parent": HaveValue(Equal(r2.ResourceID())),
+		}))
+	})
+
+	It("Should copy a nested chain under the rack", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", loose: "Outer", nested: "Inner"},
+			nil,
+			[]v2.Device{device("a", r1)},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(loose)),
+			parentOf(groupID(loose), groupID(nested)),
+			parentOf(groupID(nested), deviceID("a")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(groups).ToNot(HaveKey(loose))
+		Expect(groups).ToNot(HaveKey(nested))
+		inner := groups[*retrieveDevice(ctx, "a").Group]
+		Expect(inner.Name).To(Equal("Inner"))
+		Expect(inner.Parent).ToNot(BeNil())
+		outer := groups[uuid.MustParse(inner.Parent.Key)]
+		Expect(outer.Name).To(Equal("Outer"))
+		Expect(outer.Parent).To(HaveValue(Equal(r1.ResourceID())))
+	})
+
+	It("Should move a device out of a group under another rack", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{inRack: "Sensors"},
+			nil,
+			[]v2.Device{device("a", r1), device("b", r2)},
+			parentOf(r1.ResourceID(), groupID(inRack)),
+			parentOf(groupID(inRack), deviceID("a")),
+			parentOf(groupID(inRack), deviceID("b")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(retrieveDevice(ctx, "a").Group).To(HaveValue(Equal(inRack)))
+		b := retrieveDevice(ctx, "b")
+		Expect(groups[*b.Group]).To(MatchFields(IgnoreExtras, Fields{
+			"Name":   Equal("Sensors"),
+			"Parent": HaveValue(Equal(r2.ResourceID())),
+		}))
+	})
+
+	It("Should keep a split group that holds a rack", func(ctx SpecContext) {
+		migrate(
+			ctx,
+			map[uuid.UUID]string{devices: "Devices", racks: "Racks"},
+			[]rack.Rack{{Key: r1, Name: "Rack", Group: new(racks)}},
+			[]v2.Device{device("a", r1)},
+			parentOf(rootID, groupID(devices)),
+			parentOf(groupID(devices), groupID(racks)),
+			parentOf(groupID(racks), deviceID("a")),
+		)
+		groups := retrieveGroups(ctx)
+		Expect(groups).To(HaveKey(racks))
+		a := retrieveDevice(ctx, "a")
+		Expect(*a.Group).ToNot(Equal(racks))
+		Expect(groups[*a.Group].Parent).To(HaveValue(Equal(r1.ResourceID())))
 	})
 })
