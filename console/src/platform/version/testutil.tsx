@@ -36,7 +36,7 @@ export interface MockUpdaterParams {
   version?: string;
   /**
    * The release that the Core serves and that the Console may take, or null when it
-   * serves none.
+   * serves none. An older release reaches the Console only over a secure connection.
    */
   served?: string | null;
   /** The newest release on the docs site, or null when none is newer. */
@@ -70,8 +70,12 @@ export const mockUpdater = ({
     switch (cmd) {
       case "plugin:app|version":
         return version;
-      case "updater_check":
-        return served == null || served === version ? null : createMetadata(served);
+      case "updater_check": {
+        const { secure } = args as { secure: boolean };
+        if (served == null || served === version) return null;
+        if (!secure && migrate.semVerNewer(version, served)) return null;
+        return createMetadata(served);
+      }
       case "plugin:updater|check":
         return latest == null ? null : createMetadata(latest);
       case "plugin:updater|download": {
@@ -144,6 +148,8 @@ export interface CreateWrapperParams {
   client?: Client | null;
   /** The middleware that the Provider wraps each install in. */
   installMiddleware?: Version.InstallMiddleware;
+  /** True when the Console connects to the selected Core over TLS. */
+  secure?: boolean;
 }
 
 /**
@@ -154,8 +160,9 @@ export const createWrapper = async ({
   coreVersion = "1.5.0",
   client = null,
   installMiddleware,
+  secure = false,
 }: CreateWrapperParams = {}): Promise<FC<PropsWithChildren>> => {
-  const core = createCore("Local");
+  const core = createCore("Local", { secure });
   const { wrapper: Console } = await createStatusConsoleWrapper({
     client,
     status: coreVersion == null ? undefined : createStatus(coreVersion),

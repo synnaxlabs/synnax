@@ -259,7 +259,7 @@ describe("version useInfoModal", () => {
 
     const openDowngrade = async (): Promise<IPC> => {
       const ipc = mockUpdater({ served: "1.4.2" });
-      await openModal({ coreVersion: "1.4.2" });
+      await openModal({ coreVersion: "1.4.2", secure: true });
       await clickUpdate("1.4.2");
       expect(await screen.findByText(DOWNGRADE)).toBeTruthy();
       return ipc;
@@ -278,6 +278,20 @@ describe("version useInfoModal", () => {
       await waitFor(() => expect(screen.queryByText(DOWNGRADE)).toBeNull());
       await act(async () => {});
       expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
+    });
+
+    it("should explain that it cannot downgrade over an insecure connection", async () => {
+      mockUpdater({ served: "1.4.2" });
+      await openModal({ coreVersion: "1.4.2" });
+      expect(
+        await screen.findByText("Cannot downgrade over an insecure connection"),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Core 1.4.2 is older than Console 1.5.0. Install Console 1.4.2 by hand, or connect to the Core over TLS to downgrade.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Update and restart" })).toBeNull();
     });
   });
 

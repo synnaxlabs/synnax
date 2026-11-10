@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type resource } from "@synnaxlabs/client";
+import { type resource, status } from "@synnaxlabs/client";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { check, Update } from "@tauri-apps/plugin-updater";
 
@@ -31,6 +32,12 @@ export type Available =
   | { update: Update; variant: "upgrade" | "downgrade" }
   | { update: Update; variant: "breaking"; coreVersion: string };
 
+/** A downgrade that the Console refuses over an insecure connection to the Core. */
+export interface Blocked {
+  variant: "blocked";
+  status: status.Status;
+}
+
 type Served = ConstructorParameters<typeof Update>[0] & { downgrade: boolean };
 
 /** The Core that the Console checks for updates. */
@@ -39,6 +46,8 @@ export interface Target {
   endpoint: string;
   /** The version that the Core reports. */
   version: string;
+  /** True when the Console connects to the Core over TLS. */
+  secure: boolean;
   /** True when the user may take the Console past the minor version of the Core. */
   latestGranted: boolean;
 }
@@ -53,15 +62,19 @@ export const useTarget = (): Target | null => {
   return {
     endpoint: `${scheme}://${core.host}:${core.port}${MANIFEST_PATH}`,
     version: nodeVersion,
+    secure: core.secure,
     latestGranted,
   };
 };
 
 /**
  * Finds the update that the Console offers, or null. The update is breaking when it
- * takes a granted user past the minor version of the Core.
+ * takes a granted user past the minor version of the Core. Returns a Blocked when the
+ * Core is at an older minor version and the connection to it is not secure.
  */
-export const find = async (target: Target | null): Promise<Available | null> => {
+export const find = async (
+  target: Target | null,
+): Promise<Available | Blocked | null> => {
   if (Session.Runtime.ENGINE !== "tauri" || (await isDevBuild())) return null;
   if (Session.Runtime.CORE_EMBEDDED) {
     const update = await check();
@@ -71,13 +84,28 @@ export const find = async (target: Target | null): Promise<Available | null> => 
   const served = await invoke<Served | null>("updater_check", {
     endpoint: target.endpoint,
     coreVersion: target.version,
+    secure: target.secure,
   });
   if (served != null)
     return {
       update: new Update(served),
       variant: served.downgrade ? "downgrade" : "upgrade",
     };
-  if (!target.latestGranted || isDev(target.version)) return null;
+  if (isDev(target.version)) return null;
+  if (!target.secure) {
+    const current = await getVersion();
+    if (migrate.semVerOlder(target.version, current, { checkPatch: false }))
+      return {
+        variant: "blocked",
+        status: status.create({
+          variant: "warning",
+          name: "Console",
+          message: "Cannot downgrade over an insecure connection",
+          description: `Core ${target.version} is older than Console ${current}. Install Console ${target.version} by hand, or connect to the Core over TLS to downgrade.`,
+        }),
+      };
+  }
+  if (!target.latestGranted) return null;
   let latest: Update | null;
   try {
     latest = await check();

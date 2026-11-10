@@ -98,8 +98,7 @@ const Info = () => {
         return (
           (await confirm({
             message: `Downgrade Console ${found.update.currentVersion} to ${found.update.version}`,
-            description:
-              "Downgrade only to match a Core that runs an older version. Without TLS, a device on the network can fake the version of the Core.",
+            description: "Downgrade only to match a Core that runs an older version.",
             confirm: { label: "Downgrade", variant: "warning" },
             title: "Downgrade Console",
           })) === true
@@ -156,7 +155,7 @@ const Info = () => {
           </Flex.Box>
         </Flex.Box>
       );
-  else if (check.variant === "error")
+  else if (check.variant === "error" || check.variant === "blocked")
     updateContent = <Status.Summary level="h4" status={check.status} />;
   else if (check.variant === "success")
     if (check.available != null) {

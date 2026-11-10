@@ -29,28 +29,30 @@ fn minor(version: &Version) -> (u64, u64) {
 }
 
 /// Reports whether a Console at current may install release from a Core at core. The
-/// release must have the minor of the Core, and it may not be older than current within
-/// the minor of current.
-fn takes(current: &Version, release: &Version, core: &Version) -> bool {
-    minor(release) == minor(core) && (release > current || minor(release) != minor(current))
+/// release must have the minor of the Core. It must be newer than current, except at an
+/// older minor over a secure connection.
+fn takes(current: &Version, release: &Version, core: &Version, secure: bool) -> bool {
+    minor(release) == minor(core)
+        && (release > current || (secure && minor(release) != minor(current)))
 }
 
-/// Checks the manifest at endpoint for a release at the minor of core_version. Within the
-/// minor of the running Console, only a newer release qualifies. A release at an older
-/// minor comes back with downgrade set. Returns None when the endpoint serves no
-/// manifest, or none for this platform. The plugin's download and install commands take
-/// the update by its rid.
+/// Checks the manifest at endpoint for a release at the minor of core_version. Only a
+/// newer release qualifies, except that a secure connection also takes a release at an
+/// older minor and sets downgrade. Returns None when the endpoint serves no manifest, or
+/// none for this platform. The plugin's download and install commands take the update by
+/// its rid.
 #[tauri::command]
 pub async fn updater_check<R: Runtime>(
     webview: Webview<R>,
     endpoint: Url,
     core_version: Version,
+    secure: bool,
 ) -> Result<Option<Metadata>, Error> {
     let updater = webview
         .updater_builder()
         .endpoints(vec![endpoint])?
         .version_comparator(move |current, release| {
-            takes(&current, &release.version, &core_version)
+            takes(&current, &release.version, &core_version, secure)
         })
         .build()?;
     let update = match updater.check().await {
@@ -83,39 +85,45 @@ mod tests {
     }
 
     #[test]
-    fn takes_a_release_at_the_minor_of_the_core() {
-        assert!(takes(&v("0.60.2"), &v("0.61.0"), &v("0.61.1")));
-        assert!(takes(&v("0.62.0"), &v("0.61.3"), &v("0.61.3")));
+    fn takes_a_newer_release_at_the_minor_of_the_core() {
+        for secure in [true, false] {
+            assert!(takes(&v("0.60.2"), &v("0.61.0"), &v("0.61.1"), secure));
+            assert!(takes(&v("0.61.2"), &v("0.61.3"), &v("0.61.0"), secure));
+        }
+    }
+
+    #[test]
+    fn takes_an_older_minor_of_the_core_only_over_a_secure_connection() {
+        assert!(takes(&v("0.62.0"), &v("0.61.3"), &v("0.61.3"), true));
+        assert!(!takes(&v("0.62.0"), &v("0.61.3"), &v("0.61.3"), false));
     }
 
     #[test]
     fn rejects_an_older_patch_at_the_minor_of_the_console() {
-        assert!(!takes(&v("0.61.3"), &v("0.61.2"), &v("0.61.3")));
-        assert!(!takes(&v("0.61.0"), &v("0.61.0-rc.1"), &v("0.61.0")));
+        for secure in [true, false] {
+            assert!(!takes(&v("0.61.3"), &v("0.61.2"), &v("0.61.3"), secure));
+            assert!(!takes(
+                &v("0.61.0"),
+                &v("0.61.0-rc.1"),
+                &v("0.61.0"),
+                secure
+            ));
+        }
     }
 
     #[test]
-    fn takes_a_newer_patch_at_the_minor_of_the_console() {
-        assert!(takes(&v("0.61.2"), &v("0.61.3"), &v("0.61.0")));
-    }
-
-    #[test]
-    fn rejects_a_release_older_than_the_minor_of_the_core() {
-        assert!(!takes(&v("0.61.0"), &v("0.60.0"), &v("0.61.0")));
-    }
-
-    #[test]
-    fn rejects_a_release_newer_than_the_minor_of_the_core() {
-        assert!(!takes(&v("0.61.0"), &v("0.62.0"), &v("0.61.0")));
-    }
-
-    #[test]
-    fn rejects_a_release_at_another_major_than_the_core() {
-        assert!(!takes(&v("0.61.0"), &v("1.61.0"), &v("0.61.0")));
+    fn rejects_a_release_at_another_minor_than_the_core() {
+        for secure in [true, false] {
+            assert!(!takes(&v("0.61.0"), &v("0.60.0"), &v("0.61.0"), secure));
+            assert!(!takes(&v("0.61.0"), &v("0.62.0"), &v("0.61.0"), secure));
+            assert!(!takes(&v("0.61.0"), &v("1.61.0"), &v("0.61.0"), secure));
+        }
     }
 
     #[test]
     fn rejects_the_running_release() {
-        assert!(!takes(&v("0.61.0"), &v("0.61.0"), &v("0.61.0")));
+        for secure in [true, false] {
+            assert!(!takes(&v("0.61.0"), &v("0.61.0"), &v("0.61.0"), secure));
+        }
     }
 }
