@@ -113,6 +113,25 @@ var resolver = []symbol.Symbol{
 }
 
 var _ = Describe("Flow Statements", func() {
+	DescribeTable("Should reject a use of a series declared outside a function",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil, resolver...))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(Equal(
+				"series 'data' declared outside a function cannot be used",
+			))
+		},
+		Entry("source", "data := [1.0, 2.0]\ndata -> output_chan"),
+		Entry("sink", "data := [1.0, 2.0]\nsensor_chan -> data"),
+		Entry(
+			"argument",
+			"func f(s series f64) f64 { return s[0] }\n"+
+				"data := [1.0, 2.0]\nsensor_chan -> f(s=data) -> output_chan",
+		),
+	)
+
 	Describe("Function Without Input Braces", func() {
 		It(
 			"Should detect when function follows function invocation without input braces",

@@ -529,6 +529,14 @@ var _ = Describe("Sequence Analyzer", func() {
 					}
 				}
 			`, "read-only"),
+			Entry("assigning to a series declared in a stage", `
+				sequence main {
+					stage s1 {
+						data := [1.0, 2.0]
+						data = [3.0, 4.0]
+					}
+				}
+			`, "series 'data' declared outside a function cannot be used"),
 		)
 	})
 

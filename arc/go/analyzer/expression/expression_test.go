@@ -2152,4 +2152,22 @@ var _ = Describe("Expressions", func() {
 			`, "undefined symbol"),
 		)
 	})
+
+	Describe("Series declared outside a function", func() {
+		It("Should reject a read in a function", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				data := [1.0, 2.0]
+				func f() f64 { return data[0] }
+			`, nil, "series 'data' declared outside a function cannot be used")
+		})
+
+		It("Should allow a read of a function-local series", func(ctx SpecContext) {
+			expectSuccess(ctx, `
+				func f() f64 {
+					data := [1.0, 2.0]
+					return data[0]
+				}
+			`, nil)
+		})
+	})
 })
