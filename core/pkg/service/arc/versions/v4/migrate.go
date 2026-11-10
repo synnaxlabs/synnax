@@ -32,28 +32,28 @@ func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
 	return a, nil
 }
 
-// migrateArc is MigrateArc that also returns why the range() calls of a text that does
-// not parse were left unchanged.
-func migrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
+// migrateArc is MigrateArc that also reports whether the text parsed. A text that does
+// not parse keeps its range() calls unchanged.
+func migrateArc(ctx context.Context, old v3.Arc) (Arc, bool) {
 	b := Base{Key: old.Key, Name: old.Name}
 	if old.Mode != v3.ModeText {
 		b.Source.Variant = GraphSource{Graph: old.Graph}
-		return Arc{Variant: AutomationArc{Base: b}}, nil
+		return Arc{Variant: AutomationArc{Base: b}}, true
 	}
 	t := old.Text
 	raw := t.Raw
 	if len(t.Doc.Inserts) > 0 {
 		raw = t.Materialize().Raw
 	}
-	var err error
+	parsed := true
 	if raw != "" {
 		var src string
-		src, err = CastRanges(ctx, SwapBrackets(raw))
+		src, parsed = CastRanges(ctx, SwapBrackets(raw))
 		t.Doc = text.Create(src)
 		t.Raw = ""
 	}
 	b.Source.Variant = TextSource{Text: t}
-	return Arc{Variant: AutomationArc{Base: b}}, err
+	return Arc{Variant: AutomationArc{Base: b}}, parsed
 }
 
 func migrateStored(
@@ -61,12 +61,11 @@ func migrateStored(
 	old v3.Arc,
 	ins alamos.Instrumentation,
 ) (Arc, error) {
-	a, err := migrateArc(ctx, old)
-	if err != nil {
+	a, parsed := migrateArc(ctx, old)
+	if !parsed {
 		ins.L.Warn(
 			"left the range() calls of an Arc that does not parse unchanged",
 			zap.Stringer("arc", old.Key),
-			zap.Error(err),
 		)
 	}
 	return a, nil

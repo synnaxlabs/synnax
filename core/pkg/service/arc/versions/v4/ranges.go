@@ -25,11 +25,22 @@ import (
 // typed argument not of the widest type is cast to it, signed when any argument is
 // signed. Untyped number arguments and the rest of src are kept. A call with an
 // argument whose type does not resolve is left unchanged. CastRanges returns src and
-// the parse error when src does not parse.
-func CastRanges(ctx context.Context, src string) (string, error) {
+// false when src does not parse.
+func CastRanges(ctx context.Context, src string) (string, bool) {
+	// A cast can widen a loop variable that a later range() reads, so each pass casts
+	// one call and the next pass analyzes the result.
+	next, parsed := castRanges(ctx, src)
+	for parsed && next != src {
+		src = next
+		next, parsed = castRanges(ctx, src)
+	}
+	return src, parsed
+}
+
+func castRanges(ctx context.Context, src string) (string, bool) {
 	t, diag := text.Parse(text.Text{Raw: src})
 	if diag != nil {
-		return src, diag
+		return src, false
 	}
 	// A stored program can name channels and modules no root here resolves, so its
 	// diagnostics are dropped and only the arguments that resolved are typed.
@@ -37,7 +48,7 @@ func CastRanges(ctx context.Context, src string) (string, error) {
 	c := rangeCaster{types: program.TypeMap, insert: map[int]string{}}
 	antlr.ParseTreeWalkerDefault.Walk(&c, t.AST)
 	if len(c.insert) == 0 {
-		return src, nil
+		return src, true
 	}
 	var b strings.Builder
 	runes := []rune(src)
@@ -46,7 +57,7 @@ func CastRanges(ctx context.Context, src string) (string, error) {
 		b.WriteRune(r)
 	}
 	b.WriteString(c.insert[len(runes)])
-	return b.String(), nil
+	return b.String(), true
 }
 
 type rangeCaster struct {
@@ -57,7 +68,8 @@ type rangeCaster struct {
 }
 
 func (c *rangeCaster) EnterForClause(clause *parser.ForClauseContext) {
-	if clause.DECLARE() == nil || len(clause.AllIDENTIFIER()) != 1 {
+	if len(c.insert) > 0 || clause.DECLARE() == nil ||
+		len(clause.AllIDENTIFIER()) != 1 {
 		return
 	}
 	args := rangeArgs(clause.Expression())

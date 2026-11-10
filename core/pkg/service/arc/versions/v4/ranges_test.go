@@ -36,7 +36,8 @@ var _ = Describe("CastRanges", func() {
 	DescribeTable("Should cast mixed typed arguments to the type 0.60 picked",
 		func(ctx SpecContext, old, want string) {
 			Expect(analyze(ctx, wrap(old)).Ok()).To(BeFalse())
-			got := MustSucceed(v4.CastRanges(ctx, wrap(old)))
+			got, parsed := v4.CastRanges(ctx, wrap(old))
+			Expect(parsed).To(BeTrue())
 			Expect(got).To(Equal(wrap(want)))
 			diag := analyze(ctx, got)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -62,6 +63,12 @@ var _ = Describe("CastRanges", func() {
 		Entry("nested calls",
 			"for i := range(n, i64(3)) {\n    for j := range(b, n) {}\n}",
 			"for i := range(i64(n), i64(3)) {\n    for j := range(i32(b), n) {}\n}"),
+		Entry("a nested call that reads a widened loop variable",
+			"for i := range(n, i64(3)) {\n    for j := range(i, n) {}\n}",
+			"for i := range(i64(n), i64(3)) {\n    for j := range(i, i64(n)) {}\n}"),
+		Entry("a nested call that casts a widened loop variable once",
+			"for i := range(n, i64(3)) {\n    for j := range(i, b) {}\n}",
+			"for i := range(i64(n), i64(3)) {\n    for j := range(i, i64(b)) {}\n}"),
 		Entry("several calls",
 			"for i := range(n, i64(3)) {}\nfor j := range(i64(1), b) {}",
 			"for i := range(i64(n), i64(3)) {}\nfor j := range(i64(1), i64(b)) {}"),
@@ -69,7 +76,9 @@ var _ = Describe("CastRanges", func() {
 
 	DescribeTable("Should keep a program with no mixed range() byte for byte",
 		func(ctx SpecContext, src string) {
-			Expect(v4.CastRanges(ctx, wrap(src))).To(Equal(wrap(src)))
+			got, parsed := v4.CastRanges(ctx, wrap(src))
+			Expect(parsed).To(BeTrue())
+			Expect(got).To(Equal(wrap(src)))
 		},
 		Entry("untyped literals", "for i := range(0, 10, 2) {}"),
 		Entry("one typed argument and literals", "for i := range(0, n, 2) {}"),
@@ -81,8 +90,8 @@ var _ = Describe("CastRanges", func() {
 
 	It("Should leave a program that does not parse unchanged", func(ctx SpecContext) {
 		src := "func f( {\n    for i := range(n, i64(100)) {}\n"
-		got, err := v4.CastRanges(ctx, src)
-		Expect(err).To(HaveOccurred())
+		got, parsed := v4.CastRanges(ctx, src)
+		Expect(parsed).To(BeFalse())
 		Expect(got).To(Equal(src))
 	})
 })
