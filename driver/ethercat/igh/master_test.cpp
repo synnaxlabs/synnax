@@ -622,7 +622,7 @@ TEST_F(IGHMasterTest, ActivateSkipsTheStartupParametersOfADisabledSlave) {
 /// @brief it should write each parameter to a slave before activation.
 TEST_F(IGHMasterTest, WriteDownloadsEachParameterBeforeActivation) {
     this->api->add_slave();
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     ASSERT_NIL(this->master.write(1, {FILTER}));
     const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
     EXPECT_EQ(this->api->slaves[0].downloads, expected);
@@ -632,7 +632,7 @@ TEST_F(IGHMasterTest, WriteDownloadsEachParameterBeforeActivation) {
 /// @brief it should return the reason a slave rejects a parameter before activation.
 TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
     this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
-    ASSERT_NIL(this->master.scan().second);
+    ASSERT_NIL_P(this->master.scan());
     const auto err = this->master.write(1, {FILTER});
     ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
     EXPECT_EQ(
