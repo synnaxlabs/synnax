@@ -456,37 +456,62 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      # The tag claims the version before anything publishes. A run at the same commit
-      # resolves the claimed version again and finishes a partial publish, since the
-      # registry skips what already went up. Any other run stops, so one version never
-      # holds packages from two commits.
+      # npm hides a staged version until a maintainer approves it, so the tag goes up
+      # only after a stage succeeds, and a run whose tag already names this commit has
+      # nothing to stage. While the newest version overall or on this train waits for
+      # approval, nothing new stages, so approvals never move a dist-tag back. `client`
+      # is approved last.
       - name: Claim the version
+        id: claim
+        shell: bash
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG: ${{ needs.resolve.outputs.ts_tag }}
+          MINOR: ${{ needs.resolve.outputs.ts_minor }}
         run: |
+          status() {
+            curl -s -o /dev/null -w '%{http_code}' \
+              "https://registry.npmjs.org/@synnaxlabs/$1/$2"
+          }
           claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
-          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ "$claimed" = "$GITHUB_SHA" ]; then
+            echo "staged=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           if [ -n "$claimed" ]; then
             echo "$TAG names $claimed, not this commit" >&2
             exit 1
           fi
-          for name in alamos client freighter x; do
-            url="https://registry.npmjs.org/@synnaxlabs/$name/$VERSION"
-            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+          for name in x alamos freighter client; do
+            code=$(status "$name" "$VERSION")
+            if [ "$code" != 404 ]; then
+              echo "the registry answered $code for $name $VERSION" >&2
+              exit 1
+            fi
+          done
+          newest() {
+            git ls-remote --tags --refs origin "refs/tags/ts/v$1*" \
+              | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
+              | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
+          }
+          overall=$(newest "")
+          train=$(newest "$MINOR.")
+          for pending in "$overall" "$train"; do
+            [ -n "$pending" ] || continue
+            code=$(status client "$pending")
             case "$code" in
-              404) ;;
-              200)
-                echo "$name $VERSION is out without $TAG" >&2
+              200) ;;
+              404)
+                echo "client $pending is not out. Approve it, or reject it" >&2
+                echo "and delete the ts/v$pending tag." >&2
                 exit 1
                 ;;
               *)
-                echo "the registry answered $code for $name $VERSION" >&2
+                echo "the registry answered $code for client $pending" >&2
                 exit 1
                 ;;
             esac
           done
-          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Stamp package versions
         env:
@@ -496,14 +521,38 @@ jobs:
       - name: Build
         run: pnpm build:client
 
-      # A hotfix on an older train must not move `latest` back.
-      - name: Publish
+      # A hotfix on an older train must not move `latest` back. The trusted publisher
+      # may only stage, so nothing installs until a maintainer approves it with 2FA.
+      # One batch request stages every package or none.
+      - name: Stage
+        if: steps.claim.outputs.staged != 'true'
         env:
           TAG:
             ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
         # The stamp dirties the tree, and the resolve job already checked the branch.
-        run: pnpm publish -r --tag "$TAG" --no-git-checks
+        run: pnpm stage publish -r --batch --tag "$TAG" --no-git-checks
+
+      - name: Tag
+        if: steps.claim.outputs.staged != 'true'
+        env:
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Ask for approval
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Approve the npm packages"
+            echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
+            echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
+            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`."
+            echo "Until \`client\` is approved, no release stages on this train, or on"
+            echo "any train while $VERSION is the newest."
+            echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish-py:
     name: Publish Python packages
@@ -533,6 +582,7 @@ jobs:
       # registry skips what already went up. Any other run stops, so one version never
       # holds packages from two commits.
       - name: Claim the version
+        shell: bash
         env:
           VERSION: ${{ needs.resolve.outputs.py_version }}
           TAG: ${{ needs.resolve.outputs.py_tag }}
