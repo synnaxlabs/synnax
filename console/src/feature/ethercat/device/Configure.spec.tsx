@@ -421,11 +421,9 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       it("should add the commands that the device runs before SAFE-OP", async () => {
         const slave = await setup(SIRIUS);
         importFile("sirius.xml", ESI);
+        await screen.findByText("Imported 2 startup parameters for SIRIUSe 8xAI");
         expect(
-          await screen.findByText(
-            "Imported 2 startup parameters for SIRIUSe 8xAI from sirius.xml. " +
-              "Skipped 4 that the Driver cannot write.",
-          ),
+          screen.getByText("Skipped 4 that the Driver cannot write."),
         ).toBeTruthy();
         await save();
         await waitFor(async () =>
@@ -461,10 +459,11 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           inputs: [STRAIN_ENTRY],
         });
         importFile("stg.xml", ESI);
+        await screen.findByText("Imported 1 startup parameter for IOLITEr 6xSTG");
         expect(
-          await screen.findByText(
-            "Imported 1 startup parameter for IOLITEr 6xSTG from stg.xml. Left out " +
-              "0x8020:09, which holds the mode of the device. Synnax sets the mode.",
+          screen.getByText(
+            "Left out 0x8020:09, which holds the mode of the device. " +
+              "Synnax sets the mode.",
           ),
         ).toBeTruthy();
         await save();
@@ -635,9 +634,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           ]),
         );
         expect(
-          await screen.findByText(
-            "Imported 1 startup parameter for SIRIUSe 1 from soe.xml.",
-          ),
+          await screen.findByText("Imported 1 startup parameter for SIRIUSe 1"),
         ).toBeTruthy();
       });
 

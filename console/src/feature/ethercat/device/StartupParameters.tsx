@@ -156,22 +156,27 @@ const PATH = PROPERTIES.startupParameters;
 
 const IMPORT_TITLE = "Import from ESI file";
 
-/** @returns what an import added from the file, and what it left out. */
-const describeImport = (
-  { device, parameters, unwritableCount, modeCommands }: StartupCommands,
-  file: string,
-): string => {
+/** @returns a status that tells what an import added, and what it left out. */
+const describeImport = ({
+  device,
+  parameters,
+  unwritableCount,
+  modeCommands,
+}: StartupCommands): status.Status => {
   const plural = parameters.length === 1 ? "" : "s";
-  const count = `${parameters.length} startup parameter${plural}`;
-  const parts = [`Imported ${count} for ${device} from ${file}.`];
+  const notes: string[] = [];
   if (modeCommands.length > 0)
-    parts.push(
+    notes.push(
       `Left out ${ethercat.formatAddress(modeCommands[0])}, which holds the mode of ` +
         "the device. Synnax sets the mode.",
     );
   if (unwritableCount > 0)
-    parts.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
-  return parts.join(" ");
+    notes.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
+  return status.create({
+    variant: "success",
+    message: `Imported ${parameters.length} startup parameter${plural} for ${device}`,
+    description: notes.join(" "),
+  });
 };
 
 /**
@@ -193,8 +198,7 @@ export const StartupParameters = (): ReactElement => {
       const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
       const commands = parseStartupCommands(xml, get(PROPERTIES).value);
       onChange(mergeStartupParameters(get(PATH).value, commands.parameters));
-      const message = describeImport(commands, file.path);
-      setResult(status.create({ variant: "success", message }));
+      setResult(describeImport(commands));
     } catch (e) {
       setResult(status.fromException(e, "Failed to import ESI file"));
     }
