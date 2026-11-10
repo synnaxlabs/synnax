@@ -64,6 +64,9 @@ class Master final : public master::Master {
     x::errors::Error inject_activate_err;
     x::errors::Error inject_state_change_err;
     x::errors::Error inject_receive_err;
+    x::errors::Error inject_write_err;
+    /// @brief the parameters of each write(), in order.
+    std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>> writes;
 
     std::unordered_map<uint16_t, slave::State> state_transition_failures;
 
@@ -144,6 +147,14 @@ public:
                 slave.status.pdo_discovery_error = error;
     }
 
+    /// @brief makes the settings read of the slave at position fail with error.
+    void fail_settings_read(const uint16_t position, const std::string &error) {
+        std::lock_guard lock(this->mu);
+        for (auto &slave: this->slave_list)
+            if (slave.properties.position == position)
+                slave.status.settings_error = error;
+    }
+
     /// @brief injects an error to be returned by scan().
     void inject_scan_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
@@ -154,6 +165,19 @@ public:
     void inject_activate_error(const x::errors::Error &err) {
         std::lock_guard lock(this->mu);
         this->inject_activate_err = err;
+    }
+
+    /// @brief injects an error to be returned by write().
+    void inject_write_error(const x::errors::Error &err) {
+        std::lock_guard lock(this->mu);
+        this->inject_write_err = err;
+    }
+
+    /// @brief returns the position and parameters of each write(), in order.
+    [[nodiscard]] std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>
+    written() const {
+        std::lock_guard lock(this->mu);
+        return this->writes;
     }
 
     /// @brief makes each call to activate() take span on the clock of the master.
@@ -553,6 +577,20 @@ public:
             this->faults.erase(pos);
         }
         return health;
+    }
+
+    /// @brief records the write and adds the parameters to the slave in the latest
+    /// plan, or returns the error that inject_write_error() set.
+    x::errors::Error write(
+        const uint16_t position,
+        const std::vector<slave::StartupParameter> &parameters
+    ) override {
+        std::lock_guard lock(this->mu);
+        this->calls.emplace_back("write");
+        if (this->inject_write_err) return this->inject_write_err;
+        this->writes.emplace_back(position, parameters);
+        this->latest_plan.slaves[position].add_startup_parameters(parameters);
+        return x::errors::NIL;
     }
 
     /// @brief sets a value in the input image. The bus delivers it at the next

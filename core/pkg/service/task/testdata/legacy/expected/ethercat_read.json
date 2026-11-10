@@ -27,5 +27,6 @@
   ],
   "data_saving_disabled": true,
   "sample_rate": 765.5,
+  "startup_parameters": [],
   "stream_rate": 76.5
 }
