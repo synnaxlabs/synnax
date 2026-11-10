@@ -66,9 +66,12 @@ interface SetupArgs {
   startupParameters?: ethercat.StartupParameter[];
   settings?: EtherCAT.Device.SlaveProperties["settings"];
   inputs?: ethercat.PDOEntry[];
+  vendorId?: number;
   productCode?: number;
   revision?: number;
 }
+
+const VENDOR_ID = 0xdebe50f7;
 
 const setup = async ({
   configured = true,
@@ -77,6 +80,7 @@ const setup = async ({
   startupParameters = [],
   settings,
   inputs = [],
+  vendorId = VENDOR_ID,
   productCode = 0,
   revision = 0,
 }: SetupArgs = {}) => {
@@ -102,6 +106,7 @@ const setup = async ({
       startupParameters,
       settings,
       pdos: { inputs, outputs: [] },
+      vendorId,
       productCode,
       revision,
     },
@@ -343,8 +348,11 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         <Comment>${comment}</Comment>
       </InitCmd>`;
 
+      const VENDOR = "#xDEBE50F7";
+
       const ESI = `<?xml version="1.0" encoding="utf-8"?>
       <EtherCATInfo>
+        <Vendor><Id>${VENDOR}</Id></Vendor>
         <Descriptions>
           <Devices>
             <Device>
@@ -372,6 +380,19 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           </Devices>
         </Descriptions>
       </EtherCATInfo>`;
+
+      /** @returns an ESI file of the vendor with one device of each mailbox. */
+      const esiOf = (mailboxes: string[], vendor = VENDOR) =>
+        `<EtherCATInfo><Vendor><Id>${vendor}</Id></Vendor><Descriptions><Devices>
+          ${mailboxes
+            .map(
+              (mailbox, i) => `<Device>
+                <Type ProductCode="${0x67 + i}" RevisionNo="1">SIRIUSe ${i + 1}</Type>
+                <Mailbox>${mailbox}</Mailbox>
+              </Device>`,
+            )
+            .join("")}
+        </Devices></Descriptions></EtherCATInfo>`;
 
       const SIRIUS = { productCode: 0x66, revision: 0x01000001 };
       const OPERATION_MODE: ethercat.StartupParameter = {
@@ -474,7 +495,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
 
       it("should say that a file lists no devices", async () => {
         await setup(SIRIUS);
-        importFile("empty.xml", "<EtherCATInfo />");
+        importFile("empty.xml", esiOf([]));
         expect(
           await screen.findByText(
             "The ESI file lists no device with product code 0x0066 and revision " +
@@ -503,14 +524,13 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         });
         importFile(
           "pdo.xml",
-          `<EtherCATInfo><Descriptions><Devices><Device>
-            <Type ProductCode="#x67" RevisionNo="1">SIRIUSe PDO</Type>
-            <Mailbox><CoE>
+          esiOf([
+            `<CoE>
               ${initCmd("PS", "#x1c12", "0", "00", "Clear")}
               ${initCmd("PS", "#x1c12", "1", "0016", "Assign")}
               ${initCmd("PS", "#x1c12", "0", "01", "Count")}
-            </CoE></Mailbox>
-          </Device></Devices></Descriptions></EtherCATInfo>`,
+            </CoE>`,
+          ]),
         );
         await screen.findByText(/^Imported 3 startup parameters/);
         await save();
@@ -538,6 +558,87 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
             EXCITATION,
           ]),
         );
+      });
+
+      it("should reject a file for another vendor", async () => {
+        await setup(SIRIUS);
+        importFile("other.xml", ESI.replace(VENDOR, "#x00000002"));
+        expect(
+          await screen.findByText(
+            "The ESI file is not for vendor 0xDEBE50F7, the vendor of the device.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should name three devices and others of a file with more", async () => {
+        await setup({ productCode: 0x99, revision: 1 });
+        importFile("many.xml", esiOf(["", "", "", ""]));
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x0099 and revision " +
+              "0x00000001. It is for SIRIUSe 1, SIRIUSe 2, SIRIUSe 3, and others.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should read a command on a catalog field as the type of the field", async () => {
+        const slave = await setup({
+          productCode: 0x67,
+          revision: 1,
+          settings: createSettingsDescription(),
+        });
+        importFile(
+          "strain.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8040", "#x1c", "0000a040", "Excitation")}</CoE>`,
+          ]),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8040,
+              subIndex: 0x1c,
+              dataType: "float32",
+              value: 5,
+              name: "Excitation",
+            },
+          ]),
+        );
+      });
+
+      it("should import an 8-byte value that a number holds", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        importFile(
+          "count.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8050", "1", "0100000000000000", "One")}</CoE>`,
+          ]),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            { index: 0x8050, subIndex: 1, dataType: "uint64", value: 1, name: "One" },
+          ]),
+        );
+      });
+
+      it("should neither import nor count the commands of other mailboxes", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        importFile(
+          "soe.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8050", "1", "01", "CoE")}</CoE>
+            <SoE>${initCmd("PS", "#x8051", "1", "01", "SoE")}</SoE>`,
+          ]),
+        );
+        expect(
+          await screen.findByText(
+            "Imported 1 startup parameter for SIRIUSe 1 from soe.xml.",
+          ),
+        ).toBeTruthy();
       });
 
       it("should reject a file that is not XML", async () => {

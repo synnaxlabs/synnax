@@ -7,11 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ethercat } from "@synnaxlabs/client";
+import { ethercat, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, type xy } from "@synnaxlabs/x";
@@ -90,9 +91,6 @@ const FIELDS: (keyof ethercat.StartupParameter)[] = [
   "name",
 ];
 
-const formatHex = (value: number, digits: number): string =>
-  `0x${value.toString(16).toUpperCase().padStart(digits, "0")}`;
-
 /** @returns the number that text writes in hex with at most digits, or null. */
 const parseHex = (text: string, digits: number): number | null => {
   const match = new RegExp(`^(0x)?([0-9a-f]{1,${digits}})$`, "i").exec(text.trim());
@@ -142,7 +140,7 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
   <Input.Text
     {...rest}
     onlyChangeOnBlur
-    value={formatHex(value, digits)}
+    value={ethercat.formatHex(value, digits)}
     onChange={(text) => {
       const parsed = parseHex(text, digits);
       if (parsed != null) onChange(parsed);
@@ -159,52 +157,44 @@ const IMPORT_TITLE = "Import from ESI file";
 
 /** @returns what an import added from the file, and what it left out. */
 const describeImport = (
-  { device, parameters, unwritable, mode }: StartupCommands,
+  { device, parameters, unwritableCount, modeCommands }: StartupCommands,
   file: string,
 ): string => {
-  const count = `${parameters.length} startup parameter${parameters.length === 1 ? "" : "s"}`;
+  const plural = parameters.length === 1 ? "" : "s";
+  const count = `${parameters.length} startup parameter${plural}`;
   const parts = [`Imported ${count} for ${device} from ${file}.`];
-  if (mode.length > 0)
+  if (modeCommands.length > 0)
     parts.push(
-      `Left out ${ethercat.formatAddress(mode[0])}, which holds the mode of the ` +
-        "device. Synnax sets the mode.",
+      `Left out ${ethercat.formatAddress(modeCommands[0])}, which holds the mode of ` +
+        "the device. Synnax sets the mode.",
     );
-  if (unwritable > 0) parts.push(`Skipped ${unwritable} that the Driver cannot write.`);
+  if (unwritableCount > 0)
+    parts.push(`Skipped ${unwritableCount} that the Driver cannot write.`);
   return parts.join(" ");
 };
-
-interface ImportResult {
-  variant: "success" | "error";
-  message: string;
-}
 
 /**
  * Edits the CoE values that the Driver writes to a slave each time the network starts.
  */
 export const StartupParameters = (): ReactElement => {
+  Form.useCheck(PATH, parametersZ);
   const { value, onChange } = Form.useField(PATH);
   const { get } = Form.useContext();
   const statuses = Form.useStatuses(PATH);
-  const productCode = Form.useFieldValue(PROPERTIES.productCode);
-  const revision = Form.useFieldValue(PROPERTIES.revision);
-  const mode = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.mode;
-  const [result, setResult] = useState<ImportResult | null>(null);
+  const [result, setResult] = useState<status.Status | null>(null);
   const handleImport = async () => {
     try {
       const file = await Runtime.pickFiles({ title: IMPORT_TITLE, extension: "xml" });
       if (file == null) return;
       const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
-      const commands = parseStartupCommands(xml, { productCode, revision }, mode);
+      const commands = parseStartupCommands(xml, get(PROPERTIES).value);
       onChange(mergeStartupParameters(get(PATH).value, commands.parameters));
-      setResult({ variant: "success", message: describeImport(commands, file.path) });
+      const message = describeImport(commands, file.path);
+      setResult(status.create({ variant: "success", message }));
     } catch (e) {
-      setResult({
-        variant: "error",
-        message: e instanceof Error ? e.message : String(e),
-      });
+      setResult(status.fromException(e, "Failed to import ESI file"));
     }
   };
-  Form.useCheck(PATH, parametersZ);
   const rows = value.map((p) => FIELDS.map((f) => p[f]));
   const handleChange = (next: Input.TableCell[][]) =>
     onChange(
@@ -263,15 +253,7 @@ export const StartupParameters = (): ReactElement => {
         <Icon.Import />
         {IMPORT_TITLE}
       </Button.Button>
-      {result != null && (
-        <Text.Text
-          level="small"
-          status={result.variant === "error" ? "error" : undefined}
-          color={result.variant === "error" ? undefined : 9}
-        >
-          {result.message}
-        </Text.Text>
-      )}
+      {result != null && <Status.Summary status={result} level="small" />}
       <Text.Text level="small" color={9}>
         The Driver writes these CoE values to the device each time the network starts,
         before the device exchanges data.

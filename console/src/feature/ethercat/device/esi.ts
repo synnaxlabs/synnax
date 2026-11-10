@@ -7,17 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ethercat } from "@synnaxlabs/client";
+import { ethercat } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { sameAddress } from "@/feature/ethercat/device/settings";
-import { type Mode, type SlaveProperties } from "@/feature/ethercat/device/types";
+import { type Field, sameAddress } from "@/feature/ethercat/device/settings";
+import { type SlaveProperties } from "@/feature/ethercat/device/types";
 
-const DATA_TYPES: Record<number, DataType> = {
+/** The type of a command on an object that the catalog does not describe. */
+const UNSIGNED: Record<number, DataType> = {
   1: DataType.UINT8,
   2: DataType.UINT16,
   4: DataType.UINT32,
   8: DataType.UINT64,
+};
+
+/** Reads a value of each type from the little-endian bytes of a command. */
+const READERS: Record<string, (view: DataView) => number> = {
+  [DataType.UINT8.toString()]: (v) => v.getUint8(0),
+  [DataType.INT8.toString()]: (v) => v.getInt8(0),
+  [DataType.UINT16.toString()]: (v) => v.getUint16(0, true),
+  [DataType.INT16.toString()]: (v) => v.getInt16(0, true),
+  [DataType.UINT32.toString()]: (v) => v.getUint32(0, true),
+  [DataType.INT32.toString()]: (v) => v.getInt32(0, true),
+  [DataType.UINT64.toString()]: (v) => Number(v.getBigUint64(0, true)),
+  [DataType.INT64.toString()]: (v) => Number(v.getBigInt64(0, true)),
+  [DataType.FLOAT32.toString()]: (v) => v.getFloat32(0, true),
+  [DataType.FLOAT64.toString()]: (v) => v.getFloat64(0, true),
 };
 
 // The Driver writes startup parameters in PRE-OP, before the move to SAFE-OP.
@@ -33,13 +48,25 @@ const parseHexDec = (text: string | null | undefined): number | null => {
   return Number.isNaN(value) ? null : value;
 };
 
-const formatHex = (value: number, digits: number): string =>
-  `0x${value.toString(16).toUpperCase().padStart(digits, "0")}`;
-
 const childText = (el: Element, tag: string): string | null =>
   Array.from(el.children).find((c) => c.tagName === tag)?.textContent ?? null;
 
-const parseCommand = (cmd: Element): ethercat.StartupParameter | null => {
+/** @returns the type of the catalog field at the address when its size is size. */
+const catalogType = (
+  fields: Field[],
+  address: Pick<ethercat.StartupParameter, "index" | "subIndex">,
+  size: number,
+): DataType | null => {
+  const field = fields.find((f) => sameAddress(f, address));
+  if (field == null) return null;
+  const type = new DataType(field.dataType);
+  return type.density.valueOf() === size ? type : null;
+};
+
+const parseCommand = (
+  cmd: Element,
+  fields: Field[],
+): ethercat.StartupParameter | null => {
   const transitions = Array.from(cmd.children)
     .filter((c) => c.tagName === "Transition")
     .map((c) => c.textContent?.trim() ?? "");
@@ -48,26 +75,16 @@ const parseCommand = (cmd: Element): ethercat.StartupParameter | null => {
   const index = parseHexDec(childText(cmd, "Index"));
   const subIndex = parseHexDec(childText(cmd, "SubIndex"));
   const data = childText(cmd, "Data")?.trim() ?? "";
-  const dataType = DATA_TYPES[data.length / 2];
-  if (
-    index == null ||
-    subIndex == null ||
-    dataType == null ||
-    !/^[0-9a-f]+$/i.test(data)
-  )
+  if (index == null || subIndex == null || !/^([0-9a-f]{2})+$/i.test(data)) return null;
+  const bytes = Uint8Array.from(data.match(/../g) ?? [], (b) => Number.parseInt(b, 16));
+  const parameter = { index, subIndex, name: childText(cmd, "Comment")?.trim() ?? "" };
+  const dataType =
+    catalogType(fields, parameter, bytes.length) ?? UNSIGNED[bytes.length];
+  if (dataType == null) return null;
+  const value = READERS[dataType.toString()](new DataView(bytes.buffer));
+  if (!Number.isFinite(value) || (dataType.isInteger && !Number.isSafeInteger(value)))
     return null;
-  // ESI data is the object's bytes in EtherCAT (little-endian) order.
-  let value = 0;
-  for (let i = data.length - 2; i >= 0; i -= 2)
-    value = value * 256 + Number.parseInt(data.slice(i, i + 2), 16);
-  if (!Number.isSafeInteger(value)) return null;
-  return {
-    index,
-    subIndex,
-    dataType: dataType.toString(),
-    value,
-    name: childText(cmd, "Comment")?.trim() ?? "",
-  };
+  return { ...parameter, dataType: dataType.toString(), value };
 };
 
 export interface StartupCommands {
@@ -76,66 +93,78 @@ export interface StartupCommands {
   /** The commands to add as startup parameters. */
   parameters: ethercat.StartupParameter[];
   /** The number of commands that the Driver cannot write before SAFE-OP. */
-  unwritable: number;
+  unwritableCount: number;
   /** The commands on the object that holds the slave's mode, which Synnax sets. */
-  mode: ethercat.StartupParameter[];
+  modeCommands: ethercat.StartupParameter[];
 }
 
 /**
  * Reads the CoE startup commands (InitCmds) of the slave's device from an ESI file.
  * The Driver writes the commands of the INIT to PRE-OP and PRE-OP to SAFE-OP
  * transitions, so other transitions are unwritable, as are commands with complete
- * access, data that is not 1, 2, 4, or 8 bytes, or a value above 2^53.
- * @param mode - the slave's mode. Commands on the object that holds it go to `mode`.
- * @throws {Error} if the file is not XML or lists no device with the slave's product
- * code and revision.
+ * access, data that is not 1, 2, 4, or 8 bytes, or a value that a number cannot hold.
+ * A command on an object that the catalog of the slave describes takes the type of
+ * that field.
+ * @throws {Error} if the file is not XML, is for another vendor, or lists no device
+ * with the slave's product code and revision.
  */
 export const parseStartupCommands = (
   xml: string,
-  { productCode, revision }: Pick<SlaveProperties, "productCode" | "revision">,
-  mode?: Mode,
+  props: SlaveProperties,
 ): StartupCommands => {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   if (doc.getElementsByTagName("parsererror").length > 0)
     throw new Error("The file is not a valid ESI XML file.");
-  const devices = Array.from(doc.getElementsByTagName("Device"));
-  const types = devices.map((d) =>
-    Array.from(d.children).find((c) => c.tagName === "Type"),
+  const vendor = parseHexDec(
+    doc.querySelector("EtherCATInfo > Vendor > Id")?.textContent,
   );
-  const found = devices.findIndex((_, i) => {
-    const type = types[i];
-    return (
-      type != null &&
-      parseHexDec(type.getAttribute("ProductCode")) === productCode &&
-      parseHexDec(type.getAttribute("RevisionNo")) === revision
+  if (vendor !== props.vendorId)
+    throw new Error(
+      `The ESI file is not for vendor ${ethercat.formatHex(props.vendorId, 8)}, the ` +
+        "vendor of the device.",
     );
+  const devices = Array.from(doc.getElementsByTagName("Device")).flatMap((device) => {
+    const type = Array.from(device.children).find((c) => c.tagName === "Type");
+    return type == null ? [] : [{ device, type }];
   });
-  if (found === -1) {
-    const names = [...new Set(types.map((t) => t?.textContent?.trim() ?? ""))].filter(
-      (n) => n !== "",
-    );
+  const found = devices.find(
+    ({ type }) =>
+      parseHexDec(type.getAttribute("ProductCode")) === props.productCode &&
+      parseHexDec(type.getAttribute("RevisionNo")) === props.revision,
+  );
+  if (found == null) {
+    const names = [
+      ...new Set(devices.map(({ type }) => type.textContent?.trim() ?? "")),
+    ].filter((n) => n !== "");
     const listed =
       names.length > 3
         ? `${names.slice(0, 3).join(", ")}, and others`
         : names.join(", ");
     const lists = names.length === 0 ? "It lists no devices." : `It is for ${listed}.`;
     throw new Error(
-      `The ESI file lists no device with product code ${formatHex(productCode, 4)} ` +
-        `and revision ${formatHex(revision, 8)}. ${lists}`,
+      `The ESI file lists no device with product code ` +
+        `${ethercat.formatHex(props.productCode, 4)} and revision ` +
+        `${ethercat.formatHex(props.revision, 8)}. ${lists}`,
     );
   }
-  const commands = Array.from(devices[found].getElementsByTagName("InitCmd")).filter(
+  const commands = Array.from(found.device.getElementsByTagName("InitCmd")).filter(
     (cmd) => cmd.parentElement?.tagName === "CoE",
   );
+  const { settings } = props;
+  const fields =
+    settings == null
+      ? []
+      : [...settings.device, ...settings.channels.flatMap((c) => c.settings)];
   const writable = commands
-    .map(parseCommand)
+    .map((cmd) => parseCommand(cmd, fields))
     .filter((p): p is ethercat.StartupParameter => p != null);
-  const holdsMode = (p: ethercat.StartupParameter) => mode != null && sameAddress(p, mode);
+  const holdsMode = (p: ethercat.StartupParameter) =>
+    settings?.mode != null && sameAddress(p, settings.mode);
   return {
-    device: types[found]?.textContent?.trim() ?? "",
+    device: found.type.textContent?.trim() ?? "",
     parameters: writable.filter((p) => !holdsMode(p)),
-    unwritable: commands.length - writable.length,
-    mode: writable.filter(holdsMode),
+    unwritableCount: commands.length - writable.length,
+    modeCommands: writable.filter(holdsMode),
   };
 };
 
@@ -146,8 +175,7 @@ export const parseStartupCommands = (
 export const mergeStartupParameters = (
   existing: ethercat.StartupParameter[],
   imported: ethercat.StartupParameter[],
-): ethercat.StartupParameter[] => {
-  const key = ({ index, subIndex }: ethercat.StartupParameter) => `${index}:${subIndex}`;
-  const importedKeys = new Set(imported.map(key));
-  return [...existing.filter((p) => !importedKeys.has(key(p))), ...imported];
-};
+): ethercat.StartupParameter[] => [
+  ...existing.filter((p) => !imported.some((i) => sameAddress(i, p))),
+  ...imported,
+];
