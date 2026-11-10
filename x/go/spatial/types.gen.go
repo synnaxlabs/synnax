@@ -185,6 +185,24 @@ type XYUpdate struct {
 	Y *float64 `json:"y,omitzero" msgpack:"y,omitempty"`
 }
 
+// DimensionsUpdate holds changes to the fields of the dimensions. An absent field does
+// not change.
+type DimensionsUpdate struct {
+	// Width is the width in pixels.
+	Width *float64 `json:"width,omitzero" msgpack:"width,omitempty"`
+	// Height is the height in pixels.
+	Height *float64 `json:"height,omitzero" msgpack:"height,omitempty"`
+}
+
+// LocationXYUpdate holds changes to the fields of the location xy. An absent field does
+// not change.
+type LocationXYUpdate struct {
+	// X is the horizontal anchor.
+	X *XCenterLocation `json:"x,omitzero" msgpack:"x,omitempty"`
+	// Y is the vertical anchor.
+	Y *YCenterLocation `json:"y,omitzero" msgpack:"y,omitempty"`
+}
+
 // ApplyTo applies u to x. An absent field of u leaves its field of x alone.
 func (u ViewportUpdate) ApplyTo(x *Viewport) error {
 	if u.Zoom != nil {
@@ -212,6 +230,56 @@ func (u ViewportUpdate) Defaults() (Viewport, error) {
 
 // ApplyTo applies u to x. An absent field of u leaves its field of x alone.
 func (u XYUpdate) ApplyTo(x *XY) error {
+	if u.X != nil {
+		x.X = *u.X
+	}
+	if u.Y != nil {
+		x.Y = *u.Y
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u XYUpdate) Defaults() (XY, error) {
+	if u.X == nil {
+		return XY{}, errors.Wrap(validate.ErrValidation, "x is required")
+	}
+	if u.Y == nil {
+		return XY{}, errors.Wrap(validate.ErrValidation, "y is required")
+	}
+	var x XY
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DimensionsUpdate) ApplyTo(x *Dimensions) error {
+	if u.Width != nil {
+		x.Width = *u.Width
+	}
+	if u.Height != nil {
+		x.Height = *u.Height
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u DimensionsUpdate) Defaults() (Dimensions, error) {
+	if u.Width == nil {
+		return Dimensions{}, errors.Wrap(validate.ErrValidation, "width is required")
+	}
+	if u.Height == nil {
+		return Dimensions{}, errors.Wrap(validate.ErrValidation, "height is required")
+	}
+	var x Dimensions
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LocationXYUpdate) ApplyTo(x *LocationXY) error {
 	if u.X != nil {
 		x.X = *u.X
 	}

@@ -56,7 +56,7 @@ var _ = Describe("Service", func() {
 				mqtt.ReadTaskType,
 				mqtt.WriteTaskType,
 				mqtt.ScanTaskType,
-				mqtt.EdgeTaskType,
+				mqtt.SparkplugEdgeTaskType,
 			))
 		})
 	})

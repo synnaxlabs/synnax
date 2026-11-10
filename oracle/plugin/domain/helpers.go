@@ -10,6 +10,8 @@
 package domain
 
 import (
+	"strings"
+
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -57,6 +59,23 @@ func getString(h holder, domainName, exprName string) string {
 
 func GetStringFromType(t resolution.Type, domainName, exprName string) string {
 	return getString(typeHolder{t}, domainName, exprName)
+}
+
+// TaskType returns the task type that the @task type domain of the config struct t
+// sets. name is the snake_case name of its constant in the namespace ns: the part of
+// the type after its integration prefix, then "task_type", or only "type" when ns is
+// itself a task namespace.
+func TaskType(t resolution.Type, ns string) (value, name string, ok bool) {
+	value = GetStringFromType(t, "task", "type")
+	if value == "" {
+		return "", "", false
+	}
+	_, name, _ = strings.Cut(value, "_")
+	suffix := "_task_type"
+	if ns == "task" {
+		suffix = "_type"
+	}
+	return value, strings.TrimPrefix(name+suffix, "_"), true
 }
 
 func GetStringFromField(f resolution.Field, domainName, exprName string) string {

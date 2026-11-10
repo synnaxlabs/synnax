@@ -883,9 +883,15 @@ type DOChannel = versions.DOChannel
 // device.
 type AnalogReadConfig = versions.AnalogReadConfig
 
+// AnalogReadTaskType is the task type of AnalogReadConfig.
+const AnalogReadTaskType = versions.AnalogReadTaskType
+
 // CounterReadConfig configures an NI counter read task. Each channel carries its own
 // device.
 type CounterReadConfig = versions.CounterReadConfig
+
+// CounterReadTaskType is the task type of CounterReadConfig.
+const CounterReadTaskType = versions.CounterReadTaskType
 
 // WriteConfig carries the configuration fields shared by NI write tasks.
 type WriteConfig = versions.WriteConfig
@@ -893,14 +899,26 @@ type WriteConfig = versions.WriteConfig
 // AnalogWriteConfig configures an NI analog write task.
 type AnalogWriteConfig = versions.AnalogWriteConfig
 
+// AnalogWriteTaskType is the task type of AnalogWriteConfig.
+const AnalogWriteTaskType = versions.AnalogWriteTaskType
+
 // DigitalReadConfig configures an NI digital read task.
 type DigitalReadConfig = versions.DigitalReadConfig
+
+// DigitalReadTaskType is the task type of DigitalReadConfig.
+const DigitalReadTaskType = versions.DigitalReadTaskType
 
 // DigitalWriteConfig configures an NI digital write task.
 type DigitalWriteConfig = versions.DigitalWriteConfig
 
+// DigitalWriteTaskType is the task type of DigitalWriteConfig.
+const DigitalWriteTaskType = versions.DigitalWriteTaskType
+
 // ScanConfig configures the NI device scanner task.
 type ScanConfig = versions.ScanConfig
+
+// ScannerTaskType is the task type of ScanConfig.
+const ScannerTaskType = versions.ScannerTaskType
 
 // AccelChargeSensitivityUnits are the units of a charge-mode accelerometer's
 // sensitivity rating.

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, TypedDict
+from typing import Literal, Required, TypeAlias, TypedDict
 
 from pydantic import BaseModel, Field
 
@@ -233,6 +233,12 @@ class Bounds(BaseModel):
     upper: float
 
 
+# BoundsDict is the dict form of Bounds.
+class BoundsDict(TypedDict, total=False):
+    lower: Required[float]
+    upper: Required[float]
+
+
 class XYUpdate(TypedDict, total=False):
     """Holds changes to the fields of the xy. An absent field does not change.
 
@@ -243,6 +249,30 @@ class XYUpdate(TypedDict, total=False):
 
     x: float
     y: float
+
+
+class DimensionsUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the dimensions. An absent field does not change.
+
+    Attributes:
+        width: Is the width in pixels.
+        height: Is the height in pixels.
+    """
+
+    width: float
+    height: float
+
+
+class LocationXYUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the location xy. An absent field does not change.
+
+    Attributes:
+        x: Is the horizontal anchor.
+        y: Is the vertical anchor.
+    """
+
+    x: XCenterLocation
+    y: YCenterLocation
 
 
 class Viewport(BaseModel):

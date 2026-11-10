@@ -42,6 +42,7 @@ const (
 	structType    = patchNamespace + ".Struct"
 	listType      = patchNamespace + ".List"
 	valueListType = patchNamespace + ".ValueList"
+	typedMapType  = patchNamespace + ".TypedMap"
 )
 
 // operatorNames are the members that an update reads as operators of a struct or a
@@ -808,11 +809,15 @@ func updateFieldDomains(f resolution.Field) map[string]resolution.Domain {
 }
 
 // change returns the type that an update field holds to change a required value of
-// ref: the operators of a list, the merge of a struct, the update of a union, or ref
-// itself, which replaces the value whole.
+// ref: the operators of a list or a map, the merge of a struct, the update of a union,
+// or ref itself, which replaces the value whole.
 func (s *updateSynth) change(ref resolution.TypeRef) resolution.TypeRef {
 	if ref.IsTypeParam() {
 		return ref
+	}
+	if ref.Name == "Map" && len(ref.TypeArgs) == 2 {
+		key, value := ref.TypeArgs[0], ref.TypeArgs[1]
+		return generic(typedMapType, key, value, s.valueUpdate(value))
 	}
 	if ref.Name == "Array" && ref.ArraySize == nil && len(ref.TypeArgs) == 1 {
 		elem := ref.TypeArgs[0]
@@ -829,6 +834,19 @@ func (s *updateSynth) change(ref resolution.TypeRef) resolution.TypeRef {
 		return s.updateOf(typ)
 	}
 	return generic(structType, s.updateOf(typ), ref)
+}
+
+// valueUpdate returns the type that merges into a map value of ref: the update of a
+// struct or a union, or ref itself, which replaces the value.
+func (s *updateSynth) valueUpdate(ref resolution.TypeRef) resolution.TypeRef {
+	if ref.IsTypeParam() {
+		return ref
+	}
+	typ, _, ok := resolution.Dealias(ref, s.c.table)
+	if !ok || !mergeable(typ) {
+		return ref
+	}
+	return s.updateOf(typ)
 }
 
 // updateOf returns a reference to the update type of the reached typ, and queues typ

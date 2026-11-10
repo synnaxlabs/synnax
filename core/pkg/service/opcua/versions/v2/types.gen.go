@@ -79,3 +79,12 @@ type WriteConfig = v1.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v1.ScanConfig
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "opc_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "opc_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "opc_scan"
+)

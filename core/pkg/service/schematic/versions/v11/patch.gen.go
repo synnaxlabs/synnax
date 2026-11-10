@@ -18,6 +18,8 @@ func (s *Schematic) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "name":
 		return patch.Value(&s.Name, c.Next())
+	case "configs":
+		return patch.Value(&s.Configs, c.Next())
 	case "group":
 		return patch.OptionalValue(&s.Group, c.Next())
 	case "project":

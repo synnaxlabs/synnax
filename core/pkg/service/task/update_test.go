@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Update", func() {
@@ -33,9 +35,11 @@ var _ = Describe("Update", func() {
 
 	It("Should refuse a change to a field that only the Core sets", func() {
 		p := task.UpdatePayload{Value: task.Update{ConfigHash: new("abc")}}
-		Expect(p.CheckCoreOnly()).To(And(
-			MatchError(actions.ErrCoreOnly),
-			MatchError(ContainSubstring("config_hash")),
+		err := p.CheckCoreOnly()
+		Expect(errors.Is(err, actions.ErrCoreOnly)).To(BeTrue())
+		Expect(err).To(And(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("config_hash is set by the Core")),
 		))
 	})
 

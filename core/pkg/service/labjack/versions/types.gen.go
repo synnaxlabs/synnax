@@ -109,8 +109,17 @@ type DigitalWriteChannel = v3.DigitalWriteChannel
 // ReadConfig configures a LabJack read task.
 type ReadConfig = v3.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v3.ReadTaskType
+
 // WriteConfig configures a LabJack write task.
 type WriteConfig = v3.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v3.WriteTaskType
+
 // ScanConfig configures a LabJack scan task.
 type ScanConfig = v3.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v3.ScanTaskType

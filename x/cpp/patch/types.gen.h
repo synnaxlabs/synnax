@@ -14,6 +14,7 @@
 #include <optional>
 #include <string>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include "x/cpp/json/json.h"
@@ -36,6 +37,24 @@ struct Guard {
     std::string value;
 
     static Guard parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief TypedMap changes a map whose values have a schema. The operators apply in the
+/// order remove, update, then insert. A key that is missing, or an insert of a key that
+/// exists, fails the update.
+template<typename K, typename V, typename U>
+struct TypedMap {
+    /// @brief set replaces the whole map. It cannot hold any other operator.
+    std::optional<std::unordered_map<K, V>> set;
+    /// @brief insert adds entries with keys that the map does not hold.
+    std::optional<std::unordered_map<K, V>> insert;
+    /// @brief remove removes the entries with these keys.
+    std::optional<std::vector<K>> remove;
+    /// @brief update merges each value into the value with the same key.
+    std::optional<std::unordered_map<K, U>> update;
+
+    static TypedMap parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

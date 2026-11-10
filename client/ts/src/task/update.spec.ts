@@ -13,7 +13,12 @@ import { z } from "zod";
 import { task } from "@/task";
 import { reduceAll } from "@/task/actions";
 
-const configZ = z.object({ rate: z.number() });
+const configZ = z.object({ rate: z.number(), device: z.string() });
+const configUpdateZ = z.object({
+  rate: z.number().optional(),
+  device: z.string().optional(),
+});
+const configSchemas = { u: configUpdateZ, t: configZ };
 
 describe("Update", () => {
   it("should hold the fields that only the Core sets", () => {
@@ -21,9 +26,14 @@ describe("Update", () => {
     expect(task.updateZ().parse(update)).toEqual(update);
   });
 
-  it("should replace the config whole with the config type of the task", () => {
-    const update: task.Update<typeof configZ> = { config: { rate: 10 } };
-    expect(task.updateZ(configZ).parse(update)).toEqual(update);
+  it("should take a partial config with the schemas of the config", () => {
+    const update: task.Update<typeof configSchemas> = { config: { rate: 10 } };
+    expect(task.updateZ(configSchemas).parse(update)).toEqual(update);
+  });
+
+  it("should take a whole config without the schemas of the config", () => {
+    const update: task.Update = { config: { anything: 1 } };
+    expect(task.updateZ().parse(update)).toEqual(update);
   });
 
   it("should leave an absent config absent", () => {
@@ -38,12 +48,12 @@ describe("UpdateInput", () => {
     expect(input).toEqual({ configHash: "h1" });
   });
 
-  it("should check the config against the config type of the task", () => {
-    const input: task.UpdateInput<typeof configZ> = { config: { rate: 10 } };
-    // @ts-expect-error - the config type has no field name.
-    const bad: task.UpdateInput<typeof configZ> = { config: { name: "x" } };
-    expect(task.updateZ(configZ).parse(input)).toEqual(input);
-    expect(task.updateZ(configZ).safeParse(bad).success).toBe(false);
+  it("should check the config against the schemas of the config", () => {
+    const input: task.UpdateInput<typeof configSchemas> = { config: { rate: 10 } };
+    // @ts-expect-error - the rate of the config is a number.
+    const bad: task.UpdateInput<typeof configSchemas> = { config: { rate: "x" } };
+    expect(task.updateZ(configSchemas).parse(input)).toEqual(input);
+    expect(task.updateZ(configSchemas).safeParse(bad).success).toBe(false);
   });
 });
 

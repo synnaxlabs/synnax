@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { z } from "zod";
+import { type $strict, type $ZodRecordKey } from "zod/v4/core";
 
+import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
 import { mark } from "@/patch/kind";
 import { listMoveZ } from "@/patch/types.gen";
@@ -68,6 +70,25 @@ export interface ListSchemas<
 }
 
 /**
+ * The schema that {@link listZ} returns. A named type keeps the declarations of large
+ * update schemas under the length that the compiler serializes.
+ */
+export interface ListZ<
+  E extends z.ZodType,
+  K extends z.ZodType,
+  U extends z.ZodType,
+> extends z.ZodObject<
+  {
+    set: z.ZodOptional<z.ZodArray<E>>;
+    insert: z.ZodOptional<z.ZodArray<E>>;
+    remove: z.ZodOptional<z.ZodArray<K>>;
+    update: z.ZodOptional<z.ZodArray<U>>;
+    move: z.ZodOptional<z.ZodArray<ReturnType<typeof listMoveZ<K>>>>;
+  },
+  $strict
+> {}
+
+/**
  * Builds the schema of the operators that change a list of entries with a key. The
  * operators apply in the order remove, update, insert, then move, and set replaces the
  * list alone.
@@ -76,7 +97,7 @@ export const listZ = <E extends z.ZodType, K extends z.ZodType, U extends z.ZodT
   e,
   k,
   u,
-}: ListSchemas<E, K, U>) =>
+}: ListSchemas<E, K, U>): ListZ<E, K, U> =>
   mark(
     z.strictObject({
       set: e.array().optional(),
@@ -92,6 +113,67 @@ export type List<
   K extends z.ZodType,
   U extends z.ZodType,
 > = z.infer<ReturnType<typeof listZ<E, K, U>>>;
+
+/** The schemas of the values of a map that {@link typedMapZ} changes. */
+export interface MapSchemas<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> {
+  /** The schema of a key. */
+  k: K;
+  /** The schema of a value. */
+  v: V;
+  /**
+   * The schema of the update of a value. An object or union update merges into the
+   * value, and any other update replaces it.
+   */
+  u: U;
+}
+
+/** The schema that {@link typedMapZ} returns, named as {@link ListZ} is. */
+export interface TypedMapZ<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> extends z.ZodObject<
+  {
+    set: z.ZodOptional<z.ZodRecord<K, V>>;
+    insert: z.ZodOptional<z.ZodRecord<K, V>>;
+    remove: z.ZodOptional<z.ZodArray<K>>;
+    update: z.ZodOptional<z.ZodRecord<K, U>>;
+  },
+  $strict
+> {}
+
+/**
+ * Builds the schema of the operators that change a map whose values have a schema. The
+ * operators apply in the order remove, update, then insert, and set replaces the map
+ * alone. The keys of the map keep their case when the operators convert case.
+ */
+export const typedMapZ = <
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+>({
+  k,
+  v,
+  u,
+}: MapSchemas<K, V, U>): TypedMapZ<K, V, U> =>
+  mark(
+    z.strictObject({
+      set: caseconv.preserveKeys(z.record(k, v).optional()),
+      insert: caseconv.preserveKeys(z.record(k, v).optional()),
+      remove: z.array(k).optional(),
+      update: caseconv.preserveKeys(z.record(k, u).optional()),
+    }),
+    { kind: "map", value: v, update: u },
+  );
+export type TypedMap<
+  K extends $ZodRecordKey,
+  V extends z.ZodType,
+  U extends z.ZodType,
+> = z.infer<ReturnType<typeof typedMapZ<K, V, U>>>;
 
 /**
  * Builds the schema of the operators that change a list of values that are their own

@@ -43,3 +43,8 @@ type TaskConfig struct {
 	// Alerts are the alerts the task evaluates.
 	Alerts []Alert `json:"alerts" msgpack:"alerts"`
 }
+
+const (
+	// AlertTaskType is the task type of TaskConfig.
+	AlertTaskType = "pagerduty_alert"
+)

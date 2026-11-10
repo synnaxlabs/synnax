@@ -68,3 +68,8 @@ func (c Config) Validate() error {
 	v.Ternaryf("performance", !c.Performance.IsValid(), "invalid performance: %v", c.Performance)
 	return v.Error()
 }
+
+const (
+	// Type is the task type of Config.
+	Type = "arc"
+)

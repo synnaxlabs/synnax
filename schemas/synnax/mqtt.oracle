@@ -246,6 +246,7 @@ ReadConfig struct extends task.PersistConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "mqtt_read"
 }
 
 JSONType enum {
@@ -446,6 +447,7 @@ WriteConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "mqtt_write"
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -454,6 +456,7 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+    @task type  "mqtt_scan"
 }
 
 EdgeTag struct {
@@ -525,4 +528,5 @@ EdgeConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "mqtt_sparkplug_edge"
 }

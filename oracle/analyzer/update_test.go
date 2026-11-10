@@ -42,6 +42,10 @@ List struct<E, K, U> {
 ValueList struct<E> {
     set E[]?
 }
+TypedMap struct<K extends comparable, V, U> {
+    set    map<K, V>?
+    update map<K, U>?
+}
 Update struct<V> {
     value V
 }
@@ -98,6 +102,8 @@ var _ = Describe("Update types", func() {
 				tags     string[]          { @patch }
 				data     Data              { @patch }
 				layout   record            { @patch }
+				points   map<string, Point>  { @patch }
+				labels   map<string, string> { @patch }
 				hash     string            { @patch core }
 				internal string
 				extra    Extra
@@ -119,7 +125,7 @@ var _ = Describe("Update types", func() {
 			form := update.Form.(resolution.StructForm)
 			Expect(fieldNames(form)).To(Equal([]string{
 				"name", "note", "origin", "anchor", "entries", "tags", "data", "layout",
-				"hash",
+				"points", "labels", "hash",
 			}))
 			for _, f := range form.Fields {
 				Expect(f.Optional).To(BeTrue(), f.Name)
@@ -153,6 +159,12 @@ var _ = Describe("Update types", func() {
 			Entry("a list of values to value list operators", "tags",
 				ref("patch.ValueList", ref("string"))),
 			Entry("a record to itself", "layout", ref("record")),
+			Entry("a map of structs to map operators that merge each value", "points",
+				ref("patch.TypedMap", ref("string"), ref("test.Point"),
+					ref("test.PointUpdate"))),
+			Entry("a map of scalars to map operators that replace each value",
+				"labels",
+				ref("patch.TypedMap", ref("string"), ref("string"), ref("string"))),
 		)
 
 		It("Should keep only the type parameters that the update holds", func(

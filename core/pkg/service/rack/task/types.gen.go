@@ -19,6 +19,9 @@ import (
 // StatusConfig configures the rack status reporting task, which carries no settings.
 type StatusConfig = versions.StatusConfig
 
+// StatusType is the task type of StatusConfig.
+const StatusType = versions.StatusType
+
 // StatusConfigUpdate holds changes to the fields of the status config. An absent field
 // does not change.
 type StatusConfigUpdate struct {

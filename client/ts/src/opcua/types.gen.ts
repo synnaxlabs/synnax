@@ -183,3 +183,17 @@ export const writeConfigUpdateZ = z.object({
     .optional(),
 });
 export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}
+
+/** READ_TASK_TYPE is the task type of ReadConfig. */
+export const READ_TASK_TYPE = "opc_read";
+/** WRITE_TASK_TYPE is the task type of WriteConfig. */
+export const WRITE_TASK_TYPE = "opc_write";
+/** SCAN_TASK_TYPE is the task type of ScanConfig. */
+export const SCAN_TASK_TYPE = "opc_scan";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [READ_TASK_TYPE]: { u: readConfigUpdateZ, t: readConfigZ },
+  [WRITE_TASK_TYPE]: { u: writeConfigUpdateZ, t: writeConfigZ },
+  [SCAN_TASK_TYPE]: { u: scanConfigUpdateZ, t: scanConfigZ },
+};

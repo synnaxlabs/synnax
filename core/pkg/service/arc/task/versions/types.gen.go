@@ -30,3 +30,6 @@ const (
 
 // Config configures an Arc task, which runs a compiled Arc module.
 type Config = v4.Config
+
+// Type is the task type of Config.
+const Type = v4.Type

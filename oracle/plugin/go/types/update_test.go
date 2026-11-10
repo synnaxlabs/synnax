@@ -78,6 +78,10 @@ var _ = Describe("Update types", func() {
 				Struct struct<U, T> { merge U? }
 				List struct<E, K, U> { set E[]? }
 				ValueList struct<E> { set E[]? }
+				TypedMap struct<K extends comparable, V, U> {
+					set    map<K, V>?
+					update map<K, U>?
+				}
 				Update struct<V> { value V }
 			`)
 		})
@@ -91,6 +95,43 @@ var _ = Describe("Update types", func() {
 			return ExpectContent(resp, "core/pkg/service/plot/types.gen.go").
 				ToBeValidGoSource()
 		}
+
+		It("Should declare the task type of a config beside the config", func(
+			ctx SpecContext,
+		) {
+			generate(ctx, `
+				AnalogReadConfig struct {
+					key  uuid
+					rate float64
+
+					@patch
+					@task type "plot_analog_read"
+				}
+			`).ToContain(
+				"\t// AnalogReadTaskType is the task type of AnalogReadConfig.\n" +
+					"\tAnalogReadTaskType = \"plot_analog_read\"\n",
+			)
+		})
+
+		It("Should drop the task word from a constant in a task package", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/arc/task"
+
+				Config struct {
+					key uuid
+
+					@patch
+					@task type "arc"
+				}
+			`, "arc_task", loader, types.New(types.DefaultOptions()))
+			ExpectContent(resp, "core/pkg/service/arc/task/types.gen.go").ToContain(
+				"\t// Type is the task type of Config.\n\tType = \"arc\"\n",
+			)
+		})
 
 		It("Should apply each field kind of a struct update", func(ctx SpecContext) {
 			content := generate(ctx, `
@@ -149,6 +190,33 @@ var _ = Describe("Update types", func() {
 			)
 			content.ToContain(
 				"\tif u.Layout != nil {\n\t\tx.Layout = u.Layout\n\t}\n",
+			)
+		})
+
+		It("Should apply a map by key, merging or replacing each value", func(
+			ctx SpecContext,
+		) {
+			content := generate(ctx, `
+				Point struct {
+					x float64
+					y float64
+				}
+
+				Plot struct {
+					key    uuid
+					points map<string, Point>  { @patch }
+					labels map<string, string> { @patch }
+
+					@actions
+				}
+			`)
+			content.ToContain(
+				"patch.ApplyMap(\n\t\t\t&x.Points,\n\t\t\t*u.Points,\n\t\t\t" +
+					"func(v *Point, w PointUpdate) error { return w.ApplyTo(v) },",
+			)
+			content.ToContain(
+				"patch.ApplyMap(\n\t\t\t&x.Labels,\n\t\t\t*u.Labels,\n\t\t\t" +
+					"func(v *string, w string) error { *v = w; return nil },",
 			)
 		})
 

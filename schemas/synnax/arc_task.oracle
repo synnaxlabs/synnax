@@ -54,4 +54,5 @@ Config struct extends task.PersistConfig {
     @go migrate
     @patch
     @retrieve indexes
+    @task type        "arc"
 }

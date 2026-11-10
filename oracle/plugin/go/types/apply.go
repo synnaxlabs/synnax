@@ -34,6 +34,7 @@ const (
 	structType       = "patch.Struct"
 	listType         = "patch.List"
 	valueListType    = "patch.ValueList"
+	typedMapType     = "patch.TypedMap"
 )
 
 // applier renders the ApplyTo and Defaults methods of the update types of one file.
@@ -589,6 +590,17 @@ func (a *applier) applyField(uf, rf resolution.Field, rec string) (string, error
 		return present(
 			check(fmt.Sprintf("patch.ApplyValueList(&%s, %s)", rec, value)),
 		), nil
+	case typedMapType:
+		a.data.AddExternal(patchImportPath)
+		v, vu := uf.Type.TypeArgs[1], uf.Type.TypeArgs[2]
+		merge := "func(v *%s, w %s) error { *v = w; return nil }"
+		if typ, ok := vu.Resolve(table); ok && typ.Updates != "" {
+			merge = "func(v *%s, w %s) error { return w.ApplyTo(v) }"
+		}
+		return present(check(fmt.Sprintf(
+			"patch.ApplyMap(\n\t\t&%s,\n\t\t%s,\n\t\t"+merge+",\n\t)",
+			rec, value, a.render(v), a.render(vu),
+		))), nil
 	case structType:
 		su, st := a.render(uf.Type.TypeArgs[0]), a.render(uf.Type.TypeArgs[1])
 		return present(check(fmt.Sprintf(
@@ -653,7 +665,8 @@ func (a *applier) comparable(ref resolution.TypeRef, visited set.Set[string]) bo
 
 // operators reports whether ref holds the operators of a list or the update of a union.
 func (a *applier) operators(ref resolution.TypeRef) bool {
-	return ref.Name == listType || ref.Name == valueListType || a.updateUnion(ref)
+	return ref.Name == listType || ref.Name == valueListType ||
+		ref.Name == typedMapType || a.updateUnion(ref)
 }
 
 // updateUnion reports whether ref names the update of a union.

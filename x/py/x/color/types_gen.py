@@ -11,8 +11,11 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from pydantic import BaseModel, Field
 
+from x import patch
 from x.color.color import Color
 
 
@@ -43,3 +46,16 @@ class Scale(BaseModel):
 
     bands: list[Band] = Field(default_factory=list)
     smooth: bool = False
+
+
+class ScaleUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the scale. An absent field does not change.
+
+    Attributes:
+        bands: Is the list of threshold bands. A band paints values at or above its
+            threshold and below the next higher threshold.
+        smooth: Is true when the fill interpolates between band colors.
+    """
+
+    bands: patch.ValueListDict[Band]
+    smooth: bool

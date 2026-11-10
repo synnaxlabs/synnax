@@ -44,3 +44,11 @@ export const configUpdateZ = z.object({
   performance: performanceZ.optional(),
 });
 export interface ConfigUpdate extends z.infer<typeof configUpdateZ> {}
+
+/** TYPE is the task type of Config. */
+export const TYPE = "arc";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [TYPE]: { u: configUpdateZ, t: configZ },
+};

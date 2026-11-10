@@ -281,19 +281,58 @@ class Order(BaseModel):
     descending: bool = False
 
 
-class Update(TypedDict, total=False):
-    """Holds changes to the fields of the schematic. An absent field does not change.
+class LabelConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the label config. An absent field does not change.
 
     Attributes:
-        name: Is a human-readable name for the schematic.
-        group: Is the group the schematic sits in, if any.
-        project: Is the project that owns the schematic, if any. Exactly one of project
-            and range is set.
+        label: Is the text content of the label.
+        level: Is the typography level of the label text.
+        orientation: Is the placement of the label relative to the symbol.
+        direction: Is the axis along which the label text flows.
+        max_inline_size: Is the maximum inline size of the label in pixels before
+            wrapping.
+        align: Is the alignment of the label text within its box.
     """
 
-    name: str
-    group: patch.Change[group_.Key]
-    project: patch.Change[project_.Key]
+    label: str
+    level: text.Level
+    orientation: spatial.Location
+    direction: spatial.Direction
+    max_inline_size: float
+    align: FlexAlignment
+
+
+class ControlStateConfigUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the control state config. An absent field does not
+    change.
+
+    Attributes:
+        authority: Is the control authority requested when the symbol acquires its
+            command channel. Defaults to absolute authority when unset.
+        hidden: Hides the control state widget.
+        chip_hidden: Hides the authority chip.
+        indicator_hidden: Hides the state indicator.
+        orientation: Is the placement of the control state widget relative to the
+            symbol.
+    """
+
+    authority: patch.Change[int]
+    hidden: bool
+    chip_hidden: bool
+    indicator_hidden: bool
+    orientation: spatial.Location
+
+
+class PageUpdate(TypedDict, total=False):
+    """Holds changes to the fields of the page. An absent field does not change.
+
+    Attributes:
+        type: Is the kind of page referenced.
+        key: Is the key of the referenced page.
+    """
+
+    type: PageType
+    key: str
 
 
 class Where(BaseModel):
@@ -434,17 +473,1383 @@ class ScaleIndicatorConfig(NumericTelemConfig, StalenessConfig):
     level: text.Level = "small"
 
 
-class UpdateInput(Update, total=False):
-    """Is the update that a client sends.
+class CapElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["cap"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
 
-    Attributes:
-        key: Is the key of the schematic that the update changes.
+
+class FilterElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["filter"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowStraightenerElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flow_straightener"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class HeaterElementElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["heater_element"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class IsoCapElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["iso_cap"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class IsoFilterElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["iso_filter"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class NozzleElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["nozzle"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class OrificeElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["orifice"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class OrificePlateElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["orifice_plate"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class StrainerElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["strainer"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class StrainerConeElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["strainer_cone"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ThrusterElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["thruster"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class VentElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["vent"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterGeneralElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_general"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterElectromagneticElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_electromagnetic"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterVariableAreaElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_variable_area"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterCoriolisElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_coriolis"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterNozzleElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_nozzle"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterVenturiElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_venturi"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterRingPistonElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_ring_piston"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterPositiveDisplacementElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_positive_displacement"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterTurbineElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_turbine"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterPulseElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_pulse"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterFloatSensorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_float_sensor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlowmeterOrificeElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flowmeter_orifice"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class BoxElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for box annotation symbols."""
+
+    variant: Required[Literal["box"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    stroke_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+    dimensions: patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]
+    border_radius: float
+    stroke_width: float
+
+
+class ButtonElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for button symbols."""
+
+    variant: Required[Literal["button"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    size: ComponentSize
+    level: patch.Change[text.Level]
+    on_click_delay: float
+    command_channel: patch.Change[channel_.Key]
+    mode: ButtonMode
+    fill_color: patch.Change[color_.Color]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+
+
+class CircleElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for circle annotation symbols."""
+
+    variant: Required[Literal["circle"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    radius: float
+    stroke_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+    stroke_width: float
+
+
+class GaugeElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for gauge symbols."""
+
+    variant: Required[Literal["gauge"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    channel: patch.Change[channel_.Key]
+    rolling_average: patch.Change[int]
+    precision: float
+    notation: notation_.Notation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    position: patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]]
+    stroke_color: patch.Change[color_.Color]
+    bounds: spatial.BoundsDict
+    bar_width: float
+    location: patch.Struct[spatial.LocationXYUpdate, spatial.LocationXY]
+    units: str
+    level: text.Level
+
+
+class InputElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for free-form input symbols."""
+
+    variant: Required[Literal["input"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    size: ComponentSize
+    command_channel: patch.Change[channel_.Key]
+    state_channel: patch.Change[channel_.Key]
+    dimensions: patch.Change[patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]]
+    fill_color: patch.Change[color_.Color]
+    disabled: bool
+    inline_size: float
+    on_click_delay: float
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+
+
+class LightElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for indicator light symbols."""
+
+    variant: Required[Literal["light"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    channel: patch.Change[channel_.Key]
+    threshold: patch.Change[spatial.BoundsDict]
+    stroke_color: patch.Change[color_.Color]
+    on_color: patch.Change[color_.Color]
+
+
+class LineElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for straight line symbols."""
+
+    variant: Required[Literal["line"]]
+    stroke_color: patch.Change[color_.Color]
+    start: patch.Struct[spatial.XYUpdate, spatial.XY]
+    end: patch.Struct[spatial.XYUpdate, spatial.XY]
+    stroke_width: float
+
+
+class OffPageReferenceElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for off-page reference symbols."""
+
+    variant: Required[Literal["off_page_reference"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    fill_color: patch.Change[color_.Color]
+    page: patch.Change[patch.Struct[PageUpdate, Page]]
+    dbl_click_nav_disabled: bool
+
+
+class PolygonElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for polygon annotation symbols."""
+
+    variant: Required[Literal["polygon"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    num_sides: float
+    side_length: float
+    rotation: float
+    corner_rounding: float
+    stroke_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+    stroke_width: float
+
+
+class SelectElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for select symbols."""
+
+    variant: Required[Literal["select"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    size: ComponentSize
+    command_channel: patch.Change[channel_.Key]
+    state_channel: patch.Change[channel_.Key]
+    fill_color: patch.Change[color_.Color]
+    inline_size: float
+    options: patch.ValueListDict[StateMapping]
+    disabled: bool
+    on_click_delay: float
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+
+
+class ScaleElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for standalone scale symbols."""
+
+    variant: Required[Literal["scale"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    channel: patch.Change[channel_.Key]
+    rolling_average: patch.Change[int]
+    precision: float
+    notation: notation_.Notation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    bounds: spatial.BoundsDict
+    level_color: patch.Change[color_.Color]
+    axis_color: patch.Change[color_.Color]
+    text_color: patch.Change[color_.Color]
+    units: str
+    level_hidden: bool
+    caret_hidden: bool
+    scale_hidden: bool
+    side: spatial.OuterLocation
+    caret_side: spatial.OuterLocation
+    level: text.Level
+    orientation: spatial.OuterLocation
+    position: patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]]
+    dimensions: patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]
+
+
+class SetpointElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for numeric setpoint symbols."""
+
+    variant: Required[Literal["setpoint"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    size: ComponentSize
+    command_channel: patch.Change[channel_.Key]
+    state_channel: patch.Change[channel_.Key]
+    dimensions: patch.Change[patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]]
+    fill_color: patch.Change[color_.Color]
+    units: str
+    disabled: bool
+    inline_size: float
+    on_click_delay: float
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+
+
+class StateIndicatorElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for multi-state indicator symbols."""
+
+    variant: Required[Literal["state_indicator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    channel: patch.Change[channel_.Key]
+    stroke_color: patch.Change[color_.Color]
+    inline_size: float
+    options: patch.ValueListDict[StateMapping]
+    size: ComponentSize
+
+
+class StringDisplayElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for live string display symbols."""
+
+    variant: Required[Literal["string_display"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    stroke_color: patch.Change[color_.Color]
+    text_color: patch.Change[color_.Color]
+    tooltip: patch.ValueListDict[str]
+    inline_size: float
+    channel: patch.Change[channel_.Key]
+    level: text.Level
+
+
+class SwitchElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["switch"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class TextBoxElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for text box annotation symbols."""
+
+    variant: Required[Literal["text_box"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    text_color: patch.Change[color_.Color]
+    width: float
+    align: FlexAlignment
+    auto_fit_disabled: bool
+    level: text.Level
+    value: str
+
+
+class ValueElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for live telemetry value symbols."""
+
+    variant: Required[Literal["value"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    channel: patch.Change[channel_.Key]
+    rolling_average: patch.Change[int]
+    precision: float
+    notation: notation_.Notation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    position: patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]]
+    stroke_color: patch.Change[color_.Color]
+    text_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+    tooltip: patch.ValueListDict[str]
+    redline: patch.Struct[color_.ScaleUpdate, color_.Scale]
+    units: str
+    inline_size: float
+    level: text.Level
+    location: patch.Struct[spatial.LocationXYUpdate, spatial.LocationXY]
+
+
+class AgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CrossBeamAgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["cross_beam_agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlatBladeAgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flat_blade_agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class HeatExchangerGeneralElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["heat_exchanger_general"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class HeatExchangerMElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["heat_exchanger_m"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class HeatExchangerStraightTubeElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["heat_exchanger_straight_tube"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class HelicalAgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["helical_agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class PaddleAgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["paddle_agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class PropellerAgitatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["propeller_agitator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class RotaryMixerElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["rotary_mixer"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class StaticMixerElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["static_mixer"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CavityPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["cavity_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CentrifugalCompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["centrifugal_compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class DiaphragmPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["diaphragm_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class EjectionPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["ejection_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class EjectorCompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["ejector_compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class LiquidRingCompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["liquid_ring_compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class PistonPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["piston_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class PumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class RollerVaneCompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["roller_vane_compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ScrewPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["screw_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class TurboCompressorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["turbo_compressor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class VacuumPumpElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["vacuum_pump"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class BurstDiscElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["burst_disc"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlameArrestorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flame_arrestor"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlameArrestorDetonationElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flame_arrestor_detonation"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlameArrestorExplosionElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flame_arrestor_explosion"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlameArrestorFireResElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flame_arrestor_fire_res"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FlameArrestorFireResDetonationElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["flame_arrestor_fire_res_detonation"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class IsoBurstDiscElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["iso_burst_disc"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class AngledValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["angled_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class AngledReliefValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["angled_relief_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class AngledSpringLoadedReliefValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["angled_spring_loaded_relief_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class BallValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["ball_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class BreatherValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["breather_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class ButterflyValveOneElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["butterfly_valve_one"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ButterflyValveTwoElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["butterfly_valve_two"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CheckValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["check_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CheckValveWithArrowElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["check_valve_with_arrow"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ElectricRegulatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["electric_regulator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ElectricRegulatorMotorizedElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["electric_regulator_motorized"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class FourWayValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["four_way_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class GateValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["gate_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class IsoCheckValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["iso_check_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ManualValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["manual_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class NeedleValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["needle_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class RegulatorElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["regulator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class RegulatorManualElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["regulator_manual"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ReliefValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["relief_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class SolenoidValveElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for solenoid valve symbols."""
+
+    variant: Required[Literal["solenoid_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+    normally_open: bool
+
+
+class SpringLoadedReliefValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["spring_loaded_relief_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    enabled: bool
+    clickable: bool
+    stroke_color: patch.Change[color_.Color]
+
+
+class ThreeWayValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["three_way_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ThreeWayBallValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["three_way_ball_valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class ValveElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["valve"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CrossJunctionElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["cross_junction"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CylinderElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for cylinder vessel symbols."""
+
+    variant: Required[Literal["cylinder"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    dimensions: patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]
+    border_radius: patch.Change[border.Radius]
+    stroke_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+
+
+class TankElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for tank vessel symbols."""
+
+    variant: Required[Literal["tank"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    channel: patch.Change[channel_.Key]
+    rolling_average: patch.Change[int]
+    precision: float
+    notation: notation_.Notation
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    bounds: spatial.BoundsDict
+    level_color: patch.Change[color_.Color]
+    axis_color: patch.Change[color_.Color]
+    text_color: patch.Change[color_.Color]
+    units: str
+    level_hidden: bool
+    caret_side: spatial.OuterLocation
+    level: text.Level
+    position: patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]]
+    stroke_color: patch.Change[color_.Color]
+    fill_color: patch.Change[color_.Color]
+    dimensions: patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]
+    border_radius: border.Radius
+    caret_visible: bool
+    scale_visible: bool
+    side: spatial.OuterLocation
+
+
+class TJunctionElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["t_junction"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    stroke_color: patch.Change[color_.Color]
+
+
+class CustomActuatorElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for user-defined actuator symbols."""
+
+    variant: Required[Literal["custom_actuator"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    staleness_timeout: float
+    staleness_color: patch.Change[color_.Color]
+    state_channel: patch.Change[channel_.Key]
+    command_channel: patch.Change[channel_.Key]
+    control: patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]]
+    on_click_delay: float
+    spec_key: str
+    state_overrides: patch.ValueListDict[symbol.State]
+
+
+class CustomStaticElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for user-defined static symbols."""
+
+    variant: Required[Literal["custom_static"]]
+    label: patch.Struct[LabelConfigUpdate, LabelConfig]
+    orientation: spatial.OuterLocation
+    scale: float
+    spec_key: str
+    state_overrides: patch.ValueListDict[symbol.State]
+
+
+class GroupBoxElementConfigUpdate(TypedDict, total=False):
+    """Is the configuration for a group box, the symbol that bounds a set of grouped
+    symbols. Groups nest: a member may itself be a group.
     """
 
-    key: Required[Key]
+    variant: Required[Literal["group_box"]]
+    members: patch.ValueListDict[str]
+    locked: bool
 
 
-UpdatePayload: TypeAlias = patch.Update[Update]
+class PipeElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["pipe"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class ElectricElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["electric"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class SecondaryElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["secondary"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class JacketedElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["jacketed"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class HydraulicElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["hydraulic"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class PneumaticElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["pneumatic"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+class DataElementConfigUpdate(TypedDict, total=False):
+    variant: Required[Literal["data"]]
+    stroke_color: patch.Change[color_.Color]
+    segments: patch.ValueListDict[Segment]
+
+
+# Holds changes to the fields of the element config. A variant that differs from the
+# stored one changes the variant.
+ElementConfigUpdate = (
+    CapElementConfigUpdate
+    | FilterElementConfigUpdate
+    | FlowStraightenerElementConfigUpdate
+    | HeaterElementElementConfigUpdate
+    | IsoCapElementConfigUpdate
+    | IsoFilterElementConfigUpdate
+    | NozzleElementConfigUpdate
+    | OrificeElementConfigUpdate
+    | OrificePlateElementConfigUpdate
+    | StrainerElementConfigUpdate
+    | StrainerConeElementConfigUpdate
+    | ThrusterElementConfigUpdate
+    | VentElementConfigUpdate
+    | FlowmeterGeneralElementConfigUpdate
+    | FlowmeterElectromagneticElementConfigUpdate
+    | FlowmeterVariableAreaElementConfigUpdate
+    | FlowmeterCoriolisElementConfigUpdate
+    | FlowmeterNozzleElementConfigUpdate
+    | FlowmeterVenturiElementConfigUpdate
+    | FlowmeterRingPistonElementConfigUpdate
+    | FlowmeterPositiveDisplacementElementConfigUpdate
+    | FlowmeterTurbineElementConfigUpdate
+    | FlowmeterPulseElementConfigUpdate
+    | FlowmeterFloatSensorElementConfigUpdate
+    | FlowmeterOrificeElementConfigUpdate
+    | BoxElementConfigUpdate
+    | ButtonElementConfigUpdate
+    | CircleElementConfigUpdate
+    | GaugeElementConfigUpdate
+    | InputElementConfigUpdate
+    | LightElementConfigUpdate
+    | LineElementConfigUpdate
+    | OffPageReferenceElementConfigUpdate
+    | PolygonElementConfigUpdate
+    | SelectElementConfigUpdate
+    | ScaleElementConfigUpdate
+    | SetpointElementConfigUpdate
+    | StateIndicatorElementConfigUpdate
+    | StringDisplayElementConfigUpdate
+    | SwitchElementConfigUpdate
+    | TextBoxElementConfigUpdate
+    | ValueElementConfigUpdate
+    | AgitatorElementConfigUpdate
+    | CrossBeamAgitatorElementConfigUpdate
+    | FlatBladeAgitatorElementConfigUpdate
+    | HeatExchangerGeneralElementConfigUpdate
+    | HeatExchangerMElementConfigUpdate
+    | HeatExchangerStraightTubeElementConfigUpdate
+    | HelicalAgitatorElementConfigUpdate
+    | PaddleAgitatorElementConfigUpdate
+    | PropellerAgitatorElementConfigUpdate
+    | RotaryMixerElementConfigUpdate
+    | StaticMixerElementConfigUpdate
+    | CavityPumpElementConfigUpdate
+    | CentrifugalCompressorElementConfigUpdate
+    | CompressorElementConfigUpdate
+    | DiaphragmPumpElementConfigUpdate
+    | EjectionPumpElementConfigUpdate
+    | EjectorCompressorElementConfigUpdate
+    | LiquidRingCompressorElementConfigUpdate
+    | PistonPumpElementConfigUpdate
+    | PumpElementConfigUpdate
+    | RollerVaneCompressorElementConfigUpdate
+    | ScrewPumpElementConfigUpdate
+    | TurboCompressorElementConfigUpdate
+    | VacuumPumpElementConfigUpdate
+    | BurstDiscElementConfigUpdate
+    | FlameArrestorElementConfigUpdate
+    | FlameArrestorDetonationElementConfigUpdate
+    | FlameArrestorExplosionElementConfigUpdate
+    | FlameArrestorFireResElementConfigUpdate
+    | FlameArrestorFireResDetonationElementConfigUpdate
+    | IsoBurstDiscElementConfigUpdate
+    | AngledValveElementConfigUpdate
+    | AngledReliefValveElementConfigUpdate
+    | AngledSpringLoadedReliefValveElementConfigUpdate
+    | BallValveElementConfigUpdate
+    | BreatherValveElementConfigUpdate
+    | ButterflyValveOneElementConfigUpdate
+    | ButterflyValveTwoElementConfigUpdate
+    | CheckValveElementConfigUpdate
+    | CheckValveWithArrowElementConfigUpdate
+    | ElectricRegulatorElementConfigUpdate
+    | ElectricRegulatorMotorizedElementConfigUpdate
+    | FourWayValveElementConfigUpdate
+    | GateValveElementConfigUpdate
+    | IsoCheckValveElementConfigUpdate
+    | ManualValveElementConfigUpdate
+    | NeedleValveElementConfigUpdate
+    | RegulatorElementConfigUpdate
+    | RegulatorManualElementConfigUpdate
+    | ReliefValveElementConfigUpdate
+    | SolenoidValveElementConfigUpdate
+    | SpringLoadedReliefValveElementConfigUpdate
+    | ThreeWayValveElementConfigUpdate
+    | ThreeWayBallValveElementConfigUpdate
+    | ValveElementConfigUpdate
+    | CrossJunctionElementConfigUpdate
+    | CylinderElementConfigUpdate
+    | TankElementConfigUpdate
+    | TJunctionElementConfigUpdate
+    | CustomActuatorElementConfigUpdate
+    | CustomStaticElementConfigUpdate
+    | GroupBoxElementConfigUpdate
+    | PipeElementConfigUpdate
+    | ElectricElementConfigUpdate
+    | SecondaryElementConfigUpdate
+    | JacketedElementConfigUpdate
+    | HydraulicElementConfigUpdate
+    | PneumaticElementConfigUpdate
+    | DataElementConfigUpdate
+)
 
 
 class RetrieveRequest(BaseModel):
@@ -2129,6 +3534,24 @@ class SetConfigPayload(BaseModel):
     config: ElementConfig
 
 
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the schematic. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the schematic.
+        configs: Contains per-element configuration keyed by node or edge key. The
+            variant of each value selects the symbol or edge style it configures.
+        group: Is the group the schematic sits in, if any.
+        project: Is the project that owns the schematic, if any. Exactly one of project
+            and range is set.
+    """
+
+    name: str
+    configs: patch.TypedMapDict[str, ElementConfig, ElementConfigUpdate]
+    group: patch.Change[group_.Key]
+    project: patch.Change[project_.Key]
+
+
 class CreatePayload(BaseModel):
     """Replaces the state with the created schematic. Only the Core emits it.
 
@@ -2147,6 +3570,19 @@ class RetrieveResponse(BaseModel):
     """
 
     schematics: list[Schematic] = Field(default_factory=list)
+
+
+class UpdateInput(Update, total=False):
+    """Is the update that a client sends.
+
+    Attributes:
+        key: Is the key of the schematic that the update changes.
+    """
+
+    key: Required[Key]
+
+
+UpdatePayload: TypeAlias = patch.Update[Update]
 
 
 class CreateAction(BaseModel):

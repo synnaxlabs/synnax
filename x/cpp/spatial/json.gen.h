@@ -199,4 +199,32 @@ inline x::json::json XYUpdate::to_json() const {
     return j;
 }
 
+inline DimensionsUpdate DimensionsUpdate::parse(x::json::Parser parser) {
+    return DimensionsUpdate{
+        .width = parser.field<std::optional<double>>("width"),
+        .height = parser.field<std::optional<double>>("height"),
+    };
+}
+
+inline x::json::json DimensionsUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->width.has_value()) j["width"] = *this->width;
+    if (this->height.has_value()) j["height"] = *this->height;
+    return j;
+}
+
+inline LocationXYUpdate LocationXYUpdate::parse(x::json::Parser parser) {
+    return LocationXYUpdate{
+        .x = parser.field<std::optional<std::string>>("x"),
+        .y = parser.field<std::optional<std::string>>("y"),
+    };
+}
+
+inline x::json::json LocationXYUpdate::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->x.has_value()) j["x"] = *this->x;
+    if (this->y.has_value()) j["y"] = *this->y;
+    return j;
+}
+
 }

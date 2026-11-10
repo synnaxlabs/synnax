@@ -18,6 +18,8 @@ func (t *Table) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "name":
 		return patch.Value(&t.Name, c.Next())
+	case "cells":
+		return patch.Value(&t.Cells, c.Next())
 	case "group":
 		return patch.OptionalValue(&t.Group, c.Next())
 	case "project":
