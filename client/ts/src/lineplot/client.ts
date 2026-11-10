@@ -189,6 +189,15 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Applies actions to the cached line plot, if any, and sends them to the server. It
+   * records no undo entry, so it suits edits the user did not make.
+   * @throws {Error} if the send fails, after the local apply rolls back.
+   */
+  async send(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
+  }
+
+  /**
    * Reverts the line plot's most recent undoable entry. Returns false when
    * nothing is undoable.
    */
