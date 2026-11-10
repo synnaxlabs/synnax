@@ -296,7 +296,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (const auto reader = only_reader(props); !reader.empty())
-        set_mode_status(reader, *props.settings, status);
+        set_mode_status(reader, props.settings.value(), status);
     else if (live != health.end())
         set_live_status(*live, status);
     else if (

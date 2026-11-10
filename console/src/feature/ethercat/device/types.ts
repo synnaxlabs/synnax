@@ -75,7 +75,7 @@ const modeZ = z.object({
   /** The writes that make the slave standalone. Empty when it is. */
   switch: z.array(startupParameterZ),
 });
-export interface Mode extends z.infer<typeof modeZ> {}
+interface Mode extends z.infer<typeof modeZ> {}
 
 const ZERO_PDOS: PDOs = {
   inputs: [],

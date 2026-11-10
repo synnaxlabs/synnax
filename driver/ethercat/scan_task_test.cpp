@@ -997,7 +997,7 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
 /// @brief it should not advise a switch for a slave whose mode the scan did not read.
 TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherPortWithoutAMode) {
     this->start(true);
-    this->props.settings->erase("mode");
+    this->props.settings.value().erase("mode");
     this->serve();
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
