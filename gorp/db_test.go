@@ -273,6 +273,28 @@ var _ = Describe("DB", func() {
 			).Len()).To(Equal(1))
 		})
 
+		It(
+			"Should warn when a commit waits long for the readers of Observe",
+			func(ctx SpecContext) {
+				release := make(chan struct{})
+				DeferCleanup(lockDB.Observe().OnChange(
+					func(context.Context, gorp.Commit) { <-release },
+				))
+				committed := make(chan error, 1)
+				go func() {
+					committed <- gorp.NewCreate[int32, entry]().
+						Entry(&entry{ID: 1, Data: "One"}).
+						Exec(ctx, lockDB)
+				}()
+				Consistently(committed, 600*time.Millisecond).ShouldNot(Receive())
+				close(release)
+				Eventually(committed).Should(Receive(Succeed()))
+				Expect(logs.FilterMessage(
+					"gorp commit waited long for the readers of Observe",
+				).Len()).To(Equal(1))
+			},
+		)
+
 		It("Should not warn when a transaction gets the lock at once", func() {
 			Expect(lockDB.OpenTx().Close()).To(Succeed())
 			Expect(logs.Len()).To(BeZero())

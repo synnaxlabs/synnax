@@ -28,11 +28,12 @@ func Wrap(
 	kv kv.DB,
 	opts ...Option,
 ) *DB {
+	o := newOptions(opts)
 	return &DB{
 		DB:       kv,
-		options:  newOptions(opts),
+		options:  o,
 		registry: newRegistry(),
-		delivery: delivery{observer: observe.New[Commit]()},
+		delivery: delivery{observer: observe.New[Commit](), ins: o.Instrumentation},
 	}
 }
 
@@ -59,8 +60,8 @@ type DB struct {
 
 var _ Tx = (*DB)(nil)
 
-// lockWaitWarning is the wait for the lock past which OpenTx and WithSnapshot log a
-// warning.
+// lockWaitWarning is the wait past which OpenTx and WithSnapshot warn about the lock,
+// and a commit warns about its delivery.
 const lockWaitWarning = 500 * time.Millisecond
 
 // OpenTx begins a new Tx against the DB. It blocks until no other Tx and no snapshot of
