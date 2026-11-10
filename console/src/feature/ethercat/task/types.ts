@@ -11,7 +11,11 @@ import { channel, ethercat, type task } from "@synnaxlabs/client";
 import { id, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type SlaveDevice, type WriteBinding } from "@/feature/ethercat/device/types";
+import {
+  type Address,
+  type SlaveDevice,
+  type WriteBinding,
+} from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
@@ -95,11 +99,6 @@ export type EntryChannel = EntryReadChannel | EntryWriteChannel;
  */
 export type PDOType = "inputs" | "outputs";
 
-export interface Address {
-  index: number;
-  subIndex: number;
-}
-
 const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: "" } as const;
 
 /** @returns whether the channel has an entry picked. */
@@ -132,9 +131,12 @@ export const readDataType = (ch: EntryReadChannel): string =>
  * @returns the Synnax channel that the slave maps for the read channel, or 0. A scaled
  * channel writes float64 samples, so it maps to its own Synnax channel.
  */
-export const readChannelOf = (slave: SlaveDevice, ch: EntryReadChannel): number =>
-  slave.properties.read.channels.find((b) => isAt(ch)(b) && b.scaled === isScaled(ch))
+export const readChannelOf = (slave: SlaveDevice, ch: EntryReadChannel): number => {
+  const at = isAt(ch);
+  const scaled = isScaled(ch);
+  return slave.properties.read.channels.find((b) => at(b) && b.scaled === scaled)
     ?.channel ?? 0;
+};
 
 /** Maps the read channel to the Synnax channel with the key on the slave. */
 export const bindReadChannel = (
@@ -142,15 +144,16 @@ export const bindReadChannel = (
   ch: EntryReadChannel,
   key: number,
 ): void => {
+  const at = isAt(ch);
   const scaled = isScaled(ch);
   const { channels } = slave.properties.read;
-  const binding = channels.find((b) => isAt(ch)(b) && b.scaled === scaled);
+  const binding = channels.find((b) => at(b) && b.scaled === scaled);
   if (binding != null) binding.channel = key;
   else channels.push({ index: ch.index, subIndex: ch.subIndex, scaled, channel: key });
 };
 
-/** The Synnax channel of an output entry: its command, or the state of the slave. */
-export type WriteRole = keyof Pick<WriteBinding, "command" | "state">;
+/** The Synnax channel of an output entry: its command or its state. */
+type WriteRole = keyof Pick<WriteBinding, "command" | "state">;
 
 /** @returns the channel that the slave maps for the role at the address, or 0. */
 export const writeChannelOf = (
@@ -203,9 +206,8 @@ export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[]
 /** @returns the entry at the address, or undefined if the slave has none there. */
 export const entryAt = (
   entries: ethercat.PDOEntry[],
-  { index, subIndex }: Address,
-): ethercat.PDOEntry | undefined =>
-  entries.find((e) => e.index === index && e.subIndex === subIndex);
+  address: Address,
+): ethercat.PDOEntry | undefined => entries.find(isAt(address));
 
 /** @returns the entry label, e.g. "Channel 2 › Input", or the name alone. */
 export const getEntryLabel = ({ name, pdoName }: ethercat.PDOEntry): string =>

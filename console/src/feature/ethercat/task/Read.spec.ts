@@ -78,6 +78,19 @@ const renderRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) 
   return { ...rendered, draft, statuses };
 };
 
+/** Deploys a new read task with the config and unmounts its form. */
+const deployRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) => {
+  const rendered = await renderRead(config);
+  const deployed = await deployAndAwaitTask(
+    client,
+    rendered.container,
+    rendered.draft.key,
+    EtherCAT.Task.READ_SCHEMAS,
+  );
+  rendered.unmount();
+  return deployed;
+};
+
 const awaitStatus = async (
   statuses: Status.NotificationSpec[],
   pattern: RegExp,
@@ -1059,17 +1072,7 @@ describe("Read", () => {
         },
       ],
     };
-    const deploy = async () => {
-      const rendered = await renderRead(config);
-      const deployed = await deployAndAwaitTask(
-        client,
-        rendered.container,
-        rendered.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      rendered.unmount();
-      return deployed.config.channels[0].channel;
-    };
+    const deploy = async () => (await deployRead(config)).config.channels[0].channel;
     const first = await deploy();
     expect(await deploy()).toBe(first);
   });
@@ -1084,17 +1087,7 @@ describe("Read", () => {
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STATUS_ENTRY)],
     };
-    const deploy = async () => {
-      const rendered = await renderRead(config);
-      const deployed = await deployAndAwaitTask(
-        client,
-        rendered.container,
-        rendered.draft.key,
-        EtherCAT.Task.READ_SCHEMAS,
-      );
-      rendered.unmount();
-      return deployed.config.channels[0].channel;
-    };
+    const deploy = async () => (await deployRead(config)).config.channels[0].channel;
     const first = await deploy();
     const stored = await client.devices.retrieve({
       key: slave.key,

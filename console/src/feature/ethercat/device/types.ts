@@ -79,7 +79,8 @@ const writeBindingZ = z.object({
 });
 export interface WriteBinding extends z.infer<typeof writeBindingZ> {}
 
-interface Address {
+/** The CoE index and sub-index of a PDO entry. */
+export interface Address {
   index: number;
   subIndex: number;
 }
