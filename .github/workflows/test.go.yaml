@@ -61,6 +61,11 @@ on:
         required: false
         type: boolean
         default: false
+      test:
+        description: Whether to run the tests. The lint and the go generate check run.
+        required: false
+        type: boolean
+        default: true
     secrets:
       CODECOV_TOKEN:
         required: false
@@ -208,12 +213,12 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         shard: [1, 2, 3, 4]
         exclude:
-          - os: ${{ !inputs.macos && 'macos-latest' }}
+          - os: ${{ (!inputs.test || !inputs.macos) && 'macos-latest' }}
           - os: ${{ !inputs.ubuntu && 'ubuntu-latest' }}
-          - os: ${{ !inputs.windows && 'windows-latest' }}
-          - shard: ${{ (inputs.cached || inputs.shards < 2) && 2 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 3) && 3 }}
-          - shard: ${{ (inputs.cached || inputs.shards < 4) && 4 }}
+          - os: ${{ (!inputs.test || !inputs.windows) && 'windows-latest' }}
+          - shard: ${{ (!inputs.test || inputs.cached || inputs.shards < 2) && 2 }}
+          - shard: ${{ (!inputs.test || inputs.cached || inputs.shards < 3) && 3 }}
+          - shard: ${{ (!inputs.test || inputs.cached || inputs.shards < 4) && 4 }}
         include:
           - os: ubuntu-latest
             shard: 1
@@ -251,7 +256,7 @@ jobs:
       # --race --cover test binary of the Core until its last suite ends, which
       # overflows the disk they leave free. go test deletes each binary after its run.
       - name: Free disk space
-        if: runner.os == 'Linux' && !inputs.cached
+        if: inputs.test && runner.os == 'Linux' && !inputs.cached
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
@@ -327,7 +332,7 @@ jobs:
       # modification time, which a checkout resets. Runs after go generate, which
       # rewrites files.
       - name: Pin the modification times
-        if: inputs.cached
+        if: inputs.test && inputs.cached
         shell: bash
         env:
           DIRECTORY: ${{ inputs.directory }}
@@ -335,7 +340,7 @@ jobs:
 
       # macOS skips race and cover until it runs on stronger machines.
       - name: Test
-        if: inputs.cached
+        if: inputs.test && inputs.cached
         timeout-minutes: 150
         run: >-
           go test ${{ runner.os != 'macOS' && '-race -cover -coverprofile=cover.out' ||
@@ -345,7 +350,7 @@ jobs:
       # Each shard takes every nth suite in path order, which spreads the versions of
       # one service across the shards.
       - name: Test
-        if: ${{ !inputs.cached }}
+        if: inputs.test && !inputs.cached
         timeout-minutes: 150
         shell: bash
         env:
@@ -401,7 +406,7 @@ jobs:
           key: ${{ steps.cache.outputs.cache-primary-key }}
 
       - name: Upload coverage
-        if: runner.os != 'macOS'
+        if: inputs.test && runner.os != 'macOS'
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         env:
           CURL_HOME: ${{ github.workspace }}/.github/codecov

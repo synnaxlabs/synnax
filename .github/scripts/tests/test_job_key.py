@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import hashlib
 import re
 import subprocess
 from pathlib import Path
@@ -15,7 +16,7 @@ from typing import Any
 import pytest
 
 from changed_jobs import FILTERS, WORKFLOW, load
-from job_key import Entry, glob_regex, keys, reusable, reused, tree
+from job_key import LINT, MODES, Entry, glob_regex, keys, reusable, reused, tree
 
 CI = """\
 jobs:
@@ -29,17 +30,21 @@ jobs:
     needs: changes
     if: needs.changes.outputs.core == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'core')
-    uses: ./.github/workflows/test.yaml
+    uses: ./.github/workflows/test.go.yaml
   client:
     needs: [changes, core-image]
     if: needs.changes.outputs.client == 'true' || needs.changes.outputs.core == 'true'
-    uses: ./.github/workflows/test.yaml
+    uses: ./.github/workflows/test.ts.yaml
     with:
       tidy: ${{ needs.changes.outputs.client == 'true' }}
+  exports:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
   copyright:
     runs-on: ubuntu-latest
   ok:
-    needs: [changes, client, copyright, core, core-image]
+    needs: [changes, client, copyright, core, core-image, exports]
     runs-on: ubuntu-latest
 """
 
@@ -59,47 +64,55 @@ unit_tests:
   - "**/testdata/**"
 """
 
-WORKFLOWS = {
+FILES = {
+    ".github/scripts/a.py": "x = 1\n",
     ".github/workflows/build.yaml": "jobs: {}\n",
-    ".github/workflows/test.yaml": (
+    ".github/workflows/inner.yaml": "jobs: {}\n",
+    ".github/workflows/test.go.yaml": (
         "jobs:\n  a:\n    uses: ./.github/workflows/inner.yaml\n"
     ),
-    ".github/workflows/inner.yaml": "jobs: {}\n",
+    ".github/workflows/test.ts.yaml": "jobs: {}\n",
+    ".golangci.yaml": "linters: {}\n",
+    "client/a.spec.ts": "it();\n",
+    "client/a.ts": "export const a = 1;\n",
+    "client/b.py": "a = 1  # One.\n",
+    "core/a.go": "package a\n\n// A is one.\nfunc A() int { return 1 }\n",
+    "core/a_test.go": "package a\n\n// Output: 1\n",
+    "core/testdata/a.json": "{}\n",
+    "docs/a.md": "# A\n",
 }
 
-ENTRIES: list[Entry] = [
-    (".github/scripts/a.py", "s1"),
-    (".github/workflows/build.yaml", "w1"),
-    (".github/workflows/inner.yaml", "w2"),
-    (".github/workflows/test.yaml", "w3"),
-    (".golangci.yaml", "g1"),
-    ("client/a.spec.ts", "c3"),
-    ("client/a.ts", "c1"),
-    ("core/a.go", "k1"),
-    ("core/a_test.go", "t1"),
-    ("core/testdata/a.json", "j1"),
-    ("docs/a.md", "d1"),
-]
 
-
-def run(
-    entries: list[Entry] = ENTRIES,
+def run_all(
+    files: dict[str, str] = FILES,
     *,
     ci: str = CI,
     outputs: dict[str, str] | None = None,
-    workflows: dict[str, str] = WORKFLOWS,
-) -> dict[str, str]:
+) -> dict[str, dict[str, str]]:
+    entries: list[Entry] = sorted(
+        (p, hashlib.sha1(text.encode()).hexdigest()) for p, text in files.items()
+    )
     return keys(
         ci,
         FILTERS_TEXT,
         entries,
-        read=workflows.__getitem__,
+        read=files.__getitem__,
+        content=lambda p: files[p].encode(),
         outputs=outputs or {"client": "true", "core": "false"},
     )
 
 
-def edit(path: str, blob: str) -> list[Entry]:
-    return sorted([(p, b) for p, b in ENTRIES if p != path] + [(path, blob)])
+def run(
+    files: dict[str, str] = FILES,
+    *,
+    ci: str = CI,
+    outputs: dict[str, str] | None = None,
+) -> dict[str, str]:
+    return {j: k["key"] for j, k in run_all(files, ci=ci, outputs=outputs).items()}
+
+
+def edit(path: str, text: str) -> dict[str, str]:
+    return {**FILES, path: text}
 
 
 class TestGlobRegex:
@@ -145,6 +158,7 @@ class TestReusable:
         assert reusable(jobs, ["client", "core"]) == {
             "client": ["client", "core"],
             "core": ["core"],
+            "exports": ["core"],
         }
 
     def test_should_skip_a_job_another_job_needs(self) -> None:
@@ -161,7 +175,7 @@ class TestKeys:
 
     def test_should_be_stable(self) -> None:
         assert run() == run()
-        assert set(run()) == {"client", "core"}
+        assert set(run()) == {"client", "core", "exports"}
 
     def test_should_ignore_a_file_no_filter_reads(self) -> None:
         assert run(edit("docs/a.md", "d2")) == run()
@@ -193,7 +207,7 @@ class TestKeys:
 
     def test_should_change_with_the_job_block(self) -> None:
         ci = CI.replace(
-            "uses: ./.github/workflows/test.yaml\n  client", "uses: x\n  client"
+            "uses: ./.github/workflows/test.go.yaml\n  client", "uses: x\n  client"
         )
         assert run()["core"] != run(ci=ci)["core"]
 
@@ -213,6 +227,58 @@ class TestKeys:
         assert before["core"] == after["core"]
 
 
+GO = "package a\n\n// A is one.\nfunc A() int { return 1 }\n"
+
+
+class TestComments:
+    """Tests keying jobs when only comments change."""
+
+    def comment(self) -> dict[str, dict[str, str]]:
+        return run_all(edit("core/a.go", GO.replace("A is one", "A returns one")))
+
+    def test_should_give_only_lint_jobs_a_code_key(self) -> None:
+        assert {j: sorted(k) for j, k in run_all().items()} == {
+            "client": ["key"],
+            "core": ["code", "key"],
+            "exports": ["key"],
+        }
+
+    def test_should_lint_a_lint_job_whose_own_comments_changed(self) -> None:
+        before, after = run_all(), self.comment()
+        assert before["core"]["key"] != after["core"]["key"]
+        assert before["core"]["code"] == after["core"]["code"]
+
+    def test_should_skip_a_code_job_whose_comments_changed(self) -> None:
+        assert run_all()["client"] == self.comment()["client"]
+
+    def test_should_skip_a_code_job_whose_own_comments_changed(self) -> None:
+        after = run(edit("client/b.py", "a = 1  # Two.\n"))
+        assert run()["client"] == after["client"]
+
+    def test_should_run_a_job_with_inline_steps(self) -> None:
+        assert run_all()["exports"] != self.comment()["exports"]
+
+    def test_should_run_every_job_on_a_code_edit(self) -> None:
+        before = run_all()
+        after = run_all(edit("core/a.go", GO.replace("return 1", "return 2")))
+        assert before["core"]["code"] != after["core"]["code"]
+        assert before["client"] != after["client"]
+
+    def test_should_count_a_directive_as_code(self) -> None:
+        after = run_all(edit("core/a.go", "//go:build linux\n\n" + GO))
+        assert run_all()["core"]["code"] != after["core"]["code"]
+
+    def test_should_count_the_comments_of_a_unit_test(self) -> None:
+        after = run_all(edit("core/a_test.go", "package a\n\n// Output: 2\n"))
+        assert run_all()["core"]["code"] != after["core"]["code"]
+
+    def test_should_key_a_lint_job_for_each_lint_workflow(self) -> None:
+        assert {w for w, m in MODES.items() if m == LINT} == {
+            "./.github/workflows/test.go.yaml",
+            "./.github/workflows/test.py.yaml",
+        }
+
+
 def artifact(*, expired: bool = False, repository: int = 1) -> dict[str, Any]:
     return {"expired": expired, "workflow_run": {"head_repository_id": repository}}
 
@@ -220,25 +286,30 @@ def artifact(*, expired: bool = False, repository: int = 1) -> dict[str, Any]:
 class TestReused:
     """Tests finding the jobs whose key passed before."""
 
-    def check(self, artifacts: list[dict[str, Any]]) -> list[str]:
-        found = {"pass-core-k": artifacts}
+    def check(
+        self, artifacts: list[dict[str, Any]], name: str = "pass-core-k"
+    ) -> dict[str, list[str]]:
+        found = {name: artifacts, "pass-core-c": [artifact()]}
         return reused(
-            {"client": "c", "core": "k"},
-            fetch=lambda name: found.get(name, []),
+            {"client": {"key": "x"}, "core": {"code": "c", "key": "k"}},
+            fetch=lambda n: found.get(n, []),
             repository_id=1,
         )
 
     def test_should_reuse_a_live_pass_of_this_repository(self) -> None:
-        assert self.check([artifact()]) == ["core"]
+        assert self.check([artifact()]) == {"lint_only": [], "reused": ["core"]}
 
     def test_should_not_reuse_an_expired_pass(self) -> None:
-        assert self.check([artifact(expired=True)]) == []
+        assert self.check([artifact(expired=True)])["reused"] == []
 
     def test_should_not_reuse_a_pass_of_a_fork(self) -> None:
-        assert self.check([artifact(repository=2)]) == []
+        assert self.check([artifact(repository=2)])["reused"] == []
 
     def test_should_reuse_when_any_artifact_qualifies(self) -> None:
-        assert self.check([artifact(repository=2), artifact()]) == ["core"]
+        assert self.check([artifact(repository=2), artifact()])["reused"] == ["core"]
+
+    def test_should_lint_only_when_only_the_code_passed(self) -> None:
+        assert self.check([]) == {"lint_only": ["core"], "reused": []}
 
 
 def test_tree_should_list_every_file_with_its_blob(
@@ -304,3 +375,16 @@ def test_every_keyed_job_skips_when_reused() -> None:
     for job in keyed:
         guard = f"!contains(fromJSON(needs.changes.outputs.reused), '{job}')"
         assert str(jobs[job]["if"]).rstrip().endswith(guard), job
+
+
+def test_every_lint_job_runs_only_its_lint_when_its_code_passed() -> None:
+    jobs, keyed = real()
+    lint = {j for j in keyed if MODES.get(jobs[j].get("uses", "")) == LINT}
+    reads = {
+        j for j, block in jobs.items() if j != "changes" and "lint_only" in str(block)
+    }
+    assert reads == lint
+    for job in lint:
+        lint_only = f"!contains(fromJSON(needs.changes.outputs.lint_only), '{job}')"
+        test = f"${{{{ inputs.full || {lint_only} }}}}"
+        assert " ".join(jobs[job]["with"]["test"].split()) == test, job

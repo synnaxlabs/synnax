@@ -40,8 +40,7 @@ FULL_ARTIFACTS=("${CORE_ARTIFACTS[@]}" "${DRIVER_ARTIFACTS[@]}")
 # A component's artifacts are reusable from a run that matches on its path set.
 FILTERS=.github/filters.yaml
 # Reads one *_build list from the change map as Git pathspecs, aliases expanded. Git
-# reads a directory as every file below it. Unit tests are not part of a build, so the
-# pathspecs leave them out.
+# reads a directory as every file below it. Unit tests are left out.
 build_paths() {
     yq "explode(.) | .$1 | flatten | .[]" "${FILTERS}" | grep -v '^\.github/' \
         | sed 's|/\*\*$||'

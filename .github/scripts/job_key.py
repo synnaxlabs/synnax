@@ -7,22 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Keys the CI jobs by their inputs, and finds the jobs whose key passed before.
+"""Keys the CI jobs by their inputs and finds the keys that passed before.
 
     python3 job_key.py keys
     python3 job_key.py reused <keys>
 
-keys prints a JSON map from job ID to a hash of the job's inputs: its block in the
-workflow, the workflows it calls, the CI actions and scripts, the values of the filters
-its inputs read, and the path and blob ID of each file in HEAD that a filter its
-condition reads matches. The first filter the condition reads is the job's own. Every
-other filter skips the unit test files that the unit_tests key of the change map lists,
-since only the job's own tests can change its result. FILTER_OUTPUTS holds the filter
-outputs as JSON. Only a job whose condition reads a filter and that no other job needs
-gets a key.
-
-reused prints the JSON list of jobs whose key has a live pass artifact from a run of
-this repository, never a fork. GITHUB_REPOSITORY and GITHUB_REPOSITORY_ID name it.
+A key hashes the job's block, the workflows it calls, and the files its filters match.
+Only its own filter counts unit tests. Go and Python files count without comments where
+the job reads none. A lint job also gets a code key, whose pass runs only its lint.
 """
 
 import hashlib
@@ -36,26 +28,35 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
+import comments
 from changed_jobs import FILTER_REF, FILTERS, SHARED_JOBS, WORKFLOW, load, paths
 
 # Bump to drop every earlier pass.
-VERSION = "1"
-# The change map key that lists the unit test files.
+VERSION = "2"
 UNIT_TESTS = "unit_tests"
-# Jobs that run after or around the others, never reused.
+# Jobs that run around the others.
 UNKEYED = SHARED_JOBS | {"shepherd", "stamp"}
-# Every job reads these, so they are part of every key.
+# Every job reads these.
 COMMON = (".github/actions/**", ".github/scripts/**")
 CALLS = re.compile(r"uses:\s*\./(\.github/workflows/[\w.-]+)")
 ARTIFACT = "pass-{job}-{key}"
+# The Go and Python comments each workflow reads. Lint reads its own in lint only, code
+# reads none, and any other job reads all.
+LINT, CODE = "lint", "code"
+MODES = {
+    "./.github/workflows/test.cpp.yaml": CODE,
+    "./.github/workflows/test.go.yaml": LINT,
+    "./.github/workflows/test.integration.yaml": CODE,
+    "./.github/workflows/test.py.yaml": LINT,
+    "./.github/workflows/test.ts.yaml": CODE,
+}
 
 # A file in HEAD as its path and blob ID.
 Entry = tuple[str, str]
 
 
 def glob_regex(glob: str) -> str:
-    """Returns a regex for a paths-filter glob. Raises ValueError on a syntax the change
-    map does not use."""
+    """Returns a regex for a change map glob, or raises ValueError on other syntax."""
     if any(c in glob for c in "{}[]!"):
         raise ValueError(f"unsupported glob syntax: {glob}")
     out, i = [], 0
@@ -118,8 +119,7 @@ def _needed(jobs: dict[str, Any]) -> set[str]:
 
 
 def reusable(jobs: dict[str, Any], filters: Iterable[str]) -> dict[str, list[str]]:
-    """Returns each job that can reuse a pass, with the filters its condition reads,
-    its own first."""
+    """Returns each keyed job with the filters its condition reads, its own first."""
     needed = _needed(jobs)
     out = {}
     for job, block in jobs.items():
@@ -156,43 +156,66 @@ def keys(
     entries: list[Entry],
     *,
     read: Callable[[str], str],
+    content: Callable[[str], bytes],
     outputs: dict[str, str],
-) -> dict[str, str]:
-    """Returns the key of each job that can reuse a pass."""
+) -> dict[str, dict[str, str]]:
+    """Returns the keys of each job that can reuse a pass."""
     jobs = load(ci)[0].get("jobs", {})
     globs = {k: paths(v) for k, v in load(filters)[0].items()}
-    selected = reusable(jobs, globs)
-    files: dict[str, str] = {}
-
     tests = matcher(globs[UNIT_TESTS])
+    stripped: dict[str, str] = {}
+    files: dict[tuple[str, bool, bool], str] = {}
 
-    def of(name: str, patterns: Iterable[str], *, own: bool = True) -> str:
-        cached = f"{name} {own}"
-        if cached not in files:
+    def version(path: str, blob: str, code: bool) -> str:
+        if not code or not path.endswith(comments.SUFFIXES) or tests.fullmatch(path):
+            return blob
+        if path not in stripped:
+            text = comments.strip(path, content(path))
+            stripped[path] = blob if text is None else digest([text])
+        return stripped[path]
+
+    def of(name: str, patterns: Iterable[str], *, own: bool, code: bool) -> str:
+        if (name, own, code) not in files:
             pattern = matcher(patterns)
-            files[cached] = digest(
-                f"{p} {b}"
+            files[name, own, code] = digest(
+                f"{p} {version(p, b, code)}"
                 for p, b in entries
                 if pattern.fullmatch(p) and (own or not tests.fullmatch(p))
             )
-        return files[cached]
+        return files[name, own, code]
 
-    common = of("", COMMON)
-    out = {}
-    for job, refs in selected.items():
+    common = of("", COMMON, own=True, code=False)
+
+    def key(job: str, refs: list[str], *, own_code: bool, dep_code: bool) -> str:
         block = jobs[job]
         uses = block.get("uses", "")
         workflows = called(uses[2:], read) if uses.startswith("./") else set()
-        lines = [
-            VERSION,
-            job,
-            json.dumps(block, sort_keys=True, default=str),
-            common,
-            *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
-            *(f"{w} {of(w, [w])}" for w in sorted(workflows)),
-            *(f"{r} {of(r, globs[r], own=r == refs[0])}" for r in refs),
-        ]
-        out[job] = digest(lines)[:40]
+        own, deps = refs[0], refs[1:]
+        return digest(
+            [
+                VERSION,
+                job,
+                f"{own_code} {dep_code}",
+                json.dumps(block, sort_keys=True, default=str),
+                common,
+                *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
+                *(f"{w} {of(w, [w], own=True, code=False)}" for w in sorted(workflows)),
+                f"{own} {of(own, globs[own], own=True, code=own_code)}",
+                *(f"{r} {of(r, globs[r], own=False, code=dep_code)}" for r in deps),
+            ]
+        )[:40]
+
+    out = {}
+    for job, refs in reusable(jobs, globs).items():
+        mode = MODES.get(jobs[job].get("uses", ""))
+        if mode == LINT:
+            out[job] = {
+                "key": key(job, refs, own_code=False, dep_code=True),
+                "code": key(job, refs, own_code=True, dep_code=True),
+            }
+        else:
+            code = mode == CODE
+            out[job] = {"key": key(job, refs, own_code=code, dep_code=code)}
     return out
 
 
@@ -205,18 +228,27 @@ def passed(artifacts: list[dict[str, Any]], repository_id: int) -> bool:
 
 
 def reused(
-    job_keys: dict[str, str],
+    job_keys: dict[str, dict[str, str]],
     *,
     fetch: Callable[[str], list[dict[str, Any]]],
     repository_id: int,
-) -> list[str]:
-    """Returns the sorted jobs whose key has a pass artifact."""
-    names = {j: ARTIFACT.format(job=j, key=k) for j, k in job_keys.items()}
+) -> dict[str, list[str]]:
+    """Returns the jobs whose key passed, and the others whose code key passed."""
+    names = {
+        (j, kind): ARTIFACT.format(job=j, key=k)
+        for j, kinds in job_keys.items()
+        for kind, k in kinds.items()
+    }
     with ThreadPoolExecutor(max_workers=8) as pool:
         found = dict(zip(names, pool.map(fetch, names.values()), strict=True))
-    return sorted(
-        j for j, artifacts in found.items() if passed(artifacts, repository_id)
-    )
+    hit = {
+        name for name, artifacts in found.items() if passed(artifacts, repository_id)
+    }
+    skip = sorted(j for j, kind in hit if kind == "key")
+    return {
+        "lint_only": sorted(j for j, kind in hit if kind == "code" and j not in skip),
+        "reused": skip,
+    }
 
 
 def fetch_artifacts(repository: str) -> Callable[[str], list[dict[str, Any]]]:
@@ -245,6 +277,7 @@ def main(argv: list[str]) -> None:
             Path(FILTERS).read_text(),
             tree(),
             read=lambda p: Path(p).read_text(),
+            content=lambda p: Path(p).read_bytes(),
             outputs=json.loads(os.environ["FILTER_OUTPUTS"]),
         )
     elif argv[1] == "reused":

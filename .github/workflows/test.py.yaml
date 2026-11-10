@@ -111,8 +111,8 @@ jobs:
 
       - name: Start Core
         if:
-          runner.os == 'Linux' && inputs.core_image != '' && (inputs.lowest ||
-          matrix.python != 'oldest')
+          inputs.test && runner.os == 'Linux' && inputs.core_image != '' &&
+          (inputs.lowest || matrix.python != 'oldest')
         uses: ./.github/actions/start-service
         env:
           SYNNAX_VERBOSE: true
@@ -127,7 +127,7 @@ jobs:
           variables: SYNNAX_VERBOSE SYNNAX_INSECURE SYNNAX_MEM SYNNAX_LICENSE_KEY
 
       - name: Start the Freighter server
-        if: runner.os == 'Linux' && inputs.freighter_image != ''
+        if: inputs.test && runner.os == 'Linux' && inputs.freighter_image != ''
         uses: ./.github/actions/start-service
         with:
           name: freighter

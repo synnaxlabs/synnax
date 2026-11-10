@@ -52,10 +52,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tag hashes the Git objects of every file the Dockerfile copies, the files
-      # that drive the build, and the digests of the base images. Unit tests are not
-      # part of a build, so they are left out. Two commits with the same sources share
-      # an image until a base image moves.
+      # The tag hashes the Git objects of every file the Dockerfile copies but unit
+      # tests, the files that drive the build, and the digests of the base images. Two
+      # commits with the same sources share an image until a base image moves.
       - name: Tag the image
         id: tag
         env:

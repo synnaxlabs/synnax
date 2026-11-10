@@ -92,12 +92,10 @@ permissions:
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths. The ci output is a JSON list of the jobs that an
-  # edit to this file or the change map selects. keys maps each job to a hash of its
-  # inputs, and reused lists the jobs whose key passed in an earlier run, which then
-  # skip.
+  # edit to this file or the change map selects. reused lists the jobs whose inputs
+  # passed before, and lint_only the jobs whose inputs passed except for comments.
   changes:
-    # paths-filter lists the changed files of a pull request through the API. Finding a
-    # pass reads the artifacts.
+    # paths-filter reads the changed files and the pass lookup reads the artifacts.
     permissions:
       actions: read
       contents: read
@@ -141,6 +139,7 @@ jobs:
       keys: ${{ steps.keys.outputs.keys }}
       knip: ${{ steps.filter.outputs.knip }}
       lint_integration: ${{ steps.filter.outputs.lint_integration }}
+      lint_only: ${{ steps.reused.outputs.lint_only }}
       lyra: ${{ steps.filter.outputs.lyra }}
       oracle: ${{ steps.filter.outputs.oracle }}
       oracle_check: ${{ steps.filter.outputs.oracle_check }}
@@ -202,10 +201,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           KEYS: ${{ steps.keys.outputs.keys }}
         run: |
-          jobs=$(uv run --locked --project .github/scripts \
+          found=$(uv run --locked --project .github/scripts \
             python .github/scripts/job_key.py reused "$KEYS")
-          echo "$jobs"
-          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+          echo "$found" | jq .
+          echo "jobs=$(jq -c .reused <<< "$found")" >> "$GITHUB_OUTPUT"
+          echo "lint_only=$(jq -c .lint_only <<< "$found")" >> "$GITHUB_OUTPUT"
 
   actionlint:
     needs: changes
@@ -226,6 +226,9 @@ jobs:
       coverage_flag: alamos-go
       directory: alamos/go
       macos: &full ${{ inputs.full == true }}
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'alamos-go') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -242,6 +245,9 @@ jobs:
       coverage_module: alamos
       directory: alamos/py
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'alamos-py') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -257,6 +263,9 @@ jobs:
     with:
       directory: alamos/py
       lowest: true
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'alamos-py-lowest') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -311,6 +320,9 @@ jobs:
       directory: arc/go
       install_antlr4: true
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'arc-go') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -334,6 +346,9 @@ jobs:
       coverage_flag: cesium
       directory: cesium
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'cesium') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -349,6 +364,9 @@ jobs:
       coverage_flag: ci-scripts
       coverage_module: .
       directory: .github/scripts
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'ci-scripts') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -385,6 +403,9 @@ jobs:
       coverage_flag: client-py
       coverage_module: synnax
       directory: client/py
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'client-py') }}
       type_check_dir: ./synnax ./examples ./tests
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -402,6 +423,9 @@ jobs:
       core_image: ${{ needs.core-image.outputs.image }}
       directory: client/py
       lowest: true
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'client-py-lowest') }}
       type_check_dir: ./synnax ./examples ./tests
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -460,6 +484,9 @@ jobs:
       directory: core
       macos: *full
       shards: 3
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'core')
+        }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -747,6 +774,9 @@ jobs:
       coverage_flag: freighter-go
       directory: freighter/go
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'freighter-go') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -775,6 +805,9 @@ jobs:
       coverage_flag: freighter-integration
       directory: freighter/integration
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'freighter-integration') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -792,6 +825,9 @@ jobs:
       coverage_module: freighter
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'freighter-py') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -808,6 +844,9 @@ jobs:
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       lowest: true
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'freighter-py-lowest') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -841,12 +880,14 @@ jobs:
       coverage_flag: gorp
       directory: gorp
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'gorp')
+        }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # The builds it tests come after its own filter, so their unit tests are not in its
-  # key.
+  # Its own filter comes first, so the unit tests of the builds are not in its key.
   integration:
     needs: changes
     if:
@@ -920,6 +961,9 @@ jobs:
       coverage_flag: integration
       coverage_module: framework
       directory: integration
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'lint-integration') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -955,6 +999,9 @@ jobs:
       directory: oracle
       install_antlr4: true
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'oracle') }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1063,6 +1110,9 @@ jobs:
       coverage_flag: scripts
       coverage_module: .
       directory: scripts
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'scripts') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1078,6 +1128,9 @@ jobs:
       coverage_flag: runners
       coverage_module: .
       directory: scripts/runners
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'runners') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1231,6 +1284,9 @@ jobs:
       coverage_flag: x-go
       directory: x/go
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'x-go')
+        }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1247,6 +1303,9 @@ jobs:
       coverage_module: x
       directory: x/py
       macos: *full
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only), 'x-py')
+        }}
       windows: *full
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
@@ -1262,6 +1321,9 @@ jobs:
     with:
       directory: x/py
       lowest: true
+      test:
+        ${{ inputs.full || !contains(fromJSON(needs.changes.outputs.lint_only),
+        'x-py-lowest') }}
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
@@ -1320,8 +1382,7 @@ jobs:
           done
 
   # GitHub skips a job whose dependency failed or was skipped, so always() makes this
-  # one run and report. A skipped job passed: the change map left it out on purpose, or
-  # an earlier run passed its inputs.
+  # one run and report. A skipped job is left out on purpose or passed before.
   ok:
     name: OK
     if: always()
@@ -1406,7 +1467,7 @@ jobs:
         run: |
           stamps=$(jq -c --argjson keys "$KEYS" '[to_entries[]
             | select(.value.result == "success" and $keys[.key])
-            | {job: .key, key: $keys[.key]}]' <<< "$RESULTS")
+            | .key as $job | $keys[$job][] | {job: $job, key: .}]' <<< "$RESULTS")
           echo "$stamps"
           echo "stamps=$stamps" >> "$GITHUB_OUTPUT"
 
@@ -1418,8 +1479,7 @@ jobs:
           jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
             <<< "$RESULTS" > /dev/null
 
-  # Uploads one artifact per job that passed, named after its key, so a later run with
-  # the same inputs skips the job. A fork's run is never trusted, so it uploads none.
+  # Records each passed job by its key. A fork's run is not trusted.
   stamp:
     name: Stamp
     needs: ok
