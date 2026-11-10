@@ -668,9 +668,7 @@ var _ = Describe("Task", Ordered, func() {
 			return update(task.Update{ConfigHash: &hash})
 		}
 		replaceConfig := func(cfg msgpack.EncodedJSON) task.Action {
-			return task.NewSetAction(
-				task.SetPayload{Path: []string{"config"}, Value: cfg},
-			)
+			return update(task.Update{Config: msgpack.EncodedJSON{"set": cfg}})
 		}
 		dispatch := func(
 			ctx context.Context,

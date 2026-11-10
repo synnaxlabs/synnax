@@ -50,6 +50,7 @@ import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
 import { rack } from "@/rack";
+import { task as rackTask } from "@/rack/task";
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { schematic } from "@/schematic";
@@ -181,6 +182,7 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
 };
 
 const TASK_CONFIG_SCHEMAS: task.ConfigSchemas = {
+  ...arc.task.CONFIG_SCHEMAS,
   ...ethercat.CONFIG_SCHEMAS,
   ...http.CONFIG_SCHEMAS,
   ...kafka.CONFIG_SCHEMAS,
@@ -190,6 +192,7 @@ const TASK_CONFIG_SCHEMAS: task.ConfigSchemas = {
   ...ni.CONFIG_SCHEMAS,
   ...opcua.CONFIG_SCHEMAS,
   ...pagerduty.CONFIG_SCHEMAS,
+  ...rackTask.CONFIG_SCHEMAS,
 };
 
 /**

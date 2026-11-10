@@ -139,9 +139,9 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 }
 
 // Apply applies the actions to the task with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w, then a
-// set that replaces the config with the stored one when storing changed it, such as by
-// filling a default, then an update of the new config hash. The config store of the
+// transaction of w, so its commit broadcasts them with the dispatch key of w, then an
+// update that replaces the config with the stored one when storing changed it, such as
+// by filling a default, then an update of the new config hash. The config store of the
 // task's type merges the config of an update. An update replaces the config of a task
 // whose type has no store. Apply returns every action that it attaches. It returns an
 // error wrapping validate.ErrValidation when an action is a create, an action that
@@ -160,7 +160,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 }
 
 // apply applies the actions to the task with the given key and stores the result. It
-// returns the actions that only the Core computes for an edit of the config: a set
+// returns the actions that only the Core computes for an edit of the config: an update
 // that replaces the config with the stored one when storing changed it, then an update
 // of the new config hash.
 func (w Writer) apply(ctx context.Context, key Key, acts []Action) ([]Action, error) {
@@ -264,8 +264,8 @@ func splitUpdate(u UpdatePayload) (UpdatePayload, patch.Update[msgpack.EncodedJS
 }
 
 // editConfig applies the cursors or the updates to the config of t, stores it, and
-// sets the config hash of t. It returns a set that replaces the config with the stored
-// one when storing changed it, then an update of the hash.
+// sets the config hash of t. It returns an update that replaces the config with the
+// stored one when storing changed it, then an update of the hash.
 func (w Writer) editConfig(
 	ctx context.Context,
 	t *Task,
@@ -310,9 +310,11 @@ func (w Writer) editConfig(
 	return append(computed, setConfigHash(t.ConfigHash)), nil
 }
 
-// replaceConfig returns the set that replaces the config of a task with data.
+// replaceConfig returns the update that replaces the config of a task with data.
 func replaceConfig(data msgpack.EncodedJSON) Action {
-	return NewSetAction(SetPayload{Path: []string{configField}, Value: data})
+	return NewUpdateAction(UpdatePayload{
+		Value: Update{Config: msgpack.EncodedJSON{"set": data}},
+	})
 }
 
 // setConfigHash returns the update that sets the config hash of a task to hash.
@@ -321,8 +323,8 @@ func setConfigHash(hash string) Action {
 }
 
 // syncConfig stores the hash of the config stored for the task with the given key, and
-// attaches a set that replaces the config with the stored one, then an update of the
-// hash.
+// attaches an update that replaces the config with the stored one, then an update of
+// the hash.
 func (w Writer) syncConfig(ctx context.Context, key Key) error {
 	var t Task
 	if err := w.table.NewRetrieve().
