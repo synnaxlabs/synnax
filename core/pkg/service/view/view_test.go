@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func rangeView(name string) view.View {
@@ -103,24 +104,27 @@ var _ = Describe("View", func() {
 					w.Create(ctx, &s),
 				).To(MatchError(ContainSubstring("name: required")))
 			})
-			It("Should update an existing view", func(ctx SpecContext) {
-				s := rangeView("Test View")
-				Expect(w.Create(ctx, &s)).To(Succeed())
-				updated := view.View{Variant: view.StatusView{
-					Base: view.Base{Key: s.GorpKey(), Name: "Updated Name"},
-					Where: &status.Where{Variant: &filter.Set[status.Variant]{
-						Eq: new(status.VariantError),
-					}},
+			It("Should refuse a view whose key exists", func(ctx SpecContext) {
+				stored := rangeView("Test View")
+				Expect(w.Create(ctx, &stored)).To(Succeed())
+				again := view.View{Variant: view.StatusView{
+					Base: view.Base{Key: stored.GorpKey(), Name: "Updated Name"},
 				}}
-				Expect(w.Create(ctx, &updated)).To(Succeed())
+				Expect(w.Create(ctx, &again)).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"view %s already exists",
+						stored.GorpKey(),
+					)),
+				))
 				var retrieved view.View
 				Expect(
 					svc.NewRetrieve().
-						Where(view.MatchKeys(s.GorpKey())).
+						Where(view.MatchKeys(stored.GorpKey())).
 						Entry(&retrieved).
 						Exec(ctx, tx),
 				).To(Succeed())
-				Expect(retrieved).To(Equal(updated))
+				Expect(retrieved).To(Equal(stored))
 			})
 		})
 

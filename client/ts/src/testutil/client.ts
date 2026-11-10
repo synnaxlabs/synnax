@@ -144,6 +144,25 @@ export const rejectRequests = (
 };
 
 /**
+ * Fails each request to target with the error, so the Core does not get it. Call it
+ * inside a test: the failures end when that test finishes.
+ */
+export const failRequests = (
+  client: Synnax,
+  target: string,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) throw error;
+    return await send(...args);
+  });
+  onTestFinished(() => spy.mockRestore());
+};
+
+/**
  * Holds each response to target until release is called. responded resolves when the
  * first held response arrives.
  */

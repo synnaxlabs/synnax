@@ -274,7 +274,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await client.devices.create(dev, SCHEMAS);
+      if (modified) await PlatformDevice.setProperties(client, dev, SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;

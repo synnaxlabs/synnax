@@ -16,7 +16,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
-import { createTestDevice, setTestDeviceStatus } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -128,20 +132,23 @@ describe("device Configure", () => {
     expect(unchanged.configured).toBe(false);
   });
 
-  it("should not send the device's status or parent on a rename", async () => {
+  it("should keep the status that the Driver reported on a rename", async () => {
     const { dev } = await setup();
     await setTestDeviceStatus(client, dev);
-    const create = vi.spyOn(client.devices, "create");
     const newName = uniqueName("renamed_sensor");
     fireEvent.change(nameInput(), { target: { value: newName } });
     fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
     await save();
-    await waitFor(() => expect(create).toHaveBeenCalled());
-    const sent = create.mock.lastCall?.[0];
-    create.mockRestore();
-    expect(sent).toMatchObject({ name: newName, configured: true });
-    expect(sent).not.toHaveProperty("status");
-    expect(sent).not.toHaveProperty("parent");
+    await waitFor(async () => {
+      const { status } = await client.devices.retrieve({
+        key: dev.key,
+        includeStatus: true,
+      });
+      expect(status).toMatchObject({
+        name: newName,
+        message: TEST_DEVICE_STATUS_MESSAGE,
+      });
+    });
   });
 
   it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label, type ranger } from "@synnaxlabs/client";
+import { label, type ranger } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -563,7 +563,10 @@ describe("useLabels", () => {
     });
     const { result } = renderHook(() => Ranger.useLabels(rng.key), { wrapper });
     await waitFor(() => expect(result.current?.[0]?.name).toEqual("original"));
-    await client.labels.create({ ...lbl, name: "renamed" });
+    await client.labels.dispatch(
+      lbl.key,
+      label.set({ path: ["name"], value: "renamed" }),
+    );
     await waitFor(() => expect(result.current?.[0]?.name).toEqual("renamed"));
   });
 

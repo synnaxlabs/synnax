@@ -45,20 +45,20 @@ const createArcInDirectory = async () => {
     type: "automation",
     source: { mode: "graph", graph: { nodes: [], edges: [] } },
   });
-  await client.arcs.directories.move(arcsID, root, clientArc.resourceID(arc.key));
-  return { arc, root, arcsID };
+  await client.arcs.directories.move(root, clientArc.resourceID(arc.key));
+  return { arc, root };
 };
 
 describe("arc/tree", () => {
   describe("icon", () => {
     it("should draw the icon of the Arc's type", async () => {
-      const { arc, root, arcsID } = await createArcInDirectory();
+      const { arc, root } = await createArcInDirectory();
       const mod = await client.arcs.create({
         name: uniqueName("mod"),
         type: "module",
         source: { mode: "text" },
       });
-      await client.arcs.directories.move(arcsID, root, clientArc.resourceID(mod.key));
+      await client.arcs.directories.move(root, clientArc.resourceID(mod.key));
       await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       const iconOf = async (name: string, icon: string) =>
         (await findTreeRow(name)).querySelector(`.lyra-icon--${icon}`);
@@ -123,13 +123,13 @@ describe("arc/tree", () => {
     });
 
     it("offers only the shared actions when several Arcs are selected", async () => {
-      const { arc, root, arcsID } = await createArcInDirectory();
+      const { arc, root } = await createArcInDirectory();
       const other = await client.arcs.create({
         name: uniqueName("mod"),
         type: "module",
         source: { mode: "text" },
       });
-      await client.arcs.directories.move(arcsID, root, clientArc.resourceID(other.key));
+      await client.arcs.directories.move(root, clientArc.resourceID(other.key));
       await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
       fireEvent.click(await findTreeRow(arc.name));
       withControlHeld(() => fireEvent.click(getTreeRow(other.name)));
