@@ -100,7 +100,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			LegacyVersion:      legacy.LastVersion,
 			Ladder:             versions.WriteConfigLadder,
 			Legacy:             &legacy.Write,
-			Migrations:         []gorp.Migration{v2.WriteMigration},
+			Migrations:         []gorp.Migration{v2.WriteMigration, v3.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			PatchEntry:         (*WriteConfig).Patch,
 			HashEntry:          (*WriteConfig).HashContent,

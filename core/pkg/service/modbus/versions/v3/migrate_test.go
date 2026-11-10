@@ -10,6 +10,7 @@
 package v3_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -130,18 +131,68 @@ var _ = Describe("MigrateReadChannel", func() {
 			v2.ReadChannel{Variant: v2.CoilReadChannel{BaseReadChannel: base}},
 			v3.ReadChannel{Variant: v3.CoilReadChannel{BaseReadChannel: base}},
 		),
+	)
+})
+
+var _ = Describe("MigrateWriteChannel", func() {
+	base := v2.BaseWriteChannel{Key: "ch", Name: "ch", Channel: 7, Address: 12}
+	DescribeTable(
+		"Should lift each v2 variant to the same v3 variant",
+		func(ctx SpecContext, old v2.WriteChannel, expected v3.WriteChannel) {
+			Expect(v3.MigrateWriteChannel(ctx, old)).To(Equal(expected))
+		},
+		Entry("no variant", v2.WriteChannel{}, v3.WriteChannel{}),
 		Entry(
-			"register bit",
-			v2.ReadChannel{Variant: v2.InputRegisterBitReadChannel{
-				BaseReadChannel: base,
-				RegisterBit:     v2.RegisterBit{Bit: 3},
+			"coil",
+			v2.WriteChannel{Variant: v2.CoilWriteChannel{BaseWriteChannel: base}},
+			v3.WriteChannel{Variant: v3.CoilWriteChannel{BaseWriteChannel: base}},
+		),
+		Entry(
+			"holding register",
+			v2.WriteChannel{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue: v2.RegisterValue{
+					DataType:     "uint8",
+					BytesSwapped: new(true),
+				},
 			}},
-			v3.ReadChannel{Variant: v3.InputRegisterBitReadChannel{
-				BaseReadChannel: base,
-				RegisterBit:     v3.RegisterBit{Bit: 3},
+			v3.WriteChannel{Variant: v3.HoldingRegisterWriteChannel{
+				BaseWriteChannel: base,
+				RegisterValue: v3.RegisterValue{
+					DataType:     "uint8",
+					BytesSwapped: new(true),
+				},
 			}},
 		),
 	)
+})
+
+var _ = Describe("RegisterValue", func() {
+	It("Should read a v2 register value without a data type as uint8",
+		func(ctx SpecContext) {
+			var old v2.ReadConfig
+			Expect(json.Unmarshal([]byte(`{"channels": [
+				{"type": "holding_register", "key": "a"},
+				{"type": "input_register", "key": "b"}
+			]}`), &old)).To(Succeed())
+			cfg := MustSucceed(v3.MigrateReadConfig(ctx, old))
+			Expect(cfg.Channels).To(HaveLen(2))
+			holding := cfg.Channels[0].Variant.(v3.HoldingRegisterReadChannel)
+			Expect(holding.DataType).To(BeEquivalentTo("uint8"))
+			input := cfg.Channels[1].Variant.(v3.InputRegisterReadChannel)
+			Expect(input.DataType).To(BeEquivalentTo("uint8"))
+		},
+	)
+
+	It("Should read a v3 register value without a data type as uint16", func() {
+		var cfg v3.WriteConfig
+		Expect(json.Unmarshal(
+			[]byte(`{"channels": [{"type": "holding_register", "key": "a"}]}`),
+			&cfg,
+		)).To(Succeed())
+		holding := cfg.Channels[0].Variant.(v3.HoldingRegisterWriteChannel)
+		Expect(holding.DataType).To(BeEquivalentTo("uint16"))
+	})
 })
 
 var _ = Describe("MigrateReadConfig", func() {
