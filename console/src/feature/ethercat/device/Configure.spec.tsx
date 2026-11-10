@@ -11,7 +11,7 @@ import { type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -27,7 +27,7 @@ import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
-import { uniqueName } from "@/testutil";
+import { fakePickedFile, interceptFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -65,6 +65,8 @@ interface SetupArgs {
   startupParameters?: EtherCAT.Device.StartupParameter[];
   settings?: EtherCAT.Device.SlaveProperties["settings"];
   inputs?: ethercat.PDOEntry[];
+  productCode?: number;
+  revision?: number;
 }
 
 const setup = async ({
@@ -74,6 +76,8 @@ const setup = async ({
   startupParameters = [],
   settings,
   inputs = [],
+  productCode = 0,
+  revision = 0,
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -97,6 +101,8 @@ const setup = async ({
       startupParameters,
       settings,
       pdos: { inputs, outputs: [] },
+      productCode,
+      revision,
     },
     configured,
   );
@@ -318,6 +324,159 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
         FILTER,
       ]);
+    });
+
+    describe("import from an ESI file", () => {
+      const initCmd = (
+        transition: string,
+        index: string,
+        subIndex: string,
+        data: string,
+        comment: string,
+        attributes = "",
+      ) => `<InitCmd${attributes}>
+        <Transition>${transition}</Transition>
+        <Index>${index}</Index>
+        <SubIndex>${subIndex}</SubIndex>
+        <Data>${data}</Data>
+        <Comment>${comment}</Comment>
+      </InitCmd>`;
+
+      const ESI = `<?xml version="1.0" encoding="utf-8"?>
+      <EtherCATInfo>
+        <Descriptions>
+          <Devices>
+            <Device>
+              <Type ProductCode="252" RevisionNo="#x00010000">IOLITEr 6xSTG</Type>
+              <Mailbox>
+                <CoE>
+                  ${initCmd("IP", "32800", "9", "0100", "Bus1 mode")}
+                  ${initCmd("IP", "32800", "10", "0300", "Bus2 mode")}
+                </CoE>
+              </Mailbox>
+            </Device>
+            <Device>
+              <Type ProductCode="#x66" RevisionNo="#x01000001">SIRIUSe 8xAI</Type>
+              <Mailbox>
+                <CoE>
+                  ${initCmd("IP", "#x8020", "07", "0600", "OperationMode")}
+                  ${initCmd("PS", "#x8040", "#x06", "0000a040", "Excitation")}
+                  ${initCmd("SO", "#x8040", "1", "01", "Starts in OP")}
+                  ${initCmd("PS", "#x1c12", "0", "000000", "Three bytes")}
+                  ${initCmd("PS", "#x1c13", "0", "0100", "Complete", ' CompleteAccess="1"')}
+                </CoE>
+              </Mailbox>
+            </Device>
+          </Devices>
+        </Descriptions>
+      </EtherCATInfo>`;
+
+      const SIRIUS = { productCode: 0x66, revision: 0x01000001 };
+      const OPERATION_MODE: EtherCAT.Device.StartupParameter = {
+        index: 0x8020,
+        subIndex: 7,
+        dataType: "uint16",
+        value: 6,
+        name: "OperationMode",
+      };
+      const EXCITATION: EtherCAT.Device.StartupParameter = {
+        index: 0x8040,
+        subIndex: 6,
+        dataType: "uint32",
+        value: 0x40a00000,
+        name: "Excitation",
+      };
+
+      const importFile = (name: string, contents: string) => {
+        const picker = interceptFilePicker();
+        fireEvent.click(findButton("Import from ESI file"));
+        picker.selectFiles([fakePickedFile(name, contents)]);
+      };
+
+      afterEach(() => vi.restoreAllMocks());
+
+      it("should add the commands that the device runs before SAFE-OP", async () => {
+        const slave = await setup(SIRIUS);
+        importFile("sirius.xml", ESI);
+        expect(
+          await screen.findByText(
+            "Imported 2 startup parameters for SIRIUSe 8xAI from sirius.xml. " +
+              "Skipped 3 that the Driver cannot write.",
+          ),
+        ).toBeTruthy();
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
+      });
+
+      it("should replace a parameter on the same object", async () => {
+        const slave = await setup({
+          ...SIRIUS,
+          startupParameters: [FILTER, { ...OPERATION_MODE, value: 1, name: "" }],
+        });
+        importFile("sirius.xml", ESI);
+        await screen.findByText(/^Imported 2 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            FILTER,
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
+      });
+
+      it("should leave out the object that holds the mode of the card", async () => {
+        const slave = await setup({
+          productCode: 252,
+          revision: 0x00010000,
+          settings: createDewesoftXSettings(false),
+          inputs: [STRAIN_ENTRY],
+        });
+        importFile("stg.xml", ESI);
+        expect(
+          await screen.findByText(
+            "Imported 1 startup parameter for IOLITEr 6xSTG from stg.xml. Left out " +
+              "0x8020:09, which holds the mode of the device. Synnax sets the mode.",
+          ),
+        ).toBeTruthy();
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8020,
+              subIndex: 10,
+              dataType: "uint16",
+              value: 3,
+              name: "Bus2 mode",
+            },
+          ]),
+        );
+      });
+
+      it("should name the devices of a file that has none for the slave", async () => {
+        await setup({ productCode: 252, revision: 0x00020000 });
+        importFile("other.xml", ESI);
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x00FC and revision " +
+              "0x00020000. It is for IOLITEr 6xSTG, SIRIUSe 8xAI.",
+          ),
+        ).toBeTruthy();
+        expect(screen.queryByRole("textbox", { name: "Index 1" })).toBeNull();
+      });
+
+      it("should reject a file that is not XML", async () => {
+        await setup(SIRIUS);
+        importFile("notes.xml", "not xml <");
+        expect(
+          await screen.findByText("The file is not a valid ESI XML file."),
+        ).toBeTruthy();
+      });
     });
 
     it("should remove a parameter", async () => {

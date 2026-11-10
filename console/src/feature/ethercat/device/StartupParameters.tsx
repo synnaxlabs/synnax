@@ -7,18 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ethercat } from "@synnaxlabs/client";
+import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, type xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
+import {
+  mergeStartupParameters,
+  parseStartupCommands,
+  type StartupCommands,
+} from "@/feature/ethercat/device/esi";
 import {
   type SlaveDevice,
   type StartupParameter,
 } from "@/feature/ethercat/device/types";
+import { Runtime } from "@/platform/runtime";
 
 const DATA_TYPES = [
   DataType.INT8,
@@ -146,7 +155,31 @@ const HexCell = ({ value, onChange, digits, ...rest }: HexCellProps): ReactEleme
 
 const createRow = (): Input.TableCell[] => [0, 0, DataType.UINT8.toString(), 0, ""];
 
-const PATH = deep.path<SlaveDevice>().properties.startupParameters;
+const PROPERTIES = deep.path<SlaveDevice>().properties;
+const PATH = PROPERTIES.startupParameters;
+
+const IMPORT_TITLE = "Import from ESI file";
+
+/** @returns what an import added from the file, and what it left out. */
+const describeImport = (
+  { device, parameters, unwritable, mode }: StartupCommands,
+  file: string,
+): string => {
+  const count = `${parameters.length} startup parameter${parameters.length === 1 ? "" : "s"}`;
+  const parts = [`Imported ${count} for ${device} from ${file}.`];
+  if (mode.length > 0)
+    parts.push(
+      `Left out ${ethercat.formatAddress(mode[0])}, which holds the mode of the ` +
+        "device. Synnax sets the mode.",
+    );
+  if (unwritable > 0) parts.push(`Skipped ${unwritable} that the Driver cannot write.`);
+  return parts.join(" ");
+};
+
+interface ImportResult {
+  variant: "success" | "error";
+  message: string;
+}
 
 /**
  * Edits the CoE values that the Driver writes to a slave each time the network starts.
@@ -154,6 +187,25 @@ const PATH = deep.path<SlaveDevice>().properties.startupParameters;
 export const StartupParameters = (): ReactElement => {
   const { value, onChange } = Form.useField(PATH);
   const statuses = Form.useStatuses(PATH);
+  const productCode = Form.useFieldValue(PROPERTIES.productCode);
+  const revision = Form.useFieldValue(PROPERTIES.revision);
+  const mode = Form.useFieldValue(PROPERTIES.settings, { optional: true })?.mode;
+  const [result, setResult] = useState<ImportResult | null>(null);
+  const handleImport = async () => {
+    try {
+      const file = await Runtime.pickFiles({ title: IMPORT_TITLE, extension: "xml" });
+      if (file == null) return;
+      const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
+      const commands = parseStartupCommands(xml, { productCode, revision }, mode);
+      onChange(mergeStartupParameters(value, commands.parameters));
+      setResult({ variant: "success", message: describeImport(commands, file.path) });
+    } catch (e) {
+      setResult({
+        variant: "error",
+        message: e instanceof Error ? e.message : String(e),
+      });
+    }
+  };
   Form.useCheck(PATH, parametersZ);
   const rows = value.map((p) => FIELDS.map((f) => p[f]));
   const handleChange = (next: Input.TableCell[][]) =>
@@ -204,6 +256,24 @@ export const StartupParameters = (): ReactElement => {
           {(p) => <Input.Text {...p} placeholder="Filter settings" />}
         </Input.TableColumn>
       </Input.Table>
+      <Button.Button
+        variant="text"
+        size="small"
+        textColor={9}
+        onClick={() => void handleImport()}
+      >
+        <Icon.Import />
+        {IMPORT_TITLE}
+      </Button.Button>
+      {result != null && (
+        <Text.Text
+          level="small"
+          status={result.variant === "error" ? "error" : undefined}
+          color={result.variant === "error" ? undefined : 9}
+        >
+          {result.message}
+        </Text.Text>
+      )}
       <Text.Text level="small" color={9}>
         The Driver writes these CoE values to the device each time the network starts,
         before the device exchanges data.
