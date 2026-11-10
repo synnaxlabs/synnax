@@ -3274,6 +3274,26 @@ var _ = Describe("Statement", func() {
 					`for i := range(u8(1), u64(5)) { x := i }`,
 					types.U64(),
 				),
+				Entry(
+					"u8 with i8 is i8",
+					`for i := range(u8(1), i8(5)) { x := i }`,
+					types.I8(),
+				),
+				Entry(
+					"two u8 arguments are u8",
+					`for i := range(u8(1), u8(5)) { x := i }`,
+					types.U8(),
+				),
+				Entry(
+					"u8 with u16 is u16",
+					`for i := range(u8(1), u16(5)) { x := i }`,
+					types.U16(),
+				),
+				Entry(
+					"u16 with u32 is u32",
+					`for i := range(u16(1), u32(5)) { x := i }`,
+					types.U32(),
+				),
 			)
 		})
 

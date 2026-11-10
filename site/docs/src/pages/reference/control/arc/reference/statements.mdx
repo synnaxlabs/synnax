@@ -80,9 +80,11 @@ or past `end`, the body does not run.
 | `range(10, 5)`     | None          |
 
 The type of `i` is the widest integer type of the arguments, or `i64` for literals. If
-one argument is signed, `i` is signed. An `i64` index into a series compiles, but the
-automation fails to start (known bug). To index a series with `i`, use `range(i32(n))`.
-Arc reads `end` and `step` once, before the first pass. A float argument fails with
+one argument is signed, `i` is signed. An unsigned argument above the maximum of that
+signed type wraps to a negative value: `range(i32(0), u32(3000000000))` does not run.
+An `i64` index into a series compiles, but the automation fails to start (known bug). To
+index a series with `i`, use `range(i32(n))`. Arc reads `end` and `step` once, before
+the first pass. A float argument fails with
 `range() argument 1 must be an integer type, got exact integer float`. Do not use a step
 of 0: the compiler accepts it, and the loop can run forever.
 
