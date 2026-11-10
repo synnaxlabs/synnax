@@ -407,10 +407,11 @@ const reduceCheckFailure = (
       { reason: "unreachable", error },
       error.message,
     );
-  // an unlicensed Core that stops answering is unreachable, not still unlicensed
+  // an unlicensed or incompatible Core that stops answering is unreachable
   if (
     prev.variant === "success" ||
-    (prev.variant === "error" && prev.details.reason === "unlicensed")
+    (prev.variant === "error" &&
+      (prev.details.reason === "unlicensed" || prev.details.reason === "incompatible"))
   )
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });

@@ -101,6 +101,8 @@ const createScriptedUnary = ({
 interface Core060 {
   /** Whether the Core was upgraded to the client's version. */
   upgraded: boolean;
+  /** Whether the Core stopped answering. */
+  down?: boolean;
 }
 
 /**
@@ -142,6 +144,7 @@ const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient =>
   return {
     use: (...mw) => middleware.push(...mw),
     send: async (target, _req, _reqZ, resZ, params = {}) => {
+      if (core.down === true) throw new Unreachable({ message: "server down" });
       if (core.upgraded)
         return resZ.parse({
           ...(responses["/connectivity/check"] as object),
@@ -1063,6 +1066,29 @@ describe("connection", () => {
       );
       expect(status.details.nodeVersion).toBe(__VERSION__);
       expect(status.details.clientServerCompatible).toBe(true);
+      await client.close();
+    });
+
+    it("should reconnect when an incompatible Core stops answering", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary(core) });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      core.down = true;
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "loading",
+      );
+      expect(status.message).toBe("Reconnecting");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
       await client.close();
     });
 
