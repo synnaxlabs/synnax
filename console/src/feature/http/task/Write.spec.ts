@@ -15,6 +15,7 @@ import { type z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   commitFieldInput,
@@ -292,7 +293,7 @@ describe("Write", () => {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": cmdCh.key, "/other": otherCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -327,7 +328,7 @@ describe("Write", () => {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/cmd": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const draft = await createDraft(
       client,
       createWriteConfig(dev.key, [
@@ -361,7 +362,7 @@ describe("Write", () => {
       ...HTTP.Device.ZERO_PROPERTIES,
       write: { "/stored": storedCh.key },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const config = createWriteConfig(dev.key, [
       createWriteEndpoint("ep1", "/cmd", { channel: configuredCh.key }),
       createWriteEndpoint("ep2", "/stored"),

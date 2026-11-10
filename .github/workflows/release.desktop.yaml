@@ -198,13 +198,13 @@ jobs:
   deploy-docs:
     name: Deploy docs
     needs: publish
-    # The docs read stable versions at build time, so a stable release redeploys them.
+    # The docs read stable versions at build time, so a stable release redeploys next,
+    # latest, and previous. An older site keeps the Desktop link of its last deploy.
     if: ${{ !inputs.prerelease }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger the docs deploy hook
-        env:
-          HOOK: ${{ secrets.DOCS_DEPLOY_HOOK }}
-        run: |
-          [ -n "$HOOK" ] || { echo "::error::DOCS_DEPLOY_HOOK is not set"; exit 1; }
-          curl --fail-with-body --silent --show-error --request POST "$HOOK"
+    uses: ./.github/workflows/deploy.docs.yaml
+    with:
+      versions: next latest previous
+    secrets:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

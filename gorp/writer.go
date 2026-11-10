@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp/internal/key"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -36,6 +37,8 @@ type Writer[K Key, E Entry[K]] struct {
 	references []Reference[K, E]
 	// derived is true when the writes of the Writer are cascades or detaches.
 	derived bool
+	// exclusive is true when Set refuses an entry whose key exists.
+	exclusive bool
 }
 
 // WrapWriter wraps the given Tx to provide a strongly typed Writer that checks no
@@ -148,19 +151,27 @@ func (w *Writer[K, E]) bind(tx Tx) Writer[K, E] {
 }
 
 func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
+	k := entry.GorpKey()
+	encoded := w.keyCodec.Encode(k)
+	changes := &w.tx.txIdentity().changes
+	s, err := w.find(ctx, changes, k, encoded)
+	if err != nil {
+		return err
+	}
+	if w.exclusive && changes.present(s) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s %s already exists",
+			w.tableName,
+			key.Format(k),
+		)
+	}
 	if w.table != nil {
 		if err := w.table.check(ctx, w.tx, &entry); err != nil {
 			return err
 		}
 	}
 	data, err := w.tx.Encode(ctx, entry)
-	if err != nil {
-		return err
-	}
-	k := entry.GorpKey()
-	encoded := w.keyCodec.Encode(k)
-	changes := &w.tx.txIdentity().changes
-	s, err := w.find(ctx, changes, k, encoded)
 	if err != nil {
 		return err
 	}

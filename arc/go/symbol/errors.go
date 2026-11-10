@@ -14,9 +14,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
+
+// ErrImportFailed is returned for a member of an import that did not resolve. The
+// import already reports why.
+var ErrImportFailed = errors.Wrap(diagnostics.ErrReported, "import failed")
 
 // NotExportedError is returned when a user module holds the member but does not
 // export it.

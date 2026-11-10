@@ -10,11 +10,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  cdnKey,
   define,
   filter,
   stillKey,
   stillsDir,
+  videoKey,
   videoName,
 } from "@/manifest/manifest";
 
@@ -74,14 +74,14 @@ describe("manifest names", () => {
     expect(videoName("console/ranges/create", "light")).toEqual(
       "videos/console-ranges-create-light.mp4",
     );
-    expect(cdnKey("console/ranges/create", "dark")).toEqual(
-      "docs/console/ranges/create-dark.mp4",
+    expect(videoKey("console/ranges/create", "3f2a", "dark")).toEqual(
+      "docs/console/ranges/create/3f2a-dark.mp4",
     );
   });
 
   it("should drop the theme suffix from an unthemed CDN key", () => {
-    expect(cdnKey("releases/0-57-0/panels", null)).toEqual(
-      "docs/releases/0-57-0/panels.mp4",
+    expect(videoKey("releases/0-57-0/panels", "3f2a", null)).toEqual(
+      "docs/releases/0-57-0/panels/3f2a.mp4",
     );
   });
 

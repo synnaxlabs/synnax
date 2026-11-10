@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, resource } from "@synnaxlabs/client";
+import { arc, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Arc, Task } from "@synnaxlabs/pluto";
+import { Access, Arc } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Arc as PlatformArc } from "@/platform/arc";
 import { ContextMenu } from "@/platform/context-menu";
 import { Core } from "@/platform/core";
-import { CSS } from "@/platform/css";
-import { Framer } from "@/platform/framer";
 import { Link } from "@/platform/link";
 import { Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
@@ -42,35 +40,25 @@ const useDelete = Tree.createUseDelete({
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    selection: { ids },
+    selection: { ids, parentID },
     state: { getResource },
     openTab,
   } = props;
-  const keys = ids.map((id) => id.key);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const hasDeletePermission = Access.useDeleteGranted(ids);
-  const canControl = Framer.useCanCommand();
-  const captureDeploy = PlatformArc.useCaptureDeploy();
-  const { update: runCommand } = Task.useCommand({ afterSuccess: captureDeploy });
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  const createDirectory = PlatformArc.useCreateDirectoryFromSelection();
   const rename = useRename(props);
   const handleDelete = useDelete(props);
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const singleResource = ids.length === 1;
-  const driftedTaskKeys = PlatformArc.useDriftedTaskKeys(keys);
-  const redeployTaskKeys = canControl ? driftedTaskKeys : [];
   return (
     <ContextMenu.Menu>
-      {redeployTaskKeys.length > 0 && (
-        <Menu.Item
-          className={CSS.BE("arc", "redeploy-item")}
-          itemKey="redeploy"
-          onClick={() =>
-            runCommand(redeployTaskKeys.map((key) => ({ task: key, type: "start" })))
-          }
-        >
-          <Icon.Refresh />
-          Redeploy
+      {canCreateDirectory && hasUpdatePermission && parentID != null && (
+        <Menu.Item itemKey="newDirectory" onClick={() => createDirectory(props)}>
+          <Icon.Group />
+          New directory
         </Menu.Item>
       )}
       <Menu.Divider />
@@ -131,6 +119,7 @@ const useRenameDirectory = Tree.createUseRename({
 
 const useDeleteDirectory = Tree.createUseDelete({
   type: "Directory",
+  icon: "Group",
   useUpdate: Arc.Directory.useDelete,
   convertKey: String,
 });
@@ -180,6 +169,35 @@ const DirectoryContextMenu: Tree.ContextMenu = (props) => {
   );
 };
 
+/** The menu for a right-click on empty space in a tree of Arcs. */
+export const RootContextMenu = ({
+  root,
+  state,
+}: Tree.RootContextMenuProps): ReactElement => {
+  const createArc = PlatformArc.useCreate();
+  const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
+  const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
+  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
+  return (
+    <ContextMenu.Menu>
+      {canCreateArc && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create Arc
+        </Menu.Item>
+      )}
+      {canCreateDirectory && (
+        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
+          <Icon.Group />
+          New directory
+        </Menu.Item>
+      )}
+      <Menu.Divider />
+      <ContextMenu.ReloadConsoleItem />
+    </ContextMenu.Menu>
+  );
+};
+
 const ENTRY_TYPES = new Set<resource.Type>(["arc", "arc_directory"]);
 
 const DirectoryItem = Tree.createItem({
@@ -195,22 +213,7 @@ const DirectoryItem = Tree.createItem({
   ],
   canDrop: ({ moved }) => moved.every(({ id }) => ENTRY_TYPES.has(id.type)),
   drop: async ({ client, destination, items }) => {
-    // Each item leaves its own directory: a selection can span several.
-    const bySource = new Map<string, resource.ID[]>();
-    items.forEach(({ id, ancestors: [source] }) => {
-      const key = resource.idToString(source);
-      bySource.set(key, [...(bySource.get(key) ?? []), id]);
-    });
-    await Promise.all(
-      [...bySource].map(
-        async ([source, ids]) =>
-          await client.arcs.directories.move(
-            resource.parseID(source),
-            destination.id,
-            ...ids,
-          ),
-      ),
-    );
+    await client.arcs.directories.move(destination.id, ...items.map(({ id }) => id));
   },
   haulItems: ({ id }) => [id],
   ContextMenu: DirectoryContextMenu,

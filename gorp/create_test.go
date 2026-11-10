@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type entry struct {
@@ -83,6 +85,72 @@ var _ = Describe("Create", Ordered, func() {
 				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](keys...)).
 					Exists(ctx, tx),
 			).To(BeTrue())
+		})
+	})
+
+	Describe("Exclusive", func() {
+		create := func(ctx SpecContext, data string) error {
+			return gorp.NewCreate[int32, entry]().
+				Exclusive().
+				Entry(&entry{ID: 7, Data: data}).
+				Exec(ctx, tx)
+		}
+		stored := func(ctx SpecContext) entry {
+			GinkgoHelper()
+			var e entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](7)).
+				Entry(&e).
+				Exec(ctx, tx)).To(Succeed())
+			return e
+		}
+		exists := SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("%s 7 already exists", types.Name[entry]())),
+		)
+		It("Should create an entry whose key does not exist", func(ctx SpecContext) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(stored(ctx).Data).To(Equal("first"))
+		})
+		It("Should refuse an entry that a committed write created", func(
+			ctx SpecContext,
+		) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			next := DeferClose(db.OpenTx())
+			Expect(gorp.NewCreate[int32, entry]().
+				Exclusive().
+				Entry(&entry{ID: 7, Data: "second"}).
+				Exec(ctx, next)).To(exists)
+			Expect(next.Close()).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](7)).
+				Exec(ctx, db)).To(Succeed())
+		})
+		It("Should refuse an entry that an earlier write in the tx created", func(
+			ctx SpecContext,
+		) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(create(ctx, "second")).To(exists)
+			Expect(stored(ctx).Data).To(Equal("first"))
+		})
+		It(
+			"Should create an entry that the transaction deleted",
+			func(ctx SpecContext) {
+				Expect(create(ctx, "first")).To(Succeed())
+				Expect(gorp.NewDelete[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](7)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(create(ctx, "second")).To(Succeed())
+				Expect(stored(ctx).Data).To(Equal("second"))
+			},
+		)
+		It("Should overwrite an entry without the option", func(ctx SpecContext) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry]().
+				Entry(&entry{ID: 7, Data: "second"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(stored(ctx).Data).To(Equal("second"))
 		})
 	})
 

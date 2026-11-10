@@ -179,14 +179,16 @@ describe("range/Explorer", () => {
     const [first, second] = listedNames(word);
     const moved = created.find(({ name }) => name === first);
     assertDefined(moved);
-    await client.ranges.create({
-      key: moved.key,
-      name: moved.name,
-      timeRange: new TimeRange(
-        TimeStamp.now().add(TimeSpan.seconds(2)),
-        TimeStamp.now().add(TimeSpan.minutes(1)),
-      ),
-    });
+    await client.ranges.dispatch(
+      moved.key,
+      ranger.set({
+        path: ["timeRange"],
+        value: new TimeRange(
+          TimeStamp.now().add(TimeSpan.seconds(2)),
+          TimeStamp.now().add(TimeSpan.minutes(1)),
+        ).numeric,
+      }),
+    );
     await waitFor(() => expect(listedNames(word)).toEqual([second, first]), {
       timeout: 5000,
     });

@@ -94,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[string, Alias]{
 		DB:              cfg.DB,
 		Name:            tableName,
-		Indexes:         []gorp.Index[string, Alias]{s.search},
+		Indexes:         append(s.indexes.all(), s.search),
 		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
@@ -134,6 +134,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         tx,
 		channel:    s.cfg.Channel,
 		table:      s.table,
+		indexes:    s.indexes,
 		dispatcher: s.state.Dispatcher(),
 	}
 }
@@ -144,5 +145,6 @@ func (s *Service) NewReader(snap gorp.Snapshot) Reader {
 		snap:            snap,
 		parentRetriever: s.cfg.ParentRetriever,
 		table:           s.table,
+		indexes:         s.indexes,
 	}
 }

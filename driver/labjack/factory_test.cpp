@@ -45,7 +45,7 @@ protected:
         this->ctx = std::make_shared<task::MockContext>(this->client);
         const auto rack = ASSERT_NIL_P(this->client->racks.create("labjack_factory"));
         auto dev = synnax::device::Device{
-            .key = "labjack_factory_device",
+            .key = make_unique_channel_name("labjack_factory_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = "labjack",

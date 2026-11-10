@@ -34,6 +34,7 @@ import {
   type WriteSchemas,
 } from "@/feature/opcua/task/types";
 import { ContextMenu } from "@/platform/context-menu";
+import { Device as PlatformDevice } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -164,7 +165,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       cmdChannel: getChannelByNodeID(dev.properties, c.nodeId),
     }));
   } finally {
-    await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, SCHEMAS);
   }
   return [config, dev.rack];
 };
