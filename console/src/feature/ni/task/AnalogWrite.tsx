@@ -280,7 +280,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     if (isGenerated(c)) return c;

@@ -191,11 +191,18 @@ class TestArc:
         assert retrieved.status.message == "Compiled"
 
     def test_retrieve_changes(self, client: sy.Synnax) -> None:
-        """Should name the automation's own edit once its task is deployed."""
+        """Should name an imported module that changed after the deploy."""
+        path = f"test_changes_{uuid4().hex}"
+        module = client.arcs.create(
+            name=path,
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func g() i64 { return 1 }"),
+        )
         created = client.arcs.create(
             name=f"test_changes_{uuid4().hex}",
             mode="text",
-            text=sy.Text(raw="func f() i64 { return 1 }"),
+            text=sy.Text(raw=f"import {path}\n\nfunc f() i64 {{ return {path}.g() }}"),
         )
         assert isinstance(created, sy.arc.Automation)
         rack = client.racks.create(name=f"test_changes_{uuid4().hex}")
@@ -214,18 +221,22 @@ class TestArc:
                 owner=tsk.resource_id,
             )
         )
+        client.arcs.delete(module.key)
         client.arcs.create(
-            sy.arc.Automation(
-                key=created.key,
-                name=created.name,
-                source=sy.arc.TextSource(text=sy.Text(raw="func f() i64 { return 2 }")),
-            )
+            name=path,
+            type="module",
+            mode="text",
+            text=sy.Text(raw="export func g() i64 { return 2 }"),
         )
-        retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
-        assert isinstance(retrieved, sy.arc.Automation)
-        assert retrieved.changes == [
-            sy.arc.Change(type="automation", path="", kind="changed")
-        ]
+
+        def changed() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_changes=True)
+            assert isinstance(retrieved, sy.arc.Automation)
+            assert retrieved.changes == [
+                sy.arc.Change(type="module", path=path, kind="changed")
+            ]
+
+        assert_eventually(changed)
 
     def test_retrieve_not_compiled(self, client: sy.Synnax) -> None:
         """Should return no program when include_program is not set."""
