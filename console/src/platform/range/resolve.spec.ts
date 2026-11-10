@@ -33,7 +33,12 @@ const preloadedFor = (
   ranges: Session.Range.State[],
   selected?: string,
 ): { range: Session.Range.SliceState } => ({
-  [Session.Range.SLICE_NAME]: { version: 0, selected, ranges },
+  [Session.Range.SLICE_NAME]: {
+    version: 0,
+    selected,
+    ranges,
+    staticKeysRewritten: false,
+  },
 });
 
 const renderResolveMultiple = async (ranges: Session.Range.State[], keys?: string[]) =>

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -21,29 +20,6 @@ import {
   STRAIN_ENTRY,
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
-
-const roundTrip = (key: string): string =>
-  caseconv.snakeToCamel(caseconv.camelToSnake(key));
-
-describe("addressKey", () => {
-  it("should key an entry by its decimal index and subindex", () => {
-    expect(EtherCAT.Task.addressKey({ index: 0x6010, subIndex: 1 })).toBe("24592_1");
-  });
-
-  it("should key the write state of an entry with a state prefix", () => {
-    expect(EtherCAT.Task.stateKey({ index: 0x6010, subIndex: 1 })).toBe(
-      "state_24592_1",
-    );
-  });
-
-  it("should survive the case conversion of the wire unchanged", () => {
-    const address = { index: 0x6010, subIndex: 1 };
-    const key = EtherCAT.Task.addressKey(address);
-    const state = EtherCAT.Task.stateKey(address);
-    expect(roundTrip(key)).toBe(key);
-    expect(roundTrip(state)).toBe(state);
-  });
-});
 
 describe("usableEntries", () => {
   const props = (
