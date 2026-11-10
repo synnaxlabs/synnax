@@ -79,7 +79,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Table>;
   /** Builds requests that move tables between groups. */
-  readonly setGroupRequest: group.MoveRequest<Key>;
+  readonly setGroupRequest: group.SetGroupRequest<Key>;
   /** Builds requests that move tables out of their group and into a project. */
   readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, Table, Action>;
@@ -119,7 +119,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/table/set-group", (keys, to) =>
+    this.setGroupRequest = group.createSetGroupRequest("/table/set-group", (keys, to) =>
       group.moveCached(store, keys, to),
     );
     this.setProjectRequest = project.createMoveRequest(

@@ -303,6 +303,7 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
+    this.batch = new batch.Client(unary);
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
@@ -330,11 +331,13 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
+      batch: this.batch,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
       cache,
+      batch: this.batch,
       connection: this.conn,
       identity,
     });
@@ -372,26 +375,27 @@ export default class Synnax extends framer.Client {
       tasks: this.tasks,
       cache,
       statuses: this.statuses,
+      batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
     this.groups = new group.Client({
       unary,
       cache,
+      batch: this.batch,
       setGroup: {
         channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
         device: (keys, to) => this.devices.setGroupRequest(keys, to),
-        lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
-        log: (keys, to) => this.logs.setGroupRequest(keys, to),
-        panel: (keys, to) => this.panels.setGroupRequest(keys, to),
+        lineplot: (keys, to) => [this.lineplots.setGroupRequest(keys, to)],
+        log: (keys, to) => [this.logs.setGroupRequest(keys, to)],
+        panel: (keys, to) => [this.panels.setGroupRequest(keys, to)],
         project: (keys, to) => this.projects.setGroupRequest(keys, to),
         rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
-        schematic: (keys, to) => this.schematics.setGroupRequest(keys, to),
+        schematic: (keys, to) => [this.schematics.setGroupRequest(keys, to)],
         schematic_symbol: (keys, to) =>
           this.schematics.symbols.setGroupRequest(keys, to),
-        table: (keys, to) => this.tables.setGroupRequest(keys, to),
+        table: (keys, to) => [this.tables.setGroupRequest(keys, to)],
       },
     });
-    this.batch = new batch.Client(unary);
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

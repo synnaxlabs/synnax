@@ -104,6 +104,28 @@ describe("policy", () => {
     });
   });
 
+  describe("rename", () => {
+    it("should rename the policy", async () => {
+      const p = await createPolicy();
+      const name = `renamed-${id.create()}`;
+      await client.access.policies.rename(p.key, name);
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.name).toBe(name);
+    });
+  });
+
+  describe("dispatch", () => {
+    it("should apply the action to the policy", async () => {
+      const p = await createPolicy();
+      await client.access.policies.dispatch(
+        p.key,
+        policy.set({ path: ["actions"], value: ["retrieve", "update"] }),
+      );
+      const stored = await createTestClient().access.policies.retrieve(p.key);
+      expect(stored.actions).toEqual(["retrieve", "update"]);
+    });
+  });
+
   describe("access control", () => {
     it("should deny access when no matching policy exists", async () => {
       // Create a user with no policy for retrieving policies

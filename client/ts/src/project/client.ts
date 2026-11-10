@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { group } from "@/group";
 import { imex } from "@/imex";
+import { type Action, dispatchReqZ, dispatchResZ, set } from "@/project/actions.gen";
 import {
   type Key,
   keyZ,
@@ -48,7 +49,6 @@ const retrieveMultiParamsZ = z.union([
 ]);
 export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 const createReqZ = z.object({ projects: projectZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const exportReqZ = z.object({ key: keyZ, encoding: imex.encodingZ });
 
@@ -102,7 +102,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
     });
     this.cfg = cfg;
     this.store = store;
-    this.setGroupRequest = group.createMoveRequest("/project/set-group", (keys, to) =>
+    this.setGroupRequest = group.createMoveRequest("/project/dispatch", (keys, to) =>
       group.moveCached(store, keys, to),
     );
   }
@@ -141,14 +141,23 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pr
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/project/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the project in one transaction.
+   * @throws {ValidationError} if the project cannot hold an action.
+   * @throws {NotFoundError} if the project does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/project/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {

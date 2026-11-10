@@ -136,7 +136,6 @@ describe("Arc.Directory", () => {
       });
       await act(async () => {
         await client.arcs.directories.move(
-          root,
           arc.directory.resourceID(dest.key),
           arc.directory.resourceID(mid.key),
         );

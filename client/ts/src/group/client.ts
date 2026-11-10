@@ -11,7 +11,15 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type actions } from "@/actions";
 import { type batch } from "@/batch";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+  setParent,
+} from "@/group/actions.gen";
 import { type MemberType } from "@/group/members.gen";
 import { isMember } from "@/group/move";
 import {
@@ -44,12 +52,7 @@ const createReqZ = z.object({
   parent: resource.idZ.optional(),
 });
 const createResZ = z.object({ group: groupZ });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const setParentReqZ = z.object({
-  keys: keyZ.array(),
-  parent: resource.idZ.optional(),
-});
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([
@@ -67,11 +70,12 @@ export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiPara
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  batch: batch.Client;
   /**
-   * Builds a request that moves records of each type into a group, or out of their
+   * Builds the requests that move records of each type into a group, or out of their
    * group when it is undefined.
    */
-  setGroup: Record<MemberType, (keys: string[], to?: Key) => batch.Request>;
+  setGroup: Record<MemberType, (keys: string[], to?: Key) => batch.Request[]>;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Group> {
@@ -122,15 +126,6 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     };
   }
 
-  /** Builds a request that renames a group. Its cache write renames the cached one. */
-  renameRequest(key: Key, name: string): batch.Request<z.infer<typeof renameReqZ>> {
-    return {
-      endpoint: "/group/rename",
-      payload: { key, name },
-      apply: () => query.partialUpdate(this.store, key, { name }),
-    };
-  }
-
   /**
    * Builds a request that deletes groups. The Core refuses to delete a non-empty group.
    * Its cache write drops the cached groups.
@@ -145,30 +140,24 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   /**
-   * Builds a request that moves groups under the parent, or to the top level when the
-   * parent is null or undefined. Its cache write moves the cached groups.
+   * Builds one batch entry per group that moves it under the parent, or to the top
+   * level when the parent is null or undefined. The cache write of each entry moves its
+   * cached group.
    */
   setParentRequest(
     keys: Key | Key[],
     parent?: resource.ID | null,
-  ): batch.Request<z.infer<typeof setParentReqZ>> {
-    const payload = { keys: array.toArray(keys), parent: parent ?? undefined };
-    return {
-      endpoint: "/group/set-parent",
-      payload,
+  ): batch.Request<actions.DispatchPayload<Key, Action>>[] {
+    const action = setParent({ parent: parent ?? undefined });
+    return array.toArray(keys).map((key) => ({
+      endpoint: "/group/dispatch",
+      payload: { key, actions: [action] },
       apply: () => {
-        const prev = payload.keys.map(
-          (key) => [key, this.store.get(key)?.parent] as const,
-        );
-        payload.keys.forEach((key) =>
-          query.partialUpdate(this.store, key, { parent: payload.parent }),
-        );
-        return () =>
-          prev.forEach(([key, p]) =>
-            query.partialUpdate(this.store, key, { parent: p }),
-          );
+        const prev = this.store.get(key)?.parent;
+        query.partialUpdate(this.store, key, { parent: parent ?? undefined });
+        return () => query.partialUpdate(this.store, key, { parent: prev });
       },
-    };
+    }));
   }
 
   /**
@@ -184,7 +173,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
       byType.set(type, [...(byType.get(type) ?? []), key]),
     );
     const to = parent?.type === "group" ? parent.key : undefined;
-    return [...byType].map(([type, keys]) => {
+    return [...byType].flatMap(([type, keys]) => {
       if (type === "group") return this.setParentRequest(keys, parent);
       if (!isMember(type)) throw new Error(`a ${type} cannot sit in a group`);
       return this.cfg.setGroup[type](keys, to);
@@ -209,7 +198,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    await this.send(this.renameRequest(key, name), renameReqZ, opts);
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
+    await query.optimistic({
+      rollbacks: rename(),
+      onOptimistic: opts.onOptimistic,
+      commit: async () =>
+        await this.dispatch(key, set({ path: ["name"], value: name })),
+    });
+    rename();
+  }
+
+  /**
+   * Applies the actions to the group in one transaction.
+   * @throws {ValidationError} if the group cannot hold an action.
+   * @throws {NotFoundError} if the group does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/group/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /**
@@ -232,7 +242,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     parent?: resource.ID | null,
     opts: query.WriteOptions = {},
   ): Promise<void> {
-    await this.send(this.setParentRequest(keys, parent), setParentReqZ, opts);
+    await this.cfg.batch.send(this.setParentRequest(keys, parent), opts);
   }
 
   /**

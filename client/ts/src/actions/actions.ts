@@ -180,6 +180,12 @@ export const dispatchReqZ = <K extends z.ZodType, A extends z.ZodType>(
     actions: actionZ.array(),
   });
 
+/** The payload of a dispatch entry in a batch. The entry carries no dispatch key. */
+export interface DispatchPayload<K, A> {
+  key: K;
+  actions: A[];
+}
+
 /**
  * dispatchResZ builds the response body schema for the per-service dispatch endpoint:
  * the actions the Core added after the dispatched ones, such as a set of a field that

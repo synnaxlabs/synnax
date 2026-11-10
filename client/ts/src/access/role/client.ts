@@ -12,6 +12,12 @@ import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+} from "@/access/role/actions.gen";
+import {
   type Key,
   keyZ,
   type New,
@@ -127,16 +133,28 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const existing = await this.retrieve(key);
     const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
-      commit: async () => {
-        await this.create({ ...existing, name });
-      },
+      commit: async () =>
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the role in one transaction.
+   * @throws {ValidationError} if the role cannot hold an action.
+   * @throws {NotFoundError} if the role does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/access/role/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   private async execRetrieve(params: RetrieveRequest): Promise<Role[]> {

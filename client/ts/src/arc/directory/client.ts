@@ -11,6 +11,13 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor } from "@synnaxlabs/x";
 import z from "zod";
 
+import { setDirectory } from "@/arc/actions.gen";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+} from "@/arc/directory/actions.gen";
 import {
   type Directory,
   directoryZ,
@@ -33,7 +40,7 @@ import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
 import { type batch } from "@/batch";
 import { NotFoundError } from "@/errors";
 import { query } from "@/query";
-import { resource } from "@/resource";
+import { type resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_arc_directory_set";
 export const DELETE_CHANNEL_NAME = "sy_arc_directory_delete";
@@ -43,9 +50,7 @@ const createReqZ = z.object({
   directory: z.object({ key: keyZ.optional(), name: z.string() }),
 });
 const createResZ = z.object({ directory: directoryZ });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: z.array(keyZ) });
-const moveReqZ = z.object({ from: keyZ, to: keyZ, ids: z.array(resource.idZ) });
 const emptyResZ = z.object({});
 
 const retrieveMultiParamsZ = z.union([
@@ -70,6 +75,7 @@ export interface ClientConfig {
   cache: query.Cache;
   /** arcs holds the cached Arcs, whose directory a move changes. */
   arcs: query.Table<ArcKey, Arc>;
+  batch: batch.Client;
 }
 
 /** Client retrieves, creates, renames, deletes, and moves the directories of Arcs. */
@@ -209,14 +215,23 @@ export class Client extends query.Retriever<
       rollbacks: [rename()],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/arc/directory/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
     rename();
+  }
+
+  /**
+   * Applies the actions to the directory in one transaction.
+   * @throws {ValidationError} if the directory cannot hold an action.
+   * @throws {NotFoundError} if the directory does not exist.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/arc/directory/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   /** Deletes the empty directories with keys. */
@@ -227,43 +242,31 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Builds a request that moves Arcs and directories from the directory from into the
-   * directory to. Its cache write moves the cached ones.
+   * Builds the requests that move Arcs and directories into the directory to. Their
+   * cache writes move the cached ones.
    */
-  moveRequest(
-    from: resource.ID,
-    to: resource.ID,
-    ...children: resource.ID[]
-  ): batch.Request<z.infer<typeof moveReqZ>> {
-    return {
-      endpoint: "/arc/move",
-      payload: { from: from.key, to: to.key, ids: children },
-      apply: () => this.applyMove(to, children),
-    };
-  }
-
-  private applyMove(to: resource.ID, children: resource.ID[]): destructor.Destructor {
-    const undos = children.map(({ type, key }) =>
+  moveRequests(to: resource.ID, ...children: resource.ID[]): batch.Request[] {
+    return children.map(({ type, key }) =>
       type === "arc"
-        ? query.partialUpdate(this.cfg.arcs, key, { directory: to.key })
-        : query.partialUpdate(this.store, key, { parent: to.key }),
+        ? {
+            endpoint: "/arc/dispatch",
+            payload: { key, actions: [setDirectory({ directory: to.key })] },
+            apply: () => query.partialUpdate(this.cfg.arcs, key, { directory: to.key }),
+          }
+        : {
+            endpoint: "/arc/directory/dispatch",
+            payload: { key, actions: [set({ path: ["parent"], value: to.key })] },
+            apply: () => query.partialUpdate(this.store, key, { parent: to.key }),
+          },
     );
-    return () => undos.forEach((undo) => undo());
   }
 
-  /** Moves Arcs and directories from the directory from into the directory to. */
-  async move(
-    from: resource.ID,
-    to: resource.ID,
-    ...children: resource.ID[]
-  ): Promise<void> {
-    const { endpoint, payload } = this.moveRequest(from, to, ...children);
-    await query.optimistic({
-      rollbacks: [this.applyMove(to, children)],
-      commit: async () =>
-        await this.cfg.unary.send(endpoint, payload, moveReqZ, emptyResZ),
-    });
-    this.applyMove(to, children);
+  /**
+   * Moves Arcs and directories into the directory to in one transaction.
+   * @throws {ValidationError} if the directory would hold two entries with one name.
+   */
+  async move(to: resource.ID, ...children: resource.ID[]): Promise<void> {
+    await this.cfg.batch.send(this.moveRequests(to, ...children));
   }
 
   private async execRetrieve(

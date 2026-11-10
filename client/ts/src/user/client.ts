@@ -11,11 +11,19 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { role } from "@/access/role";
+import { type role } from "@/access/role";
+import { type batch } from "@/batch";
 import { type connection } from "@/connection";
 import { MultipleFoundError, NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  set,
+  setUsername,
+} from "@/user/actions.gen";
 import { Current } from "@/user/current";
 import {
   type Key,
@@ -69,14 +77,8 @@ export type RetrieveParams =
 
 const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
-const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
-const changeUsernameResZ = z.object({});
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
-const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
-const setRoleReqZ = z.object({ keys: keyZ.array(), role: role.keyZ });
-const setRoleResZ = z.object({});
 
 // The username lives on the user's password, so only the Core can match it.
 const LINES: Lines = {
@@ -101,6 +103,7 @@ const singleIdentifier = (params: SingleParams): string =>
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
+  batch: batch.Client;
   connection: connection.Client;
   /** Carries the user after each login, and undefined when the credentials change. */
   identity: observe.Observable<User | undefined>;
@@ -182,12 +185,7 @@ export class Client extends query.Retriever<
   }
 
   async changeUsername(key: Key, newUsername: string): Promise<void> {
-    await this.cfg.unary.send(
-      "/user/change-username",
-      { key, username: newUsername },
-      changeUsernameReqZ,
-      changeUsernameResZ,
-    );
+    await this.dispatch(key, setUsername({ username: newUsername }));
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
@@ -195,12 +193,7 @@ export class Client extends query.Retriever<
       rollbacks: [query.partialUpdate(this.store, key, { name })],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
-        await this.cfg.unary.send(
-          "/user/rename",
-          { key, name },
-          renameReqZ,
-          renameResZ,
-        ),
+        await this.dispatch(key, set({ path: ["name"], value: name })),
     });
   }
 
@@ -217,17 +210,35 @@ export class Client extends query.Retriever<
     opts: query.WriteOptions = {},
   ): Promise<void> {
     const keysArr = array.toArray(keys);
+    const action = set({ path: ["role"], value: role });
+    const requests = keysArr.map((key) => ({
+      endpoint: "/user/dispatch",
+      payload: { key, actions: [action] },
+    }));
     await query.optimistic({
       rollbacks: keysArr.map((key) => query.partialUpdate(this.store, key, { role })),
       onOptimistic: opts.onOptimistic,
+      // A batch prefixes its errors with the request index, so one user skips it.
       commit: async () =>
-        await this.cfg.unary.send(
-          "/user/set-role",
-          { keys: keysArr, role },
-          setRoleReqZ,
-          setRoleResZ,
-        ),
+        keysArr.length === 1
+          ? await this.dispatch(keysArr[0], action)
+          : await this.cfg.batch.send(requests),
     });
+  }
+
+  /**
+   * Applies the actions to the user in one transaction.
+   * @throws {ValidationError} if the user cannot hold an action.
+   * @throws {NotFoundError} if the user does not exist.
+   * @throws {AccessDeniedError} if the caller cannot update the user.
+   */
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.cfg.unary.send(
+      "/user/dispatch",
+      { key, dispatchKey: "", actions: array.toArray(actions) },
+      dispatchReqZ,
+      dispatchResZ,
+    );
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
