@@ -270,13 +270,13 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 		},
 		Entry(
 			"after a declaration",
-			"sequence s {\n    stage a {\n        n := 0\n        reset(n)\n    }\n}",
-			"sequence s {\n    stage a {\n        n := 0,\n        (reset(n))\n    }\n}",
+			"sequence s {\n  stage a {\n    n := 0\n    reset(n)\n  }\n}",
+			"sequence s {\n  stage a {\n    n := 0,\n    (reset(n))\n  }\n}",
 		),
 		Entry(
 			"after a flow that ends in an expression",
-			"sequence s {\n    stage a {\n        a -> b + 1\n        len(ch) -> out\n    }\n}",
-			"sequence s {\n    stage a {\n        a -> b + 1,\n        (len(ch)) -> out\n    }\n}",
+			"sequence s {\n  stage a {\n    a -> b + 1\n    len(ch) -> out\n  }\n}",
+			"sequence s {\n  stage a {\n    a -> b + 1,\n    (len(ch)) -> out\n  }\n}",
 		),
 	)
 
