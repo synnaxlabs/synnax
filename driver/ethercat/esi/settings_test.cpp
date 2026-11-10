@@ -69,7 +69,7 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    const auto &channels = (*settings)["channels"];
+    const auto &channels = settings.value()["channels"];
     ASSERT_EQ(channels.size(), 6);
     const auto &input_2 = channels[1];
     const auto &range = setting(input_2, 3);
@@ -89,7 +89,7 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     EXPECT_EQ(setting(input_2, 34)["max"], 42);
     EXPECT_EQ(input_2["requires"][0]["then"]["index"], 0x8041);
     EXPECT_EQ(input_2["requires"][0]["when"][0]["index"], 0x8041);
-    EXPECT_EQ((*settings)["device"][0]["index"], 0x8020);
+    EXPECT_EQ(settings.value()["device"][0]["index"], 0x8020);
 }
 
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
@@ -99,7 +99,7 @@ TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    const auto &entries = (*settings)["channels"][1]["entries"];
+    const auto &entries = settings.value()["channels"][1]["entries"];
     std::vector<std::pair<int, int>> addresses;
     for (const auto &e: entries)
         addresses.emplace_back(e["index"].get<int>(), e["sub_index"].get<int>());
@@ -118,7 +118,7 @@ TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    const auto &mode = (*settings)["mode"];
+    const auto &mode = settings.value()["mode"];
     EXPECT_EQ(mode["value"], 0);
     EXPECT_FALSE(mode["shared"].get<bool>());
     EXPECT_EQ(
@@ -139,8 +139,8 @@ TEST(ReadSettings, NamesTheModeObjectOf6xSTG) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_EQ((*settings)["mode"]["index"], 0x8020);
-    EXPECT_EQ((*settings)["mode"]["sub_index"], 9);
+    EXPECT_EQ(settings.value()["mode"]["index"], 0x8020);
+    EXPECT_EQ(settings.value()["mode"]["sub_index"], 9);
 }
 
 /// @brief it should mark a 6xSTG that DewesoftX also sets up as shared, and switch it
@@ -150,7 +150,7 @@ TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 1))
     );
     ASSERT_TRUE(settings.has_value());
-    const auto &mode = (*settings)["mode"];
+    const auto &mode = settings.value()["mode"];
     EXPECT_EQ(mode["value"], 1);
     EXPECT_TRUE(mode["shared"].get<bool>());
     EXPECT_FALSE(mode.contains("op_mode"));
@@ -175,7 +175,7 @@ TEST(ReadSettings, Switches6xSTGThatSavesEachChangeWithoutTheSaveWrite) {
         read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(1, 0))
     );
     ASSERT_TRUE(settings.has_value());
-    const auto &change = (*settings)["mode"]["switch"];
+    const auto &change = settings.value()["mode"]["switch"];
     ASSERT_EQ(change.size(), 1);
     EXPECT_EQ(change[0]["sub_index"], 9);
 }
@@ -188,7 +188,7 @@ TEST(ReadSettings, OmitsTheSyncModeThatTheSIIDoesNotList) {
         read_settings(DEWESOFT, IOLITE_6XSTG, sm_only, stg(0))
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_FALSE((*settings)["mode"].contains("op_mode"));
+    EXPECT_FALSE(settings.value()["mode"].contains("op_mode"));
 }
 
 /// @brief it should return no settings for a product that the catalog does not
@@ -217,7 +217,7 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
     );
     ASSERT_TRUE(settings.has_value());
     EXPECT_FALSE(settings->contains("mode"));
-    EXPECT_EQ((*settings)["channels"].size(), 6);
+    EXPECT_EQ(settings.value()["channels"].size(), 6);
 }
 
 /// @brief it should return the error of a failed read of a card table.

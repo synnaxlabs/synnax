@@ -310,7 +310,7 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
 
 /// @brief it should report why the settings of a slave could not be read.
 TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
-    auto objects = testutil::stg_objects();
+    auto objects = testutil::stg_objects(0);
     objects.erase({0x8050, 3});
     this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
         .objects = objects;
