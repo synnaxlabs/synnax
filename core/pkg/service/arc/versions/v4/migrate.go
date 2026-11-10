@@ -13,18 +13,28 @@ import (
 	"context"
 	"uuid"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	"go.uber.org/zap"
 )
 
 // MigrateArc lifts a v3 Arc, keeping only the body its mode selects. A blank mode, from
 // files written before modes, is graph. Text is rewritten from the grammar that wrote
-// inputs in braces and triggers in parens; a stored Arc carries it as a document and an
-// exported one as raw, and either way the result carries a fresh document and no raw.
-// Every Arc stored before v4 is an automation.
-func MigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
+// inputs in braces and triggers in parens, then its mixed-type range() calls get the
+// casts of CastRanges. A stored Arc carries text as a document and an exported one as
+// raw, and either way the result carries a fresh document and no raw. Every Arc stored
+// before v4 is an automation.
+func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
+	a, _ := migrateArc(ctx, old)
+	return a, nil
+}
+
+// migrateArc is MigrateArc that also returns why the range() calls of a text that does
+// not parse were left unchanged.
+func migrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
 	b := Base{Key: old.Key, Name: old.Name}
 	if old.Mode != v3.ModeText {
 		b.Source.Variant = GraphSource{Graph: old.Graph}
@@ -35,16 +45,36 @@ func MigrateArc(_ context.Context, old v3.Arc) (Arc, error) {
 	if len(t.Doc.Inserts) > 0 {
 		raw = t.Materialize().Raw
 	}
+	var err error
 	if raw != "" {
-		t.Doc = text.Create(SwapBrackets(raw))
+		var src string
+		src, err = CastRanges(ctx, SwapBrackets(raw))
+		t.Doc = text.Create(src)
 		t.Raw = ""
 	}
 	b.Source.Variant = TextSource{Text: t}
-	return Arc{Variant: AutomationArc{Base: b}}, nil
+	return Arc{Variant: AutomationArc{Base: b}}, err
 }
 
-// Migration rewrites the text of every stored Arc for the bracket swap.
-var Migration = migrate.NewEntry("v61_swap_brackets", MigrateArc)
+func migrateStored(
+	ctx context.Context,
+	old v3.Arc,
+	ins alamos.Instrumentation,
+) (Arc, error) {
+	a, err := migrateArc(ctx, old)
+	if err != nil {
+		ins.L.Warn(
+			"left the range() calls of an Arc that does not parse unchanged",
+			zap.Stringer("arc", old.Key),
+			zap.Error(err),
+		)
+	}
+	return a, nil
+}
+
+// Migration rewrites the text of every stored Arc for the bracket swap and the casts of
+// CastRanges.
+var Migration = migrate.NewInstrumentedEntry("v61_swap_brackets", migrateStored)
 
 // NewRootMigration returns the migration that puts every stored Arc in no directory
 // into the directory root.
