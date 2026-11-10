@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -75,7 +76,7 @@ var _ = Describe("Retrieve", func() {
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
 	) {
-		r := log.Log{Project: &proj.Key, Name: "unretrievable"}
+		r := defaults.Fill(log.Log{Project: &proj.Key, Name: "unretrievable"})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.Log.NewWriter(tx).Create(ctx, &r)
 		})).To(Succeed())
@@ -93,7 +94,9 @@ var _ = Describe("Create", func() {
 		rec := &Recorder[log.Key, log.Action]{}
 		DeferCleanup(svc.Log.OnAction(rec.Record))
 		res := MustSucceed(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-			Logs:        []log.Log{{Name: "broadcast", Project: &proj.Key}},
+			Logs: defaults.Fill(
+				[]log.Log{{Name: "broadcast", Project: &proj.Key}},
+			),
 			DispatchKey: "dk-create",
 		}))
 		frames := rec.Snapshot()
@@ -104,9 +107,9 @@ var _ = Describe("Create", func() {
 	It("Should refuse the create without create on the log", func(ctx SpecContext) {
 		u := newUser(ctx)
 		grant(ctx, access.ActionUpdate, u.ResourceID(), project.ResourceID(proj.Key))
-		l := log.Log{Key: uuid.New(), Name: "Denied", Project: &proj.Key}
+		l := defaults.Fill(log.Log{Key: uuid.New(), Name: "Denied", Project: &proj.Key})
 		Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-			Logs: []log.Log{l},
+			Logs: defaults.Fill([]log.Log{l}),
 		})).Error().To(denied(u, access.ActionCreate, l.ResourceID()))
 		Expect(svc.Log.NewRetrieve().
 			Where(log.MatchKeys(l.Key)).
@@ -119,7 +122,9 @@ var _ = Describe("Create", func() {
 		u := newCreator(ctx)
 		stored := createLog(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-			Logs: []log.Log{{Key: stored.Key, Name: "Overwritten", Project: &proj.Key}},
+			Logs: defaults.Fill(
+				[]log.Log{{Key: stored.Key, Name: "Overwritten", Project: &proj.Key}},
+			),
 		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
 		Expect(retrieveLog(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
@@ -129,11 +134,11 @@ var _ = Describe("Create", func() {
 		u := newCreator(ctx)
 		ch := createChannel(ctx)
 		req := apilog.CreateRequest{
-			Logs: []log.Log{{
+			Logs: defaults.Fill([]log.Log{{
 				Name:     "Displayed",
 				Project:  &proj.Key,
 				Channels: []log.ChannelEntry{{Channel: ch.Key()}},
-			}},
+			}}),
 		}
 		Expect(create(AuthedCtx(ctx, u), req)).Error().
 			To(denied(u, access.ActionRetrieve, channel.ResourceID(ch.Key())))
@@ -258,7 +263,7 @@ func createGroup(ctx SpecContext, name string) group.Group {
 
 func createLog(ctx SpecContext, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Project: &proj.Key, Name: name}
+	l := defaults.Fill(log.Log{Project: &proj.Key, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.Log.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())
@@ -374,7 +379,9 @@ var _ = Describe("Create in a group", func() {
 			u := newCreator(ctx)
 			g := createGroup(ctx, "Create denied")
 			Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-				Logs: []log.Log{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
+				Logs: defaults.Fill(
+					[]log.Log{{Project: &proj.Key, Name: "Denied", Group: &g.Key}},
+				),
 			})).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -383,7 +390,9 @@ var _ = Describe("Create in a group", func() {
 		g := createGroup(ctx, "Create granted")
 		grant(ctx, access.ActionUpdate, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-			Logs: []log.Log{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
+			Logs: defaults.Fill(
+				[]log.Log{{Project: &proj.Key, Name: "Granted", Group: &g.Key}},
+			),
 		}))
 		Expect(retrieveLog(ctx, res.Logs[0].Key).Group).To(Equal(&g.Key))
 	})
@@ -409,9 +418,9 @@ var _ = Describe("Create in a group", func() {
 			carried *project.Key,
 		) (apilog.CreateResponse, error) {
 			return create(AuthedCtx(ctx, u), apilog.CreateRequest{
-				Logs: []log.Log{
+				Logs: defaults.Fill([]log.Log{
 					{Project: carried, Name: "Elsewhere", Group: &g.Key},
-				},
+				}),
 			})
 		}
 		DescribeTable(
@@ -456,7 +465,7 @@ var _ = Describe("Create with an owner", func() {
 			resource.ID{Type: resource.TypeLog},
 		)
 		Expect(create(AuthedCtx(ctx, u), apilog.CreateRequest{
-			Logs: []log.Log{{Project: &proj.Key, Name: "Denied"}},
+			Logs: defaults.Fill([]log.Log{{Project: &proj.Key, Name: "Denied"}}),
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })

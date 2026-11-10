@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -42,11 +43,11 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			gone, kept := keys[0], keys[1]
-			plot := lineplot.LinePlot{
+			plot := defaults.Fill(lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "edited",
 				Channels: lineplot.Channels{Y1: []channel.Key{gone, kept}},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
 			})).To(Succeed())
@@ -71,11 +72,11 @@ var _ = Describe("Channel references", func() {
 	)
 
 	It("Should refuse a channel the Core does not hold", func(ctx SpecContext) {
-		plot := lineplot.LinePlot{
+		plot := defaults.Fill(lineplot.LinePlot{
 			Project:  &proj.Key,
 			Name:     "missing",
 			Channels: lineplot.Channels{Y1: []channel.Key{ch5, 404}},
-		}
+		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &plot)
 		})).
@@ -87,7 +88,7 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 4))
 			x, gone, kept, y2 := keys[0], keys[1], keys[2], keys[3]
-			plot := lineplot.LinePlot{
+			plot := defaults.Fill(lineplot.LinePlot{
 				Project: &proj.Key,
 				Name:    "detach",
 				Channels: lineplot.Channels{
@@ -95,7 +96,7 @@ var _ = Describe("Channel references", func() {
 					Y1: []channel.Key{gone, kept},
 					Y2: []channel.Key{y2},
 				},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
 			})).To(Succeed())
@@ -133,11 +134,11 @@ var _ = Describe("Channel references", func() {
 		func(ctx SpecContext) {
 			keys := MustSucceed(channeltestutil.CreateVirtual(ctx, db, channelSvc, 2))
 			kept, gone := keys[0], keys[1]
-			plot := lineplot.LinePlot{
+			plot := defaults.Fill(lineplot.LinePlot{
 				Project:  &proj.Key,
 				Name:     "export",
 				Channels: lineplot.Channels{Y1: []channel.Key{kept, gone}},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &plot)
 			})).To(Succeed())

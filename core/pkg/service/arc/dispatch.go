@@ -36,7 +36,11 @@ import (
 // Apply returns a validation error when a rename or a move leaves a name that the
 // directory of the Arc cannot hold.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
-	var sweep []Action
+	var (
+		sweep       []Action
+		module      bool
+		pathChanged bool
+	)
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
 			sweep = nil
@@ -50,14 +54,13 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return a, err
 			}
-			if next := a.Base(); next.Directory != nil && (next.Name != prev.Name ||
-				*next.Directory != lo.FromPtr(prev.Directory)) {
+			module = a.Type() == TypeModule
+			next := a.Base()
+			pathChanged = next.Name != prev.Name ||
+				lo.FromPtr(next.Directory) != lo.FromPtr(prev.Directory)
+			if pathChanged && next.Directory != nil {
 				if err = w.validateEntry(
-					ctx,
-					*next.Directory,
-					ResourceID(key),
-					next.Name,
-					a.Type() == TypeModule,
+					ctx, *next.Directory, ResourceID(key), next.Name, module,
 				); err != nil {
 					return Arc{}, err
 				}
@@ -87,6 +90,12 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
 	w.resyncs.Add(w.tx, key)
+	if module && pathChanged {
+		return w.resyncImporting(ctx)
+	}
+	if module && containsTextEdit(acts) {
+		w.editedModules.Add(w.tx, key)
+	}
 	return nil
 }
 
@@ -97,16 +106,52 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	for _, key := range s.resyncs.Of(c) {
 		s.taskSync.Trigger(key)
 	}
+	for _, key := range s.editedModules.Of(c) {
+		s.importerSync.Trigger(key)
+	}
 	for _, key := range s.deletes.Of(c) {
 		s.sweeper.forget(key)
 		s.taskSync.Forget(key)
+		s.importerSync.Forget(key)
 	}
 }
 
-// resyncTask rewrites the Arc's task config from its current content. It runs on the
-// task-sync debouncer, so it has no caller to return errors to and logs them instead. A
-// cancelled context (the service closed) and a deleted Arc are not errors.
-func (s *Service) resyncTask(ctx context.Context, key Key) {
+// resync rewrites an automation's task config or a module's compile status from its
+// content. It runs on the task-sync debouncer.
+func (s *Service) resync(ctx context.Context, key Key) {
+	s.withArc(ctx, key, "failed to resync arc", Writer.sync)
+}
+
+// resyncImporters schedules a resync of every importer of the module with key. It
+// runs on the importer-sync debouncer.
+func (s *Service) resyncImporters(ctx context.Context, key Key) {
+	s.withArc(ctx, key, "failed to resync arc importers", func(
+		w Writer,
+		ctx context.Context,
+		a Arc,
+	) error {
+		path, err := w.pathOf(ctx, a)
+		if err != nil {
+			return err
+		}
+		keys, err := w.importersOf(ctx, path)
+		if err != nil {
+			return err
+		}
+		w.resyncs.Add(w.tx, keys...)
+		return nil
+	})
+}
+
+// withArc runs fn on the Arc with key in its own transaction. A debouncer callback has
+// no caller to return errors to, so withArc logs them under msg. A cancelled context
+// (the service closed) and a deleted Arc are not errors.
+func (s *Service) withArc(
+	ctx context.Context,
+	key Key,
+	msg string,
+	fn func(Writer, context.Context, Arc) error,
+) {
 	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		var a Arc
 		if err := s.table.NewRetrieve().
@@ -115,11 +160,11 @@ func (s *Service) resyncTask(ctx context.Context, key Key) {
 			Exec(ctx, tx); err != nil {
 			return err
 		}
-		return s.NewWriter(tx).syncTask(ctx, a.Base())
+		return fn(s.NewWriter(tx), ctx, a)
 	})
 	if err == nil || errors.Is(err, context.Canceled) ||
 		errors.Is(err, query.ErrNotFound) {
 		return
 	}
-	s.cfg.L.Error("failed to sync arc task", zap.Error(err), zap.Stringer("key", key))
+	s.cfg.L.Error(msg, zap.Error(err), zap.Stringer("key", key))
 }

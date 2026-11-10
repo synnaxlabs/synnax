@@ -15,6 +15,7 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -36,11 +37,15 @@ func FunctionPropertiesToPB(r types.FunctionProperties) (*FunctionProperties, er
 }
 
 // FunctionPropertiesFromPB converts FunctionProperties to FunctionProperties.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func FunctionPropertiesFromPB(pb *FunctionProperties) (types.FunctionProperties, error) {
 	var r types.FunctionProperties
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Inputs, err = ParamsFromPB(pb.Inputs)
 	if err != nil {
@@ -50,6 +55,7 @@ func FunctionPropertiesFromPB(pb *FunctionProperties) (types.FunctionProperties,
 	if err != nil {
 		return types.FunctionProperties{}, err
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -129,11 +135,15 @@ func TypeToPB(r types.Type) (*Type, error) {
 }
 
 // TypeFromPB converts Type to Type.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func TypeFromPB(pb *Type) (types.Type, error) {
 	var r types.Type
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Inputs, err = ParamsFromPB(pb.Inputs)
 	if err != nil {
@@ -173,6 +183,7 @@ func TypeFromPB(pb *Type) (types.Type, error) {
 		}
 		r.Constraint = &val
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -221,18 +232,25 @@ func ParamToPB(r types.Param) (*Param, error) {
 }
 
 // ParamFromPB converts Param to Param.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ParamFromPB(pb *Param) (types.Param, error) {
 	var r types.Param
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Type, err = TypeFromPB(pb.Type)
-	if err != nil {
-		return types.Param{}, err
+	if pb.Type != nil {
+		r.Type, err = TypeFromPB(pb.Type)
+		if err != nil {
+			return types.Param{}, err
+		}
 	}
 	r.Value = func() any { var v any; _ = json.Unmarshal(pb.Value, &v); return v }()
 	r.Name = pb.Name
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

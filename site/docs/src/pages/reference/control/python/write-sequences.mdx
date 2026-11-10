@@ -20,11 +20,14 @@ method and parameter, see the
 
 ## Prerequisites
 
-- A running Synnax Core.
+- [Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop) on this
+  computer, or a Core that you logged in to with
+  [`sy login`](/reference/client/connect#log-in-once-with-sy-login).
 - The Python client, installed with the [quick start](/reference/client/quick-start).
-- Your credentials, saved with
-  [`sy login`](/reference/client/connect#log-in-once-with-sy-login). The simulator and
-  the script connect with them.
+
+The simulator and the script call `sy.Synnax()` with no arguments. It connects with the
+credentials that `sy login` saved. With no saved credentials, it connects to Synnax
+Desktop on this computer.
 
 <Divider.Divider x />
 
@@ -114,7 +117,9 @@ data arrives on a `read` channel, so `c["press_pt"]` is the latest value of `pre
 
 A value from before the call can satisfy the condition. After a command, a `done` flag
 can still hold the value from the last cycle, and `wait_until` then returns at once. To
-prevent this, wait for the state to leave the old value before you send the command:
+prevent this, wait for the state to leave the old value before you send the command. The
+press simulator does not have these channels. To use this pattern, add your command
+channels to `write` and your `done` channel to `read`:
 
 ```python
     ctrl["reset_cmd"] = True
