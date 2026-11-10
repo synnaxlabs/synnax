@@ -126,7 +126,7 @@ var _ = Describe("Dispatch", func() {
 			DispatchKey: "dk",
 			Actions: []svcdevice.Action{svcdevice.NewSetAction(svcdevice.SetPayload{
 				Path:  []string{"properties"},
-				Value: map[string]any{"port": 2.0},
+				Value: map[string]any{"port": int64(2)},
 			})},
 		}))
 	})

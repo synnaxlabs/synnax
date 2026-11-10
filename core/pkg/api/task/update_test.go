@@ -10,6 +10,8 @@
 package task_test
 
 import (
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
@@ -22,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/patch"
 	. "github.com/synnaxlabs/x/testutil"
@@ -225,6 +228,42 @@ var _ = Describe("Dispatch update", func() {
 		Expect(frames).To(HaveLen(1))
 		Expect(frames[0].DispatchKey).To(Equal("dk"))
 		Expect(frames[0].Actions).To(Equal(res.Actions))
+	})
+
+	It("Should keep an integer above 2^53 exact through the JSON transport", func(
+		ctx SpecContext,
+	) {
+		t := createWith(ctx, svc.HTTP.Read.Type(), map[string]any{
+			"endpoints": []any{map[string]any{
+				"key":    "e1",
+				"method": "GET",
+				"path":   "/",
+				"fields": []any{map[string]any{
+					"key":       "f1",
+					"pointer":   "/v",
+					"data_type": "int64",
+					"optional":  true,
+				}},
+			}},
+		})
+		rec := record()
+		body := fmt.Sprintf(`{"key": %q, "dispatch_key": "dk", "actions": [{
+			"type": "update",
+			"update": {"value": {"config": {"endpoints": {"update": [{
+				"key": "e1",
+				"fields": {"update": [{"key": "f1", "fill_value": 9007199254740993}]}
+			}]}}}}
+		}]}`, t.Key)
+		var req apitask.DispatchRequest
+		Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), req))
+		const exact = `"fill_value":9007199254740993`
+		Expect(string(MustSucceed(json.Codec.Encode(ctx, res)))).
+			To(ContainSubstring(exact))
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(1))
+		Expect(string(MustSucceed(json.Codec.Encode(ctx, frames[0].Actions)))).
+			To(ContainSubstring(exact))
 	})
 
 	It("Should reply with the stored config when storing fills a default", func(
