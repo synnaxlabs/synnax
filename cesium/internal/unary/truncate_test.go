@@ -131,6 +131,61 @@ var _ = Describe("TruncateToIndex", func() {
 				},
 			)
 
+			It("Should name the domain when the delete fails", func(ctx SpecContext) {
+				dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3, 4))
+				Expect(indexDB.Delete(
+					ctx,
+					(12 * telem.SecondTS).Range(20*telem.SecondTS),
+				)).To(Succeed())
+				fs.SetOptions(WithFailWrite(), WithFailWriteAt())
+				err := dataDB.TruncateToIndex(ctx)
+				Expect(err).To(MatchError(ErrFault))
+				Expect(err).To(MatchError(ContainSubstring(
+					"domain " + (10 * telem.SecondTS).Range(13*telem.SecondTS+1).
+						String(),
+				)))
+			})
+
+			It("Should name the domain when reading the index fails",
+				func(ctx SpecContext) {
+					dataDB := MustOpen(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(fs.Sub("data")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "data",
+							DataType: telem.Int64T,
+							Index:    indexDB.Channel().Key,
+						},
+						Instrumentation: PanicLogger(),
+					}))
+					dataDB.SetIndex(indexDB.Index())
+					Expect(unary.Write(
+						ctx,
+						indexDB,
+						10*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(10, 11, 12, 13),
+					)).To(Succeed())
+					Expect(unary.Write(
+						ctx,
+						dataDB,
+						12*telem.SecondTS,
+						telem.NewSeriesV[int64](1, 2),
+					)).To(Succeed())
+					Expect(indexDB.Delete(
+						ctx,
+						(13 * telem.SecondTS).Range(20*telem.SecondTS),
+					)).To(Succeed())
+					fs.SetOptions(WithFailReadAt())
+					err := dataDB.TruncateToIndex(ctx)
+					Expect(err).To(MatchError(ErrFault))
+					Expect(err).To(MatchError(ContainSubstring(
+						"domain " + (12 * telem.SecondTS).
+							Range(13*telem.SecondTS+1).String(),
+					)))
+				},
+			)
+
 			It("Should remove a domain whose start no index domain holds",
 				func(ctx SpecContext) {
 					dataDB := openData(ctx, telem.NewSeriesV[int64](1, 2, 3))
