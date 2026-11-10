@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
@@ -41,11 +42,11 @@ var _ = Describe("Apply of a move", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
-		target = lineplot.LinePlot{Name: "target", Project: &proj.Key}
+		target = defaults.Fill(lineplot.LinePlot{Name: "target", Project: &proj.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &target)
 		})).To(Succeed())
-		other = lineplot.LinePlot{Name: "other", Project: &proj.Key}
+		other = defaults.Fill(lineplot.LinePlot{Name: "other", Project: &proj.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &other)
 		})).To(Succeed())
@@ -280,7 +281,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			created := lineplot.LinePlot{Name: "concurrent", Project: &proj.Key}
+			created := defaults.Fill(
+				lineplot.LinePlot{Name: "concurrent", Project: &proj.Key},
+			)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &created)
 			})).To(Succeed())
@@ -369,7 +372,9 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			moving := lineplot.LinePlot{Name: "moving", Project: &proj.Key}
+			moving := defaults.Fill(
+				lineplot.LinePlot{Name: "moving", Project: &proj.Key},
+			)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &moving)
 			})).To(Succeed())
@@ -463,7 +468,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 			Expect(moveDB.WithTx(ctx, func(tx gorp.Tx) error {
 				return groups.NewWriter(tx).Create(ctx, &g)
 			})).To(Succeed())
-			lp := lineplot.LinePlot{Name: "member", Group: &g.Key}
+			lp := defaults.Fill(lineplot.LinePlot{Name: "member", Group: &g.Key})
 			Expect(moveDB.WithTx(ctx, func(tx gorp.Tx) error {
 				return plots.NewWriter(tx).Create(ctx, &lp)
 			})).To(Succeed())

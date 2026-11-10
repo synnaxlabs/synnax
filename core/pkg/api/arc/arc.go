@@ -74,6 +74,10 @@ type ServiceConfig struct {
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,
 	]
+	// Stopper stops the running tasks of a delete.
+	//
+	// [REQUIRED]
+	Stopper *task.Stopper
 }
 
 var (
@@ -90,6 +94,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	c.DispatchChannel = override.Nil(c.DispatchChannel, other.DispatchChannel)
+	c.Stopper = override.Nil(c.Stopper, other.Stopper)
 	return c
 }
 
@@ -101,6 +106,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
 	v.NotNil("dispatch_channel", c.DispatchChannel)
+	v.NotNil("stopper", c.Stopper)
 	return v.Error()
 }
 
@@ -113,6 +119,7 @@ type Service struct {
 		apichannel.DispatchRequest,
 		apichannel.DispatchResponse,
 	]
+	stopper *task.Stopper
 	alamos.Instrumentation
 }
 
@@ -128,6 +135,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		status:          cfg.Status,
 		rbac:            cfg.RBAC,
 		dispatchChannel: cfg.DispatchChannel,
+		stopper:         cfg.Stopper,
 	}, nil
 }
 
@@ -163,10 +171,37 @@ type DeleteRequest struct {
 	Keys []arc.Key `json:"keys" msgpack:"keys"`
 }
 
+// PrepareDelete stops the running tasks of the Arcs in req and waits for them to stop,
+// for at most the timeout of the Stopper in total. PrepareDelete returns
+// access.ErrDenied, and stops nothing, when the subject cannot delete an Arc in req or
+// one of its tasks.
+func (s *Service) PrepareDelete(
+	ctx context.Context,
+	req DeleteRequest,
+) (struct{}, error) {
+	var taskKeys []task.Key
+	if err := s.db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
+		if taskKeys, err = s.internal.TaskKeys(ctx, snap, req.Keys...); err != nil {
+			return err
+		}
+		return s.rbac.NewEnforcer(snap).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionDelete,
+			Objects: append(arc.ResourceIDs(req.Keys), task.ResourceIDs(taskKeys)...),
+		})
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.stopper.Stop(ctx, taskKeys)
+}
+
+// Delete deletes the Arcs in req and their tasks. Run PrepareDelete first to stop the
+// tasks.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
+	_ struct{},
 ) (struct{}, error) {
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }
@@ -253,6 +288,16 @@ func (s *Service) Retrieve(
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
 	}
+	if req.IncludeStatus {
+		if err = s.includeStatus(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
+	if req.IncludeChanges {
+		if err = s.includeChanges(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
 }
 
@@ -274,6 +319,57 @@ func (s *Service) Compiled(
 		}
 		return res, nil
 	}
+}
+
+// includeChanges attaches to each automation what changed since its task was
+// deployed. An automation that was never deployed and a module get none.
+func (s *Service) includeChanges(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	records, err := s.internal.RetrieveDrift(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i, a := range arcs {
+		automation, ok := a.Variant.(arc.AutomationArc)
+		if !ok {
+			continue
+		}
+		if rec, ok := records[automation.Key]; ok {
+			automation.Changes = arc.Changes(rec)
+		}
+		arcs[i].Variant = automation
+	}
+	return nil
+}
+
+// includeStatus attaches each module's compile status. An automation has none.
+func (s *Service) includeStatus(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	ids := make([]resource.ID, len(arcs))
+	for i, a := range arcs {
+		ids[i] = a.ResourceID()
+	}
+	statuses, err := s.status.Join[struct{}](ctx, snap, ids)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		if module, ok := arcs[i].Variant.(arc.ModuleArc); ok {
+			module.Status = st
+			arcs[i].Variant = module
+		}
+	}
+	return nil
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

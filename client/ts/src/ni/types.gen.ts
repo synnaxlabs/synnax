@@ -396,14 +396,6 @@ export const baseAOChannelZ = z.object({
   key: z.string().default(id.create),
   /** disabled is true when the channel is excluded from the task. */
   disabled: z.boolean().default(false),
-  /** cmdChannel is the Synnax channel commands are read from. */
-  cmdChannel: channel.keyZ.default(0),
-  /** stateChannel is the Synnax channel the output state is written to. */
-  stateChannel: channel.keyZ.default(0),
-  /** cmdChannelName is the human-readable name of the command channel. */
-  cmdChannelName: z.string().default(""),
-  /** stateChannelName is the human-readable name of the state channel. */
-  stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
   port: z.uint32().default(0),
 });
@@ -458,15 +450,15 @@ export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 /** AnalogInputPort is an analog input port of an NI device. */
 export const analogInputPortZ = z.object({
   /** port is the number in the DAQmx name of the port, such as 3 for ai3. */
-  port: z.uint32(),
+  port: zod.uint16,
   /** terminalConfigs are the terminal configurations that the port accepts. */
   terminalConfigs: terminalConfigZ.array().default(() => []),
   /**
    * defaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-   * port. Absent when the port accepts none, or accepts more than one and takes no
-   * voltage or current channel.
+   * port. The value Cfg_Default means that the Driver did not read it. DAQmx always
+   * reads back a real configuration.
    */
-  defaultTerminalConfig: terminalConfigZ.optional(),
+  defaultTerminalConfig: terminalConfigZ.default("Cfg_Default"),
   /** types are the channel types that the port accepts, such as ai_voltage. */
   types: z
     .string()
@@ -474,16 +466,16 @@ export const analogInputPortZ = z.object({
     .default(() => []),
   /**
    * negative is the port that a differential channel on this port uses as its negative
-   * input. Absent when the port has no pair.
+   * input. 0 means that the port has no pair. Port 0 is never a negative port.
    */
-  negative: z.uint32().optional(),
+  negative: zod.uint16.default(0),
 });
 export interface AnalogInputPort extends z.infer<typeof analogInputPortZ> {}
 
 /** AnalogOutputPort is an analog output port of an NI device. */
 export const analogOutputPortZ = z.object({
   /** port is the number in the DAQmx name of the port, such as 1 for ao1. */
-  port: z.uint32(),
+  port: zod.uint16,
   /** terminalConfigs are the terminal configurations that the port accepts. */
   terminalConfigs: terminalConfigZ.array().default(() => []),
   /** types are the channel types that the port accepts, such as ao_voltage. */
@@ -497,7 +489,7 @@ export interface AnalogOutputPort extends z.infer<typeof analogOutputPortZ> {}
 /** CounterPort is a counter of an NI device. */
 export const counterPortZ = z.object({
   /** port is the number in the DAQmx name of the counter, such as 0 for ctr0. */
-  port: z.uint32(),
+  port: zod.uint16,
   /** types are the channel types that the counter accepts, such as ci_frequency. */
   types: z
     .string()
@@ -509,7 +501,7 @@ export interface CounterPort extends z.infer<typeof counterPortZ> {}
 /** DigitalPort is a digital port of an NI device. */
 export const digitalPortZ = z.object({
   /** port is the number in the DAQmx name of the port, such as 0 for port0. */
-  port: z.uint32(),
+  port: zod.uint16,
   /** lines is the number of lines in the port. */
   lines: zod.uint8.max(32),
   /** input is true when the port reads digital input. */
@@ -518,6 +510,22 @@ export const digitalPortZ = z.object({
   output: z.boolean().default(false),
 });
 export interface DigitalPort extends z.infer<typeof digitalPortZ> {}
+
+/**
+ * CommandedAOChannel carries the command and state channels of a commanded analog
+ * output.
+ */
+export const commandedAOChannelZ = z.object({
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.default(0),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.default(0),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().default(""),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().default(""),
+});
+export interface CommandedAOChannel extends z.infer<typeof commandedAOChannelZ> {}
 
 /** BuiltInCJC reads the reference temperature from the device's own sensor. */
 export const builtInCJCZ = z.object({
@@ -682,12 +690,6 @@ export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> 
  * NI device. The Driver stores it in the device properties under hardware.
  */
 export const hardwareZ = z.object({
-  /**
-   * productCategory is the DAQmx product category of the device, such as m_series_daq.
-   */
-  productCategory: z.string().default(""),
-  /** productType is the DAQmx product name of the device, such as USB-6008. */
-  productType: z.string().default(""),
   /** analogInputs are the analog input ports of the device. */
   analogInputs: analogInputPortZ.array().default(() => []),
   /** analogOutputs are the analog output ports of the device. */
@@ -705,20 +707,27 @@ export const hardwareZ = z.object({
     .string()
     .array()
     .default(() => []),
-  /** aiMinRate is the lowest analog input sample rate, in Hz. */
-  aiMinRate: z.number().optional(),
+  /**
+   * aiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
+   * does not support the attribute.
+   */
+  aiMinRate: z.number().default(0),
   /**
    * aiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
-   * Hz.
+   * Hz. 0 means that the device does not support the attribute.
    */
-  aiMaxSingleChannelRate: z.number().optional(),
+  aiMaxSingleChannelRate: z.number().default(0),
   /**
    * aiMaxMultiChannelRate is the highest analog input sample rate of the device, in Hz.
-   * A task with several channels divides it by the channel count.
+   * A task with several channels divides it by the channel count. 0 means that the
+   * device does not support the attribute.
    */
-  aiMaxMultiChannelRate: z.number().optional(),
-  /** aoMaxRate is the highest analog output sample rate, in Hz. */
-  aoMaxRate: z.number().optional(),
+  aiMaxMultiChannelRate: z.number().default(0),
+  /**
+   * aoMaxRate is the highest analog output sample rate, in Hz. 0 means that the device
+   * does not support the attribute.
+   */
+  aoMaxRate: z.number().default(0),
   /**
    * aiVoltageRanges are the analog input voltage ranges of the device, ends included.
    */
@@ -1700,12 +1709,15 @@ export const CI_CHANNEL_SCHEMAS: {
 export const aoCurrentChannelZ = baseAOChannelZ
   .extend(minMaxValZ.shape)
   .extend(customScaleZ.shape)
+  .extend(commandedAOChannelZ.shape)
   .extend({
     type: z.literal("ao_current"),
   });
 export interface AOCurrentChannel extends z.infer<typeof aoCurrentChannelZ> {}
 
-/** AOFuncGenChannel drives a function-generator output. */
+/**
+ * AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
+ */
 export const aoFuncGenChannelZ = baseAOChannelZ.extend({
   type: z.literal("ao_func_gen"),
   /** waveType selects the waveform to generate. */
@@ -1723,6 +1735,7 @@ export interface AOFuncGenChannel extends z.infer<typeof aoFuncGenChannelZ> {}
 export const aoVoltageChannelZ = baseAOChannelZ
   .extend(minMaxValZ.shape)
   .extend(customScaleZ.shape)
+  .extend(commandedAOChannelZ.shape)
   .extend({
     type: z.literal("ao_voltage"),
   });

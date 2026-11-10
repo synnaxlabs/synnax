@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/defaults"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/query"
@@ -64,7 +65,7 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Project: &proj, Name: name}
+	l := defaults.Fill(log.Log{Project: &proj, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return logSvc.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())
@@ -78,7 +79,7 @@ func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 
 func createLinePlot(ctx SpecContext, proj project.Key, name string) lineplot.LinePlot {
 	GinkgoHelper()
-	lp := lineplot.LinePlot{Project: &proj, Name: name}
+	lp := defaults.Fill(lineplot.LinePlot{Project: &proj, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return lineplotSvc.NewWriter(tx).Create(ctx, &lp)
 	})).To(Succeed())

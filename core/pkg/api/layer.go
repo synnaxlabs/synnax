@@ -709,7 +709,9 @@ func (l *Layer) BindTo(t Transport) {
 
 	// ARC
 	t.ArcCreate.BindHandler(bind.Write(l.binder, l.Arc.Create))
-	t.ArcDelete.BindHandler(bind.Write(l.binder, l.Arc.Delete))
+	t.ArcDelete.BindHandler(
+		bind.WritePrepared(l.binder, l.Arc.PrepareDelete, l.Arc.Delete),
+	)
 	t.ArcRetrieve.BindHandler(l.Arc.Compiled(bind.Read(l.binder, l.Arc.Retrieve)))
 	t.ArcDispatch.BindHandler(bind.Write(l.binder, l.Arc.Dispatch))
 	t.ArcUpdateTask.BindHandler(bind.Write(l.binder, l.Arc.UpdateTask))
@@ -872,11 +874,11 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Task, err = task.NewService(task.ServiceConfig{
-		DB:     cfg.Distribution.DB,
-		Task:   cfg.Service.Task,
-		Status: cfg.Service.Status,
-		RBAC:   cfg.Service.RBAC,
-		Framer: cfg.Service.Framer,
+		DB:      cfg.Distribution.DB,
+		Task:    cfg.Service.Task,
+		Status:  cfg.Service.Status,
+		RBAC:    cfg.Service.RBAC,
+		Stopper: cfg.Service.TaskStopper,
 	}); err != nil {
 		return nil, err
 	}
@@ -909,6 +911,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Status:          cfg.Service.Status,
 		RBAC:            cfg.Service.RBAC,
 		DispatchChannel: bind.Write(l.binder, l.Channel.Dispatch),
+		Stopper:         cfg.Service.TaskStopper,
 	}); err != nil {
 		return nil, err
 	}

@@ -16,8 +16,13 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
+
+// ErrReported marks an error whose cause already has a diagnostic. Add drops a
+// diagnostic built from it, so one mistake reports once.
+var ErrReported = errors.New("already reported")
 
 // Advance returns the position reached by walking off bytes of body from pos, resetting
 // the character on each newline. Positions are 0-indexed, matching protocol.Position.
@@ -183,7 +188,12 @@ func (d Diagnostics) Unwrap() []error {
 	return causes
 }
 
+// Add appends diag unless its cause was already reported or an equal diagnostic sits
+// at the same position.
 func (d *Diagnostics) Add(diag Diagnostic) {
+	if errors.Is(diag.cause, ErrReported) {
+		return
+	}
 	for _, idx := range d.AtLocation(diag.Range.Start) {
 		existing := (*d)[idx]
 		if existing.Message == diag.Message {

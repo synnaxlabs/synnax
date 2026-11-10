@@ -648,19 +648,11 @@ class BaseAOChannel(BaseModel):
     Attributes:
         key: Uniquely identifies the channel within the task.
         disabled: Is true when the channel is excluded from the task.
-        cmd_channel: Is the Synnax channel commands are read from.
-        state_channel: Is the Synnax channel the output state is written to.
-        cmd_channel_name: Is the human-readable name of the command channel.
-        state_channel_name: Is the human-readable name of the state channel.
         port: Is the physical port the channel writes to.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    cmd_channel_name: str = ""
-    state_channel_name: str = ""
     port: int = Field(default=0, ge=0, le=4294967295)
 
     @_override
@@ -749,18 +741,19 @@ class AnalogInputPort(BaseModel):
         port: Is the number in the DAQmx name of the port, such as 3 for ai3.
         terminal_configs: Are the terminal configurations that the port accepts.
         default_terminal_config: Is the terminal configuration that Cfg_Default gives on
-            the port. Absent when the port accepts none, or accepts more than one and
-            takes no voltage or current channel.
+            the port. The value Cfg_Default means that the Driver did not read it. DAQmx
+            always reads back a real configuration.
         types: Are the channel types that the port accepts, such as ai_voltage.
         negative: Is the port that a differential channel on this port uses as its
-            negative input. Absent when the port has no pair.
+            negative input. 0 means that the port has no pair. Port 0 is never a
+            negative port.
     """
 
-    port: int = Field(ge=0, le=4294967295)
+    port: int = Field(ge=0, le=65535)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
-    default_terminal_config: TerminalConfig | None = None
+    default_terminal_config: TerminalConfig = "Cfg_Default"
     types: list[str] = Field(default_factory=list)
-    negative: int | None = Field(default=None, ge=0, le=4294967295)
+    negative: int = Field(default=0, ge=0, le=65535)
 
 
 class AnalogOutputPort(BaseModel):
@@ -772,7 +765,7 @@ class AnalogOutputPort(BaseModel):
         types: Are the channel types that the port accepts, such as ao_voltage.
     """
 
-    port: int = Field(ge=0, le=4294967295)
+    port: int = Field(ge=0, le=65535)
     terminal_configs: list[TerminalConfig] = Field(default_factory=list)
     types: list[str] = Field(default_factory=list)
 
@@ -785,7 +778,7 @@ class CounterPort(BaseModel):
         types: Are the channel types that the counter accepts, such as ci_frequency.
     """
 
-    port: int = Field(ge=0, le=4294967295)
+    port: int = Field(ge=0, le=65535)
     types: list[str] = Field(default_factory=list)
 
 
@@ -799,10 +792,26 @@ class DigitalPort(BaseModel):
         output: Is true when the port writes digital output.
     """
 
-    port: int = Field(ge=0, le=4294967295)
+    port: int = Field(ge=0, le=65535)
     lines: int = Field(ge=0, le=32)
     input: bool = False
     output: bool = False
+
+
+class CommandedAOChannel(BaseModel):
+    """Carries the command and state channels of a commanded analog output.
+
+    Attributes:
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+    """
+
+    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    cmd_channel_name: str = ""
+    state_channel_name: str = ""
 
 
 class BuiltInCJC(BaseModel):
@@ -923,9 +932,6 @@ class Hardware(BaseModel):
     device. The Driver stores it in the device properties under hardware.
 
     Attributes:
-        product_category: Is the DAQmx product category of the device, such as
-            m_series_daq.
-        product_type: Is the DAQmx product name of the device, such as USB-6008.
         analog_inputs: Are the analog input ports of the device.
         analog_outputs: Are the analog output ports of the device.
         counter_inputs: Are the counters of the device that read input.
@@ -933,12 +939,15 @@ class Hardware(BaseModel):
         digital_ports: Are the digital ports of the device.
         terminals: Are the terminals of the device, such as PFI0, without the device
             name.
-        ai_min_rate: Is the lowest analog input sample rate, in Hz.
+        ai_min_rate: Is the lowest analog input sample rate, in Hz. 0 means that the
+            device does not support the attribute.
         ai_max_single_channel_rate: Is the highest analog input sample rate of one
-            channel, in Hz.
+            channel, in Hz. 0 means that the device does not support the attribute.
         ai_max_multi_channel_rate: Is the highest analog input sample rate of the
             device, in Hz. A task with several channels divides it by the channel count.
-        ao_max_rate: Is the highest analog output sample rate, in Hz.
+            0 means that the device does not support the attribute.
+        ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
+            device does not support the attribute.
         ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
             included.
         ai_current_ranges: Are the analog input current ranges of the device, ends
@@ -949,18 +958,16 @@ class Hardware(BaseModel):
             included.
     """
 
-    product_category: str = ""
-    product_type: str = ""
     analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
     analog_outputs: list[AnalogOutputPort] = Field(default_factory=list)
     counter_inputs: list[CounterPort] = Field(default_factory=list)
     counter_outputs: list[CounterPort] = Field(default_factory=list)
     digital_ports: list[DigitalPort] = Field(default_factory=list)
     terminals: list[str] = Field(default_factory=list)
-    ai_min_rate: float | None = None
-    ai_max_single_channel_rate: float | None = None
-    ai_max_multi_channel_rate: float | None = None
-    ao_max_rate: float | None = None
+    ai_min_rate: telem.Rate = telem.Rate(0)
+    ai_max_single_channel_rate: telem.Rate = telem.Rate(0)
+    ai_max_multi_channel_rate: telem.Rate = telem.Rate(0)
+    ao_max_rate: telem.Rate = telem.Rate(0)
     ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
     ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
@@ -1446,14 +1453,14 @@ CIChannel = Annotated[
 ]
 
 
-class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a current output."""
 
     type: Literal["ao_current"] = "ao_current"
 
 
 class AOFuncGenChannel(BaseAOChannel):
-    """Drives a function-generator output."""
+    """Generates a waveform from task start to task stop, with no commands."""
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
@@ -1462,7 +1469,7 @@ class AOFuncGenChannel(BaseAOChannel):
     offset: float = 0
 
 
-class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a voltage output."""
 
     type: Literal["ao_voltage"] = "ao_voltage"

@@ -1537,10 +1537,6 @@ var _ = Describe("Read task", func() {
 		Entry("a number beyond float32",
 			telem.Float32T, http.TimeFormatUnixNs, nil,
 			map[string]any{"ts": 10e9, "v": 1e39}, "1e+39 overflows float32"),
-		Entry("an enum value beyond the channel's range",
-			telem.Int8T, http.TimeFormatUnixNs,
-			[]http.EnumEntry{{Label: "BIG", Value: 200}},
-			map[string]any{"ts": 10e9, "v": "BIG"}, "200 is out of range for int8"),
 		Entry("an integer timestamp beyond the nanosecond range",
 			telem.Float64T, http.TimeFormatUnixMs, nil,
 			map[string]any{"ts": int64(1_000_000_000_000_000_000), "v": 1.5},
@@ -1586,6 +1582,28 @@ var _ = Describe("Read task", func() {
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{Key: "v", Channel: data.Key()}}
 			}, "pointer"),
+		Entry("an enum value beyond the channel's range",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.Int8T)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.Int8T,
+					EnumValues: []http.EnumEntry{{Label: "BIG", Value: 200}},
+				}}
+			}, `enum label "BIG": 200 is out of range for int8`),
+		Entry("an enum value on a string channel",
+			func(ctx context.Context, _, _ channel.Channel) []kafka.ReadField {
+				_, data := createIndexed(ctx, telem.StringT)
+				return []kafka.ReadField{{
+					Key:        "v",
+					Channel:    data.Key(),
+					Pointer:    "/v",
+					DataType:   telem.StringT,
+					EnumValues: []http.EnumEntry{{Label: "ON", Value: 1}},
+				}}
+			}, `enum label "ON": a float64 value does not convert to string`),
 		Entry("a pointer without a leading slash",
 			func(_ context.Context, _, data channel.Channel) []kafka.ReadField {
 				return []kafka.ReadField{{

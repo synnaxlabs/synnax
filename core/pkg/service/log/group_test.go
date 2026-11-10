@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,11 +39,11 @@ var _ = Describe("Apply of a move", func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return groupSvc.NewWriter(tx).Create(ctx, &g)
 		})).To(Succeed())
-		target = log.Log{Name: "target", Project: &proj.Key}
+		target = defaults.Fill(log.Log{Name: "target", Project: &proj.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &target)
 		})).To(Succeed())
-		other = log.Log{Name: "other", Project: &proj.Key}
+		other = defaults.Fill(log.Log{Name: "other", Project: &proj.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &other)
 		})).To(Succeed())
@@ -266,7 +267,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			created := log.Log{Name: "concurrent", Project: &proj.Key}
+			created := defaults.Fill(log.Log{Name: "concurrent", Project: &proj.Key})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &created)
 			})).To(Succeed())
@@ -355,7 +356,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			moving := log.Log{Name: "moving", Project: &proj.Key}
+			moving := defaults.Fill(log.Log{Name: "moving", Project: &proj.Key})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &moving)
 			})).To(Succeed())

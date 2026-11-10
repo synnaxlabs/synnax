@@ -13,7 +13,10 @@ import { z } from "zod";
 
 import { keyZ, nameZ, type New, type Payload, payloadZ } from "@/channel/types.gen";
 
-const createReqZ = z.object({ channels: payloadZ.array() });
+const createReqZ = z.object({
+  channels: payloadZ.array(),
+  retrieveIfNameExists: z.boolean(),
+});
 const createResZ = z.object({ channels: payloadZ.array() });
 
 const deleteReqZ = z.object({
@@ -31,7 +34,7 @@ export class Writer {
     this.client = client;
   }
 
-  async create(channels: New[]): Promise<Payload[]> {
+  async create(channels: New[], retrieveIfNameExists: boolean): Promise<Payload[]> {
     const { channels: created } = await this.client.send(
       "/channel/create",
       {
@@ -39,6 +42,7 @@ export class Writer {
           ...c,
           dataType: c.dataType as DataType,
         })),
+        retrieveIfNameExists,
       },
       createReqZ,
       createResZ,

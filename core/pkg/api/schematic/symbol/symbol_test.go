@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
@@ -83,7 +84,9 @@ var _ = Describe("Create", func() {
 		grantCreateOn(ctx, u.ResourceID(), symbolType)
 		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		res := MustSucceed(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
-			Symbols: []symbol.Symbol{inGroup("Inlet", g), inGroup("Outlet", g)},
+			Symbols: defaults.Fill(
+				[]symbol.Symbol{inGroup("Inlet", g), inGroup("Outlet", g)},
+			),
 		}))
 		Expect(res.Symbols).To(HaveLen(2))
 		Expect(groupSymbols(ctx, g.Key)).To(ConsistOf(
@@ -98,7 +101,7 @@ var _ = Describe("Create", func() {
 		g := createGroup(ctx, "uncreatable")
 		grantUpdateOn(ctx, u.ResourceID(), g.ResourceID())
 		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
-			Symbols: []symbol.Symbol{inGroup("Inlet", g)},
+			Symbols: defaults.Fill([]symbol.Symbol{inGroup("Inlet", g)}),
 		})).Error().To(deniedOnType(
 			u.ResourceID(),
 			access.ActionCreate,
@@ -113,7 +116,7 @@ var _ = Describe("Create", func() {
 		g := createGroup(ctx, "ungranted-group")
 		grantCreateOn(ctx, u.ResourceID(), symbolType)
 		Expect(create(AuthedCtx(ctx, u), apisymbol.CreateRequest{
-			Symbols: []symbol.Symbol{inGroup("Inlet", g)},
+			Symbols: defaults.Fill([]symbol.Symbol{inGroup("Inlet", g)}),
 		})).Error().To(denied(u.ResourceID(), access.ActionUpdate, g.ResourceID()))
 		Expect(groupSymbols(ctx, g.Key)).To(BeEmpty())
 	})

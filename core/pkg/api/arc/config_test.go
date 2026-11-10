@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -31,6 +32,7 @@ var _ = Describe("ServiceConfig", func() {
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
 			RBAC:            &rbac.Service{},
+			Stopper:         &task.Stopper{},
 			DispatchChannel: func(
 				context.Context,
 				apichannel.DispatchRequest,
@@ -77,6 +79,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiarc.ServiceConfig) { c.DispatchChannel = nil },
 				"dispatch_channel: must be non-nil",
 			),
+			Entry(
+				"stopper",
+				func(c *apiarc.ServiceConfig) { c.Stopper = nil },
+				"stopper: must be non-nil",
+			),
 		)
 	})
 
@@ -89,6 +96,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.DispatchChannel).ToNot(BeNil())
+			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 
@@ -100,6 +108,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.DispatchChannel).ToNot(BeNil())
+			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 	})
