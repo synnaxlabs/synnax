@@ -151,8 +151,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 			}
 		}
 		u.SetIndex(idxDB.Index())
-		// An untruncated channel is the state that a crash leaves, so the DB opens
-		// and only reads of the cut range fail.
+		// A failed truncation does not stop the DB from opening. The channel opens
+		// untruncated, as a crash leaves it, or cut in memory when only the save of
+		// the cut failed.
 		if truncErr := u.TruncateToIndex(ctx); truncErr != nil {
 			db.L.Error(
 				"failed to truncate a channel to the samples its index has timestamps for",
