@@ -394,8 +394,8 @@ type ImportOptions struct {
 	// FileName is the name of the file the envelope was read from, possibly carrying
 	// directory segments. When the envelope body has no `name` field, the file's base
 	// name — with any trailing extension stripped — becomes the envelope's name. A
-	// `name` in the body always wins. The registry applies the fallback before the
-	// envelope reaches an Importer.
+	// `name` in the body always wins. Service.Import applies the fallback before the
+	// envelope reaches an Importer, and a Write ignores the field.
 	FileName string
 	// Parent is the resource to create the imported resource under, such as the project
 	// of a workspace item. The registry passes it through untouched; each Importer

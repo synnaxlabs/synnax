@@ -526,9 +526,8 @@ func (s *Service) Import(
 			continue
 		}
 		id, err := m.write(ctx, tx, imex.ImportOptions{
-			FileName: m.path,
-			Parent:   projID,
-			Group:    groups[path.Dir(m.path)],
+			Parent: projID,
+			Group:  groups[path.Dir(m.path)],
 		})
 		if err != nil {
 			return project.Project{}, errors.Wrap(err, m.path)
@@ -571,10 +570,7 @@ func (s *Service) importLegacy(
 	projID := project.ResourceID(proj.Key)
 	refs := make(map[string]resource.ID, len(b.legacyMembers))
 	for _, m := range b.legacyMembers {
-		id, err := m.write(ctx, tx, imex.ImportOptions{
-			FileName: m.path,
-			Parent:   projID,
-		})
+		id, err := m.write(ctx, tx, imex.ImportOptions{Parent: projID})
 		if err != nil {
 			return project.Project{}, errors.Wrap(err, m.path)
 		}
