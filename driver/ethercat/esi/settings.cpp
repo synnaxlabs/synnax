@@ -205,7 +205,7 @@ bool ends(x::errors::Error &first, const x::errors::Error &err) {
 /// @brief removes each item for which drop returns true. Returns whether it removed
 /// any.
 template<typename Drop>
-bool remove_if(x::json::json &items, Drop &&drop) {
+bool remove_if(x::json::json &items, const Drop &drop) {
     auto kept = x::json::json::array();
     for (auto &item: items)
         if (!drop(item)) kept.push_back(std::move(item));
@@ -244,7 +244,7 @@ std::set<Address> prune(x::json::json &settings) {
 /// @brief removes each setting for which read_one returns an error. Returns the first
 /// error, or at once an error that ends the read.
 template<typename ReadOne>
-x::errors::Error read_each(x::json::json &settings, ReadOne &&read_one) {
+x::errors::Error read_each(x::json::json &settings, const ReadOne &read_one) {
     x::errors::Error first;
     auto kept = x::json::json::array();
     for (auto &setting: settings) {
