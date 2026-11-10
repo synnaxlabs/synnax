@@ -43,6 +43,7 @@ const (
 	PathArcDirectoryDispatch    = "/arc/directory/dispatch"
 	PathViewDispatch            = "/view/dispatch"
 	PathSecretDispatch          = "/secret/dispatch"
+	PathCertificateDispatch     = "/certificate/dispatch"
 )
 
 // batchRoutes returns the handler of each endpoint a batch accepts. Every handler does
@@ -80,5 +81,6 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathArcDirectoryDispatch:    batch.Route(l.Arc.DispatchDirectory),
 		PathViewDispatch:            batch.Route(l.View.Dispatch),
 		PathSecretDispatch:          batch.Route(l.Secret.Dispatch),
+		PathCertificateDispatch:     batch.Route(l.Certificate.Dispatch),
 	}
 }

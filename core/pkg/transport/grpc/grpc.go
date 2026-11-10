@@ -209,9 +209,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.SecretResolve = noop.UnaryServer[apisecret.ResolveRequest, apisecret.ResolveResponse]{}
 
 	// CERTIFICATE
-	t.CertificateCreate = noop.UnaryServer[apicertificate.CreateRequest, apicertificate.CreateResponse]{}
+	t.CertificateSet = noop.UnaryServer[apicertificate.SetRequest, apicertificate.SetResponse]{}
 	t.CertificateRetrieve = noop.UnaryServer[apicertificate.RetrieveRequest, apicertificate.RetrieveResponse]{}
-	t.CertificateRename = noop.UnaryServer[apicertificate.RenameRequest, struct{}]{}
 	t.CertificateDelete = noop.UnaryServer[apicertificate.DeleteRequest, struct{}]{}
 	t.CertificateDispatch = noop.UnaryServer[apicertificate.DispatchRequest, struct{}]{}
 

@@ -108,7 +108,7 @@ var _ = Describe("Dispatch", func() {
 			CertificatePath: "/etc/plant.pem",
 		}}
 		Expect(write(ctx, func(w certificate.Writer) error {
-			return w.Create(ctx, &created, nil)
+			return w.Set(ctx, &created, nil)
 		})).To(Succeed())
 		frames := rec.Snapshot()
 		Expect(frames).To(HaveLen(1))

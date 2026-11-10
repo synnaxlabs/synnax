@@ -136,7 +136,7 @@ func (e *env) create(
 ) certificate.Certificate {
 	GinkgoHelper()
 	Expect(e.write(ctx, func(w certificate.Writer) error {
-		return w.Create(ctx, &c, privateKey)
+		return w.Set(ctx, &c, privateKey)
 	})).To(Succeed())
 	return c
 }
@@ -267,7 +267,7 @@ var _ = Describe("Service", func() {
 				)
 				created := stored("Created", pemText)
 				Expect(e.write(ctx, func(w certificate.Writer) error {
-					if err := w.Create(ctx, &created, nil); err != nil {
+					if err := w.Set(ctx, &created, nil); err != nil {
 						return err
 					}
 					if err := w.Rename(ctx, renamed.Base().Key, "After"); err != nil {

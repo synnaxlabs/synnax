@@ -653,17 +653,13 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// CERTIFICATE
-		CertificateCreate: unary[certificate.CreateRequest, certificate.CreateResponse](
+		CertificateSet: unary[certificate.SetRequest, certificate.SetResponse](
 			router,
-			"/api/v1/certificate/create",
+			"/api/v1/certificate/set",
 		),
 		CertificateRetrieve: unary[certificate.RetrieveRequest, certificate.RetrieveResponse](
 			router,
 			"/api/v1/certificate/retrieve",
-		),
-		CertificateRename: unary[certificate.RenameRequest, struct{}](
-			router,
-			"/api/v1/certificate/rename",
 		),
 		CertificateDelete: unary[certificate.DeleteRequest, struct{}](
 			router,
@@ -671,7 +667,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 		CertificateDispatch: unary[certificate.DispatchRequest, struct{}](
 			router,
-			"/api/v1/certificate/dispatch",
+			"/api/v1"+api.PathCertificateDispatch,
 		),
 
 		// IMPORT/EXPORT

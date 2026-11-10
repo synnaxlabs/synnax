@@ -43,10 +43,10 @@ const SHA1 = "c67f3f9384d557875ab3dc59bea3d9e11239ea73";
 const SHA256 = "20637df2df608327ed9cd031811c822513256444225a7bf655559f0baee4a970";
 
 describe("Certificate", () => {
-  describe("create", () => {
+  describe("set", () => {
     it("should read the details of a stored certificate", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Broker CA",
         source: "stored",
         pem: PEM,
@@ -63,7 +63,7 @@ describe("Certificate", () => {
 
     it("should save a private key as a secret", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Client certificate",
         source: "stored",
         pem: PEM,
@@ -76,14 +76,14 @@ describe("Certificate", () => {
 
     it("should keep the private key of a retrieved certificate saved again", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Before",
         source: "stored",
         pem: PEM,
         privateKeyPem: PRIVATE_KEY,
       });
       assert(c.source === "stored" && c.privateKey != null);
-      const renamed = await client.certificates.create({ ...c, name: "After" });
+      const renamed = await client.certificates.set({ ...c, name: "After" });
       assert(renamed.source === "stored");
       expect(renamed.privateKey).toBe(c.privateKey);
       const key = await client.secrets.retrieve(c.privateKey);
@@ -92,7 +92,7 @@ describe("Certificate", () => {
 
     it("should reject a private key that does not match the certificate", async () => {
       const client = createTestClient();
-      const create = client.certificates.create({
+      const create = client.certificates.set({
         name: "Mismatched",
         source: "stored",
         pem: PEM,
@@ -106,7 +106,7 @@ describe("Certificate", () => {
 
     it("should create a file certificate", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
@@ -124,7 +124,7 @@ describe("Certificate", () => {
   describe("retrieve", () => {
     it("should retrieve certificates by key", async () => {
       const client = createTestClient();
-      const created = await client.certificates.create([
+      const created = await client.certificates.set([
         { name: "Retrieve 1", source: "stored", pem: PEM },
         { name: "Retrieve 2", source: "file", certificatePath: "/tmp/a.crt" },
       ]);
@@ -138,7 +138,7 @@ describe("Certificate", () => {
 
     it("should leave out a key that no certificate has in a filter", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Kept",
         source: "file",
         certificatePath: "/tmp/kept.crt",
@@ -152,7 +152,7 @@ describe("Certificate", () => {
     it("should search for certificates by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} CA`;
-      const created = await client.certificates.create({
+      const created = await client.certificates.set({
         name,
         source: "stored",
         pem: PEM,
@@ -164,7 +164,7 @@ describe("Certificate", () => {
 
     it("should retrieve a certificate by name", async () => {
       const name = `${id.create()} root`;
-      const created = await createTestClient().certificates.create({
+      const created = await createTestClient().certificates.set({
         name,
         source: "stored",
         pem: PEM,
@@ -174,7 +174,7 @@ describe("Certificate", () => {
 
     it("should page certificates in name order with a cursor", async () => {
       const prefix = id.create();
-      const created = await createTestClient().certificates.create(
+      const created = await createTestClient().certificates.set(
         ["C", "A", "B"].map((n) => ({
           name: `${prefix} ${n}`,
           source: "stored" as const,
@@ -199,7 +199,7 @@ describe("Certificate", () => {
   describe("rename", () => {
     it("should rename a certificate", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Before",
         source: "stored",
         pem: PEM,
@@ -213,7 +213,7 @@ describe("Certificate", () => {
   describe("delete", () => {
     it("should delete a certificate", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Delete",
         source: "stored",
         pem: PEM,
@@ -226,7 +226,7 @@ describe("Certificate", () => {
 
     it("should drop its private key from the secrets cache", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Cached key",
         source: "stored",
         pem: PEM,
@@ -251,7 +251,7 @@ describe("Certificate", () => {
 
     it("should refuse to delete a private key that a certificate uses", async () => {
       const client = createTestClient();
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "In use",
         source: "stored",
         pem: PEM,
@@ -274,7 +274,7 @@ describe("Certificate", () => {
     it("should grant a rack the private key of a certificate", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Grant rack" });
-      const c = await client.certificates.create({
+      const c = await client.certificates.set({
         name: "Grant",
         source: "stored",
         pem: PEM,

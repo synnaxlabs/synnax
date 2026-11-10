@@ -243,9 +243,8 @@ type Transport struct {
 	SecretGrantCreate freighter.UnaryServer[secret.GrantCreateRequest, secret.GrantCreateResponse]
 	SecretResolve     freighter.UnaryServer[secret.ResolveRequest, secret.ResolveResponse]
 	// CERTIFICATE
-	CertificateCreate   freighter.UnaryServer[certificate.CreateRequest, certificate.CreateResponse]
+	CertificateSet      freighter.UnaryServer[certificate.SetRequest, certificate.SetResponse]
 	CertificateRetrieve freighter.UnaryServer[certificate.RetrieveRequest, certificate.RetrieveResponse]
-	CertificateRename   freighter.UnaryServer[certificate.RenameRequest, struct{}]
 	CertificateDelete   freighter.UnaryServer[certificate.DeleteRequest, struct{}]
 	// CertificateDispatch applies path actions to a certificate.
 	CertificateDispatch freighter.UnaryServer[certificate.DispatchRequest, struct{}]
@@ -510,9 +509,8 @@ func (l *Layer) BindTo(t Transport) {
 		t.SecretResolve,
 
 		// CERTIFICATE
-		t.CertificateCreate,
+		t.CertificateSet,
 		t.CertificateRetrieve,
-		t.CertificateRename,
 		t.CertificateDelete,
 		t.CertificateDispatch,
 
@@ -752,9 +750,8 @@ func (l *Layer) BindTo(t Transport) {
 	t.SecretResolve.BindHandler(l.Secret.Resolve)
 
 	// CERTIFICATE
-	t.CertificateCreate.BindHandler(bind.Write(l.binder, l.Certificate.Create))
+	t.CertificateSet.BindHandler(bind.Write(l.binder, l.Certificate.Set))
 	t.CertificateRetrieve.BindHandler(bind.Read(l.binder, l.Certificate.Retrieve))
-	t.CertificateRename.BindHandler(bind.Write(l.binder, l.Certificate.Rename))
 	t.CertificateDelete.BindHandler(bind.Write(l.binder, l.Certificate.Delete))
 	t.CertificateDispatch.BindHandler(bind.Write(l.binder, l.Certificate.Dispatch))
 

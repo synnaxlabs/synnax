@@ -138,7 +138,10 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
-  certificate: changes(certificate.SET_CHANNEL_NAME, certificate.DELETE_CHANNEL_NAME),
+  certificate: changes(
+    certificate.ACTION_CHANNEL_NAME,
+    certificate.DELETE_CHANNEL_NAME,
+  ),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
   device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
