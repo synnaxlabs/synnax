@@ -13,6 +13,7 @@ import (
 	"context"
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
@@ -61,7 +62,12 @@ func (u Update[V]) Check(stored any) error {
 			return err
 		}
 		if !holds {
-			return errors.Wrapf(ErrStale, "%s is not %s", format(g.Path), g.Value)
+			return errors.Wrapf(
+				ErrStale,
+				"%s is not %s",
+				strings.Join(g.Path, "."),
+				g.Value,
+			)
 		}
 	}
 	return nil

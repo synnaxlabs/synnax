@@ -95,7 +95,7 @@ export type List<
   U extends z.ZodType,
 > = z.infer<ReturnType<typeof listZ<E, K, U>>>;
 
-/** The schemas of the values of a map that {@link mapZ} changes. */
+/** The schemas of the values of a map that {@link typedMapZ} changes. */
 export interface MapSchemas<
   K extends $ZodRecordKey,
   V extends z.ZodType,
@@ -117,7 +117,7 @@ export interface MapSchemas<
  * operators apply in the order remove, update, then insert, and set replaces the map
  * alone. The keys of the map keep their case when the operators convert case.
  */
-export const mapZ = <
+export const typedMapZ = <
   K extends $ZodRecordKey,
   V extends z.ZodType,
   U extends z.ZodType,
@@ -139,7 +139,7 @@ export type TypedMap<
   K extends $ZodRecordKey,
   V extends z.ZodType,
   U extends z.ZodType,
-> = z.infer<ReturnType<typeof mapZ<K, V, U>>>;
+> = z.infer<ReturnType<typeof typedMapZ<K, V, U>>>;
 
 /**
  * Builds the schema of the operators that change a list of values that are their own

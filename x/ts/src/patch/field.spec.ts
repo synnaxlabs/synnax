@@ -31,7 +31,9 @@ const updateZ = z.object({
       u: z.object({ key: z.string(), port: patch.changeZ(z.number()).optional() }),
     })
     .optional(),
-  cells: patch.mapZ({ k: z.string(), v: settingsZ, u: settingsUpdateZ }).optional(),
+  cells: patch
+    .typedMapZ({ k: z.string(), v: settingsZ, u: settingsUpdateZ })
+    .optional(),
 });
 
 describe("update fields", () => {
@@ -116,7 +118,7 @@ describe("update fields", () => {
     });
   });
 
-  describe("mapZ", () => {
+  describe("typedMapZ", () => {
     it("should accept operators keyed by map key", () => {
       const update = {
         cells: {
@@ -148,7 +150,7 @@ describe("update fields", () => {
     it("should keep map keys and convert value keys through case conversion", () => {
       const schema = z.object({
         cells: patch
-          .mapZ({
+          .typedMapZ({
             k: z.string(),
             v: z.object({ maxRate: z.number() }),
             u: z.object({ maxRate: z.number().optional() }),
