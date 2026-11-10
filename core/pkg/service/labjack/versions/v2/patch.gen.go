@@ -20,7 +20,9 @@ import (
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
+			wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -28,7 +30,9 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&wc.WriteConfig.Device, c.Next())
 	case "state_rate":
-		return patch.Value(&wc.StateRate, c.Next())
+		return patch.Defaulted(&wc.StateRate, c.Next(), func(def *WriteConfig) {
+			wc.StateRate = def.StateRate
+		})
 	case "channels":
 		return patch.List(&wc.Channels, c.Next())
 	default:
@@ -111,7 +115,9 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (awc *AnalogWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&awc.BaseWriteChannel.Key, c.Next())
+		return patch.Defaulted(&awc.BaseWriteChannel.Key, c.Next(), func(def *AnalogWriteChannel) {
+			awc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
+		})
 	case "disabled":
 		return patch.Value(&awc.BaseWriteChannel.Disabled, c.Next())
 	case "cmd_channel":
@@ -123,7 +129,9 @@ func (awc *AnalogWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&awc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&awc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&awc.BaseWriteChannel.Port, c.Next(), func(def *AnalogWriteChannel) {
+			awc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -143,7 +151,9 @@ func (awc *AnalogWriteChannel) HashContent(h *content.Hash) {
 func (dwc *DigitalWriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&dwc.BaseWriteChannel.Key, c.Next())
+		return patch.Defaulted(&dwc.BaseWriteChannel.Key, c.Next(), func(def *DigitalWriteChannel) {
+			dwc.BaseWriteChannel.Key = def.BaseWriteChannel.Key
+		})
 	case "disabled":
 		return patch.Value(&dwc.BaseWriteChannel.Disabled, c.Next())
 	case "cmd_channel":
@@ -155,7 +165,9 @@ func (dwc *DigitalWriteChannel) Patch(c patch.Cursor) error {
 	case "state_channel_name":
 		return patch.Value(&dwc.BaseWriteChannel.StateChannelName, c.Next())
 	case "port":
-		return patch.Value(&dwc.BaseWriteChannel.Port, c.Next())
+		return patch.Defaulted(&dwc.BaseWriteChannel.Port, c.Next(), func(def *DigitalWriteChannel) {
+			dwc.BaseWriteChannel.Port = def.BaseWriteChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}

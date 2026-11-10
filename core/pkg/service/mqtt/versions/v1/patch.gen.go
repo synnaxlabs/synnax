@@ -22,13 +22,17 @@ func (cf *ChannelField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&cf.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&cf.JSONType, c.Next())
+		return patch.Defaulted(&cf.JSONType, c.Next(), func(def *ChannelField) {
+			cf.JSONType = def.JSONType
+		})
 	case "channel":
 		return patch.Value(&cf.Channel, c.Next())
 	case "name":
 		return patch.Value(&cf.Name, c.Next())
 	case "data_type":
-		return patch.Value(&cf.DataType, c.Next())
+		return patch.Defaulted(&cf.DataType, c.Next(), func(def *ChannelField) {
+			cf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&cf.TimeFormat, c.Next())
 	case "enum_values":
@@ -61,7 +65,9 @@ func (cf *ChannelField) HashContent(h *content.Hash) {
 func (ec *EdgeConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&ec.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&ec.StartConfig.KeyedConfig.Key, c.Next(), func(def *EdgeConfig) {
+			ec.StartConfig.KeyedConfig.Key = def.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&ec.StartConfig.AutoStart, c.Next())
 	case "device":
@@ -96,7 +102,9 @@ func (ec *EdgeConfig) HashContent(h *content.Hash) {
 func (et *EdgeTag) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&et.Key, c.Next())
+		return patch.Defaulted(&et.Key, c.Next(), func(def *EdgeTag) {
+			et.Key = def.Key
+		})
 	case "disabled":
 		return patch.Value(&et.Disabled, c.Next())
 	case "name":
@@ -104,7 +112,9 @@ func (et *EdgeTag) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&et.Channel, c.Next())
 	case "tag_type":
-		return patch.Value(&et.TagType, c.Next())
+		return patch.Defaulted(&et.TagType, c.Next(), func(def *EdgeTag) {
+			et.TagType = def.TagType
+		})
 	case "command_channel":
 		return patch.Value(&et.CommandChannel, c.Next())
 	case "command_channel_name":
@@ -142,7 +152,9 @@ func (ee *EnumEntry) HashContent(h *content.Hash) {
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
+			rc.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&rc.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -171,7 +183,9 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (rf *ReadField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rf.Key, c.Next())
+		return patch.Defaulted(&rf.Key, c.Next(), func(def *ReadField) {
+			rf.Key = def.Key
+		})
 	case "name":
 		return patch.Value(&rf.Name, c.Next())
 	case "disabled":
@@ -181,7 +195,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":
@@ -217,9 +233,13 @@ func (rf *ReadField) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
+		})
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -237,7 +257,9 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&wc.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&wc.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
+			wc.StartConfig.KeyedConfig.Key = def.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&wc.StartConfig.AutoStart, c.Next())
 	case "device":
@@ -322,13 +344,17 @@ func (re *ReadEntry) HashContent(h *content.Hash) {
 func (pre *PlainReadEntry) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&pre.BaseReadEntry.Key, c.Next())
+		return patch.Defaulted(&pre.BaseReadEntry.Key, c.Next(), func(def *PlainReadEntry) {
+			pre.BaseReadEntry.Key = def.BaseReadEntry.Key
+		})
 	case "disabled":
 		return patch.Value(&pre.BaseReadEntry.Disabled, c.Next())
 	case "topic":
 		return patch.Value(&pre.Topic, c.Next())
 	case "qos":
-		return patch.Value(&pre.Qos, c.Next())
+		return patch.Defaulted(&pre.Qos, c.Next(), func(def *PlainReadEntry) {
+			pre.Qos = def.Qos
+		})
 	case "retained_ignored":
 		return patch.Value(&pre.RetainedIgnored, c.Next())
 	case "fields":
@@ -357,7 +383,9 @@ func (pre *PlainReadEntry) HashContent(h *content.Hash) {
 func (sre *SparkplugReadEntry) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&sre.BaseReadEntry.Key, c.Next())
+		return patch.Defaulted(&sre.BaseReadEntry.Key, c.Next(), func(def *SparkplugReadEntry) {
+			sre.BaseReadEntry.Key = def.BaseReadEntry.Key
+		})
 	case "disabled":
 		return patch.Value(&sre.BaseReadEntry.Disabled, c.Next())
 	case "group":
@@ -373,7 +401,9 @@ func (sre *SparkplugReadEntry) Patch(c patch.Cursor) error {
 	case "name":
 		return patch.Value(&sre.Name, c.Next())
 	case "data_type":
-		return patch.Value(&sre.DataType, c.Next())
+		return patch.Defaulted(&sre.DataType, c.Next(), func(def *SparkplugReadEntry) {
+			sre.DataType = def.DataType
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -454,11 +484,15 @@ func (wf *WriteField) HashContent(h *content.Hash) {
 func (swf *StaticWriteField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&swf.BaseWriteField.Key, c.Next())
+		return patch.Defaulted(&swf.BaseWriteField.Key, c.Next(), func(def *StaticWriteField) {
+			swf.BaseWriteField.Key = def.BaseWriteField.Key
+		})
 	case "pointer":
 		return patch.Value(&swf.BaseWriteField.Pointer, c.Next())
 	case "json_type":
-		return patch.Value(&swf.JSONType, c.Next())
+		return patch.Defaulted(&swf.JSONType, c.Next(), func(def *StaticWriteField) {
+			swf.JSONType = def.JSONType
+		})
 	case "value":
 		return patch.Any(&swf.Value, c.Next())
 	default:
@@ -477,11 +511,15 @@ func (swf *StaticWriteField) HashContent(h *content.Hash) {
 func (gwf *GeneratedWriteField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&gwf.BaseWriteField.Key, c.Next())
+		return patch.Defaulted(&gwf.BaseWriteField.Key, c.Next(), func(def *GeneratedWriteField) {
+			gwf.BaseWriteField.Key = def.BaseWriteField.Key
+		})
 	case "pointer":
 		return patch.Value(&gwf.BaseWriteField.Pointer, c.Next())
 	case "generator":
-		return patch.Value(&gwf.Generator, c.Next())
+		return patch.Defaulted(&gwf.Generator, c.Next(), func(def *GeneratedWriteField) {
+			gwf.Generator = def.Generator
+		})
 	case "time_format":
 		return patch.OptionalValue(&gwf.TimeFormat, c.Next())
 	default:
@@ -564,18 +602,24 @@ func (wt *WriteTarget) HashContent(h *content.Hash) {
 func (pwt *PlainWriteTarget) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&pwt.BaseWriteTarget.Key, c.Next())
+		return patch.Defaulted(&pwt.BaseWriteTarget.Key, c.Next(), func(def *PlainWriteTarget) {
+			pwt.BaseWriteTarget.Key = def.BaseWriteTarget.Key
+		})
 	case "disabled":
 		return patch.Value(&pwt.BaseWriteTarget.Disabled, c.Next())
 	case "topic":
 		return patch.Value(&pwt.Topic, c.Next())
 	case "qos":
-		return patch.Value(&pwt.Qos, c.Next())
+		return patch.Defaulted(&pwt.Qos, c.Next(), func(def *PlainWriteTarget) {
+			pwt.Qos = def.Qos
+		})
 	case "retained":
 		return patch.Value(&pwt.Retained, c.Next())
 	case "channel":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&pwt.Channel, c)
+			return patch.Defaulted(&pwt.Channel, c, func(def *PlainWriteTarget) {
+				pwt.Channel = def.Channel
+			})
 		}
 		return pwt.Channel.Patch(c)
 	case "fields":
@@ -602,7 +646,9 @@ func (pwt *PlainWriteTarget) HashContent(h *content.Hash) {
 func (swt *SparkplugWriteTarget) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&swt.BaseWriteTarget.Key, c.Next())
+		return patch.Defaulted(&swt.BaseWriteTarget.Key, c.Next(), func(def *SparkplugWriteTarget) {
+			swt.BaseWriteTarget.Key = def.BaseWriteTarget.Key
+		})
 	case "disabled":
 		return patch.Value(&swt.BaseWriteTarget.Disabled, c.Next())
 	case "group":
@@ -614,7 +660,9 @@ func (swt *SparkplugWriteTarget) Patch(c patch.Cursor) error {
 	case "tag":
 		return patch.Value(&swt.Tag, c.Next())
 	case "tag_type":
-		return patch.Value(&swt.TagType, c.Next())
+		return patch.Defaulted(&swt.TagType, c.Next(), func(def *SparkplugWriteTarget) {
+			swt.TagType = def.TagType
+		})
 	case "channel":
 		return patch.Value(&swt.Channel, c.Next())
 	case "name":

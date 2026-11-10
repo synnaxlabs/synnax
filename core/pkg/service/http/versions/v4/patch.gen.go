@@ -20,7 +20,9 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&rc.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
+			rc.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&rc.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -28,7 +30,9 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "rate":
-		return patch.Value(&rc.Rate, c.Next())
+		return patch.Defaulted(&rc.Rate, c.Next(), func(def *ReadConfig) {
+			rc.Rate = def.Rate
+		})
 	case "endpoints":
 		return patch.List(&rc.Endpoints, c.Next())
 	case "nan_fill_enabled":
@@ -55,9 +59,13 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (re *ReadEndpoint) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&re.Key, c.Next())
+		return patch.Defaulted(&re.Key, c.Next(), func(def *ReadEndpoint) {
+			re.Key = def.Key
+		})
 	case "method":
-		return patch.Value(&re.Method, c.Next())
+		return patch.Defaulted(&re.Method, c.Next(), func(def *ReadEndpoint) {
+			re.Method = def.Method
+		})
 	case "path":
 		return patch.Value(&re.Path, c.Next())
 	case "headers":
@@ -102,7 +110,9 @@ func (re *ReadEndpoint) HashContent(h *content.Hash) {
 func (rf *ReadField) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rf.Key, c.Next())
+		return patch.Defaulted(&rf.Key, c.Next(), func(def *ReadField) {
+			rf.Key = def.Key
+		})
 	case "name":
 		return patch.Value(&rf.Name, c.Next())
 	case "disabled":
@@ -116,7 +126,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":

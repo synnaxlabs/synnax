@@ -20,15 +20,21 @@ import (
 func (arc *AnalogReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *AnalogReadConfig) {
+			arc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&arc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
 		return patch.Value(&arc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&arc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&arc.ReadConfig.SampleRate, c.Next(), func(def *AnalogReadConfig) {
+			arc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&arc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&arc.ReadConfig.StreamRate, c.Next(), func(def *AnalogReadConfig) {
+			arc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "channels":
 		return patch.List(&arc.Channels, c.Next())
 	default:
@@ -52,7 +58,9 @@ func (arc *AnalogReadConfig) HashContent(h *content.Hash) {
 func (awc *AnalogWriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *AnalogWriteConfig) {
+			awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&awc.WriteConfig.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -60,7 +68,9 @@ func (awc *AnalogWriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&awc.WriteConfig.WriteConfig.Device, c.Next())
 	case "state_rate":
-		return patch.Value(&awc.WriteConfig.StateRate, c.Next())
+		return patch.Defaulted(&awc.WriteConfig.StateRate, c.Next(), func(def *AnalogWriteConfig) {
+			awc.WriteConfig.StateRate = def.WriteConfig.StateRate
+		})
 	case "channels":
 		return patch.List(&awc.Channels, c.Next())
 	default:
@@ -84,15 +94,21 @@ func (awc *AnalogWriteConfig) HashContent(h *content.Hash) {
 func (crc *CounterReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *CounterReadConfig) {
+			crc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&crc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
 		return patch.Value(&crc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&crc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&crc.ReadConfig.SampleRate, c.Next(), func(def *CounterReadConfig) {
+			crc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&crc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&crc.ReadConfig.StreamRate, c.Next(), func(def *CounterReadConfig) {
+			crc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "channels":
 		return patch.List(&crc.Channels, c.Next())
 	default:
@@ -116,7 +132,9 @@ func (crc *CounterReadConfig) HashContent(h *content.Hash) {
 func (dic *DIChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&dic.Key, c.Next())
+		return patch.Defaulted(&dic.Key, c.Next(), func(def *DIChannel) {
+			dic.Key = def.Key
+		})
 	case "name":
 		return patch.Value(&dic.Name, c.Next())
 	case "disabled":
@@ -148,7 +166,9 @@ func (dic *DIChannel) HashContent(h *content.Hash) {
 func (doc *DOChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&doc.Key, c.Next())
+		return patch.Defaulted(&doc.Key, c.Next(), func(def *DOChannel) {
+			doc.Key = def.Key
+		})
 	case "disabled":
 		return patch.Value(&doc.Disabled, c.Next())
 	case "cmd_channel":
@@ -186,15 +206,21 @@ func (doc *DOChannel) HashContent(h *content.Hash) {
 func (drc *DigitalReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *DigitalReadConfig) {
+			drc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&drc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
 		return patch.Value(&drc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&drc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&drc.ReadConfig.SampleRate, c.Next(), func(def *DigitalReadConfig) {
+			drc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&drc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&drc.ReadConfig.StreamRate, c.Next(), func(def *DigitalReadConfig) {
+			drc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&drc.Device, c.Next())
 	case "channels":
@@ -221,7 +247,9 @@ func (drc *DigitalReadConfig) HashContent(h *content.Hash) {
 func (dwc *DigitalWriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *DigitalWriteConfig) {
+			dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&dwc.WriteConfig.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -229,7 +257,9 @@ func (dwc *DigitalWriteConfig) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&dwc.WriteConfig.WriteConfig.Device, c.Next())
 	case "state_rate":
-		return patch.Value(&dwc.WriteConfig.StateRate, c.Next())
+		return patch.Defaulted(&dwc.WriteConfig.StateRate, c.Next(), func(def *DigitalWriteConfig) {
+			dwc.WriteConfig.StateRate = def.WriteConfig.StateRate
+		})
 	case "channels":
 		return patch.List(&dwc.Channels, c.Next())
 	default:
@@ -253,9 +283,13 @@ func (dwc *DigitalWriteConfig) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
+		})
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -836,7 +870,9 @@ func (aic *AIChannel) HashContent(h *content.Hash) {
 func (aivc *AIVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aivc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aivc.BaseAIChannel.Key, c.Next(), func(def *AIVoltageChannel) {
+			aivc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aivc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -850,12 +886,18 @@ func (aivc *AIVoltageChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aivc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aivc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aivc.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageChannel) {
+			aivc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aivc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aivc.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageChannel) {
+			aivc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aivc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aivc.CustomScale.CustomScale, c, func(def *AIVoltageChannel) {
+				aivc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aivc.CustomScale.CustomScale.Patch(c)
 	default:
@@ -880,7 +922,9 @@ func (aivc *AIVoltageChannel) HashContent(h *content.Hash) {
 func (aiac *AIAccelChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aiac.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aiac.BaseAIChannel.Key, c.Next(), func(def *AIAccelChannel) {
+			aiac.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aiac.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -894,24 +938,36 @@ func (aiac *AIAccelChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aiac.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aiac.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aiac.MinMaxVal.MaxVal, c.Next(), func(def *AIAccelChannel) {
+			aiac.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aiac.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aiac.Terminal.TerminalConfig, c.Next(), func(def *AIAccelChannel) {
+			aiac.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "sensitivity":
 		return patch.Value(&aiac.Sensitivity.Sensitivity, c.Next())
 	case "current_excit_source":
-		return patch.Value(&aiac.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&aiac.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIAccelChannel) {
+			aiac.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&aiac.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aiac.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aiac.CustomScale.CustomScale, c, func(def *AIAccelChannel) {
+				aiac.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aiac.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aiac.Units, c.Next())
+		return patch.Defaulted(&aiac.Units, c.Next(), func(def *AIAccelChannel) {
+			aiac.Units = def.Units
+		})
 	case "sensitivity_units":
-		return patch.Value(&aiac.SensitivityUnits, c.Next())
+		return patch.Defaulted(&aiac.SensitivityUnits, c.Next(), func(def *AIAccelChannel) {
+			aiac.SensitivityUnits = def.SensitivityUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -939,7 +995,9 @@ func (aiac *AIAccelChannel) HashContent(h *content.Hash) {
 func (aibc *AIBridgeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aibc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aibc.BaseAIChannel.Key, c.Next(), func(def *AIBridgeChannel) {
+			aibc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aibc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -953,22 +1011,34 @@ func (aibc *AIBridgeChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aibc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aibc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aibc.MinMaxVal.MaxVal, c.Next(), func(def *AIBridgeChannel) {
+			aibc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aibc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aibc.Bridge.BridgeConfig, c.Next(), func(def *AIBridgeChannel) {
+			aibc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aibc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aibc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIBridgeChannel) {
+			aibc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aibc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aibc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIBridgeChannel) {
+			aibc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aibc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aibc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aibc.CustomScale.CustomScale, c, func(def *AIBridgeChannel) {
+				aibc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aibc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aibc.Units, c.Next())
+		return patch.Defaulted(&aibc.Units, c.Next(), func(def *AIBridgeChannel) {
+			aibc.Units = def.Units
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -995,7 +1065,9 @@ func (aibc *AIBridgeChannel) HashContent(h *content.Hash) {
 func (aicc *AICurrentChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aicc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aicc.BaseAIChannel.Key, c.Next(), func(def *AICurrentChannel) {
+			aicc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aicc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1009,18 +1081,28 @@ func (aicc *AICurrentChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aicc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aicc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aicc.MinMaxVal.MaxVal, c.Next(), func(def *AICurrentChannel) {
+			aicc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aicc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aicc.Terminal.TerminalConfig, c.Next(), func(def *AICurrentChannel) {
+			aicc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aicc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aicc.CustomScale.CustomScale, c, func(def *AICurrentChannel) {
+				aicc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aicc.CustomScale.CustomScale.Patch(c)
 	case "shunt_resistor_loc":
-		return patch.Value(&aicc.ShuntResistorLoc, c.Next())
+		return patch.Defaulted(&aicc.ShuntResistorLoc, c.Next(), func(def *AICurrentChannel) {
+			aicc.ShuntResistorLoc = def.ShuntResistorLoc
+		})
 	case "ext_shunt_resistor_val":
-		return patch.Value(&aicc.ExtShuntResistorVal, c.Next())
+		return patch.Defaulted(&aicc.ExtShuntResistorVal, c.Next(), func(def *AICurrentChannel) {
+			aicc.ExtShuntResistorVal = def.ExtShuntResistorVal
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1045,7 +1127,9 @@ func (aicc *AICurrentChannel) HashContent(h *content.Hash) {
 func (aifbtc *AIForceBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aifbtc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aifbtc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aifbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1059,30 +1143,46 @@ func (aifbtc *AIForceBridgeTableChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aifbtc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aifbtc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aifbtc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aifbtc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aifbtc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aifbtc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aifbtc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aifbtc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aifbtc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aifbtc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "electrical_vals":
 		return patch.Value(&aifbtc.Table.ElectricalVals, c.Next())
 	case "electrical_units":
-		return patch.Value(&aifbtc.Table.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aifbtc.Table.ElectricalUnits, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.Table.ElectricalUnits = def.Table.ElectricalUnits
+		})
 	case "physical_vals":
 		return patch.Value(&aifbtc.Table.PhysicalVals, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aifbtc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aifbtc.CustomScale.CustomScale, c, func(def *AIForceBridgeTableChannel) {
+				aifbtc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aifbtc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aifbtc.Units, c.Next())
+		return patch.Defaulted(&aifbtc.Units, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aifbtc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aifbtc.PhysicalUnits, c.Next(), func(def *AIForceBridgeTableChannel) {
+			aifbtc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1119,7 +1219,9 @@ func (aifbtc *AIForceBridgeTableChannel) HashContent(h *content.Hash) {
 func (aifbtplc *AIForceBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aifbtplc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aifbtplc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aifbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1133,34 +1235,54 @@ func (aifbtplc *AIForceBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aifbtplc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aifbtplc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aifbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aifbtplc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aifbtplc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aifbtplc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aifbtplc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aifbtplc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aifbtplc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aifbtplc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "first_electrical_val":
 		return patch.Value(&aifbtplc.TwoPointLin.FirstElectricalVal, c.Next())
 	case "second_electrical_val":
-		return patch.Value(&aifbtplc.TwoPointLin.SecondElectricalVal, c.Next())
+		return patch.Defaulted(&aifbtplc.TwoPointLin.SecondElectricalVal, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.TwoPointLin.SecondElectricalVal = def.TwoPointLin.SecondElectricalVal
+		})
 	case "electrical_units":
-		return patch.Value(&aifbtplc.TwoPointLin.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aifbtplc.TwoPointLin.ElectricalUnits, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.TwoPointLin.ElectricalUnits = def.TwoPointLin.ElectricalUnits
+		})
 	case "first_physical_val":
 		return patch.Value(&aifbtplc.TwoPointLin.FirstPhysicalVal, c.Next())
 	case "second_physical_val":
-		return patch.Value(&aifbtplc.TwoPointLin.SecondPhysicalVal, c.Next())
+		return patch.Defaulted(&aifbtplc.TwoPointLin.SecondPhysicalVal, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.TwoPointLin.SecondPhysicalVal = def.TwoPointLin.SecondPhysicalVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aifbtplc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aifbtplc.CustomScale.CustomScale, c, func(def *AIForceBridgeTwoPointLinChannel) {
+				aifbtplc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aifbtplc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aifbtplc.Units, c.Next())
+		return patch.Defaulted(&aifbtplc.Units, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aifbtplc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aifbtplc.PhysicalUnits, c.Next(), func(def *AIForceBridgeTwoPointLinChannel) {
+			aifbtplc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1193,7 +1315,9 @@ func (aifbtplc *AIForceBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 func (aifiepec *AIForceIEPEChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aifiepec.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aifiepec.BaseAIChannel.Key, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aifiepec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1207,24 +1331,36 @@ func (aifiepec *AIForceIEPEChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aifiepec.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aifiepec.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aifiepec.MinMaxVal.MaxVal, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aifiepec.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aifiepec.Terminal.TerminalConfig, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "sensitivity":
 		return patch.Value(&aifiepec.Sensitivity.Sensitivity, c.Next())
 	case "current_excit_source":
-		return patch.Value(&aifiepec.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&aifiepec.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&aifiepec.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aifiepec.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aifiepec.CustomScale.CustomScale, c, func(def *AIForceIEPEChannel) {
+				aifiepec.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aifiepec.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aifiepec.Units, c.Next())
+		return patch.Defaulted(&aifiepec.Units, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.Units = def.Units
+		})
 	case "sensitivity_units":
-		return patch.Value(&aifiepec.SensitivityUnits, c.Next())
+		return patch.Defaulted(&aifiepec.SensitivityUnits, c.Next(), func(def *AIForceIEPEChannel) {
+			aifiepec.SensitivityUnits = def.SensitivityUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1252,7 +1388,9 @@ func (aifiepec *AIForceIEPEChannel) HashContent(h *content.Hash) {
 func (aimc *AIMicrophoneChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aimc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aimc.BaseAIChannel.Key, c.Next(), func(def *AIMicrophoneChannel) {
+			aimc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aimc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1264,14 +1402,20 @@ func (aimc *AIMicrophoneChannel) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&aimc.BaseAIChannel.Device, c.Next())
 	case "terminal_config":
-		return patch.Value(&aimc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aimc.Terminal.TerminalConfig, c.Next(), func(def *AIMicrophoneChannel) {
+			aimc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "current_excit_source":
-		return patch.Value(&aimc.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&aimc.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIMicrophoneChannel) {
+			aimc.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&aimc.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aimc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aimc.CustomScale.CustomScale, c, func(def *AIMicrophoneChannel) {
+				aimc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aimc.CustomScale.CustomScale.Patch(c)
 	case "mic_sensitivity":
@@ -1302,7 +1446,9 @@ func (aimc *AIMicrophoneChannel) HashContent(h *content.Hash) {
 func (aipbtc *AIPressureBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aipbtc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aipbtc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aipbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1316,30 +1462,46 @@ func (aipbtc *AIPressureBridgeTableChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aipbtc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aipbtc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aipbtc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aipbtc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aipbtc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aipbtc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aipbtc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aipbtc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aipbtc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aipbtc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "electrical_vals":
 		return patch.Value(&aipbtc.Table.ElectricalVals, c.Next())
 	case "electrical_units":
-		return patch.Value(&aipbtc.Table.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aipbtc.Table.ElectricalUnits, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.Table.ElectricalUnits = def.Table.ElectricalUnits
+		})
 	case "physical_vals":
 		return patch.Value(&aipbtc.Table.PhysicalVals, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aipbtc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aipbtc.CustomScale.CustomScale, c, func(def *AIPressureBridgeTableChannel) {
+				aipbtc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aipbtc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aipbtc.Units, c.Next())
+		return patch.Defaulted(&aipbtc.Units, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aipbtc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aipbtc.PhysicalUnits, c.Next(), func(def *AIPressureBridgeTableChannel) {
+			aipbtc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1376,7 +1538,9 @@ func (aipbtc *AIPressureBridgeTableChannel) HashContent(h *content.Hash) {
 func (aipbtplc *AIPressureBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aipbtplc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aipbtplc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aipbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1390,34 +1554,54 @@ func (aipbtplc *AIPressureBridgeTwoPointLinChannel) Patch(c patch.Cursor) error 
 	case "min_val":
 		return patch.Value(&aipbtplc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aipbtplc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aipbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aipbtplc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aipbtplc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aipbtplc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aipbtplc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aipbtplc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aipbtplc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aipbtplc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "first_electrical_val":
 		return patch.Value(&aipbtplc.TwoPointLin.FirstElectricalVal, c.Next())
 	case "second_electrical_val":
-		return patch.Value(&aipbtplc.TwoPointLin.SecondElectricalVal, c.Next())
+		return patch.Defaulted(&aipbtplc.TwoPointLin.SecondElectricalVal, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.TwoPointLin.SecondElectricalVal = def.TwoPointLin.SecondElectricalVal
+		})
 	case "electrical_units":
-		return patch.Value(&aipbtplc.TwoPointLin.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aipbtplc.TwoPointLin.ElectricalUnits, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.TwoPointLin.ElectricalUnits = def.TwoPointLin.ElectricalUnits
+		})
 	case "first_physical_val":
 		return patch.Value(&aipbtplc.TwoPointLin.FirstPhysicalVal, c.Next())
 	case "second_physical_val":
-		return patch.Value(&aipbtplc.TwoPointLin.SecondPhysicalVal, c.Next())
+		return patch.Defaulted(&aipbtplc.TwoPointLin.SecondPhysicalVal, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.TwoPointLin.SecondPhysicalVal = def.TwoPointLin.SecondPhysicalVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aipbtplc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aipbtplc.CustomScale.CustomScale, c, func(def *AIPressureBridgeTwoPointLinChannel) {
+				aipbtplc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aipbtplc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aipbtplc.Units, c.Next())
+		return patch.Defaulted(&aipbtplc.Units, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aipbtplc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aipbtplc.PhysicalUnits, c.Next(), func(def *AIPressureBridgeTwoPointLinChannel) {
+			aipbtplc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1450,7 +1634,9 @@ func (aipbtplc *AIPressureBridgeTwoPointLinChannel) HashContent(h *content.Hash)
 func (airc *AIResistanceChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&airc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&airc.BaseAIChannel.Key, c.Next(), func(def *AIResistanceChannel) {
+			airc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&airc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1464,16 +1650,24 @@ func (airc *AIResistanceChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&airc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&airc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&airc.MinMaxVal.MaxVal, c.Next(), func(def *AIResistanceChannel) {
+			airc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "resistance_config":
-		return patch.Value(&airc.Resistance.ResistanceConfig, c.Next())
+		return patch.Defaulted(&airc.Resistance.ResistanceConfig, c.Next(), func(def *AIResistanceChannel) {
+			airc.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		})
 	case "current_excit_source":
-		return patch.Value(&airc.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&airc.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIResistanceChannel) {
+			airc.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&airc.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&airc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&airc.CustomScale.CustomScale, c, func(def *AIResistanceChannel) {
+				airc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return airc.CustomScale.CustomScale.Patch(c)
 	default:
@@ -1500,7 +1694,9 @@ func (airc *AIResistanceChannel) HashContent(h *content.Hash) {
 func (airtdc *AIRTDChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&airtdc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&airtdc.BaseAIChannel.Key, c.Next(), func(def *AIRTDChannel) {
+			airtdc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&airtdc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1514,17 +1710,27 @@ func (airtdc *AIRTDChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&airtdc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&airtdc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&airtdc.MinMaxVal.MaxVal, c.Next(), func(def *AIRTDChannel) {
+			airtdc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "resistance_config":
-		return patch.Value(&airtdc.Resistance.ResistanceConfig, c.Next())
+		return patch.Defaulted(&airtdc.Resistance.ResistanceConfig, c.Next(), func(def *AIRTDChannel) {
+			airtdc.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		})
 	case "current_excit_source":
-		return patch.Value(&airtdc.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&airtdc.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIRTDChannel) {
+			airtdc.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&airtdc.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "units":
-		return patch.Value(&airtdc.Units, c.Next())
+		return patch.Defaulted(&airtdc.Units, c.Next(), func(def *AIRTDChannel) {
+			airtdc.Units = def.Units
+		})
 	case "rtd_type":
-		return patch.Value(&airtdc.RtdType, c.Next())
+		return patch.Defaulted(&airtdc.RtdType, c.Next(), func(def *AIRTDChannel) {
+			airtdc.RtdType = def.RtdType
+		})
 	case "r0":
 		return patch.Value(&airtdc.R0, c.Next())
 	default:
@@ -1553,7 +1759,9 @@ func (airtdc *AIRTDChannel) HashContent(h *content.Hash) {
 func (aisgc *AIStrainGaugeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aisgc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aisgc.BaseAIChannel.Key, c.Next(), func(def *AIStrainGaugeChannel) {
+			aisgc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aisgc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1567,18 +1775,26 @@ func (aisgc *AIStrainGaugeChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aisgc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aisgc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aisgc.MinMaxVal.MaxVal, c.Next(), func(def *AIStrainGaugeChannel) {
+			aisgc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aisgc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aisgc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIStrainGaugeChannel) {
+			aisgc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aisgc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aisgc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aisgc.CustomScale.CustomScale, c, func(def *AIStrainGaugeChannel) {
+				aisgc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aisgc.CustomScale.CustomScale.Patch(c)
 	case "strain_config":
-		return patch.Value(&aisgc.StrainConfig, c.Next())
+		return patch.Defaulted(&aisgc.StrainConfig, c.Next(), func(def *AIStrainGaugeChannel) {
+			aisgc.StrainConfig = def.StrainConfig
+		})
 	case "gage_factor":
 		return patch.Value(&aisgc.GageFactor, c.Next())
 	case "initial_bridge_voltage":
@@ -1618,7 +1834,9 @@ func (aisgc *AIStrainGaugeChannel) HashContent(h *content.Hash) {
 func (aitbc *AITempBuiltinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitbc.Key, c.Next())
+		return patch.Defaulted(&aitbc.Key, c.Next(), func(def *AITempBuiltinChannel) {
+			aitbc.Key = def.Key
+		})
 	case "name":
 		return patch.Value(&aitbc.Name, c.Next())
 	case "disabled":
@@ -1628,7 +1846,9 @@ func (aitbc *AITempBuiltinChannel) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&aitbc.Device, c.Next())
 	case "units":
-		return patch.Value(&aitbc.Units, c.Next())
+		return patch.Defaulted(&aitbc.Units, c.Next(), func(def *AITempBuiltinChannel) {
+			aitbc.Units = def.Units
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1647,7 +1867,9 @@ func (aitbc *AITempBuiltinChannel) HashContent(h *content.Hash) {
 func (aitc *AIThermocoupleChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitc.BaseAIChannel.Key, c.Next(), func(def *AIThermocoupleChannel) {
+			aitc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1661,14 +1883,22 @@ func (aitc *AIThermocoupleChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitc.MinMaxVal.MaxVal, c.Next(), func(def *AIThermocoupleChannel) {
+			aitc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&aitc.Units, c.Next())
+		return patch.Defaulted(&aitc.Units, c.Next(), func(def *AIThermocoupleChannel) {
+			aitc.Units = def.Units
+		})
 	case "thermocouple_type":
-		return patch.Value(&aitc.ThermocoupleType, c.Next())
+		return patch.Defaulted(&aitc.ThermocoupleType, c.Next(), func(def *AIThermocoupleChannel) {
+			aitc.ThermocoupleType = def.ThermocoupleType
+		})
 	case "cjc":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aitc.Cjc, c)
+			return patch.Defaulted(&aitc.Cjc, c, func(def *AIThermocoupleChannel) {
+				aitc.Cjc = def.Cjc
+			})
 		}
 		return aitc.Cjc.Patch(c)
 	default:
@@ -1694,7 +1924,9 @@ func (aitc *AIThermocoupleChannel) HashContent(h *content.Hash) {
 func (aitbtc *AITorqueBridgeTableChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitbtc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitbtc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitbtc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1708,30 +1940,46 @@ func (aitbtc *AITorqueBridgeTableChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitbtc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitbtc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitbtc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aitbtc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aitbtc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aitbtc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aitbtc.Bridge.NominalBridgeResistance, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aitbtc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aitbtc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aitbtc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "electrical_vals":
 		return patch.Value(&aitbtc.Table.ElectricalVals, c.Next())
 	case "electrical_units":
-		return patch.Value(&aitbtc.Table.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aitbtc.Table.ElectricalUnits, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.Table.ElectricalUnits = def.Table.ElectricalUnits
+		})
 	case "physical_vals":
 		return patch.Value(&aitbtc.Table.PhysicalVals, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aitbtc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aitbtc.CustomScale.CustomScale, c, func(def *AITorqueBridgeTableChannel) {
+				aitbtc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aitbtc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aitbtc.Units, c.Next())
+		return patch.Defaulted(&aitbtc.Units, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aitbtc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aitbtc.PhysicalUnits, c.Next(), func(def *AITorqueBridgeTableChannel) {
+			aitbtc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1768,7 +2016,9 @@ func (aitbtc *AITorqueBridgeTableChannel) HashContent(h *content.Hash) {
 func (aitbtplc *AITorqueBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitbtplc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitbtplc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitbtplc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1782,34 +2032,54 @@ func (aitbtplc *AITorqueBridgeTwoPointLinChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitbtplc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitbtplc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitbtplc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aitbtplc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aitbtplc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aitbtplc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aitbtplc.Bridge.NominalBridgeResistance, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aitbtplc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aitbtplc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aitbtplc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "first_electrical_val":
 		return patch.Value(&aitbtplc.TwoPointLin.FirstElectricalVal, c.Next())
 	case "second_electrical_val":
-		return patch.Value(&aitbtplc.TwoPointLin.SecondElectricalVal, c.Next())
+		return patch.Defaulted(&aitbtplc.TwoPointLin.SecondElectricalVal, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.TwoPointLin.SecondElectricalVal = def.TwoPointLin.SecondElectricalVal
+		})
 	case "electrical_units":
-		return patch.Value(&aitbtplc.TwoPointLin.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aitbtplc.TwoPointLin.ElectricalUnits, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.TwoPointLin.ElectricalUnits = def.TwoPointLin.ElectricalUnits
+		})
 	case "first_physical_val":
 		return patch.Value(&aitbtplc.TwoPointLin.FirstPhysicalVal, c.Next())
 	case "second_physical_val":
-		return patch.Value(&aitbtplc.TwoPointLin.SecondPhysicalVal, c.Next())
+		return patch.Defaulted(&aitbtplc.TwoPointLin.SecondPhysicalVal, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.TwoPointLin.SecondPhysicalVal = def.TwoPointLin.SecondPhysicalVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aitbtplc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aitbtplc.CustomScale.CustomScale, c, func(def *AITorqueBridgeTwoPointLinChannel) {
+				aitbtplc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aitbtplc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aitbtplc.Units, c.Next())
+		return patch.Defaulted(&aitbtplc.Units, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aitbtplc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aitbtplc.PhysicalUnits, c.Next(), func(def *AITorqueBridgeTwoPointLinChannel) {
+			aitbtplc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1842,7 +2112,9 @@ func (aitbtplc *AITorqueBridgeTwoPointLinChannel) HashContent(h *content.Hash) {
 func (aiviepec *AIVelocityIEPEChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aiviepec.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aiviepec.BaseAIChannel.Key, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aiviepec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1856,24 +2128,36 @@ func (aiviepec *AIVelocityIEPEChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aiviepec.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aiviepec.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aiviepec.MinMaxVal.MaxVal, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aiviepec.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aiviepec.Terminal.TerminalConfig, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "sensitivity":
 		return patch.Value(&aiviepec.Sensitivity.Sensitivity, c.Next())
 	case "current_excit_source":
-		return patch.Value(&aiviepec.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&aiviepec.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&aiviepec.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aiviepec.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aiviepec.CustomScale.CustomScale, c, func(def *AIVelocityIEPEChannel) {
+				aiviepec.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aiviepec.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aiviepec.Units, c.Next())
+		return patch.Defaulted(&aiviepec.Units, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.Units = def.Units
+		})
 	case "sensitivity_units":
-		return patch.Value(&aiviepec.SensitivityUnits, c.Next())
+		return patch.Defaulted(&aiviepec.SensitivityUnits, c.Next(), func(def *AIVelocityIEPEChannel) {
+			aiviepec.SensitivityUnits = def.SensitivityUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -1901,7 +2185,9 @@ func (aiviepec *AIVelocityIEPEChannel) HashContent(h *content.Hash) {
 func (aiawdcvc *AIAccel4WireDCVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aiawdcvc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aiawdcvc.BaseAIChannel.Key, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aiawdcvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1915,24 +2201,36 @@ func (aiawdcvc *AIAccel4WireDCVoltageChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aiawdcvc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aiawdcvc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aiawdcvc.MinMaxVal.MaxVal, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aiawdcvc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aiawdcvc.Terminal.TerminalConfig, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "sensitivity":
 		return patch.Value(&aiawdcvc.Sensitivity.Sensitivity, c.Next())
 	case "voltage_excit_source":
-		return patch.Value(&aiawdcvc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aiawdcvc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aiawdcvc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aiawdcvc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aiawdcvc.CustomScale.CustomScale, c, func(def *AIAccel4WireDCVoltageChannel) {
+				aiawdcvc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aiawdcvc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aiawdcvc.Units, c.Next())
+		return patch.Defaulted(&aiawdcvc.Units, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.Units = def.Units
+		})
 	case "sensitivity_units":
-		return patch.Value(&aiawdcvc.SensitivityUnits, c.Next())
+		return patch.Defaulted(&aiawdcvc.SensitivityUnits, c.Next(), func(def *AIAccel4WireDCVoltageChannel) {
+			aiawdcvc.SensitivityUnits = def.SensitivityUnits
+		})
 	case "scaled_by_excitation":
 		return patch.Value(&aiawdcvc.ScaledByExcitation, c.Next())
 	default:
@@ -1963,7 +2261,9 @@ func (aiawdcvc *AIAccel4WireDCVoltageChannel) HashContent(h *content.Hash) {
 func (aiacc *AIAccelChargeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aiacc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aiacc.BaseAIChannel.Key, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aiacc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -1977,20 +2277,30 @@ func (aiacc *AIAccelChargeChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aiacc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aiacc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aiacc.MinMaxVal.MaxVal, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aiacc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aiacc.Terminal.TerminalConfig, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "sensitivity":
 		return patch.Value(&aiacc.Sensitivity.Sensitivity, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aiacc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aiacc.CustomScale.CustomScale, c, func(def *AIAccelChargeChannel) {
+				aiacc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aiacc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aiacc.Units, c.Next())
+		return patch.Defaulted(&aiacc.Units, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.Units = def.Units
+		})
 	case "sensitivity_units":
-		return patch.Value(&aiacc.SensitivityUnits, c.Next())
+		return patch.Defaulted(&aiacc.SensitivityUnits, c.Next(), func(def *AIAccelChargeChannel) {
+			aiacc.SensitivityUnits = def.SensitivityUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2016,7 +2326,9 @@ func (aiacc *AIAccelChargeChannel) HashContent(h *content.Hash) {
 func (aicc *AIChargeChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aicc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aicc.BaseAIChannel.Key, c.Next(), func(def *AIChargeChannel) {
+			aicc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aicc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2030,16 +2342,24 @@ func (aicc *AIChargeChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aicc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aicc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aicc.MinMaxVal.MaxVal, c.Next(), func(def *AIChargeChannel) {
+			aicc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aicc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aicc.Terminal.TerminalConfig, c.Next(), func(def *AIChargeChannel) {
+			aicc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aicc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aicc.CustomScale.CustomScale, c, func(def *AIChargeChannel) {
+				aicc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aicc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aicc.Units, c.Next())
+		return patch.Defaulted(&aicc.Units, c.Next(), func(def *AIChargeChannel) {
+			aicc.Units = def.Units
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2063,7 +2383,9 @@ func (aicc *AIChargeChannel) HashContent(h *content.Hash) {
 func (aicrmsc *AICurrentRMSChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aicrmsc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aicrmsc.BaseAIChannel.Key, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aicrmsc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2077,18 +2399,28 @@ func (aicrmsc *AICurrentRMSChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aicrmsc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aicrmsc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aicrmsc.MinMaxVal.MaxVal, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aicrmsc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aicrmsc.Terminal.TerminalConfig, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aicrmsc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aicrmsc.CustomScale.CustomScale, c, func(def *AICurrentRMSChannel) {
+				aicrmsc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aicrmsc.CustomScale.CustomScale.Patch(c)
 	case "shunt_resistor_loc":
-		return patch.Value(&aicrmsc.ShuntResistorLoc, c.Next())
+		return patch.Defaulted(&aicrmsc.ShuntResistorLoc, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.ShuntResistorLoc = def.ShuntResistorLoc
+		})
 	case "ext_shunt_resistor_val":
-		return patch.Value(&aicrmsc.ExtShuntResistorVal, c.Next())
+		return patch.Defaulted(&aicrmsc.ExtShuntResistorVal, c.Next(), func(def *AICurrentRMSChannel) {
+			aicrmsc.ExtShuntResistorVal = def.ExtShuntResistorVal
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2113,7 +2445,9 @@ func (aicrmsc *AICurrentRMSChannel) HashContent(h *content.Hash) {
 func (aifbpc *AIForceBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aifbpc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aifbpc.BaseAIChannel.Key, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aifbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2127,13 +2461,21 @@ func (aifbpc *AIForceBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aifbpc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aifbpc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aifbpc.MinMaxVal.MaxVal, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aifbpc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aifbpc.Bridge.BridgeConfig, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aifbpc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aifbpc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aifbpc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aifbpc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aifbpc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "forward_coeffs":
@@ -2141,16 +2483,24 @@ func (aifbpc *AIForceBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "reverse_coeffs":
 		return patch.Value(&aifbpc.BridgePolynomial.ReverseCoeffs, c.Next())
 	case "electrical_units":
-		return patch.Value(&aifbpc.BridgePolynomial.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aifbpc.BridgePolynomial.ElectricalUnits, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.BridgePolynomial.ElectricalUnits = def.BridgePolynomial.ElectricalUnits
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aifbpc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aifbpc.CustomScale.CustomScale, c, func(def *AIForceBridgePolynomialChannel) {
+				aifbpc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aifbpc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aifbpc.Units, c.Next())
+		return patch.Defaulted(&aifbpc.Units, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aifbpc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aifbpc.PhysicalUnits, c.Next(), func(def *AIForceBridgePolynomialChannel) {
+			aifbpc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2187,7 +2537,9 @@ func (aifbpc *AIForceBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aifvc *AIFreqVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aifvc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aifvc.BaseAIChannel.Key, c.Next(), func(def *AIFreqVoltageChannel) {
+			aifvc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aifvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2201,10 +2553,14 @@ func (aifvc *AIFreqVoltageChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aifvc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aifvc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aifvc.MinMaxVal.MaxVal, c.Next(), func(def *AIFreqVoltageChannel) {
+			aifvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aifvc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aifvc.CustomScale.CustomScale, c, func(def *AIFreqVoltageChannel) {
+				aifvc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aifvc.CustomScale.CustomScale.Patch(c)
 	case "threshold_level":
@@ -2234,7 +2590,9 @@ func (aifvc *AIFreqVoltageChannel) HashContent(h *content.Hash) {
 func (aipbpc *AIPressureBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aipbpc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aipbpc.BaseAIChannel.Key, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aipbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2248,13 +2606,21 @@ func (aipbpc *AIPressureBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aipbpc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aipbpc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aipbpc.MinMaxVal.MaxVal, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aipbpc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aipbpc.Bridge.BridgeConfig, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aipbpc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aipbpc.Bridge.NominalBridgeResistance, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aipbpc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aipbpc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aipbpc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "forward_coeffs":
@@ -2262,16 +2628,24 @@ func (aipbpc *AIPressureBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "reverse_coeffs":
 		return patch.Value(&aipbpc.BridgePolynomial.ReverseCoeffs, c.Next())
 	case "electrical_units":
-		return patch.Value(&aipbpc.BridgePolynomial.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aipbpc.BridgePolynomial.ElectricalUnits, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.BridgePolynomial.ElectricalUnits = def.BridgePolynomial.ElectricalUnits
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aipbpc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aipbpc.CustomScale.CustomScale, c, func(def *AIPressureBridgePolynomialChannel) {
+				aipbpc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aipbpc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aipbpc.Units, c.Next())
+		return patch.Defaulted(&aipbpc.Units, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aipbpc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aipbpc.PhysicalUnits, c.Next(), func(def *AIPressureBridgePolynomialChannel) {
+			aipbpc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2308,7 +2682,9 @@ func (aipbpc *AIPressureBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aitic *AIThermistorIexChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitic.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitic.BaseAIChannel.Key, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitic.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2322,15 +2698,23 @@ func (aitic *AIThermistorIexChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitic.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitic.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitic.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "resistance_config":
-		return patch.Value(&aitic.Resistance.ResistanceConfig, c.Next())
+		return patch.Defaulted(&aitic.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		})
 	case "current_excit_source":
-		return patch.Value(&aitic.CurrentExcitation.CurrentExcitSource, c.Next())
+		return patch.Defaulted(&aitic.CurrentExcitation.CurrentExcitSource, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.CurrentExcitation.CurrentExcitSource = def.CurrentExcitation.CurrentExcitSource
+		})
 	case "current_excit_val":
 		return patch.Value(&aitic.CurrentExcitation.CurrentExcitVal, c.Next())
 	case "units":
-		return patch.Value(&aitic.Units, c.Next())
+		return patch.Defaulted(&aitic.Units, c.Next(), func(def *AIThermistorIexChannel) {
+			aitic.Units = def.Units
+		})
 	case "a":
 		return patch.Value(&aitic.A, c.Next())
 	case "b":
@@ -2364,7 +2748,9 @@ func (aitic *AIThermistorIexChannel) HashContent(h *content.Hash) {
 func (aitvc *AIThermistorVexChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitvc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitvc.BaseAIChannel.Key, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitvc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2378,15 +2764,23 @@ func (aitvc *AIThermistorVexChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitvc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitvc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitvc.MinMaxVal.MaxVal, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "resistance_config":
-		return patch.Value(&aitvc.Resistance.ResistanceConfig, c.Next())
+		return patch.Defaulted(&aitvc.Resistance.ResistanceConfig, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.Resistance.ResistanceConfig = def.Resistance.ResistanceConfig
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aitvc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aitvc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aitvc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "units":
-		return patch.Value(&aitvc.Units, c.Next())
+		return patch.Defaulted(&aitvc.Units, c.Next(), func(def *AIThermistorVexChannel) {
+			aitvc.Units = def.Units
+		})
 	case "a":
 		return patch.Value(&aitvc.A, c.Next())
 	case "b":
@@ -2423,7 +2817,9 @@ func (aitvc *AIThermistorVexChannel) HashContent(h *content.Hash) {
 func (aitbpc *AITorqueBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aitbpc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aitbpc.BaseAIChannel.Key, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aitbpc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2437,13 +2833,21 @@ func (aitbpc *AITorqueBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aitbpc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aitbpc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aitbpc.MinMaxVal.MaxVal, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "bridge_config":
-		return patch.Value(&aitbpc.Bridge.BridgeConfig, c.Next())
+		return patch.Defaulted(&aitbpc.Bridge.BridgeConfig, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.Bridge.BridgeConfig = def.Bridge.BridgeConfig
+		})
 	case "nominal_bridge_resistance":
-		return patch.Value(&aitbpc.Bridge.NominalBridgeResistance, c.Next())
+		return patch.Defaulted(&aitbpc.Bridge.NominalBridgeResistance, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.Bridge.NominalBridgeResistance = def.Bridge.NominalBridgeResistance
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aitbpc.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aitbpc.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aitbpc.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "forward_coeffs":
@@ -2451,16 +2855,24 @@ func (aitbpc *AITorqueBridgePolynomialChannel) Patch(c patch.Cursor) error {
 	case "reverse_coeffs":
 		return patch.Value(&aitbpc.BridgePolynomial.ReverseCoeffs, c.Next())
 	case "electrical_units":
-		return patch.Value(&aitbpc.BridgePolynomial.ElectricalUnits, c.Next())
+		return patch.Defaulted(&aitbpc.BridgePolynomial.ElectricalUnits, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.BridgePolynomial.ElectricalUnits = def.BridgePolynomial.ElectricalUnits
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aitbpc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aitbpc.CustomScale.CustomScale, c, func(def *AITorqueBridgePolynomialChannel) {
+				aitbpc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aitbpc.CustomScale.CustomScale.Patch(c)
 	case "units":
-		return patch.Value(&aitbpc.Units, c.Next())
+		return patch.Defaulted(&aitbpc.Units, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.Units = def.Units
+		})
 	case "physical_units":
-		return patch.Value(&aitbpc.PhysicalUnits, c.Next())
+		return patch.Defaulted(&aitbpc.PhysicalUnits, c.Next(), func(def *AITorqueBridgePolynomialChannel) {
+			aitbpc.PhysicalUnits = def.PhysicalUnits
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -2497,7 +2909,9 @@ func (aitbpc *AITorqueBridgePolynomialChannel) HashContent(h *content.Hash) {
 func (aivrmsc *AIVoltageRMSChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aivrmsc.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aivrmsc.BaseAIChannel.Key, c.Next(), func(def *AIVoltageRMSChannel) {
+			aivrmsc.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aivrmsc.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2511,12 +2925,18 @@ func (aivrmsc *AIVoltageRMSChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aivrmsc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aivrmsc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aivrmsc.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageRMSChannel) {
+			aivrmsc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aivrmsc.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aivrmsc.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageRMSChannel) {
+			aivrmsc.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aivrmsc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aivrmsc.CustomScale.CustomScale, c, func(def *AIVoltageRMSChannel) {
+				aivrmsc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aivrmsc.CustomScale.CustomScale.Patch(c)
 	default:
@@ -2541,7 +2961,9 @@ func (aivrmsc *AIVoltageRMSChannel) HashContent(h *content.Hash) {
 func (aivwec *AIVoltageWithExcitChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aivwec.BaseAIChannel.Key, c.Next())
+		return patch.Defaulted(&aivwec.BaseAIChannel.Key, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.BaseAIChannel.Key = def.BaseAIChannel.Key
+		})
 	case "name":
 		return patch.Value(&aivwec.BaseAIChannel.Name, c.Next())
 	case "disabled":
@@ -2555,20 +2977,30 @@ func (aivwec *AIVoltageWithExcitChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aivwec.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aivwec.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aivwec.MinMaxVal.MaxVal, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "terminal_config":
-		return patch.Value(&aivwec.Terminal.TerminalConfig, c.Next())
+		return patch.Defaulted(&aivwec.Terminal.TerminalConfig, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.Terminal.TerminalConfig = def.Terminal.TerminalConfig
+		})
 	case "voltage_excit_source":
-		return patch.Value(&aivwec.VoltageExcitation.VoltageExcitSource, c.Next())
+		return patch.Defaulted(&aivwec.VoltageExcitation.VoltageExcitSource, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.VoltageExcitation.VoltageExcitSource = def.VoltageExcitation.VoltageExcitSource
+		})
 	case "voltage_excit_val":
 		return patch.Value(&aivwec.VoltageExcitation.VoltageExcitVal, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aivwec.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aivwec.CustomScale.CustomScale, c, func(def *AIVoltageWithExcitChannel) {
+				aivwec.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aivwec.CustomScale.CustomScale.Patch(c)
 	case "bridge_config":
-		return patch.Value(&aivwec.BridgeConfig, c.Next())
+		return patch.Defaulted(&aivwec.BridgeConfig, c.Next(), func(def *AIVoltageWithExcitChannel) {
+			aivwec.BridgeConfig = def.BridgeConfig
+		})
 	case "scaled_by_excitation":
 		return patch.Value(&aivwec.ScaledByExcitation, c.Next())
 	default:
@@ -2674,7 +3106,9 @@ func (aoc *AOChannel) HashContent(h *content.Hash) {
 func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aocc.BaseAOChannel.Key, c.Next())
+		return patch.Defaulted(&aocc.BaseAOChannel.Key, c.Next(), func(def *AOCurrentChannel) {
+			aocc.BaseAOChannel.Key = def.BaseAOChannel.Key
+		})
 	case "disabled":
 		return patch.Value(&aocc.BaseAOChannel.Disabled, c.Next())
 	case "port":
@@ -2682,10 +3116,14 @@ func (aocc *AOCurrentChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aocc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aocc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aocc.MinMaxVal.MaxVal, c.Next(), func(def *AOCurrentChannel) {
+			aocc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aocc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aocc.CustomScale.CustomScale, c, func(def *AOCurrentChannel) {
+				aocc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aocc.CustomScale.CustomScale.Patch(c)
 	case "cmd_channel":
@@ -2718,13 +3156,17 @@ func (aocc *AOCurrentChannel) HashContent(h *content.Hash) {
 func (aofgc *AOFuncGenChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aofgc.BaseAOChannel.Key, c.Next())
+		return patch.Defaulted(&aofgc.BaseAOChannel.Key, c.Next(), func(def *AOFuncGenChannel) {
+			aofgc.BaseAOChannel.Key = def.BaseAOChannel.Key
+		})
 	case "disabled":
 		return patch.Value(&aofgc.BaseAOChannel.Disabled, c.Next())
 	case "port":
 		return patch.Value(&aofgc.BaseAOChannel.Port, c.Next())
 	case "wave_type":
-		return patch.Value(&aofgc.WaveType, c.Next())
+		return patch.Defaulted(&aofgc.WaveType, c.Next(), func(def *AOFuncGenChannel) {
+			aofgc.WaveType = def.WaveType
+		})
 	case "frequency":
 		return patch.Value(&aofgc.Frequency, c.Next())
 	case "amplitude":
@@ -2750,7 +3192,9 @@ func (aofgc *AOFuncGenChannel) HashContent(h *content.Hash) {
 func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&aovc.BaseAOChannel.Key, c.Next())
+		return patch.Defaulted(&aovc.BaseAOChannel.Key, c.Next(), func(def *AOVoltageChannel) {
+			aovc.BaseAOChannel.Key = def.BaseAOChannel.Key
+		})
 	case "disabled":
 		return patch.Value(&aovc.BaseAOChannel.Disabled, c.Next())
 	case "port":
@@ -2758,10 +3202,14 @@ func (aovc *AOVoltageChannel) Patch(c patch.Cursor) error {
 	case "min_val":
 		return patch.Value(&aovc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&aovc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&aovc.MinMaxVal.MaxVal, c.Next(), func(def *AOVoltageChannel) {
+			aovc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&aovc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&aovc.CustomScale.CustomScale, c, func(def *AOVoltageChannel) {
+				aovc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return aovc.CustomScale.CustomScale.Patch(c)
 	case "cmd_channel":
@@ -3015,7 +3463,9 @@ func (cic *CIChannel) HashContent(h *content.Hash) {
 func (cifc *CIFrequencyChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cifc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cifc.BaseCIChannel.Key, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cifc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3028,23 +3478,39 @@ func (cifc *CIFrequencyChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cifc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cifc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cifc.CustomScale.CustomScale, c, func(def *CIFrequencyChannel) {
+				cifc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cifc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&cifc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&cifc.MinMaxVal.MinVal, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&cifc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&cifc.MinMaxVal.MaxVal, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&cifc.Units, c.Next())
+		return patch.Defaulted(&cifc.Units, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.Units = def.Units
+		})
 	case "edge":
-		return patch.Value(&cifc.Edge, c.Next())
+		return patch.Defaulted(&cifc.Edge, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.Edge = def.Edge
+		})
 	case "meas_method":
-		return patch.Value(&cifc.MeasMethod, c.Next())
+		return patch.Defaulted(&cifc.MeasMethod, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.MeasMethod = def.MeasMethod
+		})
 	case "meas_time":
-		return patch.Value(&cifc.MeasTime, c.Next())
+		return patch.Defaulted(&cifc.MeasTime, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.MeasTime = def.MeasTime
+		})
 	case "divisor":
-		return patch.Value(&cifc.Divisor, c.Next())
+		return patch.Defaulted(&cifc.Divisor, c.Next(), func(def *CIFrequencyChannel) {
+			cifc.Divisor = def.Divisor
+		})
 	case "terminal":
 		return patch.Value(&cifc.Terminal, c.Next())
 	default:
@@ -3074,7 +3540,9 @@ func (cifc *CIFrequencyChannel) HashContent(h *content.Hash) {
 func (ciecc *CIEdgeCountChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&ciecc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&ciecc.BaseCIChannel.Key, c.Next(), func(def *CIEdgeCountChannel) {
+			ciecc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&ciecc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3086,9 +3554,13 @@ func (ciecc *CIEdgeCountChannel) Patch(c patch.Cursor) error {
 	case "device":
 		return patch.Value(&ciecc.BaseCIChannel.Device, c.Next())
 	case "active_edge":
-		return patch.Value(&ciecc.ActiveEdge, c.Next())
+		return patch.Defaulted(&ciecc.ActiveEdge, c.Next(), func(def *CIEdgeCountChannel) {
+			ciecc.ActiveEdge = def.ActiveEdge
+		})
 	case "count_direction":
-		return patch.Value(&ciecc.CountDirection, c.Next())
+		return patch.Defaulted(&ciecc.CountDirection, c.Next(), func(def *CIEdgeCountChannel) {
+			ciecc.CountDirection = def.CountDirection
+		})
 	case "initial_count":
 		return patch.Value(&ciecc.InitialCount, c.Next())
 	case "terminal":
@@ -3115,7 +3587,9 @@ func (ciecc *CIEdgeCountChannel) HashContent(h *content.Hash) {
 func (cipc *CIPeriodChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cipc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cipc.BaseCIChannel.Key, c.Next(), func(def *CIPeriodChannel) {
+			cipc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cipc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3128,23 +3602,39 @@ func (cipc *CIPeriodChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cipc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cipc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cipc.CustomScale.CustomScale, c, func(def *CIPeriodChannel) {
+				cipc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cipc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&cipc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&cipc.MinMaxVal.MinVal, c.Next(), func(def *CIPeriodChannel) {
+			cipc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&cipc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&cipc.MinMaxVal.MaxVal, c.Next(), func(def *CIPeriodChannel) {
+			cipc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&cipc.Units, c.Next())
+		return patch.Defaulted(&cipc.Units, c.Next(), func(def *CIPeriodChannel) {
+			cipc.Units = def.Units
+		})
 	case "starting_edge":
-		return patch.Value(&cipc.StartingEdge, c.Next())
+		return patch.Defaulted(&cipc.StartingEdge, c.Next(), func(def *CIPeriodChannel) {
+			cipc.StartingEdge = def.StartingEdge
+		})
 	case "meas_method":
-		return patch.Value(&cipc.MeasMethod, c.Next())
+		return patch.Defaulted(&cipc.MeasMethod, c.Next(), func(def *CIPeriodChannel) {
+			cipc.MeasMethod = def.MeasMethod
+		})
 	case "meas_time":
-		return patch.Value(&cipc.MeasTime, c.Next())
+		return patch.Defaulted(&cipc.MeasTime, c.Next(), func(def *CIPeriodChannel) {
+			cipc.MeasTime = def.MeasTime
+		})
 	case "divisor":
-		return patch.Value(&cipc.Divisor, c.Next())
+		return patch.Defaulted(&cipc.Divisor, c.Next(), func(def *CIPeriodChannel) {
+			cipc.Divisor = def.Divisor
+		})
 	case "terminal":
 		return patch.Value(&cipc.Terminal, c.Next())
 	default:
@@ -3174,7 +3664,9 @@ func (cipc *CIPeriodChannel) HashContent(h *content.Hash) {
 func (cipwc *CIPulseWidthChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cipwc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cipwc.BaseCIChannel.Key, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cipwc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3187,17 +3679,27 @@ func (cipwc *CIPulseWidthChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cipwc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cipwc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cipwc.CustomScale.CustomScale, c, func(def *CIPulseWidthChannel) {
+				cipwc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cipwc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&cipwc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&cipwc.MinMaxVal.MinVal, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&cipwc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&cipwc.MinMaxVal.MaxVal, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&cipwc.Units, c.Next())
+		return patch.Defaulted(&cipwc.Units, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.Units = def.Units
+		})
 	case "starting_edge":
-		return patch.Value(&cipwc.StartingEdge, c.Next())
+		return patch.Defaulted(&cipwc.StartingEdge, c.Next(), func(def *CIPulseWidthChannel) {
+			cipwc.StartingEdge = def.StartingEdge
+		})
 	case "terminal":
 		return patch.Value(&cipwc.Terminal, c.Next())
 	default:
@@ -3224,7 +3726,9 @@ func (cipwc *CIPulseWidthChannel) HashContent(h *content.Hash) {
 func (cispc *CISemiPeriodChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cispc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cispc.BaseCIChannel.Key, c.Next(), func(def *CISemiPeriodChannel) {
+			cispc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cispc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3237,15 +3741,23 @@ func (cispc *CISemiPeriodChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cispc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cispc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cispc.CustomScale.CustomScale, c, func(def *CISemiPeriodChannel) {
+				cispc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cispc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&cispc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&cispc.MinMaxVal.MinVal, c.Next(), func(def *CISemiPeriodChannel) {
+			cispc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&cispc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&cispc.MinMaxVal.MaxVal, c.Next(), func(def *CISemiPeriodChannel) {
+			cispc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&cispc.Units, c.Next())
+		return patch.Defaulted(&cispc.Units, c.Next(), func(def *CISemiPeriodChannel) {
+			cispc.Units = def.Units
+		})
 	case "terminal":
 		return patch.Value(&cispc.Terminal, c.Next())
 	default:
@@ -3271,7 +3783,9 @@ func (cispc *CISemiPeriodChannel) HashContent(h *content.Hash) {
 func (citesc *CITwoEdgeSepChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&citesc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&citesc.BaseCIChannel.Key, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&citesc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3284,19 +3798,31 @@ func (citesc *CITwoEdgeSepChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&citesc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&citesc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&citesc.CustomScale.CustomScale, c, func(def *CITwoEdgeSepChannel) {
+				citesc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return citesc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&citesc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&citesc.MinMaxVal.MinVal, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&citesc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&citesc.MinMaxVal.MaxVal, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&citesc.Units, c.Next())
+		return patch.Defaulted(&citesc.Units, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.Units = def.Units
+		})
 	case "first_edge":
-		return patch.Value(&citesc.FirstEdge, c.Next())
+		return patch.Defaulted(&citesc.FirstEdge, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.FirstEdge = def.FirstEdge
+		})
 	case "second_edge":
-		return patch.Value(&citesc.SecondEdge, c.Next())
+		return patch.Defaulted(&citesc.SecondEdge, c.Next(), func(def *CITwoEdgeSepChannel) {
+			citesc.SecondEdge = def.SecondEdge
+		})
 	case "first_terminal":
 		return patch.Value(&citesc.FirstTerminal, c.Next())
 	case "second_terminal":
@@ -3327,7 +3853,9 @@ func (citesc *CITwoEdgeSepChannel) HashContent(h *content.Hash) {
 func (civlc *CIVelocityLinearChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&civlc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&civlc.BaseCIChannel.Key, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&civlc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3340,19 +3868,29 @@ func (civlc *CIVelocityLinearChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&civlc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&civlc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&civlc.CustomScale.CustomScale, c, func(def *CIVelocityLinearChannel) {
+				civlc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return civlc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
 		return patch.Value(&civlc.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&civlc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&civlc.MinMaxVal.MaxVal, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&civlc.Units, c.Next())
+		return patch.Defaulted(&civlc.Units, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.Units = def.Units
+		})
 	case "decoding_type":
-		return patch.Value(&civlc.DecodingType, c.Next())
+		return patch.Defaulted(&civlc.DecodingType, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.DecodingType = def.DecodingType
+		})
 	case "dist_per_pulse":
-		return patch.Value(&civlc.DistPerPulse, c.Next())
+		return patch.Defaulted(&civlc.DistPerPulse, c.Next(), func(def *CIVelocityLinearChannel) {
+			civlc.DistPerPulse = def.DistPerPulse
+		})
 	case "terminal_a":
 		return patch.Value(&civlc.TerminalA, c.Next())
 	case "terminal_b":
@@ -3383,7 +3921,9 @@ func (civlc *CIVelocityLinearChannel) HashContent(h *content.Hash) {
 func (civac *CIVelocityAngularChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&civac.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&civac.BaseCIChannel.Key, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&civac.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3396,19 +3936,29 @@ func (civac *CIVelocityAngularChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&civac.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&civac.CustomScale.CustomScale, c)
+			return patch.Defaulted(&civac.CustomScale.CustomScale, c, func(def *CIVelocityAngularChannel) {
+				civac.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return civac.CustomScale.CustomScale.Patch(c)
 	case "min_val":
 		return patch.Value(&civac.MinMaxVal.MinVal, c.Next())
 	case "max_val":
-		return patch.Value(&civac.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&civac.MinMaxVal.MaxVal, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "units":
-		return patch.Value(&civac.Units, c.Next())
+		return patch.Defaulted(&civac.Units, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.Units = def.Units
+		})
 	case "decoding_type":
-		return patch.Value(&civac.DecodingType, c.Next())
+		return patch.Defaulted(&civac.DecodingType, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.DecodingType = def.DecodingType
+		})
 	case "pulses_per_rev":
-		return patch.Value(&civac.PulsesPerRev, c.Next())
+		return patch.Defaulted(&civac.PulsesPerRev, c.Next(), func(def *CIVelocityAngularChannel) {
+			civac.PulsesPerRev = def.PulsesPerRev
+		})
 	case "terminal_a":
 		return patch.Value(&civac.TerminalA, c.Next())
 	case "terminal_b":
@@ -3439,7 +3989,9 @@ func (civac *CIVelocityAngularChannel) HashContent(h *content.Hash) {
 func (ciplc *CIPositionLinearChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&ciplc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&ciplc.BaseCIChannel.Key, c.Next(), func(def *CIPositionLinearChannel) {
+			ciplc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&ciplc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3452,7 +4004,9 @@ func (ciplc *CIPositionLinearChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&ciplc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&ciplc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&ciplc.CustomScale.CustomScale, c, func(def *CIPositionLinearChannel) {
+				ciplc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return ciplc.CustomScale.CustomScale.Patch(c)
 	case "z_index_enabled":
@@ -3460,15 +4014,23 @@ func (ciplc *CIPositionLinearChannel) Patch(c patch.Cursor) error {
 	case "z_index_val":
 		return patch.Value(&ciplc.ZIndex.ZIndexVal, c.Next())
 	case "z_index_phase":
-		return patch.Value(&ciplc.ZIndex.ZIndexPhase, c.Next())
+		return patch.Defaulted(&ciplc.ZIndex.ZIndexPhase, c.Next(), func(def *CIPositionLinearChannel) {
+			ciplc.ZIndex.ZIndexPhase = def.ZIndex.ZIndexPhase
+		})
 	case "terminal_z":
 		return patch.Value(&ciplc.ZIndex.TerminalZ, c.Next())
 	case "units":
-		return patch.Value(&ciplc.Units, c.Next())
+		return patch.Defaulted(&ciplc.Units, c.Next(), func(def *CIPositionLinearChannel) {
+			ciplc.Units = def.Units
+		})
 	case "decoding_type":
-		return patch.Value(&ciplc.DecodingType, c.Next())
+		return patch.Defaulted(&ciplc.DecodingType, c.Next(), func(def *CIPositionLinearChannel) {
+			ciplc.DecodingType = def.DecodingType
+		})
 	case "dist_per_pulse":
-		return patch.Value(&ciplc.DistPerPulse, c.Next())
+		return patch.Defaulted(&ciplc.DistPerPulse, c.Next(), func(def *CIPositionLinearChannel) {
+			ciplc.DistPerPulse = def.DistPerPulse
+		})
 	case "initial_pos":
 		return patch.Value(&ciplc.InitialPos, c.Next())
 	case "terminal_a":
@@ -3504,7 +4066,9 @@ func (ciplc *CIPositionLinearChannel) HashContent(h *content.Hash) {
 func (cipac *CIPositionAngularChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cipac.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cipac.BaseCIChannel.Key, c.Next(), func(def *CIPositionAngularChannel) {
+			cipac.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cipac.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3517,7 +4081,9 @@ func (cipac *CIPositionAngularChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cipac.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cipac.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cipac.CustomScale.CustomScale, c, func(def *CIPositionAngularChannel) {
+				cipac.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cipac.CustomScale.CustomScale.Patch(c)
 	case "z_index_enabled":
@@ -3525,15 +4091,23 @@ func (cipac *CIPositionAngularChannel) Patch(c patch.Cursor) error {
 	case "z_index_val":
 		return patch.Value(&cipac.ZIndex.ZIndexVal, c.Next())
 	case "z_index_phase":
-		return patch.Value(&cipac.ZIndex.ZIndexPhase, c.Next())
+		return patch.Defaulted(&cipac.ZIndex.ZIndexPhase, c.Next(), func(def *CIPositionAngularChannel) {
+			cipac.ZIndex.ZIndexPhase = def.ZIndex.ZIndexPhase
+		})
 	case "terminal_z":
 		return patch.Value(&cipac.ZIndex.TerminalZ, c.Next())
 	case "units":
-		return patch.Value(&cipac.Units, c.Next())
+		return patch.Defaulted(&cipac.Units, c.Next(), func(def *CIPositionAngularChannel) {
+			cipac.Units = def.Units
+		})
 	case "decoding_type":
-		return patch.Value(&cipac.DecodingType, c.Next())
+		return patch.Defaulted(&cipac.DecodingType, c.Next(), func(def *CIPositionAngularChannel) {
+			cipac.DecodingType = def.DecodingType
+		})
 	case "pulses_per_rev":
-		return patch.Value(&cipac.PulsesPerRev, c.Next())
+		return patch.Defaulted(&cipac.PulsesPerRev, c.Next(), func(def *CIPositionAngularChannel) {
+			cipac.PulsesPerRev = def.PulsesPerRev
+		})
 	case "initial_angle":
 		return patch.Value(&cipac.InitialAngle, c.Next())
 	case "terminal_a":
@@ -3569,7 +4143,9 @@ func (cipac *CIPositionAngularChannel) HashContent(h *content.Hash) {
 func (cidcc *CIDutyCycleChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cidcc.BaseCIChannel.Key, c.Next())
+		return patch.Defaulted(&cidcc.BaseCIChannel.Key, c.Next(), func(def *CIDutyCycleChannel) {
+			cidcc.BaseCIChannel.Key = def.BaseCIChannel.Key
+		})
 	case "name":
 		return patch.Value(&cidcc.BaseCIChannel.Name, c.Next())
 	case "disabled":
@@ -3582,15 +4158,23 @@ func (cidcc *CIDutyCycleChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&cidcc.BaseCIChannel.Device, c.Next())
 	case "custom_scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&cidcc.CustomScale.CustomScale, c)
+			return patch.Defaulted(&cidcc.CustomScale.CustomScale, c, func(def *CIDutyCycleChannel) {
+				cidcc.CustomScale.CustomScale = def.CustomScale.CustomScale
+			})
 		}
 		return cidcc.CustomScale.CustomScale.Patch(c)
 	case "min_val":
-		return patch.Value(&cidcc.MinMaxVal.MinVal, c.Next())
+		return patch.Defaulted(&cidcc.MinMaxVal.MinVal, c.Next(), func(def *CIDutyCycleChannel) {
+			cidcc.MinMaxVal.MinVal = def.MinMaxVal.MinVal
+		})
 	case "max_val":
-		return patch.Value(&cidcc.MinMaxVal.MaxVal, c.Next())
+		return patch.Defaulted(&cidcc.MinMaxVal.MaxVal, c.Next(), func(def *CIDutyCycleChannel) {
+			cidcc.MinMaxVal.MaxVal = def.MinMaxVal.MaxVal
+		})
 	case "active_edge":
-		return patch.Value(&cidcc.ActiveEdge, c.Next())
+		return patch.Defaulted(&cidcc.ActiveEdge, c.Next(), func(def *CIDutyCycleChannel) {
+			cidcc.ActiveEdge = def.ActiveEdge
+		})
 	case "terminal":
 		return patch.Value(&cidcc.Terminal, c.Next())
 	default:

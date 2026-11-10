@@ -20,7 +20,9 @@ import (
 func (cv *Config) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&cv.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&cv.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *Config) {
+			cv.PersistConfig.StartConfig.KeyedConfig.Key = def.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&cv.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
@@ -30,7 +32,9 @@ func (cv *Config) Patch(c patch.Cursor) error {
 	case "hash":
 		return patch.Value(&cv.Hash, c.Next())
 	case "performance":
-		return patch.Value(&cv.Performance, c.Next())
+		return patch.Defaulted(&cv.Performance, c.Next(), func(def *Config) {
+			cv.Performance = def.Performance
+		})
 	default:
 		return c.UnknownField()
 	}

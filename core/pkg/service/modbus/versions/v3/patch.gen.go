@@ -20,15 +20,21 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
@@ -222,7 +228,9 @@ func (rc *ReadChannel) HashContent(h *content.Hash) {
 func (crc *CoilReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&crc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&crc.BaseReadChannel.Key, c.Next(), func(def *CoilReadChannel) {
+			crc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&crc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -248,7 +256,9 @@ func (crc *CoilReadChannel) HashContent(h *content.Hash) {
 func (dirc *DiscreteInputReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&dirc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&dirc.BaseReadChannel.Key, c.Next(), func(def *DiscreteInputReadChannel) {
+			dirc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&dirc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -274,7 +284,9 @@ func (dirc *DiscreteInputReadChannel) HashContent(h *content.Hash) {
 func (hrrc *HoldingRegisterReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&hrrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&hrrc.BaseReadChannel.Key, c.Next(), func(def *HoldingRegisterReadChannel) {
+			hrrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&hrrc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -284,7 +296,9 @@ func (hrrc *HoldingRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&hrrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&hrrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&hrrc.RegisterValue.DataType, c.Next(), func(def *HoldingRegisterReadChannel) {
+			hrrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&hrrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
@@ -319,7 +333,9 @@ func (hrrc *HoldingRegisterReadChannel) HashContent(h *content.Hash) {
 func (irrc *InputRegisterReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&irrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&irrc.BaseReadChannel.Key, c.Next(), func(def *InputRegisterReadChannel) {
+			irrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&irrc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -329,7 +345,9 @@ func (irrc *InputRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&irrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&irrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&irrc.RegisterValue.DataType, c.Next(), func(def *InputRegisterReadChannel) {
+			irrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&irrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
@@ -364,7 +382,9 @@ func (irrc *InputRegisterReadChannel) HashContent(h *content.Hash) {
 func (hrsrc *HoldingRegisterStringReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&hrsrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&hrsrc.BaseReadChannel.Key, c.Next(), func(def *HoldingRegisterStringReadChannel) {
+			hrsrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&hrsrc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -401,7 +421,9 @@ func (hrsrc *HoldingRegisterStringReadChannel) HashContent(h *content.Hash) {
 func (irsrc *InputRegisterStringReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&irsrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&irsrc.BaseReadChannel.Key, c.Next(), func(def *InputRegisterStringReadChannel) {
+			irsrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&irsrc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -438,7 +460,9 @@ func (irsrc *InputRegisterStringReadChannel) HashContent(h *content.Hash) {
 func (hrbrc *HoldingRegisterBitReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&hrbrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&hrbrc.BaseReadChannel.Key, c.Next(), func(def *HoldingRegisterBitReadChannel) {
+			hrbrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&hrbrc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -467,7 +491,9 @@ func (hrbrc *HoldingRegisterBitReadChannel) HashContent(h *content.Hash) {
 func (irbrc *InputRegisterBitReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&irbrc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&irbrc.BaseReadChannel.Key, c.Next(), func(def *InputRegisterBitReadChannel) {
+			irbrc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&irbrc.BaseReadChannel.Name, c.Next())
 	case "disabled":

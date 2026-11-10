@@ -20,15 +20,21 @@ import (
 func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.ReadConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&rc.ReadConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
@@ -71,13 +77,19 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
+		})
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	case "tcp_scan_multiplier":
-		return patch.Value(&sc.TCPScanMultiplier, c.Next())
+		return patch.Defaulted(&sc.TCPScanMultiplier, c.Next(), func(def *ScanConfig) {
+			sc.TCPScanMultiplier = def.TCPScanMultiplier
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -171,7 +183,9 @@ func (rc *ReadChannel) HashContent(h *content.Hash) {
 func (arc *AnalogReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&arc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&arc.BaseReadChannel.Key, c.Next(), func(def *AnalogReadChannel) {
+			arc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&arc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -179,14 +193,20 @@ func (arc *AnalogReadChannel) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&arc.BaseReadChannel.Channel, c.Next())
 	case "port":
-		return patch.Value(&arc.BaseReadChannel.Port, c.Next())
+		return patch.Defaulted(&arc.BaseReadChannel.Port, c.Next(), func(def *AnalogReadChannel) {
+			arc.BaseReadChannel.Port = def.BaseReadChannel.Port
+		})
 	case "range":
-		return patch.Value(&arc.Range, c.Next())
+		return patch.Defaulted(&arc.Range, c.Next(), func(def *AnalogReadChannel) {
+			arc.Range = def.Range
+		})
 	case "neg_chan":
 		return patch.OptionalValue(&arc.NegChan, c.Next())
 	case "scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&arc.Scale, c)
+			return patch.Defaulted(&arc.Scale, c, func(def *AnalogReadChannel) {
+				arc.Scale = def.Scale
+			})
 		}
 		return arc.Scale.Patch(c)
 	default:
@@ -214,7 +234,9 @@ func (arc *AnalogReadChannel) HashContent(h *content.Hash) {
 func (drc *DigitalReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&drc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&drc.BaseReadChannel.Key, c.Next(), func(def *DigitalReadChannel) {
+			drc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&drc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -222,7 +244,9 @@ func (drc *DigitalReadChannel) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&drc.BaseReadChannel.Channel, c.Next())
 	case "port":
-		return patch.Value(&drc.BaseReadChannel.Port, c.Next())
+		return patch.Defaulted(&drc.BaseReadChannel.Port, c.Next(), func(def *DigitalReadChannel) {
+			drc.BaseReadChannel.Port = def.BaseReadChannel.Port
+		})
 	default:
 		return c.UnknownField()
 	}
@@ -240,7 +264,9 @@ func (drc *DigitalReadChannel) HashContent(h *content.Hash) {
 func (trc *ThermocoupleReadChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&trc.BaseReadChannel.Key, c.Next())
+		return patch.Defaulted(&trc.BaseReadChannel.Key, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.BaseReadChannel.Key = def.BaseReadChannel.Key
+		})
 	case "name":
 		return patch.Value(&trc.BaseReadChannel.Name, c.Next())
 	case "disabled":
@@ -248,22 +274,34 @@ func (trc *ThermocoupleReadChannel) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&trc.BaseReadChannel.Channel, c.Next())
 	case "port":
-		return patch.Value(&trc.BaseReadChannel.Port, c.Next())
+		return patch.Defaulted(&trc.BaseReadChannel.Port, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.BaseReadChannel.Port = def.BaseReadChannel.Port
+		})
 	case "thermocouple_type":
-		return patch.Value(&trc.ThermocoupleType, c.Next())
+		return patch.Defaulted(&trc.ThermocoupleType, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.ThermocoupleType = def.ThermocoupleType
+		})
 	case "neg_chan":
 		return patch.OptionalValue(&trc.NegChan, c.Next())
 	case "cjc_source":
-		return patch.Value(&trc.CjcSource, c.Next())
+		return patch.Defaulted(&trc.CjcSource, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.CjcSource = def.CjcSource
+		})
 	case "cjc_slope":
-		return patch.Value(&trc.CjcSlope, c.Next())
+		return patch.Defaulted(&trc.CjcSlope, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.CjcSlope = def.CjcSlope
+		})
 	case "cjc_offset":
 		return patch.Value(&trc.CjcOffset, c.Next())
 	case "units":
-		return patch.Value(&trc.Units, c.Next())
+		return patch.Defaulted(&trc.Units, c.Next(), func(def *ThermocoupleReadChannel) {
+			trc.Units = def.Units
+		})
 	case "scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&trc.Scale, c)
+			return patch.Defaulted(&trc.Scale, c, func(def *ThermocoupleReadChannel) {
+				trc.Scale = def.Scale
+			})
 		}
 		return trc.Scale.Patch(c)
 	default:

@@ -177,6 +177,43 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
+			"Should reset a removed field that has a default to that default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/scale"
+
+				Linear struct {
+					slope  float64 = 1
+					offset float64 = 0
+				}
+
+				Doc struct {
+					scale Linear {
+						@patch
+					}
+					name  string {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "scale", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Defaulted(&l.Slope, c.Next(), func(def *Linear) {",
+						"l.Slope = def.Slope",
+						"return patch.Value(&l.Offset, c.Next())",
+						"return patch.Defaulted(&d.Scale, c, func(def *Doc) {",
+						"d.Scale = def.Scale",
+						"return patch.Value(&d.Name, c.Next())",
+					)
+			},
+		)
+
+		It(
 			"Should give a receiver that the cursor does not shadow",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `
@@ -430,7 +467,8 @@ var _ = Describe("Go Patch Plugin", func() {
 			resp := MustGenerate(ctx, store, "cfg", loader, p)
 			ExpectContent(resp, "core/pkg/service/cfg/patch.gen.go").ToContain(
 				"return patch.Value(&ac.Base.Key, c.Next())",
-				"return patch.Value(&ac.Base.Port, c.Next())",
+				"return patch.Defaulted(&ac.Base.Port, c.Next(), func(def *AnalogChannel) {",
+				"ac.Base.Port = def.Base.Port",
 				"return patch.Value(&ac.Range.Min, c.Next())",
 				"return patch.Value(&ac.Scale.Scale, c.Next())",
 				"return patch.Value(&ac.Gain, c.Next())",

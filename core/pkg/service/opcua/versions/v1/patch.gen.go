@@ -20,9 +20,13 @@ import (
 func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.KeyedConfig.Key, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.KeyedConfig.Key = def.ScanConfig.KeyedConfig.Key
+		})
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -40,7 +44,9 @@ func (sc *ScanConfig) HashContent(h *content.Hash) {
 func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&wc.BaseChannel.Key, c.Next())
+		return patch.Defaulted(&wc.BaseChannel.Key, c.Next(), func(def *WriteChannel) {
+			wc.BaseChannel.Key = def.BaseChannel.Key
+		})
 	case "name":
 		return patch.Value(&wc.BaseChannel.Name, c.Next())
 	case "disabled":
@@ -50,7 +56,9 @@ func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	case "node_name":
 		return patch.Value(&wc.BaseChannel.NodeName, c.Next())
 	case "data_type":
-		return patch.Value(&wc.BaseChannel.DataType, c.Next())
+		return patch.Defaulted(&wc.BaseChannel.DataType, c.Next(), func(def *WriteChannel) {
+			wc.BaseChannel.DataType = def.BaseChannel.DataType
+		})
 	case "cmd_channel":
 		return patch.Value(&wc.CmdChannel, c.Next())
 	default:
@@ -75,7 +83,9 @@ func (wc *WriteChannel) HashContent(h *content.Hash) {
 func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "key":
-		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+		return patch.Defaulted(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next(), func(def *WriteConfig) {
+			wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key = def.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key
+		})
 	case "auto_start":
 		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
 	case "data_saving_disabled":
