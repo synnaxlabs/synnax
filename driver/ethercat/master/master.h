@@ -148,9 +148,9 @@ public:
     /// @brief writes parameters to the slave at position on the running bus, in order,
     /// and adds them to its startup parameters. Safe to call from one thread while
     /// another runs receive() and send(). Valid between activate() and deactivate().
-    /// The IgH master does not write them again when the slave recovers.
     /// @returns errors::STARTUP_PARAMETER_ERROR when the slave rejects a parameter. The
-    /// parameters before it stay on the slave.
+    /// parameters before it stay on the slave. errors::SETTING_CONFLICT when the master
+    /// cannot keep a parameter on the slave after the slave restarts.
     [[nodiscard]] virtual x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters

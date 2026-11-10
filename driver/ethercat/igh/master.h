@@ -11,6 +11,7 @@
 
 #include <cstdint>
 #include <functional>
+#include <map>
 #include <string>
 #include <utility>
 #include <vector>
@@ -64,6 +65,8 @@ class Master final : public master::Master {
     std::vector<slave::DiscoveryResult> cached_slaves;
     /// @brief the configuration of each enabled slave, in position order.
     std::vector<std::pair<uint16_t, ec_slave_config_t *>> slave_configs;
+    /// @brief the startup parameters of each enabled slave at activation, by position.
+    std::map<uint16_t, std::vector<slave::StartupParameter>> startup_parameters;
     /// @brief whether the master has been initialized.
     bool initialized;
     /// @brief whether the master has been activated.
@@ -111,6 +114,10 @@ public:
     /// OP to it on its own, so this takes no recovery step.
     std::vector<slave::Health> check(const x::breaker::Breaker &breaker) override;
 
+    /// @brief writes nothing, since IgH takes startup parameters only before activation
+    /// and writes those again each time the slave restarts.
+    /// @returns errors::SETTING_CONFLICT when a parameter is not one that the bus
+    /// started with.
     x::errors::Error write(
         uint16_t position,
         const std::vector<slave::StartupParameter> &parameters
