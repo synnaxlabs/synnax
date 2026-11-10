@@ -25,9 +25,14 @@ const LOCAL = createFormat();
 // Certificate dates read in UTC, as the expiry statuses of the Core do.
 const UTC = createFormat("UTC");
 
-/** Describes when the value of a secret last changed: "Set on May 4, 2026". */
+/**
+ * Describes where the value of a secret comes from: "Set on May 4, 2026", or "Read from
+ * token" for a file secret.
+ */
 export const describeSecret = (s: secret.Secret): string =>
-  s.source === "file" ? s.path : `Set on ${LOCAL.format(s.updated.date())}`;
+  s.source === "file"
+    ? `Read from ${s.fileName}`
+    : `Set on ${LOCAL.format(s.updated.date())}`;
 
 export interface Validity {
   text: string;

@@ -227,7 +227,7 @@ describe("secret/Toolbar", () => {
     const s = await client.secrets.set({
       name: uniqueName("secret"),
       source: "file",
-      path: "/etc/synnax/token",
+      fileName: "token",
     });
     createdSecrets.push(s.key);
     await renderToolbar();
