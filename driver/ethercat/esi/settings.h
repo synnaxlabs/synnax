@@ -25,7 +25,7 @@ namespace driver::ethercat::esi {
 /// Reads the option lists and limits that the catalog takes from the card through
 /// read. Returns nullopt when the catalog describes no settings for the product.
 /// @returns the error of a failed read, or errors::SDO_READ_ERROR when the card counts
-/// more options than its table can hold.
+/// no options, or more than its table can hold.
 std::pair<std::optional<x::json::json>, x::errors::Error>
 read_settings(uint32_t vendor_id, uint32_t product_code, const coe::Read &read);
 }
