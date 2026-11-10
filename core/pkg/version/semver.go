@@ -15,7 +15,7 @@ import (
 	"golang.org/x/mod/semver"
 )
 
-// IsDev reports whether v is the version of a dev build: 0.0.0, or a 0.0 version that
+// IsDev returns whether v is the version of a dev build: 0.0.0, or a 0.0 version that
 // CI stamps with a pre-release. A dev version need not be valid semver, since its
 // pre-release can hold a commit hash with a leading zero.
 func IsDev(v string) bool { return strings.HasPrefix(v, "0.0.") }
