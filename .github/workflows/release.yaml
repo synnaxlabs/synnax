@@ -10,9 +10,10 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2}{3} {4}{5}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.packages && '
-  Packages' || '', inputs.bump, inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3}{4} {5}{6}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.typescript && '
+  TypeScript' || '', inputs.python && ' Python' || '', inputs.bump, inputs.prerelease &&
+  ' candidate' || '') }}
 
 on:
   workflow_dispatch:
@@ -29,8 +30,12 @@ on:
         description: Release the Core
         type: boolean
         default: true
-      packages:
-        description: Publish the npm and PyPI packages whose versions are not published
+      typescript:
+        description: Publish the npm packages at the next ts/v* patch on the train
+        type: boolean
+        default: true
+      python:
+        description: Publish the PyPI packages at the next py/v* patch on the train
         type: boolean
         default: true
       bump:
@@ -136,21 +141,27 @@ jobs:
       train:
         ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
         steps.driver.outputs.minor }}
+      ts_version: ${{ steps.ts.outputs.version }}
+      ts_tag: ${{ steps.ts.outputs.tag }}
+      ts_minor: ${{ steps.ts.outputs.minor }}
+      ts_latest: ${{ steps.ts.outputs.latest }}
+      py_version: ${{ steps.py.outputs.version }}
+      py_tag: ${{ steps.py.outputs.tag }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
         if: >-
-          !inputs.console && !inputs.driver && !inputs.core && (!inputs.packages ||
-          inputs.prerelease)
+          !inputs.console && !inputs.driver && !inputs.core && (inputs.prerelease ||
+          !inputs.typescript && !inputs.python)
         run: |
           echo "no product selected; a candidate run never publishes packages" >&2
           exit 1
 
       - name: Require a release branch for packages
         if: >-
-          inputs.packages && !inputs.prerelease && github.ref != 'refs/heads/main' &&
-          !startsWith(github.ref, 'refs/heads/release/')
+          (inputs.typescript || inputs.python) && !inputs.prerelease && github.ref !=
+          'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/')
         run: |
           echo "packages publish only from main or a release/ branch" >&2
           exit 1
@@ -187,19 +198,55 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      # A manifest off the train would ship a Console and clients that report the wrong
-      # minor to the Core.
-      - name: Check manifests against the train
-        if: inputs.console || inputs.driver || inputs.core
+      # Packages publish on the Core's train, so every client works with a released
+      # Core: the minor this run releases for the Core, else the release branch's
+      # minor, else the newest Core minor reachable from here.
+      - name: Resolve package train
+        id: train
+        if: (inputs.typescript || inputs.python) && !inputs.prerelease
         env:
-          MINORS: >-
-            ${{ steps.console.outputs.minor }} ${{ steps.driver.outputs.minor }} ${{
-            steps.core.outputs.minor }}
+          CORE: ${{ steps.core.outputs.minor }}
+          REF: ${{ github.ref_name }}
         run: |
-          read -ra minors <<< "$MINORS"
-          for minor in $(printf '%s\n' "${minors[@]}" | sort -u); do
-            scripts/check_versions.sh --train "$minor"
-          done
+          minors() {
+            sed -nE 's#^core/v([0-9]+\.[0-9]+)\.[0-9]+$#\1#p' | sort -t. -k1,1n -k2,2n
+          }
+          train=$CORE
+          branch='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
+          if [ -z "$train" ] && [[ $REF =~ $branch ]]; then
+            train=${BASH_REMATCH[2]}
+          fi
+          if [ -z "$train" ]; then
+            train=$(git tag --list --merged HEAD 'core/v*' | minors | tail -n 1)
+          fi
+          if [ -z "$train" ]; then
+            echo "no core tag is reachable, so the package train is unknown" >&2
+            exit 1
+          fi
+          released=$(git tag --list "core/v$train.*" | minors)
+          if [ -z "$CORE" ] && [ -z "$released" ]; then
+            echo "no Core is released on $train, so no client may publish on it" >&2
+            exit 1
+          fi
+          echo "minor=$train" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve TypeScript version
+        id: ts
+        if: inputs.typescript && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: ts
+          bump: patch
+          train: ${{ steps.train.outputs.minor }}
+
+      - name: Resolve Python version
+        id: py
+        if: inputs.python && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: py
+          bump: patch
+          train: ${{ steps.train.outputs.minor }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -383,13 +430,19 @@ jobs:
 
   # Packages have no candidate channel, so a candidate run never publishes them. The
   # registries trust this file by name, so the publish jobs live here and not in a called
-  # workflow. pnpm and the prune step skip versions already on the registry.
+  # workflow.
   publish-ts:
     name: Publish TypeScript packages
-    needs: [resolve, ci]
-    if: inputs.packages && !inputs.prerelease
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
     permissions:
-      contents: read
+      contents: write
       id-token: write
     runs-on: ubuntu-latest
     env:
@@ -403,36 +456,67 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
+      # The tag claims the version before anything publishes. A run at the same commit
+      # resolves the claimed version again and finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits.
+      - name: Claim the version
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+        run: |
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in alamos client freighter x; do
+            url="https://registry.npmjs.org/@synnaxlabs/$name/$VERSION"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
+
       - name: Build
         run: pnpm build:client
 
-      # A hotfix on an older train must not move `latest` back. Every package shares the
-      # client's minor.
-      - name: Pick the dist-tag
-        id: dist-tag
-        shell: bash
-        run: |
-          minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
-          latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
-          newest=$(printf '%s\n%s\n' "$minor" "$latest" | sort -V | tail -n 1)
-          if [ "$minor" = "$newest" ]; then
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=train-$minor" >> "$GITHUB_OUTPUT"
-          fi
-
+      # A hotfix on an older train must not move `latest` back.
       - name: Publish
         env:
-          TAG: ${{ steps.dist-tag.outputs.tag }}
-        # pnpm refuses a branch other than main unless it is named here.
-        run: pnpm publish -r --tag "$TAG" --publish-branch "$GITHUB_REF_NAME"
+          TAG:
+            ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
+            format('train-{0}', needs.resolve.outputs.ts_minor) }}
+        # The stamp dirties the tree, and the resolve job already checked the branch.
+        run: pnpm publish -r --tag "$TAG" --no-git-checks
 
   publish-py:
     name: Publish Python packages
-    needs: [resolve, ci]
-    if: inputs.packages && !inputs.prerelease
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
     permissions:
-      contents: read
+      contents: write
       id-token: write
     runs-on: ubuntu-latest
     steps:
@@ -443,6 +527,43 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
+
+      # The tag claims the version before anything publishes. A run at the same commit
+      # resolves the claimed version again and finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits.
+      - name: Claim the version
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run: |
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
+            exit 1
+          fi
+          for name in alamos synnax synnax-freighter synnax-x; do
+            url="https://pypi.org/pypi/$name/$VERSION/json"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+        run: .github/scripts/stamp_versions.sh py "$VERSION"
 
       - name: Pin internal dependency constraints
         run: .github/scripts/pin_internal_deps.sh

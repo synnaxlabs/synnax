@@ -141,6 +141,41 @@ class TestPositionalArguments:
         with deprecated():
             client.access.roles.retrieve(None, [empty_role.key])  # type: ignore[call-overload]
 
+    def test_group_create(self, client: sy.Synnax) -> None:
+        parent = sy.group.resource_id(
+            client.groups.create(str(uuid4()), scope="channel").key
+        )
+        with deprecated():
+            g = client.groups.create(parent, "child")  # type: ignore[arg-type, call-arg]
+        assert (g.name, g.parent) == ("child", parent)
+        with deprecated():
+            g = client.groups.create(parent, name="named")  # type: ignore[arg-type, misc]
+        assert (g.name, g.parent) == ("named", parent)
+        key = uuid4()
+        with deprecated():
+            g = client.groups.create(parent, "keyed", key)  # type: ignore[arg-type, call-arg]
+        assert (g.key, g.name, g.parent) == (key, "keyed", parent)
+
+    def test_policy_retrieve(self, client: sy.Synnax) -> None:
+        role = client.access.roles.create(sy.Role(name="deprecation"))
+        policy = client.access.policies.create(
+            sy.Policy(name="deprecation", actions=["retrieve"], role=role.key)
+        )
+        user = client.users.create(
+            username=str(uuid4()), password="test", role=role.key
+        )
+        retrieve = client.access.policies.retrieve
+        with deprecated():
+            matched = retrieve([policy.key])  # type: ignore[call-overload]
+        assert [p.key for p in matched] == [policy.key]
+        with deprecated():
+            matched = retrieve(None, [user.resource_id], False)  # type: ignore[call-overload]
+        assert [p.key for p in matched] == [policy.key]
+        with deprecated():
+            matched = retrieve(None, None, True)  # type: ignore[call-overload]
+        assert len(matched) > 0
+        assert all(p.internal for p in matched)
+
     def test_task(self, client: sy.Synnax) -> None:
         tsk = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
         try:
