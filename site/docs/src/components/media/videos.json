@@ -7,6 +7,7 @@
   "client/channels/find": "8c96a95d9bd3",
   "client/channels/rename": "efcc77a18db9",
   "client/channels/toolbar": "e637876ff7ea",
+  "client/connect/desktop": "d716093b7038",
   "client/ranges/create": "62135bb1c7f7",
   "client/ranges/create-child": "1ff7540749c3",
   "client/ranges/labels": "92189e011026",
