@@ -43,11 +43,15 @@ x::errors::Error resolve(x::json::json &setting, const coe::Read &read) {
         const auto first = from["first_sub_index"].get<uint8_t>();
         const auto [count, err] = read(index, count_sub);
         if (err) return err;
-        if (first + count > 256)
+        if (count == 0 || count > 256u - first)
             return x::errors::Error(
                 errors::SDO_READ_ERROR,
-                telem::format_index_sub_index(index, count_sub) + " counts " +
-                    std::to_string(count) + " options, more than the object holds"
+                std::format(
+                    "{} counts {} options. The count must be from 1 to {}",
+                    telem::format_index_sub_index(index, count_sub),
+                    count,
+                    256 - first
+                )
             );
         const auto divisor = from["divisor"].get<double>();
         const auto unit = from["unit"].get<std::string>();

@@ -26,9 +26,11 @@
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
+#include "driver/ethercat/esi/settings.h"
 #include "driver/ethercat/master/contract.h"
 #include "driver/ethercat/soem/master.h"
 #include "driver/ethercat/soem/mock_api.h"
+#include "driver/ethercat/testutil/stg.h"
 
 namespace driver::ethercat::soem {
 namespace {
@@ -938,6 +940,45 @@ TEST_F(SOEMMasterTest, ScanGivesTheEEPROMBackAfterReadingOpModes) {
 TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
     this->initialize_with_slave();
     EXPECT_TRUE(this->master->scan().first[0].properties.op_modes.empty());
+}
+
+/// @brief returns a standalone 6xSTG in PRE-OP that holds the objects of the 6xSTG on
+/// the station and lists the mailbox protocols in mbx_proto.
+MockSlaveInfo create_stg(const uint16_t mbx_proto) {
+    MockSlaveInfo slave;
+    slave.state = EC_STATE_PRE_OP;
+    slave.eep_man = testutil::DEWESOFT;
+    slave.eep_id = testutil::IOLITE_6XSTG;
+    slave.name = "6xSTG";
+    slave.mbx_proto = mbx_proto;
+    slave.sdo_objects = testutil::stg_objects(0);
+    return slave;
+}
+
+/// @brief it should store the settings that the catalog describes for a slave, read
+/// from that slave's own object dictionary.
+TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
+    this->add_default_slave();
+    this->add_slave(create_stg(ECT_MBXPROT_COE));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    const auto expected = ASSERT_NIL_P(
+        esi::read_settings(
+            testutil::DEWESOFT,
+            testutil::IOLITE_6XSTG,
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
+        )
+    );
+    ASSERT_TRUE(expected.has_value());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(slaves[1].properties.settings, expected);
+}
+
+/// @brief it should read no settings from a slave that does not list CoE.
+TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
+    this->add_slave(create_stg(0));
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
 }
 
 ////////////////////// Activation //////////////////////

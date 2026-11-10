@@ -423,6 +423,37 @@ TEST_F(EtherCATScanStatusTest, KeepsTheChosenModeOnARescan) {
     EXPECT_EQ(rescanned.at(0).properties.at("op_mode"), choice.to_json());
 }
 
+/// @brief it should store the settings that a scan reads in the device properties, in
+/// place of the stored ones.
+TEST_F(EtherCATScanStatusTest, StoresTheSettingsThatAScanReads) {
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array()},
+    };
+    this->master->add_slave(
+        slave::Properties{
+            .network = "eth0",
+            .position = 2,
+            .vendor_id = 0x1,
+            .product_code = 0x3,
+            .serial = 6789,
+            .name = "6xSTG",
+            .settings = settings,
+        }
+    );
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(1);
+    EXPECT_EQ(dev.properties.at("settings"), settings);
+    dev.properties["settings"] = {{"device", x::json::json::array()}};
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_FALSE(rescanned.at(0).properties.contains("settings"));
+    EXPECT_EQ(rescanned.at(1).properties.at("settings"), settings);
+}
+
 /// @brief it should keep the invalid properties error of a saved device on a rescan.
 TEST_F(EtherCATScanStatusTest, KeepsTheInvalidPropertiesErrorOnARescan) {
     auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
