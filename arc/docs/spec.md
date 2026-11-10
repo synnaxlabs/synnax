@@ -71,6 +71,7 @@ mask := data > 2.0 // [false, false, true] (series bool)
 
 **Rules**:
 
+- An index or slice bound must be an integer type
 - `data[-1]` is the last element. Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Comparisons return `series bool` elementwise

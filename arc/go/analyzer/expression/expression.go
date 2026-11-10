@@ -497,13 +497,32 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 	}
 }
 
+// AnalyzeIndex analyzes a series index or slice bound and reports an error if its type
+// is not an integer.
+func AnalyzeIndex[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) {
+	exprCtx := ctx.Child(expr)
+	Analyze(exprCtx)
+	t := types.InferFromExpression(exprCtx).UnwrapChan()
+	if !t.IsValid() || resolveConstraint(t).IsInteger() {
+		return
+	}
+	ctx.Diagnostics.Add(diagnostics.Errorf(
+		expr,
+		"series index must be an integer type, got %s",
+		t,
+	))
+}
+
 func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	if primary := ctx.AST.PrimaryExpression(); primary != nil {
 		analyzePrimary(ctx.Child(primary))
 	}
 	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
 		for _, expr := range indexOrSlice.AllExpression() {
-			Analyze(ctx.Child(expr))
+			AnalyzeIndex(ctx, expr)
 		}
 	}
 
