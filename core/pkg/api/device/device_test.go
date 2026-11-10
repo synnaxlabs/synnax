@@ -240,6 +240,26 @@ var _ = Describe("Dispatch rename", func() {
 		Expect(renamed.Name).To(Equal("After"))
 		Expect(renamed.Location).To(Equal(d.Location))
 	})
+	It("Should rename the device by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		d := createDevice(ctx, "rename-update")
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			d.ResourceID(),
+			statusOf(ctx, d),
+		)
+		actions := []device.Action{device.NewUpdateAction(device.UpdatePayload{
+			Value: device.Update{Name: new("After")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apidevice.DispatchRequest{Key: d.Key, Actions: actions},
+		))
+		Expect(res.Actions).To(Equal(actions))
+		Expect(retrieveDevice(ctx, d.Key).Name).To(Equal("After"))
+	})
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)
 		d := createDevice(ctx, "rename-empty")

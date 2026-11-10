@@ -352,6 +352,19 @@ var _ = Describe("Service", func() {
 				Expect(got.Name).To(Equal("renamed"))
 			},
 		)
+
+		It("Should rename the panel by an update", func(ctx SpecContext) {
+			p := createPanel(ctx, "Before")
+			grant(ctx, author.ResourceID(), access.ActionUpdate, p.ResourceID())
+			acts := []panel.Action{panel.NewUpdateAction(panel.UpdatePayload{
+				Value: panel.Update{Name: new("After")},
+			})}
+			Expect(dispatch(
+				AuthedCtx(ctx, author),
+				apipanel.DispatchRequest{Key: p.Key, Actions: acts},
+			)).To(HaveField("Actions", acts))
+			Expect(retrievePanel(ctx, p.Key).Name).To(Equal("After"))
+		})
 	})
 
 	Describe("Delete", func() {

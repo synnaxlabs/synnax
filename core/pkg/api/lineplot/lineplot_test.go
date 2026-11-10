@@ -244,6 +244,15 @@ var _ = Describe("Dispatch", func() {
 			HaveField("Actions", []lineplot.Action{rename}),
 		)))
 	})
+	It("Should rename the line plot by an update", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
+		update := lineplot.NewUpdateAction(lineplot.UpdatePayload{
+			Value: lineplot.Update{Name: new("After")},
+		})
+		Expect(dispatchAs(ctx, update)).
+			To(HaveField("Actions", []lineplot.Action{update}))
+		Expect(retrieveLinePlot(ctx, lp.Key).Name).To(Equal("After"))
+	})
 })
 
 // createGroup creates a group in the suite project.

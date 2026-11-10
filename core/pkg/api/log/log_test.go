@@ -231,6 +231,15 @@ var _ = Describe("Dispatch", func() {
 		MustSucceed(dispatchAs(ctx, rename))
 		Expect(retrieveLog(ctx, l.Key).Name).To(Equal("Renamed"))
 	})
+	It("Should rename the log by an update", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
+		update := log.NewUpdateAction(log.UpdatePayload{
+			Value: log.Update{Name: new("After")},
+		})
+		Expect(dispatchAs(ctx, update)).
+			To(HaveField("Actions", []log.Action{update}))
+		Expect(retrieveLog(ctx, l.Key).Name).To(Equal("After"))
+	})
 	It("Should require retrieve on a channel that an action adds", func(
 		ctx SpecContext,
 	) {

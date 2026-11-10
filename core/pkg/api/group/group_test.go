@@ -240,6 +240,19 @@ var _ = Describe("Group", func() {
 			MustSucceed(renameAs(ctx, u))
 			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
 		})
+
+		It("Should rename the group by an update", func(ctx SpecContext) {
+			u := newUser(ctx, grant(update, g.ResourceID()))
+			actions := []group.Action{group.NewUpdateAction(group.UpdatePayload{
+				Value: group.Update{Name: new("renamed")},
+			})}
+			res := MustSucceed(dispatch(
+				AuthedCtx(ctx, u),
+				apigroup.DispatchRequest{Key: g.Key, Actions: actions},
+			))
+			Expect(res.Actions).To(Equal(actions))
+			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
+		})
 	})
 
 	Describe("Dispatch set parent", func() {

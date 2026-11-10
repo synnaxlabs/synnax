@@ -195,6 +195,22 @@ var _ = Describe("Dispatch", func() {
 		MustSucceed(move(ctx))
 		Expect(groupSymbols(ctx, to.Key)).To(ConsistOf(symbol.ResourceID(sym.Key)))
 	})
+	It("Should rename the symbol by an update", func(ctx SpecContext) {
+		grantUpdateOn(ctx, u.ResourceID(), symbol.ResourceID(sym.Key))
+		acts := []symbol.Action{symbol.NewUpdateAction(symbol.UpdatePayload{
+			Value: symbol.Update{Name: new("Outlet")},
+		})}
+		Expect(dispatch(AuthedCtx(ctx, u), apisymbol.DispatchRequest{
+			Key:     sym.Key,
+			Actions: acts,
+		})).To(HaveField("Actions", acts))
+		var res symbol.Symbol
+		Expect(symbolSvc.NewRetrieve().
+			Where(symbol.MatchKeys(sym.Key)).
+			Entry(&res).
+			Exec(ctx, db)).To(Succeed())
+		Expect(res.Name).To(Equal("Outlet"))
+	})
 })
 
 var _ = Describe("Retrieve", func() {

@@ -159,6 +159,18 @@ var _ = Describe("Dispatch", func() {
 		MustSucceed(dispatchAs(ctx, "changed"))
 		Expect(retrieveAlias(ctx, r, ch)).To(Equal("changed"))
 	})
+	It("Should change the alias by an update", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, aliasID())
+		acts := []alias.Action{alias.NewUpdateAction(alias.UpdatePayload{
+			Value: alias.Update{Alias: new("changed")},
+		})}
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apialias.DispatchRequest{
+			Key:     alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey(),
+			Actions: acts,
+		}))
+		Expect(retrieveAlias(ctx, r, ch)).To(Equal("changed"))
+		Expect(res.Actions).To(Equal(acts))
+	})
 	It("Should refuse a change without update on the alias", func(ctx SpecContext) {
 		grant(ctx, u, access.ActionUpdate, r.ResourceID())
 		Expect(dispatchAs(ctx, "changed")).Error().

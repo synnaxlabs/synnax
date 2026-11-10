@@ -278,6 +278,21 @@ var _ = Describe("Service", func() {
 				},
 			)
 
+			It("Should rename the schematic by an update", func(ctx SpecContext) {
+				s := createSchematic(ctx, "Before")
+				grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
+				acts := []schematic.Action{
+					schematic.NewUpdateAction(schematic.UpdatePayload{
+						Value: schematic.Update{Name: new("After")},
+					}),
+				}
+				Expect(dispatch(
+					AuthedCtx(ctx, author),
+					apischematic.DispatchRequest{Key: s.Key, Actions: acts},
+				)).To(HaveField("Actions", acts))
+				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("After"))
+			})
+
 			It(
 				"Should bubble up validate.ErrValidation when dispatching to a snapshot",
 				func(ctx SpecContext) {

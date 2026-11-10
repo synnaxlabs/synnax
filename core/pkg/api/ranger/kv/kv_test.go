@@ -100,6 +100,19 @@ var _ = Describe("Dispatch", func() {
 		Expect(listPairs(ctx, r)).
 			To(Equal([]kv.Pair{{Range: r.Key, Key: "k", Value: "changed"}}))
 	})
+	It("Should change the value by an update", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, r.ResourceID())
+		acts := []kv.Action{kv.NewUpdateAction(kv.UpdatePayload{
+			Value: kv.Update{Value: new("changed")},
+		})}
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apikv.DispatchRequest{
+			Key:     pair.GorpKey(),
+			Actions: acts,
+		}))
+		Expect(listPairs(ctx, r)).
+			To(Equal([]kv.Pair{{Range: r.Key, Key: "k", Value: "changed"}}))
+		Expect(res.Actions).To(Equal(acts))
+	})
 	It("Should refuse a change without update on the range", func(ctx SpecContext) {
 		Expect(dispatchAs(ctx, "changed")).Error().
 			To(denied(u, access.ActionUpdate, r.ResourceID()))

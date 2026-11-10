@@ -245,6 +245,20 @@ var _ = Describe("Dispatch", func() {
 		))
 		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
 	})
+	It("Should rename the range by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRange(ctx)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), r.ResourceID())
+		acts := []ranger.Action{ranger.NewUpdateAction(ranger.UpdatePayload{
+			Value: ranger.Update{Name: new("Cold flow")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apiranger.DispatchRequest{Key: r.Key, DispatchKey: "dk", Actions: acts},
+		))
+		Expect(retrieveRange(ctx, r.Key).Name).To(Equal("Cold flow"))
+		Expect(res.Actions).To(Equal(acts))
+	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		r := createRange(ctx)

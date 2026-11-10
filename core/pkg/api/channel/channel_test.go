@@ -425,6 +425,25 @@ var _ = Describe("Service", func() {
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
 				Expect(stored(ctx).Name).To(Equal(name))
 			})
+			It("Should rename the channel by an update", func(ctx SpecContext) {
+				grantOn(
+					ctx,
+					outsider.ResourceID(),
+					[]access.Action{access.ActionUpdate},
+					channel.ResourceID(ch.Key()),
+				)
+				name := UniqueChannelName()
+				acts := []channel.Action{
+					channel.NewUpdateAction(channel.UpdatePayload{
+						Value: channel.Update{Name: new(name)},
+					}),
+				}
+				Expect(dispatch(
+					AuthedCtx(ctx, outsider),
+					apichannel.DispatchRequest{Key: ch.Key(), Actions: acts},
+				)).To(Equal(apichannel.DispatchResponse{Actions: acts}))
+				Expect(stored(ctx).Name).To(Equal(name))
+			})
 		})
 	})
 	Describe("Dispatch group move", func() {

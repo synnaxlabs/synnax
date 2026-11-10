@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, patch, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
@@ -723,6 +723,56 @@ describe("Task", async () => {
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
+    });
+
+    const sendUpdate = async (key: task.Key, dispatchKey: string, a: task.Action) =>
+      await client.transport.unary.send(
+        "/task/dispatch",
+        { key, dispatchKey, actions: [a] },
+        task.dispatchReqZ,
+        task.dispatchResZ,
+      );
+
+    it("should reply to a config update with the config hash and echo it", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-update-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.ACTION_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const dispatchKey = id.create();
+      const update = task.update({ value: { config: { routingKey: "cat" } } });
+      const { actions } = await sendUpdate(t.key, dispatchKey, update);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.configHash).not.toBe(t.configHash);
+      expect(actions).toEqual([
+        update,
+        task.update({ value: { configHash: stored.configHash } }),
+      ]);
+      await expect
+        .poll(async () => {
+          const fr = await streamer.read();
+          return task.scopedActionZ.parse(fr.at(-1)[task.ACTION_CHANNEL_NAME]);
+        })
+        .toMatchObject({ key: t.key, dispatchKey, actions });
+    });
+
+    it("should reject an update whose guard does not hold as stale", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-stale-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const update = task.update({
+        value: { name: "renamed" },
+        guards: [{ path: ["name"], value: "other" }],
+      });
+      await expect(sendUpdate(t.key, id.create(), update)).rejects.toThrow(
+        patch.StaleError,
+      );
+      expect((await createTestClient().tasks.retrieve(t.key)).name).toBe(t.name);
     });
   });
 
