@@ -135,7 +135,7 @@ class DriverNIStateWake(DriverStateWake):
         self, cmds: list[sy.Channel], states: list[sy.Channel]
     ) -> sy.ni.DigitalWriteTask:
         # Sim device must be set up in NI MAX
-        dev = self.client.devices.retrieve(location="SYMod1")
+        dev = self.client.devices.retrieve(location="SYMod1", one=True)
         return self.client.tasks.configure(
             sy.ni.DigitalWriteTask(
                 name=type(self).__name__,
