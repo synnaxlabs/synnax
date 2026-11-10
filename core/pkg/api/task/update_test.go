@@ -242,9 +242,9 @@ var _ = Describe("Dispatch update", func() {
 			task.NewUpdateAction(
 				task.UpdatePayload{Value: task.Update{Config: sparse}},
 			),
-			task.NewUpdateAction(task.UpdatePayload{Value: task.Update{
-				Config: msgpack.EncodedJSON{"set": map[string]any(stored.Config)},
-			}}),
+			task.NewSetAction(
+				task.SetPayload{Path: []string{"config"}, Value: stored.Config},
+			),
 			task.NewUpdateAction(task.UpdatePayload{
 				Value: task.Update{ConfigHash: &stored.ConfigHash},
 			}),
