@@ -65,7 +65,7 @@ The device loads the stored settings each time it starts.
 
 ## Set up a module in Synnax
 
-For the IOLITE, IOLITEi, KRYPTON, and KRYPTONi modules in the Dewesoft manual, the
+For most IOLITE, IOLITEi, KRYPTON, and KRYPTONi modules in the Dewesoft manual, the
 Console shows the settings of the module by name:
 
 - **Configure** dialog of the module -> the settings of the whole module, such as the
@@ -90,10 +90,14 @@ Each module runs the sync mode that it stores, SM sync or DC sync. The Driver mu
 the module in the same mode. If the modes are different, the module can stay in PRE-OP,
 for example with
 ["Invalid DC SYNC configuration"](/reference/hardware/ethercat/troubleshooting#failed-to-reach-safe-op--invalid-dc-sync-configuration).
-By default, the Driver runs SM sync when the module lists an SM sync mode.
 
-In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLV, and 8xTH can
-also run SM sync on bus 1. To run a module in DC sync:
+For most modules with settings in Synnax, the Driver reads the stored mode and runs the
+same sync mode, with the cycles from the Dewesoft manual. **Sync mode** shows this mode
+with an **Auto** badge. For other modules, the Driver runs SM sync when the module lists
+an SM sync mode.
+
+In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLA, 8xLV, 8xSTGS,
+and 8xTH can also run SM sync on bus 1. To set the sync mode yourself:
 
 1. In the devices toolbar, right-click the module and select **Configure**.
 2. Under
