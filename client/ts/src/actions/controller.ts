@@ -334,8 +334,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<State, Action>>();
-  // Documents with a fetch in flight, each with whether a frame for it arrived during
-  // the fetch.
+  // Documents with a fetch in flight, each with whether a frame or a write for it came
+  // during the fetch.
   private readonly fetching = new Map<Key, boolean>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
@@ -587,6 +587,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private set(key: Key, doc: State): void {
+    this.markFetch(key);
     this.writing = true;
     try {
       this.docs.set(key, doc);
@@ -645,8 +646,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       applied != null && i === 0 && deep.equal(r.pending[0].actions, actions);
     if (applied != null) r.base = applied.next;
     if (i !== -1) clearTimeout(r.pending.splice(i, 1)[0].deadline);
-    if (held) this.docs.stampWrite(key);
-    else this.write(key, r);
+    if (held) {
+      this.markFetch(key);
+      this.docs.stampWrite(key);
+    } else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
     return { own: i !== -1, targets: applied?.targets ?? [] };
   }
@@ -1072,12 +1075,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * again.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
-    // The Core may answer a fetch in flight from before the frame. Until the fetch
-    // caches the doc, the frame only marks that.
-    if (this.fetching.has(key)) {
-      this.fetching.set(key, true);
-      if (this.docs.get(key) == null) return;
-    }
+    this.markFetch(key);
+    // Until the fetch caches the doc, there is nothing to apply the frame to.
+    if (this.fetching.has(key) && this.docs.get(key) == null) return;
     if (seq !== 0 && seq <= (this.lastAppliedSeq.get(key) ?? 0)) return;
     try {
       this.applyFrame(key, dispatchKey, actions);
@@ -1117,10 +1117,15 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (!own) this.markRemoteTouched(key, targets);
   }
 
+  // A fetch in flight may answer from before a frame or a write, so it runs again.
+  private markFetch(key: Key): void {
+    if (this.fetching.has(key)) this.fetching.set(key, true);
+  }
+
   /**
-   * Fetches a doc until no frame for it arrives during the fetch, since the Core may
-   * answer from before such a frame. A doc that holds a pending entry after a fetch is
-   * fetched again once it holds none. Never rejects.
+   * Fetches a doc until no frame or write for it comes during the fetch. A doc that
+   * holds a pending entry after a fetch is fetched again once it holds none. Never
+   * rejects.
    */
   private async fetch(key: Key): Promise<void> {
     if (this.fetching.has(key)) {
@@ -1131,7 +1136,6 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       do {
         this.fetching.set(key, false);
         await this.docs.retrieve([key], { refresh: true });
-        // The table skips a fetched doc that a dispatch wrote during the fetch.
         if (this.rebases.has(key)) {
           this.stale.add(key);
           return;

@@ -2070,6 +2070,24 @@ describe("actions.Controller", () => {
       expect(fetch).toHaveBeenCalledTimes(2);
     });
 
+    it("fetches the doc again when a dispatch fails during the fetch", async () => {
+      const { send, calls } = createHeldSend();
+      const held = Promise.withResolvers<void>();
+      const fetch = vi.fn(async (keys: string[]) => {
+        await held.promise;
+        return keys.map((key) => ({ key, values: { a: 7 } }));
+      });
+      const { docs, controller } = setupStore({ send, fetch });
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "f-1", [{ type: "invalid" }]);
+      const dispatched = controller.dispatch("k", [set("b", 1)]);
+      calls[0].reject(new Error("boom"));
+      await expect(dispatched).rejects.toThrow("boom");
+      held.resolve();
+      await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("fetches a failed doc again after a dispatch during the fetch", async () => {
       const { send, calls } = createHeldSend();
       const fetch = createFetch();
