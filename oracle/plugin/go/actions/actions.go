@@ -10,8 +10,9 @@
 // Package actions generates the reducer of each struct or union that has actions. The
 // go/types plugin emits the payloads and the Action union. This plugin emits Reduce,
 // one New<Name>Action constructor per action, the Handle method of each payload that
-// only the Core emits, and the Handle and CheckCoreOnly methods of the update payload.
-// Every other Handle method is hand-written in a sibling file.
+// only the Core emits, the Handle and CheckCoreOnly methods of the update payload, and
+// the CheckCoreOnly method of the Action union of a record with standard actions. Every
+// other Handle method is hand-written in a sibling file.
 package actions
 
 import (
@@ -110,11 +111,23 @@ func (p *Plugin) generateFile(
 			if err := p.update(&ad, payload, action, &data, table); err != nil {
 				return nil, errors.Wrap(err, typ.QualifiedName)
 			}
+			data.CoreFields = action.CoreFields
+			data.BindsVariant = true
+		}
+		if form, ok := payload.Form.(resolution.DistinctForm); ok {
+			ad.Path = pathOf[form.Base.Name]
 		}
 		data.Actions = append(data.Actions, ad)
+		data.ChecksCoreOnly = data.ChecksCoreOnly || action.CoreOnly || action.Update
 		if action.CoreOnly {
 			mgr.AddExternal(p.Options.RuntimeImportPath)
 		}
+	}
+	if len(data.CoreFields) > 0 && lo.SomeBy(data.Actions, func(a actionData) bool {
+		return a.Path != ""
+	}) {
+		data.ChecksPaths = true
+		mgr.AddExternal("slices")
 	}
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, &data); err != nil {
@@ -191,6 +204,16 @@ type templateData struct {
 	Package    string
 	TargetType string
 	Actions    []actionData
+	// CoreFields names the fields that only the Core sets.
+	CoreFields []string
+	// ChecksCoreOnly reports that the Action union gets a CheckCoreOnly method, which a
+	// record with a create or an update action needs.
+	ChecksCoreOnly bool
+	// ChecksPaths reports that CheckCoreOnly refuses the path actions on CoreFields.
+	ChecksPaths bool
+	// BindsVariant reports that a case of CheckCoreOnly reads the payload, which an
+	// update does.
+	BindsVariant bool
 	*imports.Manager
 }
 
@@ -202,6 +225,9 @@ type actionData struct {
 	// for any other action.
 	Update     string
 	CoreFields []coreFieldData
+	// Path is the expression for the path of a path action payload v, or empty for any
+	// other action.
+	Path string
 }
 
 // coreFieldData is a field that only the Core sets, with the condition under which an
@@ -209,6 +235,15 @@ type actionData struct {
 type coreFieldData struct{ Name, Changed string }
 
 const patchImportPath = "github.com/synnaxlabs/x/patch"
+
+// pathOf maps the patch type that a path action payload derives from to the expression
+// for its path. A remove names the field it removes as its key.
+var pathOf = map[string]string{
+	"patch.Set":    "v.Path",
+	"patch.Remove": "slices.Concat(v.Path, []string{v.Key})",
+	"patch.Insert": "v.Path",
+	"patch.Move":   "v.Path",
+}
 
 var fileTemplate = template.Must(
 	template.New("go-actions").
@@ -265,6 +300,40 @@ func (p {{.Payload}}) CheckCoreOnly() error {
 	return nil
 }
 {{- end}}
+{{- end}}
+{{- if .ChecksCoreOnly}}
+
+// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when a is an action that
+// only the Core dispatches, or when a changes a field that only the Core sets.
+func (a Action) CheckCoreOnly() error {
+{{- if .ChecksPaths}}
+	var path []string
+{{- end}}
+	switch {{if .BindsVariant}}v := {{end}}a.Variant.(type) {
+{{- range .Actions}}
+{{- if .CoreOnly}}
+	case {{.Payload}}:
+		return actions.ErrCoreOnly
+{{- else if .Update}}
+	case {{.Payload}}:
+		return v.CheckCoreOnly()
+{{- else if and $.ChecksPaths .Path}}
+	case {{.Payload}}:
+		path = {{.Path}}
+{{- end}}
+{{- end}}
+	}
+{{- if .ChecksPaths}}
+	if len(path) == 0 {
+		return nil
+	}
+	switch path[0] {
+	case {{range $i, $f := .CoreFields}}{{if $i}}, {{end}}"{{$f}}"{{end}}:
+		return errors.Wrap(actions.ErrCoreOnly, path[0])
+	}
+{{- end}}
+	return nil
+}
 {{- end}}
 
 // Reduce applies acts to state in order through the Handle method of each payload. It

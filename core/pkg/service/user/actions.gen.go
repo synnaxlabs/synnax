@@ -12,6 +12,8 @@
 package user
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -42,6 +44,34 @@ func (p UpdatePayload) Handle(r User) (User, error) {
 func (p UpdatePayload) CheckCoreOnly() error {
 	if p.Value.RootUser != nil {
 		return errors.Wrap(actions.ErrCoreOnly, "root_user")
+	}
+	return nil
+}
+
+// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when a is an action that
+// only the Core dispatches, or when a changes a field that only the Core sets.
+func (a Action) CheckCoreOnly() error {
+	var path []string
+	switch v := a.Variant.(type) {
+	case CreatePayload:
+		return actions.ErrCoreOnly
+	case UpdatePayload:
+		return v.CheckCoreOnly()
+	case SetPayload:
+		path = v.Path
+	case RemovePayload:
+		path = slices.Concat(v.Path, []string{v.Key})
+	case InsertPayload:
+		path = v.Path
+	case MovePayload:
+		path = v.Path
+	}
+	if len(path) == 0 {
+		return nil
+	}
+	switch path[0] {
+	case "root_user":
+		return errors.Wrap(actions.ErrCoreOnly, path[0])
 	}
 	return nil
 }
