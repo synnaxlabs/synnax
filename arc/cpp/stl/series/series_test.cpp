@@ -1269,6 +1269,7 @@ TEST(SeriesModule, SliceNullHandleReturnsZero) {
     EXPECT_EQ(result[0].i32(), 0);
 }
 
+/// @brief it should stop a slice at the length when the end is past it.
 TEST(SeriesModule, SliceEndPastLengthStopsAtLength) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")
@@ -1288,6 +1289,7 @@ TEST(SeriesModule, SliceEndPastLengthStopsAtLength) {
     EXPECT_EQ(s->size(), 2);
 }
 
+/// @brief it should give the tail of the series for an open end.
 TEST(SeriesModule, SliceOpenEndGivesTheTail) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")
@@ -1326,6 +1328,7 @@ TEST(SeriesModule, SliceOpenEndGivesTheTail) {
     EXPECT_EQ(v1[0].i32(), 40);
 }
 
+/// @brief it should return 0 when the start is past the length.
 TEST(SeriesModule, SliceStartPastLengthReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")
