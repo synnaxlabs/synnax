@@ -119,16 +119,16 @@ const allows = ({ options, min, max }: Field, value: number): boolean =>
   (max == null || value <= max);
 
 /**
- * @returns a setting for each address of the fields, in the order of the fields, with
- * the value in values or the default. A shown field with options takes its default
+ * @returns a startup parameter for each address of the fields, in the order of the
+ * fields, with the value in values or the default. A shown field with options takes its default
  * when its value is not one of them. A hidden field takes its default when its value
  * is not one of its options or is outside its limits.
  */
-export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
+export const fill = (fields: Field[], values: Value[]): ethercat.StartupParameter[] => {
   const shown = visibleFields(fields, values);
-  const settings: ethercat.Setting[] = [];
+  const parameters: ethercat.StartupParameter[] = [];
   for (const field of fields) {
-    if (settings.some((s) => sameAddress(s, field))) continue;
+    if (parameters.some((p) => sameAddress(p, field))) continue;
     let value = valueAt(fields, values, field);
     const visible = shown.find((f) => sameAddress(f, field));
     if (visible == null) {
@@ -141,9 +141,9 @@ export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
         ? field.default
         : visible.options[0].value;
     const { index, subIndex, dataType } = field;
-    settings.push({ index, subIndex, dataType, value });
+    parameters.push({ index, subIndex, dataType, value, name: "" });
   }
-  return settings;
+  return parameters;
 };
 
 /**
@@ -152,10 +152,10 @@ export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
  */
 export const set = (
   fields: Field[],
-  values: ethercat.Setting[],
+  values: ethercat.StartupParameter[],
   address: Address,
   value: number,
-): ethercat.Setting[] => [
+): ethercat.StartupParameter[] => [
   ...values.filter((v) => !fields.some((f) => sameAddress(f, v))),
   ...fill(fields, [
     { ...address, value },

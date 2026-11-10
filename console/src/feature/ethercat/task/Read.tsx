@@ -25,7 +25,7 @@ import {
 import {
   bindOrphanedChannels,
   checkOrCreateIndex,
-  fillSettings,
+  fillStartupParameters,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
@@ -174,7 +174,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
   // The settings, data type, and repeated name checks run before any create, so their
   // failure leaves nothing behind.
-  config.settings = fillSettings(slaves, config.channels, config.settings);
+  config.startupParameters = fillStartupParameters(
+    slaves,
+    config.channels,
+    config.startupParameters,
+  );
   const plans = [];
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];

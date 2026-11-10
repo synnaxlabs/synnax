@@ -55,8 +55,11 @@ export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** Setting is a value that a task writes to a CoE object of its slave. */
-export const settingZ = z.object({
+/**
+ * StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+ * the slave moves to SAFE-OP.
+ */
+export const startupParameterZ = z.object({
   /** index is the CoE object dictionary index of the object. */
   index: zod.uint16,
   /** subIndex is the CoE object dictionary sub-index of the object. */
@@ -65,8 +68,10 @@ export const settingZ = z.object({
   dataType: z.string(),
   /** value is the value written to the object. */
   value: z.number(),
+  /** name is what the parameter sets, for display. */
+  name: z.string().default(""),
 });
-export interface Setting extends z.infer<typeof settingZ> {}
+export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
 /** EntryReadChannel addresses a PDO entry by its CoE index and sub-index. */
 export const entryReadChannelZ = baseReadChannelZ.extend({
@@ -168,14 +173,19 @@ export const WRITE_CHANNEL_SCHEMAS: {
   unresolved: unresolvedWriteChannelZ,
 };
 
-/** SlaveSettings is what a read task writes to one slave when it starts. */
-export const slaveSettingsZ = z.object({
-  /** device is the key of the slave device the values are written to. */
+/**
+ * SlaveStartupParameters holds the startup parameters that a read task writes to one
+ * slave.
+ */
+export const slaveStartupParametersZ = z.object({
+  /** device is the key of the slave device the parameters are written to. */
   device: device.keyZ.default(""),
-  /** values are the values written to the slave's CoE objects, in order. */
-  values: settingZ.array().default(() => []),
+  /** parameters are the parameters written to the slave, in order. */
+  parameters: startupParameterZ.array().default(() => []),
 });
-export interface SlaveSettings extends z.infer<typeof slaveSettingsZ> {}
+export interface SlaveStartupParameters extends z.infer<
+  typeof slaveStartupParametersZ
+> {}
 
 export const writeConfigZ = task.persistConfigZ.extend({
   stateRate: z.number().default(25),
@@ -186,6 +196,6 @@ export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 
 export const readConfigZ = task.readConfigZ.extend({
   channels: readChannelZ.array().default(() => []),
-  settings: slaveSettingsZ.array().default(() => []),
+  startupParameters: slaveStartupParametersZ.array().default(() => []),
 });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}

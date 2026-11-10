@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
@@ -46,7 +47,7 @@ const IDENTIFIER_FORMAT_ERROR =
 
 const OP_MODE = { index: 0, assignActivate: 0x0300, sync0Cycle: 0, sync1Cycle: 0 };
 
-const FILTER: EtherCAT.Device.StartupParameter = {
+const FILTER: ethercat.StartupParameter = {
   index: 0x8000,
   subIndex: 0x15,
   dataType: "uint16",
@@ -58,7 +59,7 @@ interface SetupArgs {
   configured?: boolean;
   useOpen?: typeof Device.useConfigureModal;
   analytics?: Analytics.Sink;
-  startupParameters?: EtherCAT.Device.StartupParameter[];
+  startupParameters?: ethercat.StartupParameter[];
   settings?: EtherCAT.Device.Settings.Description;
 }
 
@@ -324,7 +325,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
   });
 
   describe("settings", () => {
-    const SAMPLE_RATE: EtherCAT.Device.StartupParameter = {
+    const SAMPLE_RATE: ethercat.StartupParameter = {
       index: 0x8020,
       subIndex: 1,
       dataType: "uint16",

@@ -25,16 +25,16 @@ import {
 import { type EntryReadChannel, type ReadSchemas } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
-const SETTINGS_PATH = deep.path<Task.Values<ReadSchemas>>().config.settings;
+const PARAMETERS_PATH = deep.path<Task.Values<ReadSchemas>>().config.startupParameters;
 
-/** @returns settings with the values of the slave replaced. */
-const withValues = (
-  settings: ethercat.SlaveSettings[],
+/** @returns the startup parameters with those of the slave replaced. */
+const withParameters = (
+  held: ethercat.SlaveStartupParameters[],
   device: string,
-  values: ethercat.Setting[],
-): ethercat.SlaveSettings[] => [
-  ...settings.filter((s) => s.device !== device),
-  { device, values },
+  parameters: ethercat.StartupParameter[],
+): ethercat.SlaveStartupParameters[] => [
+  ...held.filter((s) => s.device !== device),
+  { device, parameters },
 ];
 
 export interface ChannelSettingsProps {
@@ -50,14 +50,14 @@ export const ChannelSettings = ({
   path,
 }: ChannelSettingsProps): ReactElement | null => {
   const ch = PForm.useFieldValue(path);
-  const { value: settings, onChange } = PForm.useField(SETTINGS_PATH);
+  const { value: held, onChange } = PForm.useField(PARAMETERS_PATH);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
   const channel = findChannel(slave?.properties.settings, ch);
   if (channel == null) return null;
   const fields = channel.settings;
-  const values = settings.find((s) => s.device === ch.device)?.values ?? [];
+  const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
   const problems = check(channel, values);
   return (
     <PForm.Section title="Settings">
@@ -70,7 +70,7 @@ export const ChannelSettings = ({
           onChange={(value) => {
             if (value == null) return;
             onChange(
-              withValues(settings, ch.device, set(fields, values, field, value)),
+              withParameters(held, ch.device, set(fields, values, field, value)),
             );
           }}
         />

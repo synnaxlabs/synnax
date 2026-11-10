@@ -80,8 +80,10 @@ type WriteConfig = v3.WriteConfig
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v3.ScanConfig
 
-// Setting is a value that a task writes to a CoE object of its slave.
-type Setting = v3.Setting
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+// the slave moves to SAFE-OP.
+type StartupParameter = v3.StartupParameter
 
-// SlaveSettings is what a read task writes to one slave when it starts.
-type SlaveSettings = v3.SlaveSettings
+// SlaveStartupParameters holds the startup parameters that a read task writes to one
+// slave.
+type SlaveStartupParameters = v3.SlaveStartupParameters

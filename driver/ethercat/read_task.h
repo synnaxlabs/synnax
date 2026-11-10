@@ -92,17 +92,17 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             this->channels.push_back(std::move(input));
         });
 
-        if (cfg.has("settings"))
-            cfg.iter("settings", [&](x::json::Parser &s) {
+        if (cfg.has("startup_parameters"))
+            cfg.iter("startup_parameters", [&](x::json::Parser &s) {
                 const auto *slave = this->slaves.resolve(
                     *client,
                     s.field<std::string>("device"),
                     s
                 );
                 if (slave == nullptr) return;
-                auto &values = this->settings[slave->position];
-                s.iter("values", [&values](x::json::Parser &value) {
-                    values.push_back(slave::StartupParameter::parse(value));
+                auto &params = this->settings[slave->position];
+                s.iter("parameters", [&params](x::json::Parser &param) {
+                    params.push_back(slave::StartupParameter::parse(param));
                 });
             });
 

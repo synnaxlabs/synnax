@@ -138,35 +138,35 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
 };
 
 /**
- * @returns the settings of each slave: a value for every field of each input that a
- * channel reads, in the order of the slave's catalog. Values the task held stay.
+ * @returns the startup parameters of each slave: a value for every field of each input
+ * that a channel reads, in the order of the slave's catalog. Values the task held stay.
  * @throws {Error} if a value breaks a limit or a rule of the catalog.
  */
-export const fillSettings = (
+export const fillStartupParameters = (
   slaves: SlaveDevice[],
   channels: ReadChannel[],
-  held: ethercat.SlaveSettings[],
-): ethercat.SlaveSettings[] => {
-  const filled: ethercat.SlaveSettings[] = [];
+  held: ethercat.SlaveStartupParameters[],
+): ethercat.SlaveStartupParameters[] => {
+  const filled: ethercat.SlaveStartupParameters[] = [];
   for (const slave of slaves) {
     const inputs = slave.properties.settings?.channels ?? [];
     const entries = channels.filter(
       (ch): ch is EntryReadChannel => hasEntry(ch) && ch.device === slave.key,
     );
-    const prior = held.find((s) => s.device === slave.key)?.values ?? [];
-    const values: ethercat.Setting[] = [];
+    const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
+    const parameters: ethercat.StartupParameter[] = [];
     for (const input of inputs) {
       const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
       if (ch == null) continue;
-      const settings = fill(input.settings, prior);
-      const [problem] = check(input, settings);
+      const filledInput = fill(input.settings, prior);
+      const [problem] = check(input, filledInput);
       if (problem != null)
         throw new Error(
           `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
         );
-      values.push(...settings);
+      parameters.push(...filledInput);
     }
-    if (values.length > 0) filled.push({ device: slave.key, values });
+    if (parameters.length > 0) filled.push({ device: slave.key, parameters });
   }
   return filled;
 };

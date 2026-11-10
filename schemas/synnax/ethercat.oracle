@@ -159,11 +159,11 @@ WriteChannel union on type extends BaseWriteChannel {
 }
 
 ReadConfig struct extends task.ReadConfig {
-    channels ReadChannel[]   {
+    channels           ReadChannel[]            {
         @doc value "are the channels the task acquires."
     }
-    settings SlaveSettings[] = [] {
-        @doc value "are the values the task writes to its slaves when it starts."
+    startup_parameters SlaveStartupParameters[] = [] {
+        @doc value "are the startup parameters the task writes to its slaves."
     }
 
     @doc value           """
@@ -209,7 +209,7 @@ ScanConfig struct extends task.ScanConfig {
     @patch
 }
 
-Setting struct {
+StartupParameter struct {
     index     uint16         {
         @doc value "is the CoE object dictionary index of the object."
     }
@@ -223,21 +223,27 @@ Setting struct {
     value     float64        {
         @doc value "is the value written to the object."
     }
+    name      string = "" {
+        @doc value "is what the parameter sets, for display."
+    }
 
-    @doc value  "is a value that a task writes to a CoE object of its slave."
+    @doc value  """
+        is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+        moves to SAFE-OP.
+    """
     @go marshal
 }
 
-SlaveSettings struct {
-    device device.Key = "" {
-        @doc value     "is the key of the slave device the values are written to."
+SlaveStartupParameters struct {
+    device     device.Key = "" {
+        @doc value     "is the key of the slave device the parameters are written to."
         @ref kind      use
         @ref on_delete restrict
     }
-    values Setting[] = [] {
-        @doc value "are the values written to the slave's CoE objects, in order."
+    parameters StartupParameter[] = [] {
+        @doc value "are the parameters written to the slave, in order."
     }
 
-    @doc value  "is what a read task writes to one slave when it starts."
+    @doc value  "holds the startup parameters that a read task writes to one slave."
     @go marshal
 }
