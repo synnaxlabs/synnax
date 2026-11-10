@@ -674,6 +674,43 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 			},
 		)
 
+		It(
+			"Should emit NonZero for a required uuid type",
+			func(ctx SpecContext) {
+				source := `
+				@go output "core/pkg/service/x"
+
+				Key = uuid
+
+				Cfg struct {
+					role Key {
+						@validate required
+					}
+				}
+			`
+				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain(`v.NonZero("role", c.Role)`).
+					ToNotContain(`NotEmptyString`)
+			},
+		)
+
+		It("Should emit GreaterThan for a numeric gt", func(ctx SpecContext) {
+			source := `
+				@go output "core/pkg/service/x"
+
+				Cfg struct {
+					rate float64 {
+						@validate gt 0.5
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "x", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(`v.GreaterThan("rate", c.Rate, 0.5)`).
+				ToNotContain(`GreaterThanEq`)
+		})
+
 		It("Should emit LessThanEq for a numeric max", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/x"
@@ -886,6 +923,9 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 					name string {
 						@validate min_length 2
 					}
+					rate float64 {
+						@validate gt 0
+					}
 				}
 				generated {}
 			}
@@ -912,6 +952,7 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 				resp := MustGenerate(ctx, source, "x", loader, goPlugin)
 				ExpectContent(resp, "types.gen.go").ToContain(
 					`v.MinLength("name", s.Name, 2)`,
+					`v.GreaterThan("rate", s.Rate, 0)`,
 				)
 			},
 		)

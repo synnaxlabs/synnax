@@ -9,8 +9,7 @@
 
 from typing import Required, TypedDict
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 import synnax as sy
 from console.base import ResourceClient
@@ -544,8 +543,8 @@ class ChannelClient(ResourceClient):
         self.layout.delete_with_confirmation(item)
 
         for i, notification in enumerate(self.notifications.check()):
-            message = notification.get("message", "")
-            description = notification.get("description", "")
+            message = notification.message
+            description = notification.description
             if message == "Failed to delete Channel" and name in description:
                 self.notifications.close(notification_index=i)
                 raise RuntimeError(f"{message} {name}, {description}")

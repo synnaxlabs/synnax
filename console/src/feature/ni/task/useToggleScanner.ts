@@ -24,6 +24,7 @@ export const useToggleScanner = (rackKey: rack.Key) => {
       const { config, payload } = await client.tasks.retrieve({
         type: SCAN_TYPE,
         rack: rackKey,
+        one: true,
         schemas: SCAN_SCHEMAS,
       });
       // Never write the status back: the Driver owns it and this copy may be stale.

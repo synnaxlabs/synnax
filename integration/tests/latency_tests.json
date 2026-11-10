@@ -3,10 +3,12 @@
   "sequences": [
     {
       "sequence_name": "Core_Stress",
+      "isolated": true,
       "tests": [{ "case": "latency/writer_open_close_stress" }]
     },
     {
       "sequence_name": "Driver_Latency",
+      "isolated": true,
       "sequence_order": "sequential",
       "tests": [
         { "case": "latency/driver_ni_digital_write" },
@@ -15,6 +17,7 @@
     },
     {
       "sequence_name": "Arc_Wait_Accuracy",
+      "isolated": true,
       "tests": [
         {
           "case": "arc/wait_accuracy_samples",
@@ -24,6 +27,7 @@
     },
     {
       "sequence_name": "Bench_Latency",
+      "isolated": true,
       "sequence_order": "asynchronous",
       "tests": [
         { "case": "latency/bench_response" },
@@ -32,6 +36,7 @@
     },
     {
       "sequence_name": "Async_ABC",
+      "isolated": true,
       "sequence_order": "asynchronous",
       "tests": [
         {

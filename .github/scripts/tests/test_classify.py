@@ -51,6 +51,7 @@ class TestReadSurfaces:
     """Tests reading the uploaded surface results."""
 
     def test_reads_status_and_diff(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("")
         d = tmp_path / "surface-oracle"
         d.mkdir()
         (d / "status").write_text("changed\n")
@@ -61,8 +62,29 @@ class TestReadSurfaces:
         )
 
     def test_treats_a_missing_report_as_an_error(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
         surfaces = {s.name: s for s in read_surfaces(tmp_path)}
         assert surfaces["core"].status == "error"
+
+    def test_skips_a_surface_the_run_has_no_job_for(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core-windows"].status == "skipped"
+
+    def test_treats_a_run_with_no_surface_jobs_as_an_error(
+        self, tmp_path: Path
+    ) -> None:
+        (tmp_path / "jobs").write_text("Compare ${{ matrix.surface }}\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "error"
+
+    def test_reads_a_skipped_report(self, tmp_path: Path) -> None:
+        (tmp_path / "jobs").write_text("Compare core\n")
+        d = tmp_path / "surface-core"
+        d.mkdir()
+        (d / "status").write_text("skipped\n")
+        surfaces = {s.name: s for s in read_surfaces(tmp_path)}
+        assert surfaces["core"].status == "skipped"
 
 
 class TestNeedsHuman:
@@ -80,6 +102,10 @@ class TestNeedsHuman:
             [*ALL_SAME, Surface(name="core", status="error", diff="")],
             reasons=[],
         )
+
+    def test_is_false_when_a_surface_was_skipped(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        assert not needs_human([*ALL_SAME, skipped], reasons=[])
 
     def test_is_true_when_a_reason_applies(self) -> None:
         assert needs_human(ALL_SAME, reasons=["fork"])
@@ -158,6 +184,13 @@ class TestRender:
             ALL_SAME, reasons=[], kept=False
         )
 
+    def test_shows_a_skipped_surface_without_raising_the_tier(self) -> None:
+        skipped = Surface(name="core", status="skipped", diff="")
+        body = render([*ALL_SAME, skipped], reasons=[], kept=False)
+        assert "## Review tier: the author picks" in body
+        assert "Not compared" in body
+        assert "<details>" not in body
+
     def test_fences_a_diff_that_holds_backticks(self) -> None:
         assert fence("+```\n").startswith("````diff")
 
@@ -196,18 +229,33 @@ class TestMain:
 
     @pytest.fixture
     def gh(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> FakeGH:
-        (tmp_path / "pr").mkdir()
-        (tmp_path / "pr" / "number").write_text("5\n")
-        for name in ("oracle", "client-ts", "client-py", "core", "driver"):
+        for name in classify.SURFACES:
             d = tmp_path / f"surface-{name}"
             d.mkdir()
             (d / "status").write_text("same\n")
+        jobs = "".join(f"Compare {name}\n" for name in classify.SURFACES)
+        (tmp_path / "jobs").write_text(jobs)
         fake = FakeGH()
         monkeypatch.setattr(classify, "gh", fake)
         monkeypatch.setattr(sys, "argv", ["classify.py", str(tmp_path)])
         monkeypatch.setenv("GITHUB_REPOSITORY", REPO)
         monkeypatch.setenv("HEAD_SHA", "abc")
+        monkeypatch.setenv("PR", "5")
         return fake
+
+    def test_keeps_the_tier_of_a_branch_older_than_a_report(
+        self, gh: FakeGH, tmp_path: Path
+    ) -> None:
+        gh.labels = [BOT]
+        (tmp_path / "surface-core" / "status").write_text("skipped\n")
+        classify.main()
+        assert not any(LABELS in args for args, _ in gh.writes)
+        assert "Not compared" in str(gh.writes[-1][1])
+
+    def test_raises_when_a_report_is_missing(self, gh: FakeGH, tmp_path: Path) -> None:
+        (tmp_path / "surface-core" / "status").unlink()
+        classify.main()
+        assert any(LABELS in args for args, _ in gh.writes)
 
     def test_adds_no_label_and_posts_a_comment_when_nothing_changed(
         self, gh: FakeGH
@@ -251,13 +299,38 @@ class TestMain:
         assert [args[3] for args, _ in gh.writes] == [COMMENTS]
 
     def test_reads_the_number_from_the_environment_first(
-        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+        self, gh: FakeGH, tmp_path: Path
     ) -> None:
+        (tmp_path / "pr").mkdir()
         (tmp_path / "pr" / "number").write_text("99\n")
-        monkeypatch.setenv("PR", "5")
         classify.main()
         ((post, _),) = gh.writes
         assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_reads_the_number_from_the_results_when_the_environment_has_none(
+        self, gh: FakeGH, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        (tmp_path / "pr").mkdir()
+        (tmp_path / "pr" / "number").write_text("5\n")
+        monkeypatch.setenv("PR", "")
+        classify.main()
+        ((post, _),) = gh.writes
+        assert post == ("api", "-X", "POST", COMMENTS, "--input", "-")
+
+    def test_refuses_a_number_that_is_not_an_integer(
+        self, gh: FakeGH, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PR", "5/../../9")
+        with pytest.raises(ValueError, match="invalid literal"):
+            classify.main()
+        assert gh.writes == []
+
+    def test_writes_nothing_when_the_number_names_another_head(
+        self, gh: FakeGH
+    ) -> None:
+        gh.heads = ["def"]
+        classify.main()
+        assert gh.writes == []
 
     def test_leaves_an_unchanged_comment_alone(self, gh: FakeGH) -> None:
         classify.main()

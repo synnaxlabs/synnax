@@ -63,6 +63,13 @@ class TestTiming:
         sleep(duration, precise=True, clock=precise)
         assert duration + TICK <= precise.time < duration + TICK * 2
 
+    @pytest.mark.parametrize("dur", [1, 1.0], ids=["int", "float"])
+    def test_sleep_bare_number(self, dur: float) -> None:
+        """Should read a bare number as seconds."""
+        clock = FakeClock()
+        sleep(dur, clock=clock)
+        assert clock.sleeps == [TimeSpan.SECOND]
+
     def test_sleep_rate(self) -> None:
         """Should convert a rate argument into the equivalent sleep duration."""
         clock = FakeClock()

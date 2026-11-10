@@ -15,7 +15,6 @@ import { deep, record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Select } from "@/feature/ni/device/Select";
-import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -80,10 +79,10 @@ const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) 
   TERMINAL_CONFIGS.filter(
     (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
   ).map((c) => {
-    const resolved = c === "Cfg_Default" ? port.defaultTerminalConfig : undefined;
+    const resolved = port.defaultTerminalConfig;
     return (
       <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
-        {resolved == null
+        {c !== "Cfg_Default" || resolved === "Cfg_Default"
           ? TERMINAL_CONFIG_NAMES[c]
           : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
       </PSelect.Item>
@@ -611,8 +610,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <ForceUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_force_bridge_table: ({ path }) => (
@@ -721,8 +720,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <PressureUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_pressure_bridge_table: ({ path }) => (
@@ -871,8 +870,8 @@ const CHANNEL_FORMS: { [K in AIChannelType]: FC<FormProps<K>> } = {
       <Form.NumericField path={path.voltageExcitVal} label="Voltage excitation value" />
       <TorqueUnitsField path={path.physicalUnits} label="Physical units" />
       <ElectricalUnitsField path={path.electricalUnits} />
-      <CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
-      <CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
   ai_torque_bridge_table: ({ path }) => (

@@ -33,6 +33,6 @@
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
 }
 
-.console-line-plot__x-time-chip {
+.console-line-plot__x-time-badge {
     margin-left: auto;
 }

@@ -9,17 +9,12 @@
 
 from typing import Literal, TypedDict
 
+import synnax as sy
 from console.layout import LayoutClient
+from console.task.channels.labels import label as console_label
 from console.task.channels.utils import get_port, is_numeric_string, set_port
 
-TerminalConfig = Literal[
-    "Default",
-    "Differential",
-    "Pseudo-Differential",
-    "Referenced single ended",
-    "Non-referenced single ended",
-]
-CustomScale = Literal["None", "Linear", "Map", "Table"]
+ScaleType = Literal["none", "linear", "map", "table"]
 
 
 class OutputOptions(TypedDict, total=False):
@@ -28,13 +23,13 @@ class OutputOptions(TypedDict, total=False):
     port: int | None
     min_val: float | None
     max_val: float | None
-    custom_scale: CustomScale | None
+    custom_scale: ScaleType | None
 
 
 class Options(OutputOptions, total=False):
     """Options that every analog input channel type accepts."""
 
-    terminal_config: TerminalConfig | None
+    terminal_config: sy.ni.TerminalConfig | None
 
 
 class Analog:
@@ -53,25 +48,23 @@ class Analog:
         *,
         chan_type: str,
         port: int | None = None,
-        terminal_config: TerminalConfig | None = None,
+        terminal_config: sy.ni.TerminalConfig | None = None,
         min_val: float | None = None,
         max_val: float | None = None,
-        custom_scale: CustomScale | None = None,
+        custom_scale: ScaleType | None = None,
     ) -> None:
         """
         Initialize analog channel with common configuration.
 
-        Args:
-            layout: LayoutClient for UI operations
-            name: Channel name
-            device: Device identifier
-            chan_type: Channel type (e.g., "Voltage", "Accelerometer")
-            port: Physical port number
-            terminal_config: "Default", "Differential", "Pseudo-Differential",
-                           "Referenced single ended", "Non-referenced single ended"
-            min_val: Minimum value
-            max_val: Maximum value
-            custom_scale: "None", "Linear", "Map", "Table"
+        :param layout: LayoutClient for UI operations
+        :param name: Channel name
+        :param device: Device identifier
+        :param chan_type: Channel type (e.g., "Voltage", "Accelerometer")
+        :param port: Physical port number
+        :param terminal_config: Terminal configuration
+        :param min_val: Minimum value
+        :param max_val: Maximum value
+        :param custom_scale: Custom scale type
         """
         self.layout = layout
         self.device = device
@@ -98,12 +91,13 @@ class Analog:
 
         if terminal_config is not None:
             layout.click_btn("Terminal configuration")
+            terminal_label = console_label(terminal_config)
             layout.select_from_dropdown(
-                terminal_config,
+                terminal_label,
                 exact=True,
                 reopen=lambda: layout.click_btn("Terminal configuration"),
             )
-            values["Terminal configuration"] = terminal_config
+            values["Terminal configuration"] = terminal_label
         elif self.has_terminal_config():
             values["Terminal configuration"] = layout.get_dropdown_value(
                 "Terminal configuration"
@@ -129,12 +123,13 @@ class Analog:
         no_custom_scale_types = ("RTD", "Temperature built-in sensor", "Thermocouple")
         if custom_scale is not None:
             layout.click_btn("Custom scaling")
+            scale_label = console_label(custom_scale)
             layout.select_from_dropdown(
-                custom_scale,
+                scale_label,
                 exact=True,
                 reopen=lambda: layout.click_btn("Custom scaling"),
             )
-            values["Custom scaling"] = custom_scale
+            values["Custom scaling"] = scale_label
         elif chan_type not in no_custom_scale_types:
             values["Custom scaling"] = layout.get_dropdown_value("Custom scaling")
 
@@ -182,12 +177,12 @@ class Analog:
     ) -> None:
         """Configure a dropdown field.
 
-        Args:
-            label: The UI label for the dropdown
-            value: The value to select, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the dropdown
+        :param value: The value to select, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
+            value = console_label(value)
             # A single-option dropdown (e.g. sound pressure units) already shows its
             # only value, and opening it renders no selectable list, so selecting the
             # value it already holds would hang. Skip when it already matches.
@@ -208,12 +203,12 @@ class Analog:
         Skips when the trigger already shows the target, since reopening a
         single-option dropdown to reselect its value hangs.
 
-        Args:
-            trigger_text: A substring identifying the dropdown trigger button.
-            value: The exact option text to select, or None to leave unchanged.
+        :param trigger_text: A substring identifying the dropdown trigger button.
+        :param value: The exact option text to select, or None to leave unchanged.
         """
         if value is None:
             return
+        value = console_label(value)
         trigger = self.layout.page.locator(
             f"button.lyra-dialog__trigger:has-text('{trigger_text}')"
         )
@@ -233,10 +228,9 @@ class Analog:
     ) -> None:
         """Configure an input field.
 
-        Args:
-            label: The UI label for the input field
-            value: The value to set, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the input field
+        :param value: The value to set, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             self.layout.fill_input_field(label, str(value))
@@ -256,10 +250,9 @@ class Analog:
     ) -> None:
         """Configure a toggle/checkbox field.
 
-        Args:
-            label: The UI label for the toggle
-            value: The desired state, or None to read current value
-            track: Whether to track the value in form_values
+        :param label: The UI label for the toggle
+        :param value: The desired state, or None to read current value
+        :param track: Whether to track the value in form_values
         """
         if value is not None:
             current = self.layout.get_toggle(label)

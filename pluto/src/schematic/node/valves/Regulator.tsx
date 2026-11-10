@@ -43,7 +43,7 @@ export const Regulator = ({
       <Handle.Handle
         location="top"
         orientation={orientation}
-        left={50.9091}
+        left={50.5682}
         top={12.5}
         id="3"
       />

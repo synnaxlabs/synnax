@@ -32,13 +32,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It(
@@ -98,13 +95,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It("Should return zero for an empty database", func() {
@@ -140,6 +134,16 @@ var _ = Describe("DB", func() {
 		})
 	}
 
+	Describe("Open", func() {
+		It("Should reject a file size that does not fit in 32 bits", func() {
+			Expect(domain.Open(domain.Config{
+				FS:              fs.NewMem(),
+				Instrumentation: PanicLogger(),
+				FileSize:        5 * telem.Gigabyte,
+			})).Error().To(MatchError(ContainSubstring("file_size")))
+		})
+	})
+
 	Describe("Attempting Operations on a Closed DB", func() {
 		Describe("HasDataFor", func() {
 			It("Should return ErrDBClosed", func(ctx SpecContext) {
@@ -148,8 +152,10 @@ var _ = Describe("DB", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())
-				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(MatchError(domain.ErrDBClosed))
+				Expect(
+					db.HasDataFor(ctx, telem.TimeRange{}),
+				).Error().
+					To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})

@@ -527,8 +527,8 @@ func enumConstRef(
 type constraintCheckData struct {
 	GoName    string
 	FieldName string
-	// Kind selects the assertion form: non_empty_string, min_len, max_len (string), or
-	// ge, le (numeric).
+	// Kind selects the assertion form: non_empty_string, min_len, max_len (string),
+	// non_zero (numeric or uuid), or ge, le (numeric).
 	Kind string
 	// Arg is the length or numeric threshold literal for the kinds that take one.
 	Arg string
@@ -568,7 +568,11 @@ func goConstraintChecks(
 		}
 	}
 	var checks []constraintCheckData
-	if resolution.IsStringPrimitive(base) {
+	if base == "uuid" {
+		if rules.Required && !field.Optional {
+			checks = append(checks, check("non_zero", ""))
+		}
+	} else if resolution.IsStringPrimitive(base) {
 		switch {
 		case rules.Required && !field.Optional,
 			rules.MinLength != nil && *rules.MinLength == 1:
@@ -592,6 +596,9 @@ func goConstraintChecks(
 		}
 		if rules.Min != nil {
 			checks = append(checks, check("ge", numberLiteral(rules.Min)))
+		}
+		if rules.GT != nil {
+			checks = append(checks, check("gt", numberLiteral(rules.GT)))
 		}
 		if rules.Max != nil {
 			checks = append(checks, check("le", numberLiteral(rules.Max)))
@@ -871,7 +878,8 @@ func goDefaultGroups(
 		if name == "" || f.Default == nil || f.Optional {
 			continue
 		}
-		member, ok := groupMember(f, data)
+		fd := data.forField(f)
+		member, ok := groupMember(f, fd)
 		if !ok {
 			continue
 		}
@@ -882,7 +890,7 @@ func goDefaultGroups(
 			order = append(order, name)
 		}
 		g.Members = append(g.Members, member)
-		g.Fills = append(g.Fills, goDefaultFills(f, data)...)
+		g.Fills = append(g.Fills, goDefaultFills(f, fd)...)
 	}
 	groups := make([]defaultGroupData, 0, len(order))
 	for _, name := range order {

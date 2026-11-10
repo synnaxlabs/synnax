@@ -12,14 +12,17 @@
 package log
 
 import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/filter"
 )
 
 // Key is a unique identifier for a log, represented as a UUID.
 type Key = versions.Key
 
-// TimestampConfig is per-channel timestamp display configuration.
+// TimestampConfig is how a timestamp channel shows its values.
 type TimestampConfig = versions.TimestampConfig
 
 // ChannelEntry is a per-channel display configuration entry within a log.
@@ -39,4 +42,12 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Groups matches the logs in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the logs in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+	// Projects matches the logs owned by any of the given projects.
+	Projects []project.Key `json:"projects,omitzero" msgpack:"projects,omitempty"`
+	// Ranges matches the logs owned by any of the given ranges.
+	Ranges []ranger.Key `json:"ranges,omitzero" msgpack:"ranges,omitempty"`
 }

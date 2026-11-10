@@ -131,7 +131,7 @@ const Resolved = ({
   deploy,
   ...rest
 }: ResolvedProps) => {
-  const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
+  const canRename = Access.useUpdateGranted(clientChannel.TYPE_RESOURCE_ID);
   const { update } = Channel.useRename();
   const range = Session.Range.useSelectSelectedKey();
   const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });

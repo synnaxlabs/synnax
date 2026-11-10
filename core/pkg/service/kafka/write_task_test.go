@@ -19,6 +19,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -30,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/hookkv"
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kgo"
 )
@@ -50,7 +52,7 @@ var _ = Describe("Write task", func() {
 		cfg kafka.WriteConfig,
 	) (driver.Task, task.Task) {
 		GinkgoHelper()
-		t := newTask(kafka.WriteTaskType, cfg)
+		t := newTask(ctx, kafka.WriteTaskType, cfg)
 		dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
 		DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 		Expect(dt.Exec(ctx, task.Command{Task: t.Key, Type: "start", Key: "cmd-2"})).
@@ -200,6 +202,35 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
+	It("Should encode a generated timestamp field with no time format as ISO 8601",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			startTask(ctx, kafka.WriteConfig{
+				Device: dev.Key,
+				Topic:  topic,
+				Record: kafka.Record{
+					ValuePointer: "/value",
+					Fields: []http.WriteField{{Variant: http.GeneratedWriteField{
+						BaseWriteField: http.BaseWriteField{
+							Key:     "sent",
+							Pointer: "/sent",
+						},
+						Generator: http.GeneratorTypeTimestamp,
+					}}},
+				},
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			writeFrame(ctx, index, data,
+				[]telem.TimeStamp{telem.TimeStamp(20 * telem.Second)},
+				telem.NewSeriesV[float64](1.5),
+			)
+			recs := consume(ctx, topic, 1)
+			Expect(decode(recs[0])).To(HaveKeyWithValue("sent", "1970-01-01T00:00:20Z"))
+		},
+	)
+
 	It("Should produce every series a free channel carries in one frame",
 		func(ctx SpecContext) {
 			ch := channel.Channel{
@@ -207,7 +238,9 @@ var _ = Describe("Write task", func() {
 				DataType: telem.Float64T,
 				Virtual:  true,
 			}
-			Expect(channelSvc.NewWriter(nil).Create(ctx, &ch)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &ch)
+			})).To(Succeed())
 			dev := createDevice(ctx, clusterProperties())
 			topic := uniqueTopic()
 			startTask(ctx, kafka.WriteConfig{
@@ -238,7 +271,7 @@ var _ = Describe("Write task", func() {
 		func(ctx SpecContext) {
 			_, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
-			t := newTask(kafka.WriteTaskType, kafka.WriteConfig{
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
 				Device:   dev.Key,
 				Topic:    uniqueTopic(),
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
@@ -247,10 +280,56 @@ var _ = Describe("Write task", func() {
 			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
-			})).To(MatchError(ContainSubstring("connecting to cluster")))
+			})).To(Succeed())
 			stat := taskStatus(ctx, t)
 			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Description).To(ContainSubstring("connecting to cluster"))
 			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
+		},
+	)
+
+	It("Should return the error from Exec for a start it could not answer",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(hookkv.WithHook(ctx, refuse), task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(MatchError(errCommit))
+		},
+	)
+
+	It("Should return no error from Exec for a start answered before ctx ended",
+		func(ctx SpecContext) {
+			_, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, kafka.Properties{Brokers: []string{"127.0.0.1:1"}})
+			t := newTask(ctx, kafka.WriteTaskType, kafka.WriteConfig{
+				Device:   dev.Key,
+				Topic:    uniqueTopic(),
+				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
+			})
+			cmdCtx, cancel := context.WithCancel(ctx)
+			cmdCtx = hookkv.WithHook(cmdCtx, func(commit func() error) error {
+				err := commit()
+				cancel()
+				return err
+			})
+			f = newFactory(kafka.FactoryConfig{PingTimeout: 100 * telem.Millisecond})
+			dt := MustSucceed(f.ConfigureTask(ctx, t, "cmd-1"))
+			DeferCleanup(func() { Expect(dt.Stop(false)).To(Succeed()) })
+			Expect(dt.Exec(cmdCtx, task.Command{
+				Task: t.Key, Type: "start", Key: "cmd-2",
+			})).To(Succeed())
+			Expect(cmdCtx.Err()).To(MatchError(context.Canceled))
+			stat := taskStatus(ctx, t)
+			Expect(stat.Message).To(Equal("Failed to start task"))
 			Expect(stat.Details.Cmd).To(Equal("cmd-2"))
 		},
 	)
@@ -262,7 +341,7 @@ var _ = Describe("Write task", func() {
 			Topic:    "t",
 			Channels: []kafka.WriteChannel{{Key: "c1", Channel: 999999}},
 		}
-		Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
+		Expect(f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1")).
 			Error().To(MatchError(query.ErrNotFound))
 	})
 
@@ -276,11 +355,14 @@ var _ = Describe("Write task", func() {
 				Record:   rec,
 				Channels: []kafka.WriteChannel{{Key: "c1", Channel: data.Key()}},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry(
 			"a channel pointer equal to the value pointer",
@@ -422,6 +504,9 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
+		Entry("bytes as base64",
+			telem.BytesT, telem.NewSeriesV([]byte{0x00, 0xff, 0x3f}),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "AP8/"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
@@ -533,13 +618,16 @@ var _ = Describe("Write task", func() {
 					{Key: "c1", Channel: data.Key(), JSONType: jsonType},
 				},
 			}
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(fmt.Sprintf(
-					`channel "c1": data type %s only serializes as a string`, dt,
-				))),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						`channel "c1": data type %s only serializes as a string`, dt,
+					))),
+				))
 		},
 		Entry("a string as a number", telem.StringT, http.JSONTypeNumber),
 		Entry("a UUID as a boolean", telem.UUIDT, http.JSONTypeBoolean),
@@ -555,11 +643,14 @@ var _ = Describe("Write task", func() {
 			dev := createDevice(ctx, clusterProperties())
 			cfg := build(data)
 			cfg.Device = dev.Key
-			Expect(f.ConfigureTask(ctx, newTask(kafka.WriteTaskType, cfg), "cmd-1")).
-				Error().To(SatisfyAll(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring(msg)),
-			))
+			Expect(
+				f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+			).
+				Error().
+				To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(msg)),
+				))
 		},
 		Entry("empty topic", func(data channel.Channel) kafka.WriteConfig {
 			return kafka.WriteConfig{

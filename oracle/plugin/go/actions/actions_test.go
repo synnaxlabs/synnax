@@ -94,6 +94,9 @@ var _ = Describe("Go Actions Plugin", func() {
 					"type RenamePayload struct {",
 					"func Reduce(state Shape, actions ...Action) (Shape, error) {",
 					"state, err = a.Rename.Handle(state)",
+					"return Shape{}, union.MissingPayload(a.Type)",
+					"return Shape{}, union.UnknownVariant(a.Type)",
+					"return Shape{}, err",
 					"func NewRenameAction(p RenamePayload) Action {",
 				)
 			})
@@ -164,8 +167,8 @@ var _ = Describe("Go Actions Plugin", func() {
 					"Increment *IncrementPayload",
 					"func Reduce(state Counter, actions ...Action) (Counter, error) {",
 					"case ActionTypeSetValue:",
-					`return state, union.MissingPayload(a.Type)`,
-					`return state, union.UnknownVariant(a.Type)`,
+					`return Counter{}, union.MissingPayload(a.Type)`,
+					`return Counter{}, union.UnknownVariant(a.Type)`,
 					"state, err = a.SetValue.Handle(state)",
 					"case ActionTypeIncrement:",
 					"state, err = a.Increment.Handle(state)",
@@ -206,6 +209,33 @@ var _ = Describe("Go Actions Plugin", func() {
 							"Name string `json:\"name\" msgpack:\"name\"`",
 							"Force int32 `json:\"force\" msgpack:\"force\"`",
 						)
+				},
+			)
+
+			It(
+				"Should reduce a generic struct with any for each kept type parameter",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/report"
+
+					Report struct<Details?, Extra?, Kind extends string = string> {
+						key     uuid
+						details Details
+						extra   Extra
+						kind    Kind
+
+						action Set {
+							report Report<any, any>
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "report", loader, p)
+					ExpectContent(resp, "actions.gen.go").ToContain(
+						"Report Report[any, any] `json:\"report\" msgpack:\"report\"`",
+						"// Action is a discriminated union for all Report mutations.",
+						"func Reduce(state Report[any, any], actions ...Action) "+
+							"(Report[any, any], error) {",
+					)
 				},
 			)
 

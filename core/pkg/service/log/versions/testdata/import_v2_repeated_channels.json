@@ -1,0 +1,12 @@
+{
+  "version": 2,
+  "type": "log",
+  "key": "11111111-2222-3333-4444-555555555555",
+  "name": "Test Log V2",
+  "channels": [
+    { "channel": 0, "precision": -1 },
+    { "channel": 4, "precision": -1 },
+    { "channel": 5, "precision": -1 },
+    { "channel": 4, "precision": -1 }
+  ]
+}

@@ -247,7 +247,7 @@ protected:
                    {"data_type", "float64"}}}
              )},
             {"sample_rate", 50},
-            {"array_mode", false},
+            {"sampling", {{"type", "unary"}}},
             {"stream_rate", 25}
         };
 
@@ -265,25 +265,14 @@ protected:
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
-
-        // Wait for server to be ready by attempting to connect
-        connection::Config test_conn_cfg;
-        test_conn_cfg.endpoint = conn_cfg.endpoint;
-        test_conn_cfg.security_mode = "None";
-        test_conn_cfg.security_policy = "None";
-        auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(test_conn_cfg, {}, "test"),
-            (5 * x::telem::SECOND).chrono(),
-            (250 * x::telem::MILLISECOND).chrono()
-        );
-        UA_Client_disconnect(test_client.get());
+        ASSERT_TRUE(server->wait_until_ready());
     }
 
     /// @returns a unary source that reads cfg_json.
     std::unique_ptr<UnaryReadTaskSource> create_source(const x::json::json &cfg_json) {
         auto p = x::json::Parser(cfg_json);
         auto cfg = ReadTaskConfig(ctx->client, p);
-        EXPECT_FALSE(p.error()) << p.error().message();
+        EXPECT_NIL(p.error());
         return std::make_unique<UnaryReadTaskSource>(
             ctx->client,
             conn_pool,
@@ -364,18 +353,16 @@ TEST_F(TestReadTask, testBasicReadTask) {
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
-    EXPECT_EQ(first_state.details.task, task.key);
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
     rt->stop("stop_cmd", true);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(task));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(task.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
-    EXPECT_EQ(second_state.details.task, task.key);
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(second_state.message, "Stopped task");
     const auto &fr = mock_factory->writes->at(0);
@@ -503,18 +490,17 @@ TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
     ASSERT_NIL(source->stop());
 }
 
-/// @brief it should reject a structure field in array mode.
-TEST_F(TestReadTask, testRejectsFieldInArrayMode) {
+/// @brief it should reject a structure field in array sampling.
+TEST_F(TestReadTask, testRejectsFieldInArraySampling) {
     auto cfg_json = this->motor_cfg({"Speed"});
-    cfg_json["array_mode"] = true;
-    cfg_json["array_size"] = 5;
+    cfg_json["sampling"] = {{"type", "array"}, {"size", 5}};
     auto p = x::json::Parser(cfg_json);
     const ReadTaskConfig cfg(ctx->client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errs = p.error_json()["errors"];
     ASSERT_EQ(errs.size(), 1);
     EXPECT_EQ(errs[0]["path"], "channels.0.field");
-    EXPECT_EQ(errs[0]["message"], "array mode cannot read structure fields");
+    EXPECT_EQ(errs[0]["message"], "array sampling cannot read structure fields");
 }
 
 /// @brief it should reject a field with an empty member name.
@@ -797,13 +783,13 @@ TEST_F(TestReadTask, testEmptyChannelList) {
         {"device", "opc_read_task_test_server_key"},
         {"channels", x::json::json::array()},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(empty_cfg);
     auto empty_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should return error when all channels are disabled.
@@ -823,13 +809,13 @@ TEST_F(TestReadTask, testDisabledChannels) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(disabled_cfg);
     auto disabled_config = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    EXPECT_TRUE(p.error());
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 }
 
 /// @brief it should configure when a disabled channel has no node id or Synnax
@@ -851,25 +837,24 @@ TEST_F(TestReadTask, testUnboundDisabledChannel) {
               {{"key", "blank"}, {"disabled", true}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
     auto p = x::json::Parser(cfg);
     const auto parsed = std::make_unique<ReadTaskConfig>(ctx->client, p);
-    ASSERT_FALSE(p.error()) << p.error().message();
+    ASSERT_NIL(p.error());
     EXPECT_EQ(parsed->channels.size(), 1);
     EXPECT_EQ(parsed->channels[0]->synnax_key, this->float_channel.key);
 }
 
-/// @brief it should stay out of array mode when array_mode is false, even when
-/// the config carries an array_size greater than one.
-TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
-    task_cfg_json["array_size"] = 5;
+/// @brief it should sample one value per node when the config has no sampling.
+TEST_F(TestReadTask, testUnarySamplingByDefault) {
+    task_cfg_json.erase("sampling");
     auto p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig cfg(ctx->client, p);
     ASSERT_NIL(p.error());
-    EXPECT_FALSE(cfg.array_mode);
+    EXPECT_FALSE(cfg.array());
 
     task_cfg_json["stream_rate"] = 0;
     auto strict_p = x::json::Parser(task_cfg_json);
@@ -877,20 +862,39 @@ TEST_F(TestReadTask, testArraySizeIgnoredWhenArrayModeDisabled) {
     ASSERT_OCCURRED_AS(strict_p.error(), x::errors::VALIDATION);
 }
 
-/// @brief it should require a stream rate only when array_mode is false.
-TEST_F(TestReadTask, testStreamRateOptionalInArrayMode) {
+/// @brief it should read arrays of one sample when array sampling has no size.
+TEST_F(TestReadTask, testArraySamplingSizeDefault) {
+    task_cfg_json["sampling"] = {{"type", "array"}};
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_NIL(p.error());
+    EXPECT_EQ(std::get<::synnax::opcua::ArraySampling>(cfg.sampling).size, 1);
+}
+
+/// @brief it should reject an unknown sampling type.
+TEST_F(TestReadTask, testRejectsUnknownSampling) {
+    task_cfg_json["sampling"] = {{"type", "burst"}};
+    auto p = x::json::Parser(task_cfg_json);
+    const ReadTaskConfig cfg(ctx->client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errs = p.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "sampling.type");
+}
+
+/// @brief it should require a stream rate only in unary sampling.
+TEST_F(TestReadTask, testStreamRateOptionalInArraySampling) {
     task_cfg_json["stream_rate"] = 0;
     auto p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig unary_cfg(ctx->client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
 
-    task_cfg_json["array_mode"] = true;
-    task_cfg_json["array_size"] = 5;
+    task_cfg_json["sampling"] = {{"type", "array"}, {"size", 5}};
     auto array_p = x::json::Parser(task_cfg_json);
     const ReadTaskConfig array_cfg(ctx->client, array_p);
     ASSERT_NIL(array_p.error());
-    EXPECT_TRUE(array_cfg.array_mode);
-    EXPECT_EQ(array_cfg.array_size, 5);
+    EXPECT_TRUE(array_cfg.array());
+    EXPECT_EQ(std::get<::synnax::opcua::ArraySampling>(array_cfg.sampling).size, 5);
     EXPECT_EQ(array_cfg.samples_per_chan, 0);
 }
 
@@ -1045,8 +1049,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 10},
+        {"sampling", {{"type", "array"}, {"size", 10}}},
         {"stream_rate", 25}
     };
 
@@ -1242,8 +1245,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 10},
+        {"sampling", {{"type", "array"}, {"size", 10}}},
         {"stream_rate", 25}
     };
 
@@ -1333,7 +1335,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
                {"data_type", "uint8"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
@@ -1414,7 +1416,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
                {"data_type", "float32"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", false},
+        {"sampling", {{"type", "unary"}}},
         {"stream_rate", 25}
     };
 
@@ -1495,8 +1497,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 5},
+        {"sampling", {{"type", "array"}, {"size", 5}}},
         {"stream_rate", 25}
     };
 
@@ -1577,8 +1578,7 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         {"device", dev.key},
         {"sample_rate", 25},
         {"stream_rate", 25},
-        {"array_mode", false},
-        {"array_size", 1},
+        {"sampling", {{"type", "unary"}}},
         {"channels",
          x::json::json::array({{{"node_id", "NS=2;I=8"}, {"channel", ch.key}}})}
     };
@@ -1611,8 +1611,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
                {"data_type", "float64"}}}
          )},
         {"sample_rate", SAMPLE_RATE},
-        {"array_mode", true},
-        {"array_size", testutil::DOUBLE_ARRAY_SIZE},
+        {"sampling", {{"type", "array"}, {"size", testutil::DOUBLE_ARRAY_SIZE}}},
         {"stream_rate", SAMPLE_RATE}
     };
 

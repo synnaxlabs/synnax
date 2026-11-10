@@ -9,6 +9,7 @@
 
 from typing import Literal, Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog, Options
 
@@ -18,18 +19,18 @@ class Thermocouple(Analog):
     Thermocouple channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        temperature_units (str): "Celsius", "Fahrenheit", "Kelvin", "Rankine"
+        temperature_units (str): "DegC", "DegF", "Kelvins", "DegR"
         thermocouple_type (str): "B", "E", "J", "K", "N", "R", "S", "T"
-        cjc_source (str): "Built in", "Constant value", "Channel"
-        cjc_value (float): CJC value when using "Constant value" source
-        cjc_port (int): CJC port when using "Channel" source
+        cjc_source (str): "built_in", "const_val", "chan"
+        cjc_value (float): CJC value when using "const_val" source
+        cjc_port (int): CJC port when using "chan" source
 
     Base kwargs from Analog:
         port (int): Physical port number
-        terminal_config (str): "Default", "Differential", etc.
+        terminal_config (str): "Cfg_Default", "Diff", etc.
         min_val (float): Minimum value
         max_val (float): Maximum value
-        custom_scale (str): "None", "Linear", "Map", "Table"
+        custom_scale (str): "none", "linear", "map", "table"
     """
 
     def __init__(
@@ -38,13 +39,9 @@ class Thermocouple(Analog):
         name: str,
         device: str,
         *,
-        temperature_units: (
-            Literal["Celsius", "Fahrenheit", "Kelvin", "Rankine"] | None
-        ) = None,
-        thermocouple_type: (
-            Literal["B", "E", "J", "K", "N", "R", "S", "T"] | None
-        ) = None,
-        cjc_source: Literal["Built in", "Constant value", "Channel"] | None = None,
+        temperature_units: sy.ni.TemperatureUnits | None = None,
+        thermocouple_type: sy.ni.ThermocoupleType | None = None,
+        cjc_source: Literal["built_in", "const_val", "chan"] | None = None,
         cjc_value: float | None = None,
         cjc_port: int | None = None,
         **kwargs: Unpack[Options],
@@ -61,7 +58,7 @@ class Thermocouple(Analog):
         self._configure_dropdown("Thermocouple type", thermocouple_type)
         self._configure_dropdown("CJC source", cjc_source)
 
-        if cjc_source == "Constant value":
+        if cjc_source == "const_val":
             self._configure_input("CJC value", cjc_value)
-        elif cjc_source == "Channel":
+        elif cjc_source == "chan":
             self._configure_input("CJC port", cjc_port)

@@ -92,6 +92,9 @@ func MatchWhere(w Where) (Filter, error) {
 	if l := w.Labels; l != nil {
 		fs = append(fs, MatchLabels(l...))
 	}
+	if l := w.Parents; l != nil {
+		fs = append(fs, MatchParents(l...))
+	}
 	return And(fs...), nil
 }
 

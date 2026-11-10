@@ -262,7 +262,7 @@ df = frame.to_df()
 ```
 
 `to_df` gives one column for each channel. When the frame holds the index channel of
-each channel, as a frame that you read with its index channels does, the `DataFrame`
+each channel, as a frame that you read from a list of channels does, the `DataFrame`
 index is the UTC timestamps of the samples, and the index channels are not columns. The
 index has the name of the index channel, or `time` when the frame holds more than one
 index channel. Channels with different index channels are joined on time, and a cell is

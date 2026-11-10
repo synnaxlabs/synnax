@@ -18,10 +18,11 @@
 #include <utility>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 #include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
@@ -33,18 +34,23 @@ namespace synnax::device {
 
 struct StatusDetails;
 struct Where;
+struct Cursor;
+struct Order;
 struct RetrieveRequest;
 struct RetrieveResponse;
 
+constexpr const char *ORDER_FIELD_NAME = "name";
+
 using Key = std::string;
 
-/// @brief StatusDetails contains device-specific status details identifying the device
-/// and its associated rack.
+/// @brief StatusDetails contains device-specific status details, including the rack the
+/// device belongs to.
 struct StatusDetails {
     /// @brief rack is the key of the rack this device belongs to.
     ::synnax::rack::Key rack = 0;
-    /// @brief device is the device identifier.
-    Key device;
+    /// @brief connected is true while the Driver confirms that it can reach the device.
+    /// A device whose state is unknown is not connected.
+    bool connected = false;
     /// @brief data contains device-specific status data.
     std::optional<x::json::json::object_t> data;
 
@@ -67,17 +73,42 @@ struct Where {
     /// @brief not_ matches when the child does not match.
     x::mem::indirect<Where> not_;
     /// @brief key selects by key.
-    std::optional<::x::filter::Set<Key>> key;
+    ::x::filter::Field<::x::filter::Set<Key>> key;
     /// @brief name selects by name.
-    std::optional<::x::filter::String> name;
+    ::x::filter::Field<::x::filter::String> name;
     /// @brief make selects by make.
-    std::optional<::x::filter::String> make;
+    ::x::filter::Field<::x::filter::String> make;
     /// @brief model selects by model.
-    std::optional<::x::filter::String> model;
+    ::x::filter::Field<::x::filter::String> model;
     /// @brief location selects by location.
-    std::optional<::x::filter::String> location;
+    ::x::filter::Field<::x::filter::String> location;
     /// @brief rack selects by rack.
-    std::optional<::x::filter::Set<::synnax::rack::Key>> rack;
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
 
     static Where parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -89,32 +120,42 @@ struct Where {
     from_proto(const ::service::device::pb::Where &pb);
 };
 
-using Status = ::synnax::status::Status<StatusDetails>;
+/// @brief Cursor is a position in an order of devices: the sort value and the key of a
+/// device.
+struct Cursor {
+    /// @brief key is the key of the device at the position.
+    Key key;
+    /// @brief name is the name of the device at the position, when the order sorts by
+    /// it.
+    std::optional<std::string> name;
 
-/// @brief RetrieveRequest is a request to retrieve devices.
-struct RetrieveRequest {
-    /// @brief where selects the devices to retrieve. An absent where selects all of
-    /// them.
-    std::optional<Where> where;
-    /// @brief search_term keeps the devices that match the term, closest match first.
-    std::string search_term = "";
-    /// @brief limit is the most devices to return.
-    std::optional<std::uint32_t> limit;
-    /// @brief offset is the number of matching devices to skip.
-    std::uint32_t offset = 0;
-    /// @brief include_status includes the status of each record.
-    bool include_status = false;
-    /// @brief include_parent includes the parent of each record.
-    bool include_parent = false;
-
-    static RetrieveRequest parse(x::json::Parser parser);
+    static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::api::device::pb::RetrieveRequest;
-    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+    using proto_type = ::api::device::pb::Cursor;
+    [[nodiscard]] std::pair<::api::device::pb::Cursor, x::errors::Error>
     to_proto() const;
-    static std::pair<RetrieveRequest, x::errors::Error>
-    from_proto(const ::api::device::pb::RetrieveRequest &pb);
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::device::pb::Cursor &pb);
+};
+
+using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief Order is a sort of devices.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::Order;
+    [[nodiscard]] std::pair<::api::device::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::device::pb::Order &pb);
 };
 
 /// @brief Device is a physical piece of hardware connected to Synnax through the Driver
@@ -142,9 +183,9 @@ struct Device {
     x::json::json::object_t properties;
     /// @brief status is the current operational status of the device.
     std::optional<Status> status;
-    /// @brief parent is an optional parent resource ID for hierarchical device
-    /// organization (e.g., NI chassis containing modules).
-    std::optional<::synnax::ontology::ID> parent;
+    /// @brief parent is the key of the device that holds this device, such as the NI
+    /// chassis of a module. Empty for a device that sits directly on its rack.
+    std::optional<Key> parent;
 
     static Device parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -154,6 +195,58 @@ struct Device {
     to_proto() const;
     static std::pair<Device, x::errors::Error>
     from_proto(const ::service::device::pb::Device &pb);
+};
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the devices. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::device::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::device::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::device::pb::RetrieveRequest &pb);
 };
 
 /// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
@@ -171,9 +264,9 @@ struct RetrieveResponse {
     from_proto(const ::api::device::pb::RetrieveResponse &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("device", "");
+const synnax::resource::ID TYPE_RESOURCE_ID("device", "");
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("device", key);
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("device", key);
 }
 }

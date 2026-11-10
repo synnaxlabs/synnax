@@ -62,7 +62,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
+        auto [arc_data, arc_err] = client->arcs.retrieve(
             cfg.arc_key,
             synnax::arc::RetrieveOptions{.include_program = true}
         );
@@ -244,6 +244,14 @@ public:
                     ),
                 },
             .rt_handle = rt_handle,
+            .report =
+                [task_ptr = task.get()](
+                    const std::string &message,
+                    const std::string &description
+                ) {
+                    std::lock_guard lock(task_ptr->state_mu);
+                    task_ptr->state.send_warning(message, description);
+                },
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {

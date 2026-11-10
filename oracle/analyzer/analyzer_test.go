@@ -11,6 +11,7 @@ package analyzer_test
 
 import (
 	"slices"
+	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,6 +47,123 @@ var _ = Describe("Analyzer", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
+	})
+
+	Describe("Qualified type references", func() {
+		It("Should reject a namespace the file does not import", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					channel channel.Key
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: channel.Key"))
+		})
+
+		It("Should reject a name that a loaded import does not hold", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = `
+				Gradient struct {
+					stops int32
+				}
+			`
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+
+		It("Should not bind a filter name to a local type", func(ctx SpecContext) {
+			source := `
+				@go output "out"
+				Key uuid
+				Entry struct {
+					key filter.Key
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: filter.Key"))
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := entry.Form.(resolution.StructForm).Fields[0]
+			Expect(field.Type.Name).To(Equal("filter.Key"))
+		})
+
+		It("Should keep a warning for an import with no loaded types", func(
+			ctx SpecContext,
+		) {
+			loader.Files["schemas/x/color"] = ""
+			source := `
+				import "schemas/x/color"
+				@go output "out"
+				Entry struct {
+					stroke color.Color
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.String()).To(ContainSubstring("unresolved type: color.Color"))
+		})
+	})
+
+	Describe("Repeated field domain expressions", func() {
+		DescribeTable(
+			"Should reject an expression that a field declares twice",
+			func(ctx SpecContext, field string) {
+				source := `
+					Entry struct {
+						` + field + `
+					}
+				`
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(
+					"field value declares @validate max twice",
+				))
+			},
+			Entry("on two lines", `value int32 {
+				@validate max 10
+				@validate max 20
+			}`),
+			Entry("inline and on a line", `value int32 @validate max 10 {
+				@validate max 20
+			}`),
+			Entry("in one block", `value int32 {
+				@validate {
+					max 10
+					max 20
+				}
+			}`),
+		)
+
+		It("Should merge different expressions on two lines", func(ctx SpecContext) {
+			source := `
+				Entry struct {
+					value int32 {
+						@validate min 1
+						@validate max 20
+					}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			entry := MustBeOk(table.Get("test.Entry"))
+			field := MustBeOk(entry.Form.(resolution.StructForm).Field("value"))
+			Expect(field.Domains["validate"].Expressions).To(HaveExactElements(
+				HaveField("Name", "min"),
+				HaveField("Name", "max"),
+			))
+		})
 	})
 
 	Describe("Retired version tag", func() {
@@ -1015,6 +1133,37 @@ Node union on variant {
 					value? { @validate max_length 64 }
 				}
 			`),
+		)
+	})
+
+	Describe("Number literals", func() {
+		hugeFloat := "1" + strings.Repeat("0", 400) + ".0"
+		DescribeTable("Should reject a literal that does not fit in 64 bits",
+			func(ctx SpecContext, source, message string) {
+				_, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeFalse())
+				Expect(diag.String()).To(ContainSubstring(message))
+			},
+			Entry("an array size", `
+				Entry struct {
+					data uint8[99999999999999999999]
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an enum value", `
+				Size enum {
+					large = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("an integer default", `
+				Entry struct {
+					count int64 = 99999999999999999999
+				}
+			`, "integer 99999999999999999999 does not fit in an int64"),
+			Entry("a float default", `
+				Entry struct {
+					ratio float64 = `+hugeFloat+`
+				}
+			`, "number "+hugeFloat+" does not fit in a float64"),
 		)
 	})
 
@@ -5020,5 +5169,59 @@ var _ = Describe("Union enum discriminator", func() {
 			"test.Proof generates for ts but its discriminator enum references " +
 				"test.Method, which is omitted in ts",
 		))
+	})
+	Describe("Imported enum and variant bases", func() {
+		BeforeEach(func() {
+			loader.Add("schemas/x/payload", `
+				Kind enum {
+					float = "float"
+					json  = "json"
+				}
+				FloatRead struct {
+					fill float64?
+				}
+			`)
+		})
+		It("Should borrow an imported enum and extend imported variant bases", func(
+			ctx SpecContext,
+		) {
+			source := `
+				import "schemas/x/payload"
+				Base struct { key string }
+				ReadField union on type payload.Kind extends Base {
+					float extends payload.FloatRead {}
+					json {}
+				}
+			`
+			table, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			field := table.MustGet("test.ReadField")
+			form := field.Form.(resolution.UnionForm)
+			Expect(form.BorrowsEnum()).To(BeTrue())
+			Expect(form.Enum.Name).To(Equal("payload.Kind"))
+			float := MustBeOk(form.Variant("float"))
+			names := make([]string, 0)
+			for _, f := range resolution.UnifiedVariantFields(field, float, table) {
+				names = append(names, f.Name)
+			}
+			Expect(names).To(Equal([]string{"key", "fill"}))
+		})
+		It("Should reject a variant the imported enum has no member for", func(
+			ctx SpecContext,
+		) {
+			source := `
+				import "schemas/x/payload"
+				ReadField union on type payload.Kind {
+					float extends payload.FloatRead {}
+					json {}
+					bytes {}
+				}
+			`
+			_, diag := Analyze(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.Error()).To(ContainSubstring(
+				`union ReadField declares variant "bytes", which enum Kind has no member`,
+			))
+		})
 	})
 })

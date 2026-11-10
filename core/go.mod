@@ -5,7 +5,6 @@ go 1.27.3
 replace (
 	github.com/synnaxlabs/alamos => ../alamos/go
 	github.com/synnaxlabs/arc => ../arc/go
-	github.com/synnaxlabs/aspen => ../aspen
 	github.com/synnaxlabs/cesium => ../cesium
 	github.com/synnaxlabs/freighter => ../freighter/go
 	github.com/synnaxlabs/gorp => ../gorp
@@ -13,6 +12,7 @@ replace (
 )
 
 require (
+	aead.dev/minisign v0.3.0
 	github.com/PagerDuty/go-pagerduty v1.8.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cockroachdb/cmux v0.0.0-20250514152509-914d3bf9ec58
@@ -29,7 +29,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/synnaxlabs/alamos v0.0.0
 	github.com/synnaxlabs/arc v0.0.0
-	github.com/synnaxlabs/aspen v0.0.0
 	github.com/synnaxlabs/cesium v0.0.0
 	github.com/synnaxlabs/freighter v0.0.0
 	github.com/synnaxlabs/gorp v0.0.0
@@ -44,6 +43,7 @@ require (
 	go.lsp.dev/uri v1.0.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.58.0
+	golang.org/x/mod v0.42.0
 	golang.org/x/net v0.62.0
 	golang.org/x/sys v0.49.0
 	google.golang.org/grpc v1.84.0
@@ -159,7 +159,6 @@ require (
 	go4.org/mem v0.0.0-20240501181205-ae6ca9944745 // indirect
 	go4.org/netipx v0.0.0-20260823151212-3075585bcbeb // indirect
 	golang.org/x/exp v0.0.0-20261014143641-f0251eb4aa3e // indirect
-	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sync v0.24.0 // indirect
 	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect

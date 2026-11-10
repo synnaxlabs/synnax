@@ -259,12 +259,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	var collected bool
-	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
+	for fileKey := 1; fileKey <= int(db.fc.counter.Value()); fileKey++ {
+		s, err := db.cfg.FS.Stat(fileKeyToName(uint16(fileKey)))
 		if err != nil {
 			return span.Error(err)
 		}
-		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		fileCollected, err := db.garbageCollectFile(uint16(fileKey), s.Size())
 		if err != nil {
 			return span.Error(err)
 		}
@@ -401,6 +401,12 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	if err := func() error {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
+		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+			return err
+		}
+		if err := db.cfg.FS.Rename(copyName, name); err != nil {
+			return err
+		}
 		for i, ptr := range db.idx.mu.pointers {
 			if ptr.fileKey == key {
 				if deltaOffset, ok := resolvePointerOffset(
@@ -408,14 +414,11 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 					offsetDeltaMap,
 				); ok {
 					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+					db.idx.persistHead = min(db.idx.persistHead, i)
 				}
 			}
 		}
-
-		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
-			return err
-		}
-		return db.cfg.FS.Rename(copyName, name)
+		return nil
 	}(); err != nil {
 		return false, err
 	}

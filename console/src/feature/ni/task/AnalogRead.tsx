@@ -118,9 +118,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<AIChannel>) => {
             }
       }
       type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : ANALOG_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />
@@ -207,7 +209,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
-    where: { key: { in: devices } },
+    key: devices,
     schemas: SCHEMAS,
   });
   PlatformDevice.checkFound(devices, allDevices);

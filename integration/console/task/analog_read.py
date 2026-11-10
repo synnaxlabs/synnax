@@ -63,7 +63,7 @@ _P = ParamSpec("_P")
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    page_type: PageType = "NI analog read task"
+    page_type: PageType = "ni_analog_read"
     pluto_label: str = ".console-task-configure--ni_analog_read"
 
     def add_channel(

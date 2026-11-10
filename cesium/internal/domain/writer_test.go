@@ -11,6 +11,7 @@ package domain_test
 
 import (
 	"encoding/binary"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -48,6 +49,40 @@ func extractPointer(f xfs.File) (p struct {
 	return p
 }
 
+// shiftedFS reports the first data file as shift bytes larger than it is.
+type shiftedFS struct {
+	xfs.FS
+	shift int64
+}
+
+func (f shiftedFS) Open(name string, flag int) (xfs.File, error) {
+	file, err := f.FS.Open(name, flag)
+	if err != nil || name != "1.domain" {
+		return file, err
+	}
+	return shiftedFile{File: file, shift: f.shift}, nil
+}
+
+type shiftedFile struct {
+	xfs.File
+	shift int64
+}
+
+func (f shiftedFile) Stat() (xfs.FileInfo, error) {
+	info, err := f.File.Stat()
+	if err != nil {
+		return nil, err
+	}
+	return shiftedInfo{FileInfo: info, shift: f.shift}, nil
+}
+
+type shiftedInfo struct {
+	xfs.FileInfo
+	shift int64
+}
+
+func (i shiftedInfo) Size() int64 { return i.FileInfo.Size() + i.shift }
+
 func fileSizes(info []os.FileInfo) (sizes []telem.Size) {
 	return lo.Map(
 		info,
@@ -71,13 +106,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
@@ -109,11 +141,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not allow opening a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 			})
@@ -137,10 +168,9 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(w.Write([]byte{1, 2, 3, 4, 5, 6})).To(Equal(6))
 						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
 						Expect(w.Close()).To(Succeed())
-						_, err := db.OpenWriter(ctx, domain.WriterConfig{
+						Expect(db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
-						})
-						Expect(err).To(MatchError(domain.ErrWriteConflict))
+						})).Error().To(MatchError(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -342,7 +372,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
@@ -573,6 +603,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 			})
 			Describe("End Validation", func() {
+				It("Should not open a writer with an end before its start",
+					func(ctx SpecContext) {
+						Expect(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 20 * telem.SecondTS,
+							End:   10 * telem.SecondTS,
+						})).Error().To(MatchError(ContainSubstring(
+							"end timestamp must be after or equal to start",
+						)))
+					})
 				Context("No domain overlap", func() {
 					It("Should successfully commit", func(ctx SpecContext) {
 						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
@@ -759,7 +798,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
 						}))
@@ -947,7 +986,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
 						rec := NewRecorder(fs)
-						db = MustSucceed(domain.Open(domain.Config{
+						db = MustOpen(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
 							Instrumentation: PanicLogger(),
@@ -1002,11 +1041,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not open a writer on a closed database",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						_, err := db.OpenWriter(
+						Expect(db.OpenWriter(
 							ctx,
 							domain.WriterConfig{Start: 10 * telem.SecondTS},
-						)
-						Expect(err).To(MatchError(domain.ErrDBClosed))
+						)).Error().To(MatchError(domain.ErrDBClosed))
 					},
 				)
 
@@ -1024,4 +1062,38 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Writer limits", func() {
+	It("Should not commit data that ends past the 32-bit offset limit",
+		func(ctx SpecContext) {
+			db := MustOpen(domain.Open(domain.Config{
+				FS:              shiftedFS{FS: xfs.NewMem(), shift: math.MaxUint32 - 2},
+				Instrumentation: PanicLogger(),
+			}))
+			w := DeferClose(MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+				Start: 10 * telem.SecondTS,
+			})))
+			MustSucceed(w.Write([]byte{1, 2, 3, 4}))
+			Expect(w.Commit(ctx, 20*telem.SecondTS)).
+				To(MatchError(domain.ErrOffsetOverflow))
+		})
+
+	It("Should close a writer whose file switch reaches the file limit",
+		func(ctx SpecContext) {
+			fs := xfs.NewMem()
+			createCounter(fs, math.MaxUint16-1)
+			db := MustOpen(domain.Open(domain.Config{
+				FS:              fs,
+				FileSize:        1 * telem.Byte,
+				Instrumentation: PanicLogger(),
+			}))
+			w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+				Start: 10 * telem.SecondTS,
+			}))
+			MustSucceed(w.Write([]byte{1, 2, 3, 4}))
+			Expect(w.Commit(ctx, 20*telem.SecondTS)).To(MatchError(domain.ErrFileLimit))
+			Expect(w.Close()).To(Succeed())
+			Expect(w.Write([]byte{5})).Error().To(MatchError(domain.ErrWriterClosed))
+		})
 })

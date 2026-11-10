@@ -106,9 +106,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : COUNTER_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />
@@ -186,7 +188,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   const allDevices = await client.devices.retrieve({
-    where: { key: { in: devices } },
+    key: devices,
     schemas: SCHEMAS,
   });
   PlatformDevice.checkFound(devices, allDevices);

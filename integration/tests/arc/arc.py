@@ -15,7 +15,7 @@ Drives the Arc program + task lifecycle directly through the Synnax Python clien
 with no Console UI or Playwright involved.
 
 Deployment note: the Arc runtime reports task status without echoing the triggering
-command's key (only ``details.task`` / ``details.running``), so the client's blocking
+command's key (only ``owner`` / ``details.running``), so the client's blocking
 ``task.start()`` never resolves and hangs. We send the start command asynchronously and
 wait for a status that reports the task running.
 """
@@ -45,6 +45,22 @@ class ArcTaskHandle:
     task: sy.task.Task
 
 
+@dataclass
+class ModuleHandle:
+    """A created Arc module, imported by its path from an automation."""
+
+    path: str
+    arc_key: UUID
+
+
+@dataclass
+class DirectoryHandle:
+    """A created directory of Arcs and the import path it prefixes."""
+
+    path: str
+    key: UUID
+
+
 class ArcCase(SimDaqCase, TestCase):
     """Base class for headless Arc integration tests.
 
@@ -58,13 +74,17 @@ class ArcCase(SimDaqCase, TestCase):
     start_cmd_channel: str
     end_cmd_channel: str = ""
     subscribe_channels: list[str]
-    rack: sy.Rack | None
+    rack: sy.Rack
     arc_name: str
     _arcs: list[ArcTaskHandle]
+    _modules: list[ModuleHandle]
+    _directories: list[DirectoryHandle]
 
     def __init__(self, **kwargs: Unpack[Config]) -> None:
         super().__init__(**kwargs)
         self._arcs = []
+        self._modules = []
+        self._directories = []
 
     def setup(self) -> None:
         required = [
@@ -78,7 +98,6 @@ class ArcCase(SimDaqCase, TestCase):
                 raise TypeError(
                     f"{self.__class__.__name__} must define class attribute '{attr}'"
                 )
-        self.rack = None
         self.set_manual_timeout(180)
         create_virtual_channel(
             self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
@@ -92,7 +111,6 @@ class ArcCase(SimDaqCase, TestCase):
             self.rack = self.client.racks.retrieve(rack_key)
         else:
             self.rack = self.client.racks.retrieve(embedded=False, limit=1)[0]
-        assert self.rack is not None, "Failed to retrieve rack"
         self.log(f"Selecting rack: {self.rack.name} (key: {self.rack.key})")
 
     def load_arc(
@@ -109,7 +127,6 @@ class ArcCase(SimDaqCase, TestCase):
         start command deploys it and this blocks until the runtime reports it
         running.
         """
-        assert self.rack is not None, "Call _retrieve_rack() before load_arc()"
         name = f"{name_prefix}_{random_name()}"
         self.log(f"Creating Arc: {name}")
         arc = self.client.arcs.create(name=name, text=sy.Text(raw=source), mode="text")
@@ -121,13 +138,55 @@ class ArcCase(SimDaqCase, TestCase):
         )
         self._arcs.append(ArcTaskHandle(name=name, arc_key=arc.key, task=task))
         self.client.tasks.configure(task)
-        self.client.ontology.add_children(arc.ontology_id, task.ontology_id)
         if start:
             self.start_arc_task(task)
             self.log(f"Arc is running: {name}")
         if trigger:
             self.writer.write(trigger, 1)
         return name
+
+    def create_directory(
+        self, name_prefix: str, *, parent: DirectoryHandle | None = None
+    ) -> DirectoryHandle:
+        """Create a directory of Arcs below parent, or below Arcs, and return it.
+
+        Teardown deletes directories after the modules in them, newest first.
+        """
+        name = f"{name_prefix}_{random_name()}"
+        directories = self.client.arcs.directories
+        parent_key = parent.key if parent is not None else directories.root()
+        self.log(f"Creating Arc directory: {name}")
+        directory = directories.create(name, parent=parent_key)
+        path = name if parent is None else f"{parent.path}.{name}"
+        handle = DirectoryHandle(path=path, key=directory.key)
+        self._directories.append(handle)
+        return handle
+
+    def load_module(
+        self,
+        source: str,
+        *,
+        name_prefix: str,
+        parent: DirectoryHandle | None = None,
+    ) -> str:
+        """Create an Arc module below parent, or below Arcs, and return its path.
+
+        The name is an identifier, so an automation imports the path as written
+        and binds its last segment. Teardown deletes the module after the
+        automations that import it.
+        """
+        name = f"{name_prefix}_{random_name()}"
+        self.log(f"Creating Arc module: {name}")
+        module = self.client.arcs.create(
+            name=name, text=sy.Text(raw=source), mode="text", type="module"
+        )
+        path = name
+        if parent is not None:
+            directories = self.client.arcs.directories
+            directories.move(directories.root(), parent.key, module.resource_id)
+            path = f"{parent.path}.{name}"
+        self._modules.append(ModuleHandle(path=path, arc_key=module.key))
+        return path
 
     def start_arc_task(self, task: sy.task.Task) -> None:
         """Start the task and block until the runtime reports it running.
@@ -149,13 +208,13 @@ class ArcCase(SimDaqCase, TestCase):
                         status = sy.task.Status.model_validate(raw)
                     except ValidationError:
                         continue
-                    if status.details is None or status.details.task != task.key:
+                    if status.owner != task.resource_id:
                         continue
                     if status.variant == "error":
                         raise AssertionError(
                             f"Arc task '{task.name}' failed to start: {status.message}"
                         )
-                    if status.details.running:
+                    if status.details is not None and status.details.running:
                         return
         raise TimeoutError(f"timed out waiting for Arc task '{task.name}' to start")
 
@@ -196,6 +255,12 @@ class ArcCase(SimDaqCase, TestCase):
                         self.client.tasks.delete(handle.task.key)
                 with self._try_to(f"delete arc {handle.name}"):
                     self.client.arcs.delete(handle.arc_key)
+            for module in reversed(self._modules):
+                with self._try_to(f"delete module {module.path}"):
+                    self.client.arcs.delete(module.arc_key)
+            for directory in reversed(self._directories):
+                with self._try_to(f"delete directory {directory.path}"):
+                    self.client.arcs.directories.delete(directory.key)
             if self.end_cmd_channel and self.sim_daq is not None:
                 self.log(f"Signaling simulator to stop via {self.end_cmd_channel}")
                 with self._try_to("signal simulator stop"):

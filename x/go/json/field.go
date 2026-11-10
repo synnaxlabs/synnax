@@ -10,6 +10,8 @@
 package json
 
 import (
+	"bytes"
+	"encoding/base64"
 	"encoding/json/jsontext"
 	"strconv"
 	"uuid"
@@ -60,6 +62,15 @@ func (t Type) String() string {
 	return "number"
 }
 
+// MarshalText implements encoding.TextMarshaler.
+func (t Type) MarshalText() ([]byte, error) { return []byte(t.String()), nil }
+
+// UnmarshalText implements encoding.TextUnmarshaler.
+func (t *Type) UnmarshalText(text []byte) (err error) {
+	*t, err = ParseType(string(text))
+	return err
+}
+
 // Enum pairs a JSON string label with the value of a numeric sample.
 type Enum struct {
 	Label string
@@ -83,6 +94,10 @@ type Field struct {
 // variablePrefix is the size of the length prefix of a variable-density sample.
 const variablePrefix = 4
 
+// strictBase64 rejects base64 with padding bits that are not zero. It still skips line
+// breaks.
+var strictBase64 = base64.StdEncoding.Strict()
+
 // rejectDuplicateNames overrides the leniency of jsontext.Value.Compact.
 var rejectDuplicateNames = []jsontext.Options{jsontext.AllowDuplicateNames(false)}
 
@@ -99,7 +114,7 @@ type Decoder struct {
 func NewDecoder(f Field) (*Decoder, error) {
 	switch dt := f.DataType; {
 	case dt == telem.TimestampT, dt == telem.StringT, dt == telem.JSONT,
-		dt == telem.UUIDT, numeric(dt):
+		dt == telem.UUIDT, dt == telem.BytesT, numeric(dt):
 		return &Decoder{field: f}, nil
 	default:
 		return nil, errors.Wrapf(
@@ -114,6 +129,7 @@ func NewDecoder(f Field) (*Decoder, error) {
 //     one in a Unix format.
 //   - A string takes a string. JSON takes any value, compacted but spelled as raw.
 //   - A UUID takes its string form.
+//   - Bytes take a string of standard, padded base64.
 //   - A numeric or boolean sample takes a number that it can hold exactly, a boolean
 //     as 0 or 1, or the label of an enum.
 //
@@ -167,6 +183,29 @@ func (d *Decoder) Append(dst []byte, raw jsontext.Value) ([]byte, error) {
 			return nil, errors.Wrapf(validate.ErrValidation, "invalid UUID %q", d.text)
 		}
 		return append(dst, id[:]...), nil
+	case telem.BytesT:
+		if raw.Kind() != '"' {
+			return nil, errors.Wrapf(
+				validate.ErrValidation,
+				"expected a base64 string, got %s",
+				kindName(raw),
+			)
+		}
+		if err := d.unquote(raw); err != nil {
+			return nil, err
+		}
+		if bytes.ContainsAny(d.text, "\r\n") {
+			return nil, errors.Wrap(
+				validate.ErrValidation, "base64 must not hold a line break",
+			)
+		}
+		start := len(dst)
+		dst = append(dst, make([]byte, variablePrefix)...)
+		var err error
+		if dst, err = strictBase64.AppendDecode(dst, d.text); err != nil {
+			return nil, errors.Wrap(validate.ErrValidation, err.Error())
+		}
+		return endVariable(dst, start), nil
 	}
 	n, err := d.number(raw)
 	if err != nil {
@@ -296,8 +335,9 @@ func NewEncoder(f Field) (*Encoder, error) {
 }
 
 // Append appends the JSON value of sample to dst. A variable-density sample is its data
-// alone, without a length. It returns an error wrapping validate.ErrValidation when
-// sample has no JSON value: a NaN or infinite number, or a value no enum labels.
+// alone, without a length. Bytes are standard, padded base64. It returns an error
+// wrapping validate.ErrValidation when sample has no JSON value: a NaN or infinite
+// number, or a value no enum labels.
 func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 	dt := e.field.DataType
 	switch {
@@ -310,6 +350,9 @@ func (e *Encoder) Append(dst, sample []byte) ([]byte, error) {
 		if dst, err = uuid.UUID(sample).AppendText(dst); err != nil {
 			return nil, err
 		}
+		return append(dst, '"'), nil
+	case dt == telem.BytesT:
+		dst = base64.StdEncoding.AppendEncode(append(dst, '"'), sample)
 		return append(dst, '"'), nil
 	case !numeric(dt):
 		return jsontext.AppendQuote(dst, sample)

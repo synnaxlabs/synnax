@@ -12,7 +12,10 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "absl/log/log.h"
 
 #include "client/cpp/task/json.gen.h"
 
@@ -54,6 +57,14 @@ private:
     std::set<synnax::channel::Key> state_indexes;
     /// @brief whether data saving is disabled for the task.
     bool data_saving_disabled;
+    /// @brief the warning reported during the current write.
+    Warning warning;
+
+protected:
+    /// @brief reports a problem with the frame in the current write that does not stop
+    /// the task, such as a command the sink skipped. The task shows it as a warning
+    /// without a retry wait. The next write without a warning clears it.
+    void warn(Warning warning) { this->warning = std::move(warning); }
 
 public:
     /// @brief the rate at which to communicate state values down the channel.
@@ -91,6 +102,10 @@ public:
     }
 
     virtual x::errors::Error start() { return x::errors::NIL; }
+
+    /// @brief returns the warning reported during the last write, and clears it. Empty
+    /// if the write reported none.
+    Warning take_warning() { return std::exchange(this->warning, {}); }
 
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
@@ -147,19 +162,20 @@ public:
 /// @brief a write task that can write to both digital and analog output channels,
 /// and communicate their state back to Synnax.
 class WriteTask final : public driver::task::Task {
-    class WrappedSink final : public driver::pipeline::Sink,
-                              public driver::pipeline::Source {
+    class WrappedSink final : public driver::pipeline::Sink {
     public:
         /// @brief the parent write task.
         WriteTask &p;
         /// @brief the underlying wrapped sink that actually executes commands on
         /// the hardware.
         std::unique_ptr<common::Sink> internal;
+        /// @brief the warning last written to the log. Empty if there is none.
+        Warning logged_warning;
 
         WrappedSink(WriteTask &p, std::unique_ptr<common::Sink> sink):
             p(p), internal(std::move(sink)) {}
 
-        /// @brief implements pipeline::Sink, and pipeline:Source
+        /// @brief implements pipeline::Sink.
         void stopped_with_err(const x::errors::Error &err) override {
             {
                 std::lock_guard lock(this->p.state_mu);
@@ -179,26 +195,69 @@ class WriteTask final : public driver::task::Task {
             if (this->p.opening) this->p.answer_pending_starts();
         }
 
+        x::errors::Error write(x::telem::Frame &frame) override {
+            if (frame.empty()) return x::errors::NIL;
+            auto err = this->internal->write(frame);
+            const auto warning = this->internal->take_warning();
+            if (err) {
+                this->logged_warning = {};
+                if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
+                    this->p.state.send_warning("Failed to write commands", err.data);
+                return err;
+            }
+            if (warning.empty()) {
+                this->logged_warning = {};
+                this->p.state.clear_warning();
+                return x::errors::NIL;
+            }
+            if (warning != this->logged_warning)
+                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                             << warning.description;
+            this->logged_warning = warning;
+            this->p.state.send_warning(warning.message, warning.description);
+            return x::errors::NIL;
+        }
+    };
+
+    /// @brief reads output state from the sink for the state pipeline.
+    class StateSource final : public driver::pipeline::Source {
+        /// @brief the parent write task.
+        WriteTask &p;
+
+    public:
+        /// @brief whether the writer opened since the task last started. Guarded by
+        /// state_mu.
+        bool writer_open = false;
+
+        explicit StateSource(WriteTask &p): p(p) {}
+
+        void writer_opened() override {
+            std::lock_guard lock(this->p.state_mu);
+            this->writer_open = true;
+        }
+
+        void stopped_with_err(const x::errors::Error &err) override {
+            {
+                std::lock_guard lock(this->p.state_mu);
+                if (this->p.opening || !this->writer_open)
+                    this->p.state.error(err, "Failed to start task");
+                else
+                    this->p.state.error(err, "Failed to write commands");
+                if (this->p.opening) this->p.answer_pending_starts();
+            }
+            this->p.stop("", true);
+        }
+
         x::errors::Error read(
             x::breaker::Breaker &breaker,
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
-            return this->internal->read(breaker, fr, authorities);
-        }
-
-        x::errors::Error write(x::telem::Frame &frame) override {
-            if (frame.empty()) return x::errors::NIL;
-            auto err = this->internal->write(frame);
-            if (!err)
-                this->p.state.clear_warning();
-            else if (err.matches(errors::TEMPORARY_HARDWARE_ERROR))
-                this->p.state.send_warning("Failed to write commands", err.data);
-            return err;
+            return this->p.sink->internal->read(breaker, fr, authorities);
         }
 
         [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
-            auto cfg = this->internal->writer_config();
+            auto cfg = this->p.sink->internal->writer_config();
             if (cfg.subject.key.empty())
                 cfg.subject.key = this->p.state.task.key.to_string();
             if (cfg.subject.name.empty()) cfg.subject.name = this->p.name();
@@ -213,10 +272,15 @@ class WriteTask final : public driver::task::Task {
     StatusHandler state;
     /// @brief true from a start until the command streamer opens or fails to open.
     bool opening = false;
+    /// @brief true while a sink with no command channels holds its hardware. Such a
+    /// sink never starts the command pipe.
+    bool running_without_commands = false;
     /// @brief the start commands to answer once the command streamer opens.
     std::vector<std::string> pending_starts;
     /// @brief the hardware interface for writing data
     std::shared_ptr<WrappedSink> sink;
+    /// @brief the source of output state for the state pipeline.
+    std::shared_ptr<StateSource> state_source;
     /// @brief the pipeline used to receive commands from Synnax and write them to
     /// the device.
     driver::pipeline::Control cmd_write_pipe;
@@ -245,6 +309,7 @@ public:
     ):
         state(ctx, task),
         sink(std::make_shared<WrappedSink>(*this, std::move(sink))),
+        state_source(std::make_shared<StateSource>(*this)),
         cmd_write_pipe(
             streamer_factory,
             this->sink->internal->streamer_config(),
@@ -254,8 +319,8 @@ public:
         ),
         state_write_pipe(
             writer_factory,
-            this->sink->writer_config(),
-            this->sink,
+            this->state_source->writer_config(),
+            this->state_source,
             breaker_cfg,
             task.name + ":state"
         ) {}
@@ -298,11 +363,13 @@ public:
     /// @param propagate_state whether the task will be reconfigured after it was
     /// stopped.
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        // The state pipe never starts without state channels, so only the command
-        // pipe records whether the sink holds hardware.
-        const auto stopped = this->cmd_write_pipe.stop();
+        // The state pipe never starts without state channels, so it does not record
+        // whether the sink holds hardware.
+        const auto pipe_stopped = this->cmd_write_pipe.stop();
         this->state_write_pipe.stop();
         std::lock_guard lock(this->state_mu);
+        const auto stopped = std::exchange(this->running_without_commands, false) ||
+                             pipe_stopped;
         if (stopped)
             this->state.error(this->sink->internal->stop(), "Failed to stop task");
         // A start the streamer never answered still needs its reply.
@@ -319,11 +386,12 @@ public:
     /// Will be used internally to communicate the task state. A task that is
     /// already running is not restarted: the command is answered with the current
     /// status. The start is answered once the command streamer opens, so commands
-    /// written after the answer reach the sink.
+    /// written after the answer reach the sink. A sink with no command channels is
+    /// answered at once and runs without pipelines.
     bool start(const std::string &cmd_key) {
         {
             std::lock_guard lock(this->state_mu);
-            if (this->cmd_write_pipe.running()) {
+            if (this->cmd_write_pipe.running() || this->running_without_commands) {
                 if (this->opening)
                     this->pending_starts.push_back(cmd_key);
                 else
@@ -331,12 +399,19 @@ public:
                 return false;
             }
             this->state.reset();
+            this->sink->logged_warning = {};
             if (this->state
                     .error(this->sink->internal->start(), "Failed to start task")) {
                 this->state.send_start(cmd_key);
                 return false;
             }
+            if (this->sink->internal->streamer_config().channels.empty()) {
+                this->running_without_commands = true;
+                this->state.send_start(cmd_key);
+                return true;
+            }
             this->opening = true;
+            this->state_source->writer_open = false;
             this->pending_starts = {cmd_key};
         }
         this->cmd_write_pipe.start();

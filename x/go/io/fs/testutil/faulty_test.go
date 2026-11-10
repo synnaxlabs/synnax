@@ -67,6 +67,14 @@ var _ = Describe("FaultyFS", func() {
 			},
 		),
 		Entry(
+			"write at",
+			WithFailWriteAt("a.bin"),
+			func(_ *FaultyFS, f xfs.File) error {
+				_, err := f.WriteAt([]byte("more"), 0)
+				return err
+			},
+		),
+		Entry(
 			"rename",
 			WithFailRename("a.bin"),
 			func(fs *FaultyFS, _ xfs.File) error { return fs.Rename("a.bin", "b.bin") },
@@ -132,6 +140,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(MustSucceed(fs.Stat("a.bin")).Name()).To(Equal("a.bin"))
 		Expect(fs.Remove("b.bin")).To(Succeed())
 		Expect(fs.Stat("a.bin")).Error().To(MatchError(ErrFault))
+	})
+
+	It("Should make a write wait for the function given to WithBeforeWrite", func() {
+		fs, f := openWrapped()
+		var ran bool
+		fs.SetOptions(WithBeforeWrite(func() { ran = true }))
+		Expect(f.Write([]byte("more"))).To(Equal(4))
+		Expect(ran).To(BeTrue())
+		Expect(f.Close()).To(Succeed())
 	})
 
 	It("Should stop failing once its options are cleared", func() {

@@ -10,22 +10,35 @@
 package arc_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiarc.ServiceConfig {
 		return apiarc.ServiceConfig{
 			Instrumentation: alamos.New("test"),
-			RBAC:            &rbac.Service{},
+			DB:              &gorp.DB{},
 			Arc:             &arc.Service{},
 			Status:          &status.Service{},
+			RBAC:            &rbac.Service{},
+			Stopper:         &task.Stopper{},
+			RenameChannel: func(
+				context.Context,
+				apichannel.RenameRequest,
+			) (struct{}, error) {
+				return struct{}{}, nil
+			},
 		}
 	}
 
@@ -42,9 +55,9 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
-				"rbac",
-				func(c *apiarc.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
+				"db",
+				func(c *apiarc.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
 			),
 			Entry(
 				"arc",
@@ -56,6 +69,21 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apiarc.ServiceConfig) { c.Status = nil },
 				"status: must be non-nil",
 			),
+			Entry(
+				"rbac",
+				func(c *apiarc.ServiceConfig) { c.RBAC = nil },
+				"rbac: must be non-nil",
+			),
+			Entry(
+				"rename_channel",
+				func(c *apiarc.ServiceConfig) { c.RenameChannel = nil },
+				"rename_channel: must be non-nil",
+			),
+			Entry(
+				"stopper",
+				func(c *apiarc.ServiceConfig) { c.Stopper = nil },
+				"stopper: must be non-nil",
+			),
 		)
 	})
 
@@ -63,18 +91,24 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiarc.ServiceConfig{}.Override(cfg)
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.RenameChannel).ToNot(BeNil())
+			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiarc.ServiceConfig{})
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Arc).To(BeIdenticalTo(cfg.Arc))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
+			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.RenameChannel).ToNot(BeNil())
+			Expect(merged.Stopper).To(BeIdenticalTo(cfg.Stopper))
 			Expect(merged.Meta).To(Equal(cfg.Meta))
 		})
 	})

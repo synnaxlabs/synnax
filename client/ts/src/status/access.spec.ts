@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, uuid } from "@synnaxlabs/x";
-import { describe, expect, it, onTestFinished, vi } from "vitest";
+import { id, TimeStamp, uuid } from "@synnaxlabs/x";
+import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { framer } from "@/framer";
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { AccessDeniedError, DataType, NotFoundError } from "@/index";
+import { label } from "@/label";
 import { status } from "@/status";
-import {
-  createTestClient,
-  createTestClientWithPolicy,
-  recordResponses,
-  waitForStreamLive,
-} from "@/testutil";
+import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
 
@@ -46,7 +41,7 @@ describe("status", () => {
     it("should allow the caller to retrieve statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["retrieve"],
       });
       const randomStatus = await client.statuses.set({
@@ -64,7 +59,7 @@ describe("status", () => {
     it("should allow the caller to set statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["create"],
       });
       await userClient.statuses.set({
@@ -79,7 +74,7 @@ describe("status", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: [],
       });
       await expect(
@@ -96,7 +91,7 @@ describe("status", () => {
     it("should allow the caller to delete statuses with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: ["delete", "retrieve"],
       });
       const randomStatus = await client.statuses.set({
@@ -115,7 +110,7 @@ describe("status", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [status.ontologyID("")],
+        objects: [status.resourceID("")],
         actions: [],
       });
       const randomStatus = await client.statuses.set({
@@ -130,40 +125,56 @@ describe("status", () => {
       );
     });
 
-    it("should report no error for a label the caller cannot read", async () => {
-      // Created before the caller connects, so its stream never carries the label.
+    it("should give the label keys of a status to a caller that cannot read the labels", async () => {
       const lbl = await client.labels.create({ name: "test", color: "#FF0000" });
-      const onError = vi.fn();
-      const userClient = await createTestClientWithPolicy(
-        client,
-        {
-          name: "test",
-          objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            status.ontologyID(""),
-          ],
-          actions: ["retrieve"],
-        },
-        onError,
-      );
-      await waitForStreamLive(userClient.connection);
-      const fetches = recordResponses(userClient, "/label/retrieve");
-      const st = await client.statuses.set({
+      const userClient = await createTestClientWithPolicy(client, [
+        { name: "statuses", objects: [status.TYPE_RESOURCE_ID], actions: ["retrieve"] },
+        { name: "labels", objects: [label.TYPE_RESOURCE_ID], actions: ["create"] },
+      ]);
+      const created = await client.statuses.set({
         name: "test",
-        key: uuid.create(),
         variant: "info",
         message: "test",
         time: TimeStamp.now(),
+        labels: [lbl.key],
       });
-      onTestFinished(userClient.statuses.onChange(st.key, vi.fn()));
-      await client.labels.label(status.ontologyID(st.key), [lbl.key]);
-      await expect.poll(() => fetches.length).toBeGreaterThan(0);
-      for (const fetch of fetches)
-        await expect(fetch).rejects.toSatisfy(AccessDeniedError.matches);
-      // Lets the rejection reach the error handler.
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(onError).not.toHaveBeenCalled();
+      const retrieved = await userClient.statuses.retrieve(created.key);
+      expect(retrieved.labels).toEqual([lbl.key]);
+      await expect(userClient.labels.retrieve({ key: lbl.key })).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
+    });
+
+    it("should leave out the owned statuses that the caller cannot retrieve", async () => {
+      const owners = await Promise.all(
+        [0, 1].map(async () =>
+          channel.resourceID(
+            (
+              await client.channels.create({
+                name: `owner_${id.create()}`,
+                dataType: DataType.FLOAT32,
+                virtual: true,
+              })
+            ).key,
+          ),
+        ),
+      );
+      const [granted] = await Promise.all(
+        owners.map(
+          async (owner) =>
+            await client.statuses.set({ owner, variant: "info", message: "a" }),
+        ),
+      );
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [status.resourceID(granted.key)],
+        actions: ["retrieve"],
+      });
+      const [first, second] = await Promise.all(
+        owners.map(async (owner) => await userClient.statuses.retrieveOwned([owner])),
+      );
+      expect(first.map(({ key }) => key)).toEqual([granted.key]);
+      expect(second).toEqual([]);
     });
   });
 });

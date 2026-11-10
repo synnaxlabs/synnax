@@ -69,16 +69,6 @@ void initialize_frame(
         fr.emplace(idx, x::telem::Series(x::telem::TIMESTAMP_T, samples_per_chan));
 }
 
-/// @brief a problem that does not stop a read, sent as a task warning.
-struct Warning {
-    /// @brief what happened, in one short line.
-    std::string message;
-    /// @brief why it happened and what to do now.
-    std::string description;
-
-    [[nodiscard]] bool empty() const { return this->message.empty(); }
-};
-
 /// @brief the warning a source reports when it falls behind the hardware. It holds no
 /// sample count, so its text stays the same from read to read.
 const Warning SKEW_WARNING{
@@ -125,6 +115,10 @@ class ReadTask final : public driver::task::Task {
     class InternalSource final : public driver::pipeline::Source {
         /// @brief the parent read task.
         ReadTask &p;
+        /// @brief the warning last written to the log. Empty if there is none.
+        Warning logged_warning;
+        /// @brief whether the writer opened since the task last started.
+        bool writer_open = false;
 
     public:
         /// @brief the wrapped, hardware-specific source.
@@ -133,8 +127,22 @@ class ReadTask final : public driver::task::Task {
         InternalSource(ReadTask &p, std::unique_ptr<common::Source> internal):
             p(p), internal(std::move(internal)) {}
 
+        /// @brief forgets the logged warning, so the next run logs it again.
+        void forget_warning() { this->logged_warning = {}; }
+
+        /// @brief prepares the source for a new run of the task.
+        void begin_run() {
+            this->forget_warning();
+            this->writer_open = false;
+        }
+
+        void writer_opened() override { this->writer_open = true; }
+
         void stopped_with_err(const x::errors::Error &err) override {
-            this->p.state.error(err, "Failed to read data");
+            this->p.state.error(
+                err,
+                this->writer_open ? "Failed to read data" : "Failed to start task"
+            );
             this->p.stop("", true);
         }
 
@@ -151,6 +159,7 @@ class ReadTask final : public driver::task::Task {
             // 2. We have a critical error, in which case we return it directly.
             // 3. We have a warning, in which case we communicate it and return nil.
             if (err) {
+                this->forget_warning();
                 if (err.matches(errors::TEMPORARY_HARDWARE_ERROR)) {
                     auto description = err.data;
                     if (const auto retry = breaker.next_retry(); !retry.empty()) {
@@ -165,11 +174,15 @@ class ReadTask final : public driver::task::Task {
                 return err;
             }
             if (!warning.empty()) {
-                LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
-                             << warning.description;
+                if (warning != this->logged_warning)
+                    LOG(WARNING) << this->p.name() << ": " << warning.message << ": "
+                                 << warning.description;
+                this->logged_warning = warning;
                 this->p.state.send_warning(warning.message, warning.description);
-            } else
+            } else {
+                this->forget_warning();
                 this->p.state.clear_warning();
+            }
             return this->p.tare.transform(fr);
         }
 
@@ -260,6 +273,7 @@ public:
             return false;
         }
         this->state.reset();
+        this->source->begin_run();
         const auto start_ok = !this->state.error(
             this->source->internal->start(),
             "Failed to start task"

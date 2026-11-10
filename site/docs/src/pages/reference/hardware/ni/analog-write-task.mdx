@@ -20,10 +20,17 @@ from `ao0` of a USB-6343.
 
 Each output has a command channel and a
 [state channel](/reference/hardware/tasks#write-tasks). Each command writes the last
-value of every output of the task in one call.
+value of every output of the task in one call. A [function generator](#ao_func_gen) is
+different: it has no command or state channel, and it runs while the task runs.
 
 Before you start, you need a
 [configured device](/reference/hardware/ni/configure-device).
+
+The Console gives the analog write tasks of a device one state index channel, and only
+one writer can hold an index channel. So only one of these tasks can run on a device at
+a time, even when the tasks use different ports. A second task stops right after it
+starts, with an error that names the running task. Tasks from a client library have this
+limit only when they share an index channel.
 
 <Divider.Divider x />
 
@@ -42,7 +49,8 @@ Before you start, you need a
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0 gives
 the command channel `dev1_ao_0_cmd` with the index `dev1_ao_0_cmd_time`, and the state
-channel `dev1_ao_0_state` with the index `dev1_ao_state_time`.
+channel `dev1_ao_0_state` with the index `dev1_ao_state_time`. The Console creates no
+channels for a function generator.
 
 <Video id="hardware/ni/analog-write-task" />
 
@@ -186,7 +194,13 @@ Outputs a current.
 >
   <Icon.Function slot="icon" />
 
-Generates a waveform on the output.
+Generates a waveform on the output from the task start to the task stop. To change the
+waveform, stop the task, change the settings, then start it again. This channel has no
+command or state channel.
+
+Few NI devices support this channel type. On other devices, NI-DAQmx rejects the channel
+when the task starts. NI-DAQmx can also reject a task that has this channel type and
+other channel types. If it does, use a task for each type.
 
 | Setting                              | Default | Notes                                     |
 | ------------------------------------ | ------- | ----------------------------------------- |
@@ -246,6 +260,19 @@ Two channels use the same port.
 <Problem.Fix>
 
 Change the port of one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has no control authority - it is currently held by ..."}>
+<Problem.Cause>
+
+Another running task writes to the same index channel. The error names that task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other task, or move its channels into this task.
 
 </Problem.Fix>
 </Problem.Item>

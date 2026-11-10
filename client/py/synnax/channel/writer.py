@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
 from freighter import Empty, UnaryClient
+from synnax import group as group_
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -22,6 +23,7 @@ from synnax.channel.payload import (
 
 class _CreateRequest(BaseModel):
     channels: list[Payload]
+    retrieve_if_name_exists: bool
 
 
 class _Response(BaseModel):
@@ -36,6 +38,11 @@ class _DeleteRequest(BaseModel):
 class _RenameRequest(BaseModel):
     keys: list[Key] | tuple[Key, ...]
     names: list[str] | tuple[str, ...]
+
+
+class _SetGroupRequest(BaseModel):
+    keys: list[Key]
+    group: group_.Key | None = None
 
 
 class Writer:
@@ -55,8 +62,11 @@ class Writer:
     def create(
         self,
         channels: list[Payload],
+        retrieve_if_name_exists: bool,
     ) -> list[Payload]:
-        req = _CreateRequest(channels=channels)
+        req = _CreateRequest(
+            channels=channels, retrieve_if_name_exists=retrieve_if_name_exists
+        )
         return self._client.send("/channel/create", req, _Response).channels
 
     @trace("debug")
@@ -74,3 +84,8 @@ class Writer:
     ) -> None:
         req = _RenameRequest(keys=keys, names=names)
         self._client.send("/channel/rename", req, Empty)
+
+    @trace("debug")
+    def set_group(self, keys: list[Key], group: group_.Key | None) -> None:
+        req = _SetGroupRequest(keys=keys, group=group)
+        self._client.send("/channel/set-group", req, Empty)

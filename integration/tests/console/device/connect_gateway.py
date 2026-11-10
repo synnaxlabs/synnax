@@ -10,6 +10,7 @@
 import re
 
 from examples.modbus import ModbusGatewaySim
+from pydantic import JsonValue
 
 import synnax as sy
 from tests.console.device.connect_network import NETWORK
@@ -68,7 +69,7 @@ class ConnectGateway(ModbusCase):
         dev = self.client.devices.retrieve(name=name)
         self.track_test_devices([dev])
         connection = sy.device.ensure_object(dev.properties, "connection")
-        expected = {
+        expected: dict[str, JsonValue] = {
             "unit_id": 2,
             "swap_bytes": False,
             "swap_words": True,
@@ -96,11 +97,11 @@ class ConnectGateway(ModbusCase):
 
     def wait_for_stats(self, name: str) -> None:
         """Wait for the Driver to report the counters of a device in its status."""
-        timer = sy.Timer()
-        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+
+        def reported() -> bool | None:
             dev = self.client.devices.retrieve(name=name, include_status=True)
             details = None if dev.status is None else dev.status.details
-            if details is not None and details.data is not None:
-                return
-            sy.sleep(0.5)
-        raise AssertionError(f"'{name}' should report its request counters")
+            return True if details is not None and details.data is not None else None
+
+        if sy.poll(reported, timeout=15, interval=0.5) is None:
+            raise AssertionError(f"'{name}' should report its request counters")

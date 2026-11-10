@@ -25,11 +25,13 @@ def assert_exported_json(exported: dict[str, JsonValue]) -> None:
     Validates:
     - Envelope shape: 'schematic' type, version >= SCHEMATIC_VERSION, key stripped
     - Required keys exist: nodes, edges, configs
+    - The body parses as a generated schematic
     """
     assert_envelope(exported, envelope_type="schematic", min_version=SCHEMATIC_VERSION)
     required_keys = ["nodes", "edges", "configs"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"
+    sy.schematic.Schematic.model_validate(exported)
 
 
 class SchematicLifecycle(ConsoleCase):
@@ -194,26 +196,14 @@ class SchematicLifecycle(ConsoleCase):
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
-        after_undo = schematic.get_symbol_count()
-        assert after_undo == baseline, (
-            f"Expected {baseline} symbols after undo of delete, got {after_undo}"
-        )
+        schematic.wait_for_symbol_count(baseline)
 
         self.console.layout.press_key("ControlOrMeta+Shift+Z")
-        sy.sleep(0.3)
-        after_redo = schematic.get_symbol_count()
-        assert after_redo == baseline - 1, (
-            f"Expected {baseline - 1} symbols after redo of delete, got {after_redo}"
-        )
+        schematic.wait_for_symbol_count(baseline - 1)
 
         schematic._click_canvas()
         self.console.layout.press_key("ControlOrMeta+Z")
-        sy.sleep(0.3)
-        final = schematic.get_symbol_count()
-        assert final == baseline, (
-            f"Expected {baseline} symbols after restoring undo, got {final}"
-        )
+        schematic.wait_for_symbol_count(baseline)
 
     def test_open_schematic_from_resources(self) -> None:
         """Test opening a schematic by double-clicking it in the project resources
@@ -302,9 +292,9 @@ class SchematicLifecycle(ConsoleCase):
         )
         self.ctx_schematic_name = new_name
 
-        self.log("Testing copy schematic via context menu")
+        self.log("Testing duplicate schematic via context menu")
         copy_name = f"Copied Schematic {self.suffix}"
-        self.console.pages.copy(self.ctx_schematic_name, copy_name)
+        self.console.pages.duplicate(self.ctx_schematic_name, copy_name)
         assert self.console.pages.exists(copy_name), (
             f"Copied schematic '{copy_name}' should exist"
         )
@@ -314,7 +304,7 @@ class SchematicLifecycle(ConsoleCase):
         self.ctx_schematic_copy_name = copy_name
 
     def test_multi_schematic_operations(self) -> None:
-        """Test multi-select operations: copy multiple, then delete multiple."""
+        """Test multi-select operations: duplicate multiple, then delete multiple."""
         self.log("Creating schematics for multi-select operations")
         schematic_names: list[str] = []
         for i in range(3):
@@ -324,8 +314,8 @@ class SchematicLifecycle(ConsoleCase):
             schematic_names.append(schematic.page_name)
             schematic.close()
 
-        self.log("Testing copy multiple schematics via context menu")
-        self.console.pages.copy_many(schematic_names)
+        self.log("Testing duplicate multiple schematics via context menu")
+        self.console.pages.duplicate_many(schematic_names)
 
         copy_names = [f"{name} (copy)" for name in schematic_names]
         for copy_name in copy_names:

@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/encoding/orc"
 	notation "github.com/synnaxlabs/x/notation/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
@@ -32,16 +32,11 @@ var _ = Describe("Log", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v3.Log{}.SetOptions()).To(BeNil())
-		})
-	})
-	Describe("OntologyID", func() {
-		It("Should return the log ontology identifier", func() {
+	Describe("ResourceID", func() {
+		It("Should return the log resource identifier", func() {
 			k := uuid.New()
-			Expect(v3.Log{Key: k}.OntologyID()).To(Equal(ontology.ID{
-				Type: ontology.ResourceTypeLog, Key: k.String(),
+			Expect(v3.Log{Key: k}.ResourceID()).To(Equal(resource.ID{
+				Type: resource.TypeLog, Key: k.String(),
 			}))
 		})
 	})
@@ -51,30 +46,40 @@ var _ = Describe("Log", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{}}}
 			l.ApplyDefaults()
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("standard")))
-			Expect(l.Channels[0].Timestamp.Format).To(
+			Expect(l.Channels[0].TimestampConfig.Format).To(
 				Equal(telem.TimestampFormat("preciseDate")),
 			)
-			Expect(l.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZone("local")))
+			Expect(
+				l.Channels[0].TimestampConfig.TimeZone,
+			).To(Equal(telem.TimeZone("local")))
 			Expect(l.Channels[0].Precision).To(BeNil())
 		})
 
 		It("Should keep values that are already set", func() {
 			l := v3.Log{Channels: []v3.ChannelEntry{{
-				Notation:  "scientific",
-				Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+				Notation:        "scientific",
+				TimestampConfig: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 			}}}
 			l.ApplyDefaults()
 			Expect(l.Channels[0].Notation).To(Equal(notation.Notation("scientific")))
 			Expect(
-				l.Channels[0].Timestamp.Format,
+				l.Channels[0].TimestampConfig.Format,
 			).To(Equal(telem.TimestampFormat("ISO")))
-			Expect(l.Channels[0].Timestamp.Tz).To(Equal(telem.TimeZone("UTC")))
+			Expect(
+				l.Channels[0].TimestampConfig.TimeZone,
+			).To(Equal(telem.TimeZone("UTC")))
 		})
 	})
 
 	Describe("Validate", func() {
-		It("Should accept a defaulted log with an absent precision", func() {
+		It("Should reject a channel of 0", func() {
 			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{}}}
+			l.ApplyDefaults()
+			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.channel")))
+		})
+
+		It("Should accept a defaulted log with an absent precision", func() {
+			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Channel: 1}}}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(Succeed())
 		})
@@ -82,8 +87,10 @@ var _ = Describe("Log", func() {
 		DescribeTable("Should accept a precision in range",
 			func(precision uint8) {
 				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
+					Name: "valid",
+					Channels: []v3.ChannelEntry{
+						{Channel: 1, Precision: new(precision)},
+					},
 				}
 				l.ApplyDefaults()
 				Expect(l.Validate()).To(Succeed())
@@ -95,8 +102,10 @@ var _ = Describe("Log", func() {
 		DescribeTable("Should reject a precision out of range",
 			func(precision uint8) {
 				l := v3.Log{
-					Name:     "valid",
-					Channels: []v3.ChannelEntry{{Precision: new(precision)}},
+					Name: "valid",
+					Channels: []v3.ChannelEntry{
+						{Channel: 1, Precision: new(precision)},
+					},
 				}
 				l.ApplyDefaults()
 				Expect(
@@ -108,8 +117,10 @@ var _ = Describe("Log", func() {
 
 		It("Should accept an alias at the maximum length", func() {
 			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 64)}},
+				Name: "valid",
+				Channels: []v3.ChannelEntry{
+					{Channel: 1, Alias: strings.Repeat("a", 64)},
+				},
 			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(Succeed())
@@ -117,8 +128,10 @@ var _ = Describe("Log", func() {
 
 		It("Should reject an alias past the maximum length", func() {
 			l := v3.Log{
-				Name:     "valid",
-				Channels: []v3.ChannelEntry{{Alias: strings.Repeat("a", 65)}},
+				Name: "valid",
+				Channels: []v3.ChannelEntry{
+					{Channel: 1, Alias: strings.Repeat("a", 65)},
+				},
 			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.alias")))
@@ -134,7 +147,10 @@ var _ = Describe("Log", func() {
 		})
 
 		It("Should path an invalid notation to its channel", func() {
-			l := v3.Log{Name: "valid", Channels: []v3.ChannelEntry{{Notation: "bogus"}}}
+			l := v3.Log{
+				Name:     "valid",
+				Channels: []v3.ChannelEntry{{Channel: 1, Notation: "bogus"}},
+			}
 			l.ApplyDefaults()
 			Expect(l.Validate()).To(MatchError(ContainSubstring("channels.0.notation")))
 		})
@@ -148,19 +164,19 @@ var _ = Describe("Log", func() {
 				Key:  uuid.New(),
 				Name: "log",
 				Channels: []v3.ChannelEntry{{
-					Channel:   channel.Key(1),
-					Notation:  "standard",
-					Precision: new(uint8(3)),
-					Alias:     "alias",
-					Timestamp: v3.TimestampConfig{Format: "ISO", Tz: "UTC"},
+					Channel:         channel.Key(1),
+					Notation:        "standard",
+					Precision:       new(uint8(3)),
+					Alias:           "alias",
+					TimestampConfig: v3.TimestampConfig{Format: "ISO", TimeZone: "UTC"},
 				}},
 				TimestampPrecision: 2,
 			}.EncodeOrc(w)).To(Succeed())
 			return w.Bytes()
 		}
 
-		It("Should encode the truncation fixture in 83 bytes", func() {
-			Expect(encode()).To(HaveLen(83))
+		It("Should encode the truncation fixture in 90 bytes", func() {
+			Expect(encode()).To(HaveLen(90))
 		})
 
 		DescribeTable("Should reject a log truncated inside a field",
@@ -187,6 +203,10 @@ var _ = Describe("Log", func() {
 			Entry("timestamp precision", 80),
 			Entry("channel names hidden", 81),
 			Entry("timestamps hidden", 82),
+			Entry("time zone", 85),
+			Entry("group presence", 87),
+			Entry("project presence", 88),
+			Entry("range presence", 89),
 		)
 	})
 })

@@ -12,8 +12,9 @@
 package panel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/union"
 )
@@ -21,8 +22,6 @@ import (
 const (
 	// ActionTypeCreate is the Type of an Action that carries CreatePayload.
 	ActionTypeCreate = "create"
-	// ActionTypeRename is the Type of an Action that carries RenamePayload.
-	ActionTypeRename = "rename"
 	// ActionTypeSetIcon is the Type of an Action that carries SetIconPayload.
 	ActionTypeSetIcon = "set_icon"
 	// ActionTypeSetColor is the Type of an Action that carries SetColorPayload.
@@ -42,17 +41,20 @@ const (
 	ActionTypeSetTabResource = "set_tab_resource"
 	// ActionTypeSetTabView is the Type of an Action that carries SetTabViewPayload.
 	ActionTypeSetTabView = "set_tab_view"
+	// ActionTypeSet is the Type of an Action that carries SetPayload.
+	ActionTypeSet = "set"
+	// ActionTypeRemove is the Type of an Action that carries RemovePayload.
+	ActionTypeRemove = "remove"
+	// ActionTypeInsert is the Type of an Action that carries InsertPayload.
+	ActionTypeInsert = "insert"
+	// ActionTypeMove is the Type of an Action that carries MovePayload.
+	ActionTypeMove = "move"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
 // on create so remote caches ingest new documents; clients never dispatch it.
 type CreatePayload struct {
 	Panel Panel `json:"panel" msgpack:"panel"`
-}
-
-// RenamePayload renames the panel.
-type RenamePayload struct {
-	Name string `json:"name" msgpack:"name"`
 }
 
 // SetIconPayload sets the panel's icon. Null resets it to the default panel icon.
@@ -132,7 +134,7 @@ type ResizeSplitPayload struct {
 // visualization.
 type SetTabResourcePayload struct {
 	Key      TabKey      `json:"key" msgpack:"key"`
-	Resource ontology.ID `json:"resource" msgpack:"resource"`
+	Resource resource.ID `json:"resource" msgpack:"resource"`
 }
 
 // SetTabViewPayload sets the inline view displayed by the tab with the given key,
@@ -143,12 +145,41 @@ type SetTabViewPayload struct {
 	View View   `json:"view" msgpack:"view"`
 }
 
+// SetPayload replaces the value at a path in the panel.
+type SetPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// RemovePayload removes an entry from a list or a field from an object in the panel.
+type RemovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// InsertPayload adds an entry to a list in the panel.
+type InsertPayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Value  any           `json:"value" msgpack:"value"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
+// MovePayload moves an entry in a list in the panel.
+type MovePayload struct {
+	Path   []string      `json:"path" msgpack:"path"`
+	Key    string        `json:"key" msgpack:"key"`
+	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
+	Guards []patch.Guard `json:"guards" msgpack:"guards"`
+}
+
 // Action is a discriminated union for all Panel mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type           string                 `json:"type" msgpack:"type"`
 	Create         *CreatePayload         `json:"create,omitzero" msgpack:"create,omitempty"`
-	Rename         *RenamePayload         `json:"rename,omitzero" msgpack:"rename,omitempty"`
 	SetIcon        *SetIconPayload        `json:"set_icon,omitzero" msgpack:"set_icon,omitempty"`
 	SetColor       *SetColorPayload       `json:"set_color,omitzero" msgpack:"set_color,omitempty"`
 	InsertTabs     *InsertTabsPayload     `json:"insert_tabs,omitzero" msgpack:"insert_tabs,omitempty"`
@@ -158,76 +189,95 @@ type Action struct {
 	ResizeSplit    *ResizeSplitPayload    `json:"resize_split,omitzero" msgpack:"resize_split,omitempty"`
 	SetTabResource *SetTabResourcePayload `json:"set_tab_resource,omitzero" msgpack:"set_tab_resource,omitempty"`
 	SetTabView     *SetTabViewPayload     `json:"set_tab_view,omitzero" msgpack:"set_tab_view,omitempty"`
+	Set            *SetPayload            `json:"set,omitzero" msgpack:"set,omitempty"`
+	Remove         *RemovePayload         `json:"remove,omitzero" msgpack:"remove,omitempty"`
+	Insert         *InsertPayload         `json:"insert,omitzero" msgpack:"insert,omitempty"`
+	Move           *MovePayload           `json:"move,omitzero" msgpack:"move,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Panel: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Panel, actions ...Action) (Panel, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
-		case ActionTypeRename:
-			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.Rename.Handle(state)
 		case ActionTypeSetIcon:
 			if a.SetIcon == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetIcon.Handle(state)
 		case ActionTypeSetColor:
 			if a.SetColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetColor.Handle(state)
 		case ActionTypeInsertTabs:
 			if a.InsertTabs == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.InsertTabs.Handle(state)
 		case ActionTypeRemoveTab:
 			if a.RemoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveTab.Handle(state)
 		case ActionTypeMoveTab:
 			if a.MoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveTab.Handle(state)
 		case ActionTypeSplitTab:
 			if a.SplitTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SplitTab.Handle(state)
 		case ActionTypeResizeSplit:
 			if a.ResizeSplit == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
 		case ActionTypeSetTabResource:
 			if a.SetTabResource == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabResource.Handle(state)
 		case ActionTypeSetTabView:
 			if a.SetTabView == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabView.Handle(state)
+		case ActionTypeSet:
+			if a.Set == nil {
+				return Panel{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.Set.Handle(state)
+		case ActionTypeRemove:
+			if a.Remove == nil {
+				return Panel{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.Remove.Handle(state)
+		case ActionTypeInsert:
+			if a.Insert == nil {
+				return Panel{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.Insert.Handle(state)
+		case ActionTypeMove:
+			if a.Move == nil {
+				return Panel{}, union.MissingPayload(a.Type)
+			}
+			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Panel{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Panel{}, err
 		}
 	}
 	return state, nil
@@ -236,11 +286,6 @@ func Reduce(state Panel, actions ...Action) (Panel, error) {
 // NewCreateAction wraps a CreatePayload in an Action envelope.
 func NewCreateAction(p CreatePayload) Action {
 	return Action{Type: ActionTypeCreate, Create: &p}
-}
-
-// NewRenameAction wraps a RenamePayload in an Action envelope.
-func NewRenameAction(p RenamePayload) Action {
-	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewSetIconAction wraps a SetIconPayload in an Action envelope.
@@ -286,4 +331,24 @@ func NewSetTabResourceAction(p SetTabResourcePayload) Action {
 // NewSetTabViewAction wraps a SetTabViewPayload in an Action envelope.
 func NewSetTabViewAction(p SetTabViewPayload) Action {
 	return Action{Type: ActionTypeSetTabView, SetTabView: &p}
+}
+
+// NewSetAction wraps a SetPayload in an Action envelope.
+func NewSetAction(p SetPayload) Action {
+	return Action{Type: ActionTypeSet, Set: &p}
+}
+
+// NewRemoveAction wraps a RemovePayload in an Action envelope.
+func NewRemoveAction(p RemovePayload) Action {
+	return Action{Type: ActionTypeRemove, Remove: &p}
+}
+
+// NewInsertAction wraps a InsertPayload in an Action envelope.
+func NewInsertAction(p InsertPayload) Action {
+	return Action{Type: ActionTypeInsert, Insert: &p}
+}
+
+// NewMoveAction wraps a MovePayload in an Action envelope.
+func NewMoveAction(p MovePayload) Action {
+	return Action{Type: ActionTypeMove, Move: &p}
 }

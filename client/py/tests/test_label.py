@@ -9,16 +9,24 @@
 
 from uuid import uuid4
 
+import pydantic
 import pytest
 
 import synnax as sy
 from synnax import label
+from x.strings import random_name
 
 
 @pytest.fixture
-def resource(client: sy.Synnax) -> sy.ontology.ID:
-    group = client.groups.create(sy.ontology.ROOT_ID, str(uuid4()))
-    return sy.group.ontology_id(group.key)
+def rng(client: sy.Synnax) -> sy.Range:
+    return client.ranges.create(
+        name=random_name(),
+        time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+    )
+
+
+def _labels_of(client: sy.Synnax, rng: sy.Range) -> list[sy.label.Key]:
+    return client.ranges.retrieve(key=rng.key).labels
 
 
 @pytest.mark.label
@@ -116,6 +124,62 @@ class TestLabelClient:
         with pytest.raises(sy.NotFoundError):
             client.labels.retrieve(name=str(uuid4()))
 
+    def test_retrieve_name_operator(self, client: sy.Synnax) -> None:
+        """Should retrieve the labels whose name matches an operator."""
+        prefix = str(uuid4())
+        a = client.labels.create(name=f"{prefix}-a", color="#FF0000")
+        b = client.labels.create(name=f"{prefix}-b", color="#FF0000")
+        res = client.labels.retrieve(name={"starts_with": prefix})
+        assert sorted(lbl.key for lbl in res) == sorted([a.key, b.key])
+
+    def test_retrieve_name_list(self, client: sy.Synnax) -> None:
+        """Should return a list for a list of names, even with one name."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(name=[lbl.name]) == [lbl]
+
+    def test_retrieve_plain_key_beside_fields(self, client: sy.Synnax) -> None:
+        """Should return one label for a plain key beside other fields."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(key=lbl.key, name={"in": [lbl.name]}) == lbl
+        with pytest.raises(sy.NotFoundError):
+            client.labels.retrieve(key=lbl.key, name="other")
+
+    def test_retrieve_or(self, client: sy.Synnax) -> None:
+        """Should retrieve the labels that match any filter in or_."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        res = client.labels.retrieve(or_=[{"name": a.name}, {"key": [b.key]}])
+        assert sorted(lbl.key for lbl in res) == sorted([a.key, b.key])
+
+    def test_retrieve_one(self, client: sy.Synnax) -> None:
+        """Should return one label for any filter when one is set."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        assert client.labels.retrieve(name={"starts_with": lbl.name}, one=True) == lbl
+        assert client.labels.retrieve(keys=[lbl.key], one=True) == lbl
+
+    def test_retrieve_one_search_term_not_found(self, client: sy.Synnax) -> None:
+        """Should name the search term when a search with one set matches nothing."""
+        term = uuid4().hex
+        with pytest.raises(
+            sy.NotFoundError, match=rf'^Found no label matching "{term}"$'
+        ):
+            client.labels.retrieve(search_term=term, one=True)
+
+    def test_retrieve_one_with_limit(self, client: sy.Synnax) -> None:
+        """Should reject one beside a limit, since a page could hide a match."""
+        with pytest.raises(sy.ValidationError, match="cannot set a limit"):
+            client.labels.retrieve(name={"starts_with": "a"}, one=True, limit=1)  # type: ignore[call-overload]
+
+    def test_retrieve_none_field(self, client: sy.Synnax) -> None:
+        """Should reject a field set to None, since it would select every label."""
+        with pytest.raises(sy.ValidationError, match="name is None"):
+            client.labels.retrieve(name=None)  # type: ignore[call-overload]
+
+    def test_retrieve_unknown_field(self, client: sy.Synnax) -> None:
+        """Should reject a field that is not a label filter line."""
+        with pytest.raises(pydantic.ValidationError, match="nme"):
+            client.labels.retrieve(nme="a")  # type: ignore[call-overload]
+
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a label."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
@@ -133,62 +197,81 @@ class TestLabelClient:
 
 @pytest.mark.label
 class TestLabelResource:
-    """Tests for adding labels to and removing labels from a resource."""
+    """Tests for adding labels to and removing labels from a range or a status."""
 
-    def test_label(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
-        """Should add labels to a resource."""
+    def test_label(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should add labels to a range."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(resource, [a.key, b.key])
-        res = client.labels.retrieve(for_=resource)
-        assert {lbl.key for lbl in res} == {a.key, b.key}
+        client.labels.label(rng.resource_id, [a.key, b.key])
+        assert set(_labels_of(client, rng)) == {a.key, b.key}
 
-    def test_label_adds(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
-        """Should keep the existing labels of a resource when replace is false."""
+    def test_label_adds(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should keep the existing labels of a range when replace is false."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(resource, a.key)
-        client.labels.label(resource, b.key)
-        res = client.labels.retrieve(for_=resource)
-        assert {lbl.key for lbl in res} == {a.key, b.key}
+        client.labels.label(rng.resource_id, a.key)
+        client.labels.label(rng.resource_id, b.key)
+        assert set(_labels_of(client, rng)) == {a.key, b.key}
 
-    def test_label_replace(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
-        """Should remove every other label from the resource when replace is true."""
+    def test_label_replace(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should remove every other label from the range when replace is true."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(resource, a.key)
-        client.labels.label(resource, b.key, replace=True)
-        res = client.labels.retrieve(for_=resource)
-        assert [lbl.key for lbl in res] == [b.key]
+        client.labels.label(rng.resource_id, a.key)
+        client.labels.label(rng.resource_id, b.key, replace=True)
+        assert _labels_of(client, rng) == [b.key]
 
-    def test_remove(self, client: sy.Synnax, resource: sy.ontology.ID) -> None:
-        """Should remove labels from a resource."""
+    def test_remove(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should remove labels from a range."""
         a = client.labels.create(name=str(uuid4()), color="#FF0000")
         b = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(resource, [a.key, b.key])
-        client.labels.remove(resource, a.key)
-        res = client.labels.retrieve(for_=resource)
-        assert [lbl.key for lbl in res] == [b.key]
+        client.labels.label(rng.resource_id, [a.key, b.key])
+        client.labels.remove(rng.resource_id, a.key)
+        assert _labels_of(client, rng) == [b.key]
 
-    def test_retrieve_for_string_id(
-        self, client: sy.Synnax, resource: sy.ontology.ID
-    ) -> None:
-        """Should accept the ontology ID of the resource as a string."""
+    def test_label_string_id(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should accept the resource ID of the range as a string."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(str(resource), lbl.key)
-        assert client.labels.retrieve(for_=str(resource)) == [lbl]
+        client.labels.label(str(rng.resource_id), lbl.key)
+        assert _labels_of(client, rng) == [lbl.key]
 
-    def test_retrieve_for_unlabeled(
-        self, client: sy.Synnax, resource: sy.ontology.ID
-    ) -> None:
-        """Should retrieve no labels for a resource that has none."""
-        assert client.labels.retrieve(for_=resource) == []
+    def test_label_status(self, client: sy.Synnax) -> None:
+        """Should add labels to and remove labels from a status."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        st = client.statuses.set(
+            sy.Status(variant=sy.status.VARIANT_INFO, message="Labeled status")
+        )
+        client.labels.label(sy.status.resource_id(st.key), [a.key, b.key])
+        client.labels.remove(sy.status.resource_id(st.key), a.key)
+        assert client.statuses.retrieve(key=st.key).labels == [b.key]
 
-    def test_delete_removes_from_resource(
-        self, client: sy.Synnax, resource: sy.ontology.ID
+    def test_label_other_type(
+        self, client: sy.Synnax, virtual_channel: sy.Channel
     ) -> None:
-        """Should remove a deleted label from every resource."""
+        """Should reject a resource that is not a range or a status."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
-        client.labels.label(resource, lbl.key)
+        with pytest.raises(sy.ValidationError, match="a channel cannot have labels"):
+            client.labels.label(virtual_channel.resource_id, lbl.key)
+
+    def test_delete_removes_from_range(self, client: sy.Synnax, rng: sy.Range) -> None:
+        """Should remove a deleted label from every range that holds it."""
+        a = client.labels.create(name=str(uuid4()), color="#FF0000")
+        b = client.labels.create(name=str(uuid4()), color="#FF0000")
+        client.labels.label(rng.resource_id, [a.key, b.key])
+        client.labels.delete(a.key)
+        assert _labels_of(client, rng) == [b.key]
+
+    def test_delete_removes_from_status(self, client: sy.Synnax) -> None:
+        """Should remove a deleted label from every status that holds it."""
+        lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
+        st = client.statuses.set(
+            sy.Status(
+                variant=sy.status.VARIANT_INFO,
+                message="Labeled status",
+                labels=[lbl.key],
+            )
+        )
         client.labels.delete(lbl.key)
-        assert client.labels.retrieve(for_=resource) == []
+        assert client.statuses.retrieve(key=st.key).labels == []

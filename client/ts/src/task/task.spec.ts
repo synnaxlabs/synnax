@@ -7,16 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { id, sleep, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { MultipleFoundError, NotFoundError } from "@/index";
-import { ontology } from "@/ontology";
+import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { rack } from "@/rack";
+import { resource } from "@/resource";
 import { type status } from "@/status";
 import { task } from "@/task";
 import {
@@ -32,11 +32,26 @@ import {
 const client = createTestClient();
 const writer = createTestClient();
 
+const statusKeyOf = (owner: resource.ID): status.Key => {
+  const held = client.statuses.ownedBy(owner);
+  if (held == null) throw new Error(`${resource.idToString(owner)} holds no status`);
+  return held.key;
+};
+
 // Mirrors the deadline the task client gives an unanswered command.
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 describe("Task", async () => {
   const testRack = await client.racks.create({ name: "test" });
+  // The Core refuses an alert config that names a status it does not hold.
+  await client.statuses.set(
+    ["st1", "st-a", "st-b"].map((key) => ({
+      key,
+      name: key,
+      variant: "info" as const,
+      message: key,
+    })),
+  );
   describe("create", () => {
     it("should create a task on a rack", async () => {
       const m = await testRack.createTask({
@@ -77,7 +92,7 @@ describe("Task", async () => {
         variant: "success",
         message: "Custom task status",
         description: "Task is running",
-        details: { task: key, running: true, data: { customData: true } },
+        details: { running: true, data: { customData: true } },
       };
       const m = await testRack.createTask({
         key,
@@ -95,7 +110,7 @@ describe("Task", async () => {
       expect(retrieved.status?.variant).toBe("success");
       expect(retrieved.status?.message).toBe("Custom task status");
       expect(retrieved.status?.description).toBe("Task is running");
-      expect(retrieved.status?.details?.task).toBe(m.key);
+      expect(retrieved.status?.owner).toEqual(task.resourceID(m.key));
       expect(retrieved.status?.details?.running).toBe(true);
     });
   });
@@ -106,7 +121,8 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      // Exclude status, internal, snapshot when updating - these have different input/output types
+      // Exclude status, internal, snapshot when updating - these have different
+      // input/output types
       const { status: _, internal: __, snapshot: ___, ...taskFields } = m;
       const updated = await client.tasks.create({
         ...taskFields,
@@ -128,16 +144,18 @@ describe("Task", async () => {
       await local.connect();
       await waitForStreamLive(local.connection);
       await local.tasks.retrieve(m.key);
-      local.statuses.store.delete(task.statusKey(m.key));
+      local.statuses.store.delete(statusKeyOf(task.resourceID(m.key)));
       const { responded, release } = holdResponses(local, "/task/retrieve");
       const fetching = local.tasks.retrieve({ name: m.name });
       await responded;
       const name = `task-renamed-${id.create()}`;
       await client.tasks.rename(m.key, name);
-      await expect.poll(() => expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      await expect
+        .poll(() => expectLive(local.tasks.watch(m.key).getCached()).name)
+        .toBe(name);
       release();
       await fetching;
-      expect(expectLive(local.tasks.getCached(m.key)).name).toBe(name);
+      expect(expectLive(local.tasks.watch(m.key).getCached()).name).toBe(name);
     });
     it("should rename a task and keep its config", async () => {
       const m = await testRack.createTask({
@@ -178,6 +196,16 @@ describe("Task", async () => {
     });
   });
   describe("retrieve", () => {
+    it("retrieves a task by its name", async () => {
+      const created = await testRack.createTask({
+        name: `named-task-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve(created.name);
+      expect(retrieved.key).toEqual(created.key);
+    });
+
     it("coalesces concurrent single retrieves into one request", async () => {
       const created = [
         await testRack.createTask({
@@ -228,7 +256,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const retrieved = await createTestClient().tasks.retrieve({
-        where: { key: { in: [created.key, uuid.create()] } },
+        key: [created.key, uuid.create()],
       });
       expect(retrieved.map(({ key }) => key)).toEqual([created.key]);
     });
@@ -244,6 +272,49 @@ describe("Task", async () => {
       expect(retrieved.name).toBe("test");
       expect(retrieved.config).toMatchObject({ routingKey: "dog" });
       expect(retrieved.type).toBe("pagerduty_alert");
+    });
+
+    it("should retrieve tasks by a key list in key order", async () => {
+      const t1 = await testRack.createTask({
+        name: "t1",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const t2 = await testRack.createTask({
+        name: "t2",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve([t2.key, t1.key]);
+      expect(retrieved.map(({ key }) => key)).toEqual([t2.key, t1.key]);
+    });
+
+    it("should throw a NotFoundError for a missing key in a key list", async () => {
+      const t = await testRack.createTask({
+        name: "t",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const missing = uuid.create();
+      await expect(client.tasks.retrieve([t.key, missing])).rejects.toThrow(
+        new NotFoundError(`task with key ${missing} not found`),
+      );
+    });
+
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask({
+        name: "t",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved: task.Task = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+      });
+      expect(retrieved.key).toBe(t.key);
+      await expect(
+        client.tasks.retrieve({ key: t.key, internal: true }),
+      ).rejects.toThrow(NotFoundError);
     });
 
     it("should retrieve a task by its name", async () => {
@@ -266,6 +337,20 @@ describe("Task", async () => {
           type: "pagerduty_alert",
         });
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
+    });
+
+    it("should name the operator at fault in a where tree", async () => {
+      await expect(
+        // @ts-expect-error - a name operator takes a string.
+        client.tasks.retrieve({ where: { name: { eq: 5 } } }),
+      ).rejects.toThrow(/at where\.name\n.*\n\s*✗ "eq": 5 {2}× expected string/);
+    });
+
+    it("should name the filter field at fault", async () => {
+      await expect(
+        // @ts-expect-error - internal takes a boolean.
+        client.tasks.retrieve({ internal: "yes" }),
+      ).rejects.toThrow('✗ "internal": "yes"  × expected boolean');
     });
 
     it("should retrieve tasks by search term", async () => {
@@ -292,11 +377,12 @@ describe("Task", async () => {
           type: "pagerduty_alert",
         });
         const communicatedStatus: task.Status = {
-          key: ontology.idToString(task.ontologyID(t.key)),
+          key: statusKeyOf(task.resourceID(t.key)),
+          owner: task.resourceID(t.key),
           name: "test",
           variant: "success",
+          labels: [],
           details: {
-            task: t.key,
             running: false,
             cmd: "",
             configHash: "",
@@ -346,61 +432,50 @@ describe("Task", async () => {
       });
 
       it("should retrieve tasks by rack", async () => {
-        const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
-        });
+        const result = await client.tasks.retrieve({ rack: testRack.key });
         expect(result.length).toBeGreaterThanOrEqual(3);
         expect(result.every((t) => t.rack === testRack.key)).toBe(true);
       });
 
       it("should retrieve tasks by multiple keys", async () => {
         const keysToQuery = testTasks.slice(0, 2).map((t) => t.key);
-        const result = await client.tasks.retrieve({
-          where: { key: { in: keysToQuery } },
-        });
+        const result = await client.tasks.retrieve({ key: keysToQuery });
         expect(result).toHaveLength(2);
         expect(result.map((t) => t.key).sort()).toEqual(keysToQuery.sort());
       });
 
       it("should retrieve tasks by multiple names", async () => {
         const namesToQuery = ["sensor_task1", "actuator_task1"];
-        const result = await client.tasks.retrieve({
-          where: { name: { in: namesToQuery } },
-        });
+        const result = await client.tasks.retrieve({ name: namesToQuery });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((t) => namesToQuery.includes(t.name))).toBe(true);
       });
 
       it("should retrieve tasks by types", async () => {
-        const result = await client.tasks.retrieve({
-          where: { type: { in: ["pagerduty_alert"] } },
-        });
+        const result = await client.tasks.retrieve({ type: ["pagerduty_alert"] });
         expect(result.length).toBeGreaterThanOrEqual(2);
         expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
       });
 
       it("should retrieve tasks by multiple types", async () => {
         const typesToQuery = ["pagerduty_alert", "labjack_scan"];
-        const result = await client.tasks.retrieve({
-          where: { type: { in: typesToQuery } },
-        });
+        const result = await client.tasks.retrieve({ type: typesToQuery });
         expect(result.length).toBeGreaterThanOrEqual(4);
         expect(result.every((t) => typesToQuery.includes(t.type))).toBe(true);
       });
 
-      it("should support pagination with limit and offset", async () => {
+      it("should page with a limit and a cursor", async () => {
         const firstPage = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           limit: 2,
-          offset: 0,
         });
         expect(firstPage.length).toBeLessThanOrEqual(2);
 
         if (firstPage.length === 2) {
           const secondPage = await client.tasks.retrieve({
-            where: { rack: { eq: testRack.key } },
+            rack: testRack.key,
             limit: 2,
-            offset: 2,
+            after: { key: firstPage[1].key },
           });
 
           const firstPageKeys = firstPage.map((t) => t.key);
@@ -413,7 +488,8 @@ describe("Task", async () => {
 
       it("should support combined filters", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key }, type: { in: ["pagerduty_alert"] } },
+          rack: testRack.key,
+          type: ["pagerduty_alert"],
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -422,7 +498,8 @@ describe("Task", async () => {
         await expect
           .poll(async () => {
             const tasks = await client.tasks.retrieve({
-              where: { rack: { eq: testRack.key }, type: { in: ["pagerduty_alert"] } },
+              rack: testRack.key,
+              type: ["pagerduty_alert"],
               includeStatus: true,
             });
             return tasks.every((t) => t.status !== undefined);
@@ -431,21 +508,29 @@ describe("Task", async () => {
       });
 
       it("should handle empty results gracefully", async () => {
-        const result = await client.tasks.retrieve({
-          where: { type: { in: ["nonexistent_type"] } },
-        });
+        const result = await client.tasks.retrieve({ type: ["nonexistent_type"] });
         expect(result).toEqual([]);
       });
 
       it("should combine rack and type filters", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: secondRack.key }, type: { in: ["labjack_scan"] } },
+          rack: secondRack.key,
+          type: ["labjack_scan"],
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
         expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
       });
 
-      it("should handle limit without offset", async () => {
+      it("should combine rack and type in a flat filter", async () => {
+        const result = await client.tasks.retrieve({
+          rack: secondRack.key,
+          type: ["labjack_scan"],
+        });
+        expect(result.length).toBeGreaterThanOrEqual(1);
+        expect(result.every((t) => t.type === "labjack_scan")).toBe(true);
+      });
+
+      it("should handle a limit", async () => {
         const result = await client.tasks.retrieve({
           limit: 1,
         });
@@ -454,7 +539,7 @@ describe("Task", async () => {
 
       it("should retrieve tasks with includeStatus in request object", async () => {
         const result = await client.tasks.retrieve({
-          where: { rack: { eq: testRack.key } },
+          rack: testRack.key,
           includeStatus: true,
         });
         expect(result.length).toBeGreaterThanOrEqual(1);
@@ -462,7 +547,7 @@ describe("Task", async () => {
         await expect
           .poll(async () => {
             const tasks = await client.tasks.retrieve({
-              where: { rack: { eq: testRack.key } },
+              rack: testRack.key,
               includeStatus: true,
             });
             return tasks.every((t) => t.status !== undefined);
@@ -483,15 +568,11 @@ describe("Task", async () => {
           true,
         );
 
-        const snapshotOnlyResult = await client.tasks.retrieve({
-          where: { snapshot: { eq: true } },
-        });
+        const snapshotOnlyResult = await client.tasks.retrieve({ snapshot: true });
         expect(snapshotOnlyResult.some((t) => t.key === snapshotTask.key)).toBe(true);
         expect(snapshotOnlyResult.every((t) => t.snapshot === true)).toBe(true);
 
-        const regularOnlyResult = await client.tasks.retrieve({
-          where: { snapshot: { eq: false } },
-        });
+        const regularOnlyResult = await client.tasks.retrieve({ snapshot: false });
         expect(regularOnlyResult.some((t) => t.key === regularTask.key)).toBe(true);
         expect(regularOnlyResult.every((t) => t.snapshot === false)).toBe(true);
       });
@@ -504,46 +585,15 @@ describe("Task", async () => {
         });
 
         const result = await client.tasks.retrieve({
-          where: {
-            rack: { eq: testRack.key },
-            type: { in: ["pagerduty_alert"] },
-            snapshot: { eq: false },
-          },
+          rack: testRack.key,
+          type: ["pagerduty_alert"],
+          snapshot: false,
         });
 
         expect(result.some((t) => t.key === task1.key)).toBe(true);
         expect(result.every((t) => t.type === "pagerduty_alert")).toBe(true);
         expect(result.every((t) => t.snapshot === false)).toBe(true);
       });
-    });
-  });
-
-  describe("list", () => {
-    it("should list all tasks excluding internal tasks", async () => {
-      const tasks = await client.tasks.list();
-      expect(Array.isArray(tasks)).toBe(true);
-      expect(tasks.every((t) => t.internal === false)).toBe(true);
-    });
-
-    it("should list tasks on a specific rack", async () => {
-      const task1 = await testRack.createTask({
-        name: `list-test-${Date.now()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const tasks = await client.tasks.list(testRack.key);
-      expect(tasks.some((t) => t.key === task1.key)).toBe(true);
-      expect(tasks.every((t) => t.rack === testRack.key)).toBe(true);
-    });
-
-    it("should exclude internal tasks by default", async () => {
-      const allTasks = await client.tasks.list();
-      const internalTasks = await client.tasks.retrieve({
-        where: { internal: { eq: true } },
-      });
-      const allTaskKeys = allTasks.map((t) => t.key);
-      const internalTaskKeys = internalTasks.map((t) => t.key);
-      expect(internalTaskKeys.every((key) => !allTaskKeys.includes(key))).toBe(true);
     });
   });
 
@@ -557,6 +607,23 @@ describe("Task", async () => {
       const copy = await client.tasks.copy(m.key, "New Name", false);
       expect(copy.name).toBe("New Name");
       expect(copy.config).toMatchObject({ routingKey: "dog" });
+    });
+
+    it("should place a snapshot in a range", async () => {
+      const m = await testRack.createTask({
+        name: "test",
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const rng = await client.ranges.create({
+        name: `snapshot-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snap = await client.tasks.copy(m.key, "Snapshot", true, rng.key);
+      expect(snap.range).toEqual(rng.key);
+      expect((await snap.snapshottedTo())?.key).toEqual(rng.key);
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
+      expect(inRange.map(({ key }) => key)).toEqual([snap.key]);
     });
   });
 
@@ -623,9 +690,14 @@ describe("Task", async () => {
 
     it("should adopt the config the Core stores when it fills a default", async () => {
       await waitForStreamLive(client.connection);
+      const a = await client.arcs.create({
+        name: `dispatch-${id.create()}`,
+        type: "automation",
+        source: { mode: "text" },
+      });
       const t = await testRack.createTask({
         name: `dispatch-default-${id.create()}`,
-        config: { arcKey: uuid.create(), performance: "high" },
+        config: { arcKey: a.key, performance: "high" },
         type: "arc",
       });
       expect(
@@ -650,10 +722,39 @@ describe("Task", async () => {
       });
       await expect(
         client.tasks.dispatch(t.key, task.set({ path: ["type"], value: "arc" })),
-      ).rejects.toThrow('unknown object member name "type"');
+      ).rejects.toThrow("[type]: the path names no editable field");
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
+    });
+  });
+
+  describe("references", () => {
+    it("should clear a deleted status from the cached task's alerts", async () => {
+      await waitForStreamLive(client.connection);
+      const st = await client.statuses.set({
+        key: uuid.create(),
+        name: "detached",
+        variant: "info",
+        message: "detached",
+      });
+      const t = await testRack.createTask({
+        name: `detach-${id.create()}`,
+        config: { routingKey: "dog", alerts: [{ key: "a", status: st.key }] },
+        type: "pagerduty_alert",
+      });
+      await client.statuses.delete(st.key);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config.alerts).toEqual([
+        expect.objectContaining({ key: "a", status: "" }),
+      ]);
+      expect(stored.configHash).not.toBe(t.configHash);
+      await expect
+        .poll(() => expectLive(client.tasks.watch(t.key).getCached()).configHash)
+        .toBe(stored.configHash);
+      expect(expectLive(client.tasks.watch(t.key).getCached()).config).toEqual(
+        stored.config,
+      );
     });
   });
 
@@ -936,10 +1037,7 @@ describe("Task", async () => {
         schemas,
       );
 
-      const retrieved = await client.tasks.retrieve({
-        where: { key: { in: [t1.key, t2.key] } },
-        schemas,
-      });
+      const retrieved = await client.tasks.retrieve({ key: [t1.key, t2.key], schemas });
       expect(retrieved).toHaveLength(2);
       expect(retrieved[0].config.routingKey).toBe("rk-100");
       expect(retrieved[1].config.routingKey).toBe("rk-200");
@@ -964,29 +1062,103 @@ describe("Task", async () => {
       expect(retrieved.config.routingKey).toBe("rk-500");
     });
 
-    it("should retrieve task by type with schemas", async () => {
+    it("should return one task for a filter that sets one", async () => {
+      const prefix = `one-option-${id.create()}`;
+      await testRack.createTask(
+        {
+          name: `${prefix}-a`,
+          type: "pagerduty_alert",
+          config: { routingKey: "rk-700", autoStart: false, alerts: [] },
+        },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        name: { startsWith: prefix },
+        one: true,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe("rk-700");
+    });
+
+    it("should return one task for a plain key beside other fields", async () => {
+      const t = await testRack.createTask(
+        {
+          name: "one-schema",
+          type: "pagerduty_alert",
+          config: { routingKey: "rk-600", autoStart: false, alerts: [] },
+        },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        key: t.key,
+        internal: false,
+        schemas,
+      });
+      expect(retrieved.config.routingKey).toBe("rk-600");
+      await expect(
+        client.tasks.retrieve({ key: t.key, internal: true, schemas }),
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it("should reject a malformed key with or without schemas", async () => {
+      const schemas = {
+        type: z.literal("ni"),
+        config: z.object({}),
+        statusData: z.unknown(),
+      };
+      const err = new ValidationError(
+        "task params address a single key but do not match the single-query " +
+          "schema.\nFailed to parse task single query params (1 issue)\n\n  {\n" +
+          '  ✗ "key": "not-a-uuid"  × expected uuid format\n  }',
+      );
+      await expect(client.tasks.retrieve({ key: "not-a-uuid" })).rejects.toThrow(err);
+      await expect(
+        client.tasks.retrieve({ key: "not-a-uuid", schemas }),
+      ).rejects.toThrow(err);
+    });
+
+    it("should retrieve one task by type and rack when one is set", async () => {
+      const schemas = {
+        type: z.literal("modbus_scan"),
+        config: z.object({ rate: z.number() }),
+        statusData: z.unknown(),
+      };
+      const r = await client.racks.create({ name: "type-status" });
+      const created = await r.createTask(
+        { name: "type-status", type: "modbus_scan", config: { rate: 1 } },
+        schemas,
+      );
+      const retrieved = await client.tasks.retrieve({
+        type: "modbus_scan",
+        rack: r.key,
+        includeStatus: true,
+        one: true,
+        schemas,
+      });
+      expect(retrieved.key).toBe(created.key);
+    });
+
+    it("should retrieve the tasks of a type and rack as a list", async () => {
       const customSchemas = {
         type: z.literal("modbus_scan"),
         config: z.object({ rate: z.number() }),
         statusData: z.unknown(),
       };
-
-      await testRack.createTask(
-        {
-          name: "type-filter-test",
-          type: "modbus_scan",
-          config: { rate: 42 },
-        },
+      const r = await client.racks.create({ name: "type-list" });
+      const created = await client.tasks.create(
+        [42, 43].map((rate) => ({
+          name: `type-list-${rate}`,
+          type: "modbus_scan" as const,
+          rack: r.key,
+          config: { rate },
+        })),
         customSchemas,
       );
-
-      const retrieved = await client.tasks.retrieve({
-        type: "modbus_scan",
-        rack: testRack.key,
-        schemas: customSchemas,
-      });
-      expect(retrieved.type).toBe("modbus_scan");
-      expect(retrieved.config.rate).toBe(42);
+      const params = { type: "modbus_scan", rack: r.key };
+      const typed = await client.tasks.retrieve({ ...params, schemas: customSchemas });
+      expect(typed.map((t) => t.config.rate).sort()).toEqual([42, 43]);
+      const cached = await client.tasks.retrieve(params);
+      expect(cached.map((t) => t.key).sort()).toEqual(created.map((t) => t.key).sort());
     });
   });
 
@@ -998,12 +1170,11 @@ describe("Task", async () => {
     message: string,
   ) => {
     await client.statuses.set({
-      key: rack.statusKey(key),
+      owner: rack.resourceID(key),
       name: "Rack Status",
       variant,
       message,
       time: TimeStamp.now(),
-      details: { rack: key },
     });
   };
 
@@ -1014,15 +1185,14 @@ describe("Task", async () => {
     await waitForStreamLive(client.connection);
     const message = `alive-${id.create()}`;
     await writer.statuses.set({
-      key: rack.statusKey(key),
+      owner: rack.resourceID(key),
       name: "Rack Status",
       variant: "success",
       message,
       time: TimeStamp.now(),
-      details: { rack: key },
     });
     await expect
-      .poll(() => client.statuses.store.get(rack.statusKey(key))?.message)
+      .poll(() => client.statuses.ownedBy(rack.resourceID(key))?.message)
       .toBe(message);
   };
 
@@ -1052,7 +1222,7 @@ describe("Task", async () => {
 
     const setDriverNotRunning = async (key: rack.Key) =>
       await writer.statuses.set({
-        key: rack.statusKey(key),
+        owner: rack.resourceID(key),
         name: "Rack Status",
         variant: "warning",
         message: "Driver not running",
@@ -1142,15 +1312,14 @@ describe("Task", async () => {
       const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
       const cmd = await readCommand(streamer, t.key);
       await setRackStatus(alive.key, "success", "Driver is running");
-      const reply: task.Status = {
-        key: task.statusKey(t.key),
+      const reply = {
+        owner: task.resourceID(t.key),
         name: t.name,
-        variant: "success",
+        variant: "success" as const,
         message: "Scan complete",
         description: "",
         time: TimeStamp.now(),
         details: {
-          task: t.key,
           running: true,
           cmd: cmd.key,
           configHash: "",
@@ -1161,30 +1330,110 @@ describe("Task", async () => {
       await writer.statuses.set(reply);
       expect(await wait).toMatchObject({ message: "Scan complete" });
     });
+
+    const setReply = async (
+      t: task.Task,
+      cmd: task.Command,
+      variant: "loading" | "success",
+      message: string,
+    ): Promise<void> => {
+      await writer.statuses.set({
+        owner: task.resourceID(t.key),
+        name: t.name,
+        variant,
+        message,
+        description: "",
+        time: TimeStamp.now(),
+        details: {
+          running: variant === "success",
+          cmd: cmd.key,
+          configHash: "",
+          rack: testRack.key,
+          data: {},
+        },
+      });
+    };
+
+    it("should wait past the timeout for the final status after a loading reply", async () => {
+      const t = await testRack.createTask({
+        name: `slow-start-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const timeout = TimeSpan.milliseconds(500);
+      const wait = t.executeCommandSync({ type: "start", timeout });
+      const cmd = await readCommand(streamer, t.key);
+      await setReply(t, cmd, "loading", "Starting task");
+      await sleep.sleep(timeout.mult(2));
+      await setReply(t, cmd, "success", "Started task");
+      expect(await wait).toMatchObject({ variant: "success", message: "Started task" });
+    });
+
+    it("should give up two minutes after a loading reply with no final status", async () => {
+      const t = await testRack.createTask({
+        name: `lost-start-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const wait = t.executeCommandSync({
+        type: "start",
+        timeout: TimeSpan.minutes(1),
+      });
+      let settled = false;
+      const markSettled = (): void => {
+        settled = true;
+      };
+      wait.then(markSettled, markSettled);
+      const cmd = await readCommand(streamer, t.key);
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldClearNativeTimers: true,
+      });
+      onTestFinished(() => {
+        vi.useRealTimers();
+      });
+      await setReply(t, cmd, "loading", "Starting task");
+      await expect
+        .poll(() => client.statuses.ownedBy(task.resourceID(t.key))?.message)
+        .toBe("Starting task");
+      // The wait gets the reply at about the time the store does. Steps shorter than
+      // the 1 minute acknowledgment limit cover the gap.
+      await vi.waitFor(async () => {
+        await vi.advanceTimersByTimeAsync(TimeSpan.seconds(30).milliseconds);
+        expect(settled).toBe(true);
+      });
+      await expect(wait).rejects.toThrow(
+        new Error(`Command to ${t.name} timed out after 2min`),
+      );
+    });
   });
 
   describe("onChange", () => {
-    it("merges a status keyed by details.task into a subscribed single query", async () => {
+    it("merges the status a task owns into a subscribed single query", async () => {
       const t = await testRack.createTask({
         name: `status-details-single-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = client.tasks.onChange(params, vi.fn());
+      const off = client.tasks.watch(params).onChange(vi.fn());
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "error",
           message: "task failed",
           time: TimeStamp.now(),
-          details: { task: t.key, running: false, cmd: "", data: {} },
+          details: { running: false, cmd: "", data: {} },
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.message;
           })
@@ -1194,29 +1443,28 @@ describe("Task", async () => {
       }
     });
 
-    it("merges a status keyed by details.task into a subscribed request query", async () => {
+    it("merges the status a task owns into a subscribed request query", async () => {
       const t = await testRack.createTask({
         name: `status-details-request-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
-      const params = { where: { key: { in: [t.key] } } };
-      const off = client.tasks.onChange(params, vi.fn());
+      const list = client.tasks.watch({ where: { key: { in: [t.key] } } });
+      const off = list.onChange(vi.fn());
       try {
-        await client.tasks.retrieve(params);
+        await list.retrieve();
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "warning",
           message: "task degraded",
           time: TimeStamp.now(),
-          details: { task: t.key, running: true, cmd: "", data: {} },
+          details: { running: true, cmd: "", data: {} },
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.status?.message;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.status?.message;
           })
           .toBe("task degraded");
       } finally {
@@ -1234,7 +1482,7 @@ describe("Task", async () => {
       // The optimistic status is transient: a real one from the cluster replaces it, so
       // it has to be captured as it is delivered rather than read back later.
       const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
+      const off = client.tasks.watch(params).onChange((cached) => {
         if (!query.isLive(cached)) return;
         const { status } = cached;
         if (status?.variant === "loading") loading.push(status);
@@ -1242,13 +1490,12 @@ describe("Task", async () => {
       try {
         await client.tasks.retrieve(params);
         await client.statuses.set({
-          key: id.create(),
+          owner: task.resourceID(t.key),
           name: "Task Status",
           variant: "success",
           message: "task started",
           time: TimeStamp.now(),
           details: {
-            task: t.key,
             running: true,
             cmd: "",
             configHash: "deadbeef",
@@ -1258,7 +1505,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = client.tasks.getCached(params);
+            const cached = client.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return cached.status?.details.configHash;
           })
@@ -1275,55 +1522,40 @@ describe("Task", async () => {
       }
     });
 
-    it("writes the optimistic status for a task whose status has not synced", async () => {
-      const t = await testRack.createTask({
-        name: `status-uncached-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const params = { key: t.key };
-      const loading: Array<NonNullable<task.Task["status"]>> = [];
-      const off = client.tasks.onChange(params, (cached) => {
-        if (!query.isLive(cached)) return;
-        const { status } = cached;
-        if (status?.variant === "loading") loading.push(status);
-      });
-      try {
-        await client.tasks.retrieve(params);
-        await client.statuses.set({
-          key: id.create(),
-          name: "Task Status",
-          variant: "success",
-          message: "task started",
-          time: TimeStamp.now(),
-          details: {
-            task: t.key,
-            running: true,
-            cmd: "",
-            configHash: "deadbeef",
-            rack: testRack.key,
-            data: {},
-          },
+    it("writes no optimistic status for a task whose status the cache does not hold", async () => {
+      const create = async (): Promise<task.Task> =>
+        await testRack.createTask({
+          name: `unheld-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
         });
-        await expect
-          .poll(() => {
-            const cached = client.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.status?.details.configHash;
-          })
-          .toBe("deadbeef");
-        await setRackStatus(testRack.key, "success", "Driver is running");
-        // A reconnect empties the status table while the task stays known. The
-        // command must still get an optimistic status carrying the deploy info.
-        const key = task.statusKey(t.key);
-        client.statuses.store.delete(key);
-        expect(client.statuses.store.get(key)).toBeUndefined();
-        await client.tasks.executeCommand({ task: t.key, type: "stop" });
-        await expect.poll(() => loading.length).toBeGreaterThan(0);
-        expect(loading[0].details.configHash).toBe("deadbeef");
-      } finally {
-        off();
-      }
+      const held = await create();
+      const unheld = await create();
+      const heldOwner = task.resourceID(held.key);
+      const unheldOwner = task.resourceID(unheld.key);
+      const local = createTestClient();
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      await local.tasks.retrieve({ key: [held.key, unheld.key] });
+      // A reconnect empties the status table while the task stays known.
+      local.statuses.store.delete(statusKeyOf(unheldOwner));
+      const heldKey = statusKeyOf(heldOwner);
+      // One frame carries both commands, so the client handles them together.
+      await client.tasks.executeCommand({
+        commands: [
+          { task: held.key, type: "stop" },
+          { task: unheld.key, type: "stop" },
+        ],
+      });
+      // A rack with no Driver goes down at its own pace, so the stand-in is a loading
+      // status or the rack's warning.
+      const standIn = (): boolean =>
+        ["loading", "warning"].includes(
+          local.statuses.ownedBy(heldOwner)?.variant ?? "",
+        );
+      await expect.poll(standIn).toBe(true);
+      expect(local.statuses.ownedBy(heldOwner)?.key).toEqual(heldKey);
+      expect(local.statuses.ownedBy(unheldOwner)).toBeUndefined();
     });
 
     it("stands the rack's problem in for a wait its Driver cannot answer", async () => {
@@ -1333,7 +1565,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
       // The store is watched directly so the assertion reads the write the command
@@ -1366,12 +1598,12 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackAliveAfterEcho(dying.key);
       await setRackStatus(dying.key, "warning", "Rack status unknown");
       await expect
-        .poll(() => client.statuses.store.get(rack.statusKey(dying.key))?.message)
+        .poll(() => client.statuses.ownedBy(rack.resourceID(dying.key))?.message)
         .toBe("Rack status unknown");
       await client.tasks.executeCommand({ task: t.key, type: "start" });
       await expect
@@ -1390,7 +1622,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1428,7 +1660,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1443,23 +1675,25 @@ describe("Task", async () => {
         });
         await loading;
         const outage: rack.Status = {
-          key: rack.statusKey(dying.key),
+          key: statusKeyOf(rack.resourceID(dying.key)),
+          owner: rack.resourceID(dying.key),
           name: "Rack Status",
           variant: "warning",
           message: "no Driver here",
           description: "",
           time: TimeStamp.now(),
-          details: { rack: dying.key },
+          labels: [],
         };
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
           description: "",
           time: TimeStamp.now(),
           details: {
-            task: t.key,
             running: true,
             cmd: cmdKey,
             configHash: "",
@@ -1488,7 +1722,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       // The status store is watched directly, leaving no subscribed query behind:
       // winding the clock forward would otherwise reach the cache streamer's
       // reconcile, whose refetch replaces the very status under test.
@@ -1532,7 +1766,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       await client.tasks.retrieve({ key: t.key });
       await setRackStatus(down.key, "warning", "no Driver here");
       let seeWrite = (_: status.Status): void => {};
@@ -1558,7 +1792,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeWrite = (_: status.Status): void => {};
       const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
       const off = client.statuses.onWrite((s) => {
@@ -1581,7 +1815,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const offLoading = client.statuses.store.subscribe((event) => {
@@ -1620,7 +1854,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1642,13 +1876,14 @@ describe("Task", async () => {
         // behind. The reply names the command, so it answers it all the same.
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
           description: "",
           time: TimeStamp.now().sub(TimeSpan.minutes(1)),
           details: {
-            task: t.key,
             running: true,
             cmd: cmdKey,
             configHash: "",
@@ -1676,7 +1911,7 @@ describe("Task", async () => {
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       let seeLoading = (): void => {};
       const loading = new Promise<void>((resolve) => (seeLoading = resolve));
       const off = client.statuses.store.subscribe((event) => {
@@ -1695,7 +1930,6 @@ describe("Task", async () => {
         });
         await loading;
         const details = {
-          task: t.key,
           running: true,
           cmd: cmdKey,
           configHash: "",
@@ -1704,6 +1938,8 @@ describe("Task", async () => {
         };
         const reply: task.Status = {
           key,
+          owner: task.resourceID(t.key),
+          labels: [],
           name: "Task Status",
           variant: "success",
           message: "Started task",
@@ -1734,13 +1970,123 @@ describe("Task", async () => {
       }
     });
 
+    it("stands the rack's problem in after the Driver acknowledges a start", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `acknowledged-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          owner: task.resourceID(t.key),
+          labels: [],
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          message: "Starting task",
+        });
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.store.get(key)?.message)
+          .toBe("no Driver here");
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("stops standing the rack's problem in two minutes after a loading reply", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `lost-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        await writeAndSee({
+          key,
+          owner: task.resourceID(t.key),
+          labels: [],
+          name: "Task Status",
+          variant: "loading",
+          message: "Starting task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: false,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        });
+        await vi.advanceTimersByTimeAsync(TimeSpan.minutes(2).milliseconds);
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.ownedBy(rack.resourceID(dying.key))?.message)
+          .toBe("no Driver here");
+        expect(client.statuses.store.get(key)?.message).toBe("Starting task");
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
     it("keeps a status that streams in during a fetch, whatever its time", async () => {
       const t = await testRack.createTask({
         name: `fence-${id.create()}`,
         config: {},
         type: "pagerduty_alert",
       });
-      const key = task.statusKey(t.key);
+      const key = statusKeyOf(task.resourceID(t.key));
       const local = createTestClient();
       await local.connect();
       await waitForStreamLive(local.connection);
@@ -1751,13 +2097,14 @@ describe("Task", async () => {
       // makes it the newer status.
       const streamed: task.Status = {
         key,
+        owner: task.resourceID(t.key),
+        labels: [],
         name: "Task Status",
         variant: "success",
         message: "Started task",
         description: "",
         time: TimeStamp.now().sub(TimeSpan.minutes(1)),
         details: {
-          task: t.key,
           running: true,
           cmd: "",
           configHash: "",
@@ -1788,7 +2135,7 @@ describe("Task", async () => {
       // before its stream goes live is never seen.
       await waitForStreamLive(remote.connection);
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         expect((await remote.tasks.retrieve(params)).config).toMatchObject({
           routingKey: "dog",
@@ -1799,7 +2146,7 @@ describe("Task", async () => {
         });
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.config : undefined;
           })
           .toMatchObject({ routingKey: "cat" });
@@ -1817,7 +2164,7 @@ describe("Task", async () => {
         type: "pagerduty_alert",
       });
       const params = { key: t.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         expect(
@@ -1829,7 +2176,7 @@ describe("Task", async () => {
         const stored = await createTestClient().tasks.retrieve(t.key);
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             if (!query.isLive(cached)) return undefined;
             return { config: cached.config, configHash: cached.configHash };
           })
@@ -1849,16 +2196,15 @@ describe("Task", async () => {
         config: { routingKey: "dog" },
         type: "pagerduty_alert",
       });
-      const params = { where: { rack: { eq: dest.key } } };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const list = remote.tasks.watch({ where: { rack: { eq: dest.key } } });
+      const off = list.onChange(vi.fn());
       try {
-        expect(await remote.tasks.retrieve(params)).toHaveLength(0);
+        expect((await list.retrieve()).records).toHaveLength(0);
         await client.tasks.create({ ...t.payload, rack: dest.key });
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
-            if (!query.isLive(cached)) return undefined;
-            return cached.find((v) => v.key === t.key)?.config;
+            const records = list.getCached()?.records;
+            return records?.find((v) => v.key === t.key)?.config;
           })
           .toMatchObject({ routingKey: "dog" });
       } finally {
@@ -1883,9 +2229,9 @@ describe("Task", async () => {
         {
           name: "set-readable",
           objects: [
-            channel.TYPE_ONTOLOGY_ID,
-            framer.TYPE_ONTOLOGY_ID,
-            task.ontologyID(readable.key),
+            channel.TYPE_RESOURCE_ID,
+            framer.TYPE_RESOURCE_ID,
+            task.resourceID(readable.key),
           ],
           actions: ["retrieve"],
         },
@@ -1893,7 +2239,7 @@ describe("Task", async () => {
       );
       await waitForStreamLive(remote.connection);
       const params = { key: readable.key };
-      const off = remote.tasks.onChange(params, vi.fn());
+      const off = remote.tasks.watch(params).onChange(vi.fn());
       try {
         await remote.tasks.retrieve(params);
         const fetches = recordResponses(remote, "/task/retrieve");
@@ -1906,13 +2252,13 @@ describe("Task", async () => {
         await client.tasks.create({ ...readable.payload, name });
         await expect
           .poll(() => {
-            const cached = remote.tasks.getCached(params);
+            const cached = remote.tasks.watch(params).getCached();
             return query.isLive(cached) ? cached.name : undefined;
           })
           .toBe(name);
         expect(fetches).toHaveLength(0);
         expect(onError).not.toHaveBeenCalled();
-        expect(remote.tasks.getCached({ key: denied.key })).toBeUndefined();
+        expect(remote.tasks.watch({ key: denied.key }).getCached()).toBeUndefined();
       } finally {
         off();
       }
@@ -1952,7 +2298,7 @@ describe("drifted", () => {
         ? task.statusZ().parse({
             message: "running",
             variant: "success",
-            details: { task: key, running, configHash: statusHash, rack: statusRack },
+            details: { running, configHash: statusHash, rack: statusRack },
           })
         : undefined,
     };
@@ -1994,11 +2340,12 @@ describe("status composition", () => {
       type: "pagerduty_alert",
     });
     const communicatedStatus: task.Status = {
-      key: ontology.idToString(task.ontologyID(t.key)),
+      key: statusKeyOf(task.resourceID(t.key)),
+      owner: task.resourceID(t.key),
       name: "test",
       variant: "success",
+      labels: [],
       details: {
-        task: t.key,
         running: false,
         cmd: "",
         configHash: "",
@@ -2022,51 +2369,5 @@ describe("status composition", () => {
       })
       .toBe(true);
     for (const [arg] of spy.mock.calls) expect(typeof arg).not.toBe("function");
-  });
-
-  it("should break a tie on time with the more severe status", async () => {
-    const testRack = await client.racks.create({ name: "status-tie-break" });
-    const t = await testRack.createTask({
-      name: `tie-${id.create()}`,
-      config: { routingKey: "dog" },
-      type: "pagerduty_alert",
-    });
-    const params = { key: t.key };
-    const off = client.tasks.onChange(params, vi.fn());
-    const composed = () => {
-      const cached = client.tasks.getCached(params);
-      return query.isLive(cached) ? cached.status?.message : undefined;
-    };
-    try {
-      await client.tasks.retrieve(params);
-      const time = TimeStamp.now();
-      const details = { task: t.key, running: false, cmd: "", data: undefined };
-      await client.statuses.set({
-        key: ontology.idToString(task.ontologyID(t.key)),
-        name: "test",
-        variant: "error",
-        message: "boom",
-        description: "",
-        time,
-        details,
-      });
-      await expect.poll(composed).toBe("boom");
-      // Written last, so insertion order alone would let this equally fresh
-      // success win. Severity has to be what keeps the error showing.
-      const indirectKey = id.create();
-      await client.statuses.set({
-        key: indirectKey,
-        name: "test",
-        variant: "success",
-        message: "all good",
-        description: "",
-        time,
-        details,
-      });
-      expect(client.statuses.store.get(indirectKey)?.message).toBe("all good");
-      await expect.poll(composed).toBe("boom");
-    } finally {
-      off();
-    }
   });
 });

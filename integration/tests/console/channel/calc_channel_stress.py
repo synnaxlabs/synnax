@@ -201,12 +201,17 @@ class CalcChannelStress(ConsoleCase):
 
         plot = console.pages.create(Plot, f"Calc Stress {self.rate}Hz")
         self._cleanup_pages.append(plot.page_name)
-        plot.add_channels("Y1", CALC_CHANNELS)
+        plot.add_channels("y1", CALC_CHANNELS)
 
         for ch in CALC_CHANNELS:
-            assert ch in plot.data["Y1"], f"Channel {ch} should be on Y1"
+            assert ch in plot.data["y1"], f"Channel {ch} should be on Y1"
 
-        sy.sleep(1)
+        def stored() -> bool | None:
+            frame = self.client.read_latest(CALC_CHANNELS, n=1)
+            return True if all(len(frame[ch]) > 0 for ch in CALC_CHANNELS) else None
+
+        if sy.poll(stored, timeout=5, interval=0.1) is None:
+            self.fail(f"The calculated channels hold no data: {CALC_CHANNELS}")
 
         csv_content = plot.download_csv()
 

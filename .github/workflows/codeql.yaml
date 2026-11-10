@@ -73,8 +73,8 @@ jobs:
         env:
           GOPROXY: https://proxy.golang.org|direct
         run: |
-          .github/scripts/go_mod_download.sh alamos/go arc/go aspen cesium core \
-            freighter/go freighter/integration gorp oracle x/go
+          .github/scripts/go_mod_download.sh alamos/go arc/go cesium core freighter/go \
+            freighter/integration gorp oracle x/go
       - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         if: env.PLACEHOLDER != 'true'
         with:

@@ -211,6 +211,20 @@ TEST(ModbusChannels, RegisterOverrideBeatsDevice) {
     EXPECT_TRUE(ch.words_swapped);
 }
 
+/// @brief it should read a string's characters from two per register, in the device's
+/// byte order when the channel has no override.
+TEST(ModbusChannels, StringInheritsDeviceByteOrder) {
+    auto parser = x::json::Parser(
+        x::json::json{{"type", "holding_register_string"}, {"length", 5}}
+    );
+    const auto cfg = ::synnax::modbus::HoldingRegisterStringReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, false));
+    EXPECT_EQ(ch.value_type, x::telem::STRING_T);
+    EXPECT_TRUE(ch.bytes_swapped);
+    EXPECT_EQ(ch.width(), 3);
+}
+
 /// @brief it should parse configuration with multiple channel types.
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
@@ -368,19 +382,17 @@ TEST(ReadTask, testBasicReadTask) {
     task.start("start_cmd");
     ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
     const auto first_state = ctx->statuses[0];
-    EXPECT_EQ(first_state.key, synnax::task::status_key(tsk));
+    EXPECT_EQ(first_state.owner, synnax::task::resource_id(tsk.key));
     EXPECT_EQ(first_state.details.cmd, "start_cmd");
     EXPECT_EQ(first_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(first_state.details.task, tsk.key);
     EXPECT_EQ(first_state.message, "Started task");
     ASSERT_EVENTUALLY_GE(factory->writer_opens.load(std::memory_order_acquire), 1);
     task.stop("stop_cmd", true);
     ASSERT_EQ(ctx->statuses.size(), 2);
     const auto second_state = ctx->statuses[1];
-    EXPECT_EQ(second_state.key, synnax::task::status_key(tsk));
+    EXPECT_EQ(second_state.owner, synnax::task::resource_id(tsk.key));
     EXPECT_EQ(second_state.details.cmd, "stop_cmd");
     EXPECT_EQ(second_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(second_state.details.task, tsk.key);
     EXPECT_EQ(second_state.message, "Stopped task");
 
     ASSERT_GE(factory->writes->size(), 1);
@@ -1174,11 +1186,16 @@ TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     EXPECT_EQ(errors[0]["message"], "unsupported data type: timestamp");
 }
 
-/// @brief it should reject a string with no length, a string read into a channel that
-/// is not a string, and a bit past 15.
+/// @brief it should reject a string of no characters, a string read into a channel
+/// that is not a string, a bit past 15, and a register value of the string data type.
 TEST_F(ModbusReadTest, testStringAndBitRejected) {
     auto str = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto value = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
         x::telem::STRING_T,
         true
     ));
@@ -1194,17 +1211,16 @@ TEST_F(ModbusReadTest, testStringAndBitRejected) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "input_register"},
+        {{"type", "input_register_string"},
          {"channel", str.key},
          {"address", 0},
-         {"data_type", "string"}}
+         {"length", 0}}
     );
     cfg["channels"].push_back(
-        {{"type", "input_register"},
+        {{"type", "input_register_string"},
          {"channel", num.key},
          {"address", 10},
-         {"data_type", "string"},
-         {"string_length", 4}}
+         {"length", 4}}
     );
     cfg["channels"].push_back(
         {{"type", "holding_register_bit"},
@@ -1212,17 +1228,25 @@ TEST_F(ModbusReadTest, testStringAndBitRejected) {
          {"address", 0},
          {"bit", 16}}
     );
+    cfg["channels"].push_back(
+        {{"type", "holding_register"},
+         {"channel", value.key},
+         {"address", 20},
+         {"data_type", "string"}}
+    );
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 3);
-    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    ASSERT_EQ(errors.size(), 4);
+    EXPECT_EQ(errors[0]["path"], "channels.0.length");
     EXPECT_EQ(errors[0]["message"], "must be from 1 to 250");
     EXPECT_EQ(errors[1]["path"], "channels.2.bit");
     EXPECT_EQ(errors[1]["message"], "must be from 0 to 15");
-    EXPECT_EQ(errors[2]["path"], "channels.1.channel");
-    EXPECT_EQ(errors[2]["message"], "a string must read into a string channel");
+    EXPECT_EQ(errors[2]["path"], "channels.3.data_type");
+    EXPECT_EQ(errors[2]["message"], "unsupported data type: string");
+    EXPECT_EQ(errors[3]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[3]["message"], "a string must read into a string channel");
 }
 
 /// @brief it should read a string and the bits of a register into one frame.
@@ -1249,11 +1273,10 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "holding_register"},
+        {{"type", "holding_register_string"},
          {"channel", str.key},
          {"address", 0},
-         {"data_type", "string"},
-         {"string_length", 2}}
+         {"length", 2}}
     );
     cfg["channels"].push_back(
         {{"type", "holding_register_bit"},
@@ -1324,18 +1347,17 @@ TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "holding_register"},
+        {{"type", "holding_register_string"},
          {"channel", ch.key},
          {"address", 0},
-         {"data_type", "string"},
-         {"string_length", 5}}
+         {"length", 5}}
     );
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    EXPECT_EQ(errors[0]["path"], "channels.0.length");
     EXPECT_EQ(
         errors[0]["message"],
         "needs 3 registers, but the device reads at most 2 per request"

@@ -65,16 +65,23 @@ jobs:
           go_version=$(awk '$1 == "go" { print $2 }' "$MODULE/go.mod")
           sources=$(awk '$1 == "COPY" && $2 !~ /^--/ { $1 = $NF = ""; print }' \
             "$dockerfile")
-          # shellcheck disable=SC2046,SC2086 # Splits the source list into paths.
-          objects=$(git rev-parse $(printf 'HEAD:%s ' $sources "$dockerfile" \
-            .dockerignore .github/workflows/build.docker.yaml))
+          read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
+            .github/workflows/build.docker.yaml"
+          objects=$(git rev-parse "${paths[@]/#/HEAD:}")
           stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")
           bases=$(awk '$1 == "FROM" { print $2 }' "$dockerfile" |
             sed "s/\${GO_VERSION}/$go_version/" | grep -vxF "$stages")
           digests=""
+          # Docker Hub returns a rare 5xx, so each inspect gets three attempts.
           for base in $bases; do
-            digests+=$(docker buildx imagetools inspect "$base" \
-              --format '{{json .Manifest.Digest}}')
+            for attempt in 1 2 3; do
+              digest=$(docker buildx imagetools inspect "$base" \
+                --format '{{json .Manifest.Digest}}') && break
+              [ "$attempt" -lt 3 ] || exit 1
+              echo "Inspect attempt $attempt of $base failed"
+              sleep 10
+            done
+            digests+=$digest
           done
           hash=$(sha256sum <<< "$objects $digests" | cut -c1-32)
           echo "go_version=$go_version" >> "$GITHUB_OUTPUT"

@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -121,6 +122,9 @@ func (c Config) Validate() error {
 
 const translateSource = "arc-analyzer"
 
+// ErrAnalysisPanic is returned by a request whose analysis panics.
+var ErrAnalysisPanic = errors.New("internal error while analyzing the program")
+
 // Server implements the Language Server Protocol for arc
 type Server struct {
 	protocol.UnimplementedServer
@@ -191,7 +195,12 @@ func (s *Server) SetClient(client protocol.Client) {
 				if s.cancelRepublish != nil {
 					s.cancelRepublish()
 				}
-				ctx, cancel := context.WithTimeout(ctx, s.cfg.RepublishTimeout)
+				// The change can come from a commit whose context ends when the commit
+				// returns.
+				ctx, cancel := context.WithTimeout(
+					context.WithoutCancel(ctx),
+					s.cfg.RepublishTimeout,
+				)
 				s.cancelRepublish = cancel
 				s.republishMu.Unlock()
 				s.republishWG.Go(func() { s.republishAllDiagnostics(ctx) })
@@ -404,10 +413,10 @@ func (s *Server) runAnalysis(
 
 	s.mu.RLock()
 	content := doc.Content
-	isBlock := doc.metadata.isFunctionBlock
+	meta := *doc.metadata
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, meta)
 	if ctx.Err() != nil {
 		return
 	}
@@ -447,22 +456,42 @@ func (s *Server) refreshSemanticTokens(ctx context.Context, docURI uri.URI) {
 	}
 }
 
+// recoverAnalysis recovers a panic in analysis, logs it, and calls onPanic with
+// ErrAnalysisPanic. Callers must defer it directly, since recover only works there.
+func (s *Server) recoverAnalysis(onPanic func(error)) {
+	r := recover()
+	if r == nil {
+		return
+	}
+	s.cfg.L.Error(
+		"recovered from panic in Arc analysis",
+		zap.Any("panic", r),
+		zap.ByteString("stack", debug.Stack()),
+	)
+	onPanic(ErrAnalysisPanic)
+}
+
 // analyze performs parse+analyze on the given content and returns protocol diagnostics,
-// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields.
+// the resulting IR, and the raw diagnostics. It does NOT mutate any Document fields. A
+// panic in analysis becomes an error diagnostic, as analysis runs on goroutines that
+// nothing else recovers.
 func (s *Server) analyze(
 	ctx context.Context,
 	content string,
-	isBlock bool,
-) ([]protocol.Diagnostic, ir.IR, diagnostics.Diagnostics) {
+	meta documentMetadata,
+) (pDiagnostics []protocol.Diagnostic, docIR ir.IR, docDiag diagnostics.Diagnostics) {
+	defer s.recoverAnalysis(func(err error) {
+		docIR = ir.IR{}
+		docDiag = diagnostics.Diagnostics{{
+			Severity: protocol.DiagnosticSeverityError,
+			Message:  err.Error(),
+		}}
+		pDiagnostics = lsp.TranslateDiagnostics(docDiag, translateSource)
+	})
 	s.cfg.L.Debug("analyzing program")
-	var (
-		pDiagnostics []protocol.Diagnostic
-		docIR        ir.IR
-		docDiag      diagnostics.Diagnostics
-		cfg          = parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
-	)
+	cfg := parser.Config{AllowDashedNames: s.cfg.AllowDashedNames}
 
-	if isBlock {
+	if meta.isFunctionBlock {
 		wrappedContent := fmt.Sprintf("{%s}", content)
 		t, err := parser.ParseBlock(wrappedContent, cfg)
 		if err != nil {
@@ -479,7 +508,11 @@ func (s *Server) analyze(
 		if diag != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*diag, translateSource)
 		} else {
-			analyzedIR, analysisDiag := text.Analyze(ctx, t, s.cfg.NewRoot(), cfg)
+			analyze := text.Analyze
+			if meta.isModule {
+				analyze = text.AnalyzeModule
+			}
+			analyzedIR, analysisDiag := analyze(ctx, t, s.cfg.NewRoot(), cfg)
 			docIR = analyzedIR
 			if analysisDiag != nil {
 				docDiag = *analysisDiag
@@ -503,10 +536,10 @@ func (s *Server) publishDiagnostics(
 		s.mu.RUnlock()
 		return
 	}
-	isBlock := doc.metadata.isFunctionBlock
+	meta := *doc.metadata
 	s.mu.RUnlock()
 
-	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, isBlock)
+	pDiagnostics, docIR, docDiag := s.analyze(ctx, content, meta)
 
 	s.mu.Lock()
 	if _, stillOpen := s.documents[docURI]; stillOpen {

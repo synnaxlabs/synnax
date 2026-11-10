@@ -18,7 +18,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { type ListParams, useList } from "@/device/queries";
+import { type RetrieveMultipleQuery, useList } from "@/device/queries";
+import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
@@ -63,35 +64,40 @@ const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
 
 const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
+const renderStatus = (entry: unknown): ReactElement | undefined =>
+  entry == null ? undefined : <StatusBadge status={(entry as device.Device).status} />;
+
 export interface SelectSingleProps
   extends
     Omit<
       Select.SingleProps<device.Key, device.Device | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListParams, device.Key, device.Device> {}
+    Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {}
 
+/** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
+  const { data, getItem, subscribe, status, more, search } = useList({
     filter,
-    initialQuery,
+    query,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<device.Key, device.Device | undefined>
       resourceName="device"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Device />}
       dialogProps={DIALOG_PROPS}
+      triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
       {...rest}
     >
       {listItemRenderProp}
