@@ -328,7 +328,7 @@ class TestTaskClient:
                         variant=sy.status.VARIANT_WARNING,
                         message="Driver not running",
                         description="The Core has not heard from the Driver.",
-                        details={},
+                        details=sy.rack.StatusDetails(),
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
@@ -368,7 +368,7 @@ class TestTaskClient:
                     sy.rack.Status(
                         variant=variant,
                         message="Driver is running",
-                        details={"running": True},
+                        details=sy.rack.StatusDetails(running=True),
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )
