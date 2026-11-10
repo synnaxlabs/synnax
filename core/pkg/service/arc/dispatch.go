@@ -139,13 +139,17 @@ func (s *Service) resync(ctx context.Context, key Key) {
 			return err
 		}
 		return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			// A write committed after the compile. A channel change schedules no resync
-			// of its own, so skip the write and resync again.
-			if same, err := b.lookups.Unchanged(ctx, tx); !same || err != nil {
-				s.taskSync.Trigger(key)
+			same, err := b.lookups.Unchanged(ctx, tx)
+			if err != nil {
 				return err
 			}
-			if err := s.table.NewRetrieve().
+			// A write committed after the compile. A channel change schedules no resync
+			// of its own, so skip the write and resync again.
+			if !same {
+				s.taskSync.Trigger(key)
+				return nil
+			}
+			if err = s.table.NewRetrieve().
 				Where(gorp.MatchKeys[Key, Arc](key)).
 				Entry(&a).
 				Exec(ctx, tx); err != nil {
