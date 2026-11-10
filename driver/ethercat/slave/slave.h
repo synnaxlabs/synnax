@@ -204,8 +204,9 @@ private:
 struct Config {
     /// @brief whether the slave joins cyclic exchange.
     bool enabled = true;
-    /// @brief the mode the user chose, or nullopt for the mode that
-    /// Properties::catalog_op_mode gives, else the one that dc::select picks.
+    /// @brief the mode the user chose. With nullopt, the SOEM master runs the mode that
+    /// Properties::catalog_op_mode gives, else the one that dc::select picks, and the
+    /// IgH master sets up no DC sync.
     std::optional<dc::Choice> op_mode;
     /// @brief CoE objects written to the slave before each move to SAFE-OP.
     std::vector<StartupParameter> startup_parameters;
