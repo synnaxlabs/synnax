@@ -63,6 +63,7 @@ const parseCommand = (cmd: Element): StartupParameter | null => {
   let value = 0;
   for (let i = data.length - 2; i >= 0; i -= 2)
     value = value * 256 + Number.parseInt(data.slice(i, i + 2), 16);
+  if (!Number.isSafeInteger(value)) return null;
   return {
     index,
     subIndex,
@@ -87,7 +88,7 @@ export interface StartupCommands {
  * Reads the CoE startup commands (InitCmds) of the slave's device from an ESI file.
  * The Driver writes the commands of the INIT to PRE-OP and PRE-OP to SAFE-OP
  * transitions, so other transitions are unwritable, as are commands with complete
- * access or data that is not 1, 2, 4, or 8 bytes.
+ * access, data that is not 1, 2, 4, or 8 bytes, or a value above 2^53.
  * @param mode - the slave's mode. Commands on the object that holds it go to `mode`.
  * @throws {Error} if the file is not XML or lists no device with the slave's product
  * code and revision.
@@ -122,7 +123,8 @@ export const parseStartupCommands = (
         : names.join(", ");
     throw new Error(
       `The ESI file lists no device with product code ${formatHex(productCode, 4)} ` +
-        `and revision ${formatHex(revision, 8)}. It is for ${listed}.`,
+        `and revision ${formatHex(revision, 8)}. ` +
+        (names.length === 0 ? "It lists no devices." : `It is for ${listed}.`),
     );
   }
   const commands = Array.from(devices[found].getElementsByTagName("InitCmd")).filter(
@@ -141,16 +143,14 @@ export const parseStartupCommands = (
 };
 
 /**
- * Merges imported parameters into existing ones. An imported parameter replaces an
- * existing one with the same index and sub-index.
+ * Merges imported parameters into existing ones. The imported parameters replace the
+ * existing ones on the same objects, and come last in the order of the file.
  */
 export const mergeStartupParameters = (
   existing: StartupParameter[],
   imported: StartupParameter[],
 ): StartupParameter[] => {
   const key = ({ index, subIndex }: StartupParameter) => `${index}:${subIndex}`;
-  const replaced = new Map(imported.map((p) => [key(p), p]));
-  const kept = existing.map((p) => replaced.get(key(p)) ?? p);
-  const keptKeys = new Set(existing.map(key));
-  return [...kept, ...imported.filter((p) => !keptKeys.has(key(p)))];
+  const importedKeys = new Set(imported.map(key));
+  return [...existing.filter((p) => !importedKeys.has(key(p))), ...imported];
 };

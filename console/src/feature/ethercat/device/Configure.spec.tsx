@@ -365,6 +365,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
                   ${initCmd("SO", "#x8040", "1", "01", "Starts in OP")}
                   ${initCmd("PS", "#x1c12", "0", "000000", "Three bytes")}
                   ${initCmd("PS", "#x1c13", "0", "0100", "Complete", ' CompleteAccess="1"')}
+                  ${initCmd("PS", "#x8050", "1", "FFFFFFFFFFFFFFFF", "Minus one")}
                 </CoE>
               </Mailbox>
             </Device>
@@ -402,7 +403,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         expect(
           await screen.findByText(
             "Imported 2 startup parameters for SIRIUSe 8xAI from sirius.xml. " +
-              "Skipped 3 that the Driver cannot write.",
+              "Skipped 4 that the Driver cannot write.",
           ),
         ).toBeTruthy();
         await save();
@@ -469,6 +470,69 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           ),
         ).toBeTruthy();
         expect(screen.queryByRole("textbox", { name: "Index 1" })).toBeNull();
+      });
+
+      it("should say that a file lists no devices", async () => {
+        await setup(SIRIUS);
+        importFile("empty.xml", "<EtherCATInfo />");
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x0066 and revision " +
+              "0x01000001. It lists no devices.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should keep the order of the writes to one object", async () => {
+        const write = (subIndex: number, dataType: string, value: number, name: string) => ({
+          index: 0x1c12,
+          subIndex,
+          dataType,
+          value,
+          name,
+        });
+        const slave = await setup({
+          productCode: 0x67,
+          revision: 1,
+          startupParameters: [FILTER, write(0, "uint8", 1, "")],
+        });
+        importFile(
+          "pdo.xml",
+          `<EtherCATInfo><Descriptions><Devices><Device>
+            <Type ProductCode="#x67" RevisionNo="1">SIRIUSe PDO</Type>
+            <Mailbox><CoE>
+              ${initCmd("PS", "#x1c12", "0", "00", "Clear")}
+              ${initCmd("PS", "#x1c12", "1", "0016", "Assign")}
+              ${initCmd("PS", "#x1c12", "0", "01", "Count")}
+            </CoE></Mailbox>
+          </Device></Devices></Descriptions></EtherCATInfo>`,
+        );
+        await screen.findByText(/^Imported 3 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            FILTER,
+            write(0, "uint8", 0, "Clear"),
+            write(1, "uint16", 0x1600, "Assign"),
+            write(0, "uint8", 1, "Count"),
+          ]),
+        );
+      });
+
+      it("should merge into the parameters as they are when the file opens", async () => {
+        const slave = await setup({ ...SIRIUS, startupParameters: [FILTER] });
+        const picker = interceptFilePicker();
+        fireEvent.click(findButton("Import from ESI file"));
+        fireEvent.click(screen.getByRole("button", { name: "Remove parameter 1" }));
+        picker.selectFiles([fakePickedFile("sirius.xml", ESI)]);
+        await screen.findByText(/^Imported 2 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
       });
 
       it("should reject a file that is not XML", async () => {

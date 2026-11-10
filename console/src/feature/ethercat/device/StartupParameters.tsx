@@ -186,6 +186,7 @@ interface ImportResult {
  */
 export const StartupParameters = (): ReactElement => {
   const { value, onChange } = Form.useField(PATH);
+  const { get } = Form.useContext();
   const statuses = Form.useStatuses(PATH);
   const productCode = Form.useFieldValue(PROPERTIES.productCode);
   const revision = Form.useFieldValue(PROPERTIES.revision);
@@ -197,7 +198,7 @@ export const StartupParameters = (): ReactElement => {
       if (file == null) return;
       const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
       const commands = parseStartupCommands(xml, { productCode, revision }, mode);
-      onChange(mergeStartupParameters(value, commands.parameters));
+      onChange(mergeStartupParameters(get(PATH).value, commands.parameters));
       setResult({ variant: "success", message: describeImport(commands, file.path) });
     } catch (e) {
       setResult({
