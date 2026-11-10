@@ -1,7 +1,8 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Dewesoft devices"
-description: "Connect Dewesoft IOLITE and SIRIUS devices to the Driver over EtherCAT."
+description:
+  "Connect Dewesoft IOLITE, KRYPTON, and SIRIUS devices to the Driver over EtherCAT."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -16,21 +17,6 @@ use its PDOs as they use the PDOs of other modules. To connect the network, see
 In dual mode, DewesoftX sets the amplifiers of a device, such as the range and the
 excitation. In standalone mode, Synnax can set them. See
 [Set up a module in Synnax](#set-up-a-module-in-synnax).
-
-<Divider.Divider x />
-
-## Tested models
-
-Synnax Labs tested these models with the built-in master on Windows:
-
-| Model                       | Sync mode tested |
-| --------------------------- | ---------------- |
-| IOLITE GATE (firmware 2.00) | DC sync          |
-| IOLITE 6xSTG                | DC sync          |
-| IOLITEr 32xDO               | DC sync          |
-
-Other IOLITE and SIRIUS models with an EtherCAT port can also work. The Driver reads
-their PDOs from the module or from its built-in catalog of Dewesoft modules.
 
 <Divider.Divider x />
 
@@ -78,9 +64,6 @@ The Driver writes each setting as a startup parameter when the task starts.
 If the module is set up for DewesoftX, the **Configure** dialog shows a note and no
 settings. To use the module with Synnax only, click **Switch to Synnax only**, then
 restart the power of the device.
-
-Synnax Labs tested these settings on the 6xSTG. The settings of the other modules come
-from the Dewesoft manual and are not tested on hardware.
 
 <Divider.Divider x />
 
