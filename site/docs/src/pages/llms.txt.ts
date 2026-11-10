@@ -60,8 +60,7 @@ const entries = (nodes: Nav.PageNavNode[], group?: string): Entry[] =>
 export const GET: APIRoute = ({ site }) => {
   const item = ({ page, group }: Entry): string => {
     const label = group == null ? page.title : `${group}: ${page.title}`;
-    const path = page.flag == null ? `${page.route}.md` : page.route;
-    const link = `- [${label}](${new URL(path, site).href})`;
+    const link = `- [${label}](${new URL(`${page.route}.md`, site).href})`;
     return page.description == null ? link : `${link}: ${page.description}`;
   };
   const sections: Array<[string, Entry[]]> = [
