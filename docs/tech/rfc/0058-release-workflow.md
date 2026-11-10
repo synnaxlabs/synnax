@@ -128,12 +128,12 @@ while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.
 and that minor is the Core's latest stable minor or the next one, read from the `core/`
 tags instead of the `VERSION` file. A split, with some manifests on each train, fails
 the check, so a package minor bump is one PR that moves every manifest to the new train.
-The C++ client is a package: its manifest is `client/cpp/version/VERSION`, bumped with
-the rest and separate from the Driver's version, so the client can release on its own.
-The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at
-publish, so any patch mix inside a train resolves; `pluto/package.json` pins
-`@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
-versions, and both move to the catalog.
+The C++ client ships only inside the Driver, so it carries the Driver's
+`SYNNAX_DRIVER_VERSION` define and has no manifest. The catalog pins internal deps as
+`workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish, so any patch mix inside a
+train resolves; `pluto/package.json` pins `@synnaxlabs/freighter` and
+`@synnaxlabs/media` as `workspace:*`, which publishes exact versions, and both move to
+the catalog.
 
 Every binary manifest carries `0.0.0` and the build injects the resolved `version`:
 
@@ -150,9 +150,9 @@ in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/py/synnax/connection.py`, and `versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
 major.minor today and gain one rule: a `0.0` on either side is compatible. Any client
-then connects to a dev Core without a mismatch warning. The Driver's check carries the
-C++ client's manifest version, not the Driver's, so a dev Driver checks like a dev
-Python or TypeScript client: against the train the checkout is on.
+then connects to a dev Core without a mismatch warning. A release build of the Console
+or Desktop runs `stamp_versions.sh`, which writes its version into the package
+manifests, so the Console's guard reports the Console's version and not the manifest's.
 
 `bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
 package manifests.
