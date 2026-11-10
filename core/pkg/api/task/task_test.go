@@ -629,12 +629,17 @@ var _ = Describe("Delete", func() {
 	) freighter.UnaryHandler[apitask.DeleteRequest, struct{}] {
 		GinkgoHelper()
 		s := MustSucceed(apitask.NewService(apitask.ServiceConfig{
-			DB:          node.DB,
-			Task:        svc.Task,
-			Status:      svc.Status,
-			RBAC:        svc.RBAC,
-			Framer:      svc.Framer,
-			StopTimeout: timeout,
+			DB:     node.DB,
+			Task:   svc.Task,
+			Status: svc.Status,
+			RBAC:   svc.RBAC,
+			Stopper: MustSucceed(task.NewStopper(task.StopperConfig{
+				DB:      node.DB,
+				Task:    svc.Task,
+				Status:  svc.Status,
+				Framer:  svc.Framer,
+				Timeout: timeout,
+			})),
 		}))
 		return bind.WritePrepared(binder, s.PrepareDelete, s.Delete)
 	}

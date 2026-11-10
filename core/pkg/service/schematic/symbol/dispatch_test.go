@@ -131,10 +131,21 @@ var _ = Describe("Dispatch", func() {
 		}, "a schematic_symbol cannot sit in a channel group"),
 	)
 
-	It("Should fill the defaults of an edited data", func(ctx SpecContext) {
+	It("Should refuse an edit that sets a zero scale", func(ctx SpecContext) {
 		Expect(apply(ctx, set("data", symbol.Spec{SVG: "<svg/>", Variant: "static"}))).
-			To(Succeed())
-		Expect(retrieve(ctx).Data.Scale).To(Equal(1.0))
+			To(MatchError(ContainSubstring("data.scale: must be positive, got 0")))
+		Expect(retrieve(ctx)).To(Equal(sym))
+	})
+
+	It("Should keep a stored zero scale through an unrelated edit", func(
+		ctx SpecContext,
+	) {
+		sym.Data.Scale = 0
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return gorp.NewCreate[symbol.Key, symbol.Symbol]().Entry(&sym).Exec(ctx, tx)
+		})).To(Succeed())
+		Expect(apply(ctx, set("name", "After"))).To(Succeed())
+		Expect(retrieve(ctx).Data.Scale).To(BeZero())
 	})
 
 	It("Should refuse an invalid data", func(ctx SpecContext) {
@@ -148,7 +159,7 @@ var _ = Describe("Dispatch", func() {
 		rec := record()
 		created := symbol.Symbol{
 			Name: "Created",
-			Data: symbol.Spec{SVG: "<svg/>", Variant: "static"},
+			Data: symbol.Spec{SVG: "<svg/>", Variant: "static", Scale: 1},
 		}
 		Expect(write(ctx, func(w symbol.Writer) error {
 			return w.Create(ctx, &created)

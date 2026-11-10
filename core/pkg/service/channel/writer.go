@@ -365,11 +365,30 @@ func (w Writer) create(
 	}
 	var written Keys
 
+	// Reset channels that already exist by name to their stored records before index
+	// synthesis, so an existing calculated channel keeps its stored index.
+	if opts.retrieveIfNameExists {
+		names := Names(channels)
+		var existing []Channel
+		if err := w.svc.newRetrieve().
+			Where(MatchNames(names...)).
+			Entries(&existing).
+			Exec(ctx, w.tx); err != nil {
+			return err
+		}
+		for _, e := range existing {
+			idx := lo.IndexOf(names, e.Name)
+			if idx < 0 {
+				continue
+			}
+			channels[idx] = e
+		}
+	}
+
 	// Auto-create index channels for calculated channels that do not yet have one (both
 	// brand-new calculated channels and existing ones missing an index). Synthesis
-	// happens before the overwrite and retrieve-existing steps so the auto-created
-	// index names flow through the same name-collision machinery as caller-provided
-	// channels.
+	// runs before the overwrite step so the auto-created index names flow through the
+	// same name-collision machinery as caller-provided channels.
 	indexChannels := make([]Channel, 0, len(channels))
 	calcNeedingIndex := make([]int, 0)
 	batchPositionByName := make(map[string]int, len(channels))
@@ -486,26 +505,7 @@ func (w Writer) create(
 		}
 	}
 
-	// Resolve channels that already exist by name (when RetrieveIfNameExists is set,
-	// reusing their stored records), then allocate local keys for the remaining new
-	// channels through the distribution allocator.
-	if opts.retrieveIfNameExists {
-		names := Names(channels)
-		var existing []Channel
-		if err := w.svc.newRetrieve().
-			Where(MatchNames(names...)).
-			Entries(&existing).
-			Exec(ctx, w.tx); err != nil {
-			return errors.Skip(err, query.ErrNotFound)
-		}
-		for _, e := range existing {
-			idx := lo.IndexOf(names, e.Name)
-			if idx < 0 {
-				continue
-			}
-			channels[idx] = e
-		}
-	}
+	// Allocate local keys for the new channels through the distribution allocator.
 	newIndices := make([]int, 0, len(channels))
 	minimal := make([]channel.Channel, 0, len(channels))
 	for i, ch := range channels {

@@ -130,6 +130,16 @@ func loaderOf(root *symbol.Symbol) *Loader {
 	return l
 }
 
+// LoadedPaths returns the import path of every module loaded through root, at any
+// depth, sorted. It is nil when root resolves no modules.
+func LoadedPaths(root *symbol.Symbol) []string {
+	l := loaderOf(root)
+	if l == nil {
+		return nil
+	}
+	return slices.Sorted(maps.Keys(l.units))
+}
+
 // link appends each unit's program to i. A module's top-level members join the
 // root stratum, and a pending activation binds to the module scope it names.
 func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {

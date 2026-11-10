@@ -18,6 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create, update, and delete symbols within Synnax. The writer
@@ -40,8 +42,10 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 // The commit carries a create action that holds the stored symbol. Create returns an
 // error wrapping validate.ErrValidation when a symbol with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Symbol) error {
-	s.ApplyDefaults()
 	if err := s.Validate(); err != nil {
+		return err
+	}
+	if err := validateScale(nil, *s); err != nil {
 		return err
 	}
 	if s.Key == uuid.Nil() {
@@ -76,8 +80,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			if err != nil {
 				return Symbol{}, err
 			}
-			next.ApplyDefaults()
 			if err = next.Validate(); err != nil {
+				return Symbol{}, err
+			}
+			if err = validateScale(&s, next); err != nil {
 				return Symbol{}, err
 			}
 			if lo.FromPtr(next.Group) == lo.FromPtr(s.Group) {
@@ -99,6 +105,21 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
 	return nil
+}
+
+// validateScale returns an error wrapping validate.ErrValidation when next has a scale
+// that is not positive and differs from the scale of prev. A zero scale draws the
+// symbol at size zero. A stored scale that the write keeps passes, so a stored zero
+// does not block a rename or another edit. prev is nil for a new symbol.
+func validateScale(prev *Symbol, next Symbol) error {
+	if next.Data.Scale > 0 || (prev != nil && next.Data.Scale == prev.Data.Scale) {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation,
+		"data.scale: must be positive, got %v",
+		next.Data.Scale,
+	)
 }
 
 // CreateMany creates the given symbols. It returns an error wrapping

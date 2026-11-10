@@ -114,4 +114,51 @@ var _ = Describe("StructurallyEqual", func() {
 			typeOf(a, "State"), typeOf(b, "State"), a, b,
 		)).To(BeTrue())
 	})
+
+	Describe("Field types from another resource", func() {
+		const state = "State enum {\n\tidle = 0\n\trunning = 1\n}\n"
+		analyzeWithShared := func(source string) *resolution.Table {
+			GinkgoHelper()
+			table := resolution.NewTable()
+			loader := testutil.NewMockFileLoader().Add("schemas/synnax/shared", state)
+			diag := analyzer.AnalyzeSeeded(
+				GinkgoT().Context(), source,
+				"schemas/synnax/channel.oracle", "channel", loader, table,
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			return table
+		}
+
+		It("Should distinguish a field whose type moves to another resource", func() {
+			a := analyzeWithShared(state + "Channel struct {\n\tstate State\n}\n")
+			b := analyzeWithShared(
+				"import \"schemas/synnax/shared\"\n\n" +
+					"Channel struct {\n\tstate shared.State\n}\n",
+			)
+			Expect(schemadiff.StructurallyEqual(
+				typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+			)).To(BeFalse())
+		})
+
+		It("Should distinguish a list whose element moves to another resource", func() {
+			a := analyzeWithShared(state + "Channel struct {\n\tstates State[]\n}\n")
+			b := analyzeWithShared(
+				"import \"schemas/synnax/shared\"\n\n" +
+					"Channel struct {\n\tstates shared.State[]\n}\n",
+			)
+			Expect(schemadiff.StructurallyEqual(
+				typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+			)).To(BeFalse())
+		})
+
+		It("Should equate fields that name the same imported type", func() {
+			source := "import \"schemas/synnax/shared\"\n\n" +
+				"Channel struct {\n\tstate shared.State\n}\n"
+			a := analyzeWithShared(source)
+			b := analyzeWithShared(source)
+			Expect(schemadiff.StructurallyEqual(
+				typeOf(a, "Channel"), typeOf(b, "Channel"), a, b,
+			)).To(BeTrue())
+		})
+	})
 })

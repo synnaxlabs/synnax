@@ -12,9 +12,14 @@
 package ni
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 	"strconv"
 )
 
@@ -850,7 +855,8 @@ type AOChannelType = versions.AOChannelType
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = versions.AOCurrentChannelType
-	// AOFuncGenChannelType drives a function-generator output.
+	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
+	// commands.
 	AOFuncGenChannelType AOChannelType = versions.AOFuncGenChannelType
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = versions.AOVoltageChannelType
@@ -859,7 +865,7 @@ const (
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = versions.AOCurrentChannel
 
-// AOFuncGenChannel drives a function-generator output.
+// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
 type AOFuncGenChannel = versions.AOFuncGenChannel
 
 // AOVoltageChannel drives a voltage output.
@@ -909,27 +915,71 @@ const (
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel = versions.CommandedAOChannel
+
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
-	Port uint32 `json:"port" msgpack:"port"`
+	Port uint16 `json:"port" msgpack:"port"`
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-	// port. Absent when the port accepts none, or accepts more than one and takes no
-	// voltage or current channel.
-	DefaultTerminalConfig *TerminalConfig `json:"default_terminal_config,omitzero" msgpack:"default_terminal_config,omitempty"`
+	// port. The value Cfg_Default means that the Driver did not read it. DAQmx always
+	// reads back a real configuration.
+	DefaultTerminalConfig TerminalConfig `json:"default_terminal_config" msgpack:"default_terminal_config"`
 	// Types are the channel types that the port accepts, such as ai_voltage.
 	Types []string `json:"types" msgpack:"types"`
 	// Negative is the port that a differential channel on this port uses as its
-	// negative input. Absent when the port has no pair.
-	Negative *uint32 `json:"negative,omitzero" msgpack:"negative,omitempty"`
+	// negative input. 0 means that the port has no pair. Port 0 is never a negative
+	// port.
+	Negative uint16 `json:"negative" msgpack:"negative"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *AnalogInputPort) ApplyDefaults() {
+	if a.DefaultTerminalConfig == "" {
+		a.DefaultTerminalConfig = TerminalConfigCfgDefault
+	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogInputPort) SetDefaults() {
+	a.DefaultTerminalConfig = TerminalConfigCfgDefault
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a AnalogInputPort) Validate() error {
+	v := validate.New("AnalogInputPort")
+	v.Ternaryf("default_terminal_config", !a.DefaultTerminalConfig.IsValid(), "invalid default_terminal_config: %v", a.DefaultTerminalConfig)
+	return v.Error()
 }
 
 // AnalogOutputPort is an analog output port of an NI device.
 type AnalogOutputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 1 for ao1.
-	Port uint32 `json:"port" msgpack:"port"`
+	Port uint16 `json:"port" msgpack:"port"`
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// Types are the channel types that the port accepts, such as ao_voltage.
@@ -939,7 +989,7 @@ type AnalogOutputPort struct {
 // CounterPort is a counter of an NI device.
 type CounterPort struct {
 	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
-	Port uint32 `json:"port" msgpack:"port"`
+	Port uint16 `json:"port" msgpack:"port"`
 	// Types are the channel types that the counter accepts, such as ci_frequency.
 	Types []string `json:"types" msgpack:"types"`
 }
@@ -947,7 +997,7 @@ type CounterPort struct {
 // DigitalPort is a digital port of an NI device.
 type DigitalPort struct {
 	// Port is the number in the DAQmx name of the port, such as 0 for port0.
-	Port uint32 `json:"port" msgpack:"port"`
+	Port uint16 `json:"port" msgpack:"port"`
 	// Lines is the number of lines in the port.
 	Lines uint8 `json:"lines" msgpack:"lines"`
 	// Input is true when the port reads digital input.
@@ -967,11 +1017,6 @@ func (d DigitalPort) Validate() error {
 // Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
 // NI device. The Driver stores it in the device properties under hardware.
 type Hardware struct {
-	// ProductCategory is the DAQmx product category of the device, such as
-	// m_series_daq.
-	ProductCategory string `json:"product_category" msgpack:"product_category"`
-	// ProductType is the DAQmx product name of the device, such as USB-6008.
-	ProductType string `json:"product_type" msgpack:"product_type"`
 	// AnalogInputs are the analog input ports of the device.
 	AnalogInputs []AnalogInputPort `json:"analog_inputs" msgpack:"analog_inputs"`
 	// AnalogOutputs are the analog output ports of the device.
@@ -984,16 +1029,19 @@ type Hardware struct {
 	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
 	// Terminals are the terminals of the device, such as PFI0, without the device name.
 	Terminals []string `json:"terminals" msgpack:"terminals"`
-	// AiMinRate is the lowest analog input sample rate, in Hz.
-	AiMinRate *float64 `json:"ai_min_rate,omitzero" msgpack:"ai_min_rate,omitempty"`
+	// AiMinRate is the lowest analog input sample rate, in Hz. 0 means that the device
+	// does not support the attribute.
+	AiMinRate telem.Rate `json:"ai_min_rate" msgpack:"ai_min_rate"`
 	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
-	// Hz.
-	AiMaxSingleChannelRate *float64 `json:"ai_max_single_channel_rate,omitzero" msgpack:"ai_max_single_channel_rate,omitempty"`
+	// Hz. 0 means that the device does not support the attribute.
+	AiMaxSingleChannelRate telem.Rate `json:"ai_max_single_channel_rate" msgpack:"ai_max_single_channel_rate"`
 	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
-	// Hz. A task with several channels divides it by the channel count.
-	AiMaxMultiChannelRate *float64 `json:"ai_max_multi_channel_rate,omitzero" msgpack:"ai_max_multi_channel_rate,omitempty"`
-	// AoMaxRate is the highest analog output sample rate, in Hz.
-	AoMaxRate *float64 `json:"ao_max_rate,omitzero" msgpack:"ao_max_rate,omitempty"`
+	// Hz. A task with several channels divides it by the channel count. 0 means that
+	// the device does not support the attribute.
+	AiMaxMultiChannelRate telem.Rate `json:"ai_max_multi_channel_rate" msgpack:"ai_max_multi_channel_rate"`
+	// AoMaxRate is the highest analog output sample rate, in Hz. 0 means that the
+	// device does not support the attribute.
+	AoMaxRate telem.Rate `json:"ao_max_rate" msgpack:"ao_max_rate"`
 	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
 	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
 	// AiCurrentRanges are the analog input current ranges of the device, ends included.
@@ -1006,10 +1054,22 @@ type Hardware struct {
 	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
 }
 
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (h *Hardware) ApplyDefaults() {
+	for i := range h.AnalogInputs {
+		h.AnalogInputs[i].ApplyDefaults()
+	}
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (h Hardware) Validate() error {
 	v := validate.New("Hardware")
+	for i := range h.AnalogInputs {
+		v.Exec(func() error {
+			return validate.PathedError(h.AnalogInputs[i].Validate(), "analog_inputs", strconv.Itoa(i))
+		})
+	}
 	for i := range h.DigitalPorts {
 		v.Exec(func() error {
 			return validate.PathedError(h.DigitalPorts[i].Validate(), "digital_ports", strconv.Itoa(i))

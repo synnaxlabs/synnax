@@ -8,40 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Arc } from "@synnaxlabs/pluto";
+import { Arc } from "@synnaxlabs/pluto";
 
-import { Arc as PlatformArc } from "@/platform/arc";
-import { ContextMenu } from "@/platform/context-menu";
+import { RootContextMenu } from "@/feature/arc/tree";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
-
-const RootContextMenu = ({ root, state }: Tree.RootContextMenuProps) => {
-  const createArc = PlatformArc.useCreate();
-  const createDirectory = PlatformArc.useCreateDirectory({ parent: root, state, root });
-  const canCreateArc = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
-  const canCreateDirectory = Access.useCreateGranted(arc.directory.TYPE_RESOURCE_ID);
-  return (
-    <ContextMenu.Menu>
-      {canCreateArc && (
-        <Menu.Item itemKey="createArc" onClick={createArc}>
-          <Icon.Add />
-          Create arc
-        </Menu.Item>
-      )}
-      {canCreateDirectory && (
-        <Menu.Item itemKey="newDirectory" onClick={createDirectory}>
-          <Icon.Group />
-          New directory
-        </Menu.Item>
-      )}
-      <Menu.Divider />
-      <ContextMenu.ReloadConsoleItem />
-    </ContextMenu.Menu>
-  );
-};
 
 export const Explorer: Panel.Content = () => {
   const rootKey = Arc.Directory.useRootKey({});

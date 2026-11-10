@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
@@ -166,7 +167,7 @@ func createProject(ctx SpecContext, name string) project.Project {
 
 func createLog(ctx SpecContext, proj project.Key, name string) log.Log {
 	GinkgoHelper()
-	l := log.Log{Project: &proj, Name: name}
+	l := defaults.Fill(log.Log{Project: &proj, Name: name})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return logSvc.NewWriter(tx).Create(ctx, &l)
 	})).To(Succeed())

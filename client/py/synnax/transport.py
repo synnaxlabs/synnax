@@ -137,5 +137,19 @@ def send_batch(
     :raises ValidationError: If the batch does not accept the endpoint, or if a
         request is invalid.
     """
-    entries = [_BatchEntry(endpoint=endpoint, payload=p) for p in payloads]
+    send_requests(client, [(endpoint, p) for p in payloads])
+
+
+def send_requests(
+    client: UnaryClient, requests: Sequence[tuple[str, BaseModel]]
+) -> None:
+    """Sends each request to its endpoint, in order, in one transaction. The first
+    failure fails the batch, and nothing commits.
+
+    :param client: The client to send the batch with.
+    :param requests: The endpoint and payload of each request.
+    :raises ValidationError: If the batch does not accept an endpoint, or if a request
+        is invalid.
+    """
+    entries = [_BatchEntry(endpoint=e, payload=p) for e, p in requests]
     client.send("/batch", _BatchRequest(requests=entries), Empty)

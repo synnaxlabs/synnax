@@ -209,13 +209,17 @@ func (m *Module) writeFunctionSection() {
 	m.writeSection(SectionFunc, section.Bytes())
 }
 
+// MaxMemoryPages is the most 64 KiB pages that the linear memory of a module can grow
+// to.
+const MaxMemoryPages = 4096
+
 func (m *Module) writeMemorySection() {
 	var section bytes.Buffer
 	// Number of memories (1)
 	section.WriteByte(1)
-	// Memory limits (min 1 page, no max)
-	section.WriteByte(0)             // no max
-	writeUnsignedLEB128(&section, 1) // min 1 page
+	section.WriteByte(1) // limits carry a max
+	writeUnsignedLEB128(&section, 1)
+	writeUnsignedLEB128(&section, MaxMemoryPages)
 	m.writeSection(SectionMemory, section.Bytes())
 }
 

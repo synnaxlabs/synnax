@@ -493,17 +493,9 @@ export class Client extends query.Retriever<
   ): Promise<Channel | Channel[]> {
     const { retrieveIfNameExists = false } = options;
     const single = !Array.isArray(channels);
-    let toCreate = array.toArray(channels);
-    let created: Channel[] = [];
-    if (retrieveIfNameExists) {
-      const res = await this.execRetrieve({
-        where: { name: { in: toCreate.map((c) => c.name) } },
-      });
-      const existingNames = new Set(res.map((c) => c.name));
-      toCreate = toCreate.filter((c) => !existingNames.has(c.name));
-      created = this.sugar(res);
-    }
-    created = created.concat(this.sugar(await this.writer.create(toCreate)));
+    const created = this.sugar(
+      await this.writer.create(array.toArray(channels), retrieveIfNameExists),
+    );
     this.store.set(created.map((ch) => this.sugar(stripComposed(ch.payload))));
     return single ? created[0] : created;
   }
