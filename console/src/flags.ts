@@ -10,10 +10,10 @@
 /**
  * Static build-time flags that hide unfinished work in the Console build. Vite replaces
  * the build constants statically, so dark code tree-shakes out of the Console build. A
- * flag is on in dev and Desktop builds, and in a build that sets `VITE_FLAGS_ENABLED`
- * to the exact string "true", such as the integration build. A flag for work that does
- * not run yet leaves out Desktop builds. Each entry names its owner, its Linear
- * umbrella issue, and the release that removes it.
+ * flag is on only where its expression says. Use `IS_DEV` for dev builds and
+ * `import.meta.env.VITE_FLAGS_ENABLED === "true"` for the integration build. Release
+ * builds, Desktop included, leave a flag off unless it names `DESKTOP`. Each entry
+ * names its owner, its Linear umbrella issue, and the release that removes it.
  */
 export const FLAGS = {} as const satisfies Record<string, boolean>;
 
