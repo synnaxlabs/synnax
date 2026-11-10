@@ -72,7 +72,7 @@ Range struct {
 
         @doc value """
             replaces the range with the given created state. Emitted by the Core when a
-            range is created or overwritten whole; clients never dispatch it.
+            range is created; clients never dispatch it.
         """
     }
 

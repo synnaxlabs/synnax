@@ -43,7 +43,7 @@ Label struct {
 
         @doc value """
             replaces the label with the given created state. Emitted by the Core when a
-            label is created or overwritten whole; clients never dispatch it.
+            label is created; clients never dispatch it.
         """
     }
 

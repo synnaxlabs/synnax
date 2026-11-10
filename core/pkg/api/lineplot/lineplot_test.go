@@ -109,16 +109,17 @@ var _ = Describe("Create", func() {
 			Entry(&lineplot.LinePlot{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 	})
-	It("Should refuse to overwrite a line plot without update on it", func(
-		ctx SpecContext,
-	) {
+	It("Should refuse a line plot whose key exists", func(ctx SpecContext) {
 		u := newCreator(ctx)
 		stored := createLinePlot(ctx, "Stored")
 		Expect(create(AuthedCtx(ctx, u), apilineplot.CreateRequest{
 			LinePlots: defaults.Fill([]lineplot.LinePlot{
 				{Key: stored.Key, Name: "Overwritten", Project: &proj.Key},
 			}),
-		})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+		})).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("lineplot %s already exists", stored.Key)),
+		))
 		Expect(retrieveLinePlot(ctx, stored.Key).Name).To(Equal("Stored"))
 	})
 	It("Should require retrieve on each channel the line plot plots", func(

@@ -17,7 +17,7 @@ import { keyZ, type Project, projectZ } from "@/project/types.gen";
 
 /**
  * Create replaces the project with the given created state. Emitted by the Core when a
- * project is created or overwritten whole; clients never dispatch it.
+ * project is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   project: projectZ,

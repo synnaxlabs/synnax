@@ -18,7 +18,7 @@ import { rack } from "@/rack";
 
 /**
  * Create replaces the device with the given created state. Emitted by the Core when a
- * device is created or overwritten whole; clients never dispatch it.
+ * device is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   device: deviceZ(),

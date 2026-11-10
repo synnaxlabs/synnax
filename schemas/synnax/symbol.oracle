@@ -139,7 +139,7 @@ Symbol struct {
 
         @doc value """
             replaces the symbol with the given created state. Emitted by the Core when a
-            symbol is created or overwritten whole; clients never dispatch it.
+            symbol is created; clients never dispatch it.
         """
     }
 

@@ -28,7 +28,7 @@ TEST(DeviceTests, testCreateDevice) {
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
-        .key = "asdfjahsdfkasjdfhaks",
+        .key = "asdfjahsdfkasjdfhaks_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -46,7 +46,7 @@ TEST(DeviceTests, testRetrieveDevice) {
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     auto d = Device{
-        .key = "asdfjahsdfkasjdfhaks",
+        .key = "asdfjahsdfkasjdfhaks_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -142,7 +142,7 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -153,7 +153,7 @@ TEST(DeviceTests, testRetrieveDevices) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -191,7 +191,7 @@ TEST(DeviceTests, testCreateDevices) {
 
     std::vector devices = {
         Device{
-            .key = "device1_key",
+            .key = "device1_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_1",
             .make = "make_1",
@@ -200,7 +200,7 @@ TEST(DeviceTests, testCreateDevices) {
             .properties = {{"properties_1", "value"}},
         },
         Device{
-            .key = "device2_key",
+            .key = "device2_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_2",
             .make = "make_2",
@@ -209,7 +209,7 @@ TEST(DeviceTests, testCreateDevices) {
             .properties = {{"properties_2", "value"}},
         },
         Device{
-            .key = "device3_key",
+            .key = "device3_key_" + std::to_string(gen_rand_device()),
             .rack = r.key,
             .location = "location_3",
             .make = "make_3",
@@ -257,7 +257,7 @@ TEST(DeviceTests, testDeviceConfigured) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -269,7 +269,7 @@ TEST(DeviceTests, testDeviceConfigured) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -301,7 +301,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -312,7 +312,7 @@ TEST(DeviceTests, testRetrieveDevicesAfterDeletion) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",
@@ -338,7 +338,7 @@ TEST(DeviceTests, testDeleteDevice) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d = Device{
-        .key = "device_key",
+        .key = "device_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "test_location",
         .make = "test_make",
@@ -359,7 +359,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_NIL(client.racks.create(r));
 
     auto d1 = Device{
-        .key = "device1_key",
+        .key = "device1_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_1",
         .make = "make_1",
@@ -370,7 +370,7 @@ TEST(DeviceTests, testDeleteDevices) {
     ASSERT_NIL(client.devices.create(d1));
 
     auto d2 = Device{
-        .key = "device2_key",
+        .key = "device2_key_" + std::to_string(gen_rand_device()),
         .rack = r.key,
         .location = "location_2",
         .make = "make_2",

@@ -97,6 +97,29 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a line plot whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := defaults.Fill(
+				lineplot.LinePlot{Project: &proj.Key, Name: "stored"},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := defaults.Fill(lineplot.LinePlot{
+				Key:      stored.Key,
+				Project:  &proj.Key,
+				Name:     "refused",
+				Channels: lineplot.Channels{Y1: []channel.Key{ch5}},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("lineplot %s already exists", stored.Key)),
+			))
+			var res lineplot.LinePlot
+			Expect(svc.NewRetrieve().
+				Where(lineplot.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 		DescribeTable(
 			"Should reject a line plot that does not have exactly one owner",
 			func(ctx SpecContext, owned func() (*project.Key, *ranger.Key)) {

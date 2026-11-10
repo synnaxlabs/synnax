@@ -980,89 +980,57 @@ var _ = Describe("Writer", func() {
 				},
 			)
 		})
-		Context("Updating Calculated Channel Expression", func() {
+		Context("Calculated channel with an existing key", func() {
+			var calc channel.Channel
+			BeforeEach(func(ctx SpecContext) {
+				calc = channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Float64T,
+					Expression: "return 1.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+			})
+			It("Should refuse a channel whose key exists", func(ctx SpecContext) {
+				again := calc
+				again.Name = UniqueChannelName()
+				again.Expression = "return 2.0"
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return svc.NewWriter(tx).Create(ctx, &again)
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("channel %s already exists", calc.Key()),
+					),
+				))
+				var stored channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(calc.Key())).
+					Entry(&stored).
+					Exec(ctx, db)).To(Succeed())
+				Expect(stored.Name).To(Equal(calc.Name))
+				Expect(stored.Expression).To(Equal("return 1.0"))
+			})
 			It(
-				"Should update expression when Create() called with existing key",
+				"Should return the stored channel with RetrieveIfNameExists",
 				func(ctx SpecContext) {
-					// 0. Create the channel the calculated expression references.
-					sensor1 := channel.Channel{
-						Name:     "sensor1",
-						DataType: telem.Float64T,
-						Virtual:  true,
-					}
+					again := calc
+					again.Name = UniqueChannelName()
+					again.Expression = "return 2.0"
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &sensor1)
+						return svc.NewWriter(tx).
+							Create(ctx, &again, channel.RetrieveIfNameExists())
 					})).To(Succeed())
-
-					// 1. Create calculated channel
-					calcCh := channel.Channel{
-						Name:       "temperature_calc",
-						DataType:   telem.Float64T,
-						Expression: "return sensor1 * 2.5",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					originalKey := calcCh.Key()
-					originalIndexKey := calcCh.LocalIndex
-					originalName := calcCh.Name
-
-					// 2. Modify expression and call Create() again with same key
-					calcCh.Expression = "return sensor1 * 3.0 + 10"
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// 3. Verify key unchanged
-					Expect(calcCh.Key()).To(Equal(originalKey))
-
-					// 4. Verify index unchanged
-					Expect(calcCh.LocalIndex).To(Equal(originalIndexKey))
-
-					// 5. Retrieve and verify expression updated, other fields preserved
-					var retrieved channel.Channel
+					Expect(again.Name).To(Equal(calc.Name))
+					Expect(again.Expression).To(Equal("return 1.0"))
+					var stored channel.Channel
 					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(originalKey)).
-						Entry(&retrieved).
+						Where(channel.MatchKeys(calc.Key())).
+						Entry(&stored).
 						Exec(ctx, db)).To(Succeed())
-					Expect(retrieved.Expression).To(Equal("return sensor1 * 3.0 + 10"))
-					Expect(retrieved.Name).To(Equal(originalName))
-					Expect(retrieved.Key()).To(Equal(originalKey))
-				},
-			)
-
-			It(
-				"Should infer the calculated channel DataType from its expression on update",
-				func(ctx SpecContext) {
-					calcCh := channel.Channel{
-						Name:       UniqueChannelName(),
-						DataType:   telem.Float64T,
-						Expression: "return 1.0",
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-					Expect(calcCh.DataType).To(Equal(telem.Float64T))
-					originalKey := calcCh.Key()
-
-					// 2. Update the expression. The DataType is always inferred from
-					// the expression, so the caller-provided DataType is ignored.
-					calcCh.Expression = "return 2.0"
-					calcCh.DataType = telem.Float32T
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calcCh)
-					})).To(Succeed())
-
-					// 3. Retrieve from DB and verify DataType was updated
-					var retrieved channel.Channel
-					Expect(svc.NewRetrieve().
-						Where(channel.MatchKeys(originalKey)).
-						Entry(&retrieved).
-						Exec(ctx, db)).To(Succeed())
-
-					Expect(retrieved.Expression).To(Equal("return 2.0"))
-					Expect(retrieved.DataType).To(Equal(telem.Float64T))
+					Expect(stored.Name).To(Equal(calc.Name))
+					Expect(stored.Expression).To(Equal("return 1.0"))
 				},
 			)
 		})
@@ -1373,29 +1341,6 @@ var _ = Describe("Writer", func() {
 			)
 		})
 		Context("Calculated Channel Index", func() {
-			It(
-				"Should refuse an update that names an index that does not exist",
-				func(ctx SpecContext) {
-					calc := channel.Channel{
-						Name:       UniqueChannelName(),
-						DataType:   telem.Float64T,
-						Expression: "return 1 + 1",
-						Virtual:    true,
-					}
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calc)
-					})).To(Succeed())
-					calc.LocalIndex = 99999
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Create(ctx, &calc)
-					})).To(MatchError(
-						ContainSubstring(fmt.Sprintf(
-							"index: channel %d does not exist",
-							distchannel.NewKey(node.KeyFree, 99999),
-						)),
-					))
-				},
-			)
 			It(
 				"Should clear on open the index of a channel whose index does not exist",
 				func(ctx SpecContext) {

@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -43,53 +42,39 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 }
 
 // Create creates the given schematic, assigning a new key when s.Key is zero. The
-// schematic must belong to exactly one of a project and a range. An existing schematic
-// keeps its group, project, and range. A new schematic in a group belongs to the
-// project that holds the group.
+// schematic must belong to exactly one of a project and a range. A schematic in a group
+// belongs to the project that holds the group. Create returns an error wrapping
+// validate.ErrValidation when a schematic with s.Key exists.
 func (w Writer) Create(ctx context.Context, s *Schematic) error {
 	return w.create(ctx, s, nil)
 }
 
 // create creates s. A copy passes its source, whose scales s may keep.
-func (w Writer) create(ctx context.Context, s, source *Schematic) (err error) {
-	var (
-		exists bool
-		stored Schematic
-	)
+func (w Writer) create(ctx context.Context, s, source *Schematic) error {
 	if s.Key == uuid.Nil() {
 		s.Key = uuid.New()
-	} else {
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Schematic](s.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			s.Group, s.Project, s.Range = stored.Group, stored.Project, stored.Range
-		}
 	}
-	if !exists && s.Group != nil {
+	if s.Group != nil {
 		proj, err := project.GroupProject(ctx, w.tx, s.Group, resource.TypeSchematic)
 		if err != nil {
 			return err
 		}
 		s.Project = proj
 	}
-	if err = s.Validate(); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
+	var prev Schematic
 	if source != nil {
-		stored = *source
+		prev = *source
 	}
-	if err = validateScales(stored, *s); err != nil {
+	if err := validateScales(prev, *s); err != nil {
 		return err
 	}
-	if err = project.ValidateOwner(s.Project, s.Range); err != nil {
+	if err := project.ValidateOwner(s.Project, s.Range); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(s).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(
@@ -168,8 +153,8 @@ func (w Writer) attachGroup(g *group.Key, keys []Key) {
 	}
 }
 
-// CreateMany creates the given schematics. If schematics with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given schematics. It returns an error wrapping
+// validate.ErrValidation when a schematic with one of their keys exists.
 func (w Writer) CreateMany(ctx context.Context, schematics *[]Schematic) error {
 	for i := range *schematics {
 		if err := w.Create(ctx, &(*schematics)[i]); err != nil {

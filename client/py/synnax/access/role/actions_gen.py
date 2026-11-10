@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the role with the given created state. Emitted by the Core when a role
-    is created or overwritten whole; clients never dispatch it.
+    is created; clients never dispatch it.
     """
 
     role: Role

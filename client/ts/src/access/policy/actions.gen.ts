@@ -17,7 +17,7 @@ import { actions } from "@/actions";
 
 /**
  * Create replaces the policy with the given created state. Emitted by the Core when a
- * policy is created or overwritten whole; clients never dispatch it.
+ * policy is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   policy: policyZ,

@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // denied matches an error that denies u the action on object.
@@ -83,9 +84,7 @@ var _ = Describe("Service", func() {
 				Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should refuse to overwrite a panel without update on it", func(
-			ctx SpecContext,
-		) {
+		It("Should refuse a panel whose key exists", func(ctx SpecContext) {
 			u := newUser(ctx)
 			grantCreate(ctx, u.ResourceID())
 			stored := createPanel(ctx, "stored")
@@ -93,7 +92,10 @@ var _ = Describe("Service", func() {
 				Panels: []panel.Panel{
 					{Key: stored.Key, Name: "overwritten", Project: &proj.Key},
 				},
-			})).Error().To(denied(u, access.ActionUpdate, stored.ResourceID()))
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("panel %s already exists", stored.Key)),
+			))
 			Expect(retrievePanel(ctx, stored.Key).Name).To(Equal("stored"))
 		})
 

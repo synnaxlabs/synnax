@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the directory with the given created state. Emitted by the
-// Core when a directory is created or overwritten whole; clients never dispatch it.
+// Core when a directory is created; clients never dispatch it.
 type CreatePayload struct {
 	Directory Directory `json:"directory" msgpack:"directory"`
 }

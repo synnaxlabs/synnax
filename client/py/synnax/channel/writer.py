@@ -110,3 +110,9 @@ class Writer:
         action = _SetAction(set=patch.Set(path=["group"], value=value))
         reqs = [_DispatchRequest(key=k, actions=[action]) for k in keys]
         send_batch(self._client, "/channel/dispatch", reqs)
+
+    @trace("debug")
+    def set_expression(self, key: Key, expression: str) -> None:
+        action = _SetAction(set=patch.Set(path=["expression"], value=expression))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/channel/dispatch", req, Empty)

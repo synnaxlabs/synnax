@@ -259,7 +259,7 @@ describe("cached reads", () => {
       const first = await client.access.policies.retrieve(p.key);
       expect(first.name).toEqual(p.name);
       const renamed = `qry-renamed-${id.create()}`;
-      await remote.access.policies.create({ ...p, name: renamed });
+      await remote.access.policies.rename(p.key, renamed);
       // Unsubscribed queries hold no frozen answer: repeat retrieves refetch
       // and converge on the remote change once it streams in.
       await expect
@@ -292,7 +292,7 @@ describe("cached reads", () => {
       try {
         await client.access.policies.retrieve(p.key);
         const renamed = `qry-renamed-${id.create()}`;
-        await remote.access.policies.create({ ...p, name: renamed });
+        await remote.access.policies.rename(p.key, renamed);
         await expect
           .poll(() => {
             const cached = client.access.policies.watch(p.key).getCached();

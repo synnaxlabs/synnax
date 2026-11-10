@@ -30,7 +30,7 @@ const (
 )
 
 // CreatePayload replaces the view with the given created state. Emitted by the Core
-// when a view is created or overwritten whole; clients never dispatch it.
+// when a view is created; clients never dispatch it.
 type CreatePayload struct {
 	View View `json:"view" msgpack:"view"`
 }

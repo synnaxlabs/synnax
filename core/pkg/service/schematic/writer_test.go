@@ -108,6 +108,27 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a schematic whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := schematic.Schematic{Project: &proj.Key, Name: "stored"}
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := schematic.Schematic{
+				Key:      stored.Key,
+				Project:  &proj.Key,
+				Name:     "refused",
+				Snapshot: true,
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("schematic %s already exists", stored.Key)),
+			))
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
@@ -260,15 +281,6 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 			})
 
-			It("Should accept a create that keeps the stored config", func(
-				ctx SpecContext,
-			) {
-				stored.Name = "overwritten"
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &stored)
-				})).To(Succeed())
-			})
-
 			It("Should accept a dispatch that edits another field of the element", func(
 				ctx SpecContext,
 			) {
@@ -288,21 +300,6 @@ var _ = Describe("Writer", func() {
 				})).To(Succeed())
 				Expect(cpy.Key).ToNot(Equal(stored.Key))
 				Expect(cpy.Configs).To(HaveKey("v1"))
-			})
-
-			It("Should accept a create that edits another field of the element", func(
-				ctx SpecContext,
-			) {
-				var edited schematic.Schematic
-				Expect(json.Unmarshal([]byte(
-					`{"name":"stored","nodes":[{"key":"v1"}],"configs":{"v1":`+
-						`{"variant":"valve","scale":0,"label":{"label":"Inlet"}}}}`,
-				), &edited)).To(Succeed())
-				edited.Key = stored.Key
-				edited.Project = &proj.Key
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Create(ctx, &edited)
-				})).To(Succeed())
 			})
 		})
 

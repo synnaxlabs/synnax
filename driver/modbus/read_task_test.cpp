@@ -69,7 +69,7 @@ protected:
         x::json::json properties{{"connection", conn_cfg.to_json()}};
 
         device = synnax::device::Device{
-            .key = "modbus_test_device",
+            .key = make_unique_channel_name("modbus_test_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = MAKE,
@@ -332,7 +332,7 @@ TEST(ReadTask, testBasicReadTask) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "my_modbus_lover",
+        .key = make_unique_channel_name("my_modbus_lover"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -439,7 +439,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "modbus_reconnect_dev",
+        .key = make_unique_channel_name("modbus_reconnect_dev"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -632,7 +632,7 @@ void expect_pi_from_word_swapped_device(
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     auto dev = synnax::device::Device{
-        .key = "modbus_word_swapped_device",
+        .key = make_unique_channel_name("modbus_word_swapped_device"),
         .rack = rack.key,
         .location = "dev1",
         .make = "modbus",

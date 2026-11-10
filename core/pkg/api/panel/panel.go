@@ -81,8 +81,8 @@ type (
 	}
 )
 
-// Create creates the panels, and overwrites each one whose key exists. It returns a
-// validation error when a panel does not belong to exactly one project or range.
+// Create creates the panels. It returns a validation error when a panel does not belong
+// to exactly one project or range, or when a panel with its key exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

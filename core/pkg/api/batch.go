@@ -15,15 +15,8 @@ import "github.com/synnaxlabs/synnax/pkg/api/batch"
 // API root, and a batch request names one as its endpoint.
 const (
 	PathGroupCreate             = "/group/create"
-	PathGroupRename             = "/group/rename"
 	PathGroupDelete             = "/group/delete"
-	PathGroupSetParent          = "/group/set-parent"
-	PathChannelSetGroup         = "/channel/set-group"
-	PathDeviceSetGroup          = "/device/set-group"
-	PathRackSetGroup            = "/rack/set-group"
-	PathProjectSetGroup         = "/project/set-group"
 	PathSchematicSetGroup       = "/schematic/set-group"
-	PathSchematicSymbolSetGroup = "/schematic/symbol/set-group"
 	PathLinePlotSetGroup        = "/lineplot/set-group"
 	PathLogSetGroup             = "/log/set-group"
 	PathTableSetGroup           = "/table/set-group"
@@ -37,7 +30,6 @@ const (
 	PathLabelSet                = "/label/set"
 	PathLabelRemove             = "/label/remove"
 	PathArcDirectoryCreate      = "/arc/directory/create"
-	PathArcMove                 = "/arc/move"
 	PathUserDispatch            = "/user/dispatch"
 	PathChannelDispatch         = "/channel/dispatch"
 	PathGroupDispatch           = "/group/dispatch"
@@ -69,15 +61,8 @@ const (
 func (l *Layer) batchRoutes() batch.Routes {
 	return batch.Routes{
 		PathGroupCreate:             batch.Route(l.Group.Create),
-		PathGroupRename:             batch.Route(l.Group.Rename),
 		PathGroupDelete:             batch.Route(l.Group.Delete),
-		PathGroupSetParent:          batch.Route(l.Group.SetParent),
-		PathChannelSetGroup:         batch.Route(l.Channel.SetGroup),
-		PathDeviceSetGroup:          batch.Route(l.Device.SetGroup),
-		PathRackSetGroup:            batch.Route(l.Rack.SetGroup),
-		PathProjectSetGroup:         batch.Route(l.Project.SetGroup),
 		PathSchematicSetGroup:       batch.Route(l.Schematic.SetGroup),
-		PathSchematicSymbolSetGroup: batch.Route(l.Symbol.SetGroup),
 		PathLinePlotSetGroup:        batch.Route(l.LinePlot.SetGroup),
 		PathLogSetGroup:             batch.Route(l.Log.SetGroup),
 		PathTableSetGroup:           batch.Route(l.Table.SetGroup),
@@ -91,7 +76,6 @@ func (l *Layer) batchRoutes() batch.Routes {
 		PathLabelSet:                batch.Route(l.Label.Add),
 		PathLabelRemove:             batch.Route(l.Label.Remove),
 		PathArcDirectoryCreate:      batch.Route(l.Arc.CreateDirectory),
-		PathArcMove:                 batch.Route(l.Arc.Move),
 		PathUserDispatch:            batch.Route(l.User.Dispatch),
 		PathChannelDispatch:         batch.Route(l.Channel.Dispatch),
 		PathGroupDispatch:           batch.Route(l.Group.Dispatch),

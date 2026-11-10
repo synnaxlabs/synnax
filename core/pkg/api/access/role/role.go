@@ -75,7 +75,8 @@ type (
 	}
 )
 
-// Create creates or overwrites the roles in the request.
+// Create creates the roles in the request. It returns a validation error when a role
+// with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

@@ -18,7 +18,7 @@ import { resource } from "@/resource";
 
 /**
  * Create replaces the group with the given created state. Emitted by the Core when a
- * group is created or overwritten whole; clients never dispatch it.
+ * group is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   group: groupZ,

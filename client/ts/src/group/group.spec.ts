@@ -12,7 +12,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { channel } from "@/channel";
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { type resource } from "@/resource";
 import { createTestClient, newVirtualChannel } from "@/testutil";
@@ -131,16 +131,16 @@ describe("Group", () => {
       ).rejects.toThrow("name: required");
       expect(query.isLive(client.groups.watch(key).getCached())).toBe(false);
     });
-    it("should update an existing group", async () => {
+    it("should refuse a group whose key exists and keep the stored group", async () => {
       const g = await createTopLevel();
-      await client.groups.create({
+      const create = client.groups.create({
         key: g.key,
         name: "updated-name",
         scope: "channel",
       });
-      expect((await client.groups.retrieve({ key: g.key })).name).toEqual(
-        "updated-name",
-      );
+      await expect(create).rejects.toThrow(ValidationError);
+      await expect(create).rejects.toThrow(`group ${g.key} already exists`);
+      expect((await client.groups.retrieve({ key: g.key })).name).toEqual(g.name);
     });
   });
   describe("retrieve", () => {

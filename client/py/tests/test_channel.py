@@ -250,6 +250,30 @@ class TestChannel:
         res = client.channels.retrieve(channel.key)
         assert res.expression == "return 1 + 1"
 
+    def test_set_expression(self, client: sy.Synnax) -> None:
+        """Should set the expression of a calculated channel and infer its new data
+        type."""
+        ch = client.channels.create(
+            name=channel_name(),
+            data_type=sy.DataType.INT64,
+            expression="return 1 + 1",
+        )
+        client.channels.set_expression(ch.key, "return 1.5 * 2.0")
+        res = client.channels.retrieve(ch.key)
+        assert res.expression == "return 1.5 * 2.0"
+        assert res.data_type == sy.DataType.FLOAT64
+
+    def test_set_expression_not_calculated(self, client: sy.Synnax) -> None:
+        """Should refuse an expression for a channel that is not calculated."""
+        ch = client.channels.create(
+            name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        with pytest.raises(
+            sy.ValidationError, match="only a calculated channel can change"
+        ):
+            client.channels.set_expression(ch.key, "return 1")
+        assert client.channels.retrieve(ch.key).expression == ""
+
     @pytest.mark.multi_node
     def test_create_with_leaseholder(self, client: sy.Synnax) -> None:
         """Should create a channel with a leaseholder"""

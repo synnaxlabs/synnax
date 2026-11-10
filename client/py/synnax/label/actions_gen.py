@@ -21,7 +21,7 @@ from x import patch
 
 class CreatePayload(BaseModel):
     """Replaces the label with the given created state. Emitted by the Core when a label
-    is created or overwritten whole; clients never dispatch it.
+    is created; clients never dispatch it.
     """
 
     label: Label

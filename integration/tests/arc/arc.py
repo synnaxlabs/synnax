@@ -176,8 +176,7 @@ class ArcCase(SimDaqCase, TestCase):
         )
         path = name
         if parent is not None:
-            directories = self.client.arcs.directories
-            directories.move(directories.root(), parent.key, module.resource_id)
+            self.client.arcs.directories.move(parent.key, module.resource_id)
             path = f"{parent.path}.{name}"
         self._modules.append(ModuleHandle(path=path, arc_key=module.key))
         return path

@@ -17,7 +17,7 @@ import { keyZ, type Payload, payloadZ } from "@/rack/types.gen";
 
 /**
  * Create replaces the rack with the given created state. Emitted by the Core when a
- * rack is created or overwritten whole; clients never dispatch it.
+ * rack is created; clients never dispatch it.
  */
 export const createPayloadZ = z.object({
   rack: payloadZ,
