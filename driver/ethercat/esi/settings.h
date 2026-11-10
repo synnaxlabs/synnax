@@ -33,7 +33,8 @@ namespace driver::ethercat::esi {
 /// through read. Returns nullopt when the catalog describes no settings for the
 /// product.
 /// @returns the error of a failed read, or errors::SDO_READ_ERROR when the card counts
-/// more options than its table can hold.
+/// no options, or more than its table can hold. A failed read of the mode gives the
+/// other settings with its error.
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     uint32_t vendor_id,
     uint32_t product_code,
