@@ -1,0 +1,29 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "actions",
+    hdrs = ["actions.h"],
+    visibility = ["//visibility:public"],
+    deps = ["//x/cpp/json"],
+)
+
+cc_test(
+    name = "actions_test",
+    srcs = ["actions_test.cpp"],
+    deps = [
+        ":actions",
+        "//client/cpp/rack",
+        "@googletest//:gtest_main",
+    ],
+)

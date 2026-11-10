@@ -122,6 +122,15 @@ public:
     [[nodiscard]] x::errors::Error
     dispatch(const Key &key, const std::vector<Action> &actions) const;
 
+    /// @brief changes the range with the given key by a partial range. A field that the
+    /// update leaves out keeps its value.
+    /// @param key the key of the range.
+    /// @param fields the fields to change.
+    /// @returns an error that matches NOT_FOUND when no range has the key, or
+    /// VALIDATION when the range cannot hold the update.
+    [[nodiscard]]
+    x::errors::Error update(const Key &key, const Update &fields) const;
+
     /// @brief sets the end bound of the range with the given key in a single request,
     /// preserving all other fields.
     [[nodiscard]] x::errors::Error

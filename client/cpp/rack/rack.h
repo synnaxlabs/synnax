@@ -132,6 +132,15 @@ public:
     [[nodiscard]]
     x::errors::Error dispatch(Key key, const std::vector<Action> &actions) const;
 
+    /// @brief changes the rack with the given key by a partial rack. A field that the
+    /// update leaves out keeps its value.
+    /// @param key the key of the rack.
+    /// @param fields the fields to change.
+    /// @returns an error that matches NOT_FOUND when no rack has the key, or VALIDATION
+    /// when the rack cannot hold the update.
+    [[nodiscard]]
+    x::errors::Error update(Key key, const Update &fields) const;
+
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
     /// @returns An error if the deletion failed.

@@ -14,6 +14,8 @@
 #include <include/gtest/gtest.h>
 
 #include "client/cpp/ranger/actions.gen.h"
+#include "client/cpp/ranger/ranger.h"
+#include "freighter/cpp/testutil/testutil.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
@@ -50,5 +52,26 @@ TEST(ActionsTests, testParseUnknownType) {
     const auto err = parser.error();
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     ASSERT_NE(err.data.find("unknown Action type: explode"), std::string::npos);
+}
+
+/// @brief it should send the end as a merge into the time range of the range.
+TEST(ClientTests, testSetEnd) {
+    auto dispatch = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::ranger::DispatchRequest,
+        google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+    const auto *sent = dispatch.get();
+    const Client client(nullptr, nullptr, std::move(dispatch), kv::Client());
+    const auto key = x::uuid::create();
+    ASSERT_NIL(client.set_end(key, x::telem::TimeStamp(1'700'000'000'123'456'789)));
+    ASSERT_EQ(sent->requests.size(), 1);
+    ASSERT_EQ(sent->requests[0].key(), key.to_string());
+    ASSERT_EQ(sent->requests[0].actions_size(), 1);
+    ASSERT_EQ(
+        x::json::json::parse(sent->requests[0].actions(0)),
+        x::json::json::parse(R"({
+        "type": "update",
+        "update": {"value": {"time_range": {"end": 1700000000123456789}}, "guards": []}
+    })")
+    );
 }
 }

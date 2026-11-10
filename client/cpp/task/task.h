@@ -153,6 +153,15 @@ public:
     [[nodiscard]]
     x::errors::Error dispatch(Key key, const std::vector<Action> &actions) const;
 
+    /// @brief changes the task with the given key by a partial task. A field that the
+    /// update leaves out keeps its value.
+    /// @param key the key of the task.
+    /// @param fields the fields to change.
+    /// @returns an error that matches NOT_FOUND when no task has the key, or VALIDATION
+    /// when the task cannot hold the update.
+    [[nodiscard]]
+    x::errors::Error update(Key key, const Update &fields) const;
+
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.
     /// @returns An error if the deletion failed.

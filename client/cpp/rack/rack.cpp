@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "client/cpp/actions/actions.h"
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/rack/rack.h"
 #include "client/cpp/task/task.h"
@@ -86,11 +87,16 @@ std::pair<Rack, x::errors::Error> Client::create(const std::string &name) const 
 
 x::errors::Error
 Client::dispatch(const Key key, const std::vector<Action> &actions) const {
-    grpc::rack::DispatchRequest req;
-    req.set_key(key);
-    for (const auto &action: actions)
-        req.add_actions(to_json(action).dump());
+    auto req = synnax::actions::request<grpc::rack::DispatchRequest>(
+        key,
+        actions,
+        to_json
+    );
     return this->rack_dispatch_client->send("/rack/dispatch", req).second;
+}
+
+x::errors::Error Client::update(const Key key, const Update &fields) const {
+    return this->dispatch(key, {UpdatePayload{.value = fields}});
 }
 
 x::errors::Error Client::del(const Key key) const {

@@ -11,6 +11,7 @@
 #include <variant>
 #include <vector>
 
+#include "client/cpp/actions/actions.h"
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/ranger.h"
 
@@ -134,18 +135,21 @@ Client::create(const std::string &name, x::telem::TimeRange time_range) const {
 
 x::errors::Error
 Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
-    grpc::ranger::DispatchRequest req;
-    req.set_key(key.to_string());
-    for (const auto &action: actions)
-        req.add_actions(encode(action).dump());
+    auto req = synnax::actions::request<grpc::ranger::DispatchRequest>(
+        key.to_string(),
+        actions,
+        encode
+    );
     return this->dispatch_client->send("/range/dispatch", req).second;
 }
 
+x::errors::Error Client::update(const Key &key, const Update &fields) const {
+    return this->dispatch(key, {UpdatePayload{.value = fields}});
+}
+
 x::errors::Error Client::set_end(const Key &key, const x::telem::TimeStamp end) const {
-    return this->dispatch(
-        key,
-        {set({.path = {"time_range", "end"}, .value = end.nanoseconds()})}
-    );
+    using Field = x::patch::Struct<x::telem::TimeRangeUpdate, x::telem::TimeRange>;
+    return this->update(key, {.time_range = Field::merge({.end = end})});
 }
 
 }

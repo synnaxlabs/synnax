@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "client/cpp/actions/actions.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/device/proto.gen.h"
 #include "client/cpp/device/types.gen.h"
@@ -93,11 +94,16 @@ x::errors::Error Client::create(const std::vector<Device> &devs) const {
 
 x::errors::Error
 Client::dispatch(const Key &key, const std::vector<Action> &actions) const {
-    grpc::device::DispatchRequest req;
-    req.set_key(key);
-    for (const auto &action: actions)
-        req.add_actions(to_json(action).dump());
+    auto req = synnax::actions::request<grpc::device::DispatchRequest>(
+        key,
+        actions,
+        to_json
+    );
     return this->device_dispatch_client->send("/device/dispatch", req).second;
+}
+
+x::errors::Error Client::update(const Key &key, const Update &fields) const {
+    return this->dispatch(key, {UpdatePayload{.value = fields}});
 }
 
 x::errors::Error Client::del(const std::string &key) const {
