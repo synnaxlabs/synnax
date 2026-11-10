@@ -180,20 +180,22 @@ export const bindReadChannel = (
 };
 
 /**
- * @returns whether the unscaled read channel's name needs its data type: the first
- * channel of its entry holds another type.
+ * @returns the end that the name of the read channel takes: its data type when it is
+ * unscaled and the first channel of its entry holds another type, else nothing.
  */
-const isTyped = (
+export const readNameSuffix = (
   slave: SlaveDevice,
   ch: EntryReadChannel,
   dataTypes: DataTypes,
-): boolean => {
-  if (isScaled(ch)) return false;
+): string => {
+  if (isScaled(ch)) return "";
   const at = isAt(ch);
   const first = slave.properties.read.channels.find(
     (b) => at(b) && !b.scaled && dataTypes.has(b.channel),
   );
-  return first != null && dataTypes.get(first.channel) !== ch.dataType;
+  return first != null && dataTypes.get(first.channel) !== ch.dataType
+    ? `_${ch.dataType}`
+    : "";
 };
 
 /** The Synnax channel of an output entry: its command or its state. */
@@ -395,10 +397,7 @@ export const readChannelName = (
     );
     if (isScaled(ch)) return `${name}_scaled`;
   }
-  const suffix = `_${ch.dataType}`;
-  return isTyped(slave, ch, dataTypes) && !name.endsWith(suffix)
-    ? `${name}${suffix}`
-    : name;
+  return Task.withSuffix(name, readNameSuffix(slave, ch, dataTypes));
 };
 
 /** The names deploying the task gives a write channel's command and state channels. */

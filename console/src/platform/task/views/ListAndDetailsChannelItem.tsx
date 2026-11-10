@@ -50,8 +50,8 @@ export interface ListAndDetailsChannelItemProps<
   channel?: channel.Key;
   /** The name deploying the task gives the channel, shown while it has none. */
   defaultName?: string;
-  /** Gives the name deploying the task creates from the name in the form. */
-  formatName?: (name: string) => string;
+  /** Ends the name in the form, as deploying the task ends it. */
+  suffix?: string;
   stateChannel?: channel.Key;
   /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
@@ -85,7 +85,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   hasTareButton,
   channel,
   defaultName,
-  formatName,
+  suffix,
   icon,
   stateChannel,
   stateDefaultName,
@@ -144,7 +144,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
             {...channelNameProps}
             channel={channel}
             defaultName={defaultName}
-            formatName={formatName}
+            suffix={suffix}
             skipped={skipped}
             namePath={item.name}
             id={getChannelNameID(itemKey)}

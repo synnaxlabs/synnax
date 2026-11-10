@@ -46,6 +46,7 @@ import {
   readChannelName,
   readChannelOf,
   readDataType,
+  readNameSuffix,
   type ReadSchemas,
   usableEntries,
 } from "@/feature/ethercat/task/types";
@@ -105,9 +106,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       path={entry}
       channel={ch.channel}
       defaultName={named ? readChannelName(slave, ch, dataTypes) : undefined}
-      formatName={
-        named ? (name) => readChannelName(slave, { ...ch, name }, dataTypes) : undefined
-      }
+      suffix={named ? readNameSuffix(slave, ch, dataTypes) : undefined}
       skipped={ch.disabled}
       hasTareButton={false}
       canTare={false}

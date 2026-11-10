@@ -120,13 +120,13 @@ describe("ChannelName", () => {
     );
   });
 
-  it("should show the form name as formatName gives it, and store a rename as typed", async () => {
-    const editID = Task.getChannelNameID("formatted");
+  it("should end the form name in the suffix, and store a rename without it", async () => {
+    const editID = Task.getChannelNameID("suffixed");
     const { form } = await renderInTaskForm(
       <Task.ChannelName
         channel={0}
         namePath={path.config.name}
-        formatName={(name) => `${name}_int16`}
+        suffix="_int16"
         id={editID}
       />,
       { values: { config: { name: "pressure" } } },
@@ -134,7 +134,7 @@ describe("ChannelName", () => {
     await waitFor(() => expect(screen.getByText("pressure_int16")).toBeTruthy());
     act(() => Text.edit(editID));
     const el = await awaitTextEditing(editID);
-    act(() => commitTextEdit(el, "flow"));
+    act(() => commitTextEdit(el, "flow_int16"));
     await waitFor(() => expect(screen.getByText("flow_int16")).toBeTruthy());
     expect(form.current?.get(path.config.name).value).toBe("flow");
   });
@@ -252,14 +252,10 @@ describe("ChannelName", () => {
       );
     });
 
-    it("should show the form name of a missing channel as formatName gives it", async () => {
+    it("should end the form name of a missing channel in the suffix", async () => {
       const deleted = await createDeleted();
       await renderInTaskFormWithClient(
-        <Task.ChannelName
-          channel={deleted.key}
-          namePath={path.name}
-          formatName={(name) => `${name}_int16`}
-        />,
+        <Task.ChannelName channel={deleted.key} namePath={path.name} suffix="_int16" />,
         { client, values: { name: "form_name" } },
       );
       await waitFor(() => expect(isMissing()).toBe(true));
