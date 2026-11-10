@@ -1,0 +1,55 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// Parts with an icon rail. Put a lead-in paragraph and a code block after the
+// definition to show an example.
+
+interface Props {
+    label: string;
+}
+
+const { label } = Astro.props;
+---
+
+<p class="part-label">{label}</p>
+<ul class="docs-entry-list part-list" role="list">
+    <slot />
+</ul>
+
+<style is:global>
+    article .part-label {
+        margin: 8rem 0 3rem;
+        color: var(--pluto-gray-l8);
+        font-size: var(--pluto-small-size);
+        font-weight: 500;
+    }
+
+    article :is(h2, h2.lyra-text) + .part-label {
+        margin-top: 0;
+    }
+
+    article .part-list > .part-item {
+        display: grid;
+        grid-template-columns: 6rem minmax(0, 1fr);
+        gap: 0 4rem;
+
+        & .part-item__head {
+            align-items: start;
+        }
+
+        & h3 {
+            margin-top: 0.5rem;
+        }
+
+        & .part-item__body > :is(pre, figure, div) {
+            margin-top: 0.5rem;
+        }
+    }
+</style>
