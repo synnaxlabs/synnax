@@ -110,6 +110,15 @@ const createStrainSlave = async () =>
     settings: createSettingsDescription(),
   });
 
+/** Creates a slave that DewesoftX sets up and that sends no data only it reads. */
+const createSharedSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    settings: createDewesoftXSettings(true),
+  });
+
 const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16" };
 const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16" };
 const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32" };
@@ -271,6 +280,17 @@ describe("Read", () => {
         },
       ]);
     });
+  });
+
+  it("should show no settings for a channel of a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -607,6 +627,22 @@ describe("Read", () => {
         ],
       },
     ]);
+  });
+
+  it("should save no settings for a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      settings: [{ device: slave.key, values: [{ ...MEASUREMENT, value: 0 }] }],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.settings).toEqual([]);
   });
 
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {
