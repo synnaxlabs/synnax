@@ -7,11 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ranger } from "@synnaxlabs/client";
+import { type lineplot, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { staticWindow, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import {
+  dynamicWindow,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  uuid,
+} from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Session } from "@/session";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -27,11 +34,31 @@ const createRange = async (): Promise<ranger.Range> => {
 };
 
 const preloadedFor = (range: ranger.Range) => ({
-  [Session.Range.SLICE_NAME]: {
-    version: 0 as const,
+  [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
     ranges: Session.Range.fromClient(range),
-  },
+  }),
 });
+
+const createLocal = (): Session.Range.StaticState => ({
+  variant: "static",
+  key: uuid.create(),
+  name: uniqueName("local"),
+  timeRange: { start: 1, end: 2 },
+});
+
+const windowOf = (local: Session.Range.StaticState): ranger.Ref => ({
+  variant: "window",
+  window: staticWindow(new TimeRange(local.timeRange)),
+});
+
+const createPlot = async (ranges: ranger.Ref[]): Promise<lineplot.LinePlot> => {
+  const project = await client.projects.create({ name: uniqueName("project") });
+  return await client.lineplots.create({
+    project: project.key,
+    name: uniqueName("plot"),
+    ranges,
+  });
+};
 
 describe("Range.SYNCHRONIZERS", () => {
   it("should remove a favorited range from the slice when it is deleted remotely", async () => {
@@ -50,37 +77,72 @@ describe("Range.SYNCHRONIZERS", () => {
     });
   });
 
-  it("should show a session range's window on a plot that stored its key", async () => {
-    const local: Session.Range.StaticState = {
-      variant: "static",
-      key: uuid.create(),
-      name: uniqueName("local"),
-      timeRange: { start: 1, end: 2 },
-    };
-    const project = await client.projects.create({ name: uniqueName("project") });
-    const plot = await client.lineplots.create({
-      project: project.key,
-      name: uniqueName("plot"),
-      ranges: [{ variant: "key", key: local.key }],
-    });
-    const { wrapper } = await createConsoleWrapper({
-      client,
-      preloadedState: {
-        [Session.Range.SLICE_NAME]: { version: 0 as const, ranges: [local] },
-      },
-    });
-    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
-      wrapper,
-    });
-    const reader = createTestClient();
-    await waitFor(async () => {
-      const { ranges } = await reader.lineplots.retrieve(plot.key);
-      expect(ranges).toEqual([
-        {
-          variant: "window",
-          window: staticWindow(new TimeRange(local.timeRange)),
+  describe("static range keys", () => {
+    it("should replace keys of static ranges with their windows", async () => {
+      const local = createLocal();
+      const saved = await createRange();
+      const savedRef: ranger.Ref = { variant: "key", key: saved.key };
+      const rolling: ranger.Ref = {
+        variant: "window",
+        window: dynamicWindow(TimeSpan.minutes(1)),
+      };
+      const localRef: ranger.Ref = { variant: "key", key: local.key };
+      const mixed = await createPlot([savedRef, localRef, rolling]);
+      const shown = await createPlot([windowOf(local), localRef]);
+      const untouched = await createPlot([savedRef]);
+      const send = vi.spyOn(client.lineplots, "send");
+      const { wrapper, store } = await createConsoleWrapper({
+        client,
+        preloadedState: {
+          [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
+            ranges: [local],
+          }),
         },
+      });
+      renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(store.getState()[Session.Range.SLICE_NAME].staticKeysRewritten).toBe(
+          true,
+        ),
+      );
+      const reader = createTestClient();
+      expect((await reader.lineplots.retrieve(mixed.key)).ranges).toEqual([
+        savedRef,
+        rolling,
+        windowOf(local),
       ]);
+      expect((await reader.lineplots.retrieve(shown.key)).ranges).toEqual([
+        windowOf(local),
+      ]);
+      expect((await reader.lineplots.retrieve(untouched.key)).ranges).toEqual([
+        savedRef,
+      ]);
+      expect(send).not.toHaveBeenCalledWith(untouched.key, expect.anything());
+      expect(client.lineplots.hasUndo(mixed.key)).toBe(false);
+      send.mockRestore();
+    });
+
+    it("should leave line plots alone once the session rewrote them", async () => {
+      const local = createLocal();
+      const plot = await createPlot([{ variant: "key", key: local.key }]);
+      const { wrapper } = await createConsoleWrapper({
+        client,
+        preloadedState: {
+          [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
+            ranges: [local],
+            staticKeysRewritten: true,
+          }),
+        },
+      });
+      const { result } = renderHook(
+        () => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current).toBe(true));
+      const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
+      expect(ranges).toEqual([{ variant: "key", key: local.key }]);
     });
   });
 });

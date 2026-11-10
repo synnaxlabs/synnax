@@ -7,10 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, type ranger } from "@synnaxlabs/client";
+import { lineplot } from "@synnaxlabs/client";
 
-import { refsEqual, toRef } from "@/session/range/ref";
-import { type Action, remove, type StoreState } from "@/session/range/slice";
+import { toRef } from "@/session/range/ref";
+import {
+  type Action,
+  markStaticKeysRewritten,
+  remove,
+  type StoreState,
+} from "@/session/range/slice";
 import { type Synchronizer } from "@/session/synchronizer";
 
 const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
@@ -36,29 +41,30 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
 // key, so the plot shows the range's window instead.
 const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
   reconcile: async ({ client, store }) => {
+    const { ranges, staticKeysRewritten } = store.getState().range;
+    if (staticKeysRewritten) return;
     const windows = new Map(
-      store
-        .getState()
-        .range.ranges.filter(({ variant }) => variant === "static")
+      ranges
+        .filter(({ variant }) => variant === "static")
         .map((s) => [s.key, toRef(s)]),
     );
-    if (windows.size === 0) return;
-    const plots = await client.lineplots.retrieve({});
-    await Promise.all(
-      plots.map(async ({ key, ranges }) => {
-        if (!ranges.some((r) => r.variant === "key" && windows.has(r.key))) return;
-        const next: ranger.Ref[] = [];
-        for (const r of ranges) {
-          const ref = r.variant === "key" ? (windows.get(r.key) ?? r) : r;
-          if (!next.some((n) => refsEqual(n, ref))) next.push(ref);
-        }
-        const sent = await client.lineplots.dispatch(
-          key,
-          lineplot.setRanges({ ranges: next }),
-        );
-        if (!sent) throw new Error(`line plot ${key} is missing from the cache`);
-      }),
-    );
+    if (windows.size > 0) {
+      const plots = await client.lineplots.retrieve({});
+      await Promise.all(
+        plots.map(async ({ key, ranges }) => {
+          const actions = ranges.flatMap((range) => {
+            const window = range.variant === "key" ? windows.get(range.key) : undefined;
+            if (window == null) return [];
+            return [
+              lineplot.removeRange({ range }),
+              lineplot.addRange({ range: window }),
+            ];
+          });
+          if (actions.length > 0) await client.lineplots.send(key, actions);
+        }),
+      );
+    }
+    store.dispatch(markStaticKeysRewritten());
   },
 };
 
