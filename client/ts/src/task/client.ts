@@ -29,6 +29,7 @@ import { query } from "@/query";
 import {
   type Key as RackKey,
   resourceID as rackResourceID,
+  statusDetailsZ as rackStatusDetailsZ,
   statusZ as rackStatusZ,
 } from "@/rack/types.gen";
 import { ranger } from "@/ranger";
@@ -101,8 +102,10 @@ export const drifted = (task: DriftedParams): boolean => {
 // Issue: https://linear.app/synnax/issue/SY-2723/fix-handling-of-non-startstop-commands-loading-indicators-in-tasks
 const LOADING_COMMANDS = ["start", "stop"];
 
-// The rack monitor marks a rack whose Driver is alive with one of these.
-const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
+// A rack is healthy while its Driver runs and reports no error.
+const isRackHealthy = (stat: status.Status): boolean =>
+  rackStatusDetailsZ.safeParse(status.detailsOf(stat)).data?.running === true &&
+  stat.variant !== "error";
 
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
@@ -714,7 +717,7 @@ export class Client extends query.Retriever<
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
     const stat = this.cfg.statuses.ownedBy(rackResourceID(rack));
-    if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
+    if (stat == null || isRackHealthy(stat)) return undefined;
     return stat;
   }
 
@@ -1091,7 +1094,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
             rackRes.success &&
             rackRes.data.owner != null &&
             rackOwners.has(resource.idToString(rackRes.data.owner)) &&
-            !HEALTHY_RACK_VARIANTS.includes(rackRes.data.variant)
+            !isRackHealthy(rackRes.data)
           )
             throw status.toError(rackRes.data);
           continue;
