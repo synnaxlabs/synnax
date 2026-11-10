@@ -1067,8 +1067,11 @@ func (p *Plugin) toJSONExprForField(
 			key = "std::to_string(key)"
 		}
 		value := "item"
-		if isStruct {
+		switch {
+		case isStruct:
 			value = "item.to_json()"
+		case mapRef.TypeArgs[1].IsTypeParam():
+			value = "x::json::to_json(item)"
 		}
 		body := fmt.Sprintf(`{
         auto obj = x::json::json::object();

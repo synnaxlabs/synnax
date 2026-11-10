@@ -358,6 +358,136 @@ var _ = Describe("Apply", func() {
 		})
 	})
 
+	Describe("ApplyMap", func() {
+		type cells = patch.TypedMap[string, settings, settingsUpdate]
+		base := map[string]settings{"a": {Rate: 1}, "b": {Rate: 2}}
+
+		DescribeTable(
+			"Should apply operators",
+			func(ops cells, expected map[string]settings) {
+				dst := base
+				Expect(patch.ApplyMap(&dst, ops, mergeSettings)).To(Succeed())
+				Expect(dst).To(Equal(expected))
+			},
+			Entry("none", cells{}, base),
+			Entry(
+				"a set",
+				cells{Set: map[string]settings{"z": {Rate: 9}}},
+				map[string]settings{"z": {Rate: 9}},
+			),
+			Entry(
+				"a set to empty",
+				cells{Set: map[string]settings{}},
+				map[string]settings{},
+			),
+			Entry(
+				"a remove",
+				cells{Remove: []string{"b"}},
+				map[string]settings{"a": {Rate: 1}},
+			),
+			Entry(
+				"an update",
+				cells{Update: map[string]settingsUpdate{"b": {Stream: patch.To(4)}}},
+				map[string]settings{"a": {Rate: 1}, "b": {Rate: 2, Stream: 4}},
+			),
+			Entry(
+				"an insert",
+				cells{Insert: map[string]settings{"c": {Rate: 3}}},
+				map[string]settings{"a": {Rate: 1}, "b": {Rate: 2}, "c": {Rate: 3}},
+			),
+			Entry(
+				"a remove before an insert of the same key",
+				cells{
+					Remove: []string{"a"},
+					Insert: map[string]settings{"a": {Rate: 8}},
+				},
+				map[string]settings{"a": {Rate: 8}, "b": {Rate: 2}},
+			),
+		)
+
+		It("Should replace a plain value with its update", func() {
+			dst := map[string]int{"a": 1}
+			Expect(patch.ApplyMap(
+				&dst,
+				patch.TypedMap[string, int, int]{Update: map[string]int{"a": 5}},
+				func(v *int, u int) error { *v = u; return nil },
+			)).To(Succeed())
+			Expect(dst).To(Equal(map[string]int{"a": 5}))
+		})
+
+		It("Should insert into an absent map", func() {
+			var dst map[string]settings
+			Expect(patch.ApplyMap(
+				&dst,
+				cells{Insert: map[string]settings{"a": {Rate: 1}}},
+				mergeSettings,
+			)).To(Succeed())
+			Expect(dst).To(Equal(map[string]settings{"a": {Rate: 1}}))
+		})
+
+		It("Should not alias the map of a set", func() {
+			set := map[string]settings{"z": {Rate: 9}}
+			dst := base
+			Expect(patch.ApplyMap(&dst, cells{Set: set}, mergeSettings)).To(Succeed())
+			set["y"] = settings{}
+			Expect(dst).To(Equal(map[string]settings{"z": {Rate: 9}}))
+		})
+
+		DescribeTable("Should fail without a change to the map",
+			func(ops cells, target error, msg string) {
+				dst := base
+				Expect(patch.ApplyMap(&dst, ops, mergeSettings)).To(SatisfyAll(
+					MatchError(target),
+					MatchError(ContainSubstring(msg)),
+				))
+				Expect(dst).To(Equal(base))
+				Expect(base).To(HaveKeyWithValue("a", settings{Rate: 1}))
+				Expect(base).To(HaveLen(2))
+			},
+			Entry(
+				"a set beside another operator",
+				cells{Set: map[string]settings{}, Remove: []string{"a"}},
+				validate.ErrValidation,
+				"set cannot be combined with other operators",
+			),
+			Entry(
+				"a remove of a missing key",
+				cells{Remove: []string{"a", "c9"}},
+				patch.ErrStale,
+				"c9 not found",
+			),
+			Entry(
+				"an update of a missing key",
+				cells{Update: map[string]settingsUpdate{"c9": {Rate: patch.To(1)}}},
+				patch.ErrStale,
+				"c9 not found",
+			),
+			Entry(
+				"an update after a remove of its key",
+				cells{
+					Remove: []string{"a"},
+					Update: map[string]settingsUpdate{"a": {Rate: patch.To(1)}},
+				},
+				patch.ErrStale,
+				"a not found",
+			),
+			Entry(
+				"a failed merge",
+				cells{Update: map[string]settingsUpdate{
+					"a": {Rate: patch.Clear[int]()},
+				}},
+				validate.ErrValidation,
+				"a: a required field cannot be cleared",
+			),
+			Entry(
+				"an insert of an existing key",
+				cells{Insert: map[string]settings{"b": {}}},
+				query.ErrUniqueViolation,
+				"b already exists",
+			),
+		)
+	})
+
 	Describe("Update.Check", func() {
 		stored := map[string]any{
 			"config": map[string]any{

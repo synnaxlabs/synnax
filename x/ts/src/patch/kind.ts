@@ -17,6 +17,7 @@ export type Kind =
   | { kind: "struct"; update: z.ZodType; full: z.ZodType }
   | { kind: "union"; update: z.ZodType }
   | { kind: "list"; entry: z.ZodType; update: z.ZodType }
+  | { kind: "map"; value: z.ZodType; update: z.ZodType }
   | { kind: "valueList"; entry: z.ZodType };
 
 // Keys the kind that a field factory sets on the schema it returns.

@@ -11,6 +11,7 @@ package patch
 
 import (
 	"context"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/x/errors"
@@ -234,6 +235,57 @@ func ApplyValueList[E comparable](dst *[]E, ops ValueList[E]) error {
 		Remove: ops.Remove,
 		Move:   ops.Move,
 	}, same, same, nil)
+}
+
+// ApplyMap applies ops to the map dst. merge merges a value update into a value. It
+// replaces dst with a new map and never writes the old one. It returns an error
+// wrapping validate.ErrValidation when ops holds set beside another operator, ErrStale
+// for a key that is missing, and query.ErrUniqueViolation for an insert of a key that
+// the map already holds. A merge error starts with its key.
+func ApplyMap[K comparable, V any, U any](
+	dst *map[K]V,
+	ops TypedMap[K, V, U],
+	merge func(*V, U) error,
+) error {
+	if ops.Set != nil {
+		if ops.Insert != nil || ops.Remove != nil || ops.Update != nil {
+			return errors.Wrap(
+				validate.ErrValidation,
+				"set cannot be combined with other operators",
+			)
+		}
+		*dst = maps.Clone(ops.Set)
+		return nil
+	}
+	if ops.Insert == nil && ops.Remove == nil && ops.Update == nil {
+		return nil
+	}
+	next := make(map[K]V, len(*dst)+len(ops.Insert))
+	maps.Copy(next, *dst)
+	for _, k := range ops.Remove {
+		if _, ok := next[k]; !ok {
+			return errors.Wrapf(ErrStale, "%v not found", k)
+		}
+		delete(next, k)
+	}
+	for k, u := range ops.Update {
+		v, ok := next[k]
+		if !ok {
+			return errors.Wrapf(ErrStale, "%v not found", k)
+		}
+		if err := merge(&v, u); err != nil {
+			return errors.Wrapf(err, "%v", k)
+		}
+		next[k] = v
+	}
+	for k, v := range ops.Insert {
+		if _, exists := next[k]; exists {
+			return errors.Wrapf(query.ErrUniqueViolation, "%v already exists", k)
+		}
+		next[k] = v
+	}
+	*dst = next
+	return nil
 }
 
 // appendUnique appends entries to list, and fails for a key that list already holds.
