@@ -318,7 +318,7 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
     slave.objects = {{{0x8020, 1}, 0}, {{0x8020, 9}, 0}};
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     ASSERT_TRUE(slaves[0].properties.settings.has_value());
-    const auto &device = slaves[0].properties.settings->at("device");
+    const auto &device = slaves[0].properties.settings.value().at("device");
     ASSERT_EQ(device.size(), 1);
     EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
 }
