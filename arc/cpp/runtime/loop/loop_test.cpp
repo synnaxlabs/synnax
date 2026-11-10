@@ -1370,6 +1370,42 @@ TEST(DeadlineSpinTest, HybridBlocksOnACriticalTimer) {
     EXPECT_LE(armed->data, block.nanoseconds());
     EXPECT_GT(armed->data, (block - x::telem::MILLISECOND).nanoseconds());
 }
+
+/// @brief Signals notifier, then arms each timer to fire at once, so that one kevent
+/// call returns the timer and the input.
+struct InputWithTimerArm {
+    x::notify::Notifier *notifier;
+
+    [[nodiscard]] int set(const int kq, const struct kevent &kev) const {
+        if ((kev.flags & EV_ADD) == 0) return KqueueArm::set(kq, kev);
+        this->notifier->signal();
+        auto now = kev;
+        now.data = 1;
+        const int result = KqueueArm::set(kq, now);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        return result;
+    }
+};
+
+/// @brief HYBRID should return an input that comes with the timer it blocks on ahead
+/// of the deadline.
+TEST(DeadlineSpinTest, HybridReturnsAnInputThatComesWithTheBlockTimer) {
+    const auto notifier = x::notify::create();
+    Config config;
+    config.mode = ExecutionMode::HYBRID;
+    config.cpu_affinity = CPU_AFFINITY_NONE;
+    Darwin<InputWithTimerArm> loop(
+        config,
+        nullptr,
+        InputWithTimerArm{.notifier = notifier.get()}
+    );
+    ASSERT_NIL(loop.start());
+    ASSERT_TRUE(loop.watch(*notifier));
+    x::breaker::Breaker breaker;
+    breaker.start();
+    EXPECT_EQ(loop.wait(breaker, test_timing::DEADLINE_DURATION), WakeReason::Input);
+    breaker.stop();
+}
 #endif
 
 #if defined(__linux__)
