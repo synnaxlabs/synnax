@@ -96,7 +96,8 @@ a file that is missing or cannot be read, with no message.
 <Field.Item name="--auto-cert" env="SYNNAX_AUTO_CERT">
 
 Creates a CA and a certificate for the `--listen` host in `--certs-dir`, and replaces
-the certificate when the host changes. See
+the certificate when the host changes, when the CA did not sign it, or when its subject
+matches its issuer. See
 [Set up TLS](/reference/enterprise/tls#use-a-self-signed-certificate).
 
 </Field.Item>
