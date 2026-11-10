@@ -12,7 +12,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Arc } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { Explorer } from "@/feature/arc/explorer";
 import { useSearch } from "@/feature/arc/toolbar/search";
 import { RootContextMenu } from "@/feature/arc/tree";
 import { Arc as PlatformArc } from "@/platform/arc";
@@ -82,18 +81,12 @@ interface ActionsProps {
 }
 
 const Actions = ({ search, handleCreate }: ActionsProps): ReactElement | null => {
-  const openExplorer = Explorer.useOpenTab();
   const hasCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID);
   if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
       <Tree.SearchAction search={search} />
-      {hasRetrievePermission && (
-        <Toolbar.Action tooltip="Open Arc explorer" onClick={openExplorer}>
-          <Icon.Explore />
-        </Toolbar.Action>
-      )}
       {hasCreatePermission && (
         <Toolbar.CreateAction tooltip="Create Arc automation" onClick={handleCreate} />
       )}

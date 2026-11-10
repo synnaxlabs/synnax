@@ -8,6 +8,8 @@ description:
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
 import { Note } from "@/components/note";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -67,6 +69,57 @@ has open in a tab.
 To import, run the "Import project" command, then drop a `.zip` file or its unzipped
 folder on the dialog. You can also drop the file or the folder on the panels area. The
 Console creates a new project and opens it.
+
+<Divider.Divider x />
+
+## Copy a project to a file in code
+
+A script can back up a project on a schedule, or copy it to a different Core. It uses
+the same `.zip` file as the Console.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+projects = client.projects.retrieve(search_term="Engine test")
+if not projects:
+    raise ValueError("No project matches Engine test")
+client.projects.export(projects[0].key, "engine-test.zip")
+
+copy = client.projects.import_("engine-test.zip")
+print(copy.name)
+```
+
+`export` writes the project to the file. The path must end in `.zip`. `import_` creates
+a new project from the file and returns it.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { readFile, writeFile } from "node:fs/promises";
+
+const file = "engine-test.zip";
+const [project] = await client.projects.retrieve({ searchTerm: "Engine test" });
+if (project == null) throw new Error("No project matches Engine test");
+const stream = await client.projects.export(project.key, { encoding: "JSON" });
+await writeFile(file, new Uint8Array(await new Response(stream).arrayBuffer()));
+
+const bundle = new Uint8Array(await readFile(file));
+const copy = await client.projects.import(bundle, { fileName: file });
+```
+
+`export` returns the project as a stream of bytes. `import` creates a new project from
+the bytes and returns it.
+
+  </Fragment>
+
+</Client.Tabs>
+
+To create the visualizations of a project from a script, see
+[visualizations in code](/reference/visualize/code).
 
 <Divider.Divider x />
 
