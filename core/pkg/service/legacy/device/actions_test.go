@@ -344,9 +344,9 @@ var _ = Describe("Actions", func() {
 			Expect(retrieve(ctx).Properties).To(Equal(expected))
 		})
 
-		It("Should leave the device that it reduces unchanged", func() {
+		It("Should apply path actions to a copy of the properties", func() {
 			prev := device.Device{Properties: stored()}
-			Expect(device.Reduce(
+			next := MustSucceed(device.Reduce(
 				prev,
 				setAt(2, "channels", "b"),
 				device.NewRemoveAction(
@@ -357,20 +357,40 @@ var _ = Describe("Actions", func() {
 					Value: map[string]any{"key": "n2"},
 				}),
 				device.NewMoveAction(device.MovePayload{Path: at("nodes"), Key: "n1"}),
-			)).Error().ToNot(HaveOccurred())
+			))
 			Expect(prev.Properties).To(Equal(stored()))
+			expected := stored()
+			expected["read"] = map[string]any{
+				"channels": map[string]any{"b": 2.0},
+				"nodes": []any{
+					map[string]any{"key": "n1", "port": 1.0},
+					map[string]any{"key": "n2"},
+				},
+			}
+			Expect(next.Properties).To(Equal(expected))
 		})
 
-		It("Should skip a set whose guard on the model does not hold", func(
+		DescribeTable("Should apply a set only when its guard on the model holds", func(
 			ctx SpecContext,
+			model string,
+			applied bool,
 		) {
 			Expect(apply(ctx, device.NewSetAction(device.SetPayload{
 				Path:   at("channels", "b"),
 				Value:  2,
-				Guards: []patch.Guard{{Path: []string{"model"}, Value: "Other"}},
+				Guards: []patch.Guard{{Path: []string{"model"}, Value: model}},
 			}))).To(Succeed())
-			Expect(retrieve(ctx).Properties).To(Equal(stored()))
-		})
+			expected := stored()
+			if applied {
+				expected["read"].(map[string]any)["channels"] = map[string]any{
+					"a": 1.0, "b": 2.0,
+				}
+			}
+			Expect(retrieve(ctx).Properties).To(Equal(expected))
+		},
+			Entry("holds", "Model", true),
+			Entry("does not hold", "Other", false),
+		)
 
 		It("Should refuse properties that are not an object", func(ctx SpecContext) {
 			Expect(apply(ctx, set("properties", "text"))).
