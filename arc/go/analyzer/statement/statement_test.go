@@ -747,6 +747,44 @@ var _ = Describe("Statement", func() {
 			Entry("an integer series", "i32", "cannot return"),
 		)
 
+		DescribeTable("Should reject a series returned from a scalar function",
+			func(specCtx SpecContext, code string) {
+				ast := MustSucceed(parser.Parse(
+					"func g() f64 {\ndata := [1.0, 2.0, 3.0]\n" + code + "\n}",
+				))
+				ctx := context.NewRoot(specCtx, ast, NewRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(
+					"cannot return series f64 from 'g': expected f64",
+				))
+			},
+			Entry("an untyped slice variable", "sub := data[1:3]\nreturn sub"),
+			Entry("a series variable", "return data"),
+			Entry("a slice", "return data[1:3]"),
+		)
+
+		DescribeTable("Should reject a series and a scalar mixed in a declaration",
+			func(specCtx SpecContext, code, message string) {
+				ctx := analyze(specCtx, "data := [1.0, 2.0, 3.0]\n"+code)
+				Expect(ctx.Diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry(
+				"a slice into a scalar",
+				"x f64 := data[1:3]",
+				"cannot assign series f64 to 'x' (type f64)",
+			),
+			Entry(
+				"a scalar into a series",
+				"y f64 := 2.0\nz series f64 := y",
+				"cannot assign f64 to 'z' (type series f64)",
+			),
+			Entry(
+				"a slice into a stateful scalar",
+				"x f64 $= data[1:3]",
+				"cannot assign series f64 to 'x' (type f64)",
+			),
+		)
+
 		DescribeTable(
 			"Should keep an untyped integer variable an integer",
 			func(specCtx SpecContext, code, message string) {

@@ -309,14 +309,13 @@ func InferPostfix(
 			return types.Type{}
 		}
 
-		// Handle index/slice operations - return the element type for series
-		indexOps := ctx.AST.AllIndexOrSlice()
-		if len(indexOps) > 0 && primaryType.Kind == types.KindSeries {
-			if primaryType.Elem != nil {
-				return *primaryType.Elem
+		// An index gives the element of a series. A slice keeps the series.
+		for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
+			if indexOrSlice.COLON() == nil &&
+				primaryType.Kind == types.KindSeries && primaryType.Elem != nil {
+				primaryType = *primaryType.Elem
 			}
 		}
-
 		return primaryType
 	}
 	return types.Type{}

@@ -404,11 +404,42 @@ producer() -> consumer()
 """
 
 
+# A slice is a series, so a function that returns f64 cannot return it.
+ARC_SLICE_RETURNED_AS_SCALAR = """
+func slice_as_scalar() f64 {
+    data := [1.0, 2.0, 3.0]
+    sub := data[1:3]
+    return sub
+}
+func sink() {v f64} {}
+slice_as_scalar() -> sink()
+"""
+
+# A slice is a series, so a variable declared as f64 cannot hold it.
+ARC_SLICE_DECLARED_AS_SCALAR = """
+func slice_into_scalar() {
+    data := [1.0, 2.0, 3.0]
+    x f64 := data[1:3]
+}
+start_edge_case_cmd -> slice_into_scalar()
+"""
+
+
 TYPE_MISMATCH_CASES = [
     Case(
         "UnitMismatchPsiBar",
         ARC_UNIT_MISMATCH_PSI_BAR,
         "does not match",
+    ),
+    Case(
+        "SliceReturnedAsScalar",
+        ARC_SLICE_RETURNED_AS_SCALAR,
+        "cannot return series f64 from 'slice_as_scalar': expected f64",
+    ),
+    Case(
+        "SliceDeclaredAsScalar",
+        ARC_SLICE_DECLARED_AS_SCALAR,
+        "cannot assign series f64 to 'x' (type f64)",
     ),
 ]
 

@@ -324,7 +324,7 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 				} else {
 					isLiteral := isLiteralExpression(ctx.Child(expression))
 					if (isLiteral && !atypes.LiteralAssignmentCompatible(ctx.Constraints, varType, exprType, ctx.AST)) ||
-						(!isLiteral && !atypes.Compatible(varType, exprType)) {
+						(!isLiteral && !assignable(varType, exprType)) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(
 							ctx.AST,
 							"type mismatch: cannot assign %s to '%s' (type %s)",
@@ -344,6 +344,13 @@ func analyzeVariableDeclarationType[ASTNode antlr.ParserRuleContext](
 	}
 	ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "no type declaration found"))
 	return types.Type{}
+}
+
+// assignable reports whether value can go into target. Unlike atypes.Compatible, it
+// rejects a series for a scalar and a scalar for a series.
+func assignable(target, value types.Type) bool {
+	return types.StructuralMatch(target.UnwrapChan(), value.UnwrapChan()) &&
+		atypes.Compatible(target, value)
 }
 
 func isLiteralExpression(ctx context.Context[parser.IExpressionContext]) bool {
@@ -963,7 +970,7 @@ func analyzeReturnStatement(ctx context.Context[parser.IReturnStatementContext])
 						return
 					}
 				} else {
-					if !atypes.Compatible(expectedReturnType, actualReturnType) {
+					if !assignable(expectedReturnType, actualReturnType) {
 						ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 							"cannot return %s from '%s': expected %s",
 							actualReturnType,
