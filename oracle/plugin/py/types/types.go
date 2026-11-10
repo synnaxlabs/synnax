@@ -983,13 +983,13 @@ func processField(
 	)
 
 	if bounds, ok := sizedIntBounds(field.Type, table); ok {
-		hasGe := lo.ContainsBy(fieldConstraints, func(c string) bool {
-			return strings.HasPrefix(c, "ge=")
+		hasLower := lo.ContainsBy(fieldConstraints, func(c string) bool {
+			return strings.HasPrefix(c, "ge=") || strings.HasPrefix(c, "gt=")
 		})
 		hasLe := lo.ContainsBy(fieldConstraints, func(c string) bool {
 			return strings.HasPrefix(c, "le=")
 		})
-		if !hasGe {
+		if !hasLower {
 			fieldConstraints = append(fieldConstraints, "ge="+bounds.min)
 		}
 		if !hasLe {
@@ -1052,12 +1052,12 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 	return !isCollection
 }
 
-// orderBounds moves ge and le to the end of constraints, so the output does not depend
-// on which bounds a schema states and which its type implies.
+// orderBounds moves the lower bounds and then le to the end of constraints, so the
+// output does not depend on which bounds a schema states and which its type implies.
 func orderBounds(constraints []string) {
 	rank := func(c string) int {
 		switch {
-		case strings.HasPrefix(c, "ge="):
+		case strings.HasPrefix(c, "ge="), strings.HasPrefix(c, "gt="):
 			return 1
 		case strings.HasPrefix(c, "le="):
 			return 2
@@ -1163,6 +1163,13 @@ func collectValidation(
 				constraints = append(constraints, fmt.Sprintf("ge=%d", rules.Min.Int))
 			} else {
 				constraints = append(constraints, fmt.Sprintf("ge=%f", rules.Min.Float))
+			}
+		}
+		if rules.GT != nil {
+			if rules.GT.IsInt {
+				constraints = append(constraints, fmt.Sprintf("gt=%d", rules.GT.Int))
+			} else {
+				constraints = append(constraints, fmt.Sprintf("gt=%f", rules.GT.Float))
 			}
 		}
 		if rules.Max != nil {

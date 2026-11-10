@@ -1160,6 +1160,19 @@ var _ = Describe("Series", func() {
 	})
 
 	Describe("slice", func() {
+		It("Should slice a large series 100,000 times", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_f64", testutil.U32(1<<17))
+			for range 100_000 {
+				callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(0),
+					testutil.U32(1<<17),
+				)
+			}
+		})
+
 		It("Should extract a subrange", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
 			callU32(

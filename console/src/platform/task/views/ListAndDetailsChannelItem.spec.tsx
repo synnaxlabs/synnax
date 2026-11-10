@@ -112,4 +112,19 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     expect(screen.getByText("dev1_ao_0_state")).toBeTruthy();
     expect(screen.queryByText("No channel")).toBeNull();
   });
+
+  it("should show no channel names when the item has no channel", async () => {
+    await renderItem({ channel: undefined, defaultName: "dev1_ao_0" });
+    await waitFor(() => expect(screen.getByText("AI0")).toBeTruthy());
+    expect(screen.queryByText("No channel")).toBeNull();
+    expect(screen.queryByText("dev1_ao_0")).toBeNull();
+  });
+
+  it("should not tare when the item has no channel", async () => {
+    const onTare = vi.fn();
+    const { container } = await renderItem({ channel: undefined, onTare });
+    await waitFor(() => expect(queryIconButton(container, "tare")).toBeTruthy());
+    fireEvent.click(getIconButton(container, "tare"));
+    expect(onTare).not.toHaveBeenCalled();
+  });
 });

@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/mqtt/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
@@ -40,6 +41,10 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Channel holds the channels that config fields read from and write to.
+	//
+	// [REQUIRED]
+	Channel *channel.Service
 	alamos.Instrumentation
 }
 
@@ -48,6 +53,7 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -56,6 +62,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("mqtt.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("channel", c.Channel)
 	return v.Error()
 }
 

@@ -489,6 +489,15 @@ var _ = Describe("Write task", func() {
 		Entry("float64 as a string",
 			telem.Float64T, telem.NewSeriesV[float64](2.5),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "2.5"),
+		Entry("a value as its enum label",
+			telem.Uint8T, telem.NewSeriesV[uint8](1),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "ON"),
+		Entry("a value outside the enum as text",
+			telem.Uint8T, telem.NewSeriesV[uint8](5),
+			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff}, "5"),
+		Entry("infinity as text",
+			telem.Float64T, telem.NewSeriesV(math.Inf(-1)),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "-Infinity"),
 		Entry("int64 as a string",
 			telem.Int64T, telem.NewSeriesV[int64](9007199254740993),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, "9007199254740993"),
@@ -504,6 +513,9 @@ var _ = Describe("Write task", func() {
 		Entry("a UUID",
 			telem.UUIDT, telem.NewSeriesV(writeUUID),
 			kafka.WriteChannel{JSONType: http.JSONTypeString}, writeUUID.String()),
+		Entry("bytes as base64",
+			telem.BytesT, telem.NewSeriesV([]byte{0x00, 0xff, 0x3f}),
+			kafka.WriteChannel{JSONType: http.JSONTypeString}, "AP8/"),
 	)
 
 	It("Should keep an int64 sample beyond float64 precision", func(ctx SpecContext) {
@@ -592,16 +604,12 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Variant).To(Equal(status.VariantError))
 			Expect(stat.Details.Running).To(BeTrue())
 		},
-		Entry("a value outside the enum",
-			telem.Uint8T, telem.NewSeriesV[uint8](5),
-			kafka.WriteChannel{JSONType: http.JSONTypeString, EnumValues: onOff},
-			"no enum label for value 5"),
 		Entry("NaN as a number",
 			telem.Float64T, telem.NewSeriesV(math.NaN()), kafka.WriteChannel{},
 			"NaN is not a JSON number"),
 		Entry("infinity as a number",
 			telem.Float64T, telem.NewSeriesV(math.Inf(1)), kafka.WriteChannel{},
-			"+Inf is not a JSON number"),
+			"Infinity is not a JSON number"),
 	)
 
 	DescribeTable("Should reject a JSON type that a channel cannot serialize as",
@@ -694,4 +702,27 @@ var _ = Describe("Write task", func() {
 				}
 			}, "time_format alone encodes"),
 	)
+
+	It("Should reject enum values on a number JSON type", func(ctx SpecContext) {
+		_, data := createIndexed(ctx, telem.Uint8T)
+		dev := createDevice(ctx, clusterProperties())
+		cfg := kafka.WriteConfig{
+			Device: dev.Key,
+			Topic:  "t",
+			Channels: []kafka.WriteChannel{{
+				Key:        "c1",
+				Channel:    data.Key(),
+				JSONType:   http.JSONTypeNumber,
+				EnumValues: onOff,
+			}},
+		}
+		Expect(
+			f.ConfigureTask(ctx, newTask(ctx, kafka.WriteTaskType, cfg), "cmd-1"),
+		).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(
+				`channel "c1": enum values require the string JSON type`,
+			)),
+		))
+	})
 })
