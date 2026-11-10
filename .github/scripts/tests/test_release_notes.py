@@ -230,3 +230,33 @@ class TestCherryPicks:
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
         assert f"{PULL}/11" not in notes
         assert f"* Fix a stage by @someone in {PULL}/14" in notes
+
+    def test_keeps_every_fix_when_github_lacks_the_source(self, train: Train) -> None:
+        local = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", local)])
+        train.gh.fail(
+            f"api */commits/{local}/pulls",
+            f"gh: No commit found for SHA: {local} (HTTP 422)",
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert notes.strip() == MINOR.strip()
+
+    def test_fails_when_github_rejects_the_source_lookup(self, train: Train) -> None:
+        branch = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.gh.fail(
+            f"api */commits/{branch}/pulls", "gh: Resource not accessible (HTTP 403)"
+        )
+        result = subprocess.run(
+            [str(SCRIPT), "core/v0.61.0", "main", "c.yml", "core/v0.60.1"],
+            cwd=train.path,
+            env=train.env,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "HTTP 403" in result.stderr
