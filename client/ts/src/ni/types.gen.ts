@@ -4115,3 +4115,26 @@ export const analogWriteConfigUpdateZ = z.object({
 export interface AnalogWriteConfigUpdate extends z.infer<
   typeof analogWriteConfigUpdateZ
 > {}
+
+/** ANALOG_READ_TASK_TYPE is the task type of AnalogReadConfig. */
+export const ANALOG_READ_TASK_TYPE = "ni_analog_read";
+/** COUNTER_READ_TASK_TYPE is the task type of CounterReadConfig. */
+export const COUNTER_READ_TASK_TYPE = "ni_counter_read";
+/** ANALOG_WRITE_TASK_TYPE is the task type of AnalogWriteConfig. */
+export const ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
+/** DIGITAL_READ_TASK_TYPE is the task type of DigitalReadConfig. */
+export const DIGITAL_READ_TASK_TYPE = "ni_digital_read";
+/** DIGITAL_WRITE_TASK_TYPE is the task type of DigitalWriteConfig. */
+export const DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
+/** SCANNER_TASK_TYPE is the task type of ScanConfig. */
+export const SCANNER_TASK_TYPE = "ni_scanner";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [ANALOG_READ_TASK_TYPE]: { u: analogReadConfigUpdateZ, t: analogReadConfigZ },
+  [COUNTER_READ_TASK_TYPE]: { u: counterReadConfigUpdateZ, t: counterReadConfigZ },
+  [ANALOG_WRITE_TASK_TYPE]: { u: analogWriteConfigUpdateZ, t: analogWriteConfigZ },
+  [DIGITAL_READ_TASK_TYPE]: { u: digitalReadConfigUpdateZ, t: digitalReadConfigZ },
+  [DIGITAL_WRITE_TASK_TYPE]: { u: digitalWriteConfigUpdateZ, t: digitalWriteConfigZ },
+  [SCANNER_TASK_TYPE]: { u: scanConfigUpdateZ, t: scanConfigZ },
+};

@@ -18,4 +18,5 @@ StatusConfig struct extends task.KeyedConfig {
     @go marshal
     @go migrate
     @patch
+    @task type  "rack_status"
 }

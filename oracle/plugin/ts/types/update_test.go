@@ -71,7 +71,8 @@ var _ = Describe("Update types", func() {
 				"note: patch.changeZ(z.string()).optional(),",
 				"layout: record.unknownZ().optional(),",
 				"tags: z.record(z.string(), z.string()).optional(),",
-				"config: (config ?? record.unknownZ()).optional(),",
+				"config: (config == null ? record.unknownZ() : "+
+					"patch.structZ(config)).optional(),",
 			).
 			ToNotContain("nullToUndefined")
 	})
@@ -111,9 +112,48 @@ var _ = Describe("Update types", func() {
 	It("Should derive the input of a client from the update", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, record, "plot", loader, typesPlugin)
 		ExpectContent(resp, "client/ts/src/plot/types.gen.ts").ToContain(
-			"export type UpdateInput<Config extends z.ZodType<record.Unknown> = "+
-				`z.ZodType<record.Unknown>> = Omit<Update<Config>, "hash">;`,
-			"  config?: z.infer<Config>;",
+			"export type UpdateInput<Config extends "+
+				"patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> = "+
+				"patch.StructSchemas<z.ZodType<record.Unknown>, "+
+				`z.ZodType<record.Unknown>>> = Omit<Update<Config>, "hash">;`,
+		)
+	})
+
+	It("Should map each task type to the schemas of its config", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/ni"
+			@ts output "client/ts/src/ni"
+
+			AnalogReadConfig struct {
+				key  uuid
+				rate float64
+
+				@patch
+				@task type "ni_analog_read"
+			}
+		`, "ni", loader, typesPlugin)
+		ExpectContent(resp, "client/ts/src/ni/types.gen.ts").ToContain(
+			`export const ANALOG_READ_TASK_TYPE = "ni_analog_read";`,
+			"export const CONFIG_SCHEMAS = {\n"+
+				"  [ANALOG_READ_TASK_TYPE]: "+
+				"{ u: analogReadConfigUpdateZ, t: analogReadConfigZ },\n};",
+		)
+	})
+
+	It("Should take the struct schemas of a record type parameter", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, record, "plot", loader, typesPlugin)
+		ExpectContent(resp, "client/ts/src/plot/types.gen.ts").ToContain(
+			"export const updateZ = <Config extends "+
+				"patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> = "+
+				"patch.StructSchemas<z.ZodType<record.Unknown>, "+
+				"z.ZodType<record.Unknown>>>(config?: Config) =>",
+			`  config?: patch.Struct<Config["u"], Config["t"]>;`,
 		)
 	})
 })

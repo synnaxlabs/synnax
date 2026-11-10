@@ -809,3 +809,20 @@ export const writeConfigUpdateZ = z.object({
     .optional(),
 });
 export interface WriteConfigUpdate extends z.infer<typeof writeConfigUpdateZ> {}
+
+/** READ_TASK_TYPE is the task type of ReadConfig. */
+export const READ_TASK_TYPE = "mqtt_read";
+/** WRITE_TASK_TYPE is the task type of WriteConfig. */
+export const WRITE_TASK_TYPE = "mqtt_write";
+/** SCAN_TASK_TYPE is the task type of ScanConfig. */
+export const SCAN_TASK_TYPE = "mqtt_scan";
+/** SPARKPLUG_EDGE_TASK_TYPE is the task type of EdgeConfig. */
+export const SPARKPLUG_EDGE_TASK_TYPE = "mqtt_sparkplug_edge";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [READ_TASK_TYPE]: { u: readConfigUpdateZ, t: readConfigZ },
+  [WRITE_TASK_TYPE]: { u: writeConfigUpdateZ, t: writeConfigZ },
+  [SCAN_TASK_TYPE]: { u: scanConfigUpdateZ, t: scanConfigZ },
+  [SPARKPLUG_EDGE_TASK_TYPE]: { u: edgeConfigUpdateZ, t: edgeConfigZ },
+};

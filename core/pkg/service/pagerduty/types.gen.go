@@ -104,3 +104,8 @@ func (u AlertUpdate) ApplyTo(x *Alert) error {
 	}
 	return nil
 }
+
+const (
+	// AlertTaskType is the task type of TaskConfig.
+	AlertTaskType = "pagerduty_alert"
+)

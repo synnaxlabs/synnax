@@ -920,3 +920,12 @@ func (u UnresolvedWriteChannelUpdate) Defaults() (UnresolvedWriteChannel, error)
 	var x UnresolvedWriteChannel
 	return x, nil
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "ethercat_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "ethercat_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "ethercat_scan"
+)

@@ -92,6 +92,23 @@ var _ = Describe("Update types", func() {
 				ToBeValidGoSource()
 		}
 
+		It("Should declare the task type of a config beside its update", func(
+			ctx SpecContext,
+		) {
+			generate(ctx, `
+				AnalogReadConfig struct {
+					key  uuid
+					rate float64
+
+					@patch
+					@task type "plot_analog_read"
+				}
+			`).ToContain(
+				"\t// AnalogReadTaskType is the task type of AnalogReadConfig.\n"+
+					"\tAnalogReadTaskType = \"plot_analog_read\"\n",
+			)
+		})
+
 		It("Should apply each field kind of a struct update", func(ctx SpecContext) {
 			content := generate(ctx, `
 				Point struct {

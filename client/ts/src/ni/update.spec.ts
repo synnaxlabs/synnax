@@ -11,6 +11,7 @@ import { patch } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ni } from "@/ni";
+import { task } from "@/task";
 
 describe("AIChannelUpdate", () => {
   it("should hold the fields of the named variant", () => {
@@ -80,5 +81,23 @@ describe("AnalogReadConfigUpdate", () => {
     const next = apply({ key: "c3", type: "ai_current" });
     expect(next).toMatchObject({ key: "c3", name: "Pressure", type: "ai_current" });
     expect(next).toMatchObject({ port: 0, extShuntResistorVal: 1 });
+  });
+});
+
+describe("CONFIG_SCHEMAS", () => {
+  it("should merge a partial config into an analog read task", () => {
+    const config = ni.CONFIG_SCHEMAS[ni.ANALOG_READ_TASK_TYPE];
+    const payloadZ = task.payloadZ({ config: config.t });
+    const prev = payloadZ.parse({
+      key: "00000000-0000-4000-8000-000000000004",
+      name: "Read",
+      type: ni.ANALOG_READ_TASK_TYPE,
+      config: { device: "d", sampleRate: 10, streamRate: 5, channels: [] },
+    });
+    const { next } = patch.applyUpdate({ u: task.updateZ(config), t: payloadZ }, prev, {
+      value: { config: { sampleRate: 1000 } },
+      guards: [],
+    });
+    expect(next.config).toEqual({ ...prev.config, sampleRate: 1000 });
   });
 });

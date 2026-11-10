@@ -23,16 +23,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const (
-	// ScanTaskType is the type of the internal task that tests and watches cluster
-	// connections.
-	ScanTaskType = "kafka_scan"
-	// ReadTaskType is the type of the task that consumes a topic into channels.
-	ReadTaskType = "kafka_read"
-	// WriteTaskType is the type of the task that produces channel samples to a topic.
-	WriteTaskType = "kafka_write"
-)
-
 // ServiceConfig is the configuration for opening the Kafka task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.

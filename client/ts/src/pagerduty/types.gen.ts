@@ -77,3 +77,11 @@ export const taskConfigUpdateZ = z.object({
   alerts: patch.listZ({ e: alertZ, k: z.string(), u: alertUpdateZ }).optional(),
 });
 export interface TaskConfigUpdate extends z.infer<typeof taskConfigUpdateZ> {}
+
+/** ALERT_TASK_TYPE is the task type of TaskConfig. */
+export const ALERT_TASK_TYPE = "pagerduty_alert";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [ALERT_TASK_TYPE]: { u: taskConfigUpdateZ, t: taskConfigZ },
+};
