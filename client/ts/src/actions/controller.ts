@@ -23,7 +23,7 @@ import { type z } from "zod";
 
 import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
-import { Table } from "@/query/table";
+import { keyedZ, Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -316,6 +316,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private readonly lastAppliedSeq = new Map<Key, number>();
   /** Dispatch keys of entries settled at their echo deadline, so their echoes drop. */
   private readonly expired = new Set<string>();
+  /** Docs to fetch again once they hold no pending entry. */
+  private readonly stale = new Set<Key>();
   private readonly rebases = new Map<Key, Rebase<State, Action>>();
   /** Callers of settled, waiting for a doc to hold no pending entry. */
   private readonly settling = new Map<Key, Array<() => void>>();
@@ -380,15 +382,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private drop(key: Key): void {
     this.undos.delete(key);
     this.lastAppliedSeq.delete(key);
+    this.stale.delete(key);
     this.release(key);
   }
 
   private changeEpoch(epoch: number): void {
     this.epoch = epoch;
     this.live = epoch !== 0;
-    // Sequence numbers restart with the Core, and no echo crosses an epoch.
+    // Sequence numbers restart with the Core, and no echo crosses an epoch. A new epoch
+    // fetches or discards every cached doc.
     this.lastAppliedSeq.clear();
     this.expired.clear();
+    this.stale.clear();
     if (epoch === 0) {
       [...this.rebases.keys()].forEach((key) => this.release(key));
       this.undos.delete(() => true);
@@ -678,10 +683,17 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     echo: Action[],
   ): void {
     this.expired.add(dispatchKey);
+    this.refetch(key);
     this.settle(key, r, dispatchKey, echo);
-    // A fetched doc can already hold an entry that is still pending, which would then
-    // apply twice.
-    if (!this.rebases.has(key)) this.docs.refetch([key]);
+  }
+
+  /**
+   * Fetches the doc again, once it holds no pending entry: a fetched doc can already
+   * hold a pending entry, which would then apply twice.
+   */
+  private refetch(key: Key): void {
+    if (this.rebases.has(key)) this.stale.add(key);
+    else this.docs.refetch([key]);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
@@ -1028,6 +1040,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private release(key: Key): void {
     this.rebases.get(key)?.pending.forEach(({ deadline }) => clearTimeout(deadline));
     this.rebases.delete(key);
+    if (this.stale.delete(key)) this.docs.refetch([key]);
     const waiting = this.settling.get(key);
     if (waiting == null) return;
     this.settling.delete(key);
@@ -1042,7 +1055,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * entry is that entry's echo: it moves into the base, and the doc changes only if
    * other frames came first. An echo that comes after its deadline drops. Any other
    * frame applies to the base, under the pending entries, and marks its targets as
-   * remote-touched.
+   * remote-touched. A frame that fails to apply reports the error, leaves its seq
+   * unapplied, and fetches the doc again.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     // Until the fetch caches the doc, a frame only marks that the Core may answer from
@@ -1051,11 +1065,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       this.listing.set(key, true);
       return;
     }
-    if (seq !== 0) {
-      const last = this.lastAppliedSeq.get(key) ?? 0;
-      if (seq <= last) return;
-      this.lastAppliedSeq.set(key, seq);
+    if (seq !== 0 && seq <= (this.lastAppliedSeq.get(key) ?? 0)) return;
+    try {
+      this.applyFrame(key, dispatchKey, actions);
+    } catch (exc) {
+      this.params.onError(new Error("failed to apply a remote frame", { cause: exc }));
+      this.refetch(key);
+      return;
     }
+    if (seq !== 0) this.lastAppliedSeq.set(key, seq);
+  }
+
+  private applyFrame(key: Key, dispatchKey: string, actions: Action[]): void {
     if (this.expired.delete(dispatchKey)) return;
     const doc = this.docs.get(key);
     if (doc == null) {
@@ -1139,6 +1160,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         frames.forEach(({ key, seq, dispatchKey, actions }) =>
           this.applyRemote(key, seq, dispatchKey, actions),
         );
+      },
+      onInvalid: (raw) => {
+        const keyed = keyedZ.safeParse(raw);
+        if (keyed.success) this.refetch(keyed.data.key as Key);
       },
     };
   }

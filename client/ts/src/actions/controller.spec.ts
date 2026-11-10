@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -1910,6 +1910,64 @@ describe("actions.Controller", () => {
         },
       ]);
       expect(docs.get("k")).toEqual({ values: { a: 42 } });
+    });
+
+    const createFetch = () =>
+      vi.fn(async (keys: string[]) => keys.map((key) => ({ key, values: { a: 7 } })));
+
+    it("applies the frames after one that fails, and fetches its doc again", async () => {
+      const fetch = createFetch();
+      const { docs, controller, errors } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      prime(docs, "j", { a: 0 });
+      void controller.listener("docs_dispatch", frameZ).onChange([
+        { key: "k", dispatchKey: "f-1", seq: 1, actions: [{ type: "invalid" }] },
+        { key: "j", dispatchKey: "f-2", seq: 1, actions: [set("a", 2)] },
+      ]);
+      expect(docs.get("j")).toEqual({ values: { a: 2 } });
+      expect(errors.map(({ message }) => message)).toEqual([
+        "failed to apply a remote frame",
+      ]);
+      expect((errors[0].cause as Error).message).toBe("the doc cannot hold the action");
+      await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
+    });
+
+    it("applies a frame again after it failed to apply", () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k");
+      const child: Action = { type: "child", key: "a", value: 1 };
+      controller.applyRemote("k", 1, "f-1", [child]);
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "f-1", [child]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, "a.child": 1 } });
+    });
+
+    it("fetches a doc whose frame failed once no dispatch is pending", async () => {
+      const { send, calls } = createHeldSend();
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ send, fetch });
+      prime(docs, "k", { a: 0 });
+      const dispatched = controller.dispatch("k", [set("b", 1)]);
+      controller.applyRemote("k", 1, "f-1", [{ type: "invalid" }]);
+      await sleep.sleep(TimeSpan.milliseconds(30));
+      expect(fetch).not.toHaveBeenCalled();
+      calls[0].resolve();
+      await dispatched;
+      controller.applyRemote("k", 2, calls[0].dispatchKey, [set("b", 1)]);
+      await expect.poll(() => fetch.mock.calls.length).toBe(1);
+      expect(fetch).toHaveBeenCalledWith(["k"]);
+    });
+
+    it("fetches the doc of a frame that fails the schema", async () => {
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      controller
+        .listener("docs_dispatch", frameZ)
+        .onInvalid?.({ key: "k", seq: -1 }, new Error("invalid seq"));
+      await expect.poll(() => docs.get("k")).toEqual({ key: "k", values: { a: 7 } });
+      expect(fetch).toHaveBeenCalledExactlyOnceWith(["k"]);
     });
   });
 
