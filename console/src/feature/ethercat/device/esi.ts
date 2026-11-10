@@ -100,6 +100,15 @@ export interface StartupCommands {
 
 const DECLARED_ENCODING = /<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["']/;
 
+/** @returns a decoder for the encoding, or null if the platform cannot decode it. */
+const decoderOf = (encoding: string): TextDecoder | null => {
+  try {
+    return new TextDecoder(encoding);
+  } catch {
+    return null;
+  }
+};
+
 /**
  * @returns the text of an XML file, read as UTF-16 after a UTF-16 byte order mark, or
  * else in the encoding that its declaration names.
@@ -112,14 +121,12 @@ const decode = (file: Uint8Array): string => {
     return new TextDecoder("utf-16be").decode(file);
   const head = new TextDecoder("windows-1252").decode(file.subarray(0, 256));
   const encoding = DECLARED_ENCODING.exec(head)?.[1] ?? "utf-8";
-  try {
-    return new TextDecoder(encoding).decode(file);
-  } catch (e) {
+  const decoder = decoderOf(encoding);
+  if (decoder == null)
     throw new Error(
       `The ESI file uses ${encoding}, an encoding that Synnax cannot read.`,
-      { cause: e },
     );
-  }
+  return decoder.decode(file);
 };
 
 /**
