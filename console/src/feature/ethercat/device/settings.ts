@@ -34,6 +34,8 @@ const fieldZ = z.object({
   name: z.string(),
   dataType: z.string(),
   default: z.number(),
+  /** The value that the slave held at the scan. */
+  value: z.number().optional(),
   unit: z.string().default(""),
   options: z.array(optionZ).optional(),
   min: z.number().optional(),
@@ -90,8 +92,8 @@ export const findChannel = (
   description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
 /**
- * @returns the value at the address: the one in values, or the default of the first
- * field there.
+ * @returns the value at the address: the one in values, else the value that the slave
+ * held at the scan or the default of the first field there.
  * @throws {Error} if no field and no value is at the address.
  */
 export const valueAt = (fields: Field[], values: Value[], address: Address): number => {
@@ -100,7 +102,7 @@ export const valueAt = (fields: Field[], values: Value[], address: Address): num
   const field = fields.find((f) => sameAddress(f, address));
   if (field == null)
     throw new Error(`No setting is at ${ethercat.formatAddress(address)}`);
-  return field.default;
+  return field.value ?? field.default;
 };
 
 const holds = (fields: Field[], values: Value[], condition: Condition): boolean => {
