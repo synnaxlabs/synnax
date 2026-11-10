@@ -1971,6 +1971,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0, // i
 				OpLocalGet, 1, // __for_limit
@@ -2021,6 +2022,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit => br $break
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2067,6 +2069,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// condition: running
 				OpLocalGet, 0,
 				OpI32Eqz,
@@ -2099,6 +2102,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $continue
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// break → br $break (label 1 from inside loop)
 				OpBr, uint32(1),
 				// br $continue (unreachable but emitted)
@@ -2135,6 +2139,7 @@ var _ = Describe("Statement Compiler", func() {
 					OpBlock, BlockTypeEmpty,
 					// loop $continue (depth 2)
 					OpLoop, BlockTypeEmpty,
+					LoopBudget(),
 					// condition: x
 					OpLocalGet, 0,
 					OpI32Eqz,
@@ -2180,6 +2185,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,
@@ -2231,6 +2237,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// direction-aware exit condition
 				OpLocalGet, 2, // step
 				OpI64Const, int64(0),
@@ -2318,6 +2325,7 @@ var _ = Describe("Statement Compiler", func() {
 				OpBlock, BlockTypeEmpty,
 				// loop $loop_header
 				OpLoop, BlockTypeEmpty,
+				LoopBudget(),
 				// i >= limit
 				OpLocalGet, 0,
 				OpLocalGet, 1,

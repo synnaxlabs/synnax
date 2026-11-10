@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -887,7 +888,7 @@ var _ = Describe("Task", Ordered, func() {
 				GetProgram: func(context.Context, uuid.UUID) (svcarc.AutomationArc, error) { return svcarc.AutomationArc{}, nil },
 				Ranger:     rangerSvc,
 				Now:        telem.Now,
-				TickLimit:  telem.Second,
+				LoopBudget: 1000,
 			}
 		}
 
@@ -934,9 +935,9 @@ var _ = Describe("Task", Ordered, func() {
 					"ranger",
 				),
 				Entry(
-					"tick_limit",
-					func(c *arctask.FactoryConfig) { c.TickLimit = 0 },
-					"tick_limit",
+					"loop_budget",
+					func(c *arctask.FactoryConfig) { c.LoopBudget = 0 },
+					"loop_budget",
 				),
 			)
 		})
@@ -951,7 +952,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(merged.Ranger).To(BeIdenticalTo(src.Ranger))
 				Expect(merged.GetProgram).ToNot(BeNil())
 				Expect(merged.Now).ToNot(BeNil())
-				Expect(merged.TickLimit).To(Equal(src.TickLimit))
+				Expect(merged.LoopBudget).To(Equal(src.LoopBudget))
 			})
 
 			It("Should preserve the receiver's fields when other's are nil", func() {
@@ -3628,7 +3629,7 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Runtime Error Handling", func() {
-		It("Should stop a task whose cycle runs past the tick limit", func(
+		It("Should stop a task whose cycle uses its whole loop budget", func(
 			ctx SpecContext,
 		) {
 			prog := arc.Text{Raw: `
@@ -3647,7 +3648,7 @@ var _ = Describe("Task", Ordered, func() {
 			factory := newTextFactory(
 				ctx,
 				prog,
-				arctask.FactoryConfig{TickLimit: 50 * telem.Millisecond},
+				arctask.FactoryConfig{LoopBudget: 1000},
 			)
 			t := MustSucceed(factory.ConfigureTask(ctx, svcTask, "cmd-1"))
 			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
@@ -3660,7 +3661,7 @@ var _ = Describe("Task", Ordered, func() {
 				g.Expect(stat.Message).To(Equal("Program ran too long"))
 				g.Expect(stat.Details.Running).To(BeFalse())
 			}).Should(Succeed())
-			Expect(t.Stop(false)).To(MatchError(arctask.ErrTickLimit))
+			Expect(t.Stop(false)).To(MatchError(runtime.ErrLoopBudget))
 		})
 
 		It(

@@ -63,10 +63,6 @@ const (
 	runtimeAddr         address.Address = "runtime"
 )
 
-// ErrTickLimit is returned when one cycle of a program runs longer than
-// FactoryConfig.TickLimit.
-var ErrTickLimit = errors.New("arc program ran past its tick limit")
-
 // impl implements the driver.Task interface and manages Arc program execution.
 type impl struct {
 	factoryCfg FactoryConfig
@@ -155,10 +151,7 @@ func (t *impl) start(ctx context.Context, cmdKey string) (err, answerErr error) 
 
 // open builds and flows the Arc runtime. It writes no statuses: start owns them.
 func (t *impl) open(ctx context.Context) (err error) {
-	drt := dataRuntime{
-		clock:     telem.MonoClock{Source: t.factoryCfg.Now},
-		tickLimit: t.factoryCfg.TickLimit.Duration(),
-	}
+	drt := dataRuntime{clock: telem.MonoClock{Source: t.factoryCfg.Now}}
 	var deps runtime.Dependencies
 	if err = t.factoryCfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
 		deps, err = runtime.NewDependencies(
@@ -187,10 +180,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 
 	var wasmRT wazero.Runtime
 	if len(t.prog.Program.WASM) > 0 {
-		wasmRT = wazero.NewRuntimeWithConfig(
-			ctx,
-			wazero.NewRuntimeConfigCompiler().WithCloseOnContextDone(true),
-		)
+		wasmRT = wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
 		closers = append(closers, xio.CloserFunc(func() error {
 			return wasmRT.Close(ctx)
 		}))
@@ -286,6 +276,12 @@ func (t *impl) open(ctx context.Context) (err error) {
 		closers = append(closers, xio.CloserFunc(func() error {
 			return guest.Close(ctx)
 		}))
+		if drt.budget, err = runtime.NewBudget(
+			guest,
+			t.factoryCfg.LoopBudget,
+		); err != nil {
+			return err
+		}
 		f = append(f, &wasm.Module{
 			Module:        guest,
 			Memory:        guest.Memory(),
@@ -582,8 +578,8 @@ type dataRuntime struct {
 	timeMod   *time.Host
 	writeKeys channel.Keys
 	state     state
-	// tickLimit is the longest that one cycle can run.
-	tickLimit stdtime.Duration
+	// budget limits the loop iterations and function calls of each cycle.
+	budget runtime.Budget
 }
 
 func (d *dataRuntime) next(
@@ -598,13 +594,11 @@ func (d *dataRuntime) next(
 		Reason:  reason,
 	}
 	d.timeMod.SetNow(cycle.Now)
-	tickCtx, cancel := context.WithTimeout(ctx, d.tickLimit)
-	reserved := d.scheduler.Next(tickCtx, cycle)
-	cancel()
-	if errors.Is(tickCtx.Err(), context.DeadlineExceeded) {
-		return errors.Wrapf(ErrTickLimit, "a cycle ran longer than %s", d.tickLimit)
+	d.budget.Reset()
+	d.clock.Advance(d.scheduler.Next(ctx, cycle))
+	if err := d.budget.Err(); err != nil {
+		return err
 	}
-	d.clock.Advance(reserved)
 	d.state.channel.ClearReads()
 	if d.Out != nil {
 		if err := d.flushAuthorityChanges(ctx); err != nil {
@@ -670,7 +664,7 @@ type tickerRuntime struct {
 	dataRuntime
 	// spin is how long the timer spins before each deadline.
 	spin stdtime.Duration
-	// overrun reports a cycle that ran past the tick limit.
+	// overrun reports a cycle that used its whole loop budget.
 	overrun func(context.Context, error)
 }
 
@@ -720,7 +714,7 @@ func (r *tickerRuntime) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 			}
 			if err = r.next(ctx, res, runReason); err != nil {
-				if errors.Is(err, ErrTickLimit) {
+				if errors.Is(err, runtime.ErrLoopBudget) {
 					r.overrun(ctx, err)
 				}
 				return err

@@ -14,6 +14,9 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
+	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
+	"github.com/tetratelabs/wazero/api"
 )
 
 var _ = Describe("WASM Module", func() {
@@ -273,6 +276,22 @@ var _ = Describe("WASM Module", func() {
 			mod.EnableMemory()
 			mod.AddExport("memory", wasm.ExportKindMemory, 0)
 			Expect(Compile(ctx, mod).ExportedMemories()).To(HaveKey("memory"))
+		})
+	})
+
+	Describe("Globals", func() {
+		It("Should export a global with its initial value", func(ctx SpecContext) {
+			mod := wasm.NewModule()
+			idx := mod.AddGlobal(wasm.Global{Mutable: true, Init: -42})
+			mod.AddExport(wasm.LoopBudgetExport, wasm.ExportKindGlobal, idx)
+			rt := wazero.NewRuntime(ctx)
+			DeferCleanup(rt.Close)
+			guest := MustSucceed(rt.Instantiate(ctx, mod.Generate()))
+			global := guest.ExportedGlobal(wasm.LoopBudgetExport)
+			_, mutable := global.(api.MutableGlobal)
+			Expect(mutable).To(BeTrue())
+			Expect(global.Type()).To(Equal(api.ValueTypeI64))
+			Expect(int64(global.Get())).To(Equal(int64(-42)))
 		})
 	})
 

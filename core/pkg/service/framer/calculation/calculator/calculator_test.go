@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -96,6 +97,51 @@ var _ = Describe("Calculator", Ordered, func() {
 			append([]calculator.Config{{Module: mod}}, cfgs...)...,
 		))
 	}
+
+	Describe("Loop budget", func() {
+		It("Should fail a step whose expression never stops", func(ctx SpecContext) {
+			base := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+				Expression: fmt.Sprintf(
+					"for {}\nreturn %s * 2",
+					base[0].Name,
+				),
+			}
+			c := open(ctx, nil, &base, &calc)
+			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
+			Expect(c.Next(ctx, fr, frame.Frame{})).Error().
+				To(MatchError(runtime.ErrLoopBudget))
+		})
+
+		It("Should run a loop that stays under the budget", func(ctx SpecContext) {
+			base := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+				Expression: fmt.Sprintf(
+					"n := 0\nfor n < 1000 {\nn = n + 1\n}\nreturn %s + n",
+					base[0].Name,
+				),
+			}
+			c := open(ctx, nil, &base, &calc)
+			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](1))
+			of, changed := MustSucceed2(c.Next(ctx, fr, frame.Frame{}))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](1001))
+		})
+	})
 
 	Describe("Alignment", func() {
 		Specify("Single alignment propagation", func(ctx SpecContext) {

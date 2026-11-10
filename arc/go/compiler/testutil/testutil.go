@@ -164,6 +164,8 @@ func assemble(instructions ...any) []byte {
 				// Simple opcode with no operands
 				encoder.WriteOpcode(instr)
 			}
+		case []byte:
+			encoder.WriteBytes(instr)
 		}
 	}
 
@@ -335,4 +337,12 @@ func ImportNames(ctx context.Context, m *wasm.Module) []string {
 		_, names[i], _ = imp.Import()
 	}
 	return names
+}
+
+// LoopBudget returns the instructions that each loop header and function entry run
+// against the loop budget global, which a root compiler context declares at index 0.
+func LoopBudget() []byte {
+	w := wasm.NewWriter()
+	w.WriteLoopBudget(0)
+	return w.Bytes()
 }

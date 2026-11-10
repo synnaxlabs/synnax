@@ -168,6 +168,7 @@ func compileForRange(
 	// loop $loop_header
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
 	loopCtx = loopCtx.EnterBlock()
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 
 	if stepExpr != nil {
 		ctx.Writer.WriteLocalGet(stepIdx)
@@ -295,6 +296,7 @@ func compileForSeriesIteration(
 	// loop $loop_header
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
 	loopCtx = loopCtx.EnterBlock()
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 
 	ctx.Writer.WriteLocalGet(idxIdx)
 	ctx.Writer.WriteLocalGet(lenIdx)
@@ -369,6 +371,7 @@ func compileForCondition(
 	// loop $continue
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
 	loopCtx = loopCtx.EnterBlock()
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 	continueDepth := loopCtx.BlockDepth()
 
 	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{
@@ -417,6 +420,7 @@ func compileForInfinite(
 	// loop $continue
 	ctx.Writer.WriteLoop(wasm.BlockTypeEmpty)
 	loopCtx = loopCtx.EnterBlock()
+	ctx.Writer.WriteLoopBudget(ctx.LoopBudget)
 	continueDepth := loopCtx.BlockDepth()
 
 	bodyCtx := loopCtx.EnterLoop(context.LoopEntry{

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -70,19 +71,19 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
 	Now func() telem.TimeStamp
-	// TickLimit is the longest that one cycle of a task's program can run. A cycle
-	// that runs longer stops the task with an error status.
+	// LoopBudget is the loop iterations and function calls that a task's program can
+	// run in one cycle. A cycle that runs more stops the task with an error status.
 	//
-	// [OPTIONAL] - Defaults to 1 second.
-	TickLimit telem.TimeSpan
+	// [OPTIONAL] - Defaults to runtime.DefaultLoopBudget.
+	LoopBudget int64
 	alamos.Instrumentation
 }
 
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now:       func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
-		TickLimit: telem.Second,
+		Now:        func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		LoopBudget: runtime.DefaultLoopBudget,
 	}
 )
 
@@ -95,7 +96,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.GetProgram = override.Nil(c.GetProgram, other.GetProgram)
 	c.Ranger = override.Nil(c.Ranger, other.Ranger)
 	c.Now = override.Nil(c.Now, other.Now)
-	c.TickLimit = override.Numeric(c.TickLimit, other.TickLimit)
+	c.LoopBudget = override.Numeric(c.LoopBudget, other.LoopBudget)
 	return c
 }
 
@@ -107,7 +108,7 @@ func (c FactoryConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("get_program", c.GetProgram)
 	v.NotNil("ranger", c.Ranger)
-	v.Positive("tick_limit", c.TickLimit)
+	v.Positive("loop_budget", c.LoopBudget)
 	return v.Error()
 }
 

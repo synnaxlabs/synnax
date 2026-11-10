@@ -11,6 +11,7 @@ package context
 
 import (
 	"context"
+	"math"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/resolve"
@@ -50,6 +51,8 @@ type Context[ASTNode antlr.ParserRuleContext] struct {
 	loopStack []LoopEntry
 	// Config carries per-parse language settings (e.g. dashed channel names).
 	Config parser.Config
+	// LoopBudget is the index of the global that loops count their iterations against.
+	LoopBudget uint32
 }
 
 // Child returns a context that shares the parent's state but points at the given child
@@ -73,6 +76,7 @@ func (ctx Context[P]) Child[ASTNode antlr.ParserRuleContext](
 		blockDepth:       ctx.blockDepth,
 		loopStack:        ctx.loopStack,
 		Config:           ctx.Config,
+		LoopBudget:       ctx.LoopBudget,
 	}
 }
 
@@ -136,13 +140,17 @@ func NewRoot(
 	if resolver != nil {
 		writerID = resolver.TrackWriter(w)
 	}
+	module := wasm.NewModule()
+	budget := module.AddGlobal(wasm.Global{Mutable: true, Init: math.MaxInt64})
+	module.AddExport(wasm.LoopBudgetExport, wasm.ExportKindGlobal, budget)
 	return Context[antlr.ParserRuleContext]{
-		Context:  ctx,
-		Module:   wasm.NewModule(),
-		Scope:    symbols,
-		TypeMap:  typeMap,
-		Writer:   w,
-		Resolver: resolver,
-		WriterID: writerID,
+		Context:    ctx,
+		LoopBudget: budget,
+		Module:     module,
+		Scope:      symbols,
+		TypeMap:    typeMap,
+		Writer:     w,
+		Resolver:   resolver,
+		WriterID:   writerID,
 	}
 }
