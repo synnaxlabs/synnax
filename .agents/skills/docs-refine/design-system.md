@@ -49,8 +49,8 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
   A hairline opens a list, and hairlines split its entries. A block never ends on one.
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the icon chip of a diagram
-  block or a part, the Enterprise mark, and the brand accent: the rule under a page
-  title and the landing use cases.
+  block, a part, or a term, the Enterprise mark, and the brand accent: the rule under a
+  page title and the landing use cases.
 - **Error and warning** -> the severity dot of a problem entry, and notes. Error also
   marks a required field: the asterisk before **Required**.
 - **Arc code colors** (`tokens` in `@synnaxlabs/arc`) -> Arc code blocks, and the type
