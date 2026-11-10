@@ -295,6 +295,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, snap Snapshot) (bool, error)
 	}
 	e := make([]E, 0, 1)
 	r.entries.bindMultiple(&e)
+	r.limit = 1
 	if err := r.execFilter(ctx, snap); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
@@ -540,6 +541,9 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
 			validCount += 1
 			if r.limit == 0 || validCount <= r.limit {
 				r.entries.add(*v)
+			}
+			if validCount == r.limit {
+				break
 			}
 		}
 	}

@@ -598,6 +598,16 @@ var _ = Describe("Retrieve", func() {
 					)).
 					Exists(ctx, tx)).To(BeTrue())
 			})
+			It("Should stop scanning at the first match", func(ctx SpecContext) {
+				matched := 0
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.Match(func(gorp.Context, *entry) (bool, error) {
+						matched++
+						return true, nil
+					})).
+					Exists(ctx, tx)).To(BeTrue())
+				Expect(matched).To(Equal(1))
+			})
 			It(
 				"Should return false if ALL entries do not exist",
 				func(ctx SpecContext) {
@@ -631,6 +641,21 @@ var _ = Describe("Retrieve", func() {
 					Exec(ctx, tx),
 				).To(Succeed())
 				Expect(res).To(HaveLen(10))
+			})
+			It("Should stop scanning a filter at the limit", func(ctx SpecContext) {
+				matched := 0
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Entries(&res).
+					Where(gorp.Match(func(gorp.Context, *entry) (bool, error) {
+						matched++
+						return true, nil
+					})).
+					Limit(1).
+					Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res).To(Equal(entries[:1]))
+				Expect(matched).To(Equal(1))
 			})
 		})
 		Describe("Limit with keys", func() {
