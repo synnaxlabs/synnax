@@ -300,21 +300,17 @@ class ScanTask final : public task::Task, public pipeline::Base {
     /// stored version, and returns the actions that save what the scan changed.
     std::vector<synnax::device::Action>
     changes(synnax::device::Device &dev, const synnax::device::Device &stored) {
-        std::vector<synnax::device::Action> actions;
+        synnax::device::Update fields;
         if (dev.location != stored.location) {
             LOG(INFO) << this->log_prefix << "device location changed from "
                       << stored.location << " to " << dev.location;
-            actions.push_back(
-                synnax::device::set({.path = {"location"}, .value = dev.location})
-            );
+            fields.location = dev.location;
         }
 
         if (dev.model != stored.model) {
             LOG(INFO) << this->log_prefix << "device model changed from "
                       << stored.model << " to " << dev.model;
-            actions.push_back(
-                synnax::device::set({.path = {"model"}, .value = dev.model})
-            );
+            fields.model = dev.model;
         }
 
         if (dev.rack != stored.rack) {
@@ -331,21 +327,22 @@ class ScanTask final : public task::Task, public pipeline::Base {
                     << " from '" << stored.parent.value_or("") << "' to '"
                     << *dev.parent << "'";
 
-        if (dev.rack != stored.rack || dev.parent != stored.parent)
-            actions.push_back(
-                synnax::device::set_rack({.rack = dev.rack, .parent = dev.parent})
-            );
-
         auto merged_props = merge_device_properties(stored.properties, dev.properties);
         if (merged_props != stored.properties) {
             VLOG(1) << this->log_prefix << "device properties changed for " << dev.key;
-            actions.push_back(
-                synnax::device::set({.path = {"properties"}, .value = merged_props})
-            );
+            fields.properties = merged_props.get<x::json::json::object_t>();
         }
         dev.properties = merged_props;
         dev.name = stored.name;
         dev.configured = stored.configured;
+
+        std::vector<synnax::device::Action> actions;
+        if (fields.location || fields.model || fields.properties)
+            actions.push_back(synnax::device::update({.value = fields}));
+        if (dev.rack != stored.rack || dev.parent != stored.parent)
+            actions.push_back(
+                synnax::device::set_rack({.rack = dev.rack, .parent = dev.parent})
+            );
         return actions;
     }
 

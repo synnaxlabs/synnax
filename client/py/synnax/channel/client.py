@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, overload, override
+from typing import TYPE_CHECKING, Any, Literal, Unpack, overload, override
 
 from pydantic import PrivateAttr
 
@@ -28,6 +28,7 @@ from synnax.channel.types_gen import (
     Payload,
     RetrieveRequest,
     Status,
+    UpdateInput,
     Where,
     WhereInput,
     resource_id,
@@ -590,6 +591,26 @@ class Client:
         if channel is not None and positional and len(res) > 1:
             raise _multiple_results_error(channel, res)
         return sole("channel", req, sug)
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes channels by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the channel that it changes.
+        :param update: The key of the channel and the fields to change.
+        :raises NotFoundError: If no channel has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._creator.update([update] if updates is None else updates)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:

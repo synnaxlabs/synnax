@@ -7,13 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal
+from collections.abc import Mapping, Sequence
+from typing import Any, Literal
 
 from pydantic import BaseModel
 
 from alamos import Instrumentation, trace
 from freighter import Empty, UnaryClient
-from synnax import group as group_
+from synnax import actions, group as group_
 from synnax.channel.payload import (
     Key,
     NormalizedNameResult,
@@ -21,6 +22,7 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
+from synnax.channel.types_gen import Update
 from synnax.transport import send_batch
 from x import patch
 
@@ -47,19 +49,17 @@ class _RenameAction(BaseModel):
     rename: _RenamePayload
 
 
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: patch.Set
+class _UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: patch.Update[Update]
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[_RenameAction | _SetAction]
+_Action = _RenameAction | _UpdateAction
 
 
 class Writer:
     _client: UnaryClient
+    _sender: actions.Sender[Key, _Action]
     instrumentation: Instrumentation
 
     def __init__(
@@ -69,6 +69,9 @@ class Writer:
         instrumentation: Instrumentation,
     ):
         self._client = client
+        self._sender = actions.Sender[Key, _Action](
+            client=client, endpoint="/channel/dispatch", update=_UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @trace("debug")
@@ -93,7 +96,7 @@ class Writer:
         self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
         reqs = [
-            _DispatchRequest(
+            actions.DispatchRequest(
                 key=k, actions=[_RenameAction(rename=_RenamePayload(name=n))]
             )
             for k, n in zip(keys, names, strict=True)
@@ -101,14 +104,13 @@ class Writer:
         send_batch(self._client, "/channel/dispatch", reqs)
 
     @trace("debug")
+    def update(self, updates: Sequence[Mapping[str, Any]]) -> None:
+        self._sender.update(updates)
+
+    @trace("debug")
     def set_group(self, keys: list[Key], group: group_.Key | None) -> None:
-        value = None if group is None else str(group)
-        action = _SetAction(set=patch.Set(path=["group"], value=value))
-        reqs = [_DispatchRequest(key=k, actions=[action]) for k in keys]
-        send_batch(self._client, "/channel/dispatch", reqs)
+        self.update([{"key": k, "group": group} for k in keys])
 
     @trace("debug")
     def set_expression(self, key: Key, expression: str) -> None:
-        action = _SetAction(set=patch.Set(path=["expression"], value=expression))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/channel/dispatch", req, Empty)
+        self.update([{"key": key, "expression": expression}])

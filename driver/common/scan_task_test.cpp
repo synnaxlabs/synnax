@@ -595,9 +595,7 @@ TEST(TestScanTask, TestUpdateWhenLocationChanges) {
     EXPECT_EQ(cluster_api_ptr->dispatched[0].first, "device1");
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json(
-            {synnax::device::set({.path = {"location"}, .value = "new_location"})}
-        )
+        actions_json({synnax::device::update({.value = {.location = "new_location"}})})
     );
 }
 
@@ -660,7 +658,7 @@ TEST(TestScanTask, TestUpdateWhenModelChanges) {
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json({synnax::device::set({.path = {"model"}, .value = "LJM_dtT8"})})
+        actions_json({synnax::device::update({.value = {.model = "LJM_dtT8"}})})
     );
 }
 
@@ -723,9 +721,7 @@ TEST(TestScanTask, TestRetryFailedUpdate) {
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json(
-            {synnax::device::set({.path = {"location"}, .value = "new_location"})}
-        )
+        actions_json({synnax::device::update({.value = {.location = "new_location"}})})
     );
     ASSERT_NIL(scan_task.scan());
     EXPECT_EQ(cluster_api_ptr->dispatched.size(), 1);
@@ -821,12 +817,15 @@ TEST(TestScanTask, TestTakeOverDeviceOnOtherRack) {
     );
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(cluster_api_ptr->dispatched[0].first, "device1");
-    const x::json::json merged = {{"user_key", "user_value"}, {"serial", "123"}};
+    const x::json::json::object_t merged = {
+        {"user_key", "user_value"},
+        {"serial", "123"},
+    };
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
         actions_json({
+            synnax::device::update({.value = {.properties = merged}}),
             synnax::device::set_rack({.rack = 1}),
-            synnax::device::set({.path = {"properties"}, .value = merged}),
         })
     );
 
@@ -999,9 +998,7 @@ TEST(TestScanTask, TestUserEditDuringFailedUpdate) {
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json(
-            {synnax::device::set({.path = {"location"}, .value = "new_location"})}
-        )
+        actions_json({synnax::device::update({.value = {.location = "new_location"}})})
     );
     EXPECT_TRUE(created->empty());
 }
@@ -1301,9 +1298,7 @@ TEST(TestScanTask, TestDeduplicateOnUpdate) {
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json(
-            {synnax::device::set({.path = {"location"}, .value = "final_slot"})}
-        )
+        actions_json({synnax::device::update({.value = {.location = "final_slot"}})})
     );
 }
 
@@ -1911,7 +1906,7 @@ TEST(TestScanTask, TestUpdateKeepsStoredParent) {
     ASSERT_EQ(cluster_api_ptr->dispatched.size(), 1);
     EXPECT_EQ(
         actions_json(cluster_api_ptr->dispatched[0].second),
-        actions_json({synnax::device::set({.path = {"location"}, .value = "slot-2"})})
+        actions_json({synnax::device::update({.value = {.location = "slot-2"}})})
     );
 }
 

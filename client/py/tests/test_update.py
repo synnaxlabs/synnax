@@ -113,6 +113,15 @@ def _project(unary: UnaryClient) -> project.Client:
     return project.Client(client=unary, file_transport=_offline().file_transport)
 
 
+def _channels(unary: UnaryClient) -> channel.Client:
+    return channel.Client(
+        client=unary,
+        frame_client=_frames(unary),
+        retriever=channel.Retriever(client=unary),
+        creator=channel.Writer(client=unary, instrumentation=NOOP),
+    )
+
+
 ID = uuid4()
 
 # Each case is a client factory, the key of a record, and the dispatch route.
@@ -155,6 +164,7 @@ CLEARS = [
     pytest.param(_ranges, ID, "color", id="range"),
     pytest.param(panel.Client, ID, "project", id="panel"),
     pytest.param(schematic.symbol.Client, ID, "group", id="symbol"),
+    pytest.param(_channels, 7, "group", id="channel"),
 ]
 
 
@@ -231,6 +241,28 @@ class TestUpdate:
         _ranges(r.unary).set_end(ID, 1_700_000_000_123_456_789)
         assert r.sent()[1] == _request(
             ID, {"time_range": {"end": 1_700_000_000_123_456_789}}
+        )
+
+    def test_channel(self) -> None:
+        """Should send a list of channel updates in one batch."""
+        r = Recorder()
+        _channels(r.unary).update(
+            [{"key": 7, "expression": "return 1"}, {"key": 8, "group": ID}]
+        )
+        endpoint, body = r.sent()
+        assert endpoint == "/batch"
+        assert [e["payload"] for e in body["requests"]] == [
+            _request(7, {"expression": "return 1"}),
+            _request(8, {"group": str(ID)}),
+        ]
+
+    def test_set_expression(self) -> None:
+        """Should send the expression of a channel as an update."""
+        r = Recorder()
+        _channels(r.unary).set_expression(7, "return 2")
+        assert r.sent() == (
+            "/channel/dispatch",
+            _request(7, {"expression": "return 2"}),
         )
 
     def test_set_group(self) -> None:

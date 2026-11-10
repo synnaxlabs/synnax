@@ -123,13 +123,12 @@ x::errors::Error Config::load_remote() {
     for (const auto &i: this->integrations)
         if (std::ranges::find(built, i) != built.end())
             this->rack.integrations.push_back(i);
-    return client.racks.dispatch(
+    const x::patch::ValueList<std::string> integrations{.set = this->rack.integrations};
+    return client.racks.update(
         this->rack.key,
         {
-            synnax::rack::set({.path = {"version"}, .value = SYNNAX_DRIVER_VERSION}),
-            synnax::rack::set(
-                {.path = {"integrations"}, .value = this->rack.integrations}
-            ),
+            .integrations = integrations,
+            .version = x::patch::Change<std::string>::to(SYNNAX_DRIVER_VERSION),
         }
     );
 }
