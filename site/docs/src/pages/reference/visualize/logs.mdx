@@ -50,8 +50,8 @@ channels toolbar, double-click a virtual channel to open it in a log.
 3. Optional: set an **Alias** to show in place of the channel name, and a color.
 
 A number channel also has **Notation** and **Precision** settings. A `timestamp` channel
-has a timestamp format and a **Time zone**. To remove a channel and its lines, click
-**Remove channel**.
+has a timestamp format and a **Time zone**. To remove a channel and its lines, move the
+pointer over the icon before the channel name, then click <Icon.Close />.
 
 <Video id="console/logs/example" />
 
@@ -89,6 +89,62 @@ show the time that the Console received the value.
 A row with the date, such as `Wed, Nov 4, 2026`, shows above the first line of each day,
 and the top of the log always shows the day of the lines below it. Copied lines start
 with the date as `YYYY-MM-DD`.
+
+<Divider.Divider x />
+
+## Logs in code
+
+A script can make logs for a test and set up their channels before an operator opens
+them. The Synnax Python client creates, retrieves, renames, and deletes logs. Each log
+belongs to a [project](/reference/visualize/projects) or to a range:
+
+```python
+project = client.projects.create(name="Hotfire")
+log = client.logs.create(name="Operator notes", project=project.key)
+
+log = client.logs.retrieve(key=log.key)
+logs = client.logs.retrieve(projects=project.key)
+
+client.logs.rename(log.key, "Hotfire notes")
+```
+
+To edit the channels of a log, pass the key of the log and the key of the channel:
+
+```python
+notes = client.channels.retrieve("operator_notes")
+pressure = client.channels.retrieve("tank_pressure")
+pressure_2 = client.channels.retrieve("tank_pressure_2")
+time = client.channels.retrieve("event_time")
+
+client.logs.add_channel(log.key, notes.key)
+client.logs.add_channel(log.key, pressure.key)
+client.logs.set_channel_alias(log.key, pressure.key, "Tank pressure")
+client.logs.set_channel_color(log.key, pressure.key, "#3774D0")
+client.logs.set_channel_notation(log.key, pressure.key, "scientific")
+client.logs.set_channel_precision(log.key, pressure.key, 2)
+client.logs.swap_channel(log.key, pressure.key, pressure_2.key)
+client.logs.remove_channel(log.key, notes.key)
+
+client.logs.add_channel(log.key, time.key)
+client.logs.set_channel_timestamp_format(log.key, time.key, "ISO")
+client.logs.set_channel_timestamp_time_zone(log.key, time.key, "UTC")
+```
+
+A precision of `None` shows each value as it arrives. An empty alias shows the channel
+name. `swap_channel` keeps the position and settings of the channel that it replaces. An
+add does nothing when the log already shows the channel. The other channel edits do
+nothing when the log does not show the channel.
+
+To set [what each line shows](#set-what-each-line-shows), and to delete the log:
+
+```python
+client.logs.set_timestamps_hidden(log.key, False)
+client.logs.set_timestamp_precision(log.key, 3)
+client.logs.set_time_zone(log.key, "UTC")
+client.logs.set_channel_names_hidden(log.key, True)
+
+client.logs.delete(log.key)
+```
 
 <Divider.Divider x />
 
