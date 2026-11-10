@@ -220,11 +220,15 @@ var _ = Describe("Go Actions Plugin", func() {
 								"\treturn next, nil\n}",
 							"func (p UpdatePayload) CheckCoreOnly() error {\n"+
 								"\tif p.Value.Hash != nil {\n"+
-								"\t\treturn errors.Wrap(actions.ErrCoreOnly, "+
-								"\"hash\")\n\t}\n"+
+								"\t\treturn errors.Mark(\n"+
+								"\t\t\terrors.Wrap(validate.ErrValidation, "+
+								"\"hash is set by the Core\"),\n"+
+								"\t\t\tactions.ErrCoreOnly,\n\t\t)\n\t}\n"+
 								"\tif !p.Value.Note.IsZero() {\n"+
-								"\t\treturn errors.Wrap(actions.ErrCoreOnly, "+
-								"\"note\")\n\t}\n"+
+								"\t\treturn errors.Mark(\n"+
+								"\t\t\terrors.Wrap(validate.ErrValidation, "+
+								"\"note is set by the Core\"),\n"+
+								"\t\t\tactions.ErrCoreOnly,\n\t\t)\n\t}\n"+
 								"\treturn nil\n}",
 							"case UpdatePayload:\n\t\t\tstate, err = v.Handle(state)",
 						)
