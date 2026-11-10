@@ -229,7 +229,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
     const { slave, channels } = plan;
     const nameOf = (ch: EntryReadChannel) => readChannelName(slave, ch, dataTypes);
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
-    // A new index clears the slave's channel map, so every channel is missing.
+    // A new index clears the read channels of the slave, so every channel is missing.
     const missing = modified ? channels : plan.missing;
     if (missing.length > 0) modified = true;
     const toCreate = await bindOrphanedChannels({

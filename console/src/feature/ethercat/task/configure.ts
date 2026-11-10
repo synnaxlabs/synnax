@@ -263,12 +263,12 @@ export const checkOrCreateIndex = async (
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
-  mapped: (ch: C) => number,
+  channelOf: (ch: C) => number,
   getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
-    const key = mapped(ch);
+    const key = channelOf(ch);
     if (key === 0) {
       toCreate.push(ch);
       continue;
