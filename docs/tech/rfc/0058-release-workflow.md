@@ -115,19 +115,28 @@ works with a released Core: the Core minor the run releases, else the minor of a
 `release/<product>-X.Y` branch, else the newest Core minor reachable from `HEAD`. A run
 that releases no Core fails when no Core is out on that train. The resolve stage takes
 the next patch on the train, or `X.Y.0` when the train has none, and ignores `bump`. The
-publish job waits for every product the run releases, then claims the version by pushing
-its tag at the run's commit. It stops when the tag names another commit, or when the
-registry has the version without a tag, so one version never holds packages from two
-commits. A run at the same commit keeps the version, since the resolve stage keeps a tag
-that names `HEAD`, and finishes a partial publish, since the registry skips what already
-went up. The job then runs `stamp_versions.sh` to write the version into that language's
-manifests and publishes every package of the language at it. The npm trusted publishers
-allow staging only, so the job runs `pnpm stage publish`, and the npm packages go live
-when a maintainer approves them on npmjs.com with 2FA. A merge publishes nothing. Both
-publish through OIDC trusted publishing with `id-token: write`, so no registry token
-lives in the repo's secrets. The registries trust `release.yaml` by name, so the publish
-jobs live in it, not in a called workflow. Packages have no candidate channel: a
-candidate run never publishes them.
+publish job waits for every product the run releases, then runs `stamp_versions.sh` to
+write the version into that language's manifests. It stops when the version's tag names
+another commit, or when the registry has the version without a tag, so one version never
+holds packages from two commits.
+
+The Python job claims the version by pushing its tag at the run's commit, then
+publishes. A run at the same commit keeps the version, since the resolve stage keeps a
+tag that names `HEAD`, and finishes a partial publish, since PyPI skips what already
+went up.
+
+The npm trusted publishers allow staging only. The npm job stages every package in one
+`pnpm stage publish --batch` request, then pushes the tag. Nothing installs until a
+maintainer approves each package on npmjs.com with 2FA, in dependency order: `x`,
+`alamos`, `freighter`, then `client`. A staged version is hidden from the registry, so a
+run whose tag already names its commit skips the stage. While the previous version's
+`client` waits for approval, the job stages nothing, so approvals always move `latest`
+forward. If a stage fails part way, reject the staged versions on npmjs.com and rerun.
+
+A merge publishes nothing. Both publish through OIDC trusted publishing with
+`id-token: write`, so no registry token lives in the repo's secrets. The registries
+trust `release.yaml` by name, so the publish jobs live in it, not in a called workflow.
+Packages have no candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 
