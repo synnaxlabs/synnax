@@ -45,7 +45,7 @@ describe("queries", () => {
         dataType: DataType.FLOAT32,
         virtual: true,
       });
-      const name = { in: [ch.name, project.SET_CHANNEL_NAME] };
+      const name = { in: [ch.name, project.ACTION_CHANNEL_NAME] };
       const { result } = renderHook(
         () => ({
           visible: Channel.useList({ query: { where: { name } } }),
@@ -656,6 +656,37 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultKind", () => {
+    it("should read the icon and flags of a channel and keep them across a rename", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const { result } = renderHook(
+        () => ({
+          kind: Channel.useResultKind({ key: ch.key }),
+          name: Channel.useResultName({ key: ch.key }),
+        }),
+        { wrapper },
+      );
+      await waitFor(() =>
+        expect(result.current.kind.data).toEqual({
+          icon: Channel.resolveIcon(ch.payload),
+          internal: false,
+          virtual: true,
+        }),
+      );
+      const before = result.current.kind.data;
+      const name = id.create();
+      await act(async () => {
+        await client.channels.rename(ch.key, name);
+      });
+      await waitFor(() => expect(result.current.name.data).toEqual(name));
+      expect(result.current.kind.data).toBe(before);
+    });
+  });
+
   describe("useResultList", () => {
     it("should search channels and follow a new match", async () => {
       const token = `rl${Math.random().toString(36).slice(2)}`;
@@ -1158,10 +1189,54 @@ describe("queries", () => {
         result.current.save({ signal: controller.signal });
       });
 
-      await waitFor(() => {
+      await waitFor(async () => {
         expect(result.current.form.value().expression).toEqual(
           `return ${sourceChannel.name} * 3`,
         );
+        const stored = await client.channels.retrieve(existingCalculated.key);
+        expect(stored.expression).toEqual(`return ${sourceChannel.name} * 3`);
+      });
+    });
+
+    it("should save a rename and new operations of a calculated channel", async () => {
+      const sourceChannel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const resetChannel = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.UINT8,
+        virtual: true,
+      });
+      const existing = await client.channels.create({
+        name: id.create(),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${sourceChannel.name}`,
+      });
+      const { result } = await renderHookSuspended(
+        () => Channel.useCalculatedForm({ query: { key: existing.key } }),
+        { wrapper },
+      );
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const name = id.create();
+      const operations: channel.Operation[] = [
+        { type: "avg", resetChannel: resetChannel.key, duration: TimeSpan.seconds(5) },
+      ];
+      act(() => {
+        result.current.form.set(path.name, name);
+        result.current.form.set(path.operations, operations);
+      });
+      await act(async () => {
+        await result.current.saveAsync();
+      });
+      expect(result.current.variant).toEqual("success");
+      await waitFor(async () => {
+        const stored = await client.channels.retrieve(existing.key);
+        expect(stored.name).toEqual(name);
+        expect(stored.expression).toEqual(`return ${sourceChannel.name}`);
+        expect(stored.operations).toEqual(operations);
       });
     });
 

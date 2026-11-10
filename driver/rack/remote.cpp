@@ -123,6 +123,14 @@ x::errors::Error Config::load_remote() {
     for (const auto &i: this->integrations)
         if (std::ranges::find(built, i) != built.end())
             this->rack.integrations.push_back(i);
-    return client.racks.create(this->rack);
+    return client.racks.dispatch(
+        this->rack.key,
+        {
+            synnax::rack::set({.path = {"version"}, .value = SYNNAX_DRIVER_VERSION}),
+            synnax::rack::set(
+                {.path = {"integrations"}, .value = this->rack.integrations}
+            ),
+        }
+    );
 }
 }

@@ -214,14 +214,6 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
-/** A local edit waiting on its send. */
-export interface Edit {
-  /** Reverts the edit. */
-  rollback: destructor.Destructor;
-  /** Applies the edit again to the current document, returning its new rollback. */
-  reapply: () => destructor.Destructor;
-}
-
 /** A dispatch applied to the cached doc whose echo has not arrived. */
 interface Pending<Action> {
   dispatchKey: string;
@@ -265,11 +257,16 @@ interface Made<State, Action> {
   doc?: { current: State; next: State };
 }
 
+/** A queued edit, and the result that its caller awaits. */
+interface Member<State, Action> {
+  edit: Queued<State, Action>;
+  result: PromiseWithResolvers<void>;
+}
+
 /** Dispatches sent together as one, held as one pending entry. */
 interface Batch<State, Action> {
   entry: Pending<Action>;
-  edits: Array<Queued<State, Action>>;
-  result: PromiseWithResolvers<void>;
+  members: Array<Member<State, Action>>;
 }
 
 interface Queue<State, Action> {
@@ -277,7 +274,7 @@ interface Queue<State, Action> {
 }
 
 const revert = (batch: Batch<unknown, unknown>): void =>
-  batch.edits.toReversed().forEach((edit) => edit.rollback());
+  batch.members.toReversed().forEach(({ edit }) => edit.rollback());
 
 /** A prepared edit's actions and the undo stack mutation that records them. */
 interface Prepared<Action> {
@@ -383,24 +380,27 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Sends the actions of a local edit the caller already made, in order with the
-   * document's other dispatches. When nothing is in flight for the document, they go
-   * out at once. Otherwise they join the batch that goes out as one dispatch when the
-   * in-flight send settles. Rejects, with the edit rolled back, when the send fails.
+   * Sends actions in order with the document's other dispatches, and applies them to
+   * the cached doc until their echo arrives. Unlike dispatch, it sends when the doc is
+   * not cached and records no undo entry. When nothing is in flight for the document,
+   * the actions go out at once. Otherwise they join the batch that goes out as one
+   * dispatch when the in-flight send settles.
+   * @throws {Error} if the cached doc cannot hold an action, before any send.
+   * @throws {Error} if the send fails, after the actions roll back.
    */
-  async send(key: Key, actions: Action[], edit: Edit): Promise<void> {
-    const made = (rollback: destructor.Destructor): Made<State, Action> => {
+  async send(key: Key, actions: Action[]): Promise<void> {
+    const made = (): Made<State, Action> => {
       const current = this.docs.get(key);
       return {
-        edit: { actions, rollback, remake: () => made(edit.reapply()) },
+        edit: { actions, rollback: destructor.NOOP, remake: made },
         doc:
           current == null
             ? undefined
             : { current, next: this.params.reduce(current, actions).next },
       };
     };
-    const first = made(edit.rollback);
-    await this.enqueue(key, (queue) => this.join(key, queue, first));
+    const first = made();
+    await this.enqueue(key, (queue, result) => this.join(key, queue, first, result));
   }
 
   /**
@@ -410,7 +410,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    */
   private async enqueue(
     key: Key,
-    add: (queue: Queue<State, Action>) => Batch<State, Action>,
+    add: (queue: Queue<State, Action>, result: PromiseWithResolvers<void>) => void,
   ): Promise<void> {
     let queue = this.queues.get(key);
     const inFlight = queue != null;
@@ -418,17 +418,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       queue = { next: null };
       this.queues.set(key, queue);
     }
-    const batch = add(queue);
+    const result = Promise.withResolvers<void>();
+    add(queue, result);
     if (!inFlight) void this.drain(key, queue);
-    await batch.result.promise;
+    await result.promise;
   }
 
   private nextBatch(queue: Queue<State, Action>): Batch<State, Action> {
-    queue.next ??= {
-      entry: this.createPending(id.create()),
-      edits: [],
-      result: Promise.withResolvers<void>(),
-    };
+    queue.next ??= { entry: this.createPending(id.create()), members: [] };
     return queue.next;
   }
 
@@ -437,12 +434,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     key: Key,
     queue: Queue<State, Action>,
     { edit, doc }: Made<State, Action>,
-  ): Batch<State, Action> {
+    result: PromiseWithResolvers<void>,
+  ): void {
     const batch = this.nextBatch(queue);
-    batch.edits.push(edit);
+    batch.members.push({ edit, result });
     batch.entry.actions.push(...edit.actions);
     if (doc != null) this.track(key, doc.current, batch.entry, doc.next);
-    return batch;
   }
 
   /**
@@ -453,15 +450,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     key: Key,
     queue: Queue<State, Action>,
     entry: Pending<Action>,
-    edit: Queued<State, Action>,
-  ): Batch<State, Action> {
+    member: Member<State, Action>,
+  ): void {
     let batch = queue.next;
     if (batch == null) {
-      batch = { entry, edits: [], result: Promise.withResolvers<void>() };
+      batch = { entry, members: [] };
       queue.next = batch;
     } else this.merge(key, entry, batch.entry);
-    batch.edits.push(edit);
-    return batch;
+    batch.members.push(member);
   }
 
   /** Moves the actions of a pending entry to the end of another. */
@@ -486,10 +482,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           const added = await this.params.send(key, entry.actions, entry.dispatchKey);
           this.accept(key, entry.dispatchKey, added);
         }
-        batch.result.resolve();
+        batch.members.forEach(({ result }) => result.resolve());
       } catch (e) {
         this.fail(key, batch, queue);
-        batch.result.reject(errors.fromUnknown(e));
+        const error = errors.fromUnknown(e);
+        batch.members.forEach(({ result }) => result.reject(error));
       }
     }
     this.queues.delete(key);
@@ -498,6 +495,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // Rolls back a failed batch. Rollbacks restore what came before their edit, so they
   // run newest first, the queued batch's before the failed one's. The queued batch has
   // not been sent, so its edits are then made again on the doc without the failed one.
+  // An edit that cannot be made again rejects its caller and leaves the batch.
   private fail(
     key: Key,
     failed: Batch<State, Action>,
@@ -511,12 +509,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       return;
     }
     this.discard(key, failed.entry.dispatchKey, queued.entry.dispatchKey);
-    const { edits } = queued;
-    queued.edits = [];
+    const { members } = queued;
+    queued.members = [];
     queued.entry.actions = [];
-    for (const edit of edits) {
-      const made = edit.remake();
-      if (made != null) this.join(key, queue, made);
+    for (const { edit, result } of members) {
+      let made: Made<State, Action> | null;
+      try {
+        made = edit.remake();
+      } catch (e) {
+        result.reject(errors.fromUnknown(e));
+        continue;
+      }
+      if (made == null) result.resolve();
+      else this.join(key, queue, made, result);
     }
   }
 
@@ -623,8 +628,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
     p.echo = [...p.actions, ...added];
-    // The echo may have been lost when the epoch changed during the send.
-    if (p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.echo);
+    // No echo arrives in epoch 0, which has no change stream. The echo may also have
+    // been lost when the epoch changed during the send.
+    if (this.epoch === 0 || p.epoch !== this.epoch)
+      this.settle(key, r, dispatchKey, p.echo);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
@@ -763,7 +770,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // A no-op has nothing for the server. The stack mutation still runs so undo/redo
     // consume their entry instead of pinning it.
     if (made.doc.next === made.doc.current) return true;
-    await this.enqueue(key, (queue) => this.join(key, queue, made));
+    await this.enqueue(key, (queue, result) => this.join(key, queue, made, result));
     return true;
   }
 
@@ -914,7 +921,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
           rollback: commitStack({ processed: actions, inverse, targets }),
           remake: () => this.make(key, () => ({ actions, commitStack })),
         };
-        await this.enqueue(key, (queue) => this.adopt(key, queue, entry, edit));
+        await this.enqueue(key, (queue, result) =>
+          this.adopt(key, queue, entry, { edit, result }),
+        );
         return true;
       },
       abort: () => {

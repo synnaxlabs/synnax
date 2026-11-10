@@ -126,7 +126,7 @@ var _ = Describe("Completion", func() {
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
 				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter", "response", "include",
+				"pb", "filter", "response", "include", "group",
 			))
 		})
 	})
@@ -137,7 +137,7 @@ var _ = Describe("Completion", func() {
 			func(ctx SpecContext) {
 				list := completionAt(ctx, 2, 12)
 				Expect(labels(list.Items)).To(ContainElements(
-					"required", "min_length", "max_length",
+					"required", "min_length", "max_length", "min", "gt", "max",
 				))
 			},
 		)

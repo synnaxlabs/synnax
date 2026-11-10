@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
+#include <limits>
 #include <map>
 #include <memory>
 // Disable GCC 13 false positive warning in <regex> header
@@ -23,13 +25,16 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/testutil/server.h"
 #include "driver/http/write_task.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
 using ::synnax::http::GeneratedWriteField;
@@ -76,6 +81,67 @@ size_t count_requests_for_path(
     for (const auto &r: reqs)
         if (r.path == path) count++;
     return count;
+}
+
+/// @brief config for one POST endpoint that writes channel 1 to /value as json_type.
+WriteTaskConfig single_endpoint_cfg(const std::string &json_type) {
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    WriteEndpoint ep;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = json_type;
+    ep.channel.channel = 1;
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+    cfg.cmd_names = {{1, "valve_cmd"}};
+    return cfg;
+}
+
+/// @brief asserts that the sink sends no request for invalid, warns with a
+/// description that names the channel and value_text, then sends valid.
+void assert_invalid_value_skipped(
+    const std::string &json_type,
+    const double invalid,
+    const std::string &value_text,
+    const double valid,
+    const x::json::json &expected
+) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg(json_type);
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame bad;
+    bad.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{invalid})
+    );
+    ASSERT_NIL(sink->write(bad));
+    const auto warning = sink->take_warning();
+    EXPECT_EQ(warning.message, "Skipped invalid command");
+    EXPECT_NE(warning.description.find("valve_cmd"), std::string::npos);
+    EXPECT_NE(warning.description.find(value_text), std::string::npos);
+    EXPECT_EQ(server.received_requests().size(), 0);
+
+    x::telem::Frame good;
+    good.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{valid}));
+    ASSERT_NIL(sink->write(good));
+    EXPECT_TRUE(sink->take_warning().empty());
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(x::json::json::parse(reqs[0].body)["value"], expected);
 }
 }
 
@@ -1141,8 +1207,7 @@ TEST(HTTPWriteTask, RecoverFromError) {
     EXPECT_NEAR(body["value"].get<double>(), 30.0, 0.001);
 }
 
-/// @brief it should return an error when a string value cannot be converted to a JSON
-/// number.
+/// @brief it should warn when a string value cannot be converted to a JSON number.
 TEST(HTTPWriteTask, BadConversionStringToNumber) {
     testutil::Server server(
         testutil::ServerConfig{
@@ -1170,6 +1235,7 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
+    cfg.cmd_names = {{1, "cmd"}};
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
@@ -1179,11 +1245,162 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
         x::telem::Series(std::string("not a number"))
     );
 
-    auto err = sink->write(frame);
-    ASSERT_OCCURRED_AS(err, x::json::CONVERSION_ERROR);
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_EQ(sink->take_warning().message, "Skipped invalid command");
 
     // No request should have been sent.
     EXPECT_EQ(server.received_requests().size(), 0);
+}
+
+/// @brief it should not send NaN to a JSON number field.
+TEST(HTTPWriteTask, NaNToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        std::numeric_limits<double>::quiet_NaN(),
+        "NaN",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send positive infinity to a JSON number field.
+TEST(HTTPWriteTask, InfinityToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        std::numeric_limits<double>::infinity(),
+        "Infinity",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send negative infinity to a JSON number field.
+TEST(HTTPWriteTask, NegativeInfinityToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        -std::numeric_limits<double>::infinity(),
+        "-Infinity",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send NaN to a JSON boolean field.
+TEST(HTTPWriteTask, NaNToBooleanNotSent) {
+    assert_invalid_value_skipped(
+        "boolean",
+        std::numeric_limits<double>::quiet_NaN(),
+        "NaN",
+        1,
+        true
+    );
+}
+
+/// @brief it should send the other endpoints in a frame when one value is NaN.
+TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/other",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg("number");
+    auto other = cfg.endpoints[0];
+    other.path = "/api/other";
+    other.channel.channel = 2;
+    cfg.endpoints.push_back(other);
+    cfg.cmd_keys.push_back(2);
+    cfg.cmd_names[2] = "other_cmd";
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector{std::numeric_limits<double>::quiet_NaN()})
+    );
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{2.5}));
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_NE(sink->take_warning().description.find("valve_cmd"), std::string::npos);
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].path, "/api/other");
+}
+
+/// @brief it should report a NaN command as a task warning and keep running.
+TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg("number");
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame bad;
+    bad.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector{std::numeric_limits<double>::quiet_NaN()})
+    );
+    reads->push_back(std::move(bad));
+    x::telem::Frame good;
+    good.emplace(synnax::channel::Key(1), x::telem::Series(std::vector{3.5}));
+    reads->push_back(std::move(good));
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    // A breaker wait would outlast the timeout below, so the test fails if the skipped
+    // command engages the breaker.
+    common::WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1}, reads)
+    );
+    ASSERT_TRUE(write_task.start("start"));
+
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return server.received_requests().size(); },
+        size_t(1),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(x::json::json::parse(server.received_requests()[0].body)["value"], 3.5);
+    const auto statuses = ctx->snapshot();
+    const auto warning = std::ranges::find_if(statuses, [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
+    ASSERT_NE(warning, statuses.end());
+    EXPECT_EQ(warning->message, "Skipped invalid command");
+    EXPECT_NE(warning->description.find("valve_cmd"), std::string::npos);
+    EXPECT_NE(warning->description.find("NaN"), std::string::npos);
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_TRUE(ctx->snapshot().back().details.running);
+    ASSERT_TRUE(write_task.stop("stop", true));
 }
 
 /// @brief it should PATCH with a boolean channel value.

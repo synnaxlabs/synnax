@@ -32,40 +32,24 @@ const (
 )
 
 // CreatePayload replaces the channel with the given created state. Emitted by the Core
-// when a channel is created or overwritten whole; clients never dispatch it.
+// when a channel is created; clients never dispatch it.
 type CreatePayload struct {
 	Channel Channel `json:"channel" msgpack:"channel"`
 }
 
-// SetPayload replaces the value at a path in the channel.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// SetPayload replaces the value at a path. It creates the absent objects on the path,
+// and does nothing when the path goes through a missing list entry.
+type SetPayload patch.Set
 
-// RemovePayload removes an entry from a list or a field from an object in the channel.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// RemovePayload removes an entry from a list or a field from an object.
+type RemovePayload patch.Remove
 
-// InsertPayload adds an entry to a list in the channel.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// InsertPayload adds an entry to a list. It does nothing when an entry with the same
+// key exists.
+type InsertPayload patch.Insert
 
-// MovePayload moves an entry in a list in the channel.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+// MovePayload moves an entry in a list. It does nothing when the entry is missing.
+type MovePayload patch.Move
 
 // RenamePayload renames the channel. The Core also renames the channel's storage when
 // the transaction commits.
@@ -86,48 +70,48 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Channel: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Channel, actions ...Action) (Channel, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		case ActionTypeRename:
 			if a.Rename == nil {
-				return state, union.MissingPayload(a.Type)
+				return Channel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Rename.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Channel{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Channel{}, err
 		}
 	}
 	return state, nil

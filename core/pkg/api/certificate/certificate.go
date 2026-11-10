@@ -120,34 +120,34 @@ func (in Input) certificate() (Certificate, error) {
 	return c, nil
 }
 
-// CreateRequest holds the certificates to create or replace.
-type CreateRequest struct {
+// SetRequest holds the certificates to create or replace.
+type SetRequest struct {
 	// Certificates are the certificates to create or replace.
 	Certificates []Input `json:"certificates" msgpack:"certificates"`
 }
 
-// CreateResponse holds the created certificates.
-type CreateResponse struct {
-	// Certificates are the created certificates, with their keys.
+// SetResponse holds the saved certificates.
+type SetResponse struct {
+	// Certificates are the saved certificates, with their keys.
 	Certificates []Certificate `json:"certificates" msgpack:"certificates"`
 }
 
-// Create creates the certificates, or replaces those whose key exists. A private key is
+// Set creates the certificates, or replaces those whose key exists. A private key is
 // saved as a secret that the certificate uses.
-func (s *Service) Create(
+func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
-	req CreateRequest,
-) (CreateResponse, error) {
+	req SetRequest,
+) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	res := CreateResponse{Certificates: make([]Certificate, len(req.Certificates))}
+	res := SetResponse{Certificates: make([]Certificate, len(req.Certificates))}
 	for i, in := range req.Certificates {
 		c, err := in.certificate()
 		if err != nil {
-			return CreateResponse{}, err
+			return SetResponse{}, err
 		}
-		if err = w.Create(ctx, &c, []byte(in.PrivateKeyPem)); err != nil {
-			return CreateResponse{}, err
+		if err = w.Set(ctx, &c, []byte(in.PrivateKeyPem)); err != nil {
+			return SetResponse{}, err
 		}
 		res.Certificates[i] = c
 	}
@@ -181,23 +181,6 @@ func (s *Service) Retrieve(
 		return RetrieveResponse{}, err
 	}
 	return res, nil
-}
-
-// RenameRequest names the certificate to rename and its new name.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the certificate to rename.
-	Key Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the certificate.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DispatchRequest carries an action sequence to apply to a single certificate.

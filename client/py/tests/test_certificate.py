@@ -48,7 +48,7 @@ SHA256 = "20637df2df608327ed9cd031811c822513256444225a7bf655559f0baee4a970"
 class TestCertificate:
     def test_create_stored(self, client: sy.Synnax) -> None:
         """Should read the details of a stored certificate."""
-        c = client.certificates.create(certificate.NewStored(name="CA", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="CA", pem=PEM))
         assert isinstance(c, certificate.StoredCertificate)
         assert c.private_key is None
         assert c.details.sha1 == SHA1
@@ -59,7 +59,7 @@ class TestCertificate:
 
     def test_create_with_private_key(self, client: sy.Synnax) -> None:
         """Should save a private key as a secret."""
-        c = client.certificates.create(
+        c = client.certificates.set(
             certificate.NewStored(name="Client", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)
@@ -69,7 +69,7 @@ class TestCertificate:
 
     def test_private_key_use(self, client: sy.Synnax) -> None:
         """Should be a use of its private key secret."""
-        c = client.certificates.create(
+        c = client.certificates.set(
             certificate.NewStored(name="Used key", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)
@@ -86,7 +86,7 @@ class TestCertificate:
                 r"validation error$"
             ),
         ):
-            client.certificates.create(
+            client.certificates.set(
                 certificate.NewStored(
                     name="Mismatched", pem=PEM, private_key_pem=OTHER_PRIVATE_KEY
                 )
@@ -94,7 +94,7 @@ class TestCertificate:
 
     def test_create_file(self, client: sy.Synnax) -> None:
         """Should create a file certificate."""
-        c = client.certificates.create(
+        c = client.certificates.set(
             certificate.FileCertificate(
                 name="On disk",
                 certificate_path="/etc/synnax/client.crt",
@@ -107,32 +107,32 @@ class TestCertificate:
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a certificate by key."""
-        c = client.certificates.create(certificate.NewStored(name="Retrieve", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="Retrieve", pem=PEM))
         assert client.certificates.retrieve(key=c.key) == c
 
     def test_retrieve_by_where(self, client: sy.Synnax) -> None:
         """Should leave out a key that no certificate has."""
-        c = client.certificates.create(certificate.NewStored(name="Kept", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="Kept", pem=PEM))
         where = certificate.Where(key=filter.Set[certificate.Key](in_=[c.key, uuid4()]))
         assert client.certificates.retrieve(where=where) == [c]
 
     def test_retrieve_key_list(self, client: sy.Synnax) -> None:
         """Should return a list for a list of keys, leaving out a key that no
         certificate has."""
-        c = client.certificates.create(certificate.NewStored(name="Listed", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="Listed", pem=PEM))
         assert client.certificates.retrieve(key=[c.key, uuid4()]) == [c]
 
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should return one certificate for a plain name."""
         name = f"named-certificate-{uuid4()}"
-        c = client.certificates.create(certificate.NewStored(name=name, pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name=name, pem=PEM))
         assert client.certificates.retrieve(name=name) == c
 
     def test_order_and_after(self, client: sy.Synnax) -> None:
         """Should page through the matching certificates in name order from a
         cursor."""
         prefix = uuid4()
-        created = client.certificates.create(
+        created = client.certificates.set(
             [certificate.NewStored(name=f"{prefix} {n}", pem=PEM) for n in "CAB"]
         )
         keys = [c.key for c in created]
@@ -145,13 +145,13 @@ class TestCertificate:
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a certificate."""
-        c = client.certificates.create(certificate.NewStored(name="Before", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="Before", pem=PEM))
         client.certificates.rename(c.key, "After")
         assert client.certificates.retrieve(key=c.key).name == "After"
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a certificate."""
-        c = client.certificates.create(certificate.NewStored(name="Delete", pem=PEM))
+        c = client.certificates.set(certificate.NewStored(name="Delete", pem=PEM))
         client.certificates.delete(c.key)
         with pytest.raises(
             sy.NotFoundError, match=f'Found no certificate where key = "{c.key}"'
@@ -160,7 +160,7 @@ class TestCertificate:
 
     def test_delete_used_private_key(self, client: sy.Synnax) -> None:
         """Should refuse to delete a private key that a certificate uses."""
-        c = client.certificates.create(
+        c = client.certificates.set(
             certificate.NewStored(name="In use", pem=PEM, private_key_pem=PRIVATE_KEY)
         )
         assert isinstance(c, certificate.StoredCertificate)

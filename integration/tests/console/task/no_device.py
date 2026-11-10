@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import uuid
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -49,7 +48,6 @@ class NoDevice(HardwareCase, ConsoleCase):
         self.create_test_devices(
             [
                 sy.ni.Device(
-                    key=str(uuid.uuid5(uuid.NAMESPACE_DNS, dev_name)),
                     rack=rack.key,
                     name=dev_name,
                     model=dev_name,

@@ -9,7 +9,7 @@
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished } from "vitest";
 
 import { Project } from "@/feature/project";
 import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
@@ -24,6 +24,10 @@ describe("project toolbar", () => {
     const g = await client.groups.create({
       scope: "project",
       name: uniqueName("group"),
+    });
+    onTestFinished(async () => {
+      await client.projects.delete(p.key);
+      await client.groups.delete(g.key);
     });
     await renderToolbar(Project.TOOLBAR.content, { client, items: Project.TREE_ITEMS });
     expect(await findTreeRow(p.name)).toBeTruthy();

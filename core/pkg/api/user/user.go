@@ -177,29 +177,6 @@ func (s *Service) Create(
 	return CreateResponse{Users: newUsers}, nil
 }
 
-type ChangeUsernameRequest struct {
-	Username string   `json:"username" msgpack:"username"`
-	Key      user.Key `json:"key"      msgpack:"key"`
-}
-
-// ChangeUsername changes the username of the password held by the user with the given
-// key. It returns an error when the user is the subject, and the errors of
-// user.Writer.Apply.
-func (s *Service) ChangeUsername(
-	ctx context.Context,
-	tx gorp.Tx,
-	req ChangeUsernameRequest,
-) (struct{}, error) {
-	if err := checkOtherUser(ctx, req.Key); err != nil {
-		return struct{}{}, err
-	}
-	return struct{}{}, s.internal.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		user.NewSetUsernameAction(user.SetUsernamePayload{Username: req.Username}),
-	)
-}
-
 // checkOtherUser returns an error when the user with key is the subject, as a subject
 // cannot change its own username.
 func checkOtherUser(ctx context.Context, key user.Key) error {
@@ -207,25 +184,6 @@ func checkOtherUser(ctx context.Context, key user.Key) error {
 		return nil
 	}
 	return errors.New("you cannot change your own username through the user service")
-}
-
-type RenameRequest struct {
-	Name string   `json:"name" msgpack:"name"`
-	Key  user.Key `json:"key"  msgpack:"key"`
-}
-
-// Rename changes the name of the user with the provided key.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		Apply(ctx, req.Key, setAction("name", req.Name))
-}
-
-func setAction(path string, value any) user.Action {
-	return user.NewSetAction(user.SetPayload{Path: []string{path}, Value: value})
 }
 
 // DispatchRequest carries an action sequence to apply to a single user. DispatchKey is
@@ -305,32 +263,6 @@ func (s *Service) Delete(
 		return struct{}{}, err
 	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
-}
-
-// SetRoleRequest gives Role to the users with Keys.
-type SetRoleRequest struct {
-	Keys []user.Key `json:"keys" msgpack:"keys"`
-	Role role.Key   `json:"role" msgpack:"role"`
-}
-
-// SetRole gives a role to the users with the provided keys in one transaction. It
-// returns access.ErrDenied when the subject cannot update the users, a validation error
-// when a user is a root user, and query.ErrNotFound when a user does not exist.
-func (s *Service) SetRole(
-	ctx context.Context,
-	tx gorp.Tx,
-	req SetRoleRequest,
-) (struct{}, error) {
-	if err := s.enforceOnUsers(ctx, access.ActionUpdate, req.Keys); err != nil {
-		return struct{}{}, err
-	}
-	w := s.internal.NewWriter(tx)
-	for _, k := range req.Keys {
-		if err := w.Apply(ctx, k, setAction("role", req.Role)); err != nil {
-			return struct{}{}, err
-		}
-	}
-	return struct{}{}, nil
 }
 
 // enforceOnUsers checks the action on the users with the provided keys before a write

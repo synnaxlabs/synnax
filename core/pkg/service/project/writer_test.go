@@ -27,8 +27,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -47,6 +49,21 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a project whose key exists", func(ctx SpecContext) {
+			proj := project.Project{Name: "stored"}
+			Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
+			again := project.Project{Key: proj.Key, Name: "refused"}
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("project %s already exists", proj.Key)),
+			))
+			var res project.Project
+			Expect(svc.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(proj))
+		})
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple projects", func(ctx SpecContext) {
@@ -106,13 +123,11 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
 				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-				s := schematic.Schematic{Name: "s", Project: &proj.Key}
+				s := schematic.Schematic{Name: "s", Group: &g.Key}
 				Expect(schematicSvc.NewWriter(tx).Create(ctx, &s)).To(Succeed())
-				Expect(schematicSvc.NewWriter(tx).SetGroup(ctx, &g.Key, s.Key)).
-					To(Succeed())
-				lp := lineplot.LinePlot{Name: "lp", Project: &proj.Key}
+				lp := defaults.Fill(lineplot.LinePlot{Name: "lp", Project: &proj.Key})
 				Expect(lineplotSvc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
-				l := log.Log{Name: "l", Project: &proj.Key}
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 				t := table.Table{Name: "t", Project: &proj.Key}
 				Expect(tableSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
@@ -151,7 +166,7 @@ var _ = Describe("Writer", func() {
 			kept := project.Project{Name: "kept"}
 			Expect(svc.NewWriter(tx).Create(ctx, &doomed)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &kept)).To(Succeed())
-			l := log.Log{Name: "l", Project: &kept.Key}
+			l := defaults.Fill(log.Log{Name: "l", Project: &kept.Key})
 			Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, doomed.Key)).To(Succeed())
 			Expect(logSvc.NewRetrieve().
@@ -169,7 +184,7 @@ var _ = Describe("Writer", func() {
 				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
 				g := group.Group{Name: "folder", Parent: new(proj.ResourceID())}
 				Expect(groupSvc.NewWriter(tx).Create(ctx, &g)).To(Succeed())
-				l := log.Log{Name: "l", Project: &proj.Key}
+				l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 				Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 				p := panel.Panel{Name: "p", Project: &proj.Key}
 				Expect(panelSvc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
@@ -184,7 +199,7 @@ var _ = Describe("Writer", func() {
 	) {
 		proj := project.Project{Name: "snapshot"}
 		Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-		l := log.Log{Name: "l", Project: &proj.Key}
+		l := defaults.Fill(log.Log{Name: "l", Project: &proj.Key})
 		Expect(logSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 		Expect(tx.Commit(ctx)).To(Succeed())
 		var children []resource.ID
@@ -242,21 +257,6 @@ var _ = Describe("Writer", func() {
 			))
 			Expect(retrieveGroup(ctx, proj.Key)).To(BeNil())
 		})
-
-		It(
-			"Should keep the stored group when a project is created again",
-			func(ctx SpecContext) {
-				g := createGroup(ctx, group.Group{
-					Name:  "Kept",
-					Scope: resource.TypeProject,
-				})
-				proj := project.Project{Name: "kept", Group: &g.Key}
-				Expect(svc.NewWriter(tx).Create(ctx, &proj)).To(Succeed())
-				again := project.Project{Key: proj.Key, Name: "kept again"}
-				Expect(svc.NewWriter(tx).Create(ctx, &again)).To(Succeed())
-				Expect(retrieveGroup(ctx, proj.Key)).To(Equal(&g.Key))
-			},
-		)
 	})
 })
 
@@ -297,7 +297,7 @@ var _ = Describe("Writer in concurrent transactions", func() {
 	}
 
 	It(
-		"Should keep the group that a move writes during concurrent creates",
+		"Should keep the group that a move writes during concurrent applies",
 		func(ctx SpecContext) {
 			groups := make([]group.Group, 50)
 			for i := range groups {
@@ -315,9 +315,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					for !moved.Load() {
-						again := project.Project{Key: proj.Key, Name: proj.Name}
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-							return svc.NewWriter(tx).Create(ctx, &again)
+							return svc.NewWriter(tx).Rename(ctx, proj.Key, "renamed")
 						})).To(Succeed())
 					}
 				})

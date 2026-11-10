@@ -42,6 +42,15 @@ Hover moves one fill step from rest, and press moves one more. Disabled text is
 `--pluto-text-disabled`. A disabled outlined control (an input, a select trigger, an
 outlined button) has fill l2 and border l4, and its caret has the disabled text color.
 
+### Status colors
+
+Success is primary blue, warning is yellow (amber in light), and error is red. Every
+status color is a step of the palette ramps in `lyra/src/theme/theme.ts`, never a hex
+from another system. Text on a 15% tint of its status (badges, notes) uses
+`--pluto-primary-text`, `--pluto-warning-text`, or `--pluto-error-text`. Each is the
+step nearest the status color that reads on the tint: a darker step in light mode, and a
+lighter step or the base step in dark mode.
+
 ### Shape and size
 
 - Lyra's rem is 6 px. Write sizes in rem with the existing tokens. Round a fractional
@@ -274,6 +283,8 @@ bound, a log precision, or the line plot X channel.
 - Context menus use 12 px text in 24 px items.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
+- "Copy" puts data on the clipboard. "Duplicate" makes a new resource. A menu never
+  calls a duplicate "Copy".
 - An open select marks the current value and opens scrolled to it.
 - A field in a list item uses the `shadow` variant: no box at rest, a border on hover,
   and a box while open. Fields in forms and detail panes keep their box.
@@ -288,6 +299,26 @@ bound, a log precision, or the line plot X channel.
   "Disconnected" from the status `connected` flag, in the color of the status variant.
   Its tooltip shows the message and the description. A word from the variant was
   rejected, because one variant covers both states.
+
+### Devices
+
+- Status sits at the right end. In a list, such as the device tree, select items, and
+  the find view, a device shows its status as a dot (`Device.StatusIndicator`), and a
+  Driver shows its heart. A closed device select shows a badge instead (see Menus and
+  selects). A list is for scanning, and a chosen device answers one question, so it gets
+  words.
+- The integration says how a device's location reads (`Device.LocationFormat`). The
+  telling part is gray l9 and the rest l7: the slot of an EtherCAT path, the host of an
+  address, and the first address of a list with a count. An address hides the schemes of
+  its integration, such as `https://` and `mqtts://`, because a scheme never tells two
+  of its devices apart. While any part is hidden or cut, a tooltip shows the whole
+  location.
+- A device tree item is one line: the logo, the name, and the location at the right end.
+  The location gives up its width first, down to its telling part, and then the name
+  fades. Two lines were rejected for the tree.
+- A device select item is two lines in 48 px: the name, then the location 3 px below it,
+  with the status dot at the right. It has no logo, because the select lists one make
+  and the closed select shows the logo.
 
 ### Lists with checkboxes
 
@@ -460,6 +491,10 @@ says why in a sentence, then gives the raw error.
 - Respond to every input in less than 100 ms. Show a spinner only after 150 to 300 ms,
   and keep it for at least 300 ms. A plot draws its axes at once and streams data in.
 - Every command that a key runs also has a button or a menu item.
+- Cmd+C on selected tree items copies their names, one per line. The HTML form makes
+  each name a link when a link opens its type, so a paste into chat or email opens the
+  resource. The tree menu has the same Copy item. A text selection, such as a name in a
+  rename, copies as text.
 - Hover can show rare actions, never the current state. A control that shows on hover
   keeps its space, so the layout does not move.
 - Focus never gets lost. After an add, focus goes to the new item. When a dialog closes,

@@ -52,6 +52,7 @@ import (
 	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -220,7 +221,7 @@ var _ = Describe("Layer", func() {
 		func(ctx SpecContext) {
 			node := testutil.NewNode(ctx)
 			db := node.DB
-			plot := lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"}
+			plot := defaults.Fill(lineplot.LinePlot{Key: uuid.New(), Name: "Pressures"})
 			lpKey := plot.Key.String()
 			lpID := resource.ID{Type: resource.TypeLineplot, Key: lpKey}
 			Expect(gorp.WrapWriter[string, ontology.Resource](db).
@@ -512,11 +513,11 @@ var _ = Describe("Group moves", Ordered, func() {
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.Schematic.NewWriter(tx).Create(ctx, &sch)
 		})).To(Succeed())
-		lp := lineplot.LinePlot{Name: "Plot", Group: &g.Key}
+		lp := defaults.Fill(lineplot.LinePlot{Name: "Plot", Group: &g.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.LinePlot.NewWriter(tx).Create(ctx, &lp)
 		})).To(Succeed())
-		lg := log.Log{Name: "Log", Group: &g.Key}
+		lg := defaults.Fill(log.Log{Name: "Log", Group: &g.Key})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return l.Log.NewWriter(tx).Create(ctx, &lg)
 		})).To(Succeed())

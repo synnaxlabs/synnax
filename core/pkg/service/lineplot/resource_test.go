@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -25,7 +26,9 @@ import (
 var _ = Describe("Resources", func() {
 	It("Should name each line plot by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		lp := lineplot.LinePlot{Project: &proj.Key, Name: "resource-lineplot"}
+		lp := defaults.Fill(
+			lineplot.LinePlot{Project: &proj.Key, Name: "resource-lineplot"},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
 		Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{lp.ResourceID()})).
 			To(Equal([]resource.Resource{{ID: lp.ResourceID(), Name: lp.Name}}))
@@ -44,7 +47,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should leave out an ID that names no line plot", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		lp := lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"}
+		lp := defaults.Fill(
+			lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
 		missing := resource.ID{Type: resource.TypeLineplot, Key: uuid.New().String()}
 		Expect(svc.Resources().Retrieve(
@@ -56,7 +61,9 @@ var _ = Describe("Resources", func() {
 
 	It("Should list each line plot by its name", func(ctx SpecContext) {
 		tx := DeferClose(db.OpenTx())
-		lp := lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"}
+		lp := defaults.Fill(
+			lineplot.LinePlot{Project: &proj.Key, Name: "listed-lineplot"},
+		)
 		Expect(svc.NewWriter(tx).Create(ctx, &lp)).To(Succeed())
 		Expect(svc.Resources().List(ctx, tx, 10000, nil)).To(ContainElement(
 			resource.Resource{ID: lp.ResourceID(), Name: lp.Name},
@@ -69,7 +76,7 @@ var _ = Describe("Search", func() {
 	BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 	create := func(ctx SpecContext, name string) resource.ID {
 		GinkgoHelper()
-		p := lineplot.LinePlot{Project: &proj.Key, Name: name}
+		p := defaults.Fill(lineplot.LinePlot{Project: &proj.Key, Name: name})
 		Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 		return lineplot.ResourceID(p.Key)
 	}

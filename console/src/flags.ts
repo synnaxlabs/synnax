@@ -9,20 +9,18 @@
 
 /**
  * Static build-time flags that hide unfinished work in the Console build. Vite replaces
- * the build constants statically, so dark code tree-shakes out of the Console build.
- * Every flag is on in dev and Desktop builds, and in a build that sets
- * `VITE_FLAGS_ENABLED` to the exact string "true", such as the integration build. Each
- * entry names its owner, its Linear umbrella issue, and the release that removes it.
+ * the build constants statically, so dark code tree-shakes out of the Console build. A
+ * flag is on in dev and Desktop builds, and in a build that sets `VITE_FLAGS_ENABLED`
+ * to the exact string "true", such as the integration build. A flag for work that does
+ * not run yet leaves out Desktop builds. Each entry names its owner, its Linear
+ * umbrella issue, and the release that removes it.
  */
-const ENABLED = IS_DEV || DESKTOP || import.meta.env.VITE_FLAGS_ENABLED === "true";
+const INTEGRATION = import.meta.env.VITE_FLAGS_ENABLED === "true";
 
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-4876. Removed in 0.61, which also links the
-  // MQTT docs from the other driver pages.
-  mqtt: ENABLED,
-  // Owner: Patrick Dotson. Umbrella: SY-5105. Removed in the release that ships the
-  // Kafka integration.
-  kafka: ENABLED,
+  // Owner: Nico Alba. Umbrella: SY-4845. Removed in 0.62, when Arc modules ship. Module
+  // code does not run yet, so Desktop builds leave it out.
+  arcModules: IS_DEV || INTEGRATION,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
