@@ -80,12 +80,12 @@ var _ = Describe("Update", func() {
 		Expect(keys(next)).To(Equal([]string{"c4", "c3"}))
 	})
 
-	It("Should change the variant and keep the base fields", func() {
+	It("Should change the variant and keep the fields every variant holds", func() {
 		next := updateChannel(ni.AICurrentChannelUpdate{Key: "c3"})
 		c3 := next.Channels[0].Variant.(ni.AICurrentChannel)
 		Expect(c3.Key).To(Equal("c3"))
 		Expect(c3.Name).To(Equal("Pressure"))
-		Expect(c3.Port).To(Equal(uint32(1)))
+		Expect(c3.Port).To(BeZero())
 		Expect(c3.ExtShuntResistorVal).To(Equal(1.0))
 		Expect(c3.MinVal).To(Equal(0.0))
 	})

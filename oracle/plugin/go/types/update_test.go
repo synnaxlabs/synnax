@@ -253,6 +253,36 @@ var _ = Describe("Update types", func() {
 			)
 		})
 
+		It("Should carry only the fields every variant holds to a new variant", func(
+			ctx SpecContext,
+		) {
+			generate(ctx, `
+				Base struct {
+					key  string { @key }
+					name string
+					port int32
+				}
+
+				Channel union on type extends Base {
+					voltage {}
+					builtin {
+						-port
+					}
+				}
+
+				Config struct {
+					key      uuid
+					channels Channel[] { @patch }
+					@actions
+				}
+			`).ToContain(
+				"\t\t\t\tbase := baseOfChannel(x)\n"+
+					"\t\t\t\tnext.Key = base.Key\n"+
+					"\t\t\t\tnext.Name = base.Name\n\t\t\t}\n",
+				`errors.Wrap(validate.ErrValidation, "port is required")`,
+			).ToNotContain("next.Port = base.Port")
+		})
+
 		It("Should check each field with no default when the variant changes", func(
 			ctx SpecContext,
 		) {

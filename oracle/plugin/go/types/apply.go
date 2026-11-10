@@ -277,7 +277,11 @@ func (a *applier) unionMethods(u resolution.Type) (string, error) {
 		return "", err
 	}
 	base, hasBase := a.unionBase(record)
-	baseNames := baseFieldNames(rform, table)
+	shared := sharedFields(record, table)
+	sharedNames := set.New(lo.Map(
+		shared,
+		func(f resolution.Field, _ int) string { return f.Name },
+	)...)
 	var b strings.Builder
 	b.WriteString(strings.TrimPrefix(unionApplyDoc, "\n"))
 	fmt.Fprintf(
@@ -343,13 +347,15 @@ func (a *applier) unionMethods(u resolution.Type) (string, error) {
 			}
 `, base.field)
 		case hasBase:
-			fmt.Fprintf(&b, `			if x.Variant != nil {
-				base := %s
-				x.Variant = next
-				%s
-				next = x.Variant.(%s)
+			parent, _, _ := resolution.Dealias(rform.Extends[0], table)
+			fmt.Fprintf(&b, "\t\t\tif x.Variant != nil {\n\t\t\t\tbase := %s\n",
+				base.get("x", true))
+			for _, f := range shared {
+				fmt.Fprintf(&b, "\t\t\t\tnext.%s = base.%s\n",
+					a.variantSelector(record, rv, f.Name),
+					a.structSelector(parent, f.Name))
 			}
-`, base.get("x", true), base.set("x", "base"), vt)
+			b.WriteString("\t\t\t}\n")
 		}
 		b.WriteString(`		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -378,7 +384,7 @@ func (a *applier) unionMethods(u resolution.Type) (string, error) {
 			update: ut,
 			target: vt,
 			fields: lo.Filter(fields, func(f resolution.Field, _ int) bool {
-				return !hasBase || !baseNames.Contains(f.Name)
+				return !hasBase || !sharedNames.Contains(f.Name)
 			}),
 			record:  recordFields,
 			applies: probe.Variants[i].NeedsApplyDefaults,
@@ -430,20 +436,26 @@ func unionGoName(typ resolution.Type) string {
 	return typ.Name
 }
 
-// baseFieldNames returns the names of the fields that every variant of form shares.
-func baseFieldNames(
-	form resolution.UnionForm,
-	table *resolution.Table,
-) set.Set[string] {
-	names := make(set.Set[string])
+// sharedFields returns the base fields of the union record that every variant holds, in
+// the order of the base.
+func sharedFields(record resolution.Type, table *resolution.Table) []resolution.Field {
+	form := record.Form.(resolution.UnionForm)
+	var fields []resolution.Field
 	for _, ref := range form.Extends {
 		if base, _, ok := resolution.Dealias(ref, table); ok {
-			for _, f := range resolution.UnifiedFields(base, table) {
-				names.Add(f.Name)
-			}
+			fields = append(fields, resolution.UnifiedFields(base, table)...)
 		}
 	}
-	return names
+	for _, v := range form.Variants {
+		held := set.New(lo.Map(
+			resolution.UnifiedVariantFields(record, v, table),
+			func(f resolution.Field, _ int) string { return f.Name },
+		)...)
+		fields = lo.Filter(fields, func(f resolution.Field, _ int) bool {
+			return held.Contains(f.Name)
+		})
+	}
+	return fields
 }
 
 type keyData struct{ field, typ string }
