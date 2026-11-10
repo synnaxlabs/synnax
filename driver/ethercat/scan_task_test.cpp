@@ -1114,7 +1114,7 @@ TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
 /// @brief it should refuse to switch a slave whose settings hold no mode.
 TEST_F(EtherCATScanModeTest, SetStandaloneRefusesASlaveWithNoMode) {
     this->start(true);
-    this->props.settings->erase("mode");
+    this->props.settings.value().erase("mode");
     this->serve();
     const auto status = this->set_standalone();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
