@@ -10,8 +10,8 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { type ni } from "@/ni";
 import { task } from "@/task";
-import { reduceAll } from "@/task/actions";
 
 const configZ = z.object({ rate: z.number(), device: z.string() });
 const configUpdateZ = z.object({
@@ -57,14 +57,57 @@ describe("UpdateInput", () => {
   });
 });
 
-describe("reduceAll", () => {
-  it("should replace the config whole", () => {
-    const prev = task.payloadZ().parse({
+describe("Client.update", () => {
+  it("should not take a field that only the Core sets", () => {
+    const input: Parameters<task.Client["update"]>[0] = {
+      key: "00000000-0000-4000-8000-000000000004",
+      // @ts-expect-error - only the Core sets configHash.
+      configHash: "h1",
+    };
+    expect(input).toHaveProperty("configHash", "h1");
+  });
+
+  it("should check the config against the schemas that the caller names", () => {
+    type Scan = (typeof ni.CONFIG_SCHEMAS)[typeof ni.SCANNER_TASK_TYPE];
+    const update = async (tasks: task.Client) =>
+      await tasks.update<Scan>({
+        key: "00000000-0000-4000-8000-000000000004",
+        // @ts-expect-error - disabled is a boolean.
+        config: { disabled: "no" },
+      });
+    expect(update).toBeTypeOf("function");
+  });
+});
+
+describe("createReducer", () => {
+  const reduceAll = task.createReducer({ ni_analog_read: configSchemas });
+  const createTask = (type: string): task.Payload =>
+    task.payloadZ().parse({
       key: "00000000-0000-4000-8000-000000000004",
       name: "Read",
-      type: "ni_analog_read",
+      type,
       config: { rate: 10, device: "d" },
     });
+
+  it("should merge the config by the schemas of the task type", () => {
+    const prev = createTask("ni_analog_read");
+    const { next, inverse } = reduceAll(prev, [
+      task.update({ value: { config: { rate: 20 } } }),
+    ]);
+    expect(next.config).toEqual({ rate: 20, device: "d" });
+    expect(reduceAll(next, inverse).next).toEqual(prev);
+  });
+
+  it("should replace the config when the update sets it", () => {
+    const prev = createTask("ni_analog_read");
+    const { next } = reduceAll(prev, [
+      task.update({ value: { config: { set: { rate: 20, device: "e" } } } }),
+    ]);
+    expect(next.config).toEqual({ rate: 20, device: "e" });
+  });
+
+  it("should replace the config whole when the task type has no schemas", () => {
+    const prev = createTask("arc");
     const { next, inverse } = reduceAll(prev, [
       task.update({ value: { config: { rate: 20 } } }),
     ]);

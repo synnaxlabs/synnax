@@ -263,8 +263,9 @@ export const Edge = Task.wrapForm({
   Properties,
   Form,
   schemas: EDGE_SCHEMAS,
+  configSchemas: mqtt.CONFIG_SCHEMAS[mqtt.SPARKPLUG_EDGE_TASK_TYPE],
   deployConfigZ: deployEdgeConfigZ,
-  type: "mqtt_sparkplug_edge",
+  type: mqtt.SPARKPLUG_EDGE_TASK_TYPE,
   onConfigure,
 });
 

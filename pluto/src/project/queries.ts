@@ -60,7 +60,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.projects.rename(key, name);
+    await client.projects.update({ key, name });
     return data;
   },
 });
@@ -89,8 +89,9 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
       set(formPath.key, created.key);
       return;
     }
-    const edits = actions.diffFields(formSchema, stored, values, ["name"]);
-    if (edits.length > 0) await client.projects.dispatch(values.key, edits);
+    const update = actions.diffUpdate(project.updateZ, stored, values, ["name"]);
+    if (update != null)
+      await client.projects.dispatch(values.key, project.update(update));
   },
 });
 

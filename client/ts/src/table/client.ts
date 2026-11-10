@@ -16,7 +16,13 @@ import { group } from "@/group";
 import { project } from "@/project";
 import { query } from "@/query";
 import { createOf, encode, kindOf, reduceAll } from "@/table/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/table/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/table/actions.gen";
 import {
   type Action,
   type Key,
@@ -27,6 +33,7 @@ import {
   retrieveResponseZ,
   type Table,
   tableZ,
+  type Update,
 } from "@/table/types.gen";
 import {
   compareCursors,
@@ -94,11 +101,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
+      schema: tableZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/table/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/table/dispatch", dispatchResZ),
       encode,
       kindOf,
       createOf,
@@ -160,6 +169,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached table until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a table cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

@@ -61,7 +61,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.access.policies.rename(key, name);
+    await client.access.policies.update({ key, name });
     return data;
   },
 });
@@ -85,12 +85,13 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
       set(formPath.key, created.key);
       return;
     }
-    const edits = actions.diffFields(formSchema, stored, values, [
+    const update = actions.diffUpdate(access.policy.updateZ, stored, values, [
       "name",
       "objects",
       "actions",
       "role",
     ]);
-    if (edits.length > 0) await client.access.policies.dispatch(values.key, edits);
+    if (update != null)
+      await client.access.policies.dispatch(values.key, access.policy.update(update));
   },
 });

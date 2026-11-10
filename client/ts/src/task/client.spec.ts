@@ -100,6 +100,7 @@ const createStreamedClient = async (recordCap?: number) => {
     ranges,
     cache,
     statuses,
+    configSchemas: {},
   });
   await cache.ensureStreaming();
   return { stream, tasks, statuses };

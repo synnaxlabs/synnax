@@ -372,8 +372,9 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  configSchemas: mqtt.CONFIG_SCHEMAS[mqtt.READ_TASK_TYPE],
   deployConfigZ: deployReadConfigZ,
-  type: "mqtt_read",
+  type: mqtt.READ_TASK_TYPE,
   onConfigure,
 });
 

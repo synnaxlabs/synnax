@@ -389,8 +389,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  configSchemas: mqtt.CONFIG_SCHEMAS[mqtt.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: "mqtt_write",
+  type: mqtt.WRITE_TASK_TYPE,
   onConfigure,
 });
 

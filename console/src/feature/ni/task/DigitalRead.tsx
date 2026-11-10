@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, ni,NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -195,9 +195,10 @@ export const DigitalRead = Task.wrapForm({
   Properties,
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
+  configSchemas: ni.CONFIG_SCHEMAS[ni.DIGITAL_READ_TASK_TYPE],
   deployConfigZ: deployDigitalReadConfigZ,
   onConfigure,
-  type: "ni_digital_read",
+  type: ni.DIGITAL_READ_TASK_TYPE,
 });
 
 export const useCreateDigitalRead = Task.createUseCreate({

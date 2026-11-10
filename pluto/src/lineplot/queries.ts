@@ -364,7 +364,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.lineplots.rename(key, name);
+    await client.lineplots.update({ key, name });
     return data;
   },
 });

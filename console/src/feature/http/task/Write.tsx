@@ -9,7 +9,7 @@
 
 import "@/feature/http/task/Form.css";
 
-import { channel, type http } from "@synnaxlabs/client";
+import { channel, http } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -244,8 +244,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  configSchemas: http.CONFIG_SCHEMAS[http.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: WRITE_TYPE,
+  type: http.WRITE_TASK_TYPE,
   onConfigure,
 });
 

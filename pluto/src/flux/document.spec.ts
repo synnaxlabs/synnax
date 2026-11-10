@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, task } from "@synnaxlabs/client";
+import { modbus, type rack, task } from "@synnaxlabs/client";
 import {
   createTestClient,
+  holdRequests,
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
@@ -747,6 +748,227 @@ describe("createDocumentForm", () => {
           { key: "b", status: "st-b" },
         ],
       });
+    });
+  });
+
+  describe("updates", () => {
+    // A Modbus write channel is a union on its type.
+    const channelsSchema = z.object({
+      name: z.string(),
+      config: z.object({
+        channels: z
+          .discriminatedUnion("type", [
+            z.object({ type: z.literal("coil"), key: z.string(), address: z.number() }),
+            z.object({
+              type: z.literal("holding_register"),
+              key: z.string(),
+              address: z.number(),
+              dataType: z.string(),
+              bytesSwapped: z.boolean().optional(),
+            }),
+          ])
+          .array(),
+      }),
+    });
+    type ChannelValues = z.infer<typeof channelsSchema>;
+    const channelsPath = deep.path<ChannelValues>();
+    const channelsUpdateZ = task.updateZ(modbus.CONFIG_SCHEMAS[modbus.WRITE_TASK_TYPE]);
+    const useUpdateForm = Flux.createDocumentForm<
+      task.Key,
+      task.Task,
+      typeof channelsSchema,
+      Flux.DocumentQuery<task.Key>,
+      task.Action,
+      typeof channelsUpdateZ
+    >({
+      name: "Task",
+      schema: channelsSchema,
+      domain: (client) => client.tasks,
+      useEnsure,
+      toValues: ({ payload: { name, config } }) => ({ name, config }) as ChannelValues,
+      updates: { schema: channelsUpdateZ, action: task.update },
+    });
+
+    const createChannelTask = async (): Promise<task.Task> =>
+      await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: modbus.WRITE_TASK_TYPE,
+        config: { channels: [{ type: "coil", key: "a", address: 1 }] },
+      });
+
+    const renderUpdateForm = async (key: task.Key) =>
+      await renderHookSuspended(
+        () => ({
+          ...useUpdateForm({ query: { key } }),
+          statuses: Status.useNotifications().statuses,
+        }),
+        { wrapper },
+      );
+
+    const channelsOf = (t: task.Task) => (t.config as ChannelValues["config"]).channels;
+
+    it("should send an edit in a list entry as an update by its key", async () => {
+      const t = await createChannelTask();
+      const { result } = await renderUpdateForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set(channelsPath.config.channels.a.address, 2));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toEqual([
+        [
+          task.update({
+            value: {
+              config: {
+                channels: { update: [{ key: "a", type: "coil", address: 2 }] },
+              },
+            },
+            guards: [{ path: ["config", "channels", "a", "type"], value: "coil" }],
+          }),
+        ],
+      ]);
+      expect(channelsOf(await fetchStored(t.key))).toMatchObject([
+        { key: "a", address: 2 },
+      ]);
+    });
+
+    it("should clear an optional field that the form sets to undefined", async () => {
+      const t = await testRack.createTask({
+        name: `document-${id.create()}`,
+        type: modbus.WRITE_TASK_TYPE,
+        config: {
+          channels: [
+            {
+              type: "holding_register",
+              key: "a",
+              address: 1,
+              dataType: "float32",
+              bytesSwapped: true,
+            },
+          ],
+        },
+      });
+      type Register = Extract<
+        ChannelValues["config"]["channels"][number],
+        { type: "holding_register" }
+      >;
+      const register = deep.path<{ config: { channels: Register[] } }>().config.channels
+        .a;
+      const { result } = await renderUpdateForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => result.current.form.set(register.bytesSwapped, undefined));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(dispatchedActions(send)).toEqual([
+        [
+          task.update({
+            value: {
+              config: {
+                channels: {
+                  update: [{ key: "a", type: "holding_register", bytesSwapped: null }],
+                },
+              },
+            },
+            guards: [
+              { path: ["config", "channels", "a", "type"], value: "holding_register" },
+            ],
+          }),
+        ],
+      ]);
+      expect(channelsOf(await fetchStored(t.key))[0]).not.toHaveProperty(
+        "bytesSwapped",
+      );
+    });
+
+    it("should send the edits to one field as one update", async () => {
+      const t = await createChannelTask();
+      const { result } = await renderUpdateForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => {
+        result.current.form.set(channelsPath.config.channels.a.address, 2);
+        result.current.form.set(channelsPath.config.channels.a.address, 3);
+      });
+      await waitFor(() => expect(countDispatches(send)).toBe(1));
+      expect(dispatchedActions(send)).toEqual([
+        [
+          expect.objectContaining({
+            update: expect.objectContaining({
+              value: {
+                config: {
+                  channels: { update: [expect.objectContaining({ address: 3 })] },
+                },
+              },
+            }),
+          }),
+        ],
+      ]);
+      await formClient.tasks.settled(t.key);
+      expect(channelsOf(await fetchStored(t.key))).toMatchObject([{ address: 3 }]);
+    });
+
+    it("should insert, move, and remove list entries by key", async () => {
+      const t = await createChannelTask();
+      const { result } = await renderUpdateForm(t.key);
+      act(() => {
+        const { form } = result.current;
+        form.insert(
+          channelsPath.config.channels,
+          { type: "coil", key: "b", address: 2 },
+          "a",
+        );
+        form.insert(channelsPath.config.channels, {
+          type: "coil",
+          key: "c",
+          address: 3,
+        });
+        form.move(channelsPath.config.channels, "a", "b");
+        form.remove(channelsPath.config.channels.c);
+      });
+      const keys = (channels: { key: string }[]) => channels.map(({ key }) => key);
+      expect(keys(result.current.form.value().config.channels)).toEqual(["b", "a"]);
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(keys(channelsOf(await fetchStored(t.key)))).toEqual(["b", "a"]);
+    });
+
+    it("should send a write of the whole form as one update", async () => {
+      const t = await createChannelTask();
+      const { result } = await renderUpdateForm(t.key);
+      const send = spyOnSend(formClient);
+      act(() => {
+        const values = result.current.form.value();
+        result.current.form.set(channelsPath, {
+          ...values,
+          name: "renamed",
+          config: {
+            ...values.config,
+            channels: [{ ...values.config.channels[0], address: 5 }],
+          },
+        });
+      });
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(countDispatches(send)).toBe(1);
+      const stored = await fetchStored(t.key);
+      expect(stored.name).toBe("renamed");
+      expect(channelsOf(stored)).toMatchObject([{ key: "a", address: 5 }]);
+    });
+
+    it("should drop an edit quietly when the Core finds it stale", async () => {
+      const t = await createChannelTask();
+      const { result } = await renderUpdateForm(t.key);
+      const { release } = holdRequests(formClient, "/task/dispatch");
+      act(() => result.current.form.set(channelsPath.config.channels.a.address, 2));
+      await act(async () => {
+        const flushed = result.current.flush();
+        // Another client removes the channel before the Core gets the edit.
+        await client.tasks.update({
+          key: t.key,
+          config: { channels: { remove: ["a"] } },
+        });
+        release();
+        expect(await flushed).toBe(false);
+      });
+      await waitFor(() =>
+        expect(result.current.form.value().config.channels).toEqual([]),
+      );
+      expect(result.current.statuses).toEqual([]);
+      expect(channelsOf(await fetchStored(t.key))).toEqual([]);
     });
   });
 });

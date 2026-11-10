@@ -286,8 +286,9 @@ export const Alert = Task.wrapForm({
   Properties,
   Form,
   schemas: ALERT_SCHEMAS,
+  configSchemas: pagerduty.CONFIG_SCHEMAS[pagerduty.ALERT_TASK_TYPE],
   deployConfigZ: deployAlertTaskConfigZ,
-  type: ALERT_TYPE,
+  type: pagerduty.ALERT_TASK_TYPE,
   onConfigure,
 });
 

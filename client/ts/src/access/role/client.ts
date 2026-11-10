@@ -17,6 +17,7 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
+  update,
 } from "@/access/role/actions.gen";
 import {
   type Action,
@@ -28,6 +29,7 @@ import {
   retrieveResponseZ,
   type Role,
   roleZ,
+  type Update,
 } from "@/access/role/types.gen";
 import {
   compareCursors,
@@ -90,6 +92,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
     // Every write to a role reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Role, Action>({
       store,
+      schema: roleZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
@@ -99,6 +102,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
         dispatchReqZ,
         dispatchResZ,
       ),
+      sendAll: actions.batchSender(cfg.unary, "/access/role/dispatch", dispatchResZ),
       reduce: reduceAll,
       createOf,
     });
@@ -153,6 +157,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ro
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies each update to its cached role until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a role cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

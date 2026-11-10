@@ -14,7 +14,13 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/panel/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/panel/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/panel/actions.gen";
 import {
   type Action,
   type Key,
@@ -25,6 +31,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
 } from "@/panel/types.gen";
 import {
   compareCursors,
@@ -86,11 +93,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     });
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
+      schema: panelZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/panel/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/panel/dispatch", dispatchResZ),
       kindOf,
       createOf,
     });
@@ -161,6 +170,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached panel until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a panel cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

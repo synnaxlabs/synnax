@@ -25,6 +25,7 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
+  update,
 } from "@/schematic/symbol/actions.gen";
 import {
   type Action,
@@ -36,6 +37,7 @@ import {
   retrieveResponseZ,
   type Symbol,
   symbolZ,
+  type Update,
 } from "@/schematic/symbol/types.gen";
 import {
   compareCursors,
@@ -101,6 +103,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     // Every write to a symbol reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Symbol, Action>({
       store,
+      schema: symbolZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
@@ -108,6 +111,11 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
         cfg.unary,
         "/schematic/symbol/dispatch",
         dispatchReqZ,
+        dispatchResZ,
+      ),
+      sendAll: actions.batchSender(
+        cfg.unary,
+        "/schematic/symbol/dispatch",
         dispatchResZ,
       ),
       reduce: reduceAll,
@@ -153,6 +161,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies each update to its cached symbol until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a symbol cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

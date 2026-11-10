@@ -264,7 +264,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ data, client }) => {
     const { key, name } = data;
-    await client.devices.rename(key, name);
+    await client.devices.update({ key, name });
     return data;
   },
 });
@@ -348,13 +348,18 @@ export const createForm: CreateForm = (
         await client.devices.create(sent as device.New, schemas);
         return;
       }
+      // An update changes the case of property keys on the wire, so they stay a path
+      // action.
       const edits: device.Action[] = actions.diffFields(schema, stored, data, [
+        "properties",
+      ]);
+      const update = actions.diffUpdate(device.updateZ(), stored, data, [
         "name",
         "model",
         "location",
         "configured",
-        "properties",
       ]);
+      if (update != null) edits.push(device.update(update));
       if (stored.rack !== data.rack) edits.push(device.setRack({ rack: data.rack }));
       if (edits.length > 0) await client.devices.dispatch(data.key, edits);
       if (reported)

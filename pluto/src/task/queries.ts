@@ -153,6 +153,8 @@ export interface FormSchema<S extends task.Schemas = task.Schemas> extends z.Zod
 
 export interface CreateFormParams<S extends task.Schemas = task.Schemas> {
   schemas: S;
+  /** The schemas that merge an edit into the config of the task. */
+  configSchemas: task.ConfigSchemas[string];
 }
 
 export interface InitialValues<
@@ -165,12 +167,22 @@ export interface InitialValues<
 /** Builds the hook for a task's form. */
 export const createForm = <S extends task.Schemas = task.Schemas>({
   schemas,
-}: CreateFormParams<S>) =>
-  Flux.createDocumentForm<task.Key, task.Task, FormSchema<S>>({
+  configSchemas,
+}: CreateFormParams<S>) => {
+  const updateZ = task.updateZ(configSchemas);
+  return Flux.createDocumentForm<
+    task.Key,
+    task.Task,
+    FormSchema<S>,
+    Flux.DocumentQuery<task.Key>,
+    task.Action,
+    typeof updateZ
+  >({
     name: RESOURCE_NAME,
     schema: createFormSchema(schemas),
     domain: (client) => client.tasks,
     useEnsure,
+    updates: { schema: updateZ, action: task.update },
     // The cache holds every task untyped. Parsing would cost a full parse on each
     // change, so the form's schema checks each field as it is written instead.
     toValues: ({ payload }) => ({
@@ -184,6 +196,7 @@ export const createForm = <S extends task.Schemas = task.Schemas>({
       snapshot: payload.snapshot ?? false,
     }),
   });
+};
 
 export type DeleteParams = task.Key | task.Key[];
 
@@ -229,7 +242,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<UseRenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.tasks.rename(key, name);
+    await client.tasks.update({ key, name });
     return data;
   },
 });

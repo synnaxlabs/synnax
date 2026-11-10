@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type Synnax, task } from "@synnaxlabs/client";
+import { device, opcua, type Synnax, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -74,8 +74,9 @@ const createRenderer = ({
   Task.wrapForm<typeof schemas>({
     Form,
     schemas,
+    configSchemas: opcua.CONFIG_SCHEMAS[opcua.READ_TASK_TYPE],
     deployConfigZ,
-    type: "opc_read",
+    type: opcua.READ_TASK_TYPE,
     onConfigure,
     showControls,
   });

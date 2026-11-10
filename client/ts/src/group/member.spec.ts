@@ -61,7 +61,9 @@ describe("createMoveRequest", () => {
         endpoint: "/doc/dispatch",
         payload: {
           key: "a",
-          actions: [{ type: "set", set: { path: ["group"], value: G1, guards: [] } }],
+          actions: [
+            { type: "update", update: { value: { group: G1 }, guards: [] } },
+          ],
         },
         apply: expect.any(Function),
       },
@@ -69,7 +71,9 @@ describe("createMoveRequest", () => {
         endpoint: "/doc/dispatch",
         payload: {
           key: "b",
-          actions: [{ type: "set", set: { path: ["group"], value: G1, guards: [] } }],
+          actions: [
+            { type: "update", update: { value: { group: G1 }, guards: [] } },
+          ],
         },
         apply: expect.any(Function),
       },
@@ -80,7 +84,7 @@ describe("createMoveRequest", () => {
     const [fromNull] = setGroupRequest(createTable())("a", null);
     const [fromUndefined] = setGroupRequest(createTable())("a");
     expect(fromNull.payload.actions).toEqual([
-      { type: "set", set: { path: ["group"], value: null, guards: [] } },
+      { type: "update", update: { value: { group: null }, guards: [] } },
     ]);
     expect(fromUndefined.payload).toEqual(fromNull.payload);
   });

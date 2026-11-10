@@ -14,7 +14,7 @@ import z from "zod";
 import { actions } from "@/actions";
 import { type batch } from "@/batch";
 import { createOf, encode, reduceAll } from "@/label/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ } from "@/label/actions.gen";
+import { dispatchReqZ, dispatchResZ, scopedActionZ, update } from "@/label/actions.gen";
 import {
   type Action,
   type Key,
@@ -25,6 +25,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
 } from "@/label/types.gen";
 import {
   compareCursors,
@@ -107,10 +108,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     // Every write to a label reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Label, Action>({
       store,
+      schema: labelZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/label/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/label/dispatch", dispatchResZ),
       reduce: reduceAll,
       encode,
       createOf,
@@ -221,6 +224,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     });
     this.store.set(res.labels);
     return isMany ? res.labels : res.labels[0];
+  }
+
+  /**
+   * Applies each update to its cached label until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a label cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

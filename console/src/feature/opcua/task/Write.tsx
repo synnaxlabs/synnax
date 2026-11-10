@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, NotFoundError, opcua } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -174,8 +174,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form: TaskForm,
   schemas: WRITE_SCHEMAS,
+  configSchemas: opcua.CONFIG_SCHEMAS[opcua.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: "opc_write",
+  type: opcua.WRITE_TASK_TYPE,
   onConfigure,
 });
 

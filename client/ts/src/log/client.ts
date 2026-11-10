@@ -14,7 +14,13 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/log/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/log/actions.gen";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/log/actions.gen";
 import {
   type Action,
   type Key,
@@ -25,6 +31,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
 } from "@/log/types.gen";
 import {
   compareCursors,
@@ -94,11 +101,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
     });
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
+      schema: logZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/log/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/log/dispatch", dispatchResZ),
       kindOf,
       createOf,
     });
@@ -159,6 +168,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached log until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a log cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

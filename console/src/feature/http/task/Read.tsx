@@ -406,8 +406,9 @@ export const Read = Task.wrapForm({
   Properties,
   Form,
   schemas: READ_SCHEMAS,
+  configSchemas: http.CONFIG_SCHEMAS[http.READ_TASK_TYPE],
   deployConfigZ: deployReadConfigZ,
-  type: "http_read",
+  type: http.READ_TASK_TYPE,
   onConfigure,
 });
 

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, patch, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -16,18 +16,20 @@ import {
   type Frame,
   type Reducer,
   type SendDispatch,
+  type SendDispatches,
 } from "@/actions/controller";
 import { AccessDeniedError } from "@/errors";
 import { Table } from "@/query/table";
 
-interface Doc {
-  values: Record<string, number>;
-}
+const docZ = z.object({ values: z.record(z.string(), z.number()) });
+
+interface Doc extends z.infer<typeof docZ> {}
 
 type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
   | { type: "child"; key: string; value: number }
+  | { type: "guarded"; key: string; value: number; when: number }
   | { type: "create"; doc: Doc }
   | { type: "invalid" }
   | { type: "noop" };
@@ -47,6 +49,12 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       if (next.values[a.key] == null) throw new Error(`no value at ${a.key}`);
       next = { values: { ...next.values, [`${a.key}.child`]: a.value } };
       targets.add(`${a.key}.child`);
+    } else if (a.type === "guarded") {
+      // Applies only while the value is when, as an update with a guard does.
+      if ((next.values[a.key] ?? 0) !== a.when)
+        throw new patch.StaleError(`${a.key} is not ${a.when}`);
+      next = { values: { ...next.values, [a.key]: a.value } };
+      targets.add(a.key);
     } else if (a.type === "tag")
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
@@ -84,6 +92,7 @@ const setupStore = (
     fetch: (keys: string[]) => Promise<Array<Doc & { key: string }>>;
     encode: (doc: Doc, action: Action) => Action;
     send: SendDispatch<string, Action>;
+    sendAll: SendDispatches<string, Action>;
     listed: (a: Action) => boolean;
   }> = {},
 ) => {
@@ -94,12 +103,17 @@ const setupStore = (
   const send = vi.fn<SendDispatch<string, Action>>(
     opts.send ?? (async (_, actions) => actions),
   );
+  const sendAll = vi.fn<SendDispatches<string, Action>>(
+    opts.sendAll ?? (async (dispatches) => dispatches.map(({ actions }) => actions)),
+  );
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
     reduce: reducer,
+    schema: docZ,
     send,
+    sendAll,
     encode: opts.encode,
     isUndoable: opts.isUndoable,
     kindOf: opts.kindOf,
@@ -111,7 +125,7 @@ const setupStore = (
   });
   // A live change stream, so echoes arrive.
   epochs.notify(1);
-  return { errors, docs, epochs, controller, send };
+  return { errors, docs, epochs, controller, send, sendAll };
 };
 
 const set = (key: string, value: number): Action => ({ type: "set", key, value });
@@ -1204,6 +1218,49 @@ describe("actions.Controller", () => {
       expect(controller.prepareUndo("k")).toBeNull();
     });
 
+    it("shows a remote edit that leaves a pending dispatch stale", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const sent = controller.dispatch("k", [
+        { type: "guarded", key: "a", value: 5, when: 0 },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
+      controller.applyRemote("k", 1, "foreign-1", [set("a", 9)]);
+      expect(docs.get("k")).toEqual({ values: { a: 9 } });
+      await expect.poll(() => calls.length).toBe(1);
+      calls[0].reject(new patch.StaleError("a is not 0"));
+      await expect(sent).rejects.toThrow(patch.StaleError);
+      expect(docs.get("k")).toEqual({ values: { a: 9 } });
+    });
+
+    it("fetches the doc again when a remote edit is stale on it", async () => {
+      const fetch = vi.fn(async () => [{ key: "k", values: { a: 3 } }]);
+      const { docs, controller, errors } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "foreign-1", [
+        { type: "guarded", key: "a", value: 3, when: 2 },
+      ]);
+      await expect.poll(() => docs.get("k")?.values).toEqual({ a: 3 });
+      expect(fetch).toHaveBeenCalledOnce();
+      controller.applyRemote("k", 2, "foreign-2", [set("b", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 3, b: 1 });
+      expect(errors).toEqual([]);
+    });
+
+    it("keeps pending dispatches on the doc it fetches after a stale edit", async () => {
+      const { send } = createHeldSend();
+      const fetch = async () => [{ key: "k", values: { a: 3 } }];
+      const { docs, controller, errors } = setupStore({ fetch, send });
+      prime(docs, "k", { a: 0 });
+      void controller.dispatch("k", [set("b", 1)]);
+      controller.applyRemote("k", 1, "foreign-1", [
+        { type: "guarded", key: "a", value: 3, when: 2 },
+      ]);
+      await expect.poll(() => docs.get("k")?.values).toEqual({ a: 3, b: 1 });
+      expect(errors).toEqual([]);
+    });
+
     it("is a no-op when the doc is not cached", () => {
       const { docs, controller } = setupStore();
       controller.applyRemote("missing", 1, "foreign-1", [
@@ -1614,6 +1671,144 @@ describe("actions.Controller", () => {
       expect(await controller.create(["missing"], create)).toBe("created");
       expect(create).toHaveBeenCalledTimes(1);
       expect(controller.hasPending("missing")).toBe(false);
+    });
+  });
+
+  describe("update", () => {
+    const build = ({ value }: { value: { a: number } }): Action => set("a", value.a);
+
+    it("sends one update through the dispatch endpoint", async () => {
+      const { docs, controller, send, sendAll } = setupStore();
+      prime(docs, "k", { a: 0 });
+      await controller.update({ key: "k", a: 4 }, build);
+      expect(send).toHaveBeenCalledWith("k", [set("a", 4)], expect.any(String));
+      expect(sendAll).not.toHaveBeenCalled();
+      expect(docs.get("k")).toEqual({ values: { a: 4 } });
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+
+    it("sends several updates as one batch with a dispatch key each", async () => {
+      const { docs, controller, send, sendAll } = setupStore();
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(send).not.toHaveBeenCalled();
+      const [dispatches] = sendAll.mock.calls[0];
+      expect(dispatches.map(({ key, actions }) => ({ key, actions }))).toEqual([
+        { key: "j", actions: [set("a", 1)] },
+        { key: "k", actions: [set("a", 2)] },
+      ]);
+      expect(new Set(dispatches.map(({ dispatchKey }) => dispatchKey)).size).toBe(2);
+      expect(docs.get("j")).toEqual({ values: { a: 1 } });
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("applies a batch to the cached docs before the Core answers", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async (dispatches) => {
+          expect(docs.get("j")).toEqual({ values: { a: 1 } });
+          return dispatches.map(({ actions }) => actions);
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "missing", a: 2 },
+        ],
+        build,
+      );
+      expect(controller.hasPending("missing")).toBe(false);
+    });
+
+    it("recognizes the echo of each update in a batch", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async (dispatches) => {
+          dispatches.forEach(({ key, dispatchKey, actions }) =>
+            controller.applyRemote(key, 0, dispatchKey, actions),
+          );
+          return dispatches.map(({ actions }) => actions);
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(controller.hasPending("j")).toBe(false);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 2 } });
+    });
+
+    it("applies the actions that the Core adds to a batch", async () => {
+      const { docs, epochs, controller } = setupStore({
+        sendAll: async (dispatches) =>
+          dispatches.map(({ key, actions }) => [...actions, set(key, 9)]),
+      });
+      epochs.notify(0);
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await controller.update(
+        [
+          { key: "j", a: 1 },
+          { key: "k", a: 2 },
+        ],
+        build,
+      );
+      expect(docs.get("j")).toEqual({ values: { a: 1, j: 9 } });
+      expect(docs.get("k")).toEqual({ values: { a: 2, k: 9 } });
+    });
+
+    it("rolls back every update of a batch that fails", async () => {
+      const { docs, controller } = setupStore({
+        sendAll: async () => {
+          throw new Error("stale");
+        },
+      });
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      await expect(
+        controller.update(
+          [
+            { key: "j", a: 1 },
+            { key: "k", a: 2 },
+          ],
+          build,
+        ),
+      ).rejects.toThrow("stale");
+      expect(docs.get("j")).toEqual({ values: { a: 0 } });
+      expect(docs.get("k")).toEqual({ values: { a: 0 } });
+      expect(controller.hasPending("j")).toBe(false);
+    });
+
+    it("sends nothing when a cached doc cannot take its update", async () => {
+      const { docs, controller, sendAll } = setupStore();
+      prime(docs, "j", { a: 0 });
+      prime(docs, "k", { a: 0 });
+      const invalid = ({ value }: { value: { a: number } }): Action =>
+        value.a === 2 ? { type: "invalid" } : set("a", value.a);
+      await expect(
+        controller.update(
+          [
+            { key: "j", a: 1 },
+            { key: "k", a: 2 },
+          ],
+          invalid,
+        ),
+      ).rejects.toThrow("the doc cannot hold the action");
+      expect(sendAll).not.toHaveBeenCalled();
+      expect(docs.get("j")).toEqual({ values: { a: 0 } });
+      expect(controller.hasPending("j")).toBe(false);
     });
   });
 

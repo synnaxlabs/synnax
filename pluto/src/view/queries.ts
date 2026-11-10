@@ -66,8 +66,12 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       reset(await client.views.create(values));
       return;
     }
-    const edits = actions.diffFields(formSchema, stored, values, ["name", "where"]);
-    if (edits.length > 0) await client.views.dispatch(values.key, edits);
+    const update = actions.diffUpdate(view.updateZ, stored, values, [
+      "type",
+      "name",
+      "where",
+    ]);
+    if (update != null) await client.views.dispatch(values.key, view.update(update));
   },
   mountListeners: ({ client, query: { key }, reset }) =>
     client.views.watch(key).onChange((result) => {
@@ -82,7 +86,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.views.rename(key, name);
+    await client.views.update({ key, name });
     return data;
   },
 });

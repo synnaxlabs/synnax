@@ -29,10 +29,22 @@ import { type z } from "zod";
 import { Synnax } from "@/synnax";
 
 /** The part of a domain client that a document form reads and edits through. */
-export interface DocumentDomain<Key extends record.Key, Doc extends query.Data> {
+export interface DocumentDomain<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Action = patch.Action,
+> {
   watch: (key: Key) => query.Live<Doc>;
   /** Begins a transaction of actions on the cached document, with camelCase keys. */
-  beginTransaction: (key: Key) => actions.Transaction<patch.Action>;
+  beginTransaction: (key: Key) => actions.Transaction<Action>;
+}
+
+/** How a document form sends each edit as an update of its values. */
+export interface DocumentUpdates<Action, Update extends z.ZodType = z.ZodType> {
+  /** The update schema of the form's values, which gives the guards of an update. */
+  schema: Update;
+  /** Builds the action that carries an update of the form's values. */
+  action: (update: patch.Update<Update>) => Action;
 }
 
 /** Names the document that a document form edits. */
@@ -44,19 +56,19 @@ export interface DocumentQuery<Key extends record.Key> {
 const COALESCE_WINDOW = TimeSpan.milliseconds(200);
 
 /** The value that an edit writes at a path. */
-interface Write {
-  /** The action that writes the value, in the document's paths. */
-  action: patch.Action;
+interface Write<Action> {
+  /** The action that writes the value. */
+  action: Action;
   value: unknown;
   /** Whether the value passes its field schema. */
   valid: boolean;
 }
 
 /** The edits to one field that have not been sent. */
-interface Edit {
-  tx: actions.Transaction<patch.Action>;
+interface Edit<Action> {
+  tx: actions.Transaction<Action>;
   /** What the edit writes at each path. */
-  writes: Map<string, Write>;
+  writes: Map<string, Write<Action>>;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -71,6 +83,8 @@ interface Target {
    * whole.
    */
   rest: string;
+  /** Whether the path ends at a list entry. */
+  entry: boolean;
 }
 
 const isEntry = (value: unknown): value is record.Keyed<string> =>
@@ -107,21 +121,23 @@ const locate = (
   const parts = formPath.split(deep.SEPARATOR);
   const path: string[] = [];
   let node = values;
+  let entry = false;
   let i = 0;
   while (i < parts.length) {
     if (Array.isArray(node)) {
       const list = node as unknown as record.Unknown;
       const best = deep.findBestKey(list, parts.slice(i));
-      const entry = best == null ? null : deep.defaultGetter(list, best[0]);
-      if (best != null && isEntry(entry)) {
-        path.push(entry.key);
-        node = entry;
+      const found = best == null ? null : deep.defaultGetter(list, best[0]);
+      if (best != null && isEntry(found)) {
+        path.push(found.key);
+        node = found;
+        entry = true;
         i += best[1];
         continue;
       }
       if (isKeyedList(schema, parts.slice(0, i).join(deep.SEPARATOR), values))
         return null;
-      return { path, node, rest: parts.slice(i).join(deep.SEPARATOR) };
+      return { path, node, rest: parts.slice(i).join(deep.SEPARATOR), entry: false };
     }
     if (node == null || typeof node !== "object") break;
     const best = deep.findBestKey(node as record.Unknown, parts.slice(i));
@@ -129,13 +145,173 @@ const locate = (
     const [key, consumed] = best;
     path.push(key);
     node = (node as record.Unknown)[key];
+    entry = false;
     i += consumed;
   }
   if (i < parts.length) {
     path.push(...parts.slice(i));
     node = undefined;
+    entry = false;
   }
-  return { path, node, rest: "" };
+  return { path, node, rest: "", entry };
+};
+
+// @returns the value at the target after value is written at the rest of its path.
+const wholeAt = ({ node, rest }: Target, value: unknown): unknown => {
+  if (rest === "") return value;
+  const whole = deep.copy(node);
+  deep.set(whole, rest, value);
+  return whole;
+};
+
+const edited = (values: unknown, edit: (copy: unknown) => void): unknown => {
+  const copy = deep.copy(values);
+  edit(copy);
+  return copy;
+};
+
+/** Turns the edits of a form into the actions that reach the Core. */
+interface Codec<Action> {
+  set: (values: unknown, target: Target, formPath: string, value: unknown) => Action;
+  remove: (values: unknown, target: Target, formPath: string) => Action;
+  insert: (
+    values: unknown,
+    list: string[],
+    value: Form.Entry,
+    after?: string,
+  ) => Action;
+  move: (values: unknown, list: string[], key: string, after?: string) => Action;
+  /**
+   * @returns the action that turns values into next, or null when they are equal. A
+   * codec without diff writes each field that a write of the whole form changes.
+   */
+  diff?: (values: unknown, next: unknown) => Action | null;
+}
+
+// Writes path actions at the paths of the form's values below prefix.
+const pathCodec = (schema: z.ZodType, prefix: string[]): Codec<patch.Action> => {
+  const guards = (values: unknown, path: string[]) =>
+    patch.guards(schema, path, values);
+  const out = (action: patch.Action) => patch.prefix(action, prefix);
+  return {
+    set: (values, target, _, value) =>
+      out({
+        type: "set",
+        set: {
+          path: target.path,
+          value: wholeAt(target, value),
+          guards: guards(values, target.path),
+        },
+      }),
+    remove: (values, { path, node, rest }) => {
+      if (rest !== "") {
+        const whole = deep.copy(node);
+        deep.remove(whole, rest);
+        return out({
+          type: "set",
+          set: { path, value: whole, guards: guards(values, path) },
+        });
+      }
+      const parent = path.slice(0, -1);
+      const key = path[path.length - 1];
+      return out({
+        type: "remove",
+        remove: { path: parent, key, guards: guards(values, path) },
+      });
+    },
+    insert: (values, path, value, after) =>
+      out({
+        type: "insert",
+        insert: { path, value, after, guards: guards(values, path) },
+      }),
+    move: (values, path, key, after) =>
+      out({ type: "move", move: { path, key, after, guards: guards(values, path) } }),
+  };
+};
+
+const isComposite = (value: unknown): boolean =>
+  value != null && typeof value === "object";
+
+// Writes updates of the form's values. A list entry goes by its key.
+const updateCodec = <Action, Update extends z.ZodType>({
+  schema,
+  action,
+}: DocumentUpdates<Action, Update>): Codec<Action> => {
+  const nested = (values: unknown, path: string[], leaf: unknown): Action =>
+    action(patch.nest(schema, values, path, leaf));
+  const toUpdate = (values: unknown, next: unknown): Action =>
+    action(patch.diffUpdate(schema, values, next));
+  return {
+    set: (values, target, formPath, value) => {
+      if (target.rest !== "" || isComposite(value))
+        return toUpdate(
+          values,
+          edited(values, (copy) => deep.set(copy, formPath, value)),
+        );
+      // An update clears a field with null and skips an undefined one.
+      return nested(values, target.path, value === undefined ? null : value);
+    },
+    remove: (values, { path, rest, entry }, formPath) => {
+      if (rest !== "")
+        return toUpdate(
+          values,
+          edited(values, (copy) => deep.remove(copy, formPath)),
+        );
+      if (!entry) return nested(values, path, null);
+      return nested(values, path.slice(0, -1), { remove: [path[path.length - 1]] });
+    },
+    insert: (values, path, value, after) =>
+      nested(values, path, { insert: [value], move: [{ key: value.key, after }] }),
+    move: (values, path, key, after) =>
+      nested(values, path, { move: [{ key, after }] }),
+    diff: (values, next) => {
+      const update = patch.diffUpdate(schema, values, next);
+      const { value } = update as patch.Update<z.ZodType>;
+      if (Object.keys(value as record.Unknown).length === 0) return null;
+      return action(update);
+    },
+  };
+};
+
+// Writes the top-level fields of the form's values that an edit changes, whole.
+const fieldsCodec = <Action>(
+  action: (fields: record.Unknown) => Action,
+): Codec<Action> => {
+  const changed = (values: unknown, next: unknown): record.Unknown => {
+    const prev = values as record.Unknown;
+    const cur = next as record.Unknown;
+    const removed = Object.keys(prev).find((field) => !(field in cur));
+    if (removed != null) throw new Error(`Cannot remove the field ${removed}`);
+    return Object.fromEntries(
+      Object.entries(cur).filter(([field, value]) => !deep.equal(prev[field], value)),
+    );
+  };
+  const write = (values: unknown, edit: (copy: unknown) => void): Action =>
+    action(changed(values, edited(values, edit)));
+  return {
+    set: (values, _, formPath, value) =>
+      write(values, (copy) => deep.set(copy, formPath, value)),
+    remove: (values, _, formPath) =>
+      write(values, (copy) => deep.remove(copy, formPath)),
+    insert: (values, path, value, after) =>
+      write(values, (copy) =>
+        patch.apply(copy as record.Unknown, {
+          type: "insert",
+          insert: { path, value, after, guards: [] },
+        }),
+      ),
+    move: (values, path, key, after) =>
+      write(values, (copy) =>
+        patch.apply(copy as record.Unknown, {
+          type: "move",
+          move: { path, key, after, guards: [] },
+        }),
+      ),
+    diff: (values, next) => {
+      const fields = changed(values, next);
+      return Object.keys(fields).length === 0 ? null : action(fields);
+    },
+  };
 };
 
 const overlaps = (a: string, b: string): boolean =>
@@ -146,44 +322,55 @@ interface StoreParams<
   Doc extends query.Data,
   Query extends DocumentQuery<Key>,
   V,
+  Action,
 > {
   client: Client;
   query: Query;
-  domain: DocumentDomain<Key, Doc>;
+  domain: DocumentDomain<Key, Doc, Action>;
   schema: z.ZodType;
   toValues: (doc: Doc, query: Query) => V | undefined;
-  /** The path of the edited part in the document. */
-  path: string[];
+  codec: Codec<Action>;
   onError: (error: unknown) => void;
+}
+
+/** A form store that a document form holds for one document. */
+interface Store<Query, V> extends Form.Store<V> {
+  readonly client: Client;
+  readonly query: Query;
+  flush: () => Promise<boolean>;
+  close: () => void;
 }
 
 /**
  * A form store over a document in the client cache. A write applies to the cached
- * document at once and reaches the Core as a path action. Writes to one field coalesce
- * into one dispatch, and a field whose value fails its schema holds its edits until the
- * value passes. A batch and a list edit send at once, and the Core checks their values.
- * A write of the whole form is a write to each field it changes. Sends run in order, so
- * the Core applies edits in the order they were made.
+ * document at once and reaches the Core as the action its codec builds. Writes to one
+ * field coalesce into one dispatch, and a field whose value fails its schema holds its
+ * edits until the value passes. A batch and a list edit send at once, and the Core
+ * checks their values. A write of the whole form sends at once when the codec diffs,
+ * and is a write to each field it changes otherwise. Sends run in order, so the Core
+ * applies edits in the order they were made. An edit that another client made stale
+ * drops quietly.
  */
 class DocumentStore<
   Key extends record.Key,
   Doc extends query.Data,
   Query extends DocumentQuery<Key>,
   V,
-> implements Form.Store<V> {
+  Action,
+> implements Store<Query, V> {
   readonly client: Client;
   readonly query: Query;
   private readonly key: Key;
-  private readonly params: StoreParams<Key, Doc, Query, V>;
+  private readonly params: StoreParams<Key, Doc, Query, V, Action>;
   private doc: Doc;
   private values: V;
   /** Whether the cached document no longer holds the edited part. */
   private removed = false;
-  private readonly edits: Edit[] = [];
-  private batched: actions.Transaction<patch.Action> | null = null;
+  private readonly edits: Edit<Action>[] = [];
+  private batched: actions.Transaction<Action> | null = null;
   private readonly inFlight = new Set<Promise<boolean>>();
 
-  constructor(params: StoreParams<Key, Doc, Query, V>) {
+  constructor(params: StoreParams<Key, Doc, Query, V, Action>) {
     this.params = params;
     this.client = params.client;
     this.query = params.query;
@@ -192,7 +379,7 @@ class DocumentStore<
     if (!query.isLive(cached)) throw new Error(`Document ${this.key} is not cached`);
     const values = params.toValues(cached, this.query);
     if (values === undefined)
-      throw new Error(`Document ${this.key} holds nothing at ${params.path.join(".")}`);
+      throw new Error(`Document ${this.key} holds nothing for the form`);
     this.doc = cached;
     this.values = values;
   }
@@ -223,45 +410,32 @@ class DocumentStore<
     const { schema } = this.params;
     const field = zod.getFieldSchema(schema, formPath, { optional: true, values });
     const valid = field == null || field.safeParse(value).success;
-    let whole = value;
-    if (target.rest !== "") {
-      whole = deep.copy(target.node);
-      deep.set(whole, target.rest, value);
-    }
+    const whole = wholeAt(target, value);
     if (deep.equal(whole, target.node)) return;
-    this.write(target.path, whole, valid);
+    this.write(target.path, whole, valid, () =>
+      this.params.codec.set(this.get(), target, formPath, value),
+    );
   };
 
   remove = (formPath: string): void => {
     const values = this.get();
     const target = locate(this.params.schema, values, formPath);
     if (target == null || target.path.length === 0) return;
-    const guards = patch.guards(this.params.schema, target.path, values);
-    if (target.rest !== "") {
-      const whole = deep.copy(target.node);
-      deep.remove(whole, target.rest);
-      this.dispatch({ type: "set", set: { path: target.path, value: whole, guards } });
-      return;
-    }
-    const path = target.path.slice(0, -1);
-    const key = target.path[target.path.length - 1];
-    this.dispatch({ type: "remove", remove: { path, key, guards } });
+    this.dispatch(this.params.codec.remove(values, target, formPath));
   };
 
   insert = <E extends Form.Entry>(formPath: string, value: E, after?: string): void => {
     const values = this.get();
     const path = this.locateList(values, formPath);
     if (path == null) return;
-    const guards = patch.guards(this.params.schema, path, values);
-    this.dispatch({ type: "insert", insert: { path, value, after, guards } });
+    this.dispatch(this.params.codec.insert(values, path, value, after));
   };
 
   move = (formPath: string, key: string, after?: string): void => {
     const values = this.get();
     const path = this.locateList(values, formPath);
     if (path == null) return;
-    const guards = patch.guards(this.params.schema, path, values);
-    this.dispatch({ type: "move", move: { path, key, after, guards } });
+    this.dispatch(this.params.codec.move(values, path, key, after));
   };
 
   batch = (fn: () => void): void => {
@@ -287,7 +461,7 @@ class DocumentStore<
   /**
    * Sends every edit the store holds, and waits for the sends already in flight.
    * @returns false when a field holds a value that fails its schema, which stays
-   * unsent, or when one of those sends failed.
+   * unsent, or when one of those sends failed or went stale.
    */
   async flush(): Promise<boolean> {
     const sends = [...this.inFlight, ...this.takeValid()];
@@ -303,11 +477,39 @@ class DocumentStore<
   }
 
   private setChanged(next: unknown): void {
-    patch.diff(this.params.schema, this.get(), next).forEach((action) => {
-      // A change of union member at the root has no field to write.
-      if (action.type === "set" && action.set.path.length > 0)
-        this.set(action.set.path.join(deep.SEPARATOR), action.set.value);
-      else this.dispatch(action);
+    const values = this.get();
+    const { codec, schema } = this.params;
+    if (codec.diff != null) {
+      const action = codec.diff(values, next);
+      if (action != null) this.dispatch(action);
+      return;
+    }
+    patch.diff(schema, values, next).forEach((action) => {
+      const join = (path: string[]) => path.join(deep.SEPARATOR);
+      switch (action.type) {
+        case "set": {
+          const { path, value } = action.set;
+          // A change of union member at the root has no field to write.
+          if (path.length > 0) this.set(join(path), value);
+          else {
+            const root = { path, node: values, rest: "", entry: false };
+            this.dispatch(codec.set(values, root, "", value));
+          }
+          return;
+        }
+        case "remove":
+          this.remove(join([...action.remove.path, action.remove.key]));
+          return;
+        case "insert": {
+          const { path, value, after } = action.insert;
+          this.insert(join(path), value as Form.Entry, after);
+          return;
+        }
+        case "move": {
+          const { path, key, after } = action.move;
+          this.move(join(path), key, after);
+        }
+      }
     });
   }
 
@@ -319,10 +521,19 @@ class DocumentStore<
     return target.path;
   }
 
-  private write(path: string[], value: unknown, valid: boolean): void {
+  /**
+   * Writes the value at path through the action that build returns. Build runs after
+   * the write drops the earlier writes that it replaces.
+   */
+  private write(
+    path: string[],
+    value: unknown,
+    valid: boolean,
+    build: () => Action,
+  ): void {
     if (this.removed) return;
     if (this.batched != null) {
-      this.batched.add(this.setAction(path, value));
+      this.batched.add(build());
       return;
     }
     const at = path.join(deep.SEPARATOR);
@@ -343,8 +554,7 @@ class DocumentStore<
       edit.tx = this.params.domain.beginTransaction(this.key);
       edit.tx.add([...edit.writes.values()].map(({ action }) => action));
     }
-    // The guards read the document without the replaced writes.
-    const action = this.setAction(path, value);
+    const action = build();
     edit.writes.set(at, { action, value, valid });
     edit.tx.add(action);
     clearTimeout(edit.timer);
@@ -355,26 +565,16 @@ class DocumentStore<
     );
   }
 
-  /** @returns the action that sets the value at path, guarded on the shown document. */
-  private setAction(path: string[], value: unknown): patch.Action {
-    const guards = patch.guards(this.params.schema, path, this.get());
-    return patch.prefix(
-      { type: "set", set: { path, value, guards } },
-      this.params.path,
-    );
-  }
-
-  /** Sends the field's edits right after the edits before them. */
-  private dispatch(action: patch.Action): void {
+  /** Sends the action right after the edits before it. */
+  private dispatch(action: Action): void {
     if (this.removed) return;
-    const prefixed = patch.prefix(action, this.params.path);
     if (this.batched != null) {
-      this.batched.add(prefixed);
+      this.batched.add(action);
       return;
     }
     void this.takeValid();
     const tx = this.params.domain.beginTransaction(this.key);
-    tx.add(prefixed);
+    tx.add(action);
     this.dropReplaced();
     void this.send(tx);
   }
@@ -410,15 +610,18 @@ class DocumentStore<
    * fails its schema.
    * @returns the queued send, or null when the edit stays.
    */
-  private take(edit: Edit): Promise<boolean> | null {
+  private take(edit: Edit<Action>): Promise<boolean> | null {
     clearTimeout(edit.timer);
     if (![...edit.writes.values()].every(({ valid }) => valid)) return null;
     this.edits.splice(this.edits.indexOf(edit), 1);
     return this.send(edit.tx);
   }
 
-  /** @returns false when the send failed. A transaction with nothing to send passes. */
-  private async send(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+  /**
+   * @returns false when the send failed or went stale. A transaction with nothing to
+   * send passes.
+   */
+  private async send(tx: actions.Transaction<Action>): Promise<boolean> {
     const sent = this.commit(tx);
     this.inFlight.add(sent);
     try {
@@ -428,31 +631,30 @@ class DocumentStore<
     }
   }
 
-  private async commit(tx: actions.Transaction<patch.Action>): Promise<boolean> {
+  private async commit(tx: actions.Transaction<Action>): Promise<boolean> {
     try {
       await tx.commit();
       return true;
     } catch (e) {
-      this.params.onError(e);
+      // The cached document drops a stale edit, and the form shows the document.
+      if (!patch.StaleError.matches(e)) this.params.onError(e);
       return false;
     }
   }
 }
 
-export interface CreateDocumentFormParams<
+interface DocumentFormBase<
   Key extends record.Key,
-  Doc extends query.Data,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key>,
+  Doc,
 > {
   name: string;
   /**
    * The form's schema. A field write outside a batch waits until its value passes its
-   * field schema, and the discriminated unions of a path decide the guards of its
-   * action.
+   * field schema.
    */
   schema: Schema;
-  domain: (client: Client) => DocumentDomain<Key, Doc>;
   /** Suspends until the document is cached. */
   useEnsure: (query: DocumentQuery<Key>) => void;
   /**
@@ -462,12 +664,75 @@ export interface CreateDocumentFormParams<
    * client removed it. The form then keeps its last values and takes no edits.
    */
   toValues: (doc: Doc, query: Query) => z.infer<Schema> | undefined;
+}
+
+/**
+ * Sends each edit as a path action. The discriminated unions of the form's schema on a
+ * path decide the guards of its action.
+ */
+interface PathDocumentFormParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+  Query extends DocumentQuery<Key>,
+> extends DocumentFormBase<Key, Schema, Query, Doc> {
+  domain: (client: Client) => DocumentDomain<Key, Doc>;
   /**
    * The path of the edited part in the document, such as the key of one entry in a map.
    * The form edits the whole document when omitted.
    */
   pathOf?: (query: Query) => string[];
+  updates?: never;
+  fields?: never;
 }
+
+/**
+ * Sends each edit as an update of the form's values. A write of the whole form sends
+ * the update that turns the form's values into the written ones.
+ */
+interface UpdateDocumentFormParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+  Query extends DocumentQuery<Key>,
+  Action,
+  Update extends z.ZodType,
+> extends DocumentFormBase<Key, Schema, Query, Doc> {
+  domain: (client: Client) => DocumentDomain<Key, Doc, Action>;
+  updates: DocumentUpdates<Action, Update>;
+  pathOf?: never;
+  fields?: never;
+}
+
+/**
+ * Sends each edit as a named action that sets the top-level fields of the form's
+ * values that the edit changes. Such an action cannot remove a top-level field.
+ */
+interface FieldsDocumentFormParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+  Query extends DocumentQuery<Key>,
+  Action,
+> extends DocumentFormBase<Key, Schema, Query, Doc> {
+  domain: (client: Client) => DocumentDomain<Key, Doc, Action>;
+  /** Builds the action that sets the fields. */
+  fields: (query: Query, fields: record.Unknown) => Action;
+  pathOf?: never;
+  updates?: never;
+}
+
+export type CreateDocumentFormParams<
+  Key extends record.Key,
+  Doc extends query.Data,
+  Schema extends z.ZodType,
+  Query extends DocumentQuery<Key>,
+  Action = patch.Action,
+  Update extends z.ZodType = z.ZodType,
+> =
+  | PathDocumentFormParams<Key, Doc, Schema, Query>
+  | UpdateDocumentFormParams<Key, Doc, Schema, Query, Action, Update>
+  | FieldsDocumentFormParams<Key, Doc, Schema, Query, Action>;
 
 export interface UseDocumentFormParams<Query> extends Pick<
   Form.UseParams<z.ZodType>,
@@ -480,7 +745,8 @@ export interface UseDocumentFormReturn<Schema extends z.ZodType> {
   form: Form.UseReturn<Schema>;
   /**
    * Sends every edit the form holds.
-   * @returns false when a field holds a value that fails its schema, or a send failed.
+   * @returns false when a field holds a value that fails its schema, or a send failed
+   * or went stale.
    */
   flush: () => Promise<boolean>;
 }
@@ -494,25 +760,49 @@ const WHOLE_DOCUMENT = (): string[] => [];
 /**
  * Builds a hook for a form over a document in the client cache, which other clients
  * edit at the same time. The form shows the cached document, re-rendering only the
- * fields a remote edit reaches, and each edit reaches the Core as a path action. Call
- * it once per document type, at module scope.
+ * fields a remote edit reaches. Each edit reaches the Core as an update, a named
+ * action, or a path action, as the params choose. Call it once per document type, at
+ * module scope.
  */
 export const createDocumentForm = <
   Key extends record.Key,
   Doc extends query.Data,
   Schema extends z.ZodType,
   Query extends DocumentQuery<Key> = DocumentQuery<Key>,
->({
-  name,
-  schema,
-  domain,
-  useEnsure,
-  toValues,
-  pathOf = WHOLE_DOCUMENT,
-}: CreateDocumentFormParams<Key, Doc, Schema, Query>): UseDocumentForm<
-  Query,
-  Schema
-> => {
+  Action = patch.Action,
+  Update extends z.ZodType = z.ZodType,
+>(
+  params: CreateDocumentFormParams<Key, Doc, Schema, Query, Action, Update>,
+): UseDocumentForm<Query, Schema> => {
+  const { name, schema, useEnsure, toValues } = params;
+  type V = z.infer<Schema>;
+  const createStore = (
+    client: Client,
+    query: Query,
+    onError: (error: unknown) => void,
+  ): Store<Query, V> => {
+    const base = { client, query, schema, toValues, onError };
+    if (params.updates != null)
+      return new DocumentStore({
+        ...base,
+        domain: params.domain(client),
+        codec: updateCodec(params.updates),
+      });
+    if (params.fields != null) {
+      const { fields } = params;
+      return new DocumentStore({
+        ...base,
+        domain: params.domain(client),
+        codec: fieldsCodec((changed) => fields(query, changed)),
+      });
+    }
+    const { pathOf = WHOLE_DOCUMENT } = params;
+    return new DocumentStore({
+      ...base,
+      domain: params.domain(client),
+      codec: pathCodec(schema, pathOf(query)),
+    });
+  };
   const useDocumentForm = ({
     query,
     mode,
@@ -521,18 +811,12 @@ export const createDocumentForm = <
     useEnsure({ key: query.key });
     const client = Synnax.use();
     const handleError = Status.useErrorHandler();
-    const create = (): DocumentStore<Key, Doc, Query, z.infer<Schema>> => {
+    const create = (): Store<Query, V> => {
       if (client == null)
         throw new DisconnectedError(`Cannot edit ${name}: no Core connected.`);
-      return new DocumentStore({
-        client,
-        query,
-        domain: domain(client),
-        schema,
-        toValues,
-        path: pathOf(query),
-        onError: (error) => handleError(error, `Failed to save ${name}`),
-      });
+      return createStore(client, query, (error) =>
+        handleError(error, `Failed to save ${name}`),
+      );
     };
     const [store, setStore] = useState(create);
     if (store.client !== client || !deep.equal(store.query, query)) setStore(create());

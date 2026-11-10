@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { caseconv, type patch, zod } from "@synnaxlabs/x";
+import { caseconv, patch, zod } from "@synnaxlabs/x";
 import { type Draft, produce } from "immer";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -353,6 +353,52 @@ describe("diffFields", () => {
         set: { path: ["nodes"], value: { "ns=1;nodeId": 2 }, guards: [] },
       },
     ]);
+  });
+});
+
+describe("diffUpdate", () => {
+  const scaleZ = z.discriminatedUnion("type", [
+    z.object({ type: z.literal("linear"), slope: z.number().optional() }),
+    z.object({ type: z.literal("none") }),
+  ]);
+  const updateZ = z.object({
+    name: z.string().optional(),
+    tags: patch.valueListZ(z.string()).optional(),
+    scale: scaleZ.optional(),
+  });
+  const BASE = {
+    name: "dev",
+    tags: ["a"],
+    scale: { type: "linear" as const, slope: 1 },
+    group: "g1",
+  };
+
+  it("should return null when the fields hold the same values", () => {
+    const next = { ...BASE, group: "g2" };
+    expect(actions.diffUpdate(updateZ, BASE, next, ["name", "tags"])).toBeNull();
+  });
+
+  it("should hold only the fields that differ", () => {
+    const next = { ...BASE, name: "renamed", tags: ["a", "b"] };
+    expect(actions.diffUpdate(updateZ, BASE, next, ["name", "tags", "scale"])).toEqual({
+      value: { name: "renamed", tags: { insert: ["b"] } },
+      guards: [],
+    });
+  });
+
+  it("should guard a union that it changes inside", () => {
+    const next = { ...BASE, scale: { type: "linear" as const, slope: 2 } };
+    expect(actions.diffUpdate(updateZ, BASE, next, ["scale"])).toEqual({
+      value: { scale: { type: "linear", slope: 2 } },
+      guards: [{ path: ["scale", "type"], value: "linear" }],
+    });
+  });
+
+  it("should set each named field when there is no base", () => {
+    expect(actions.diffUpdate(updateZ, undefined, BASE, ["name"])).toEqual({
+      value: { name: "dev" },
+      guards: [],
+    });
   });
 });
 

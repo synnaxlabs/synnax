@@ -117,8 +117,15 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       reset(await client.schematics.symbols.create(values));
       return;
     }
-    const edits = actions.diffFields(formSchema, stored, values, ["name", "data"]);
-    if (edits.length > 0) await client.schematics.symbols.dispatch(values.key, edits);
+    const update = actions.diffUpdate(schematic.symbol.updateZ, stored, values, [
+      "name",
+      "data",
+    ]);
+    if (update != null)
+      await client.schematics.symbols.dispatch(
+        values.key,
+        schematic.symbol.update(update),
+      );
   },
   mountListeners: ({ client, query: { key }, reset }) =>
     client.schematics.symbols.watch(key).onChange((result) => {
@@ -132,7 +139,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
-    await client.schematics.symbols.rename(data.key, data.name);
+    await client.schematics.symbols.update({ key: data.key, name: data.name });
     return data;
   },
 });

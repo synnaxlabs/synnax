@@ -17,6 +17,7 @@ import {
   dispatchResZ,
   scopedActionZ,
   set,
+  update,
 } from "@/access/policy/actions.gen";
 import {
   type Action,
@@ -28,6 +29,7 @@ import {
   type RetrieveRequest,
   retrieveRequestZ,
   retrieveResponseZ,
+  type Update,
   type Where,
 } from "@/access/policy/types.gen";
 import {
@@ -109,6 +111,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
     // Every write to a policy reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Policy, Action>({
       store,
+      schema: policyZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
@@ -118,6 +121,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
         dispatchReqZ,
         dispatchResZ,
       ),
+      sendAll: actions.batchSender(cfg.unary, "/access/policy/dispatch", dispatchResZ),
       reduce: reduceAll,
       createOf,
     });
@@ -176,6 +180,16 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Po
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
+  /**
+   * Applies each update to its cached policy until the Core echoes it. Several updates
+   * apply in one transaction, all or none.
+   * @throws {ValidationError} if a policy cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update(updates: actions.Updates<Key, Update>): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**

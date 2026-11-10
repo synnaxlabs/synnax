@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status, task } from "@synnaxlabs/client";
+import { pagerduty, status, task } from "@synnaxlabs/client";
 import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
@@ -682,7 +682,10 @@ describe("queries", () => {
       config: z.object({ routingKey: z.string() }),
       statusData: statusData.nullish(),
     };
-    const useForm = Task.createForm({ schemas });
+    const useForm = Task.createForm({
+      schemas,
+      configSchemas: pagerduty.CONFIG_SCHEMAS[pagerduty.ALERT_TASK_TYPE],
+    });
     const path = deep.path<z.infer<Task.FormSchema<typeof schemas>>>();
 
     const createTask = async (): Promise<task.Task> =>

@@ -473,7 +473,7 @@ describe("Arc queries", () => {
       expect(result.current.form.value()).toEqual(STATUS_INPUTS);
     });
 
-    it("should send an edit as a path action that keeps input key case", async () => {
+    it("should send an edit as node inputs that keep their key case", async () => {
       const a = await createStatusArc();
       const { result } = await renderForm(a.key);
       const send = spyOnSend(client);
@@ -483,10 +483,7 @@ describe("Arc queries", () => {
         send.mock.calls.find(([target]) => target === "/arc/dispatch") ?? [];
       expect(req).toMatchObject({
         actions: [
-          {
-            type: "set",
-            set: { path: ["graph", "inputs", "n1", "key_or_name"], value: "pressure" },
-          },
+          arc.setNodeInputs({ key: "n1", inputs: { key_or_name: "pressure" } }),
         ],
       });
       expect(await fetchStoredInputs(a.key, "n1")).toEqual({

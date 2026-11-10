@@ -295,8 +295,9 @@ export const Write = Task.wrapForm({
   Properties,
   Form,
   schemas: WRITE_SCHEMAS,
+  configSchemas: kafka.CONFIG_SCHEMAS[kafka.WRITE_TASK_TYPE],
   deployConfigZ: deployWriteConfigZ,
-  type: WRITE_TYPE,
+  type: kafka.WRITE_TASK_TYPE,
   onConfigure,
 });
 

@@ -10,17 +10,23 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
+  caseconv,
   compare,
   deep,
   destructor,
   errors,
   id,
+  narrow,
+  patch,
   type record,
   TimeSpan,
   TimeStamp,
+  zod,
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
+import { type DispatchPayload, updateEntries, type Updates } from "@/actions/actions";
+import { batch } from "@/batch";
 import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { type query } from "@/query";
 import { Table } from "@/query/table";
@@ -122,11 +128,39 @@ export const sender =
   <Key, Action>(
     unary: UnaryClient,
     target: string,
-    reqZ: z.ZodType<{ key: Key; dispatchKey: string; actions: Action[] }>,
+    reqZ: z.ZodType<Dispatch<Key, Action>>,
     resZ: z.ZodType<{ actions: Action[] }>,
   ): SendDispatch<Key, Action> =>
   async (key, actions, dispatchKey) =>
     (await unary.send(target, { key, dispatchKey, actions }, reqZ, resZ)).actions;
+
+/** One dispatch to a document's endpoint. */
+export interface Dispatch<Key, Action> {
+  key: Key;
+  dispatchKey: string;
+  actions: Action[];
+}
+
+/**
+ * Sends dispatches to the Core as one transaction, so it applies all of them or none.
+ * Resolves to the actions that the Core added to each dispatch, in order.
+ */
+export type SendDispatches<Key, Action> = (
+  dispatches: Dispatch<Key, Action>[],
+) => Promise<Action[][]>;
+
+/** Builds the send of dispatches to a domain's dispatch endpoint as one batch. */
+export const batchSender = <Key, Action>(
+  unary: UnaryClient,
+  endpoint: string,
+  resZ: z.ZodType<{ actions: Action[] }>,
+): SendDispatches<Key, Action> => {
+  const client = new batch.Client(unary);
+  return async (dispatches) => {
+    const res = await client.send(dispatches.map((payload) => ({ endpoint, payload })));
+    return res.map((r) => zod.parse(resZ, r, { label: "dispatch response" }).actions);
+  };
+};
 
 /** Rewrites an action batch against the current document before replay. */
 export type Preprocess<State, Action> = (state: State, actions: Action[]) => Action[];
@@ -170,6 +204,17 @@ export interface Frame<Key, Action> {
   actions: Action[];
 }
 
+interface Guarded {
+  type: "update";
+  update: { guards: patch.Guard[] };
+}
+
+const isGuarded = (action: unknown): action is Guarded => {
+  if (!narrow.isObject(action) || action.type !== "update") return false;
+  const { update } = action as { update?: { guards?: unknown[] } };
+  return (update?.guards?.length ?? 0) > 0;
+};
+
 export interface ControllerParams<
   Key extends record.Key,
   State extends query.Data,
@@ -185,9 +230,16 @@ export interface ControllerParams<
    */
   onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
+  /**
+   * The schema of a cached doc. The guard paths of an update reach the Core in
+   * snake_case, and the schema converts them as the wire converts the doc's keys.
+   */
+  schema: z.ZodType;
   /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
    *  of network concerns. */
   send: SendDispatch<Key, Action>;
+  /** Sends dispatches to several documents as one transaction. */
+  sendAll: SendDispatches<Key, Action>;
   /**
    * Converts an action that a caller dispatches or adds to a transaction into the form
    * the Core stores, against the cached doc that the actions before it produce. Undo
@@ -324,7 +376,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.params = {
       onError: opts.onError,
       reduce: opts.reduce,
+      schema: opts.schema,
       send: opts.send,
+      sendAll: opts.sendAll,
       encode: opts.encode,
       isUndoable: opts.isUndoable ?? (() => true),
       kindOf: opts.kindOf ?? (() => "default"),
@@ -403,6 +457,55 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
+   * Applies each update to its cached doc until its echo arrives, as send does. One
+   * update sends in order with the document's other dispatches. Several send as one
+   * transaction, so the Core applies all of them or none.
+   * @param build - Builds the update action from the value of an update.
+   * @throws {Error} if a cached doc cannot take its update, before any send.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   * @throws {Error} if the send fails, after the updates roll back.
+   */
+  async update<U extends object>(
+    updates: Updates<Key, U>,
+    build: (payload: { value: U }) => Action,
+  ): Promise<void> {
+    const entries = updateEntries(updates, build);
+    if (entries.length === 1) await this.send(entries[0].key, entries[0].actions);
+    else if (entries.length > 1) await this.sendAll(entries);
+  }
+
+  // Sends each entry as its own dispatch in one transaction. A cached doc holds its
+  // dispatch as pending, as a create does.
+  private async sendAll(entries: DispatchPayload<Key, Action>[]): Promise<void> {
+    const dispatches = entries.map((e) => ({ ...e, dispatchKey: id.create() }));
+    const discardAll = () =>
+      dispatches.forEach(({ key, dispatchKey }) => this.discard(key, dispatchKey));
+    try {
+      dispatches.forEach(({ key, dispatchKey, actions }) => {
+        const current = this.docs.get(key);
+        if (current == null) return;
+        const { next } = this.params.reduce(current, actions);
+        this.track(key, current, this.createPending(dispatchKey, [...actions]), next);
+      });
+    } catch (e) {
+      discardAll();
+      throw errors.fromUnknown(e);
+    }
+    let added: Action[][];
+    try {
+      added = await this.params.sendAll(
+        dispatches.map((d) => ({ ...d, actions: this.toCore(d.key, d.actions) })),
+      );
+    } catch (e) {
+      discardAll();
+      throw errors.fromUnknown(e);
+    }
+    dispatches.forEach(({ key, dispatchKey }, i) =>
+      this.accept(key, dispatchKey, added[i]),
+    );
+  }
+
+  /**
    * Adds an edit to the batch that sends next, and sends it at once when nothing is in
    * flight for the document.
    * @throws {Error} if the send fails.
@@ -478,7 +581,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         // A remake after a failed send can leave a batch with nothing to send.
         if (entry.actions.length > 0) {
           entry.epoch = this.epoch;
-          const applied = await this.params.send(key, entry.actions, entry.dispatchKey);
+          const applied = await this.params.send(
+            key,
+            this.toCore(key, entry.actions),
+            entry.dispatchKey,
+          );
           this.accept(key, entry.dispatchKey, applied);
         }
         batch.members.forEach(({ result }) => result.resolve());
@@ -542,12 +649,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.rebuild(r);
   }
 
-  /** Returns the base with the pending entries applied. */
+  /**
+   * Returns the base with the pending entries applied. An entry that a remote edit left
+   * stale shows nothing, and the Core refuses it.
+   */
   private rebuild(r: Rebase<State, Action>): State {
-    return r.pending.reduce(
-      (state, { actions }) => this.params.reduce(state, actions).next,
-      r.base,
-    );
+    return r.pending.reduce((state, { actions }) => {
+      try {
+        return this.params.reduce(state, actions).next;
+      } catch (e) {
+        if (patch.StaleError.matches(e)) return state;
+        throw errors.fromUnknown(e);
+      }
+    }, r.base);
   }
 
   private write(key: Key, r: Rebase<State, Action>): void {
@@ -626,7 +740,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.echo = applied;
+    p.echo = this.fromCore(key, applied);
     // No echo arrives in epoch 0, which has no change stream. The echo may also have
     // been lost when the epoch changed during the send.
     if (this.epoch === 0 || p.epoch !== this.epoch)
@@ -987,9 +1101,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * changes a field that a list reads. A frame whose dispatch key matches a pending
    * entry is that entry's echo: it moves into the base, and the doc changes only if
    * other frames came first. Any other frame applies to the base, under the pending
-   * entries, and marks its targets as remote-touched.
+   * entries, and marks its targets as remote-touched. A frame whose guards do not hold
+   * on the cached doc fetches the doc again.
    */
-  applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
+  applyRemote(key: Key, seq: number, dispatchKey: string, received: Action[]): void {
     // Until the fetch caches the doc, a frame only marks that the Core may answer from
     // before it.
     if (this.listing.has(key) && this.docs.get(key) == null) {
@@ -1001,6 +1116,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
+    const actions = this.fromCore(key, received);
+    const r = this.rebases.get(key);
+    try {
+      this.applyFrame(key, dispatchKey, actions);
+    } catch (e) {
+      if (!patch.StaleError.matches(e)) throw errors.fromUnknown(e);
+      // The Core applied the frame, so the cached doc missed an edit before it.
+      if (r != null) this.discard(key, dispatchKey);
+      this.docs.refetch([key]);
+    }
+  }
+
+  private applyFrame(key: Key, dispatchKey: string, actions: Action[]): void {
     const doc = this.docs.get(key);
     if (doc == null) {
       // Anything but a create predates our knowledge of the doc, so it drops.
@@ -1022,6 +1150,32 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     }
     const { own, targets } = this.settle(key, r, dispatchKey, actions);
     if (!own) this.markRemoteTouched(key, targets);
+  }
+
+  // Converts the guard paths of each update between the case of the cached doc and the
+  // snake_case of the Core.
+  private toCore(key: Key, actions: Action[]): Action[] {
+    return this.convertGuards(key, actions, caseconv.camelToSnakePath);
+  }
+
+  private fromCore(key: Key, actions: Action[]): Action[] {
+    return this.convertGuards(key, actions, caseconv.snakeToCamelPath);
+  }
+
+  private convertGuards(
+    key: Key,
+    actions: Action[],
+    convert: typeof caseconv.camelToSnakePath,
+  ): Action[] {
+    const opts = { schema: this.params.schema, data: this.docs.get(key) };
+    return actions.map((action) => {
+      if (!isGuarded(action)) return action;
+      const guards = action.update.guards.map((g) => ({
+        ...g,
+        path: convert(g.path, opts).path,
+      }));
+      return { ...action, update: { ...action.update, guards } };
+    });
   }
 
   /**

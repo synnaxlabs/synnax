@@ -42,7 +42,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
   update: async ({ client, data }) => {
-    await client.arcs.directories.rename(data.key, data.name);
+    await client.arcs.directories.update({ key: data.key, name: data.name });
     return data;
   },
 });

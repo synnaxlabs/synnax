@@ -80,13 +80,17 @@ export const formSchema = label.labelZ.pick({ name: true, color: true });
 export const useForm = Flux.createDocumentForm<
   label.Key,
   label.Label,
-  typeof formSchema
+  typeof formSchema,
+  Flux.DocumentQuery<label.Key>,
+  label.Action,
+  typeof label.updateZ
 >({
   name: RESOURCE_NAME,
   schema: formSchema,
   domain: (client) => client.labels,
   useEnsure,
   toValues: ({ name, color }) => ({ name, color }),
+  updates: { schema: label.updateZ, action: label.update },
 });
 
 export type DeleteParams = label.Key | label.Key[];

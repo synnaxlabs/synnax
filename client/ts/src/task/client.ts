@@ -16,6 +16,7 @@ import {
   type destructor,
   filter,
   id,
+  type patch,
   primitive,
   type record,
   strings,
@@ -35,8 +36,14 @@ import {
 import { ranger } from "@/ranger";
 import { resource } from "@/resource";
 import { status } from "@/status";
-import { createOf, encode, reduceAll } from "@/task/actions";
-import { dispatchReqZ, dispatchResZ, scopedActionZ, set } from "@/task/actions.gen";
+import { type ConfigSchemas, createOf, createReducer, encode } from "@/task/actions";
+import {
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+  update,
+} from "@/task/actions.gen";
 import {
   type Action,
   type Command,
@@ -53,6 +60,7 @@ import {
   type Status,
   type StatusDetailsZodObject,
   statusZ,
+  type UpdateInput,
   type Where,
 } from "@/task/types.gen";
 import { LINES } from "@/task/where";
@@ -68,6 +76,11 @@ import {
 import { checkForMultipleOrNoResults, singleQueryError } from "@/util/retrieve";
 
 export type { PayloadSchemas as Schemas } from "@/task/types.gen";
+
+type RecordConfigSchemas = patch.StructSchemas<
+  z.ZodType<record.Unknown>,
+  z.ZodType<record.Unknown>
+>;
 
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const ACTION_CHANNEL_NAME = "sy_task_action_set";
@@ -385,6 +398,8 @@ export interface ClientConfig {
   ranges: ranger.Client;
   cache: query.Cache;
   statuses: status.Client;
+  /** The schemas that an update merges into the config of each task type. */
+  configSchemas: ConfigSchemas;
 }
 
 /**
@@ -416,13 +431,16 @@ export class Client extends query.Retriever<
       fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    const reduceAll = createReducer(cfg.configSchemas);
     // Every write to a task reaches the client as actions, the config hash included.
     const dispatcher = new actions.Controller<Key, Omit<Task, "status">, Action>({
       store,
+      schema: payloadZ(),
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
       send: actions.sender(cfg.unary, "/task/dispatch", dispatchReqZ, dispatchResZ),
+      sendAll: actions.batchSender(cfg.unary, "/task/dispatch", dispatchResZ),
       reduce: (task, acts) => {
         const payload = task.payload;
         const { next, inverse, targets } = reduceAll(payload, acts);
@@ -579,6 +597,19 @@ export class Client extends query.Retriever<
 
   async rename(key: Key, name: string): Promise<void> {
     await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
+  }
+
+  /**
+   * Applies each update to its cached task until the Core echoes it. Several updates
+   * apply in one transaction, all or none. A config merges by the schemas of the task's
+   * type, and C types it.
+   * @throws {ValidationError} if a task cannot take its update.
+   * @throws {patch.StaleError} if an update names a list entry that is missing.
+   */
+  async update<C extends ConfigSchemas[string] = RecordConfigSchemas>(
+    updates: actions.Updates<Key, UpdateInput<C>>,
+  ): Promise<void> {
+    await this.dispatcher.update(updates, update);
   }
 
   /**
