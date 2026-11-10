@@ -56,7 +56,9 @@ var _ = Describe("Iterator", func() {
 				writeBatch(10, 11, 12)
 				writeBatch(13, 14, 15, 16, 17)
 				writeBatch(18, 19, 20, 21, 22)
-				Expect(writer.Commit()).To(BeNumerically("==", telem.SecondTS*22+1))
+				Expect(
+					MustCommit(writer),
+				).To(BeNumerically("==", telem.SecondTS*22+1))
 				Expect(writer.Close()).To(Succeed())
 			})
 			It(
@@ -236,7 +238,7 @@ var _ = Describe("Read failure", func() {
 			series[i] = telem.NewSeriesSecondsTSV(10, 11, 12)
 		}
 		Expect(w.Write(frame.NewMulti(keys, series))).To(BeTrue())
-		MustSucceed(w.Commit())
+		MustCommit(w)
 		Expect(w.Close()).To(Succeed())
 
 		iter := MustSucceed(host.Framer.OpenIterator(ctx, iterator.Config{

@@ -20,7 +20,7 @@ import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 const client = createTestClient();
 
 const createCertificate = async (name: string): Promise<certificate.Certificate> =>
-  await client.certificates.create({
+  await client.certificates.set({
     name,
     source: "file",
     certificatePath: "/etc/synnax/client.crt",

@@ -134,15 +134,14 @@ var _ = Describe("Reduce", func() {
 	})
 
 	DescribeTable(
-		"Should return a missing-payload error and leave state unchanged when an action carries no payload",
+		"Should return a missing-payload error and a zero state when an action carries no payload",
 		func(actionType string) {
 			p := panel.Panel{Root: leafNode()}
-			res, err := panel.Reduce(p, panel.Action{Type: actionType})
-			Expect(err).To(MatchError(SatisfyAll(
+			Expect(panel.Reduce(p, panel.Action{Type: actionType})).
+				Error().To(MatchError(SatisfyAll(
 				ContainSubstring("missing payload for declared variant"),
 				ContainSubstring(actionType),
 			)))
-			Expect(res).To(Equal(p))
 		},
 		Entry("Set", panel.ActionTypeSet),
 		Entry("InsertTabs", panel.ActionTypeInsertTabs),

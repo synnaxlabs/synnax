@@ -134,7 +134,7 @@ def create_routing_key(client: sy.Synnax) -> Callable[[], UUID]:
     its key. A task config can only name a secret that exists."""
 
     def create() -> UUID:
-        return client.secrets.create(name="PagerDuty routing key", value="1" * 32).key
+        return client.secrets.set(name="PagerDuty routing key", value="1" * 32).key
 
     return create
 

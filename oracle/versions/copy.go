@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-// copyType deep-copies a resolved type into namespace ns, rewriting every
-// reference name through rw. Domain maps are shared: they are read-only after
-// analysis.
+// copyType deep-copies a resolved type into namespace ns, rewriting every reference
+// name through rw. Domain maps are shared: they are read-only after analysis. Actions
+// are not copied, because a version file declares none.
 func copyType(
 	t resolution.Type, ns string, rw func(string) string,
 ) resolution.Type {
@@ -43,11 +43,6 @@ func copyForm(form resolution.TypeForm, rw func(string) string) resolution.TypeF
 	switch f := form.(type) {
 	case resolution.StructForm:
 		f.Fields = copyFields(f.Fields, rw)
-		f.Actions = slices.Clone(f.Actions)
-		for i := range f.Actions {
-			f.Actions[i].Fields = copyFields(f.Actions[i].Fields, rw)
-			f.Actions[i].Extends = copyRefs(f.Actions[i].Extends, rw)
-		}
 		f.TypeParams = copyParams(f.TypeParams, rw)
 		f.Extends = copyRefs(f.Extends, rw)
 		f.OmittedFields = slices.Clone(f.OmittedFields)

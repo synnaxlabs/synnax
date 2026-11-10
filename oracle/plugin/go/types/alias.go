@@ -126,7 +126,7 @@ func (g *aliasFileGenerator) GenerateFile(
 		if d.kind == declEnum && d.typ.Namespace != namespace {
 			continue
 		}
-		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, data)...)
+		ad.Types = append(ad.Types, buildAliasDecls(d, prefix, "", data)...)
 	}
 
 	// A path whose types are all @go omit generates no aliases; emitting the
@@ -144,11 +144,14 @@ func (g *aliasFileGenerator) GenerateFile(
 // buildAliasDecls returns the alias declarations re-exporting d's type from
 // the package referenced as prefix: a type alias per generated type (unions
 // expand to their variant, discriminator, and interface types) plus const
-// re-declarations for enum members and union discriminator values.
-func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDecl {
+// re-declarations for enum members and union discriminator values. target is the
+// Go name the prefix package declares for d's type; empty means d's own name.
+func buildAliasDecls(
+	d orderedDecl, prefix, target string, data *templateData,
+) []aliasDecl {
 	var decls []aliasDecl
-	addType := func(name, docStr string, tparams []resolution.TypeParam) {
-		lhs, rhs := name, prefix+"."+name
+	addType := func(name, targetName, docStr string, tparams []resolution.TypeParam) {
+		lhs, rhs := name, prefix+"."+targetName
 		params := resolution.NonDefaultedTypeParams(tparams)
 		if len(params) > 0 {
 			lhs += "["
@@ -167,27 +170,31 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		}
 		decls = append(decls, aliasDecl{Name: name, LHS: lhs, RHS: rhs, Doc: docStr})
 	}
+	name := naming.GetGoName(d.typ)
+	if target == "" {
+		target = name
+	}
+	typeDoc := doc.Get(d.typ.Domains)
 	switch d.kind {
 	case declTypeDef:
 		switch form := d.typ.Form.(type) {
 		case resolution.DistinctForm:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			addType(name, target, typeDoc, form.TypeParams)
 		case resolution.AliasForm:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+			addType(name, target, typeDoc, form.TypeParams)
 		default:
-			addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), nil)
+			addType(name, target, typeDoc, nil)
 		}
 	case declEnum:
-		name := naming.GetGoName(d.typ)
-		addType(name, doc.Get(d.typ.Domains), nil)
+		addType(name, target, typeDoc, nil)
 		form := d.typ.Form.(resolution.EnumForm)
 		decl := &decls[len(decls)-1]
 		for _, v := range form.Values {
-			member := name + naming.ToPascalCase(v.Name)
+			member := naming.ToPascalCase(v.Name)
 			decl.Consts = append(decl.Consts, aliasConst{
-				Name:   member,
+				Name:   name + member,
 				Type:   name,
-				Target: prefix + "." + member,
+				Target: prefix + "." + target + member,
 				Doc:    doc.Get(v.Domains),
 			})
 		}
@@ -196,33 +203,43 @@ func buildAliasDecls(d orderedDecl, prefix string, data *templateData) []aliasDe
 		if !ok {
 			return nil
 		}
-		addType(naming.GetGoName(d.typ), doc.Get(d.typ.Domains), form.TypeParams)
+		addType(name, target, typeDoc, form.TypeParams)
 	case declUnion:
 		form, ok := d.typ.Form.(resolution.UnionForm)
 		if !ok {
 			return nil
 		}
-		name := naming.GetGoName(d.typ)
-		addType(name, doc.Get(d.typ.Domains), nil)
-		addType(name+"Variant", interfaceDoc(name), nil)
+		addType(name, target, typeDoc, nil)
+		addType(name+"Variant", target+"Variant", interfaceDoc(name), nil)
 		if form.BorrowsEnum() {
 			for _, v := range form.Variants {
-				addType(casing.VariantTypeName(name, v.Name), doc.Get(v.Domains), nil)
+				addType(
+					casing.VariantTypeName(name, v.Name),
+					casing.VariantTypeName(target, v.Name),
+					doc.Get(v.Domains),
+					nil,
+				)
 			}
 			return decls
 		}
 		discType := name + "Type"
-		addType(discType, discDoc(name, casing.FieldSnake(form.Discriminator)), nil)
+		addType(
+			discType,
+			target+"Type",
+			discDoc(name, casing.FieldSnake(form.Discriminator)),
+			nil,
+		)
 		discDecl := len(decls) - 1
 		for _, v := range form.Variants {
 			variantDoc := doc.Get(v.Domains)
 			variantType := casing.VariantTypeName(name, v.Name)
-			addType(variantType, variantDoc, nil)
-			constName := casing.VariantConstName(name, v.Name)
+			addType(
+				variantType, casing.VariantTypeName(target, v.Name), variantDoc, nil,
+			)
 			decls[discDecl].Consts = append(decls[discDecl].Consts, aliasConst{
-				Name:   constName,
+				Name:   casing.VariantConstName(name, v.Name),
 				Type:   discType,
-				Target: prefix + "." + constName,
+				Target: prefix + "." + casing.VariantConstName(target, v.Name),
 				Doc:    constDoc(variantDoc, variantType),
 			})
 		}

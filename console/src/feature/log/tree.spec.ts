@@ -98,7 +98,7 @@ describe("log tree item", () => {
 
   it("should haul a mosaic tab creation item", () => {
     const res = logResource("abc", "l");
-    const items = Item.haulItems(res);
+    const items = Item.haulItems(res, client);
     expect(items).toHaveLength(1);
   });
 });

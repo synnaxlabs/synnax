@@ -119,7 +119,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			Base: secret.Base{Key: uuid.MustParse(key), Name: key},
 		}}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return secrets.NewWriter(tx).Create(ctx, &s, []byte(key))
+			return secrets.NewWriter(tx).Set(ctx, &s, []byte(key))
 		})).To(Succeed())
 	}
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{

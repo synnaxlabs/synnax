@@ -456,14 +456,16 @@ describe("Lists", () => {
           table,
           fetch,
           compose: (r) => ({ ...r, variant: statuses.get(r.key)?.variant }),
-          matches,
+          // A pending status leaves the match undecided.
+          matches: (r, q) =>
+            statuses.get(r.key)?.variant === "pending" ? null : matches(r, q),
           cursor,
           compare: compareCursors,
           triggers: [query.trigger(statuses, ({ key }) => [key], { contentOnly })],
         },
         { teardownGrace: TimeSpan.ZERO },
       );
-      return { statuses, fetch, lists };
+      return { statuses, table, fetch, lists };
     };
 
     it("should compose a member again when a watched table changes it", async () => {
@@ -482,6 +484,70 @@ describe("Lists", () => {
       ]);
       expect(handler).toHaveBeenCalledTimes(1);
       release();
+    });
+
+    it("should keep the composed records of members that a watched change leaves", async () => {
+      const { statuses, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      const [a, b] = (await list.retrieve()).records;
+      statuses.set("1", { key: "1", variant: "error" });
+      const [nextA, nextB] = list.getCached()?.records ?? [];
+      expect(nextA).not.toBe(a);
+      expect(nextA.variant).toEqual("error");
+      expect(nextB).toBe(b);
+      release();
+    });
+
+    it("should keep the composed records of members that a table change leaves", async () => {
+      const { table, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      const [a, b] = (await list.retrieve()).records;
+      table.set("1", rec("1", "a", 2));
+      const [nextA, nextB] = list.getCached()?.records ?? [];
+      expect(nextA).not.toBe(a);
+      expect(nextA.value).toEqual(2);
+      expect(nextB).toBe(b);
+      release();
+    });
+
+    it("should compose a member again that an undecided match drops and a refetch admits", async () => {
+      const { statuses, fetch, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      statuses.set("1", { key: "1", variant: "pending" });
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      expect(list.getCached()?.records.map((r) => r.variant)).toEqual([
+        "pending",
+        undefined,
+      ]);
+      release();
+    });
+
+    it("should compose every member again after a watched change while unwatched", async () => {
+      const { statuses, table, lists } = setupWatched([rec("1", "a"), rec("2", "b")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      release();
+      statuses.set("1", { key: "1", variant: "error" });
+      table.set("2", rec("2", "b", 2));
+      expect(list.getCached()?.records.map((r) => [r.variant, r.value])).toEqual([
+        ["error", 1],
+        [undefined, 2],
+      ]);
+    });
+
+    it("should compose a member again after a watched change while unwatched", async () => {
+      const { statuses, lists } = setupWatched([rec("1", "a")]);
+      const list = lists.list({ order: byName });
+      const release = list.onChange(() => {});
+      await list.retrieve();
+      release();
+      statuses.set("1", { key: "1", variant: "error" });
+      expect(list.getCached()?.records[0].variant).toEqual("error");
     });
 
     it("should fetch a search again when a watched change can change its matches", async () => {

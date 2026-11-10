@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { MQTT } from "@/feature/mqtt";
 import { createBroker, openScanner } from "@/feature/mqtt/testutil";
+import { Device } from "@/platform/device";
 import {
   clickDeploy,
   deployAndAwaitTask,
@@ -1077,7 +1078,7 @@ describe("MQTT Read form", () => {
           "plant/oven": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
         },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(client, dev);
       const config = createReadConfig(dev.key, [
         createReadEntry("e1", "plant/oven", {
           fields: [createReadField("f1", "/temperature")],
@@ -1152,7 +1153,7 @@ describe("MQTT Read form", () => {
         ...MQTT.Device.ZERO_PROPERTIES,
         read: { "plant/oven": { index: 0, channels: { "/existing": dataCh.key } } },
       };
-      await client.devices.create(dev, MQTT.Device.SCHEMAS);
+      await Device.setProperties(client, dev);
       const config = createReadConfig(dev.key, [
         createReadEntry("e1", "plant/oven", {
           fields: [createReadField("f1", "/temperature")],

@@ -42,12 +42,11 @@ var (
 	db  *gorp.DB
 	svc *service.Layer
 	// The handlers run the routes as the API layer binds them.
-	create   freighter.UnaryHandler[apisecret.CreateRequest, apisecret.CreateResponse]
+	set      freighter.UnaryHandler[apisecret.SetRequest, apisecret.SetResponse]
 	retrieve freighter.UnaryHandler[
 		apisecret.RetrieveRequest,
 		apisecret.RetrieveResponse,
 	]
-	rename      freighter.UnaryHandler[apisecret.RenameRequest, struct{}]
 	del         freighter.UnaryHandler[apisecret.DeleteRequest, struct{}]
 	dispatch    freighter.UnaryHandler[apisecret.DispatchRequest, struct{}]
 	createGrant freighter.UnaryHandler[
@@ -71,9 +70,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 		Held: apiauth.HeldTables(),
 	}))
-	create = bind.Write(binder, apiSvc.Create)
+	set = bind.Write(binder, apiSvc.Set)
 	retrieve = bind.Read(binder, apiSvc.Retrieve)
-	rename = bind.Write(binder, apiSvc.Rename)
 	del = bind.Write(binder, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
 	createGrant = fgorp.CreateWriteUnaryHandler(node.DB, apiSvc.CreateGrant)

@@ -79,7 +79,7 @@ afterEach(async () => {
 
 /** Creates a certificate with a private key, which makes the key a used secret. */
 const createCertificate = async () => {
-  const c = await client.certificates.create({
+  const c = await client.certificates.set({
     name: uniqueName("certificate"),
     source: "stored",
     ...CERTIFICATE,
@@ -212,7 +212,7 @@ describe("secret/Toolbar", () => {
     });
   });
 
-  it("offers no replacement to a user who cannot create secrets", async () => {
+  it("offers a replacement to a user who can update but not create secrets", async () => {
     const s = await createSecret(client, createdSecrets);
     const editor = await createTestClientWithGrants(client, {
       retrieve: [secret.TYPE_RESOURCE_ID],
@@ -220,12 +220,11 @@ describe("secret/Toolbar", () => {
     });
     await renderToolbar(editor);
     await openMenu(s.name);
-    await screen.findByText("Rename");
-    expect(screen.queryByText("Replace value")).toBeNull();
+    await screen.findByText("Replace value");
   });
 
   it("offers no replacement for a file secret", async () => {
-    const s = await client.secrets.create({
+    const s = await client.secrets.set({
       name: uniqueName("secret"),
       source: "file",
       path: "/etc/synnax/token",

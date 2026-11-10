@@ -22,8 +22,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/instrumentation"
 	"github.com/synnaxlabs/synnax/cmd/start"
+	"github.com/synnaxlabs/synnax/pkg/release"
 	"github.com/synnaxlabs/synnax/pkg/storage"
+	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
 )
 
 const (
@@ -32,35 +35,52 @@ const (
 )
 
 // NewCmd returns the command that updates the Core, with the subcommands that list the
-// metadata backups, undo an update, and allow a failed update to run again.
-func NewCmd() *cobra.Command {
+// metadata backups, undo an update, and allow a failed update to run again. The command
+// downloads releases as cfg sets.
+func NewCmd(cfg release.Config) *cobra.Command {
 	group := &cobra.Command{
-		Use:   "update",
+		Use:   "update [version]",
 		Short: "Update the Core, or undo an update",
-		Long: "Replaces the installed Core with the Core binary that --file names. " +
-			"For a Core service, the command stops the service, replaces the " +
-			"binary, starts the service, and waits until the new Core commits the " +
-			"update. If the new Core fails and undoes the update, the command puts " +
-			"the old Core back and starts it. Without a service, stop the Core " +
-			"before the update and start it after. Run the command as an " +
-			"administrator.\n\nBefore a new version first opens the data, the Core " +
-			"backs up its metadata. The subcommands list the backups, undo an " +
-			"update, and allow a failed update to run again. A backup holds no " +
-			"telemetry. Without --data, the subcommands use the data directory of " +
-			"the Core service, if there is one.",
-		Example: "sudo synnax update --file ./synnax-v0.61.0-linux",
-		Args:    cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
+		Long: "Replaces the installed Core with Core <version>, which the command " +
+			"downloads from the Synnax releases and checks against its signature, " +
+			"or with the Core binary that --file names. For a Core service, the " +
+			"command stops the service, replaces the binary, starts the service, " +
+			"and waits until the new Core commits the update. If the new Core fails " +
+			"and undoes the update, the command puts the old Core back and starts " +
+			"it. Without a service, stop the Core before the update and start it " +
+			"after. Run the command as an administrator.\n\nBefore a new version " +
+			"first opens the data, the Core backs up its metadata. The subcommands " +
+			"list the backups, undo an update, and allow a failed update to run " +
+			"again. A backup holds no telemetry. Without --data, the subcommands use " +
+			"the data directory of the Core service, if there is one.",
+		Example: "sudo synnax update 0.61.0\n" +
+			"sudo synnax update --file ./synnax-v0.61.0-linux",
+		Args: cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
 			file, err := cmd.Flags().GetString(flagFile)
-			if err != nil || file == "" {
-				return errors.Combine(err, cmd.Help())
+			if err != nil {
+				return err
 			}
 			timeout, err := cmd.Flags().GetDuration(flagTimeout)
 			if err != nil {
 				return err
 			}
-			cmd.SilenceUsage = true
-			return fromFile(cmd.Context(), cmd.OutOrStdout(), file, timeout)
+			ctx, w := cmd.Context(), cmd.OutOrStdout()
+			switch {
+			case len(args) == 1 && file != "":
+				return errors.Mark(
+					errors.New("Give a version or --file, not both."),
+					validate.ErrValidation,
+				)
+			case len(args) == 1:
+				cmd.SilenceUsage = true
+				return fromRelease(ctx, w, cfg, args[0], timeout)
+			case file != "":
+				cmd.SilenceUsage = true
+				return fromFile(ctx, w, file, timeout)
+			default:
+				return cmd.Help()
+			}
 		},
 	}
 	group.Flags().String(flagFile, "", "Path of the Core binary to update to")
@@ -161,12 +181,17 @@ func undo(
 	if err != nil {
 		return err
 	}
+	// Without a Core service, or with one that uses dir, the binary belongs to dir.
+	owned := !installed || filepath.Clean(inst.Data) == dir
 	var res storage.Restored
 	if len(args) == 1 {
 		if res, err = backups.Restore(args[0]); err != nil {
 			return errors.Wrapf(err, "failed to restore backup %s", args[0])
 		}
-	} else if res, err = backups.Undo(); err != nil {
+	} else if res, err = backups.Undo(); errors.Is(err, storage.ErrUndone) && owned {
+		// The data is back, but the binary of the update may still be in place.
+		return putBackUndone(ctx, w, backups, inst.Binary, err)
+	} else if err != nil {
 		return err
 	}
 	if err = matchOwner(dir); err != nil {
@@ -179,33 +204,79 @@ func undo(
 			res.OrphanedDir,
 		))
 	}
-	if res.Backup.Version == storage.UnknownVersion {
-		lines = append(lines, "The backup does not record its Core version. Run "+
-			"the Core version that ran on the data before the update.")
-		return printLines(w, lines...)
-	}
 	if err = printLines(w, lines...); err != nil {
 		return err
 	}
 	run := fmt.Sprintf("Run Core %s on the data.", res.Backup.Version)
-	if installed && filepath.Clean(inst.Data) != dir {
+	if res.Backup.Version == storage.UnknownVersion {
+		run = "The backup does not record its Core version. Run the Core version " +
+			"that ran on the data before the update."
+	}
+	if !owned {
 		return printLines(w, run)
 	}
-	putBack, err := putBackOld(ctx, inst.Binary, res.Backup.Version)
+	back, err := putBackFor(ctx, inst.Binary, res.Backup.Version)
 	if err != nil {
 		return errors.Combine(
 			errors.Wrapf(err, "failed to put back the binary at %s", inst.Binary),
 			printLines(w, run),
 		)
 	}
-	if putBack {
+	if back != "" {
 		return printLines(w, fmt.Sprintf(
 			"Put back Core %s at %s. Start the Core.",
-			res.Backup.Version,
+			back,
 			inst.Binary,
 		))
 	}
 	return printLines(w, run)
+}
+
+// putBackUndone puts back the binary that an undone update replaced, as putBackFor does
+// for the newest backup. Without such a binary, it returns undone.
+func putBackUndone(
+	ctx context.Context,
+	w io.Writer,
+	backups *storage.Backups,
+	binary string,
+	undone error,
+) error {
+	all, err := backups.List()
+	if err != nil {
+		return errors.Combine(undone, err)
+	}
+	back, err := putBackFor(ctx, binary, all[len(all)-1].Version)
+	if err != nil || back == "" {
+		return errors.Combine(undone, err)
+	}
+	return printLines(
+		w,
+		"The Core already undid the update.",
+		fmt.Sprintf("Put back Core %s at %s. Start the Core.", back, binary),
+	)
+}
+
+// putBackFor swaps binary with the binary that an update replaced, when that binary is
+// Core version v of a restored backup. For a backup with no version, that binary must
+// be older than binary. putBackFor returns the version it put back, or an empty string
+// when it put back nothing.
+func putBackFor(ctx context.Context, binary, v string) (string, error) {
+	if v == storage.UnknownVersion {
+		old, err := oldVersion(ctx, binary)
+		if err != nil || old == "" {
+			return "", err
+		}
+		current, err := binaryVersion(ctx, binary)
+		if err != nil || version.Compare(old, current) >= 0 {
+			return "", err
+		}
+		v = old
+	}
+	putBack, err := putBackOld(ctx, binary, v)
+	if err != nil || !putBack {
+		return "", err
+	}
+	return v, nil
 }
 
 func history(w io.Writer, backups *storage.Backups) error {

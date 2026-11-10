@@ -11,7 +11,9 @@ from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient
+from synnax.ranger import actions_gen
 from synnax.ranger.types_gen import Key, Payload
+from synnax.telem import TimeStamp
 
 
 class _CreateRequest(BaseModel):
@@ -26,9 +28,10 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class Writer:
@@ -56,4 +59,15 @@ class Writer:
 
     @trace("debug", key="range.rename")
     def rename(self, key: Key, name: str) -> None:
-        self._client.send("/range/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/range/dispatch", req, Empty)
+
+    @trace("debug", key="range.set_end")
+    def set_end(self, key: Key, end: TimeStamp) -> None:
+        # A string holds every 64-bit timestamp exactly.
+        action = actions_gen.set(
+            actions_gen.SetPayload(path=["time_range", "end"], value=str(int(end)))
+        )
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/range/dispatch", req, Empty)

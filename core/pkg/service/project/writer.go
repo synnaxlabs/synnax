@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 type Writer struct {
@@ -35,43 +33,26 @@ func (w Writer) WithDispatchKey(dispatchKey string) Writer {
 	return w
 }
 
-// Create creates p, or updates the stored project with p.Key. An existing project keeps
-// its group. The commit carries a create action that holds the stored project.
-func (w Writer) Create(
-	ctx context.Context,
-	p *Project,
-) (err error) {
-	var exists bool
+// Create creates p in p.Group, assigning a new key when p.Key is zero. The commit
+// carries a create action that holds the stored project. Create returns an error
+// wrapping validate.ErrValidation when a project with p.Key exists.
+func (w Writer) Create(ctx context.Context, p *Project) error {
 	if p.Key == uuid.Nil() {
 		p.Key = uuid.New()
-	} else {
-		var stored Project
-		err = w.table.NewRetrieve().
-			Where(gorp.MatchKeys[Key, Project](p.Key)).
-			Entry(&stored).
-			Exec(ctx, w.tx)
-		if errors.Skip(err, query.ErrNotFound) != nil {
-			return err
-		}
-		if exists = err == nil; exists {
-			p.Group = stored.Group
-		}
 	}
-	if !exists {
-		if err := group.CheckMember(
-			ctx,
-			w.tx,
-			p.Group,
-			resource.TypeProject,
-			nil,
-		); err != nil {
-			return err
-		}
-	}
-	if err = p.Validate(); err != nil {
+	if err := group.CheckMember(
+		ctx,
+		w.tx,
+		p.Group,
+		resource.TypeProject,
+		nil,
+	); err != nil {
 		return err
 	}
-	if err = w.table.NewCreate().Entry(p).Exec(ctx, w.tx); err != nil {
+	if err := p.Validate(); err != nil {
+		return err
+	}
+	if err := w.table.NewCreate().Exclusive().Entry(p).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	w.dispatcher.Attach(w.tx, p.Key, NewCreateAction(CreatePayload{Project: *p}))
@@ -127,8 +108,8 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	return nil
 }
 
-// CreateMany creates the given projects. If projects with the same key already
-// exist, they will be overwritten.
+// CreateMany creates the given projects. It returns an error wrapping
+// validate.ErrValidation when a project with one of their keys exists.
 func (w Writer) CreateMany(
 	ctx context.Context,
 	projects *[]Project,

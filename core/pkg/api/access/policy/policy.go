@@ -73,7 +73,8 @@ type (
 	CreateResponse = CreateRequest
 )
 
-// Create creates or overwrites the policies in the request.
+// Create creates the policies in the request. It returns a validation error when a
+// policy with one of their keys exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,

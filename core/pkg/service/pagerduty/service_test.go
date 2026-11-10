@@ -90,7 +90,7 @@ var _ = Describe("Service", func() {
 			Base: secret.Base{Name: "Routing key"},
 		}}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return secrets.NewWriter(tx).Create(ctx, &s, []byte(plainKey))
+			return secrets.NewWriter(tx).Set(ctx, &s, []byte(plainKey))
 		})).To(Succeed())
 		return s.Base().Key
 	}

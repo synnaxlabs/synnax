@@ -28,6 +28,14 @@ export const REGISTERS: Record<ReadChannelType, { name: string; description: str
     discrete_input: { name: "Discrete input", description: "Bit, read only" },
     input_register: { name: "Input register", description: "Word, read only" },
     holding_register: { name: "Holding register", description: "Word, read and write" },
+    input_register_string: {
+      name: "Input register string",
+      description: "Characters, read only",
+    },
+    holding_register_string: {
+      name: "Holding register string",
+      description: "Characters, read and write",
+    },
     input_register_bit: {
       name: "Input register bit",
       description: "Bit of a word, read only",
@@ -47,11 +55,17 @@ const SHAPES: Record<"bit" | "word", [outer: string, inner: string]> = {
   word: ["M2 6h9v12H2zM13 6h9v12h-9z", "M4 8v8h5V8zM15 8v8h5V8z"],
 };
 
-const WORD_TYPES = new Set<ReadChannelType>(["input_register", "holding_register"]);
+const WORD_TYPES = new Set<ReadChannelType>([
+  "input_register",
+  "holding_register",
+  "input_register_string",
+  "holding_register_string",
+]);
 
 const READ_ONLY_TYPES = new Set<ReadChannelType>([
   "discrete_input",
   "input_register",
+  "input_register_string",
   "input_register_bit",
 ]);
 

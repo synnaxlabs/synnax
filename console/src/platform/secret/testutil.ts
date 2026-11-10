@@ -16,7 +16,7 @@ export const createSecret = async (
   client: Synnax,
   created: secret.Key[],
 ): Promise<secret.Secret> => {
-  const s = await client.secrets.create({
+  const s = await client.secrets.set({
     name: uniqueName("secret"),
     source: "stored",
     value: "hunter2",

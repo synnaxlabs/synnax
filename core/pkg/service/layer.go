@@ -230,6 +230,8 @@ type Layer struct {
 	HTTP *http.Service
 	// Kafka owns the stored configuration records of the Kafka task types.
 	Kafka *kafka.Service
+	// TaskStopper stops running tasks ahead of a delete.
+	TaskStopper *task.Stopper
 	// ArcTask owns the stored configuration records of the arc task type.
 	ArcTask *arctask.Service
 	// RackTask owns the stored configuration records of the rack_status task type.
@@ -788,12 +790,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.HTTP, err = http.OpenService(ctx, http.ServiceConfig{
 		Instrumentation: cfg.Child("http"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.HTTP) {
 		return nil, err
 	}
 	if l.Kafka, err = kafka.OpenService(ctx, kafka.ServiceConfig{
 		Instrumentation: cfg.Child("kafka"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.Kafka) {
 		return nil, err
 	}
@@ -827,6 +831,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if l.MQTT, err = mqtt.OpenService(ctx, mqtt.ServiceConfig{
 		Instrumentation: cfg.Child("mqtt"),
 		DB:              cfg.Distribution.DB,
+		Channel:         l.Channel,
 	}); !ok(err, l.MQTT) {
 		return nil, err
 	}
@@ -853,6 +858,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		// file form of its own, and the Arc service owns the "arc" file type.
 		ImExExcluded: []string{arctask.Type},
 	}); !ok(err, l.Task) {
+		return nil, err
+	}
+	if l.TaskStopper, err = task.NewStopper(task.StopperConfig{
+		DB:     cfg.Distribution.DB,
+		Task:   l.Task,
+		Status: l.Status,
+		Framer: l.Framer,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if l.Arc, err = arc.OpenService(

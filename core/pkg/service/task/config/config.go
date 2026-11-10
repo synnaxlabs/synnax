@@ -78,12 +78,13 @@ type Store interface {
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
 	// Normalize converts a config blob at the given version to the current stored shape
 	// with defaults applied, and drops each target of the blob's references that does
-	// not exist in snap and that its reference can drop. A version that predates the
-	// type's ladder runs the type's legacy rewrite first. It returns a validation error
-	// when data does not decode at version or version is newer than the store's.
+	// not exist in tx and that its reference can drop. It then reconciles the result
+	// with the resources in tx. A version that predates the type's ladder runs the
+	// type's legacy rewrite first. It returns a validation error when data does not
+	// decode at version or version is newer than the store's.
 	Normalize(
 		ctx context.Context,
-		snap gorp.Snapshot,
+		tx gorp.Tx,
 		version imex.Version,
 		data msgpack.EncodedJSON,
 	) (msgpack.EncodedJSON, error)
@@ -166,6 +167,11 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 		name string,
 		e *E,
 	) (func(context.Context, gorp.Tx) error, error)
+	// ReconcileEntry changes a normalized entry to agree with other resources, read
+	// through tx, so that a config from an older version or another Core passes
+	// ResolveEntry. Normalize runs it at every version. Prepare and Edit do not.
+	// [OPTIONAL] - nil when the entry depends on no other resource.
+	ReconcileEntry func(ctx context.Context, tx gorp.Tx, e *E) error
 	// ValidateEntry checks a decoded entry before it is stored.
 	// [OPTIONAL] - nil when the entry type has no validation rules.
 	ValidateEntry func(*E) error
@@ -186,6 +192,7 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 	c.Legacy = override.Nil(c.Legacy, other.Legacy)
 	c.ApplyEntryDefaults = override.Nil(c.ApplyEntryDefaults, other.ApplyEntryDefaults)
 	c.ResolveEntry = override.Nil(c.ResolveEntry, other.ResolveEntry)
+	c.ReconcileEntry = override.Nil(c.ReconcileEntry, other.ReconcileEntry)
 	c.ValidateEntry = override.Nil(c.ValidateEntry, other.ValidateEntry)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
@@ -438,7 +445,7 @@ func (s *Service[E]) Delete(
 // Normalize implements Store.
 func (s *Service[E]) Normalize(
 	ctx context.Context,
-	snap gorp.Snapshot,
+	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
 ) (msgpack.EncodedJSON, error) {
@@ -447,6 +454,13 @@ func (s *Service[E]) Normalize(
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
+		}
+		if rewrite.Validate != nil {
+			if err := rewrite.Validate(data); err != nil {
+				return nil, errors.Wrapf(
+					validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
+				)
+			}
 		}
 		data, version = rewrite.Apply(data), ladder.First
 	} else if version > ladder.Latest {
@@ -461,8 +475,13 @@ func (s *Service[E]) Normalize(
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
 	}
-	if _, err := s.table.DropDangling(ctx, snap, &e); err != nil {
+	if _, err := s.table.DropDangling(ctx, tx, &e); err != nil {
 		return nil, err
+	}
+	if s.cfg.ReconcileEntry != nil {
+		if err := s.cfg.ReconcileEntry(ctx, tx, &e); err != nil {
+			return nil, err
+		}
 	}
 	return encode(e)
 }

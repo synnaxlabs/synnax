@@ -80,6 +80,10 @@ type FactoryConfig struct {
 	//
 	// [OPTIONAL] - Defaults to paho.NewClient.
 	NewClient func(*paho.ClientOptions) paho.Client
+	// Now returns the wall clock that edge tasks stamp their commands from.
+	//
+	// [OPTIONAL] - Defaults to telem.Now.
+	Now func() telem.TimeStamp
 }
 
 var (
@@ -90,6 +94,7 @@ var (
 		RebirthInterval: sparkplug.DefaultRebirthInterval,
 		BirthGrace:      sparkplug.DefaultRebirthInterval + 3*time.Second,
 		NewClient:       paho.NewClient,
+		Now:             telem.Now,
 	}
 )
 
@@ -105,6 +110,7 @@ func (c FactoryConfig) Override(other FactoryConfig) FactoryConfig {
 	c.RebirthInterval = override.Numeric(c.RebirthInterval, other.RebirthInterval)
 	c.BirthGrace = override.Numeric(c.BirthGrace, other.BirthGrace)
 	c.NewClient = override.Nil(c.NewClient, other.NewClient)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -615,6 +621,7 @@ func (f *Factory) configureEdge(
 		framer:    f.cfg.Framer,
 		task:      t,
 		authority: control.Authority(cfg.Authority),
+		clock:     telem.MonoClock{Source: f.cfg.Now},
 	}
 	var (
 		declared   []sparkplug.Tag

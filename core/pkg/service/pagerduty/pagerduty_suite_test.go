@@ -84,7 +84,7 @@ func createRoutingKey(ctx context.Context, value string) secret.Key {
 		Base: secret.Base{Name: "Routing key"},
 	}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return secretSvc.NewWriter(tx).Create(ctx, &s, []byte(value))
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
 	})).To(Succeed())
 	return s.Base().Key
 }
@@ -96,7 +96,7 @@ func replaceRoutingKey(ctx context.Context, key secret.Key, value string) {
 		Base: secret.Base{Key: key, Name: "Routing key"},
 	}}
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-		return secretSvc.NewWriter(tx).Create(ctx, &s, []byte(value))
+		return secretSvc.NewWriter(tx).Set(ctx, &s, []byte(value))
 	})).To(Succeed())
 }
 

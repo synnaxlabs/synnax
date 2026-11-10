@@ -28,6 +28,8 @@ import (
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -35,7 +37,62 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+var errClientGone = errors.New("client gone")
+
+type goneStream[RQ, RS freighter.Payload] struct{ request RQ }
+
+func (s goneStream[RQ, RS]) Receive() (RQ, error) { return s.request, nil }
+
+func (s goneStream[RQ, RS]) Send(RS) error { return errClientGone }
+
 var _ = Describe("Framer", func() {
+	Describe("Open acks", func() {
+		var index channel.Channel
+		BeforeEach(func(ctx SpecContext) {
+			index = channel.Channel{
+				Name:     UniqueChannelName(),
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Create(ctx, &index)
+			})).To(Succeed())
+		})
+
+		It("Should release an iterator whose open ack fails", func(ctx SpecContext) {
+			Expect(apiSvc.Iterate(rootCtx(ctx), goneStream[
+				apiframer.IteratorRequest,
+				apiframer.IteratorResponse,
+			]{request: apiframer.IteratorRequest{
+				Keys:   channel.Keys{index.Key()},
+				Bounds: telem.TimeRangeMax,
+			}})).To(MatchError(errClientGone))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.Channel.NewWriter(tx).Delete(ctx, index.Key(), false)
+			})).To(Succeed())
+		})
+
+		It("Should release a writer whose open ack fails", func(ctx SpecContext) {
+			keys := channel.Keys{index.Key()}
+			Expect(apiSvc.Write(rootCtx(ctx), goneStream[
+				apiframer.WriterRequest,
+				apiframer.WriterResponse,
+			]{request: apiframer.WriterRequest{Config: apiframer.WriterConfig{
+				ControlSubject: control.Subject{Key: "gone"},
+				Keys:           keys,
+				Start:          telem.SecondTS,
+				Authorities:    []uint32{uint32(control.AuthorityAbsolute)},
+			}}})).To(MatchError(errClientGone))
+			w := MustSucceed(framerSvc.OpenWriter(ctx, svcframer.WriterConfig{
+				Start:             telem.SecondTS,
+				Keys:              keys,
+				Authorities:       []control.Authority{control.AuthorityAbsolute},
+				ErrOnUnauthorized: new(true),
+			}))
+			Expect(w.Close()).To(Succeed())
+		})
+	})
+
 	createVirtual := func(ctx SpecContext) channel.Channel {
 		GinkgoHelper()
 		ch := channel.Channel{

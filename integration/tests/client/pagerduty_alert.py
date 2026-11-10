@@ -89,7 +89,7 @@ class PagerDutyAlert(TestCase):
         # task on the Go driver rack. We stream sy_status_set to wait for the
         # factory's configuration acknowledgment instead of sleeping.
         name = f"PD Integration Test {self.suffix}"
-        self.secret_key = client.secrets.create(
+        self.secret_key = client.secrets.set(
             name=f"{name} routing key", value=self.routing_key
         ).key
         self.log("Creating PagerDuty alert task...")

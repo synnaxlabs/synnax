@@ -507,6 +507,78 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should alias the zod schema and type of an action alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@ts output "x/ts/src/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@ts output "client/ts/src/board"
+
+					Board struct {
+						key uuid
+
+						action Set = patch.Set
+					}
+				`
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { patch, zod } from "@synnaxlabs/x";`,
+							"/** Set replaces the value at a path. */\n"+
+								"export const setPayloadZ = patch.setZ;",
+							"export type SetPayload = patch.Set;",
+							`z.object({ type: z.literal("set"), set: setPayloadZ }),`,
+							"set: (state: Draft<Board>, payload: SetPayload) => HandlerResult;",
+						).
+						ToNotContain("export const setPayloadZ = z.object(")
+				},
+			)
+
+			It(
+				"Should write the own doc of an action alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@ts output "x/ts/src/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@ts output "client/ts/src/board"
+
+					Board struct {
+						key uuid
+
+						action Set = patch.Set {
+							@doc value "replaces the value at a path in the board."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							"/** Set replaces the value at a path in the board. */\n" +
+								"export const setPayloadZ = patch.setZ;",
+						).
+						ToNotContain("/** Set replaces the value at a path. */")
+				},
+			)
+
+			It(
 				"Should recurse through type args when collecting same-namespace zod imports",
 				func(ctx SpecContext) {
 					source := `
