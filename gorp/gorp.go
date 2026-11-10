@@ -198,12 +198,11 @@ func newContext(ctx context.Context, snap Snapshot) Context {
 	return Context{Context: ctx, Snapshot: snap}
 }
 
-// txState owns per-tx ephemeral state and runs cleanups when the owning
-// transaction commits or closes. The pointer is stable for the lifetime
-// of the transaction, so callers can use it as a map key. Cleanups
-// receive committed=true if Commit succeeded and committed=false
-// otherwise; they fire after the underlying commit attempt completes and
-// before the transaction releases the write lock.
+// txState owns per-tx ephemeral state and runs cleanups when the owning transaction
+// commits or closes. The pointer is stable for the lifetime of the transaction, so
+// callers can use it as a map key. Cleanups receive committed=true once the writes of
+// Commit are visible to reads and committed=false otherwise. They fire before the
+// transaction releases the write lock.
 type txState struct {
 	// mu guards cleanups.
 	mu sync.Mutex
@@ -241,11 +240,10 @@ func BeforeCommit(tx Tx, work func(ctx context.Context) error) {
 // Committing reports whether a commit attempt is in flight.
 func (s *txState) Committing() bool { return s.committing.Load() }
 
-// OnCleanup registers a hook to run when the owning transaction commits
-// or closes. The hook is invoked with committed=true if the owning tx
-// reached a successful Commit, and committed=false otherwise (Close
-// without prior Commit, or a failed Commit). Safe to call from any
-// goroutine that holds a reference to the state handle.
+// OnCleanup registers a hook to run when the owning transaction commits or closes. The
+// hook is invoked with committed=true once the writes of Commit are visible to reads,
+// and committed=false otherwise (Close without prior Commit, or a failed Commit). Safe
+// to call from any goroutine that holds a reference to the state handle.
 func (s *txState) OnCleanup(fn func(committed bool)) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)
@@ -300,11 +298,12 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit runs the work of BeforeCommit, commits the transaction, and releases the
-// write lock. An error from the work rolls the transaction back. Hooks registered via
-// state.OnCleanup run before the release, with committed=true on success and
-// committed=false otherwise. Then the readers of DB.Observe run. The release comes
-// before them, because a reader can open a transaction.
+// Commit runs the work of BeforeCommit, commits the transaction, and returns once the
+// store syncs its writes. An error from the work rolls the transaction back. The write
+// lock releases before the sync, once the writes are visible to reads. Hooks registered
+// via state.OnCleanup run before the release, with committed=true once the writes are
+// visible and committed=false otherwise. Then the readers of DB.Observe run. The
+// release comes before them, because a reader can open a transaction.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	for _, work := range t.state.beforeCommit {
 		if err := work(ctx); err != nil {

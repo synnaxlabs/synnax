@@ -103,9 +103,10 @@ func (d db) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	return d.NewIter(parseIterOpts(opts))
 }
 
+// apply runs the OnApplied hooks before it waits for the WAL sync. Commits that wait at
+// the same time share one sync.
 func (d db) apply(txn *tx, opts []any) error {
-	err := d.Apply(txn.Batch, nil)
-	if err != nil {
+	if err := d.ApplyNoSyncWait(txn.Batch, pebble.Sync); err != nil {
 		return translateError(err)
 	}
 	for _, o := range opts {
@@ -113,7 +114,7 @@ func (d db) apply(txn *tx, opts []any) error {
 			applied()
 		}
 	}
-	return nil
+	return txn.SyncWait()
 }
 
 // Report implement alamos.ReportProvider.

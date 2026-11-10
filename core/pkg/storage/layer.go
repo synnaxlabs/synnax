@@ -453,7 +453,7 @@ func openKV(cfg LayerConfig, fs vfs.FS, cache *pebble.Cache) (kv.DB, error) {
 		// Allow more open files (up from 1000)
 		MaxOpenFiles: 10000,
 		BytesPerSync: int(telem.Megabyte * 2),
-		// Let OS handle WAL syncing
+		// No background WAL syncs. Each commit still syncs the WAL.
 		WALBytesPerSync: 0,
 	}
 
