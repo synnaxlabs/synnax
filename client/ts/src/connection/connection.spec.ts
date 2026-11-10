@@ -25,7 +25,9 @@ import {
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
+  MissingCredentialsError,
   MissingLicenseError,
+  SessionEndedError,
 } from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
@@ -567,6 +569,17 @@ describe("connection", () => {
         { type: "credentials.replaced" },
       );
       expect(status.details.session).toBeUndefined();
+    });
+
+    it("should keep why a session ended when a later login has nothing to send", () => {
+      const ended = new SessionEndedError("session ended");
+      const status = apply(
+        createConfig(),
+        { type: "auth.failure", error: ended },
+        { type: "auth.failure", error: new MissingCredentialsError("no credentials") },
+      );
+      expect(reasonOf(status)).toEqual("auth");
+      expect(status.details.error).toBe(ended);
     });
 
     it("should treat an auth error from the check as an auth failure", () => {

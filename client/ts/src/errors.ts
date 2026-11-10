@@ -55,7 +55,7 @@ export class AuthError extends SynnaxError.sub("auth") {}
 /** Raised when the Core matches no user to a username and password. */
 export class InvalidCredentialsError extends AuthError.sub("invalid-credentials") {}
 
-/** Raised when a login has no credentials, API key, token, or cookie to send. */
+/** Raised when a request or login has no credentials, API key, token, or cookie. */
 export class MissingCredentialsError extends AuthError.sub("missing_credentials") {}
 
 /** InvalidTokenError is raised when an authentication token is invalid. */
@@ -157,6 +157,8 @@ const decode = (payload: errors.Payload): Error | null => {
   if (payload.type.startsWith(AuthError.TYPE)) {
     if (payload.type.startsWith(InvalidCredentialsError.TYPE))
       return new InvalidCredentialsError(payload.data);
+    if (payload.type.startsWith(MissingCredentialsError.TYPE))
+      return new MissingCredentialsError(payload.data);
     if (payload.type.startsWith(InvalidTokenError.TYPE))
       return new InvalidTokenError(payload.data);
     if (payload.type.startsWith(ExpiredTokenError.TYPE))

@@ -354,6 +354,19 @@ describe("auth", () => {
       await expect(attempt()).rejects.toThrow(MissingCredentialsError);
     });
 
+    it("should report a cookie resume with no cookie as missing credentials", async () => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, { cookie: true });
+      await expect(
+        client.middleware()(DUMMY_CTX, async () => DUMMY_CTX),
+      ).rejects.toThrow(MissingCredentialsError);
+    });
+
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };

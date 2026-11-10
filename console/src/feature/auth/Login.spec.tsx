@@ -14,7 +14,6 @@ import {
   MissingCredentialsError,
   SessionEndedError,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { assert, describe, expect, it, vi } from "vitest";
 
@@ -94,7 +93,7 @@ describe("auth/Login", () => {
 
   const renderRejected = async (error: Error): Promise<HTMLElement> => {
     const { wrapper } = await createStatusConsoleWrapper({
-      client: createTestClient(),
+      client: null,
       status: rejected(error),
       preloadedState: {
         [Session.Core.SLICE_NAME]: {
@@ -122,8 +121,8 @@ describe("auth/Login", () => {
     ],
     [
       "an unknown auth error",
-      new AuthError("no authentication token provided"),
-      "no authentication token provided",
+      new AuthError("authentication service unavailable"),
+      "authentication service unavailable",
     ],
   ])("should explain %s under the Log in button", async (_, error, message) => {
     const container = await renderRejected(error);
