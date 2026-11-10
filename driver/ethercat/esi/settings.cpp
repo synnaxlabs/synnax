@@ -10,7 +10,9 @@
 #include <bit>
 #include <cstdint>
 #include <format>
+#include <map>
 #include <string>
+#include <utility>
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/settings.h"
@@ -99,14 +101,21 @@ x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
 }
 
 /// @brief sets the "value" of each setting to the float32 or unsigned value that the
-/// card holds.
+/// card holds. Reads each address once.
 x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
+    std::map<std::pair<uint16_t, uint8_t>, uint32_t> held;
     for (auto &setting: settings) {
-        const auto [raw, err] = read(
+        const std::pair address{
             setting["index"].get<uint16_t>(),
             setting["sub_index"].get<uint8_t>()
-        );
-        if (err) return err;
+        };
+        auto it = held.find(address);
+        if (it == held.end()) {
+            const auto [value, err] = read(address.first, address.second);
+            if (err) return err;
+            it = held.emplace(address, value).first;
+        }
+        const auto raw = it->second;
         if (setting["data_type"] == "float32")
             setting["value"] = std::bit_cast<float>(raw);
         else

@@ -942,8 +942,8 @@ TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
     EXPECT_TRUE(this->master->scan().first[0].properties.op_modes.empty());
 }
 
-/// @brief returns a 6xSTG in PRE-OP that holds the objects of the 6xSTG on the
-/// station and lists the mailbox protocols in mbx_proto.
+/// @brief returns a 6xSTG in PRE-OP that holds the objects of the 6xSTG on the station
+/// and lists the mailbox protocols in mbx_proto.
 MockSlaveInfo create_stg(const uint16_t mbx_proto) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;

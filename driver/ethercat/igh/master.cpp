@@ -255,12 +255,14 @@ x::errors::Error Master::write(
     const uint16_t position,
     const std::vector<slave::StartupParameter> &parameters
 ) {
+    if (position == 0 || position > this->cached_slaves.size())
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "no slave at position " + std::to_string(position)
+        );
+    const auto &slave = this->cached_slaves[position - 1].properties;
     for (const auto &param: parameters)
-        if (auto err = this->download(
-                this->cached_slaves[position - 1].properties,
-                param
-            ))
-            return err;
+        if (auto err = this->download(slave, param)) return err;
     return x::errors::NIL;
 }
 

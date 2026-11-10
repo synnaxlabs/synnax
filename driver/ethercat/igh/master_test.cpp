@@ -642,6 +642,15 @@ TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
     );
 }
 
+/// @brief it should refuse to write to a position with no slave on the bus.
+TEST_F(IGHMasterTest, WriteRejectsAPositionWithNoSlave) {
+    this->api->add_slave();
+    ASSERT_NIL(this->scan_and_activate());
+    const auto err = this->master.write(2, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(err.data, "no slave at position 2");
+}
+
 /// @brief it should register the entries of the PDO a startup parameter assigns, and
 /// configure that layout on the slave.
 TEST_F(IGHMasterTest, ActivateRegistersTheEntriesAStartupParameterAssigns) {

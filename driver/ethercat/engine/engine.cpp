@@ -661,14 +661,17 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
             configs[pos].add_startup_parameters(params);
         if (auto err = this->start_locked(mhz, std::move(configs)); err)
             return {{}, err};
-    } else
-        for (const auto &[pos, params]: settings)
-            if (auto err = this->master->write(pos, params)) return {{}, err};
+    }
     auto [offsets, err] = this->offsets_locked(entries);
     if (err) {
         if (started) this->stop_locked();
         return {{}, err};
     }
+    // A reader that the running bus cannot map must leave the slaves as they are.
+    if (!started)
+        for (const auto &[pos, params]: settings)
+            if (auto write_err = this->master->write(pos, params))
+                return {{}, write_err};
     return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 

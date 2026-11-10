@@ -42,9 +42,9 @@ export interface ChannelSettingsProps {
 }
 
 /**
- * Edits the settings that the read task writes to the input that the channel reads,
- * as the catalog of the channel's slave describes them. Channels that read one input
- * share its settings. Renders nothing for an entry that the catalog does not describe.
+ * Edits the settings that the read task writes to the input that the channel reads, as
+ * the catalog of the channel's slave describes them. Channels that read one input share
+ * its settings. Renders nothing for an entry that the catalog does not describe.
  */
 export const ChannelSettings = ({
   path,
@@ -67,12 +67,9 @@ export const ChannelSettings = ({
           field={field}
           value={valueAt(fields, values, field)}
           problem={problemAt(problems, field)?.message}
-          onChange={(value) => {
-            if (value == null) return;
-            onChange(
-              withParameters(held, ch.device, set(fields, values, field, value)),
-            );
-          }}
+          onChange={(value) =>
+            onChange(withParameters(held, ch.device, set(fields, values, field, value)))
+          }
         />
       ))}
     </PForm.Section>

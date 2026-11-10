@@ -141,8 +141,7 @@ TEST(ReadSettings, ReturnsTheErrorOfAFailedRead) {
     );
 }
 
-/// @brief it should reject a card table that counts more options than its object
-/// holds.
+/// @brief it should reject a card table that counts more options than its object holds.
 TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
     const auto err = read_settings(DEWESOFT, IOLITE_6XSTG, counting_ranges(0xFFFFFFFF))
                          .second;
@@ -151,6 +150,18 @@ TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
         err.data,
         "0x8050:03 counts 4294967295 options. The count must be from 1 to 252"
     );
+}
+
+/// @brief it should read each object of the card once, even when two settings share it.
+TEST(ReadSettings, ReadsEachObjectOnce) {
+    std::map<std::pair<uint16_t, uint8_t>, int> reads;
+    const coe::Read counted = [&](const uint16_t index, const uint8_t sub_index) {
+        reads[{index, sub_index}]++;
+        return read_stg(index, sub_index);
+    };
+    ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, counted));
+    for (const auto &[address, count]: reads)
+        EXPECT_EQ(count, 1) << std::hex << address.first << ":" << +address.second;
 }
 
 /// @brief it should reject a card table that counts no options.

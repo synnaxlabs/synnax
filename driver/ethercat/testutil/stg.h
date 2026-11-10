@@ -53,8 +53,8 @@ inline Objects stg_objects() {
     return objects;
 }
 
-/// @brief returns a read of objects that aborts as a missing object does for an
-/// address that objects does not hold.
+/// @brief returns a read of objects that aborts as a missing object does for an address
+/// that objects does not hold.
 inline coe::Read read_of(Objects objects) {
     return
         [objects = std::move(objects)](const uint16_t index, const uint8_t sub_index) {
