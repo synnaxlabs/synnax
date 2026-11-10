@@ -146,34 +146,16 @@ type SetTabViewPayload struct {
 }
 
 // SetPayload replaces the value at a path in the panel.
-type SetPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type SetPayload patch.Set
 
 // RemovePayload removes an entry from a list or a field from an object in the panel.
-type RemovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type RemovePayload patch.Remove
 
 // InsertPayload adds an entry to a list in the panel.
-type InsertPayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Value  any           `json:"value" msgpack:"value"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type InsertPayload patch.Insert
 
 // MovePayload moves an entry in a list in the panel.
-type MovePayload struct {
-	Path   []string      `json:"path" msgpack:"path"`
-	Key    string        `json:"key" msgpack:"key"`
-	After  *string       `json:"after,omitzero" msgpack:"after,omitempty"`
-	Guards []patch.Guard `json:"guards" msgpack:"guards"`
-}
+type MovePayload patch.Move
 
 // Action is a discriminated union for all Panel mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
@@ -196,88 +178,88 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero Panel: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state Panel, actions ...Action) (Panel, error) {
 	var err error
 	for _, a := range actions {
 		switch a.Type {
 		case ActionTypeCreate:
 			if a.Create == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Create.Handle(state)
 		case ActionTypeSetIcon:
 			if a.SetIcon == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetIcon.Handle(state)
 		case ActionTypeSetColor:
 			if a.SetColor == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetColor.Handle(state)
 		case ActionTypeInsertTabs:
 			if a.InsertTabs == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.InsertTabs.Handle(state)
 		case ActionTypeRemoveTab:
 			if a.RemoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.RemoveTab.Handle(state)
 		case ActionTypeMoveTab:
 			if a.MoveTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.MoveTab.Handle(state)
 		case ActionTypeSplitTab:
 			if a.SplitTab == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SplitTab.Handle(state)
 		case ActionTypeResizeSplit:
 			if a.ResizeSplit == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.ResizeSplit.Handle(state)
 		case ActionTypeSetTabResource:
 			if a.SetTabResource == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabResource.Handle(state)
 		case ActionTypeSetTabView:
 			if a.SetTabView == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetTabView.Handle(state)
 		case ActionTypeSet:
 			if a.Set == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Set.Handle(state)
 		case ActionTypeRemove:
 			if a.Remove == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Remove.Handle(state)
 		case ActionTypeInsert:
 			if a.Insert == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Insert.Handle(state)
 		case ActionTypeMove:
 			if a.Move == nil {
-				return state, union.MissingPayload(a.Type)
+				return Panel{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.Move.Handle(state)
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return Panel{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return Panel{}, err
 		}
 	}
 	return state, nil

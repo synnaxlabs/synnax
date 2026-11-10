@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
@@ -377,11 +378,15 @@ func CommandToPB(r task.Command) (*Command, error) {
 }
 
 // CommandFromPB converts Command to Command.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func CommandFromPB(pb *Command) (task.Command, error) {
 	var r task.Command
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Task, err = uuid.Parse(pb.Task)
 	if err != nil {
@@ -392,6 +397,7 @@ func CommandFromPB(pb *Command) (task.Command, error) {
 	r.Key = pb.Key
 	r.ConfigHash = pb.ConfigHash
 	r.Pinned = pb.Pinned
+	defaults.FillGroups(&r)
 	return r, nil
 }
 

@@ -58,18 +58,19 @@ line.
   Those belong in the Enterprise section. A reference page may link to a CLI flag.
 - Desktop is the default reader. Pages lead with the Console, and the Console tab comes
   first.
-- The restructured site ships together with Synnax Desktop. Do not hide Desktop pages or
-  content behind a flag, and do not write a fallback for a site without Desktop.
+- The restructured site ships together with Synnax Desktop. Do not write a fallback for
+  a site without Desktop.
 
 ## Editions and clients
 
 - The nav (`PageNavNode.edition`) marks whole pages and groups as Enterprise or Desktop.
   Never put an edition in front matter.
 - Content that only applies to the Python or TypeScript client goes inside that client's
-  tab. The tab already carries the Enterprise badge, so it needs no `Edition.Enterprise`
-  block. Repeating a sentence in two tabs is acceptable.
-- `Edition.Enterprise` blocks are for Enterprise-only content outside the client tabs,
-  such as the users toolbar.
+  tab. Repeating a sentence in two tabs is acceptable.
+- The client tabs apply to both editions, because a script on the same computer connects
+  to Synnax Desktop. Mark content Enterprise only when it needs a remote Core, users, or
+  TLS. Use an `Edition.Enterprise` block for such content inside a page, such as the
+  users toolbar.
 
 ## Presentation
 
@@ -92,7 +93,7 @@ line.
 - Front matter: `title`, `description`, `layout: "@/layouts/Reference.astro"`, and
   optional `heading` (the displayed title when it differs from `title`). Never `prev`,
   `next`, or `edition`: order and edition come from the nav.
-- A page behind a flag has `flag:` in front matter and on its nav node.
+- Docs for an unreleased feature merge to `main` and show only on the `next` site.
 - Every page is in the nav. `check-site` fails an orphan page.
 - Tabs: `Client.Tabs` (slots `console`, `python`, `typescript`, `arc`; `exclude` to drop
   one), `Platform.Tabs` (slots `Linux`, `Windows`, `macOS`, `Docker`). The Arc tab shows

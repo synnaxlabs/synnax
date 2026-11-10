@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/crdt"
 	. "github.com/synnaxlabs/x/lsp/testutil"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"go.lsp.dev/uri"
 )
@@ -174,5 +175,55 @@ var _ = Describe("Modules", func() {
 		}))
 		Expect(compiles).To(Equal(2))
 		Expect(mod.FindChild("f")).ToNot(BeNil())
+	})
+
+	It("Should link a module's code into its importer's program", func(
+		ctx SpecContext,
+	) {
+		m := newArc(arc.TypeModule, arc.Base{Name: "um_link_m", Source: textSource(`
+export func f() {t u8} i64 { return 1 }
+export sequence s { stage a { 1 -> um_link_seq } }
+`)})
+		a := newArc(arc.TypeAutomation, arc.Base{Name: "um_link_a", Source: textSource(`
+import um_link_m
+
+um_link_trig -> um_link_m.f() -> um_link_fn
+um_link_trig == 1 => um_link_m.s
+`)})
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			for name, dt := range map[string]telem.DataType{
+				"um_link_trig": telem.Uint8T,
+				"um_link_fn":   telem.Int64T,
+				"um_link_seq":  telem.Uint8T,
+			} {
+				ch := channel.Channel{Name: name, Virtual: true, DataType: dt}
+				if err := channelSvc.NewWriter(tx).Create(ctx, &ch); err != nil {
+					return err
+				}
+			}
+			w := svc.NewWriter(tx)
+			if err := w.Create(ctx, &m); err != nil {
+				return err
+			}
+			return w.Create(ctx, &a)
+		})).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return svc.NewWriter(tx).Delete(ctx, a.Base().Key, m.Base().Key)
+			})).To(Succeed())
+		})
+		result := MustSucceed(svc.CompileProgram(ctx, a.Base().Key))
+		_, found := result.Program.Functions.Find("um_link_m.f")
+		Expect(found).To(BeTrue())
+		var scopes []string
+		for _, stratum := range result.Program.Root.Strata {
+			for _, member := range stratum {
+				if member.Scope != nil {
+					scopes = append(scopes, member.Scope.Key)
+				}
+			}
+		}
+		Expect(scopes).To(ContainElement("um_link_m.s"))
+		Expect(result.Program.WASM).ToNot(BeEmpty())
 	})
 })

@@ -16,16 +16,7 @@ import {
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import {
-  afterEach,
-  assert,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
@@ -126,21 +117,20 @@ describe("User queries", () => {
       expect(retrieved.name).toBe("Renamed User");
     });
 
-    it("should apply the rename optimistically", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const testUser = await client.users.create({
         username: `original-${id.create()}`,
         name: "Test User",
         password: "password123",
         role: role.key,
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => User.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.users.watch(testUser.key).getCached()).toMatchObject({
+        name: "Renamed User",
+      });
     });
   });
 

@@ -10,7 +10,7 @@
 import "@/device/Select.css";
 
 import { type device } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -18,12 +18,17 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Location, type LocationFormat } from "@/device/Location";
 import { type RetrieveMultipleQuery, useList } from "@/device/queries";
 import { StatusBadge } from "@/device/StatusBadge";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
 
-const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
+interface ListItemProps extends List.ItemRenderProps<device.Key> {
+  locationFormat?: LocationFormat;
+}
+
+const ListItem = ({ itemKey, locationFormat, ...rest }: ListItemProps) => {
   const item = List.useItem<device.Key, device.Device>(itemKey);
   if (item == null) return null;
   const { name, location, status } = item;
@@ -32,35 +37,33 @@ const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
       itemKey={itemKey}
       {...rest}
       className={CSS.BE("device", "list-item")}
-      justify="between"
       align="center"
     >
-      <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
-        <StatusIndicator status={status} />
+      <Flex.Box y grow className={CSS.BE("device", "list-item-text")}>
         <Text.Text
           el="span"
           overflow="fade"
-          className={CSS.BE("device", "list-item-label")}
+          className={CSS.BE("device", "list-item-name")}
         >
           {name}
         </Text.Text>
-      </Text.Text>
-      <Text.Text
-        level="small"
-        color={9}
-        weight={450}
-        className={CSS.BE("device", "list-item-location")}
-        style={LOCATION_STYLE}
-      >
-        {location}
-      </Text.Text>
+        {location !== "" && (
+          <Location
+            value={location}
+            format={locationFormat}
+            className={CSS.BE("device", "list-item-location")}
+          />
+        )}
+      </Flex.Box>
+      <StatusIndicator status={status} tooltipLocation="left" />
     </Select.Item>
   );
 };
 
-const listItemRenderProp = Component.renderProp(ListItem);
+// Matches the item height in Select.css.
+const ITEM_HEIGHT = 48;
 
-const LOCATION_STYLE = { marginTop: "0.25rem" } as const;
+const DEVICE_ICON = <Icon.Device />;
 
 const DIALOG_PROPS = { className: CSS.BE("device-select", "dialog") };
 
@@ -71,15 +74,20 @@ export interface SelectSingleProps
   extends
     Omit<
       Select.SingleProps<device.Key, device.Device | undefined>,
-      "resourceName" | "data" | "getItem" | "subscribe" | "children"
+      "resourceName" | "data" | "getItem" | "subscribe" | "children" | "itemHeight"
     >,
-    Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {}
+    Omit<Flux.UseListParams<RetrieveMultipleQuery, device.Device>, "name"> {
+  /** How the location of each listed device reads. */
+  locationFormat?: LocationFormat;
+}
 
 /** Selects one device. The trigger shows the selected device's status. */
 export const SelectSingle = ({
   filter,
   query,
   triggerProps,
+  icon = DEVICE_ICON,
+  locationFormat,
   ...rest
 }: SelectSingleProps): ReactElement => {
   const { data, getItem, subscribe, status, more, search } = useList({
@@ -95,12 +103,13 @@ export const SelectSingle = ({
       onFetchMore={more}
       onSearch={search}
       status={status}
-      icon={<Icon.Device />}
+      icon={icon}
+      itemHeight={ITEM_HEIGHT}
       dialogProps={DIALOG_PROPS}
       triggerProps={{ renderEndContent: renderStatus, ...triggerProps }}
       {...rest}
     >
-      {listItemRenderProp}
+      {({ key, ...p }) => <ListItem key={key} {...p} locationFormat={locationFormat} />}
     </Select.Single>
   );
 };

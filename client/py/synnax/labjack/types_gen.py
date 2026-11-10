@@ -106,7 +106,7 @@ class ScanConfig(task.ScanConfig):
             devices scan every cycle; TCP scans are slower, so they run every Nth cycle.
     """
 
-    tcp_scan_multiplier: int = Field(default=10, ge=-2147483648, le=2147483647)
+    tcp_scan_multiplier: int = Field(default=10, ge=1, le=4294967295)
 
     @_override
     def __hash__(self) -> int:
@@ -119,7 +119,7 @@ class AnalogReadChannel(BaseReadChannel):
     type: Literal["analog"] = "analog"
     port: str = "AIN0"
     range: float = 10
-    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
+    neg_chan: int | None = Field(default=None, ge=0, le=127)
     scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
 
@@ -136,7 +136,7 @@ class ThermocoupleReadChannel(BaseReadChannel):
     type: Literal["thermocouple"] = "thermocouple"
     port: str = "AIN0"
     thermocouple_type: ThermocoupleType = "K"
-    neg_chan: int = Field(default=199, ge=-2147483648, le=2147483647)
+    neg_chan: int | None = Field(default=None, ge=0, le=127)
     cjc_source: str = "TEMPERATURE_DEVICE_K"
     cjc_slope: float = 1
     cjc_offset: float = 0
@@ -180,16 +180,21 @@ class ReadConfig(task.ReadConfig):
         device: Is the key of the device the task acquires from.
         channels: Are the channels the task acquires.
         device_scan_backlog_warn_on_count: Is the device-side scan backlog above which
-            the task reports a skew warning. Zero lets the Driver pick two seconds of
-            scans.
+            the task reports a skew warning. When absent, the Driver picks two seconds
+            of scans.
         ljm_scan_backlog_warn_on_count: Is the LJM-side scan backlog above which the
-            task reports a skew warning. Zero lets the Driver pick one second of scans.
+            task reports a skew warning. When absent, the Driver picks one second of
+            scans.
     """
 
     device: device_.Key = ""
     channels: list[ReadChannel] = Field(default_factory=list)
-    device_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
-    ljm_scan_backlog_warn_on_count: int = Field(default=0, ge=0, le=4294967295)
+    device_scan_backlog_warn_on_count: int | None = Field(
+        default=None, ge=1, le=4294967295
+    )
+    ljm_scan_backlog_warn_on_count: int | None = Field(
+        default=None, ge=1, le=4294967295
+    )
 
     @_override
     def __hash__(self) -> int:

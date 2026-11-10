@@ -221,7 +221,7 @@ class ModbusInvalidConfig(SimulatorCase):
             sample_rate=50 * sy.Rate.HZ,
             stream_rate=10 * sy.Rate.HZ,
             channels=[
-                sy.modbus.HoldingRegisterReadChannel(
+                sy.modbus.HoldingRegisterStringReadChannel(
                     channel=create_channel(
                         self.client,
                         name="modbus_inv_str_ch",
@@ -229,14 +229,13 @@ class ModbusInvalidConfig(SimulatorCase):
                         index=idx.key,
                     ),
                     address=STRING_START,
-                    data_type=sy.DataType.STRING,
-                    string_length=5,
+                    length=5,
                 ),
             ],
         )
         message = assert_start_rejected(self.client, task, "wide string")
         expected = (
-            "Failed to configure task: channels.0.string_length: needs 3 registers, "
+            "Failed to configure task: channels.0.length: needs 3 registers, "
             "but the device reads at most 2 per request"
         )
         assert message == expected, f"Rejection should be {expected!r}, got {message!r}"

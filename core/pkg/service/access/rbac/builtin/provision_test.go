@@ -126,6 +126,28 @@ var _ = Describe("Provision", func() {
 		Expect(renamed.Name).To(Equal("Driver Edit Access"))
 	})
 
+	It("Should restore the actions of a stored built-in policy", func(ctx SpecContext) {
+		provision(ctx)
+		var edit policy.Policy
+		Expect(policySvc.NewRetrieve().
+			Where(policy.MatchNames("Driver Edit Access")).
+			Entry(&edit).
+			Exec(ctx, db)).To(Succeed())
+		Expect(gorp.NewUpdate[policy.Key, policy.Policy]().
+			Where(gorp.MatchKeys[policy.Key, policy.Policy](edit.Key)).
+			Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
+				p.Actions = []access.Action{access.ActionRetrieve}
+				return p
+			}).Exec(ctx, db)).To(Succeed())
+		provision(ctx)
+		var restored policy.Policy
+		Expect(policySvc.NewRetrieve().
+			Where(policy.MatchKeys(edit.Key)).
+			Entry(&restored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(restored).To(Equal(edit))
+	})
+
 	It("Should leave a custom role named Driver alone", func(ctx SpecContext) {
 		custom := role.Role{Name: "Driver", Description: "custom"}
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -133,6 +133,29 @@ var _ = Describe("Go Patch Plugin", func() {
 		})
 
 		It(
+			"Should find a document whose Set action aliases patch.Set",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					import "schemas/x/patch"
+
+					@go output "core/pkg/service/doc"
+
+					Doc struct {
+						name string {
+							@patch
+						}
+
+						action Set = patch.Set
+					}
+				`, "doc", loader, p)
+				ExpectContent(resp, "core/pkg/service/doc/patch.gen.go").ToContain(
+					"func (d *Doc) Patch(c patch.Cursor) error {",
+					`case "name":`,
+				)
+			},
+		)
+
+		It(
 			"Should switch on every field of a struct a document reaches",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, document, "doc", loader, p)

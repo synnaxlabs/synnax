@@ -19,7 +19,9 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
+import { binary } from "@synnaxlabs/x";
 import { fireEvent, type RenderOptions, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -68,7 +70,7 @@ const createNIRackWithScanner = async () => {
 const createOPCUARackWithScanner = async () => {
   const r = await client.racks.create({
     name: uniqueName("opcua_rack"),
-    integrations: [OPCUA.Device.INTEGRATION],
+    integrations: [OPCUA.Device.INTEGRATION_KEY],
   });
   const scanTask = await r.createTask({
     name: uniqueName("opcua_scanner"),
@@ -277,6 +279,18 @@ describe("rack children", () => {
     expandTreeRow(r.name);
     await findTreeRow(chassis.name);
     expect(screen.queryByText(module.name)).toBeNull();
+  });
+});
+
+describe("copy properties", () => {
+  it("should copy the stored rack as JSON", async () => {
+    const writeText = stubClipboardWriteText();
+    const r = await createRack();
+    await renderMenu([r]);
+    fireEvent.click(await screen.findByText("Copy properties"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(binary.JSON_CODEC.encodeString(r.payload)),
+    );
   });
 });
 

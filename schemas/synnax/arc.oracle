@@ -11,6 +11,7 @@ import "schemas/arc/graph"
 import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
+import "schemas/synnax/status"
 import "schemas/x/crdt"
 import "schemas/x/filter"
 import "schemas/x/patch"
@@ -91,10 +92,21 @@ Arc union on type Type extends Base {
             @go marshal omit
             @include
         }
+        changes Change[]?        {
+            @doc value  "is what changed in the automation since its task was deployed."
+            @go marshal omit
+            @include
+        }
 
         @doc value "is an Arc that runs on a rack as a task."
     }
     module {
+        status Status? {
+            @doc value  "is the result of the module's last compile on the Core."
+            @go marshal omit
+            @include
+        }
+
         @doc value "is an Arc that holds code for other Arcs to import."
     }
 
@@ -205,24 +217,33 @@ Arc union on type Type extends Base {
         """
     }
 
-    action Set extends patch.Set {
+    action SetDirectory {
+        directory uuid
+
+        @doc value """
+            moves the Arc into the directory with the given key. The root Arcs directory
+            holds the Arcs at the top level.
+        """
+    }
+
+    action Set = patch.Set {
         @doc value """
             replaces the Arc's name, or the value at a path in the graph's node inputs.
         """
     }
 
-    action Remove extends patch.Remove {
+    action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the graph's node
             inputs.
         """
     }
 
-    action Insert extends patch.Insert {
+    action Insert = patch.Insert {
         @doc value "adds an entry to a list in the graph's node inputs."
     }
 
-    action Move extends patch.Move {
+    action Move = patch.Move {
         @doc value "moves an entry in a list in the graph's node inputs."
     }
 
@@ -238,6 +259,34 @@ Arc union on type Type extends Base {
     @py name       "Payload"
     @resource type "arc"
     @retrieve
+}
+
+Status = status.Status<nil>
+
+ChangeKind enum {
+    changed = "changed"
+    added   = "added"
+    removed = "removed"
+
+    @doc value """
+        is how a piece of an automation's content differs from what its task last ran.
+    """
+}
+
+Change struct {
+    type Type       {
+        @doc value "is whether the automation's own text or a module changed."
+    }
+    path string = "" {
+        @doc value "is the import path of the module. Empty for the automation."
+    }
+    kind ChangeKind {
+        @doc value "is how the content differs from what the task last ran."
+    }
+
+    @doc value """
+        is one difference between an automation's content and what its task last ran.
+    """
 }
 
 Type enum {

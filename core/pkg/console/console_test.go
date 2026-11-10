@@ -135,7 +135,7 @@ var _ = Describe("Console", func() {
 		Describe("BindTo", func() {
 			It("Should serve index.html at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -143,7 +143,7 @@ var _ = Describe("Console", func() {
 
 			It("Should serve static assets", func() {
 				req := httptest.NewRequest(http.MethodGet, "/favicon.svg", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 			})
 
@@ -155,7 +155,7 @@ var _ = Describe("Console", func() {
 					"/pluto/assets/editor.worker-abc123.js",
 					nil,
 				)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring("javascript"))
@@ -165,7 +165,7 @@ var _ = Describe("Console", func() {
 
 			It("Should serve index.html for SPA routes", func() {
 				req := httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -177,7 +177,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should keep re-read files out of the browser cache",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					Expect(
 						res.Header.Get(fiber.HeaderCacheControl),
@@ -191,7 +191,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should let the browser keep hashed assets forever",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					Expect(res.Header.Get(fiber.HeaderCacheControl)).
 						To(Equal("public, max-age=31536000, immutable"))
@@ -206,7 +206,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should answer 404 for a file the build does not emit",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusNotFound))
 				},
 				Entry("a stale bundle chunk", "/assets/index-stale.js"),
@@ -219,7 +219,7 @@ var _ = Describe("Console", func() {
 			DescribeTable("Should set a Content Security Policy on the app shell",
 				func(path string) {
 					req := httptest.NewRequest(http.MethodGet, path, nil)
-					res := MustSucceed(app.Test(req))
+					res := serve(app, req)
 					Expect(res.StatusCode).To(Equal(http.StatusOK))
 					csp := res.Header.Get(fiber.HeaderContentSecurityPolicy)
 					Expect(csp).To(ContainSubstring(
@@ -239,7 +239,7 @@ var _ = Describe("Console", func() {
 					"/assets/index-abc123.js",
 					nil,
 				)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderXContentTypeOptions)).
 					To(Equal("nosniff"))
@@ -248,7 +248,7 @@ var _ = Describe("Console", func() {
 
 			It("Should not set security headers on an API route", func() {
 				req := httptest.NewRequest(http.MethodGet, "/api/v1/thing", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				body := MustSucceed(io.ReadAll(res.Body))
 				Expect(string(body)).To(Equal("<p>api</p>"))
@@ -287,7 +287,7 @@ var _ = Describe("Console", func() {
 		Describe("BindTo", func() {
 			It("Should serve the fallback page at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get(fiber.HeaderContentType)).
 					To(ContainSubstring(fiber.MIMETextHTML))
@@ -306,7 +306,7 @@ var _ = Describe("Console", func() {
 					"/console/update/latest.json",
 					nil,
 				)
-				res := MustSucceed(app.Test(req))
+				res := serve(app, req)
 				Expect(res.StatusCode).To(Equal(http.StatusNotFound))
 			})
 		})
