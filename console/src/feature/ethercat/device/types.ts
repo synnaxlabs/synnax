@@ -87,9 +87,8 @@ export interface Address {
 
 /**
  * Reads bindings stored as a map keyed by the address of the entry, such as 24592_1.
- * prefix is the optional prefix of a key for the second channel of the entry. The map
- * can keep keys from older Consoles that name no address. 0.60.1 read none of them, so
- * they hold no binding.
+ * prefix is the optional prefix of a key for the second channel of the entry. A key
+ * that names no address holds no binding and is dropped.
  */
 const bindingMapZ = <B>(
   prefix: string,
