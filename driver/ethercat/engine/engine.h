@@ -399,12 +399,14 @@ public:
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover();
 
-    /// @brief writes parameters to the slave at position while the bus is stopped, then
-    /// discovers the slaves again so that they show the change. Thread-safe.
-    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus, or the error of
-    /// the write.
+    /// @brief finds slave on the bus by its vendor, product, and serial number, or by
+    /// its position when it has no serial number. Then writes parameters to it while
+    /// the bus is stopped, and discovers the slaves again so that they show the change.
+    /// Thread-safe.
+    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus or when slave is
+    /// not on the bus, or the error of the write.
     [[nodiscard]] x::errors::Error configure(
-        uint16_t position,
+        const slave::Properties &slave,
         const std::vector<slave::StartupParameter> &parameters
     );
 

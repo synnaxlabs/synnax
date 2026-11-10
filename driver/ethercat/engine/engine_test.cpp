@@ -1863,7 +1863,7 @@ const std::vector<slave::StartupParameter> STANDALONE{
 
 /// @brief it should write to a slave on a stopped bus, then discover the slaves again.
 TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
-    ASSERT_NIL(this->engine->configure(0, STANDALONE));
+    ASSERT_NIL(this->engine->configure(io_slave(0), STANDALONE));
     EXPECT_EQ(
         this->master->call_log(),
         (std::vector<std::string>{"scan", "write", "deactivate", "scan"})
@@ -1876,13 +1876,45 @@ TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
     );
 }
 
+/// @brief it should write to the slave at its position in the new scan, not at the
+/// position that the caller saw.
+TEST_F(EngineTest, ConfigureFindsTheSlaveInItsOwnScan) {
+    auto first = io_slave(0);
+    first.serial = 7;
+    auto second = io_slave(1);
+    second.serial = 8;
+    this->master = std::make_shared<testutil::Master>();
+    this->master->add_slave(first);
+    this->master->add_slave(second);
+    this->engine = std::make_shared<Engine>("eth0", this->master);
+    auto seen = second;
+    seen.position = 0;
+    ASSERT_NIL(this->engine->configure(seen, STANDALONE));
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {1, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should refuse to write when the slave is no longer on the bus.
+TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
+    auto gone = io_slave(0);
+    gone.serial = 9;
+    const auto err = this->engine->configure(gone, STANDALONE);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling");
+    EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
 /// @brief it should refuse to write to a slave while a task runs the bus.
 TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
     const auto reader = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
     );
     this->master->clear_call_log();
-    const auto err = this->engine->configure(0, STANDALONE);
+    const auto err = this->engine->configure(io_slave(0), STANDALONE);
     ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
     EXPECT_EQ(err.data, "a task uses eth0. Stop the tasks that use it first");
     EXPECT_EQ(this->master->call_count("write"), 0);
@@ -1894,7 +1926,7 @@ TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
         x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected")
     );
     ASSERT_OCCURRED_AS(
-        this->engine->configure(0, STANDALONE),
+        this->engine->configure(io_slave(0), STANDALONE),
         errors::STARTUP_PARAMETER_ERROR
     );
 }

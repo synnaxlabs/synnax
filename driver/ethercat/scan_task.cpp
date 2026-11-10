@@ -498,7 +498,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
         return;
     }
     if (!parameters.empty())
-        if (auto configure_err = engine->configure(props.position, parameters)) {
+        if (auto configure_err = engine->configure(props, parameters)) {
             fail(configure_err.data);
             return;
         }

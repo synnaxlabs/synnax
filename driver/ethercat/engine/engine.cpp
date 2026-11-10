@@ -757,7 +757,7 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
 }
 
 x::errors::Error Engine::configure(
-    const uint16_t position,
+    const slave::Properties &slave,
     const std::vector<slave::StartupParameter> &parameters
 ) {
     std::lock_guard lock(this->mu);
@@ -766,8 +766,21 @@ x::errors::Error Engine::configure(
             errors::SLAVE_CONFIG_ERROR,
             "a task uses " + this->iface + ". Stop the tasks that use it first"
         );
-    if (auto [_, err] = this->master->scan(); err) return err;
-    if (auto err = this->master->write(position, parameters)) return err;
+    const auto [slaves, err] = this->master->scan();
+    if (err) return err;
+    const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
+        const auto &p = s.properties;
+        return p.vendor_id == slave.vendor_id && p.product_code == slave.product_code &&
+               p.serial == slave.serial &&
+               (slave.serial != 0 || p.position == slave.position);
+    });
+    if (found == slaves.end())
+        return x::errors::Error(
+            errors::SLAVE_CONFIG_ERROR,
+            slave.name + " is not on " + this->iface + ". Check its power and cabling"
+        );
+    if (auto write_err = this->master->write(found->properties.position, parameters))
+        return write_err;
     return this->rediscover_locked().second;
 }
 
