@@ -58,7 +58,9 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
     variant,
     status: result,
   } = useSetStandalone({ afterSuccess: () => setSwitched(true) });
-  if (switched)
+  if (slave == null) return null;
+  const setup = setupOf(slave.properties);
+  if (switched || setup.kind === "switched")
     return (
       <NoteBody variant="warning" title="Restart the power of the device">
         <Detail>
@@ -67,8 +69,6 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
         </Detail>
       </NoteBody>
     );
-  if (slave == null) return null;
-  const setup = setupOf(slave.properties);
   if (setup.kind === "synnax") return null;
   const { reader } = setup;
   if (setup.kind === "shared")
@@ -85,27 +85,29 @@ export const SetupNote = ({ deviceKey }: SetupNoteProps): ReactElement | null =>
         On this port, the device sends data that only {reader} reads. Choose how to use
         the device.
       </Detail>
-      <Flex.Box y gap="tiny">
-        <Text.Text weight={500}>Synnax only</Text.Text>
-        <Detail>
-          Synnax stops the tasks on the network of the device, then switches it. Restart
-          the power of the device to finish.
-        </Detail>
-        <Flex.Box x>
-          <Button.Button
-            size="small"
-            status={status.keepVariants(variant, "loading")}
-            onClick={() => update({ slave })}
-          >
-            Switch to Synnax only
-          </Button.Button>
+      {(slave.properties.settings?.mode?.switch.length ?? 0) > 0 && (
+        <Flex.Box y gap="tiny">
+          <Text.Text weight={500}>Synnax only</Text.Text>
+          <Detail>
+            Synnax stops the tasks on the network of the device, then switches it. Restart
+            the power of the device to finish.
+          </Detail>
+          <Flex.Box x>
+            <Button.Button
+              size="small"
+              status={status.keepVariants(variant, "loading")}
+              onClick={() => update({ slave })}
+            >
+              Switch to Synnax only
+            </Button.Button>
+          </Flex.Box>
+          {variant === "error" && (
+            <Text.Text level="small" status="error">
+              {result.description ?? result.message}
+            </Text.Text>
+          )}
         </Flex.Box>
-        {variant === "error" && (
-          <Text.Text level="small" status="error">
-            {result.description ?? result.message}
-          </Text.Text>
-        )}
-      </Flex.Box>
+      )}
       <Flex.Box y gap="tiny">
         <Text.Text weight={500}>Synnax and {reader}</Text.Text>
         <Detail>

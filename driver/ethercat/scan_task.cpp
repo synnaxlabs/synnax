@@ -127,15 +127,30 @@ std::string only_reader(const slave::Properties &props) {
     return "";
 }
 
-/// @brief sets status to the warning for a slave that sends data that only reader
-/// reads.
-void set_mode_status(const std::string &reader, synnax::device::Status &status) {
+/// @brief sets status to the warning for a slave with settings that sends data that
+/// only reader reads.
+void set_mode_status(
+    const std::string &reader,
+    const x::json::json &settings,
+    synnax::device::Status &status
+) {
     status.variant = synnax::status::VARIANT_WARNING;
+    const auto mode = settings.find("mode");
+    if (mode != settings.end() && mode->at("switch").empty()) {
+        status.message = "Restart the power of the device";
+        status.description = "The device runs Synnax only after a power restart. Until "
+                             "then, it sends data that only " +
+                             reader + " reads.";
+        return;
+    }
     status.message = "Set up for " + reader;
     status.description = "On this port, the device sends data that only " + reader +
-                         " reads. In the device settings, switch the device to "
-                         "Synnax only, or connect Synnax to the port that " +
-                         reader + " does not use.";
+                         " reads. ";
+    status.description += mode == settings.end()
+                            ? "Connect"
+                            : "In the device settings, switch the device to Synnax "
+                              "only, or connect";
+    status.description += " Synnax to the port that " + reader + " does not use.";
 }
 
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
@@ -281,7 +296,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (const auto reader = only_reader(props); !reader.empty())
-        set_mode_status(reader, status);
+        set_mode_status(reader, *props.settings, status);
     else if (live != health.end())
         set_live_status(*live, status);
     else if (

@@ -411,6 +411,25 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(screen.queryByText("Restart the power of the device")).toBeNull();
     });
 
+    it("should ask for a power restart for a switched card that sends DewesoftX data", async () => {
+      await setup({
+        settings: createDewesoftXSettings(false),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
+    it("should offer no switch for a card whose mode the scan did not read", async () => {
+      await setup({
+        settings: { ...createDewesoftXSettings(true), mode: undefined },
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(screen.getByText(/Connect Synnax to the other EtherCAT port/)).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
     it("should hide the settings of a card that DewesoftX sets up", async () => {
       await setup({ settings: createDewesoftXSettings(true), inputs: [STRAIN_ENTRY] });
       expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();

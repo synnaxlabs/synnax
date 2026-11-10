@@ -911,6 +911,11 @@ protected:
                  {{"value", shared ? 1 : 0}, {"shared", shared}, {"switch", change}}},
             },
         };
+        this->serve();
+    }
+
+    /// @brief serves props on eth0 to a new scanner.
+    void serve() {
         this->master = std::make_shared<testutil::Master>();
         this->master->add_slave(this->props);
         auto manager = std::make_unique<testutil::Manager>();
@@ -972,6 +977,35 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
         "On this port, the device sends data that only DewesoftX reads. In the device "
         "settings, switch the device to Synnax only, or connect Synnax to the port "
         "that DewesoftX does not use."
+    );
+}
+
+/// @brief it should ask for a power restart of a slave that holds Synnax only but still
+/// sends data that only DewesoftX reads.
+TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
+    this->start(false);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Restart the power of the device");
+    EXPECT_EQ(
+        status.description,
+        "The device runs Synnax only after a power restart. Until then, it sends data "
+        "that only DewesoftX reads."
+    );
+}
+
+/// @brief it should not advise a switch for a slave whose mode the scan did not read.
+TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherPortWithoutAMode) {
+    this->start(true);
+    this->props.settings->erase("mode");
+    this->serve();
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "On this port, the device sends data that only DewesoftX reads. Connect "
+        "Synnax to the port that DewesoftX does not use."
     );
 }
 

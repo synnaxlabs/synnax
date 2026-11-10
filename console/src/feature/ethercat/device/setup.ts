@@ -14,9 +14,13 @@ import { type SlaveProperties } from "@/feature/ethercat/device/types";
  * How the scan found a slave set up:
  * - synnax: Synnax alone sets it up, or its catalog describes no mode.
  * - other: on this port, it sends data that only reader reads.
+ * - switched: it holds Synnax only, but it sends data that only reader reads until its
+ *   power restarts.
  * - shared: reader also sets it up, and it sends data that Synnax reads on this port.
  */
-export type Setup = { kind: "synnax" } | { kind: "other" | "shared"; reader: string };
+export type Setup =
+  | { kind: "synnax" }
+  | { kind: "other" | "switched" | "shared"; reader: string };
 
 interface Marked {
   address: Address;
@@ -45,7 +49,11 @@ export const setupOf = (props: SlaveProperties): Setup => {
   const sent = marked.find((m) =>
     props.pdos.inputs.some((e) => sameAddress(e, m.address)),
   );
-  if (sent != null) return { kind: "other", reader: sent.reader };
+  if (sent != null)
+    return {
+      kind: props.settings?.mode?.switch.length === 0 ? "switched" : "other",
+      reader: sent.reader,
+    };
   if (isShared(props))
     return { kind: "shared", reader: marked[0]?.reader ?? "other software" };
   return { kind: "synnax" };

@@ -40,11 +40,17 @@ describe("setupOf", () => {
     });
   });
 
-  it("should find a standalone card that sends DewesoftX data set up for DewesoftX", () => {
+  it("should find a standalone card that sends DewesoftX data switched", () => {
     expect(setupOf(props(createDewesoftXSettings(false)))).toEqual({
-      kind: "other",
+      kind: "switched",
       reader: "DewesoftX",
     });
+  });
+
+  it("should find a card with an unread mode that sends DewesoftX data set up for DewesoftX", () => {
+    expect(
+      setupOf(props({ ...createDewesoftXSettings(true), mode: undefined })),
+    ).toEqual({ kind: "other", reader: "DewesoftX" });
   });
 
   it("should find a shared card on the port that DewesoftX does not use shared", () => {
