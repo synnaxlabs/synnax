@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { patch } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { ni } from "@/ni";
@@ -51,5 +52,33 @@ describe("AIChannelUpdate", () => {
       customScale: { type: "map", scaledMax: 100 },
     };
     expect(ni.aiChannelUpdateZ.parse(update)).toEqual(update);
+  });
+});
+
+describe("AnalogReadConfigUpdate", () => {
+  const schemas = { u: ni.analogReadConfigUpdateZ, t: ni.analogReadConfigZ };
+  const config = ni.analogReadConfigZ.parse({
+    device: "d",
+    sampleRate: 10,
+    streamRate: 5,
+    channels: [{ key: "c3", type: "ai_voltage", name: "Pressure", port: 1 }],
+  });
+  const apply = (channel: ni.AIChannelUpdate): ni.AIChannel =>
+    patch.applyUpdate(schemas, config, {
+      value: { channels: { update: [channel] } },
+      guards: [],
+    }).next.channels[0];
+
+  it("should rename a channel without a type", () => {
+    expect(apply({ key: "c3", name: "Flow" })).toEqual({
+      ...config.channels[0],
+      name: "Flow",
+    });
+  });
+
+  it("should change the variant and keep the fields every variant holds", () => {
+    const next = apply({ key: "c3", type: "ai_current" });
+    expect(next).toMatchObject({ key: "c3", name: "Pressure", type: "ai_current" });
+    expect(next).toMatchObject({ port: 0, extShuntResistorVal: 1 });
   });
 });

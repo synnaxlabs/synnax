@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { task } from "@/task";
+import { reduceAll } from "@/task/actions";
 
 const configZ = z.object({ rate: z.number() });
 
@@ -44,5 +44,21 @@ describe("UpdateInput", () => {
     const bad: task.UpdateInput<typeof configZ> = { config: { name: "x" } };
     expect(task.updateZ(configZ).parse(input)).toEqual(input);
     expect(task.updateZ(configZ).safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("reduceAll", () => {
+  it("should replace the config whole", () => {
+    const prev = task.payloadZ().parse({
+      key: "00000000-0000-4000-8000-000000000004",
+      name: "Read",
+      type: "ni_analog_read",
+      config: { rate: 10, device: "d" },
+    });
+    const { next, inverse } = reduceAll(prev, [
+      task.update({ value: { config: { rate: 20 } } }),
+    ]);
+    expect(next.config).toEqual({ rate: 20 });
+    expect(reduceAll(next, inverse).next).toEqual(prev);
   });
 });

@@ -4337,9 +4337,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIVoltageChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4355,9 +4357,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIAccelChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4373,9 +4377,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIBridgeChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4391,9 +4397,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AICurrentChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4409,9 +4417,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIForceBridgeTableChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4427,9 +4437,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIForceBridgeTwoPointLinChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4445,9 +4457,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIForceIEPEChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4463,9 +4477,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIMicrophoneChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4481,9 +4497,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIPressureBridgeTableChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4499,9 +4517,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIPressureBridgeTwoPointLinChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4517,9 +4537,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIResistanceChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4535,9 +4557,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIRTDChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4553,9 +4577,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIStrainGaugeChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4571,9 +4597,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AITempBuiltinChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4589,9 +4617,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIThermocoupleChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4607,9 +4637,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AITorqueBridgeTableChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4625,9 +4657,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AITorqueBridgeTwoPointLinChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4643,9 +4677,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIVelocityIEPEChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4661,9 +4697,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIAccel4WireDCVoltageChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4679,9 +4717,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIAccelChargeChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4697,9 +4737,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIChargeChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4715,9 +4757,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AICurrentRMSChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4733,9 +4777,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIForceBridgePolynomialChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4751,9 +4797,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIFreqVoltageChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4769,9 +4817,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIPressureBridgePolynomialChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4787,9 +4837,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIThermistorIexChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4805,9 +4857,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIThermistorVexChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4823,9 +4877,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AITorqueBridgePolynomialChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4841,9 +4897,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIVoltageRMSChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
@@ -4859,9 +4917,11 @@ func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
 			}
 			if x.Variant != nil {
 				base := baseOfAIChannel(x)
-				x.Variant = next
-				setBaseOfAIChannel(x, base)
-				next = x.Variant.(AIVoltageWithExcitChannel)
+				next.Key = base.Key
+				next.Name = base.Name
+				next.Disabled = base.Disabled
+				next.Channel = base.Channel
+				next.Device = base.Device
 			}
 		}
 		if err := v.ApplyTo(&next); err != nil {
