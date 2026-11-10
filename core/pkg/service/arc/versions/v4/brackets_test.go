@@ -352,6 +352,7 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 })
 
 func analyzeAndCompile(ctx SpecContext, src string) ir.IR {
+	GinkgoHelper()
 	root := symboltestutil.NewRoot(nil,
 		symbol.Symbol{
 			Name: "a", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 1,

@@ -23,9 +23,9 @@ import (
 // becomes `name(...)`. An expression call `name(...)` that starts a flow node or stage
 // item becomes `(name(...))`, since the current grammar reads it as a flow call. One
 // that starts a top-level item after a flow becomes `name (...)` instead, since the
-// flow would read the wrapped call as a call on its last node.
-// Comments, strings and layout are kept. A bracket with no match leaves its construct
-// unchanged. Text already in the current grammar is not valid input.
+// flow would read the wrapped call as a call on its last node. Comments, strings and
+// layout are kept. A bracket with no match leaves its construct unchanged. Text already
+// in the current grammar is not valid input.
 func SwapBrackets(src string) string {
 	s := newStream(src)
 	e := editor{
