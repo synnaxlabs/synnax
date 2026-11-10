@@ -257,6 +257,16 @@ var _ = Describe("FormatProto", func() {
 	})
 })
 
+var _ = Describe("FormatPyComment", func() {
+	It("should return empty string for empty doc", func() {
+		Expect(doc.FormatPyComment("")).To(Equal(""))
+	})
+	It("should capitalize the doc and keep its line breaks", func() {
+		Expect(doc.FormatPyComment("sets a value.\nIt creates the path.")).
+			To(Equal("# Sets a value.\n# It creates the path."))
+	})
+})
+
 var _ = Describe("FormatPyDocstringGoogle", func() {
 	It("should return empty string when no docs", func() {
 		Expect(doc.FormatPyDocstringGoogle("", nil)).To(Equal(""))

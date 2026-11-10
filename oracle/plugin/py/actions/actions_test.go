@@ -178,10 +178,68 @@ var _ = Describe("Python Actions Plugin", func() {
 			ExpectContent(resp, "actions_gen.py").ToContain(
 				"from x import patch",
 				"path: list[str] = Field(default_factory=list)",
-				"value: JsonValue | None = None",
+				"value: JsonValue\n",
 				"guards: list[patch.Guard] = Field(default_factory=list)",
 				"def set(payload: SetPayload) -> SetAction:",
 			)
+		})
+
+		It("Should alias the model of an action alias", func(ctx SpecContext) {
+			loader.Add("schemas/patch", `
+				@py output "x/py/x/patch"
+
+				Set struct {
+					path string[]
+
+					@doc value "replaces the value at a path."
+				}
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/patch"
+
+				@py output "client/py/synnax/counter"
+
+				Counter struct {
+					key uuid
+
+					action Set = patch.Set
+				}
+			`, "counter", loader, p)
+			ExpectContent(resp, "actions_gen.py").ToContain(
+				"from x import patch",
+				"\n# Replaces the value at a path.\nSetPayload = patch.Set\n",
+				"set: SetPayload",
+				"def set(payload: SetPayload) -> SetAction:",
+			).ToNotContain("class SetPayload")
+		})
+
+		It("Should write the own doc of an action alias", func(ctx SpecContext) {
+			loader.Add("schemas/patch", `
+				@py output "x/py/x/patch"
+
+				Set struct {
+					path string[]
+
+					@doc value "replaces the value at a path."
+				}
+			`)
+			resp := MustGenerate(ctx, `
+				import "schemas/patch"
+
+				@py output "client/py/synnax/counter"
+
+				Counter struct {
+					key uuid
+
+					action Set = patch.Set {
+						@doc value "replaces the value at a path in the counter."
+					}
+				}
+			`, "counter", loader, p)
+			ExpectContent(resp, "actions_gen.py").ToContain(
+				"\n# Replaces the value at a path in the counter.\n" +
+					"SetPayload = patch.Set\n",
+			).ToNotContain("# Replaces the value at a path.\n")
 		})
 
 		It("Should alias a module import that a payload field shadows", func(
