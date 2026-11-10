@@ -181,23 +181,38 @@ func (db *DB) Size() telem.Size {
 	return telem.Size(db.idx.totalSize.Load())
 }
 
+// MarkClosed marks the DB closed, so that it refuses new writers. It returns an error
+// wrapping resource.ErrOpen and leaves the DB open if a writer or iterator is open, or
+// ErrDBClosed if the DB is already closed. After a nil error, call Release or
+// UnmarkClosed.
+func (db *DB) MarkClosed() error {
+	if !db.closed.CompareAndSwap(false, true) {
+		return ErrDBClosed
+	}
+	if count := db.resourceCount.Load(); count > 0 {
+		db.closed.Store(false)
+		return errors.Wrapf(
+			resource.ErrOpen,
+			"there are %d unclosed writers/iterators accessing it",
+			count,
+		)
+	}
+	return nil
+}
+
+// UnmarkClosed opens a DB that MarkClosed marked closed.
+func (db *DB) UnmarkClosed() { db.closed.Store(false) }
+
+// Release frees the files of a DB that MarkClosed marked closed.
+func (db *DB) Release() error { return errors.Join(db.fc.close(), db.idx.close()) }
+
 // Close closes the DB. Close should not be called concurrently with any other DB
 // methods. If close fails for a reason other than unclosed writers/readers, the
 // database will still be marked closed and no read/write operations are allowed on it
 // to protect data integrity.
 func (db *DB) Close() error {
-	if !db.closed.CompareAndSwap(false, true) {
-		return nil
+	if err := db.MarkClosed(); err != nil {
+		return errors.Skip(err, ErrDBClosed)
 	}
-	count := db.resourceCount.Load()
-	if count > 0 {
-		err := errors.Wrapf(
-			resource.ErrOpen,
-			"there are %d unclosed writers/iterators accessing it",
-			count,
-		)
-		db.closed.Store(false)
-		return err
-	}
-	return errors.Join(db.fc.close(), db.idx.close())
+	return db.Release()
 }
