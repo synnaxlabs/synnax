@@ -304,3 +304,36 @@ resource "aws_iam_role_policy" "deny_runner_secrets" {
     }]
   })
 }
+
+# Inline policies and managed attachments not declared here show up as drift, and an
+# apply removes them.
+
+resource "aws_iam_role_policies_exclusive" "sandbox" {
+  role_name = aws_iam_role.sandbox.name
+  policy_names = [
+    aws_iam_role_policy.describe_instances.name,
+    aws_iam_role_policy.runner_secrets_read.name,
+    aws_iam_role_policy.cloudwatch_read.name,
+    aws_iam_role_policy.cost_explorer_read.name,
+    aws_iam_role_policy.runner_power.name,
+    aws_iam_role_policy.ssm_disk.name,
+  ]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "sandbox" {
+  role_name   = aws_iam_role.sandbox.name
+  policy_arns = [aws_iam_role_policy_attachment.sandbox_ssm.policy_arn]
+}
+
+resource "aws_iam_role_policies_exclusive" "runner" {
+  role_name    = aws_iam_role.runner.name
+  policy_names = [aws_iam_role_policy.deny_runner_secrets.name]
+}
+
+resource "aws_iam_role_policy_attachments_exclusive" "runner" {
+  role_name = aws_iam_role.runner.name
+  policy_arns = [
+    aws_iam_role_policy_attachment.runner_cloudwatch.policy_arn,
+    aws_iam_role_policy_attachment.runner_ssm.policy_arn,
+  ]
+}
