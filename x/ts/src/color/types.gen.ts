@@ -12,6 +12,7 @@
 import { z } from "zod";
 
 import { colorZ } from "@/color/color";
+import { patch } from "@/patch";
 
 /** Band is a colored range of values starting at a threshold. */
 export const bandZ = z.object({
@@ -37,3 +38,18 @@ export const scaleZ = z.object({
   smooth: z.boolean().default(false),
 });
 export interface Scale extends z.infer<typeof scaleZ> {}
+
+/**
+ * ScaleUpdate holds changes to the fields of the scale. An absent field does not
+ * change.
+ */
+export const scaleUpdateZ = z.object({
+  /**
+   * bands is the list of threshold bands. A band paints values at or above its
+   * threshold and below the next higher threshold.
+   */
+  bands: patch.valueListZ(bandZ).optional(),
+  /** smooth is true when the fill interpolates between band colors. */
+  smooth: z.boolean().optional(),
+});
+export interface ScaleUpdate extends z.infer<typeof scaleUpdateZ> {}

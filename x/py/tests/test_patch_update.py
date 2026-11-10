@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
@@ -16,6 +17,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x import patch
 from x.codec import JSONCodec
+from x.telem import TimeRange, TimeStamp
 
 
 class Settings(TypedDict):
@@ -45,6 +47,7 @@ class Holder(TypedDict, total=False):
     extra: patch.Change[patch.Struct[SettingsUpdate, Settings]]
     tags: patch.ValueListDict[str]
     pairs: patch.ListDict[Pair, str, PairUpdate]
+    cells: patch.TypedMapDict[str, Settings, SettingsUpdate]
 
 
 HOLDER = TypeAdapter(Holder)
@@ -75,6 +78,18 @@ class TestStruct:
                 '{"pairs":{"remove":["a"],"update":[{"key":"b","rate":2}],'
                 '"move":[{"key":"b"},{"key":"c","after":"b"}]}}',
             ),
+            (
+                {
+                    "cells": {
+                        "remove": ["c2"],
+                        "update": {"c1": {"rate": 5}},
+                        "insert": {"c3": {"rate": 1, "stream": 0}},
+                    }
+                },
+                '{"cells":{"remove":["c2"],"update":{"c1":{"rate":5}},'
+                '"insert":{"c3":{"rate":1,"stream":0}}}}',
+            ),
+            ({"cells": {"set": {}}}, '{"cells":{"set":{}}}'),
         ],
         ids=[
             "absent",
@@ -85,6 +100,8 @@ class TestStruct:
             "scalar clear",
             "empty set",
             "keyed operators",
+            "map operators",
+            "empty map set",
         ],
     )
     def test_round_trip(self, value: Holder, data: str) -> None:
@@ -104,6 +121,27 @@ class TestUpdate:
         assert update.value == {"extra": {"set": {"rate": 1, "stream": 2}}}
         assert update.guards == [patch.Guard(path=["config", "type"], value="ai")]
         assert json.loads(update.model_dump_json()) == json.loads(data)
+
+    def test_dump_struct_of_custom_types_without_warning(self) -> None:
+        class TimeRangeUpdate(TypedDict, total=False):
+            start: TimeStamp
+            end: TimeStamp
+
+        class Range(TypedDict, total=False):
+            time_range: patch.Struct[TimeRangeUpdate, TimeRange]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            merge = patch.Update[Range](value={"time_range": {"end": TimeStamp(5)}})
+            replace = patch.Update[Range](
+                value={"time_range": {"set": TimeRange(TimeStamp(1), TimeStamp(5))}}
+            )
+            assert merge.model_dump_json() == (
+                '{"value":{"time_range":{"end":5}},"guards":[]}'
+            )
+            assert replace.model_dump_json() == (
+                '{"value":{"time_range":{"set":{"start":1,"end":5}}},"guards":[]}'
+            )
 
     def test_guards_default(self) -> None:
         """Should default to no guards."""
@@ -129,6 +167,22 @@ class TestList:
         parsed = patch.ValueList[str].model_validate({"remove": ["a"]})
         assert parsed.remove == ["a"]
         assert parsed.set is None
+
+
+class TestTypedMap:
+    def test_operators(self) -> None:
+        """Should read map operators keyed by map key, and keep an empty set."""
+        ops: Any = {"set": {}, "update": {"c1": {"rate": 2}}}
+        parsed = patch.TypedMap[str, Settings, SettingsUpdate].model_validate(ops)
+        assert parsed.set == {}
+        assert parsed.insert is None
+        assert parsed.remove is None
+        assert parsed.update == {"c1": {"rate": 2}}
+
+    def test_dict_form_rejects_list_operators(self) -> None:
+        """Should reject a list where the dict form takes a map."""
+        with pytest.raises(ValidationError):
+            HOLDER.validate_python({"cells": {"insert": [{"rate": 1, "stream": 0}]}})
 
 
 class Request(BaseModel):
@@ -204,12 +258,23 @@ class LimitsUpdate(TypedDict, total=False):
     high: patch.Change[int]
 
 
+class Cell(TypedDict):
+    value: str
+    width: int
+
+
+class CellUpdate(TypedDict, total=False):
+    value: patch.Change[str]
+    width: patch.Change[int]
+
+
 class DocUpdate(TypedDict, total=False):
     name: patch.Change[str]
     group: patch.Change[str]
     config: patch.Struct[ConfigUpdate, Config]
     limits: patch.Change[patch.Struct[LimitsUpdate, Limits]]
     tags: patch.ValueListDict[str]
+    cells: patch.TypedMapDict[str, Cell, CellUpdate]
 
 
 VECTORS = json.loads(

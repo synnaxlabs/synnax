@@ -111,11 +111,20 @@ type HoldingRegisterBitWriteChannel = v3.HoldingRegisterBitWriteChannel
 // ReadConfig configures a Modbus read task.
 type ReadConfig = v3.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v3.ReadTaskType
+
 // WriteConfig configures a Modbus write task.
 type WriteConfig = v3.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v3.WriteTaskType
+
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = v3.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v3.ScanTaskType
 
 // RegisterBit addresses one bit of a 16-bit register.
 type RegisterBit = v3.RegisterBit

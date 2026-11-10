@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"regexp"
 	"slices"
 	"sort"
@@ -406,7 +407,7 @@ func (p *Plugin) generateFile(
 		}
 	}
 
-	configs, err := taskConfigs(structs, req.Resolutions)
+	configs, err := taskConfigs(structs, req.Resolutions, path.Base(outputPath))
 	if err != nil {
 		return nil, err
 	}
@@ -1956,7 +1957,7 @@ func structParam(field resolution.Field, parent resolution.Type) (string, bool) 
 	return tp.Name, true
 }
 
-// structSchemasParam makes tpd take the schemas of a struct in place of a record schema.
+// structSchemasParam makes tpd take the schemas of a struct, not a record schema.
 func structSchemasParam(tpd *typeParamData) {
 	tpd.Constraint = "patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>>"
 	tpd.Default = "patch.StructSchemas<z.ZodType<record.Unknown>, " +
@@ -3109,10 +3110,11 @@ type taskConfigData struct{ Const, Value, Config, Update, Record string }
 func taskConfigs(
 	structs []resolution.Type,
 	table *resolution.Table,
+	ns string,
 ) ([]taskConfigData, error) {
 	var configs []taskConfigData
 	for _, typ := range structs {
-		value, name, ok := domain.TaskType(typ)
+		value, name, ok := domain.TaskType(typ, ns)
 		if !ok {
 			continue
 		}
@@ -3125,7 +3127,7 @@ func taskConfigs(
 		}
 		configName := domain.GetName(typ, "ts")
 		configs = append(configs, taskConfigData{
-			Const:  strings.ToUpper(strings.Trim(name+"_task_type", "_")),
+			Const:  strings.ToUpper(name),
 			Value:  value,
 			Config: configName,
 			Update: casing.CamelAcronym(domain.GetName(update, "ts")) + "Z",

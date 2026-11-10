@@ -169,6 +169,7 @@ func (p *Plugin) update(
 		)
 	}
 	data.AddExternal(p.Options.RuntimeImportPath)
+	data.AddExternal("github.com/synnaxlabs/x/validate")
 	for _, name := range action.CoreFields {
 		f, ok := lo.Find(fields.Fields, func(f resolution.Field) bool {
 			return f.Name == name
@@ -289,12 +290,15 @@ func (p {{.Payload}}) Handle(r {{$.TargetType}}) ({{$.TargetType}}, error) {
 	return next, nil
 }
 
-// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when p changes a field
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when p changes a field
 // that only the Core sets.
 func (p {{.Payload}}) CheckCoreOnly() error {
 {{- range .CoreFields}}
 	if {{.Changed}} {
-		return errors.Wrap(actions.ErrCoreOnly, "{{.Name}}")
+		return errors.Mark(
+			errors.Wrap(validate.ErrValidation, "{{.Name}} is set by the Core"),
+			actions.ErrCoreOnly,
+		)
 	}
 {{- end}}
 	return nil

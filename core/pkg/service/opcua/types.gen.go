@@ -32,11 +32,20 @@ type WriteChannel = versions.WriteChannel
 // ReadConfig configures an OPC UA read task.
 type ReadConfig = versions.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
+
 // WriteConfig configures an OPC UA write task.
 type WriteConfig = versions.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
+
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
 
 // ReadConfigUpdate holds changes to the fields of the read config. An absent field does
 // not change.
@@ -269,12 +278,3 @@ func (u WriteChannelUpdate) ApplyTo(x *WriteChannel) error {
 	}
 	return nil
 }
-
-const (
-	// ReadTaskType is the task type of ReadConfig.
-	ReadTaskType = "opc_read"
-	// WriteTaskType is the task type of WriteConfig.
-	WriteTaskType = "opc_write"
-	// ScanTaskType is the task type of ScanConfig.
-	ScanTaskType = "opc_scan"
-)

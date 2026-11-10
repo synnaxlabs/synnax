@@ -111,6 +111,9 @@ type SparkplugReadEntry = v1.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = v1.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v1.ReadTaskType
+
 // JSONType is the JSON type a channel value is serialized as in a payload.
 type JSONType = v1.JSONType
 
@@ -193,8 +196,14 @@ type SparkplugWriteTarget = v1.SparkplugWriteTarget
 // is written to the command channel of a target.
 type WriteConfig = v1.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v1.WriteTaskType
+
 // ScanConfig configures an MQTT scan task.
 type ScanConfig = v1.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v1.ScanTaskType
 
 // EdgeTag is a single tag published by a Sparkplug B edge node task.
 type EdgeTag = v1.EdgeTag
@@ -202,3 +211,6 @@ type EdgeTag = v1.EdgeTag
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = v1.EdgeConfig
+
+// SparkplugEdgeTaskType is the task type of EdgeConfig.
+const SparkplugEdgeTaskType = v1.SparkplugEdgeTaskType

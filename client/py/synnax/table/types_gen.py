@@ -11,7 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any, Literal, TypeAlias, TypedDict, override as _override
+from typing import (
+    Annotated,
+    Any,
+    Literal,
+    Required,
+    TypeAlias,
+    TypedDict,
+    override as _override,
+)
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -138,21 +146,6 @@ class Order(BaseModel):
     descending: bool = False
 
 
-class Update(TypedDict, total=False):
-    """Holds changes to the fields of the table. An absent field does not change.
-
-    Attributes:
-        name: Is a human-readable name for the table.
-        group: Is the group the table sits in, if any.
-        project: Is the project that owns the table, if any. Exactly one of project and
-            range is set.
-    """
-
-    name: str
-    group: patch.Change[group_.Key]
-    project: patch.Change[project_.Key]
-
-
 class TextCellConfig(BaseModel):
     """Is the configuration for static text cells."""
 
@@ -188,6 +181,40 @@ CellConfig = Annotated[
     TextCellConfig | ValueCellConfig,
     Field(discriminator="variant"),
 ]
+
+
+class TextCellConfigUpdate(TypedDict, total=False):
+    """Is the configuration for static text cells."""
+
+    variant: Required[Literal["text"]]
+    value: str
+    level: text.Level
+    weight: float
+    align: FlexAlignment
+    fill_color: patch.Change[color.Color]
+    text_color: patch.Change[color.Color]
+
+
+class ValueCellConfigUpdate(TypedDict, total=False):
+    """Is the configuration for live telemetry value cells."""
+
+    variant: Required[Literal["value"]]
+    channel: channel_.Key
+    rolling_average: int
+    precision: patch.Change[int]
+    notation: notation_.Notation
+    redline: patch.Struct[color.ScaleUpdate, color.Scale]
+    fill_color: patch.Change[color.Color]
+    level: text.Level
+    text_color: patch.Change[color.Color]
+    units: str
+    staleness_timeout: float
+    staleness_color: patch.Change[color.Color]
+
+
+# Holds changes to the fields of the cell config. A variant that differs from the stored
+# one changes the variant.
+CellConfigUpdate = TextCellConfigUpdate | ValueCellConfigUpdate
 
 
 class Where(BaseModel):
@@ -251,9 +278,6 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
-UpdatePayload: TypeAlias = patch.Update[Update]
-
-
 class Cell(BaseModel):
     """Is a keyed cell configuration used by actions that address cells explicitly.
     Inside the table state itself, cell configurations are stored in the cells map keyed
@@ -311,6 +335,25 @@ class EraseCellsPayload(BaseModel):
 
     cells: list[str] = Field(default_factory=list)
     template: CellConfig
+
+
+class Update(TypedDict, total=False):
+    """Holds changes to the fields of the table. An absent field does not change.
+
+    Attributes:
+        name: Is a human-readable name for the table.
+        cells: Contains all cells in the table, keyed by cell key. Cell positions are
+            derived from rows[*].cells[*] references; cells not referenced by any row
+            are orphaned and will be pruned on the next structural edit.
+        group: Is the group the table sits in, if any.
+        project: Is the project that owns the table, if any. Exactly one of project and
+            range is set.
+    """
+
+    name: str
+    cells: patch.TypedMapDict[str, CellConfig, CellConfigUpdate]
+    group: patch.Change[group_.Key]
+    project: patch.Change[project_.Key]
 
 
 class RetrieveRequest(BaseModel):
@@ -405,6 +448,9 @@ class RetrieveResponse(BaseModel):
     """
 
     tables: list[Table] = Field(default_factory=list)
+
+
+UpdatePayload: TypeAlias = patch.Update[Update]
 
 
 class CreateAction(BaseModel):

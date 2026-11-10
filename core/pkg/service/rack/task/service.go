@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		ctx, config.ServiceConfig[StatusConfig, StatusConfigUpdate]{
 			DB:              cfg.DB,
 			Instrumentation: cfg.Instrumentation,
-			Type:            StatusTaskType,
+			Type:            StatusType,
 			LegacyVersion:   legacy.LastVersion,
 			Ladder:          versions.StatusConfigLadder,
 			SetEntryKey:     (*StatusConfig).SetKey,

@@ -123,6 +123,9 @@ type SparkplugReadEntry = versions.SparkplugReadEntry
 // tags on a broker device and writes their values to Synnax channels.
 type ReadConfig = versions.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
+
 // JSONType is the JSON type a channel value is serialized as in a payload.
 type JSONType = versions.JSONType
 
@@ -205,8 +208,14 @@ type SparkplugWriteTarget = versions.SparkplugWriteTarget
 // is written to the command channel of a target.
 type WriteConfig = versions.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
+
 // ScanConfig configures an MQTT scan task.
 type ScanConfig = versions.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
 
 // EdgeTag is a single tag published by a Sparkplug B edge node task.
 type EdgeTag = versions.EdgeTag
@@ -214,6 +223,9 @@ type EdgeTag = versions.EdgeTag
 // EdgeConfig configures a Sparkplug B edge node task, which publishes Synnax channels
 // as the tags of one edge node and writes inbound tag commands to Synnax channels.
 type EdgeConfig = versions.EdgeConfig
+
+// SparkplugEdgeTaskType is the task type of EdgeConfig.
+const SparkplugEdgeTaskType = versions.SparkplugEdgeTaskType
 
 // ReadConfigUpdate holds changes to the fields of the read config. An absent field does
 // not change.
@@ -1452,14 +1464,3 @@ func (u GeneratedWriteFieldUpdate) Defaults() (GeneratedWriteField, error) {
 	x.ApplyDefaults()
 	return x, nil
 }
-
-const (
-	// ReadTaskType is the task type of ReadConfig.
-	ReadTaskType = "mqtt_read"
-	// WriteTaskType is the task type of WriteConfig.
-	WriteTaskType = "mqtt_write"
-	// ScanTaskType is the task type of ScanConfig.
-	ScanTaskType = "mqtt_scan"
-	// SparkplugEdgeTaskType is the task type of EdgeConfig.
-	SparkplugEdgeTaskType = "mqtt_sparkplug_edge"
-)

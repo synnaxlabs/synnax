@@ -51,6 +51,15 @@ interface ListOps {
   move?: { key: unknown; after?: unknown }[];
 }
 
+interface MapOps {
+  set?: record.Unknown;
+  insert?: record.Unknown;
+  remove?: string[];
+  update?: record.Unknown;
+}
+
+type MapKind = Extract<Kind, { kind: "map" }>;
+
 const VALUE: Kind = { kind: "value" };
 
 // Types of an unmarked field schema that must come from a field factory.
@@ -87,10 +96,16 @@ const unionOf = (schema: $ZodType): Union | undefined => {
   return { ...union, base };
 };
 
+const objectShapeOf = (schema: $ZodType): Shape | undefined =>
+  (zod.unwrap(schema)._zod.def as { shape?: Shape }).shape;
+
 const shapeOf = (schema: $ZodType): Shape => {
-  const def = zod.unwrap(schema)._zod.def as { type: string; shape?: Shape };
-  if (def.shape == null) throw new Error(`Expected an object schema, got ${def.type}`);
-  return def.shape;
+  const shape = objectShapeOf(schema);
+  if (shape == null)
+    throw new Error(
+      `Expected an object schema, got ${zod.unwrap(schema)._zod.def.type}`,
+    );
+  return shape;
 };
 
 const optionOf = (union: Union, value: unknown): $ZodType => {
@@ -115,6 +130,10 @@ const baseFields = (union: Union): string[] => {
     (k) => k !== union.discriminator && rest.every((keys) => keys.includes(k)),
   );
 };
+
+// A map value takes an object or union update as a merge, and any other update whole.
+const mergesValue = ({ update }: MapKind): boolean =>
+  unionOf(update) != null || zod.unwrap(update)._zod.def.type === "object";
 
 // An unmarked schema merges as a union, or sets a value.
 const kindIn = (schema: z.ZodType): Kind => {
@@ -142,7 +161,7 @@ const omit = (value: record.Unknown, field: string): record.Unknown => {
   return rest;
 };
 
-const formatPath = (path: string[]): string => `[${path.join(", ")}]`;
+const formatPath = (path: string[]): string => path.join(".");
 
 const readAt = (doc: unknown, path: string[]): unknown =>
   path.reduce<unknown>((current, seg) => {
@@ -166,8 +185,10 @@ const merge = (
 ): record.Unknown => {
   const union = unionOf(u);
   if (union == null) {
-    if (current == null) return build(shapeOf(u), shapeOf(t), {}, partial);
-    return mergeObject(shapeOf(u), shapeOf(t), asObject(current), partial);
+    const recordShape = objectShapeOf(t);
+    if (recordShape == null) return mergeParsed(u, t, current, partial);
+    if (current == null) return build(shapeOf(u), recordShape, {}, partial);
+    return mergeObject(shapeOf(u), recordShape, asObject(current), partial);
   }
   const records = requireUnion(t);
   const { discriminator } = union;
@@ -189,6 +210,22 @@ const merge = (
     if (base[k] !== undefined) seed[k] = base[k];
   });
   return build(updateShape, recordShape, seed, fields);
+};
+
+// Merges partial by the shape of u into a record whose schema t has no object shape,
+// such as a class with its own schema, and parses the result with t.
+const mergeParsed = (
+  u: $ZodType,
+  t: $ZodType,
+  current: unknown,
+  partial: record.Unknown,
+): record.Unknown => {
+  const shape = shapeOf(u);
+  const merged =
+    current == null
+      ? build(shape, shape, {}, partial)
+      : mergeObject(shape, shape, asObject(current), partial);
+  return (t as z.ZodType).parse(merged) as record.Unknown;
 };
 
 // Builds a value from the defaults of recordShape and seed, merged with partial.
@@ -261,7 +298,44 @@ const applyField = (
       );
     case "valueList":
       return applyList(current, change as ListOps, (e) => e);
+    case "map":
+      return applyMap(current, change as MapOps, (value, u) =>
+        mergesValue(kind)
+          ? merge(kind.update, kind.value, value, u as record.Unknown)
+          : u,
+      );
   }
+};
+
+const applyMap = (
+  current: unknown,
+  ops: MapOps,
+  mergeValue: (value: unknown, update: unknown) => unknown,
+): unknown => {
+  const { set, insert, remove, update } = ops;
+  if (set != null) {
+    if (insert != null || remove != null || update != null)
+      throw new Error("set cannot be combined with other operators");
+    return { ...set };
+  }
+  if (insert == null && remove == null && update == null) return current;
+  const map = { ...asObject(current) };
+  const check = (key: string): void => {
+    if (!Object.hasOwn(map, key)) throw new StaleError(`${key} not found`);
+  };
+  remove?.forEach((key) => {
+    check(key);
+    delete map[key];
+  });
+  Object.entries(update ?? {}).forEach(([key, u]) => {
+    check(key);
+    map[key] = withKey(key, () => mergeValue(map[key], u));
+  });
+  Object.entries(insert ?? {}).forEach(([key, value]) => {
+    if (Object.hasOwn(map, key)) throw new Error(`${key} already exists`);
+    map[key] = value;
+  });
+  return map;
 };
 
 const applyList = (
@@ -340,7 +414,7 @@ export interface AppliedUpdate<U extends z.ZodType, T extends z.ZodType> {
  * defaults.
  *
  * @param schemas - The schema of the update value, and the record schema for defaults.
- * @throws {StaleError} if a guard does not hold or a list key is missing.
+ * @throws {StaleError} if a guard does not hold or a list or map key is missing.
  * @throws {Error} if the update clears a required field, combines set with another
  * operator, inserts a key that exists, gives no discriminator for an absent union, or
  * leaves out a field with no default of a new struct or variant.
@@ -450,7 +524,35 @@ const diffField = (
       );
     case "valueList":
       return diffList(asList(prev), asList(cur), (e) => e);
+    case "map":
+      return diffMap(kind, asObject(prev), asObject(cur), path, guards);
   }
+};
+
+const diffMap = (
+  kind: MapKind,
+  prev: record.Unknown,
+  cur: record.Unknown,
+  path: string[],
+  guards: Guard[],
+): MapOps | undefined => {
+  const ops: MapOps = {};
+  const remove = Object.keys(prev).filter((k) => !Object.hasOwn(cur, k));
+  const insert: record.Unknown = {};
+  const update: record.Unknown = {};
+  Object.entries(cur).forEach(([k, value]) => {
+    if (!Object.hasOwn(prev, k)) insert[k] = value;
+    else if (!same(prev[k], value)) {
+      const change = mergesValue(kind)
+        ? diffMerge(kind.update, prev[k], value, [...path, k], guards)
+        : value;
+      if (change !== undefined) update[k] = change;
+    }
+  });
+  if (remove.length > 0) ops.remove = remove;
+  if (Object.keys(update).length > 0) ops.update = update;
+  if (Object.keys(insert).length > 0) ops.insert = insert;
+  return Object.keys(ops).length > 0 ? ops : undefined;
 };
 
 // Builds the change that turns any value of the field into value.
@@ -465,6 +567,7 @@ const replaceWith = (kind: Kind, value: unknown): unknown => {
     case "struct":
     case "list":
     case "valueList":
+    case "map":
       return { [SET]: value };
   }
 };
@@ -603,6 +706,23 @@ const nestInto = (
       const inner = nestAt(kind.update, entry, path, i + 1, leaf, guards);
       return { update: [{ [KEY]: asObject(entry)[KEY] ?? key, ...asObject(inner) }] };
     }
+    case "map": {
+      const key = path[i];
+      if (mergesValue(kind)) {
+        const inner = nestAt(
+          kind.update,
+          asObject(doc)[key],
+          path,
+          i + 1,
+          leaf,
+          guards,
+        );
+        return { update: { [key]: inner } };
+      }
+      if (i + 1 < path.length)
+        throw new Error(`${formatPath(path.slice(0, i + 1))} holds no fields`);
+      return { update: { [key]: leaf } };
+    }
     case "value":
     case "valueList":
       throw new Error(`${formatPath(path.slice(0, i))} holds no fields`);
@@ -611,9 +731,10 @@ const nestInto = (
 
 /**
  * Wraps the update of the value at a path into an update of the whole record. A
- * segment into a struct nests as a merge, and a segment into a keyed list names the key
- * of an entry and nests as an update of that entry. A union that the path goes into
- * takes the discriminator that doc holds there, and the update holds a guard on it.
+ * segment into a struct nests as a merge, and a segment into a keyed list or a map
+ * names the key of an entry and nests as an update of that entry. A union that the path
+ * goes into takes the discriminator that doc holds there, and the update holds a guard
+ * on it.
  *
  * @param u - The schema of the update value.
  * @param doc - The record, which gives the discriminator of each union on the path.

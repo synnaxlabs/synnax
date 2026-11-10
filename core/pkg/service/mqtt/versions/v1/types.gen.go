@@ -1038,3 +1038,14 @@ func (e EdgeConfig) Validate() error {
 	}
 	return v.Error()
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "mqtt_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "mqtt_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "mqtt_scan"
+	// SparkplugEdgeTaskType is the task type of EdgeConfig.
+	SparkplugEdgeTaskType = "mqtt_sparkplug_edge"
+)

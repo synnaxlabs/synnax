@@ -15,7 +15,9 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -254,6 +256,9 @@ type predecessor struct {
 	// package declares. A frozen package declares its version file's name, which a
 	// live @go name does not change.
 	names map[string]string
+	// taskTyped holds the qualified names of aliased configs whose predecessor
+	// declares a task type constant.
+	taskTyped set.Set[string]
 }
 
 // AliasedTypes returns the qualified names of all types that alias their predecessor
@@ -585,6 +590,12 @@ func renderGoFile(
 			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
+			if tt, ok := taskType(d.typ, outputPath); ok {
+				if pred.taskTyped.Contains(d.typ.QualifiedName) {
+					tt.Value = predAlias + "." + tt.Name
+				}
+				data.TaskTypes = append(data.TaskTypes, tt)
+			}
 			continue
 		}
 		procData := data
@@ -604,6 +615,9 @@ func renderGoFile(
 				return nil, nil, err
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
+			if tt, ok := taskType(d.typ, outputPath); ok {
+				data.TaskTypes = append(data.TaskTypes, tt)
+			}
 		case declUnion:
 			u, err := processUnion(d.typ, procData)
 			if err != nil {
@@ -617,16 +631,6 @@ func renderGoFile(
 				return nil, nil, err
 			}
 			data.Applies = append(data.Applies, methods)
-			// The update of a config generates at the package root, where its task
-			// type belongs, even when the config generates in a version package.
-			config, _ := procData.table.Get(d.typ.Updates)
-			if value, name, ok := domain.TaskType(config); ok {
-				data.TaskTypes = append(data.TaskTypes, taskTypeData{
-					Name:   casing.TypePascal(name) + "TaskType",
-					Value:  value,
-					Config: naming.GetGoName(config),
-				})
-			}
 		}
 	}
 
@@ -1129,8 +1133,35 @@ type templateData struct {
 }
 
 // taskTypeData is the constant of the type of the task that a config struct
-// configures.
+// configures. Value is the rendered right side: a string literal, or the constant of
+// the predecessor package.
 type taskTypeData struct{ Name, Value, Config string }
+
+// taskType returns the constant of the task type that @task type gives the config
+// struct t, with a literal value. outputPath is the package the constant goes in.
+func taskType(t resolution.Type, outputPath string) (taskTypeData, bool) {
+	value, name, ok := domain.TaskType(t, rootPackage(outputPath))
+	if !ok {
+		return taskTypeData{}, false
+	}
+	return taskTypeData{
+		Name:   casing.TypePascal(name),
+		Value:  strconv.Quote(value),
+		Config: naming.GetGoName(t),
+	}, true
+}
+
+// rootPackage returns the name of the package at the root of the version layout that
+// outputPath is in, so each version package names a constant as the root does.
+func rootPackage(outputPath string) string {
+	if path.Base(path.Dir(outputPath)) == "versions" {
+		outputPath = path.Dir(outputPath)
+	}
+	if path.Base(outputPath) == "versions" {
+		outputPath = path.Dir(outputPath)
+	}
+	return path.Base(outputPath)
+}
 
 // importAlias returns the import alias for a cross-package reference,
 // honoring the conflict re-render pass's overrides (keyed by import path).
@@ -1958,7 +1989,7 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 const (
 {{- range .TaskTypes}}
 	// {{.Name}} is the task type of {{.Config}}.
-	{{.Name}} = "{{.Value}}"
+	{{.Name}} = {{.Value}}
 {{- end}}
 )
 {{- end}}

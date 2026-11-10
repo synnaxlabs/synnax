@@ -34,9 +34,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Type is the type identifier for Arc tasks.
-const Type = "arc"
-
 // GetProgramFunc retrieves an automation with its compiled Program by key.
 type GetProgramFunc func(context.Context, arc.Key) (arc.AutomationArc, error)
 

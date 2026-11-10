@@ -11,6 +11,7 @@ import "schemas/synnax/task"
 import "schemas/x/patch"
 
 @go output "core/pkg/service/rack/task"
+@ts output "client/ts/src/rack/task"
 
 StatusConfig struct extends task.KeyedConfig {
     @doc value  "configures the rack status reporting task, which carries no settings."

@@ -33,13 +33,14 @@ class Update[V](BaseModel):
             update applies.
     """
 
-    value: V
+    # The serializer below writes value itself, because Pydantic cannot pick a member of
+    # a union of TypedDicts when it serializes one.
+    value: V = Field(exclude=True)
     guards: list[Guard] = Field(default_factory=list)
 
     @model_serializer(mode="wrap")
     def _keep_clears(
         self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
     ) -> dict[str, Any]:
-        data: dict[str, Any] = handler(self)
-        data["value"] = to_jsonable_python(self.value, by_alias=bool(info.by_alias))
-        return data
+        value = to_jsonable_python(self.value, by_alias=bool(info.by_alias))
+        return {"value": value, **handler(self)}

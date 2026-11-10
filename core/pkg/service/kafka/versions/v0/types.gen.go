@@ -272,3 +272,12 @@ func (w WriteConfig) Validate() error {
 	}
 	return v.Error()
 }
+
+const (
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "kafka_scan"
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "kafka_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "kafka_write"
+)

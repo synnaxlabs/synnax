@@ -15,3 +15,6 @@ import "github.com/synnaxlabs/synnax/pkg/service/rack/task/versions/v0"
 
 // StatusConfig configures the rack status reporting task, which carries no settings.
 type StatusConfig = v0.StatusConfig
+
+// StatusType is the task type of StatusConfig.
+const StatusType = v0.StatusType
