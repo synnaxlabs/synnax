@@ -127,10 +127,11 @@ jobs:
           ref: ${{ matrix.ref }}
           persist-credentials: false
 
-      # An older ref ignores DOCS_VERSION and would serve an unversioned site.
+      # An older ref never passes DOCS_VERSION to the build, so it would serve an
+      # unversioned site.
       - name: Require versioned docs
         run: |
-          grep -q DOCS_VERSION site/docs/astro.config.ts ||
+          grep -q DOCS_VERSION site/docs/turbo.json ||
             { echo "::error::$REF predates versioned docs"; exit 1; }
 
       # Every version deploys without the production domains, then takes its own host,
