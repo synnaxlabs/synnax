@@ -463,6 +463,7 @@ jobs:
       # is approved last.
       - name: Claim the version
         id: claim
+        shell: bash
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG: ${{ needs.resolve.outputs.ts_tag }}
@@ -493,7 +494,9 @@ jobs:
               | sed -nE 's#.*refs/tags/ts/v([0-9]+\.[0-9]+\.[0-9]+)$#\1#p' \
               | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1
           }
-          for pending in "$(newest "")" "$(newest "$MINOR.")"; do
+          overall=$(newest "")
+          train=$(newest "$MINOR.")
+          for pending in "$overall" "$train"; do
             [ -n "$pending" ] || continue
             code=$(status client "$pending")
             case "$code" in
@@ -579,6 +582,7 @@ jobs:
       # registry skips what already went up. Any other run stops, so one version never
       # holds packages from two commits.
       - name: Claim the version
+        shell: bash
         env:
           VERSION: ${{ needs.resolve.outputs.py_version }}
           TAG: ${{ needs.resolve.outputs.py_tag }}
