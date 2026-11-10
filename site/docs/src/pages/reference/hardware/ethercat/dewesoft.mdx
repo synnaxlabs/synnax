@@ -67,18 +67,19 @@ The device loads the stored settings each time it starts.
 Each module runs the sync mode that it stores, SM sync or DC sync. The Driver must run
 the module in the same mode. If the modes are different, the module can stay in PRE-OP,
 for example with
-["Invalid DC SYNC configuration"](/reference/hardware/ethercat/configure-device#failed-to-reach-safe-op--invalid-dc-sync-configuration).
+["Invalid DC SYNC configuration"](/reference/hardware/ethercat/troubleshooting#failed-to-reach-safe-op--invalid-dc-sync-configuration).
 By default, the Driver runs SM sync when the module lists an SM sync mode.
 
 In standalone mode, most IOLITE modules run only DC sync. The 6xSTG, 8xLV, and 8xTH can
 also run SM sync on bus 1. To run a module in DC sync:
 
 1. In the devices toolbar, right-click the module and select **Configure**.
-2. Under [**Sync mode**](/reference/hardware/ethercat/configure-device#sync-mode),
+2. Under
+   [**Sync mode**](/reference/hardware/ethercat/configure-device#set-the-sync-mode),
    select the DC sync mode of the module.
-3. Enter the **SYNC0 cycle** and **SYNC1 cycle** from the table of the model in the
-   Dewesoft manual. For example, a standalone 6xSTG in DC sync uses a SYNC0 cycle of 1
-   µs and a SYNC1 cycle of 1 s.
+3. Enter the **SYNC0 cycle** and **SYNC1 cycle**, in µs, from the table of the model in
+   the Dewesoft manual. For example, a standalone 6xSTG in DC sync uses a SYNC0 cycle of
+   1 µs and a SYNC1 cycle of 1 s.
 4. Click **Save**, then stop every task on the port and start them again.
 
 Some modules list one DC sync mode for each bus, such as **DC-bus1** and **DC-bus2** on
@@ -94,6 +95,6 @@ connects DewesoftX through USB, so the Driver needs only one Ethernet port.
 
 DewesoftX adds a network filter to each Ethernet port. The filter blocks the Driver,
 also when DewesoftX is closed.
-[Turn off the filter](/reference/hardware/ethercat/configure-device#no-modules-show-on-a-computer-with-dewesoftx)
+[Turn off the filter](/reference/hardware/ethercat/troubleshooting#no-modules-show-on-a-computer-with-dewesoftx)
 on the port of the Driver. If DewesoftX uses an Ethernet port, keep the filter on that
 port.
