@@ -42,8 +42,12 @@ export const onlyReaderOf = (props: SlaveProperties, address: Address): string |
 export const isShared = (props: SlaveProperties): boolean =>
   props.settings?.mode?.shared === true;
 
+/** @returns whether the Driver can switch the slave to Synnax only. */
+export const canSwitch = (props: SlaveProperties): boolean =>
+  (props.settings?.mode?.switch.length ?? 0) > 0;
+
 /** @returns how the scan found the slave set up. */
-export const setupOf = (props: SlaveProperties): Setup => {
+export const of = (props: SlaveProperties): Setup => {
   const marked = markedEntries(props);
   const sent = marked.find((m) =>
     props.pdos.inputs.some((e) => sameAddress(e, m.address)),

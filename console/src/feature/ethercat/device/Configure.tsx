@@ -68,7 +68,7 @@ const autoDescription = (modes: OpMode[], catalog: OpModeChoice | null): string 
   const auto = autoIndex(modes, catalog);
   if (auto == null)
     return "The Driver uses SM sync, because the device lists no modes.";
-  if (catalog != null && auto === catalog.index)
+  if (catalog != null)
     return (
       `The Driver uses ${modeName(modes[auto], auto)}, because the setup of the ` +
       "device needs it. Best for most needs."
@@ -311,12 +311,12 @@ export const Configure = ({
   const stale = choice != null && isStale(modes, choice);
   const index = choice == null ? autoIndex(modes, catalog) : choice.index;
   // What the Driver runs: the choice, else the choice of the catalog.
-  const running = choice ?? catalog;
+  const effective = choice ?? catalog;
   let mode: OpMode | null = null;
   if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
-  const sync0Problem = mode == null ? null : sync0Error(mode, running);
+  const sync0Problem = mode == null ? null : sync0Error(mode, effective);
   const sync1Problem =
-    mode == null || sync0Problem != null ? null : sync1Error(mode, running);
+    mode == null || sync0Problem != null ? null : sync1Error(mode, effective);
   const cycleProblem = sync0Problem ?? sync1Problem;
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
@@ -338,7 +338,7 @@ export const Configure = ({
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
   else if (cycleProblem != null) help = { text: cycleProblem, problem: severity };
-  else if (mode != null) help = { text: describeTicks(mode, running) };
+  else if (mode != null) help = { text: describeTicks(mode, effective) };
   else if (choice == null) help = { text: autoDescription(modes, catalog) };
   else help = { text: describeMode(modes[choice.index]) };
   return (

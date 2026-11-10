@@ -17,7 +17,7 @@ import {
   STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 
-const { onlyReaderOf, setupOf } = EtherCAT.Device.Setup;
+const { canSwitch, of, onlyReaderOf } = EtherCAT.Device.Setup;
 
 const props = (
   settings: EtherCAT.Device.SlaveProperties["settings"],
@@ -28,42 +28,51 @@ const props = (
   settings,
 });
 
-describe("setupOf", () => {
+describe("of", () => {
   it("should find a card without marked entries set up for Synnax", () => {
-    expect(setupOf(props(createSettingsDescription()))).toEqual({ kind: "synnax" });
+    expect(of(props(createSettingsDescription()))).toEqual({ kind: "synnax" });
   });
 
   it("should find a shared card that sends DewesoftX data set up for DewesoftX", () => {
-    expect(setupOf(props(createDewesoftXSettings(true)))).toEqual({
+    expect(of(props(createDewesoftXSettings(true)))).toEqual({
       kind: "other",
       reader: "DewesoftX",
     });
   });
 
   it("should find a standalone card that sends DewesoftX data switched", () => {
-    expect(setupOf(props(createDewesoftXSettings(false)))).toEqual({
+    expect(of(props(createDewesoftXSettings(false)))).toEqual({
       kind: "switched",
       reader: "DewesoftX",
     });
   });
 
   it("should find a card with an unread mode that sends DewesoftX data set up for DewesoftX", () => {
-    expect(
-      setupOf(props({ ...createDewesoftXSettings(true), mode: undefined })),
-    ).toEqual({ kind: "other", reader: "DewesoftX" });
+    expect(of(props({ ...createDewesoftXSettings(true), mode: undefined }))).toEqual({
+      kind: "other",
+      reader: "DewesoftX",
+    });
   });
 
   it("should find a shared card on the port that DewesoftX does not use shared", () => {
-    expect(setupOf(props(createDewesoftXSettings(true), [STRAIN_ENTRY]))).toEqual({
+    expect(of(props(createDewesoftXSettings(true), [STRAIN_ENTRY]))).toEqual({
       kind: "shared",
       reader: "DewesoftX",
     });
   });
 
   it("should find a standalone card that sends Synnax data set up for Synnax", () => {
-    expect(setupOf(props(createDewesoftXSettings(false), [STRAIN_ENTRY]))).toEqual({
+    expect(of(props(createDewesoftXSettings(false), [STRAIN_ENTRY]))).toEqual({
       kind: "synnax",
     });
+  });
+});
+
+describe("canSwitch", () => {
+  it("should allow a switch only when the catalog gives one", () => {
+    expect(canSwitch(props(createDewesoftXSettings(true)))).toBe(true);
+    expect(canSwitch(props(createDewesoftXSettings(false)))).toBe(false);
+    expect(canSwitch(props(createSettingsDescription()))).toBe(false);
   });
 });
 

@@ -800,7 +800,7 @@ TEST_F(EtherCATReadTest, ParseConfigRejectsAParameterThatDoesNotFitItsType) {
     ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
     const auto errors = parser.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "settings.0.values.0.value");
+    EXPECT_EQ(errors[0]["path"], "startup_parameters.0.parameters.0.value");
     EXPECT_EQ(errors[0]["message"], "must be a whole number from 0 to 65535");
 }
 

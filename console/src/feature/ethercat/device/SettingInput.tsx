@@ -13,26 +13,31 @@ import { type ReactElement } from "react";
 
 import { type Field } from "@/feature/ethercat/device/settings";
 
-export interface SettingInputProps {
+interface BaseProps {
   field: Field;
   /** Undefined shows the field as not set. */
   value: number | undefined;
-  /** Called with null when the user clears a field that allows none. */
-  onChange: (value: number | null) => void;
   problem?: string;
-  /** Whether the user can leave the field not set. */
-  allowNone?: boolean;
 }
 
+interface RequiredProps extends BaseProps {
+  allowNone?: false;
+  onChange: (value: number) => void;
+}
+
+/** A field that the user can leave not set. onChange gets null when they clear it. */
+interface OptionalProps extends BaseProps {
+  allowNone: true;
+  onChange: (value: number | null) => void;
+}
+
+export type SettingInputProps = RequiredProps | OptionalProps;
+
 /** A select for a field with options, or a number input with its unit. */
-export const SettingInput = ({
-  field,
-  value,
-  onChange,
-  problem,
-  allowNone = false,
-}: SettingInputProps): ReactElement => {
+export const SettingInput = (props: SettingInputProps): ReactElement => {
+  const { field, value, problem, onChange } = props;
   const status = problem == null ? undefined : "error";
+  const clear = props.allowNone === true ? () => props.onChange(null) : undefined;
   return (
     <Input.Item
       label={field.name}
@@ -44,7 +49,7 @@ export const SettingInput = ({
         <Input.Numeric
           value={value}
           onChange={onChange}
-          onClear={allowNone ? () => onChange(null) : undefined}
+          onClear={clear}
           endContent={field.unit === "" ? undefined : field.unit}
           status={status}
           aria-label={field.name}
@@ -52,12 +57,12 @@ export const SettingInput = ({
       ) : (
         <Select.Simple<number>
           value={value}
-          onChange={(next: number | null) => {
-            if (next != null || allowNone) onChange(next);
-          }}
+          onChange={(next: number | null) =>
+            next == null ? clear?.() : onChange(next)
+          }
           resourceName={field.name.toLowerCase()}
           searchHidden
-          allowNone={allowNone}
+          allowNone={clear != null}
           triggerProps={{ status }}
         >
           {field.options.map(({ value, name }) => (

@@ -269,8 +269,8 @@ TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
     EXPECT_EQ(props.to_json().at("settings"), settings);
 }
 
-/// @brief it should replace a startup parameter at the same address in place, and add
-/// a parameter at a new address last.
+/// @brief it should replace a startup parameter at the same address in place, and add a
+/// parameter at a new address last.
 TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
     const auto param = [](const uint8_t sub_index, const double value) {
         return StartupParameter{

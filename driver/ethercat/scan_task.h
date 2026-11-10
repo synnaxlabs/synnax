@@ -31,8 +31,8 @@ const std::string SCAN_LOG_PREFIX = "[ethercat.scan_task] ";
 /// @brief command type for testing a master.
 const std::string TEST_INTERFACE_CMD_TYPE = "test_interface";
 
-/// @brief command type for switching a slave to standalone mode, in which only
-/// Synnax sets it up and reads its data. The slave changes after a power restart.
+/// @brief command type for switching a slave to standalone mode, in which only Synnax
+/// sets it up and reads its data. The slave changes after a power restart.
 const std::string SET_STANDALONE_CMD_TYPE = "set_standalone";
 
 /// @brief configuration for the EtherCAT scan task.

@@ -191,9 +191,9 @@ private:
         return this->record(pos).name;
     }
 
-    /// @brief writes parameters to the slave at pos in order. Returns why the slave
-    /// rejected the first one that fails, or an empty string when it took them all.
-    std::string write_parameters(
+    /// @brief writes parameters to the slave at pos in order, returning
+    /// STARTUP_PARAMETER_ERROR with why the slave rejected the first one that fails.
+    x::errors::Error write_parameters(
         uint16_t pos,
         const std::vector<slave::StartupParameter> &parameters
     );

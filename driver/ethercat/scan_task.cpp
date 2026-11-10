@@ -111,8 +111,8 @@ std::string pdo_error_description(const std::string &error) {
     return sentence + ". " + get_pdo_error_guidance(error);
 }
 
-/// @brief returns the program that alone reads an input entry of the slave, or an
-/// empty string when Synnax can read each of them.
+/// @brief returns the program that alone reads an input entry of the slave, or an empty
+/// string when Synnax can read each of them.
 std::string only_reader(const slave::Properties &props) {
     if (!props.settings || !props.settings->contains("channels")) return "";
     for (const auto &channel: props.settings->at("channels"))
