@@ -455,7 +455,10 @@ func (s *Service) retrieveHashed(
 		return Arc{}, "", err
 	}
 	hash, err := Hash(a.Base())
-	return a, hash, err
+	if err != nil {
+		return Arc{}, "", err
+	}
+	return a, hash, nil
 }
 
 // compileWith compiles the automation's source against root.
