@@ -50,7 +50,10 @@ import (
 // layer's handlers and middleware to them. The frame codec resolves channel keys
 // through the API layer's channel service.
 func Bind(layer *api.Layer, router *http.Router) {
-	framerServerOption := framer.WithCodec(layer.Channel)
+	framerServerOption := framer.WithCodec(
+		layer.Channel,
+		router.StreamMessageSizeLimit(),
+	)
 	layer.BindTo(api.Transport{
 		// AUTH
 		AuthLogin: unary[auth.LoginRequest, auth.LoginResponse](

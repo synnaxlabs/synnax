@@ -42,6 +42,20 @@ var _ = Describe("Router", func() {
 			})
 		})
 
+		Describe("StreamMessageSizeLimit", func() {
+			It("should return the configured limit", func() {
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamMessageSizeLimit: 64,
+				}))
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(64)))
+			})
+
+			It("should default to 256 MiB", func() {
+				router := MustSucceed(fhttp.NewRouter())
+				Expect(router.StreamMessageSizeLimit()).To(Equal(int64(256 << 20)))
+			})
+		})
+
 		Describe("Override", func() {
 			It(
 				"should fill StreamWriteDeadline from the override when receiver is zero",

@@ -531,6 +531,53 @@ var _ = Describe("Codec", func() {
 			Entry("boolean", telem.BooleanT, telem.NewSeriesV(true)),
 		)
 
+		Describe("Decode limit", func() {
+			booleans := func(n int) telem.Series {
+				return telem.Series{DataType: telem.BooleanT, Data: make([]byte, n)}
+			}
+			encode := func(ctx context.Context, series ...telem.Series) []byte {
+				GinkgoHelper()
+				keys := channel.Keys{1, 2}[:len(series)]
+				dataTypes := []telem.DataType{telem.BooleanT, telem.BooleanT}
+				enc := codec.NewStatic(keys, dataTypes[:len(series)])
+				return MustSucceed(enc.Encode(ctx, frame.NewMulti(keys, series)))
+			}
+			decoder := func(channels int) *codec.Codec {
+				return codec.NewStatic(
+					channel.Keys{1, 2}[:channels],
+					[]telem.DataType{telem.BooleanT, telem.BooleanT}[:channels],
+					codec.WithDecodeLimit(1<<20),
+				)
+			}
+
+			It("Should reject booleans whose unpacked size passes the limit", func(
+				ctx SpecContext,
+			) {
+				encoded := encode(ctx, booleans(1<<20+1))
+				Expect(len(encoded)).To(BeNumerically("<", 1<<18))
+				var before, after runtime.MemStats
+				runtime.ReadMemStats(&before)
+				Expect(decoder(1).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+				runtime.ReadMemStats(&after)
+				Expect(after.TotalAlloc - before.TotalAlloc).
+					To(BeNumerically("<", 1<<20))
+			})
+
+			It("Should count every series of a frame against the limit", func(
+				ctx SpecContext,
+			) {
+				encoded := encode(ctx, booleans(1<<19), booleans(1<<19+1))
+				Expect(decoder(2).Decode(encoded)).Error().
+					To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should decode a frame at the limit", func(ctx SpecContext) {
+				decoded := MustSucceed(decoder(1).Decode(encode(ctx, booleans(1<<20))))
+				Expect(decoded.Get(1).Series[0].Len()).To(Equal(int64(1 << 20)))
+			})
+		})
+
 		DescribeTable("Should decode a series that spans several read chunks",
 			func(ctx SpecContext, dataType telem.DataType, series telem.Series) {
 				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{dataType})

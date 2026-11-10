@@ -127,6 +127,10 @@ func (r *Router) BindTo(app *fiber.App) {
 // routes, so its report is empty.
 func (*Router) Report() alamos.Report { return alamos.Report{} }
 
+// StreamMessageSizeLimit returns the largest message in bytes that the router's stream
+// servers read from a peer.
+func (r *Router) StreamMessageSizeLimit() int64 { return r.cfg.StreamMessageSizeLimit }
+
 // Use installs the given middleware on every server currently registered with the
 // router. Middleware added before BindTo is called is applied to every request handled
 // by the resulting fiber.App; middleware added after BindTo applies to subsequent
