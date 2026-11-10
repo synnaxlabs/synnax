@@ -54,6 +54,14 @@ jobs:
     needs: changes
     if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
+  app:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    uses: ./.github/workflows/test.ts.yaml
+  knip:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    runs-on: ubuntu-latest
   copyright:
     runs-on: ubuntu-latest
   ok:
@@ -67,10 +75,13 @@ go: &go
 core: &core
   - *go
   - core/**
-client:
+client: &client
   - *go
   - client/**
   - "**/*.arc"
+app:
+  - *client
+  - app/**
 unit_tests:
   - "**/*_test.go"
   - "**/*.spec.ts"
@@ -86,6 +97,7 @@ FILES = {
     ),
     ".github/workflows/test.ts.yaml": "jobs: {}\n",
     ".golangci.yaml": "linters: {}\n",
+    "app/a.spec.ts": "it();\n",
     "client/a.spec.ts": "it();\n",
     "client/a.ts": "export const a = 1;\n",
     "client/b.py": "a = 1  # One.\n",
@@ -115,7 +127,7 @@ def run_all(
         FILTERS_TEXT,
         snap(files),
         read=files.__getitem__,
-        outputs=outputs or {"client": "true", "core": "false"},
+        outputs=outputs or {"app": "true", "client": "true", "core": "false"},
         head=snap(head) if head else None,
     )
 
@@ -193,7 +205,7 @@ class TestKeys:
 
     def test_should_be_stable(self) -> None:
         assert run() == run()
-        assert set(run()) == {"client", "core", "exports"}
+        assert set(run()) == {"app", "client", "core", "exports", "knip"}
 
     def test_should_ignore_a_file_no_filter_reads(self) -> None:
         assert run(edit("docs/a.md", "d2")) == run()
@@ -237,6 +249,15 @@ class TestKeys:
 
     def test_should_read_the_unit_tests_of_the_job_itself(self) -> None:
         assert run()["client"] != run(edit("client/a.spec.ts", "c4"))["client"]
+        assert run()["app"] != run(edit("app/a.spec.ts", "c4"))["app"]
+
+    def test_should_skip_the_unit_tests_of_a_job_its_filter_folds_in(self) -> None:
+        assert run()["app"] == run(edit("client/a.spec.ts", "c4"))["app"]
+
+    def test_should_read_every_unit_test_of_a_job_without_a_test_workflow(
+        self,
+    ) -> None:
+        assert run()["knip"] != run(edit("client/a.spec.ts", "c4"))["knip"]
 
     def test_should_change_with_a_filter_value_the_inputs_read(self) -> None:
         before = run(outputs={"client": "true", "core": "false"})
@@ -256,9 +277,11 @@ class TestComments:
 
     def test_should_give_only_lint_jobs_a_code_key(self) -> None:
         assert {j: sorted(k) for j, k in run_all().items()} == {
+            "app": ["key"],
             "client": ["key"],
             "core": ["code", "key"],
             "exports": ["key"],
+            "knip": ["key"],
         }
 
     def test_should_lint_a_lint_job_whose_own_comments_changed(self) -> None:

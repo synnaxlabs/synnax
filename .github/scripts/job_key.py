@@ -14,7 +14,7 @@
     python3 job_key.py changes <pull request> <head>
 
 A key hashes the job's block, the workflows it calls, and the files its filters match.
-Only its own filter counts unit tests. Go and Python files count without comments where
+Only its own module counts unit tests. Go and Python files count without comments where
 the job reads none. A lint job also gets a code key, whose pass runs only its lint.
 The Go jobs key HEAD_SHA, the pull request head they test. changes prints the Go files
 each Go job's inputs changed since its last pass on the pull request, or all.
@@ -43,6 +43,8 @@ UNKEYED = SHARED_JOBS | {"shepherd", "stamp"}
 COMMON = (".github/actions/**", ".github/scripts/**")
 CALLS = re.compile(r"uses:\s*\./(\.github/workflows/[\w.-]+)")
 ARTIFACT = "pass-{job}-{key}"
+# Which unit tests a filter counts. Any other value names a filter.
+ALL, NONE = "", "-"
 # The Go and Python comments each workflow reads. Lint reads its own in lint only, code
 # reads none, and any other job reads all.
 LINT, CODE = "lint", "code"
@@ -202,7 +204,7 @@ def keys(
 
     def hasher(snap: Snapshot) -> Callable[..., str]:
         stripped: dict[str, str] = {}
-        cache: dict[tuple[str, bool, bool], str] = {}
+        cache: dict[tuple[str, str, bool], str] = {}
 
         def version(path: str, blob: str, code: bool) -> str:
             if (
@@ -216,17 +218,28 @@ def keys(
                 stripped[path] = blob if text is None else digest([text])
             return stripped[path]
 
-        def of(name: str, patterns: Iterable[str], *, own: bool, code: bool) -> str:
+        def of(name: str, patterns: Iterable[str], *, own: str, code: bool) -> str:
             if (name, own, code) not in cache:
-                pattern = matcher(patterns)
+                pattern, mine = matcher(patterns), matcher(owned[own])
                 cache[name, own, code] = digest(
                     f"{p} {version(p, b, code)}"
                     for p, b in snap.entries
-                    if pattern.fullmatch(p) and (own or not tests.fullmatch(p))
+                    if pattern.fullmatch(p)
+                    and (not tests.fullmatch(p) or mine.fullmatch(p))
                 )
             return cache[name, own, code]
 
         return of
+
+    refs = reusable(jobs, globs)
+    owners = {r[0] for r in refs.values()}
+    # A test workflow runs the unit tests of its own paths only.
+    owned: dict[str, list[str]] = {ALL: ["**"], NONE: []}
+    for name in owners:
+        mine = set(globs[name])
+        owned[name] = sorted(
+            mine.difference(*(set(globs[k]) for k in owners if set(globs[k]) < mine))
+        )
 
     base = hasher(files)
     heads = hasher(head) if head else base
@@ -237,34 +250,35 @@ def keys(
         of = heads if uses == GO else base
         workflows = called(uses[2:], read) if uses.startswith("./") else set()
         own, deps = refs[0], refs[1:]
+        tested = own if uses in MODES else ALL
         return digest(
             [
                 VERSION,
                 job,
                 f"{own_code} {dep_code}",
                 json.dumps(block, sort_keys=True, default=str),
-                of("", COMMON, own=True, code=False),
+                of("", COMMON, own=ALL, code=False),
                 *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
                 *(
-                    f"{w} {base(w, [w], own=True, code=False)}"
+                    f"{w} {base(w, [w], own=ALL, code=False)}"
                     for w in sorted(workflows)
                 ),
-                f"{own} {of(own, globs[own], own=True, code=own_code)}",
-                *(f"{r} {of(r, globs[r], own=False, code=dep_code)}" for r in deps),
+                f"{own} {of(own, globs[own], own=tested, code=own_code)}",
+                *(f"{r} {of(r, globs[r], own=NONE, code=dep_code)}" for r in deps),
             ]
         )[:40]
 
     out = {}
-    for job, refs in reusable(jobs, globs).items():
+    for job, inputs in refs.items():
         mode = MODES.get(jobs[job].get("uses", ""))
         if mode == LINT:
             out[job] = {
-                "key": key(job, refs, own_code=False, dep_code=True),
-                "code": key(job, refs, own_code=True, dep_code=True),
+                "key": key(job, inputs, own_code=False, dep_code=True),
+                "code": key(job, inputs, own_code=True, dep_code=True),
             }
         else:
             code = mode == CODE
-            out[job] = {"key": key(job, refs, own_code=code, dep_code=code)}
+            out[job] = {"key": key(job, inputs, own_code=code, dep_code=code)}
     return out
 
 
