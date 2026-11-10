@@ -40,7 +40,7 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
 // Desktop 1.0 stored a static range's key on a line plot. The Core cannot resolve the
 // key, so the plot shows the range's window instead.
 const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
-  reconcile: async ({ client, store }) => {
+  reconcile: async ({ client, store, ended }) => {
     const { ranges, staticKeysRewritten } = store.getState().range;
     if (staticKeysRewritten) return;
     const windows = new Map(
@@ -64,7 +64,7 @@ const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
         }),
       );
     }
-    store.dispatch(markStaticKeysRewritten());
+    if (!ended()) store.dispatch(markStaticKeysRewritten());
   },
 };
 
