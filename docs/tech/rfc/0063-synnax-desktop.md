@@ -388,11 +388,11 @@ reuses the parts of `release.yaml`:
    updater manifest `latest.json` from their signatures, and publishes the release.
 
 The Desktop version names a Desktop release and nothing else. It is on the tag, the app,
-and the updater manifest. The Core and Driver of the run carry the version of the TS
-client package (`client/ts/package.json`), which is the version that the bundled clients
-report. So the client checks (`client/ts/src/connection/status.ts:246`) compare two
-versions of the same code, and they need no special case for Desktop. The bundled Core
-shares its number with a Core release but is a different build. Its Git commit
+and the updater manifest. The Core and Driver of the run carry the newest stable Core
+version reachable from the commit, and the build stamps the same version into the
+bundled clients. So the client checks (`client/ts/src/connection/status.ts:246`) compare
+two versions of the same code, and they need no special case for Desktop. The bundled
+Core shares its number with a Core release but is a different build. Its Git commit
 (`synnax version`) identifies it. Desktop licenses carry no maximum version (RFC 0062
 §5.8), so the license ceiling never reads the number.
 
