@@ -523,13 +523,21 @@ synnax cert node synnax.example.com
 
 ## Update
 
-The `update` command updates the Core to a new binary. Run it as an administrator:
+The `update` command updates the Core to a new version. Run it as an administrator:
+
+```bash
+sudo synnax update 0.61.0
+```
+
+The command downloads the Core for the computer from the Synnax releases and checks its
+signature. It does not install a file that fails the check. To update without internet
+access, download the binary on another computer and pass it with `--file`:
 
 ```bash
 sudo synnax update --file ./synnax-v0.61.0-linux
 ```
 
-The command checks that the file is a Core for the computer and not older than the
+The command checks that the new Core is for the computer and not older than the
 installed Core. For a [Core service](#service), it stops the service, puts the new
 binary in place of the old one, and starts the service. It then waits for the new Core
 to commit the update. If the new Core fails, the command puts the old Core back and
@@ -541,7 +549,7 @@ to that version failed before, until you run `synnax update retry`. For a servic
 new binary can also run the command, such as for an update from a Core that has no
 `update` command.
 
-- `--file` -> the Core binary to update to.
+- `--file` -> the Core binary to update to, in place of a version.
 - `--timeout` -> how long to wait for the new Core to commit the update. Default `10m`.
 
 Before a new version first opens the data, the Core backs up its metadata. The
@@ -552,7 +560,7 @@ folder of the [Core service](#service), or `synnax-data` when there is no servic
 ### update undo
 
 Restores the backup of the last update, or the named backup, and prints the Core version
-to run on the data. Without a name, it refuses if the last update is already undone:
+to run on the data:
 
 ```bash
 synnax update undo
@@ -560,8 +568,10 @@ synnax update undo 1793000000-0.60.1
 ```
 
 When the `.old` binary from `synnax update` is that version, the command also puts it
-back. For the Linux service, run it with `sudo`. The command gives the restored files to
-the owner of the data folder.
+back. Without a name, when the last update is already undone, the command only puts back
+the `.old` binary, and refuses when that binary is not the version before the update.
+For the Linux service, run it with `sudo`. The command gives the restored files to the
+owner of the data folder.
 
 ### update history
 

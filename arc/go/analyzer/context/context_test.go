@@ -47,6 +47,45 @@ var _ = Describe("Context", func() {
 		})
 	})
 
+	Describe("RejectTopLevel", func() {
+		It(
+			"Should reject a variable declared at the top level",
+			func(specCtx SpecContext) {
+				ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+				x := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+					Name: "x", Kind: symbol.KindVariable, Type: types.I64(),
+				}))
+				Expect(ctx.RejectTopLevel(x, "x")).To(BeTrue())
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).
+					To(Equal("cannot reassign top-level variable 'x'"))
+			},
+		)
+
+		It("Should accept a variable declared in a scope", func(specCtx SpecContext) {
+			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+			seq := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "s", Kind: symbol.KindSequence,
+			}))
+			y := MustSucceed(seq.Add(ctx, symbol.Symbol{
+				Name: "y", Kind: symbol.KindVariable, Type: types.I64(),
+			}))
+			Expect(ctx.RejectTopLevel(y, "y")).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(BeEmpty())
+		})
+
+		It("Should accept a top-level symbol that is not a variable", func(
+			specCtx SpecContext,
+		) {
+			ctx := analyzerContext.NewRoot(specCtx, testutil.NewMockAST(1), nil)
+			f := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{
+				Name: "f", Kind: symbol.KindFunction,
+			}))
+			Expect(ctx.RejectTopLevel(f, "f")).To(BeFalse())
+			Expect(*ctx.Diagnostics).To(BeEmpty())
+		})
+	})
+
 	Describe("FloatConstant", func() {
 		newContext := func(
 			specCtx SpecContext,

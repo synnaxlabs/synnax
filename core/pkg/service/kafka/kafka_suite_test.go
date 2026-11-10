@@ -39,8 +39,11 @@ import (
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/hookkv"
@@ -52,7 +55,9 @@ import (
 
 var (
 	// hookedKV stores the node, so a spec can intercept the commits of db.
-	hookedKV   *hookkv.DB
+	hookedKV *hookkv.DB
+	// faultyFS holds the time-series data, so a spec can hold a write in progress.
+	faultyFS   *FaultyFS
 	db         *gorp.DB
 	statusSvc  *status.Service
 	rackSvc    *rack.Service
@@ -72,8 +77,12 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	st := DeferClose(storagetestutil.OpenLayer(ctx))
 	hookedKV = hookkv.Wrap(st.KV)
+	faultyFS = WrapFaultyFS(xfs.NewMem())
 	node := testutil.NewNode(ctx, distribution.LayerConfig{
-		Storage: &storage.Layer{KV: hookedKV, TS: st.TS},
+		Storage: &storage.Layer{
+			KV: hookedKV,
+			TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
+		},
 	})
 	db = node.DB
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -115,7 +124,10 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))
-	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{DB: db}))
+	kafkaSvc := MustOpen(kafka.OpenService(ctx, kafka.ServiceConfig{
+		DB:      db,
+		Channel: channelSvc,
+	}))
 	taskSvc = MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:      db,
 		Rack:    rackSvc,

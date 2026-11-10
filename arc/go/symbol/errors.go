@@ -14,9 +14,28 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
+
+// ErrImportFailed is returned for a member of an import that did not resolve. The
+// import already reports why.
+var ErrImportFailed = errors.Wrap(diagnostics.ErrReported, "import failed")
+
+// NotExportedError is returned when a user module holds the member but does not
+// export it.
+type NotExportedError struct {
+	// Name is the member that the module does not export.
+	Name string
+	// Module is the import path of the module that holds the member.
+	Module string
+}
+
+// Error implements the error interface.
+func (e *NotExportedError) Error() string {
+	return fmt.Sprintf("'%s' is not exported by module %q", e.Name, e.Module)
+}
 
 // UndefinedSymbolError is returned when a symbol cannot be resolved. It lazily
 // computes "did you mean" suggestions only when GetHint() is called, avoiding

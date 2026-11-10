@@ -645,6 +645,10 @@ func (p *Plugin) processStructForTranslation(
 		Fields:         make([]fieldTranslatorData, 0),
 		ErrorFields:    make([]fieldTranslatorData, 0),
 		OptionalFields: make([]fieldTranslatorData, 0),
+		Defaults:       mayHaveDefaults(s, data.table, set.New[string]()),
+	}
+	if translator.Defaults {
+		data.AddInternal("defaults", "github.com/synnaxlabs/x/defaults")
 	}
 
 	for _, field := range resolution.UnifiedFields(s, data.table) {
@@ -691,6 +695,8 @@ func (p *Plugin) processFieldForTranslation(
 		IsOptionalEnum:   isOptionalEnum,
 		HasError:         hasError,
 		HasBackwardError: hasBackwardError,
+		IsMessage: !isOptional && !arrays.IsArray(field.Type, data.table) &&
+			(isStructType(field.Type, data.table) || isUnionType(field.Type, data.table)),
 	}
 
 	typeRef := dealiasPrimitive(field.Type, data.table)
@@ -2306,10 +2312,16 @@ type translatorData struct {
 	// ErrorFields holds fields with error-returning conversions.
 	ErrorFields    []fieldTranslatorData
 	OptionalFields []fieldTranslatorData
+	// Defaults marks a type that may have schema defaults. Its FromPB starts from
+	// them, as a decode does, since a message the proto omits arrives as nil.
+	Defaults bool
 }
 
 // fieldTranslatorData holds data for a single field translation.
 type fieldTranslatorData struct {
+	// IsMessage marks a required struct or union field, which proto holds as a
+	// message that is nil when the sender omits it.
+	IsMessage    bool
 	GoName       string
 	PBName       string
 	ForwardExpr  string
@@ -2415,4 +2427,45 @@ type delegationTranslatorData struct {
 	UnderlyingPBType           string
 	UnderlyingTranslatorPrefix string
 	TypeParams                 []typeParamData
+}
+
+// mayHaveDefaults reports whether the Go type of t can have schema defaults: a field
+// of it, of an embedded parent, or of a required struct or union field has a default.
+// It errs toward true, since the FromPB that it enables is a no-op for a type without
+// defaults. visited guards against cycles in recursive types.
+func mayHaveDefaults(
+	t resolution.Type,
+	table *resolution.Table,
+	visited set.Set[string],
+) bool {
+	if visited.Contains(t.QualifiedName) {
+		return false
+	}
+	visited.Add(t.QualifiedName)
+	switch form := t.Form.(type) {
+	case resolution.StructForm:
+		if form.IsGeneric() {
+			return false
+		}
+		for _, f := range resolution.UnifiedFields(t, table) {
+			if f.Default != nil {
+				return true
+			}
+			if f.Optional || arrays.IsArray(f.Type, table) {
+				continue
+			}
+			if r, _, ok := resolution.Dealias(f.Type, table); ok &&
+				mayHaveDefaults(r, table, visited) {
+				return true
+			}
+		}
+	case resolution.UnionForm:
+		for _, v := range form.Variants {
+			if r, _, ok := resolution.Dealias(v.Type, table); ok &&
+				mayHaveDefaults(r, table, visited) {
+				return true
+			}
+		}
+	}
+	return false
 }

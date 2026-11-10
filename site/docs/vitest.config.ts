@@ -20,6 +20,7 @@ const BROWSER_SPECS = "src/**/*.browser.spec.tsx";
 
 const config: ViteUserConfigFn = getViteConfig(
   {
+    define: { __DOCS_VERSION__: "null" },
     test: {
       projects: [
         {
