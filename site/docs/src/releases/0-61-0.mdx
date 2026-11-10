@@ -418,7 +418,8 @@ See [Find channels](/reference/channels/find).
 - A series variable outside a function, such as `s := [1.0, 2.0]`, fails to compile.
 - `range()` no longer takes integer arguments of mixed types, such as
   `range(n, i64(100))` with `n` an `i32`. The Core adds casts to stored and imported
-  Arcs, such as `range(i64(n), i64(100))`. Add the casts to new Arc text.
+  Arcs, such as `range(i64(n), i64(100))`, but not where an argument reads a channel or
+  a module value. Add the casts to those calls and to new Arc text.
 
 #### Hardware
 
