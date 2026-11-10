@@ -16,10 +16,27 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from synnax import status as status_
 from synnax.arc import graph as graph_, program as program_, text as text_
 from synnax.resource import ID
 from x import filter
 from x.filter import shorthand
+
+TYPE_AUTOMATION: Literal["automation"] = "automation"
+
+TYPE_MODULE: Literal["module"] = "module"
+
+
+Type = Literal["automation", "module"]
+
+CHANGE_KIND_CHANGED: Literal["changed"] = "changed"
+
+CHANGE_KIND_ADDED: Literal["added"] = "added"
+
+CHANGE_KIND_REMOVED: Literal["removed"] = "removed"
+
+
+ChangeKind = Literal["changed", "added", "removed"]
 
 ORDER_FIELD_NAME: Literal["name"] = "name"
 
@@ -33,14 +50,23 @@ MODE_GRAPH: Literal["graph"] = "graph"
 
 Mode = Literal["text", "graph"]
 
-TYPE_AUTOMATION: Literal["automation"] = "automation"
-
-TYPE_MODULE: Literal["module"] = "module"
-
-
-Type = Literal["automation", "module"]
-
 Key: TypeAlias = UUID
+
+Status: TypeAlias = status_.Status
+
+
+class Change(BaseModel):
+    """Is one difference between an automation's content and what its task last ran.
+
+    Attributes:
+        type: Is whether the automation's own text or a module changed.
+        path: Is the import path of the module. Empty for the automation.
+        kind: Is how the content differs from what the task last ran.
+    """
+
+    type: Type
+    path: str = ""
+    kind: ChangeKind
 
 
 class Order(BaseModel):
@@ -161,6 +187,8 @@ class RetrieveRequest(BaseModel):
         after: Starts the arcs strictly past this position in their order.
         limit: Is the most arcs to return.
         include_program: Includes the program of each record.
+        include_changes: Includes the changes of each record.
+        include_status: Includes the status of each record.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -171,6 +199,8 @@ class RetrieveRequest(BaseModel):
     after: Cursor | None = None
     limit: int | None = Field(default=None, ge=0, le=4294967295)
     include_program: bool = False
+    include_changes: bool = False
+    include_status: bool = False
 
 
 class AutomationPayload(Base):
@@ -178,12 +208,14 @@ class AutomationPayload(Base):
 
     type: Literal["automation"] = "automation"
     program: program_.Program | None = None
+    changes: list[Change] | None = None
 
 
 class ModulePayload(Base):
     """Is an Arc that holds code for other Arcs to import."""
 
     type: Literal["module"] = "module"
+    status: Status | None = None
 
 
 # Is an Arc module combining visual graph representation and text-based source

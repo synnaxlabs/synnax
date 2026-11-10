@@ -1268,7 +1268,7 @@ TEST(HTTPWriteTask, InfinityToNumberNotSent) {
     assert_invalid_value_skipped(
         "number",
         std::numeric_limits<double>::infinity(),
-        "inf",
+        "Infinity",
         1.5,
         1.5
     );
@@ -1279,7 +1279,7 @@ TEST(HTTPWriteTask, NegativeInfinityToNumberNotSent) {
     assert_invalid_value_skipped(
         "number",
         -std::numeric_limits<double>::infinity(),
-        "-inf",
+        "-Infinity",
         1.5,
         1.5
     );
