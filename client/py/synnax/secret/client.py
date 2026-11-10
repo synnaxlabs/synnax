@@ -69,7 +69,7 @@ class Client:
     def set(self, *, name: str, value: str) -> Secret: ...
 
     @overload
-    def set(self, *, name: str, path: str) -> Secret: ...
+    def set(self, *, name: str, file_name: str) -> Secret: ...
 
     @overload
     def set(self, secrets: New) -> Secret: ...
@@ -83,34 +83,35 @@ class Client:
         *,
         name: str | None = None,
         value: str | None = None,
-        path: str | None = None,
+        file_name: str | None = None,
     ) -> Secret | list[Secret]:
         """Creates secrets, or replaces the secrets whose keys exist.
 
         :param secrets: A secret or a list of them. When omitted, a stored secret is
             created from ``name`` and ``value``, or a file secret from ``name`` and
-            ``path``.
+            ``file_name``.
         :param name: The name of the secret when ``secrets`` is omitted.
         :param value: The value of a stored secret. No client can read it back.
-        :param path: The path of a file secret on the computer that uses it.
+        :param file_name: The name of a file secret's file in the secrets folder of
+            the rack that uses it.
         :returns: The saved secret, or a list when ``secrets`` is a list. Values are
             never returned.
         :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
-            not give a name and exactly one of a value or a path.
+            not give a name and exactly one of a value or a file name.
         :raises PathError: If a secret is not valid, such as a stored secret without a
-            value.
+            value or a file name that names a folder.
         :raises AccessDenied: If the caller cannot create secrets, or cannot update a
             secret that the call replaces.
         """
         is_single = not isinstance(secrets, list)
         if secrets is None:
-            if name is not None and value is not None and path is None:
+            if name is not None and value is not None and file_name is None:
                 secrets = NewStored(name=name, value=value)
-            elif name is not None and path is not None and value is None:
-                secrets = NewFile(name=name, path=path)
+            elif name is not None and file_name is not None and value is None:
+                secrets = NewFile(name=name, file_name=file_name)
             else:
                 raise ValidationError(
-                    "A secret needs a name and exactly one of a value or a path."
+                    "A secret needs a name and exactly one of a value or a file name."
                 )
         req = _SetRequest(secrets=normalize(secrets))
         res = self._client.send("/secret/set", req, _SetResponse)

@@ -63,7 +63,7 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("stored variant", v0.Secret{Variant: v0.StoredSecret{Base: fullyPopulatedBase, Value: []byte{1, 2, 3}}}),
-			Entry("file variant", v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, Path: "test_1"}}),
+			Entry("file variant", v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, FileName: "test_1"}}),
 		)
 	})
 })
@@ -155,7 +155,7 @@ func FuzzDecodeSecret(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, Path: "test_1"}}
+		seed := v0.Secret{Variant: v0.FileSecret{Base: fullyPopulatedBase, FileName: "test_1"}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)

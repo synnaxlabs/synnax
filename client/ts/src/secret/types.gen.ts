@@ -40,7 +40,7 @@ export const baseZ = z.object({
   key: keyZ.default(uuid.create),
   /** name is a human-readable name for the secret. */
   name: z.string().min(1, "name is required"),
-  /** updated is when the value or path of the secret last changed. */
+  /** updated is when the value or file name of the secret last changed. */
   updated: telem.timeStampZ,
 });
 export interface Base extends z.infer<typeof baseZ> {}
@@ -89,11 +89,14 @@ export const storedSecretZ = baseZ.extend({
 });
 export interface StoredSecret extends z.infer<typeof storedSecretZ> {}
 
-/** FileSecret is a secret whose value is a file on the computer that uses it. */
+/**
+ * FileSecret is a secret whose value is a file in the secrets folder that an admin sets
+ * on the rack that uses it.
+ */
 export const fileSecretZ = baseZ.extend({
   source: z.literal("file"),
-  /** path is the path of the file on the computer that uses the secret. */
-  path: z.string(),
+  /** fileName is the name of the file in the secrets folder of the rack. */
+  fileName: z.string(),
 });
 export interface FileSecret extends z.infer<typeof fileSecretZ> {}
 
