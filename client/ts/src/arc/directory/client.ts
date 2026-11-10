@@ -28,6 +28,7 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/directory/where.gen";
+import { validateIdentifier } from "@/arc/identifier";
 import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
 import { type batch } from "@/batch";
 import { NotFoundError } from "@/errors";
@@ -164,12 +165,14 @@ export class Client extends query.Retriever<
   /**
    * Builds a request that creates a directory in the directory parent. A request with a
    * key writes the directory to the cache.
+   * @throws {ValidationError} if name is not an identifier.
    */
   createRequest({
     parent,
     key,
     name,
   }: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
+    validateIdentifier(name);
     const payload = { parent, directory: { key, name } };
     if (key == null) return { endpoint: "/arc/directory/create", payload };
     return {
@@ -182,6 +185,7 @@ export class Client extends query.Retriever<
   /**
    * Creates a directory in the directory parent. A create with a key writes the
    * directory to the cache first, and removes it if the Core rejects the create.
+   * @throws {ValidationError} if name is not an identifier.
    */
   async create(params: CreateParams): Promise<Directory> {
     const { endpoint, payload, apply } = this.createRequest(params);
@@ -194,8 +198,12 @@ export class Client extends query.Retriever<
     return directory;
   }
 
-  /** Renames the directory with key. */
+  /**
+   * Renames the directory with key.
+   * @throws {ValidationError} if name is not an identifier.
+   */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    validateIdentifier(name);
     const rename = () => query.partialUpdate(this.store, key, { name });
     await query.optimistic({
       rollbacks: [rename()],

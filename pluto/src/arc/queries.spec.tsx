@@ -433,6 +433,22 @@ describe("Arc queries", () => {
       expect(result.current.form.value().key).toBeUndefined();
       expect(result.current.form.get(path.name).status.variant).toBe("error");
     });
+
+    it("should not create a module whose name is not an identifier", async () => {
+      const { result } = renderHook(() => Arc.useForm({ query: {} }), { wrapper });
+      await waitFor(() => expect(result.current.variant).toBe("success"));
+      act(() => {
+        result.current.form.set(path.name, "bad name");
+        result.current.form.set(path.type, "module");
+      });
+      await act(async () => {
+        result.current.save();
+      });
+      expect(result.current.form.value().key).toBeUndefined();
+      const { status } = result.current.form.get(path.name);
+      expect(status.variant).toBe("error");
+      expect(status.message).toContain("must start with a letter or underscore");
+    });
   });
 
   describe("useNodeForm", () => {

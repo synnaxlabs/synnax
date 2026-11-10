@@ -52,9 +52,6 @@ export const ArcItem = ({
   });
   const drifted = Arc.useDrifted({ arcKey });
   const isLoading = status.variant === "loading";
-  let statusMessage = "Stopped";
-  if (status.variant === "success" && running) statusMessage = "Running";
-  else if (status.variant === "error") statusMessage = "Error";
   return (
     <Select.Item
       {...rest}
@@ -68,25 +65,28 @@ export const ArcItem = ({
             variant={status.variant}
             className={CSS.BE("arc-list-item", "status")}
           />
-          <Text.MaybeEditable
-            id={`text-${arcKey}`}
-            value={arcItem?.name ?? ""}
-            onChange={hasUpdatePermission ? handleRename : undefined}
-            allowDoubleClick={false}
-            overflow="fade"
-            weight={500}
-          />
-          {drifted && (
-            <Tooltip.Dialog>
-              <Text.Text level="small">Configuration changed since deploy</Text.Text>
-              <Text.Text level="small" status="warning">
-                <Icon.Refresh />
-              </Text.Text>
-            </Tooltip.Dialog>
-          )}
+          <Flex.Box x align="center">
+            <Icon.Arc />
+            <Text.MaybeEditable
+              id={`text-${arcKey}`}
+              value={arcItem?.name ?? ""}
+              onChange={hasUpdatePermission ? handleRename : undefined}
+              allowDoubleClick={false}
+              overflow="fade"
+              weight={500}
+            />
+            {drifted && (
+              <Tooltip.Dialog>
+                <Text.Text level="small">Configuration changed since deploy</Text.Text>
+                <Text.Text level="small" status="warning">
+                  <Icon.Refresh />
+                </Text.Text>
+              </Tooltip.Dialog>
+            )}
+          </Flex.Box>
         </Flex.Box>
-        <Text.Text level="small" status={status?.variant}>
-          {statusMessage}
+        <Text.Text level="tiny" color={8}>
+          Arc automation task
         </Text.Text>
       </Flex.Box>
       {hasUpdatePermission && (

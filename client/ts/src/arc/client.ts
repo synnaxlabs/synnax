@@ -25,6 +25,7 @@ import {
   set,
 } from "@/arc/actions.gen";
 import { directory } from "@/arc/directory";
+import { validateIdentifier } from "@/arc/identifier";
 import { arcKeyOf } from "@/arc/task/task";
 import { type Performance, performanceZ } from "@/arc/task/types.gen";
 import {
@@ -244,6 +245,7 @@ export class Client extends query.Retriever<
     const optimistic = array
       .toArray(arcs)
       .map((a) => zod.parse(arcZ, a, { label: "Arc" }));
+    for (const a of optimistic) if (a.type === "module") validateIdentifier(a.name);
     const res = await query.optimistic({
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
@@ -288,6 +290,7 @@ export class Client extends query.Retriever<
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    if (this.store.get(key)?.type === "module") validateIdentifier(name);
     // Restores only the name, so the rollback cannot undo edits made after it.
     const rename = (): destructor.Destructor => {
       const prev = this.store.get(key)?.name ?? name;

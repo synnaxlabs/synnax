@@ -204,12 +204,23 @@ export const { useUpdate: useDelete } = Flux.createUpdate<arc.Key | arc.Key[]>({
   },
 });
 
-export const formSchema = z.object({
-  key: arc.keyZ.optional(),
-  name: z.string().min(1, "Name is required"),
-  mode: arc.modeZ,
-  type: arc.typeZ,
-});
+export const formSchema = z
+  .object({
+    key: arc.keyZ.optional(),
+    name: z.string().min(1, "Name is required"),
+    mode: arc.modeZ,
+    type: arc.typeZ,
+  })
+  .superRefine(({ name, type }, ctx) => {
+    if (type !== "module" || name === "") return;
+    const res = arc.identifierZ.safeParse(name);
+    if (!res.success)
+      ctx.addIssue({
+        code: "custom",
+        path: ["name"],
+        message: res.error.issues[0].message,
+      });
+  });
 
 export const formPath = deep.path<z.infer<typeof formSchema>>();
 

@@ -198,11 +198,14 @@ const tabCount = async ({ client, panelKey }: CreatedPanel): Promise<number> => 
 };
 
 describe("task/Toolbar Arc rows", () => {
-  it("shows an Arc that has a task with its deployment state", async () => {
+  it("shows an Arc that has a task with the Arc icon and its type", async () => {
     const { arc: a } = await createBoundArc();
     await renderToolbar();
-    expect(await screen.findByText(a.name)).toBeTruthy();
-    expect((await screen.findAllByText("Stopped")).length).toBeGreaterThan(0);
+    const row = (await screen.findByText(a.name)).closest(".lyra-list__item");
+    assertDefined(row, `no list item for ${a.name}`);
+    expect(row.querySelector(".lyra-icon--arc")).not.toBeNull();
+    expect(row.textContent).toContain("Arc automation task");
+    expect(row.textContent).not.toContain("Stopped");
   });
 
   it("leaves out an Arc that has no task", async () => {

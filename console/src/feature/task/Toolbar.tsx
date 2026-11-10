@@ -339,7 +339,7 @@ const TaskListItem = ({
             )}
           </Flex.Box>
         </Flex.Box>
-        <Text.Text level="tiny" color={10}>
+        <Text.Text level="tiny" color={8}>
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>

@@ -65,6 +65,43 @@ describe("arc.directory", () => {
     expect(query.isLive(client.arcs.directories.watch(key).getCached())).toBe(false);
   });
 
+  describe("name", () => {
+    const rejection = 'Name "bad name" must start with a letter or underscore';
+
+    it("should reject a create whose name is not an identifier", async () => {
+      const root = await client.arcs.directories.retrieveRoot();
+      const key = uuid.create();
+      const created = client.arcs.directories.create({
+        parent: root.key,
+        key,
+        name: "bad name",
+      });
+      await expect(created).rejects.toSatisfy(ValidationError.matches);
+      await expect(created).rejects.toThrow(rejection);
+      expect(query.isLive(client.arcs.directories.watch(key).getCached())).toBe(false);
+    });
+
+    it("should reject a batched create whose name is not an identifier", async () => {
+      const root = await client.arcs.directories.retrieveRoot();
+      expect(() =>
+        client.arcs.directories.createRequest({ parent: root.key, name: "bad name" }),
+      ).toThrow(rejection);
+    });
+
+    it("should reject a rename to a name that is not an identifier", async () => {
+      const root = await client.arcs.directories.retrieveRoot();
+      const d = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName(),
+      });
+      const renamed = client.arcs.directories.rename(d.key, "bad name");
+      await expect(renamed).rejects.toSatisfy(ValidationError.matches);
+      await expect(renamed).rejects.toThrow(rejection);
+      const [res] = await client.arcs.directories.retrieve([d.key]);
+      expect(res.name).toBe(d.name);
+    });
+  });
+
   it("should rename a directory", async () => {
     const root = await client.arcs.directories.retrieveRoot();
     const d = await client.arcs.directories.create({
