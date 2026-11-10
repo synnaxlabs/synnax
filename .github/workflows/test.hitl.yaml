@@ -16,7 +16,7 @@ name: Test - HITL
 on:
   # The hardware is free for CI from 06:00 to 14:00 UTC. A later attempt runs when the
   # hardware was in use, and the last one leaves four hours for its build and tests. An
-  # attempt does nothing once a run passed that day.
+  # attempt does nothing once a run passed that day or while one runs.
   schedule:
     - cron: "0 6 * * *" # after the nightly build frees the bots
     - cron: "0 8 * * *"
@@ -28,30 +28,34 @@ permissions:
 
 jobs:
   gate:
-    name: Check for a passed run today
+    name: Check for a passed or running run
     runs-on: ubuntu-latest
     permissions:
       actions: read
     outputs:
-      passed: ${{ steps.check.outputs.passed }}
+      skip: ${{ steps.check.outputs.skip }}
     steps:
-      - name: Check for a passed run today
+      # A run in progress two hours after it started is past its hardware check.
+      - name: Check for a passed or running run
         id: check
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          count=$(gh run list --workflow test.hitl.yaml --status success \
-            --created ">=$(date -u +%F)" --json databaseId --jq length)
-          passed=false
-          if [ "$count" -gt 0 ]; then passed=true; fi
-          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+          count=$(gh run list --workflow test.hitl.yaml --created ">=$(date -u +%F)" \
+            --json databaseId,status,conclusion --jq "map(select(
+              .databaseId != $GITHUB_RUN_ID and
+              (.conclusion == \"success\" or .status != \"completed\")
+            )) | length")
+          skip=false
+          if [ "$count" -gt 0 ]; then skip=true; fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build
     needs: gate
-    if: needs.gate.outputs.passed != 'true'
+    if: needs.gate.outputs.skip != 'true'
     permissions:
       actions: read
       contents: write
@@ -102,20 +106,25 @@ jobs:
       - name: Check that the hardware is free
         id: hardware
         shell: powershell
-        # Get-Process does not show the owners of other users' processes.
         run: |
-          $holders = Get-CimInstance Win32_Process |
+          $procs = Get-CimInstance Win32_Process |
             Where-Object {
               $_.Name -match '^(synnax-driver|driver-[0-9a-f]{16}|DEWEsoft)'
-            } |
-            ForEach-Object {
-              $owner = Invoke-CimMethod -InputObject $_ -MethodName GetOwner
-              $user = "unknown user"
-              if ($owner.User) { $user = "$($owner.Domain)\$($owner.User)" }
-              "$($_.Name) (PID $($_.ProcessId), $user)"
             }
-          if ($holders) {
-            $list = $holders -join ", "
+          if ($procs) {
+            # GetOwner needs an administrator to read other users' processes. quser
+            # does not, so the owner is the user of the process's session.
+            $users = @{}
+            cmd /c "quser 2>nul" | ForEach-Object {
+              if ($_ -match '^\s*>?(\S+)\s+(?:\S+\s+)?(\d+)\s+(Active|Disc)') {
+                $users[[int]$Matches[2]] = $Matches[1]
+              }
+            }
+            $list = ($procs | ForEach-Object {
+              $user = $users[[int]$_.SessionId]
+              if (-not $user) { $user = "session $($_.SessionId)" }
+              "$($_.Name) (PID $($_.ProcessId), $user)"
+            }) -join ", "
             # Out-File in Windows PowerShell writes a BOM that breaks the output.
             [IO.File]::AppendAllText($env:GITHUB_OUTPUT, "holders=$list`n")
             Write-Output ("::error title=Hardware in use::These programs use the " +
