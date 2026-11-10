@@ -281,11 +281,12 @@ TEST(ReadSettings, RejectsAnOptionCountPastTheObject) {
 /// @brief it should read each object of the card once, even when two settings share it.
 TEST(ReadSettings, ReadsEachObjectOnce) {
     std::map<std::pair<uint16_t, uint8_t>, int> reads;
+    const auto read = stg(0);
     const coe::Read counted = [&](const uint16_t index, const uint8_t sub_index) {
         reads[{index, sub_index}]++;
-        return read_stg(index, sub_index);
+        return read(index, sub_index);
     };
-    ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, counted));
+    ASSERT_NIL_P(read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, counted));
     for (const auto &[address, count]: reads)
         EXPECT_EQ(count, 1) << std::hex << address.first << ":" << +address.second;
 }
