@@ -362,7 +362,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    if (!deep.equal(saved, dev.properties))
+      await PlatformDevice.setProperties(client, dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

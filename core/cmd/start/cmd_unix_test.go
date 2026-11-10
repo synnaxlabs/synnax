@@ -12,6 +12,7 @@
 package start_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/base64"
 	"io"
@@ -32,8 +33,9 @@ import (
 
 var _ = Describe("Start", func() {
 	// startCore starts a Core with in-memory storage and the given extra flags. It
-	// returns once the Core is running, with the writing end of the Core's stdin.
-	startCore := func(flags ...string) (*gexec.Session, io.WriteCloser) {
+	// returns once the Core is running, with the writing end of the Core's stdin and
+	// the Core's address.
+	startCore := func(flags ...string) (*gexec.Session, io.WriteCloser, string) {
 		GinkgoHelper()
 		l := MustSucceed(net.Listen("tcp", "127.0.0.1:0"))
 		addr := l.Addr().String()
@@ -52,12 +54,29 @@ var _ = Describe("Start", func() {
 		session := MustSucceed(gexec.Start(cmd, GinkgoWriter, GinkgoWriter))
 		DeferCleanup(func() { session.Kill().Wait() })
 		Eventually(session.Out, 30*time.Second).Should(gbytes.Say("Synnax is running"))
-		return session, stdin
+		return session, stdin, addr
+	}
+
+	// holdShutdown opens a request to the Core at addr and leaves its body unsent. The
+	// Core waits on the request when it shuts down, until its 5s read timeout from the
+	// request ends it, so stop signals sent in that window reach a shutting-down Core.
+	holdShutdown := func(addr string) {
+		GinkgoHelper()
+		conn := MustSucceed(net.Dial("tcp", addr))
+		DeferCleanup(conn.Close)
+		MustSucceed(io.WriteString(
+			conn,
+			"POST / HTTP/1.1\r\nHost: core\r\nContent-Length: 1\r\n"+
+				"Expect: 100-continue\r\n\r\n",
+		))
+		Expect(conn.SetReadDeadline(time.Now().Add(5 * time.Second))).To(Succeed())
+		Expect(bufio.NewReader(conn).ReadString('\n')).
+			To(Equal("HTTP/1.1 100 Continue\r\n"))
 	}
 
 	DescribeTable("Should shut down cleanly on a stop signal",
 		func(sig syscall.Signal) {
-			session, _ := startCore()
+			session, _, _ := startCore()
 			session.Signal(sig)
 			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
 			Expect(session.Out).To(gbytes.Say("Synnax has shut down"))
@@ -67,7 +86,8 @@ var _ = Describe("Start", func() {
 	)
 
 	It("Should exit at once when a second signal arrives during shutdown", func() {
-		session, _ := startCore()
+		session, _, addr := startCore()
+		holdShutdown(addr)
 		// Distinct signals, so the kernel cannot merge them into one.
 		session.Signal(syscall.SIGTERM)
 		session.Signal(syscall.SIGINT)
@@ -78,7 +98,7 @@ var _ = Describe("Start", func() {
 	It(
 		"Should shut down cleanly on the stop keyword followed by a closed stdin",
 		func() {
-			session, stdin := startCore("--stop-on-stdin-close")
+			session, stdin, _ := startCore("--stop-on-stdin-close")
 			MustSucceed(io.WriteString(stdin, "stop\n"))
 			Expect(stdin.Close()).To(Succeed())
 			Eventually(session, 30*time.Second).Should(gexec.Exit(0))
@@ -87,7 +107,7 @@ var _ = Describe("Start", func() {
 	)
 
 	It("Should shut down cleanly on one signal after the stop keyword", func() {
-		session, stdin := startCore()
+		session, stdin, _ := startCore()
 		MustSucceed(io.WriteString(stdin, "stop\n"))
 		Eventually(session.Out).Should(gbytes.Say("Synnax is shutting down"))
 		session.Signal(syscall.SIGTERM)
@@ -127,7 +147,8 @@ var _ = Describe("Start", func() {
 	})
 
 	It("Should exit at once on two signals after the stop keyword", func() {
-		session, stdin := startCore()
+		session, stdin, addr := startCore()
+		holdShutdown(addr)
 		MustSucceed(io.WriteString(stdin, "stop\n"))
 		session.Signal(syscall.SIGTERM)
 		session.Signal(syscall.SIGINT)

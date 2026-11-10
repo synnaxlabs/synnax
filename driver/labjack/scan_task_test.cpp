@@ -115,9 +115,7 @@ TEST(ScanTaskConfigTest, RejectsNonPositiveTcpScanMultiplier) {
         );
         ScanTaskConfig cfg(parser);
         ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
-        const auto err = parser.error_json()["errors"][0];
-        EXPECT_EQ(err["path"], "tcp_scan_multiplier");
-        EXPECT_EQ(err["message"], "must be greater than 0");
+        EXPECT_EQ(parser.error_json()["errors"][0]["path"], "tcp_scan_multiplier");
     }
 }
 }

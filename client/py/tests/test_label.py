@@ -61,12 +61,12 @@ class TestLabelClient:
         created = client.labels.create(labels)
         assert [lbl.key for lbl in created] == [lbl.key for lbl in labels]
 
-    def test_create_replaces(self, client: sy.Synnax) -> None:
-        """Should replace an existing label created with the same key."""
+    def test_create_existing_key(self, client: sy.Synnax) -> None:
+        """Should refuse a label whose key exists and keep the stored label."""
         lbl = client.labels.create(name=str(uuid4()), color="#FF0000")
-        new_name = str(uuid4())
-        client.labels.create(lbl.model_copy(update={"name": new_name}))
-        assert client.labels.retrieve(key=lbl.key).name == new_name
+        with pytest.raises(sy.ValidationError, match=f"label {lbl.key} already exists"):
+            client.labels.create(lbl.model_copy(update={"name": str(uuid4())}))
+        assert client.labels.retrieve(key=lbl.key).name == lbl.name
 
     def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a label by its key."""

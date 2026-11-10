@@ -21,14 +21,14 @@ from x.testutil import assert_eventually
 class TestSecret:
     def test_create_stored(self, client: sy.Synnax) -> None:
         """Should create a stored secret."""
-        s = client.secrets.create(secret.NewStored(name="Password", value="hunter2"))
+        s = client.secrets.set(secret.NewStored(name="Password", value="hunter2"))
         assert isinstance(s, secret.StoredSecret)
         assert s.name == "Password"
         assert s.updated > 0
 
     def test_create_file(self, client: sy.Synnax) -> None:
         """Should create a file secret."""
-        s = client.secrets.create(
+        s = client.secrets.set(
             secret.NewFile(name="Client key", path="/etc/synnax/client.key")
         )
         assert isinstance(s, secret.FileSecret)
@@ -36,10 +36,10 @@ class TestSecret:
 
     def test_create_from_keywords(self, client: sy.Synnax) -> None:
         """Should create a stored or file secret from keyword arguments."""
-        stored = client.secrets.create(name="Token", value="abc")
+        stored = client.secrets.set(name="Token", value="abc")
         assert isinstance(stored, secret.StoredSecret)
         assert stored.name == "Token"
-        file = client.secrets.create(name="Key file", path="/tmp/key.pem")
+        file = client.secrets.set(name="Key file", path="/tmp/key.pem")
         assert isinstance(file, secret.FileSecret)
         assert file.path == "/tmp/key.pem"
 
@@ -59,11 +59,11 @@ class TestSecret:
             sy.ValidationError,
             match=r"A secret needs a name and exactly one of a value or a path\.",
         ):
-            client.secrets.create(**kwargs)
+            client.secrets.set(**kwargs)
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple secrets."""
-        secrets = client.secrets.create(
+        secrets = client.secrets.set(
             [
                 secret.NewStored(name="Token", value="abc"),
                 secret.NewFile(name="Key file", path="/tmp/key.pem"),
@@ -74,8 +74,8 @@ class TestSecret:
 
     def test_replace(self, client: sy.Synnax) -> None:
         """Should replace a secret that has the same key."""
-        first = client.secrets.create(secret.NewStored(name="API key", value="one"))
-        second = client.secrets.create(
+        first = client.secrets.set(secret.NewStored(name="API key", value="one"))
+        second = client.secrets.set(
             secret.NewFile(key=first.key, name="API key v2", path="/opt/api.key")
         )
         assert second.key == first.key
@@ -84,7 +84,7 @@ class TestSecret:
 
     def test_retrieve_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve secrets by key."""
-        created = client.secrets.create(
+        created = client.secrets.set(
             [
                 secret.NewStored(name="Multi 1", value="a"),
                 secret.NewStored(name="Multi 2", value="b"),
@@ -95,26 +95,26 @@ class TestSecret:
 
     def test_retrieve_unused(self, client: sy.Synnax) -> None:
         """Should retrieve empty uses for a secret that nothing uses."""
-        s = client.secrets.create(secret.NewStored(name="Unused", value="abc"))
+        s = client.secrets.set(secret.NewStored(name="Unused", value="abc"))
         assert client.secrets.retrieve(key=s.key, include_uses=True).uses == []
         assert client.secrets.retrieve(key=s.key).uses is None
 
     def test_retrieve_by_where(self, client: sy.Synnax) -> None:
         """Should leave out a key that no secret has."""
-        s = client.secrets.create(secret.NewStored(name="Kept", value="a"))
+        s = client.secrets.set(secret.NewStored(name="Kept", value="a"))
         where = secret.Where(key=filter.Set[secret.Key](in_=[s.key, uuid4()]))
         assert client.secrets.retrieve(where=where) == [s]
 
     def test_retrieve_key_list(self, client: sy.Synnax) -> None:
         """Should return a list for a list of keys, leaving out a key that no secret
         has."""
-        s = client.secrets.create(secret.NewStored(name="Listed", value="a"))
+        s = client.secrets.set(secret.NewStored(name="Listed", value="a"))
         assert client.secrets.retrieve(key=[s.key, uuid4()]) == [s]
 
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for secrets by name."""
         name = f"searchable-secret-{uuid4()}"
-        created = client.secrets.create(secret.NewStored(name=name, value="abc"))
+        created = client.secrets.set(secret.NewStored(name=name, value="abc"))
 
         def check() -> None:
             assert created in client.secrets.retrieve(search_term=name)
@@ -124,13 +124,13 @@ class TestSecret:
     def test_retrieve_by_name(self, client: sy.Synnax) -> None:
         """Should return one secret for a plain name."""
         name = f"named-secret-{uuid4()}"
-        created = client.secrets.create(secret.NewStored(name=name, value="abc"))
+        created = client.secrets.set(secret.NewStored(name=name, value="abc"))
         assert client.secrets.retrieve(name=name) == created
 
     def test_order_and_after(self, client: sy.Synnax) -> None:
         """Should page through the matching secrets in name order from a cursor."""
         prefix = uuid4()
-        created = client.secrets.create(
+        created = client.secrets.set(
             [secret.NewStored(name=f"{prefix} {n}", value="v") for n in "CAB"]
         )
         keys = [s.key for s in created]
@@ -151,20 +151,20 @@ class TestSecret:
 
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a secret."""
-        s = client.secrets.create(secret.NewStored(name="Before", value="abc"))
+        s = client.secrets.set(secret.NewStored(name="Before", value="abc"))
         client.secrets.rename(s.key, "After")
         assert client.secrets.retrieve(key=s.key).name == "After"
 
     def test_rename_empty(self, client: sy.Synnax) -> None:
         """Should reject an empty name."""
-        s = client.secrets.create(secret.NewStored(name="Keep", value="abc"))
+        s = client.secrets.set(secret.NewStored(name="Keep", value="abc"))
         with pytest.raises(sy.PathError, match=r"^name: required$"):
             client.secrets.rename(s.key, "")
         assert client.secrets.retrieve(key=s.key).name == "Keep"
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete secrets."""
-        secrets = client.secrets.create(
+        secrets = client.secrets.set(
             [
                 secret.NewStored(name="Delete 1", value="a"),
                 secret.NewFile(name="Delete 2", path="/tmp/b"),
@@ -180,7 +180,7 @@ class TestSecret:
     def test_grant(self, client: sy.Synnax) -> None:
         """Should return the key of a new grant each time."""
         r = client.racks.create(name="Grant rack")
-        s = client.secrets.create(secret.NewStored(name="Grant", value="abc"))
+        s = client.secrets.set(secret.NewStored(name="Grant", value="abc"))
         first = client.secrets.grant(rack.resource_id(r.key), s.key)
         second = client.secrets.grant(rack.resource_id(r.key), [s.key])
         assert first != second

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { describe, expect, it } from "vitest";
-import { z } from "zod";
 
 import { group } from "@/group";
 import { query } from "@/query";
@@ -52,26 +51,48 @@ describe("MEMBER_LINES", () => {
 
 describe("createMoveRequest", () => {
   const setGroupRequest = (table: query.Table<string, Doc>) =>
-    group.createMoveRequest<string>("/doc/set-group", (keys, to) =>
+    group.createMoveRequest<string>("/doc/dispatch", (keys, to) =>
       group.moveCached(table, keys, to),
     );
 
-  it("should wrap a single key in a list", () => {
-    const req = setGroupRequest(createTable())("a", G1);
-    expect(req.endpoint).toEqual("/doc/set-group");
-    expect(req.payload).toEqual({ keys: ["a"], group: G1 });
+  it("should build one dispatch entry per key that sets the group", () => {
+    expect(setGroupRequest(createTable())(["a", "b"], G1)).toEqual([
+      {
+        endpoint: "/doc/dispatch",
+        payload: {
+          key: "a",
+          actions: [{ type: "set", set: { path: ["group"], value: G1, guards: [] } }],
+        },
+        apply: expect.any(Function),
+      },
+      {
+        endpoint: "/doc/dispatch",
+        payload: {
+          key: "b",
+          actions: [{ type: "set", set: { path: ["group"], value: G1, guards: [] } }],
+        },
+        apply: expect.any(Function),
+      },
+    ]);
   });
 
-  it("should leave the group out when it is null", () => {
-    const req = setGroupRequest(createTable())(["a", "b"], null);
-    expect(req.payload).toEqual({ keys: ["a", "b"], group: undefined });
-    expect(group.moveReqZ(z.string()).parse(req.payload)).toEqual({ keys: ["a", "b"] });
+  it("should set the group to null when it is null or undefined", () => {
+    const [fromNull] = setGroupRequest(createTable())("a", null);
+    const [fromUndefined] = setGroupRequest(createTable())("a");
+    expect(fromNull.payload.actions).toEqual([
+      { type: "set", set: { path: ["group"], value: null, guards: [] } },
+    ]);
+    expect(fromUndefined.payload).toEqual(fromNull.payload);
   });
 
-  it("should move the cached records when its cache write applies", () => {
-    const table = createTable({ key: "a", name: "A", group: G1 });
-    const rollback = setGroupRequest(table)("a", G2).apply?.();
-    expect(table.get("a")?.group).toEqual(G2);
+  it("should move only the record of its entry when its cache write applies", () => {
+    const table = createTable(
+      { key: "a", name: "A", group: G1 },
+      { key: "b", name: "B", group: G1 },
+    );
+    const [first] = setGroupRequest(table)(["a", "b"], G2);
+    const rollback = first.apply?.();
+    expect(table.get(["a", "b"]).map((r) => r.group)).toEqual([G2, G1]);
     rollback?.();
     expect(table.get("a")?.group).toEqual(G1);
   });

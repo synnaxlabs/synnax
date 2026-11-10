@@ -18,6 +18,7 @@ import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "schematic";
+const PLURAL_RESOURCE_NAME = "schematics";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
@@ -32,6 +33,22 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
     client.schematics.watch(query.key).onChange(handler),
   getCached: ({ client, query }) => client.schematics.watch(query.key).getCached(),
   awaitCreation: true,
+});
+
+export type RetrieveMultipleQuery = {
+  keys: schematic.Key[];
+};
+
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  schematic.Schematic[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.schematics.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.schematics.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.schematics.watch(keys).getCached(),
 });
 
 export interface KeyParams {
@@ -263,11 +280,9 @@ export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.schematics.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.schematics.rename(key, name);
     return data;
   },
 });
