@@ -27,7 +27,7 @@ describe("policy haul utilities", () => {
       expect(createHaulItem(KEY).type).toEqual(HAUL_TYPE);
     });
 
-    it("creates an item with the given key", () => {
+    it("creates an item with the provided key", () => {
       expect(createHaulItem(KEY).key).toEqual(KEY);
     });
   });
