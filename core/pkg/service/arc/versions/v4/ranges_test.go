@@ -36,8 +36,7 @@ var _ = Describe("CastRanges", func() {
 	DescribeTable("Should cast mixed typed arguments to the type 0.60 picked",
 		func(ctx SpecContext, old, want string) {
 			Expect(analyze(ctx, wrap(old)).Ok()).To(BeFalse())
-			got, parsed := v4.CastRanges(ctx, wrap(old))
-			Expect(parsed).To(BeTrue())
+			got := MustBeOk(v4.CastRanges(ctx, wrap(old)))
 			Expect(got).To(Equal(wrap(want)))
 			diag := analyze(ctx, got)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -76,9 +75,7 @@ var _ = Describe("CastRanges", func() {
 
 	DescribeTable("Should keep a program with no mixed range() byte for byte",
 		func(ctx SpecContext, src string) {
-			got, parsed := v4.CastRanges(ctx, wrap(src))
-			Expect(parsed).To(BeTrue())
-			Expect(got).To(Equal(wrap(src)))
+			Expect(MustBeOk(v4.CastRanges(ctx, wrap(src)))).To(Equal(wrap(src)))
 		},
 		Entry("untyped literals", "for i := range(0, 10, 2) {}"),
 		Entry("one typed argument and literals", "for i := range(0, n, 2) {}"),
@@ -90,8 +87,6 @@ var _ = Describe("CastRanges", func() {
 
 	It("Should leave a program that does not parse unchanged", func(ctx SpecContext) {
 		src := "func f( {\n    for i := range(n, i64(100)) {}\n"
-		got, parsed := v4.CastRanges(ctx, src)
-		Expect(parsed).To(BeFalse())
-		Expect(got).To(Equal(src))
+		Expect(v4.CastRanges(ctx, src)).To(Equal(src))
 	})
 })
