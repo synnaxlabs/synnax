@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
@@ -316,19 +317,18 @@ var _ = Describe("ReadMigration", func() {
 
 var _ = Describe("MigrateWriteConfig", func() {
 	It("Should lift every channel of the config", func(ctx SpecContext) {
-		old := v2.WriteConfig{Channels: []v2.WriteChannel{
-			{Variant: v2.HoldingRegisterWriteChannel{
-				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
-				RegisterValue:    v2.RegisterValue{DataType: "float32"},
-			}},
-			{Variant: v2.CoilWriteChannel{
-				BaseWriteChannel: v2.BaseWriteChannel{Key: "coil"},
-			}},
-		}}
-		old.Key = uuid.New()
-		old.Device = "dev"
-		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, old))
-		Expect(cfg.Key).To(Equal(old.Key))
+		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, v2.WriteConfig{
+			WriteConfig: task.WriteConfig{Device: "dev"},
+			Channels: []v2.WriteChannel{
+				{Variant: v2.HoldingRegisterWriteChannel{
+					BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+					RegisterValue:    v2.RegisterValue{DataType: "float32"},
+				}},
+				{Variant: v2.CoilWriteChannel{
+					BaseWriteChannel: v2.BaseWriteChannel{Key: "coil"},
+				}},
+			},
+		}))
 		Expect(cfg.Device).To(Equal("dev"))
 		Expect(cfg.Channels).To(Equal([]v3.WriteChannel{
 			{Variant: v3.HoldingRegisterWriteChannel{
@@ -345,12 +345,16 @@ var _ = Describe("MigrateWriteConfig", func() {
 var _ = Describe("WriteMigration", func() {
 	It("Should lift stored write configs in place", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
-		stored := v2.WriteConfig{Channels: []v2.WriteChannel{
-			{Variant: v2.HoldingRegisterWriteChannel{
-				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+		stored := v2.WriteConfig{
+			WriteConfig: task.WriteConfig{PersistConfig: task.PersistConfig{
+				StartConfig: task.StartConfig{
+					KeyedConfig: task.KeyedConfig{Key: uuid.New()},
+				},
 			}},
-		}}
-		stored.Key = uuid.New()
+			Channels: []v2.WriteChannel{{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
+			}}},
+		}
 		MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v2.WriteConfig]{
 			DB: db,
 		}))
