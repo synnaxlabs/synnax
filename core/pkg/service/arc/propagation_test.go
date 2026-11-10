@@ -385,14 +385,15 @@ var _ = Describe("Change propagation", Ordered, func() {
 				return stat
 			}
 		}
-		// settledVariant waits out the resync that creating an Arc schedules and
-		// returns the module's status variant once it holds still.
+		// settledVariant waits for the module's status and returns its variant once it
+		// holds still.
 		settledVariant := func(ctx SpecContext, key arc.Key) status.Variant {
 			GinkgoHelper()
 			variant := func() status.Variant { return moduleStatus(ctx, key)().Variant }
 			var settled status.Variant
 			Eventually(func(g Gomega) {
 				settled = variant()
+				g.Expect(settled).ToNot(BeEmpty())
 				g.Consistently(variant, 30*time.Millisecond, 5*time.Millisecond).
 					Should(Equal(settled))
 			}).Should(Succeed())

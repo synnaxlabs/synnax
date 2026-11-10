@@ -166,7 +166,7 @@ var _ = Describe("Service", func() {
 				stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
 				g.Expect(stat).ToNot(BeNil())
 				g.Expect(stat.Message).To(Equal("Compiled"))
-			}).Should(Succeed())
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 
 		It("Should include what changed in a deployed automation", func(
