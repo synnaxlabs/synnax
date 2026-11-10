@@ -1003,13 +1003,15 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsOfTheSlaveRevision) {
     EXPECT_EQ(device[0]["name"], "Outputs on connection loss");
 }
 
-/// @brief it should report why the settings of a slave could not be read.
+/// @brief it should report why a setting of a slave could not be read, and keep the
+/// other settings.
 TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
     auto stg = create_stg(ECT_MBXPROT_COE);
     stg.sdo_objects.erase({0x8050, 3});
     this->add_slave(stg);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
-    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    ASSERT_TRUE(slaves[0].properties.settings.has_value());
+    EXPECT_TRUE(slaves[0].properties.settings.value().contains("mode"));
     EXPECT_EQ(
         slaves[0].status.settings_error,
         "failed to read 0x8050:03: Object does not exist in the object dictionary"

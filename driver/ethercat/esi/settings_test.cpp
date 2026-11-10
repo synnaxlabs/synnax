@@ -49,6 +49,20 @@ coe::Read stg(const uint32_t mode, const uint32_t power_on = 1) {
     return testutil::read_of(testutil::stg_objects(mode, power_on));
 }
 
+/// @brief returns a read of a standalone 6xSTG that aborts with abort_code at
+/// index:sub_index.
+coe::Read
+aborting_at(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
+    return [read = stg(0),
+            index,
+            sub_index,
+            abort_code](const uint16_t i, const uint8_t s) {
+        if (i == index && s == sub_index)
+            return std::pair{uint32_t{0}, coe::read_error(i, s, abort_code)};
+        return read(i, s);
+    };
+}
+
 std::vector<std::string> names(const x::json::json &options) {
     std::vector<std::string> result;
     for (const auto &option: options)
@@ -109,10 +123,35 @@ TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
     EXPECT_EQ(setting(input_2, 34)["value"], 0.0);
 }
 
-/// @brief it should report a setting whose value the card cannot read.
-TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
+/// @brief it should leave out a setting at a sub-index that the card does not have,
+/// with the rule that names it, and keep the other settings and the mode.
+TEST(ReadSettings, LeavesOutASettingAtASubIndexTheCardDoesNotHave) {
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_REVISION,
+        STG_OP_MODES,
+        aborting_at(0x8041, 28, 0x06090011)
+    );
+    ASSERT_MATCHES(err, coe::SUBINDEX_MISSING);
+    EXPECT_EQ(err.data, "failed to read 0x8041:1C: Subindex does not exist");
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    ASSERT_EQ(channels.size(), 6);
+    EXPECT_THROW(setting(channels[1], 28), std::runtime_error);
+    EXPECT_EQ(setting(channels[1], 3)["value"], 2);
+    EXPECT_EQ(setting(channels[0], 28)["value"], 5.0);
+    ASSERT_EQ(channels[1]["requires"].size(), 1);
+    EXPECT_EQ(channels[1]["requires"][0]["then"]["sub_index"], 34);
+    EXPECT_EQ(channels[0]["requires"].size(), 2);
+    EXPECT_TRUE(settings.value().contains("mode"));
+}
+
+/// @brief it should leave out each setting and rule that depends on a setting that the
+/// card cannot read.
+TEST(ReadSettings, LeavesOutTheSettingsThatDependOnAnUnreadSetting) {
     auto objects = testutil::stg_objects(0);
-    objects.erase({0x8041, 28});
+    objects.erase({0x8040, 1});
     const auto [settings, err] = read_settings(
         DEWESOFT,
         IOLITE_6XSTG,
@@ -121,11 +160,41 @@ TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
         testutil::read_of(std::move(objects))
     );
     ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
     EXPECT_EQ(
-        err.data,
-        "failed to read 0x8041:1C: Object does not exist in the object dictionary"
+        names(channels[0]["settings"]),
+        (std::vector<std::string>{
+            "Low-pass filter",
+            "Coupling",
+            "Excitation",
+            "Excitation polarity",
+            "Excitation voltage",
+            "Excitation voltage",
+            "Excitation current",
+        })
     );
-    EXPECT_FALSE(settings.has_value());
+    EXPECT_TRUE(channels[0]["requires"].empty());
+    EXPECT_EQ(channels[1]["settings"].size(), 13);
+    EXPECT_EQ(channels[1]["requires"].size(), 2);
+}
+
+/// @brief it should leave out a setting whose options the card cannot give, and keep
+/// the other settings at its address.
+TEST(ReadSettings, LeavesOutASettingWhoseOptionsTheCardCannotGive) {
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_REVISION,
+        STG_OP_MODES,
+        counting_ranges(0)
+    );
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    EXPECT_EQ(setting(channels[0], 3)["visible_when"][0]["values"][0], 1);
+    EXPECT_THROW(setting(channels[0], 3, 1), std::runtime_error);
+    EXPECT_NO_THROW(setting(channels[1], 3, 1));
 }
 
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
@@ -263,8 +332,9 @@ TEST(ReadSettings, ReturnsNoneForAnUndescribedRevision) {
     EXPECT_FALSE(settings.has_value());
 }
 
-/// @brief it should keep the other settings of a card whose mode it cannot read.
-TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
+/// @brief it should keep the other settings of a card that does not have the mode
+/// object.
+TEST(ReadSettings, KeepsTheOtherSettingsWhenTheCardHasNoModeObject) {
     auto objects = testutil::stg_objects(0);
     objects.erase({0x8020, 9});
     const auto [settings, err] = read_settings(
@@ -282,6 +352,46 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
     ASSERT_TRUE(settings.has_value());
     EXPECT_FALSE(settings.value().contains("mode"));
     EXPECT_EQ(settings.value()["channels"].size(), 6);
+}
+
+/// @brief it should return no settings, and read nothing more, after a read that gets
+/// no answer.
+TEST(ReadSettings, StopsAtAReadThatGetsNoAnswer) {
+    const auto read = aborting_at(0x8040, 1, 0);
+    bool failed = false;
+    int reads_after = 0;
+    const coe::Read counted = [&](const uint16_t index, const uint8_t sub_index) {
+        if (failed) reads_after++;
+        auto result = read(index, sub_index);
+        failed |= static_cast<bool>(result.second);
+        return result;
+    };
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_REVISION,
+        STG_OP_MODES,
+        counted
+    );
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    EXPECT_EQ(err.data, "failed to read 0x8040:01: no response");
+    EXPECT_FALSE(settings.has_value());
+    EXPECT_EQ(reads_after, 0);
+}
+
+/// @brief it should return no settings when the read of the mode gets no answer.
+TEST(ReadSettings, ReturnsNoSettingsWhenTheModeReadGetsNoAnswer) {
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_REVISION,
+        STG_OP_MODES,
+        aborting_at(0x8020, 9, 0)
+    );
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    EXPECT_FALSE(err.matches(coe::OBJECT_MISSING));
+    EXPECT_EQ(err.data, "failed to read 0x8020:09: no response");
+    EXPECT_FALSE(settings.has_value());
 }
 
 /// @brief it should return the error of a failed read of a card table.

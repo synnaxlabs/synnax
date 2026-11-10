@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <format>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -24,6 +25,11 @@
 namespace driver::ethercat::esi {
 namespace {
 #include "driver/ethercat/esi/registry_settings.inc"
+
+/// @brief a card table that counts no options, or more than its object can hold.
+const x::errors::Error INVALID_OPTION_COUNT = errors::SDO_READ_ERROR.sub(
+    "invalid_option_count"
+);
 
 /// @brief adds step to each index that a setting, rule, or condition names.
 void shift(x::json::json &item, const uint16_t step) {
@@ -48,7 +54,7 @@ x::errors::Error resolve(x::json::json &setting, const coe::Read &read) {
         if (err) return err;
         if (count == 0 || count > 256u - first)
             return x::errors::Error(
-                errors::SDO_READ_ERROR,
+                INVALID_OPTION_COUNT,
                 std::format(
                     "{} counts {} options. The count must be from 1 to {}",
                     telem::format_index_sub_index(index, count_sub),
@@ -179,43 +185,113 @@ std::pair<x::json::json, x::errors::Error> read_mode(
     return {result, x::errors::NIL};
 }
 
+using Address = std::pair<uint16_t, uint8_t>;
+
+Address address_of(const x::json::json &item) {
+    return {item["index"].get<uint16_t>(), item["sub_index"].get<uint8_t>()};
+}
+
+/// @brief keeps the first error in first, or err when it ends the read. Returns whether
+/// err ends the read, as each error does except one that shows that the card does not
+/// hold what a setting describes.
+bool ends(x::errors::Error &first, const x::errors::Error &err) {
+    const bool fatal = err && !err.matches(coe::OBJECT_MISSING) &&
+                       !err.matches(coe::SUBINDEX_MISSING) &&
+                       !err.matches(INVALID_OPTION_COUNT);
+    if (!first || fatal) first = err;
+    return fatal;
+}
+
+/// @brief removes each item for which drop returns true. Returns whether it removed
+/// any.
+template<typename Drop>
+bool remove_if(x::json::json &items, const Drop &drop) {
+    auto kept = x::json::json::array();
+    for (auto &item: items)
+        if (!drop(item)) kept.push_back(std::move(item));
+    const bool removed = kept.size() != items.size();
+    items = std::move(kept);
+    return removed;
+}
+
+/// @brief whether a setting holds each address that the conditions of item under key
+/// name.
+bool names_held(
+    const x::json::json &item,
+    const char *key,
+    const std::set<Address> &held
+) {
+    if (!item.contains(key)) return true;
+    return std::ranges::all_of(item[key], [&held](const auto &condition) {
+        return held.contains(address_of(condition));
+    });
+}
+
+/// @brief removes each setting whose conditions name an address that no setting holds,
+/// until none does. Returns the addresses of the settings left.
+std::set<Address> prune(x::json::json &settings) {
+    std::set<Address> held;
+    do {
+        held.clear();
+        for (const auto &setting: settings)
+            held.insert(address_of(setting));
+    } while (remove_if(settings, [&held](const auto &setting) {
+        return !names_held(setting, "visible_when", held);
+    }));
+    return held;
+}
+
+/// @brief removes each setting for which read_one returns an error. Returns the first
+/// error, or at once an error that ends the read.
+template<typename ReadOne>
+x::errors::Error read_each(x::json::json &settings, const ReadOne &read_one) {
+    x::errors::Error first;
+    auto kept = x::json::json::array();
+    for (auto &setting: settings) {
+        const auto err = read_one(setting);
+        if (ends(first, err)) return first;
+        if (!err) kept.push_back(std::move(setting));
+    }
+    settings = std::move(kept);
+    return first;
+}
+
+/// @brief resolves each setting, and removes each one whose options or limit the card
+/// does not hold. Returns as read_each does.
 x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
-    for (auto &setting: settings)
-        if (auto err = resolve(setting, read)) return err;
-    return x::errors::NIL;
+    return read_each(settings, [&read](x::json::json &setting) {
+        return resolve(setting, read);
+    });
 }
 
 /// @brief sets the "value" of each setting to the float32 or unsigned value that the
-/// card holds. Reads each address once.
+/// card holds, and removes each setting whose value the card does not hold. Reads each
+/// address once. Returns as read_each does.
 x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> held;
-    for (auto &setting: settings) {
-        const std::pair address{
-            setting["index"].get<uint16_t>(),
-            setting["sub_index"].get<uint8_t>()
-        };
+    std::map<Address, std::pair<uint32_t, x::errors::Error>> held;
+    return read_each(settings, [&](x::json::json &setting) -> x::errors::Error {
+        const auto address = address_of(setting);
         auto it = held.find(address);
-        if (it == held.end()) {
-            const auto [value, err] = read(address.first, address.second);
-            if (err) return err;
-            it = held.emplace(address, value).first;
-        }
-        const auto raw = it->second;
+        if (it == held.end())
+            it = held.emplace(address, read(address.first, address.second)).first;
+        const auto &[raw, err] = it->second;
+        if (err) return err;
         if (setting["data_type"] == "float32")
             setting["value"] = std::bit_cast<float>(raw);
         else
             setting["value"] = raw;
-    }
-    return x::errors::NIL;
+        return x::errors::NIL;
+    });
 }
 
 /// @brief appends the settings of each input that channels describes to out, with the
-/// option lists, limits, and values that the card holds.
+/// option lists, limits, and values that the card holds. Returns as read_each does.
 x::errors::Error read_channels(
     const x::json::json &channels,
     const coe::Read &read,
     x::json::json &out
 ) {
+    x::errors::Error first;
     const auto index_step = channels["index_step"].get<uint16_t>();
     for (int n = 0; n < channels["count"].get<int>(); n++) {
         x::json::json channel{
@@ -228,11 +304,16 @@ x::errors::Error read_channels(
             shift(setting, step);
         for (auto &rule: channel["requires"])
             shift(rule, step);
-        if (auto err = resolve_all(channel["settings"], read)) return err;
-        if (auto err = read_values(channel["settings"], read)) return err;
+        if (ends(first, resolve_all(channel["settings"], read))) return first;
+        if (ends(first, read_values(channel["settings"], read))) return first;
+        const auto held = prune(channel["settings"]);
+        remove_if(channel["requires"], [&held](const auto &rule) {
+            return !held.contains(address_of(rule["then"])) ||
+                   !names_held(rule, "when", held);
+        });
         out.push_back(std::move(channel));
     }
-    return x::errors::NIL;
+    return first;
 }
 }
 
@@ -261,14 +342,16 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         {"device", (*it)["device"]},
         {"channels", x::json::json::array()},
     };
-    if (auto err = resolve_all(result["device"], read)) return {std::nullopt, err};
-    if (it->contains("channels"))
-        if (auto err = read_channels((*it)["channels"], read, result["channels"]))
-            return {std::nullopt, err};
-    if (!it->contains("mode")) return {std::move(result), x::errors::NIL};
-    auto [mode, err] = read_mode((*it)["mode"], op_modes, read);
-    if (err) return {std::move(result), err};
-    result["mode"] = std::move(mode);
-    return {std::move(result), x::errors::NIL};
+    x::errors::Error err;
+    if (ends(err, resolve_all(result["device"], read))) return {std::nullopt, err};
+    prune(result["device"]);
+    if (it->contains("channels") &&
+        ends(err, read_channels((*it)["channels"], read, result["channels"])))
+        return {std::nullopt, err};
+    if (!it->contains("mode")) return {std::move(result), err};
+    auto [mode, mode_err] = read_mode((*it)["mode"], op_modes, read);
+    if (ends(err, mode_err)) return {std::nullopt, err};
+    if (!mode_err) result["mode"] = std::move(mode);
+    return {std::move(result), err};
 }
 }
