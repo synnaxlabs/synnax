@@ -13,6 +13,8 @@ import { task } from "@/task";
 
 const KEY = "5a7d3e1c-2f4b-4c6d-8e9f-0a1b2c3d4e5f";
 
+const reduceAll = task.createReducer({});
+
 const createTask = (): task.Payload =>
   task.payloadZ().parse({
     key: KEY,
@@ -32,17 +34,17 @@ const createTask = (): task.Payload =>
 const channelKeys = (t: task.Payload): string[] =>
   (t.config.channels as Array<{ key: string }>).map(({ key }) => key);
 
-describe("task.reduceAll", () => {
+describe("task.createReducer", () => {
   describe("set", () => {
     it("should set a field at a snake_case path in the camelCase config", () => {
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         task.set({ path: ["config", "sample_rate"], value: 20 }),
       ]);
       expect(next.config.sampleRate).toBe(20);
     });
 
     it("should convert the keys of the value to camelCase", () => {
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         task.set({
           path: ["config", "channels", "a"],
           value: { key: "a", port: 3, min_val: 5 },
@@ -55,14 +57,14 @@ describe("task.reduceAll", () => {
     });
 
     it("should set the name", () => {
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         task.set({ path: ["name"], value: "Renamed" }),
       ]);
       expect(next.name).toBe("Renamed");
     });
 
     it("should set the config hash that the Core broadcasts", () => {
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         task.set({ path: ["config_hash"], value: "h2" }),
       ]);
       expect(next.configHash).toBe("h2");
@@ -70,7 +72,7 @@ describe("task.reduceAll", () => {
 
     it("should return a snake_case inverse that restores the task", () => {
       const prev = createTask();
-      const { next, inverse } = task.reduceAll(prev, [
+      const { next, inverse } = reduceAll(prev, [
         task.set({ path: ["config", "channels", "a"], value: { key: "a", port: 3 } }),
       ]);
       expect(inverse).toEqual([
@@ -79,11 +81,11 @@ describe("task.reduceAll", () => {
           value: { key: "a", port: 0, min_val: 0 },
         }),
       ]);
-      expect(task.reduceAll(next, inverse).next).toEqual(prev);
+      expect(reduceAll(next, inverse).next).toEqual(prev);
     });
 
     it("should target the path of the set", () => {
-      const { targets } = task.reduceAll(createTask(), [
+      const { targets } = reduceAll(createTask(), [
         task.set({ path: ["config", "sample_rate"], value: 20 }),
       ]);
       expect(targets).toEqual(["config.sample_rate"]);
@@ -91,7 +93,7 @@ describe("task.reduceAll", () => {
 
     it("should do nothing when a guard does not hold", () => {
       const prev = createTask();
-      const res = task.reduceAll(prev, [
+      const res = reduceAll(prev, [
         task.set({
           path: ["config", "sample_rate"],
           value: 20,
@@ -104,7 +106,7 @@ describe("task.reduceAll", () => {
 
     it("should throw when the task cannot hold the value", () => {
       expect(() =>
-        task.reduceAll(createTask(), [
+        reduceAll(createTask(), [
           task.set({ path: ["config", "sample_rate", "hz"], value: 20 }),
         ]),
       ).toThrow("[config, sampleRate]: the value is not an object or a list");
@@ -113,7 +115,7 @@ describe("task.reduceAll", () => {
 
   describe("insert", () => {
     it("should insert a camelCase entry after the given entry", () => {
-      const { next, targets } = task.reduceAll(createTask(), [
+      const { next, targets } = reduceAll(createTask(), [
         task.insert({
           path: ["config", "channels"],
           value: { key: "c", port: 2, min_val: 1 },
@@ -129,17 +131,17 @@ describe("task.reduceAll", () => {
   describe("remove", () => {
     it("should remove an entry with an inverse that inserts it again", () => {
       const prev = createTask();
-      const { next, inverse } = task.reduceAll(prev, [
+      const { next, inverse } = reduceAll(prev, [
         task.remove({ path: ["config", "channels"], key: "a" }),
       ]);
       expect(channelKeys(next)).toEqual(["b"]);
-      expect(task.reduceAll(next, inverse).next).toEqual(prev);
+      expect(reduceAll(next, inverse).next).toEqual(prev);
     });
   });
 
   describe("move", () => {
     it("should move an entry to the front", () => {
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         task.move({ path: ["config", "channels"], key: "b" }),
       ]);
       expect(channelKeys(next)).toEqual(["b", "a"]);
@@ -149,7 +151,7 @@ describe("task.reduceAll", () => {
   describe("create", () => {
     it("should replace the task with the created task", () => {
       const created = { ...createTask(), name: "Created", configHash: "h3" };
-      const { next } = task.reduceAll(createTask(), [
+      const { next } = reduceAll(createTask(), [
         { type: "create", create: { task: created } },
       ]);
       expect(next).toEqual(created);

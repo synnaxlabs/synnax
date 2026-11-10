@@ -30,13 +30,22 @@ import { connection } from "@/connection";
 import { control } from "@/control";
 import { device } from "@/device";
 import { errorsMiddleware, isConnectionError } from "@/errors";
+import { ethercat } from "@/ethercat";
 import { framer } from "@/framer";
 import { group } from "@/group";
+import { http } from "@/http";
 import { imex } from "@/imex";
+import { kafka } from "@/kafka";
 import { label } from "@/label";
+import { labjack } from "@/labjack";
 import { license } from "@/license";
 import { lineplot } from "@/lineplot";
 import { log } from "@/log";
+import { modbus } from "@/modbus";
+import { mqtt } from "@/mqtt";
+import { ni } from "@/ni";
+import { opcua } from "@/opcua";
+import { pagerduty } from "@/pagerduty";
 import { panel } from "@/panel";
 import { project } from "@/project";
 import { query } from "@/query";
@@ -169,6 +178,18 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
   user: changes(user.ACTION_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
   view: changes(view.ACTION_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+};
+
+const TASK_CONFIG_SCHEMAS: task.ConfigSchemas = {
+  ...ethercat.CONFIG_SCHEMAS,
+  ...http.CONFIG_SCHEMAS,
+  ...kafka.CONFIG_SCHEMAS,
+  ...labjack.CONFIG_SCHEMAS,
+  ...modbus.CONFIG_SCHEMAS,
+  ...mqtt.CONFIG_SCHEMAS,
+  ...ni.CONFIG_SCHEMAS,
+  ...opcua.CONFIG_SCHEMAS,
+  ...pagerduty.CONFIG_SCHEMAS,
 };
 
 /**
@@ -357,6 +378,7 @@ export default class Synnax extends framer.Client {
       ranges: this.ranges,
       cache,
       statuses: this.statuses,
+      configSchemas: TASK_CONFIG_SCHEMAS,
     });
     this.racks = new rack.Client({
       unary,
