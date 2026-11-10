@@ -93,9 +93,10 @@ def deprecate_positional(
     *names: str,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Lets callers pass the given parameters by position, in the given order, after
-    the leading positional parameters that are not among them. A call with more
-    positional arguments than the function takes is remapped and emits a
-    DeprecationWarning. A None remapped into ``**kwargs`` is left out.
+    the leading positional parameters that are not among them. A call is remapped and
+    emits a DeprecationWarning when it passes more positional arguments than the
+    function takes, or passes a positional name by keyword while an argument fills its
+    slot. A None remapped into ``**kwargs`` is left out.
 
     :param names: The parameters that callers could once pass by position. A
         positional name must follow a keyword-only name.
@@ -122,10 +123,14 @@ def deprecate_positional(
             raise ValueError(f"{name} is not a keyword-only parameter of {f}")
         n = len(positional)
         start = min((positional.index(m) for m in names if m in positional), default=n)
+        reordered = [m for m in names if m in positional]
 
         @functools.wraps(f)
         def wrapper(*args: Any, **kwargs: Any) -> R:
-            if len(args) <= n or len(args) - start > len(names):
+            old = len(args) > n or (
+                len(args) > start and any(m in kwargs for m in reordered)
+            )
+            if not old or len(args) - start > len(names):
                 return f(*args, **kwargs)
             bound = dict(zip(names, args[start:], strict=False))
             warnings.warn(

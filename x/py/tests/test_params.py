@@ -128,6 +128,9 @@ class TestDeprecatePositional:
             assert f("p", "n") == ("n", "p", 0)  # type: ignore[call-arg]
         with pytest.warns(DeprecationWarning, match="Passing parent, name, key to"):
             assert f("p", "n", 1) == ("n", "p", 1)  # type: ignore[call-arg]
+        with pytest.warns(DeprecationWarning, match="Passing parent to"):
+            assert f("p", name="n") == ("n", "p", 0)  # type: ignore[misc]
+        assert f(name="n", parent="p") == ("n", "p", 0)
 
     def test_positional_name_without_keyword_only_name_raises(self) -> None:
         with pytest.raises(ValueError, match="keyword-only"):

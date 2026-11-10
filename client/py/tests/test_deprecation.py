@@ -148,6 +148,9 @@ class TestPositionalArguments:
         with deprecated():
             g = client.groups.create(parent, "child")  # type: ignore[arg-type, call-arg]
         assert (g.name, g.parent) == ("child", parent)
+        with deprecated():
+            g = client.groups.create(parent, name="named")  # type: ignore[arg-type, misc]
+        assert (g.name, g.parent) == ("named", parent)
         key = uuid4()
         with deprecated():
             g = client.groups.create(parent, "keyed", key)  # type: ignore[arg-type, call-arg]
