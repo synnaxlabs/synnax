@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import warnings
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
@@ -16,6 +17,7 @@ from pydantic import BaseModel, TypeAdapter, ValidationError
 
 from x import patch
 from x.codec import JSONCodec
+from x.telem import TimeRange, TimeStamp
 
 
 class Settings(TypedDict):
@@ -119,6 +121,27 @@ class TestUpdate:
         assert update.value == {"extra": {"set": {"rate": 1, "stream": 2}}}
         assert update.guards == [patch.Guard(path=["config", "type"], value="ai")]
         assert json.loads(update.model_dump_json()) == json.loads(data)
+
+    def test_dump_struct_of_custom_types_without_warning(self) -> None:
+        class TimeRangeUpdate(TypedDict, total=False):
+            start: TimeStamp
+            end: TimeStamp
+
+        class Range(TypedDict, total=False):
+            time_range: patch.Struct[TimeRangeUpdate, TimeRange]
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            merge = patch.Update[Range](value={"time_range": {"end": TimeStamp(5)}})
+            replace = patch.Update[Range](
+                value={"time_range": {"set": TimeRange(TimeStamp(1), TimeStamp(5))}}
+            )
+            assert merge.model_dump_json() == (
+                '{"value":{"time_range":{"end":5}},"guards":[]}'
+            )
+            assert replace.model_dump_json() == (
+                '{"value":{"time_range":{"set":{"start":1,"end":5}}},"guards":[]}'
+            )
 
     def test_guards_default(self) -> None:
         """Should default to no guards."""
