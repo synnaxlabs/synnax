@@ -119,6 +119,7 @@ const useRenameDirectory = Tree.createUseRename({
 
 const useDeleteDirectory = Tree.createUseDelete({
   type: "Directory",
+  icon: "Group",
   useUpdate: Arc.Directory.useDelete,
   convertKey: String,
 });
