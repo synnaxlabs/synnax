@@ -287,9 +287,11 @@ operators in place of in-band directives.
 
 ## 6 Implementation phases
 
-Each phase is additive until phase 8: the Core accepts path actions and `update` side by
-side, so `main` stays green between phases. No stable release has shipped the path
-actions, so phase 8 deletes them with no migration.
+Each phase is additive until phase 10: the Core accepts path actions and `update` side
+by side, so `main` stays green between phases. No stable release has shipped the path
+actions, so phase 10 deletes them with no migration. Phase 10 also waits for typed
+device properties (SY-5127): an update converts the key case of an untyped value, and
+some device property keys are data, such as OPC UA node IDs.
 
 | Phase | Scope                                           | Touches                                                                                 | Depends on |
 | ----- | ----------------------------------------------- | --------------------------------------------------------------------------------------- | ---------- |
@@ -300,8 +302,9 @@ actions, so phase 8 deletes them with no migration.
 | 5     | Apply updates in the Core                       | `core/pkg/service`, `core/pkg/api`                                                      | 3, 4       |
 | 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                         | 5          |
 | 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5, 6       |
-| 8     | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 6, 7       |
-| 9     | Type the gRPC dispatch protos and add batch     | `oracle/plugin/pb`, `core/pkg/api/grpc`, `core/pkg/transport/grpc`, `client/cpp`        | 8          |
+| 8     | Move the last path action senders to updates    | `core/pkg/service`, `driver`, `client/ts`, `pluto`, `console`                           | 6, 7       |
+| 9     | Type the gRPC dispatch protos and add batch     | `oracle/plugin/pb`, `core/pkg/api/grpc`, `core/pkg/transport/grpc`, `client/cpp`        | 7          |
+| 10    | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 8, 9       |
 
 ## 7 Resolved decisions
 
