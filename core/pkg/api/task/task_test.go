@@ -12,6 +12,7 @@ package task_test
 import (
 	"context"
 	"encoding/json/v2"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -22,9 +23,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	apiimex "github.com/synnaxlabs/synnax/pkg/api/imex"
+	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
 	apitask "github.com/synnaxlabs/synnax/pkg/api/task"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -44,6 +48,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/zip"
 	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -1056,4 +1061,131 @@ var _ = Describe("Copy", func() {
 			Expect(countInRange(ctx, r)).To(BeZero())
 		},
 	)
+})
+
+var _ = Describe("Import", func() {
+	var (
+		u    user.User
+		name string
+	)
+	BeforeEach(func(ctx SpecContext) {
+		u = createUser(ctx)
+		name = "Imported " + uuid.New().String()
+	})
+	grantTypes := func(ctx SpecContext, types ...resource.Type) {
+		GinkgoHelper()
+		for _, t := range types {
+			grant(ctx, access.ActionCreate, u.ResourceID(), resource.ID{Type: t})
+		}
+	}
+	deniedOnType := func(action access.Action, t resource.Type) types.GomegaMatcher {
+		return SatisfyAll(
+			MatchError(access.ErrDenied),
+			MatchError(ContainSubstring("%s cannot %s %s:", u.ResourceID(), action, t)),
+		)
+	}
+	tasksNamed := func(ctx SpecContext, name string) int {
+		GinkgoHelper()
+		var tasks []task.Task
+		Expect(svc.Task.NewRetrieve().Entries(&tasks).Exec(ctx, node.DB)).To(Succeed())
+		return len(
+			lo.Filter(tasks, func(t task.Task, _ int) bool { return t.Name == name }),
+		)
+	}
+	secretsNamed := func(ctx SpecContext, name string) int {
+		GinkgoHelper()
+		var secrets []secret.Secret
+		Expect(svc.Secret.NewRetrieve().Entries(&secrets).Exec(ctx, node.DB)).
+			To(Succeed())
+		return len(lo.Filter(secrets, func(s secret.Secret, _ int) bool {
+			return s.Base().Name == name
+		}))
+	}
+
+	Describe("File", func() {
+		importLegacy := func(ctx SpecContext) (apiimex.ImportResponse, error) {
+			var env apiimex.ImportRequest
+			Expect(json.Unmarshal(fmt.Appendf(nil,
+				`{"type":%q,"name":%q,"routingKey":"rk-legacy","autoStart":false,`+
+					`"alerts":[]}`,
+				pagerduty.AlertTaskType,
+				name,
+			), &env)).To(Succeed())
+			fctx := AuthedCtx(ctx, u)
+			fctx.Set("params", `{"file_name":"Legacy.json"}`)
+			return importFile(fctx, env)
+		}
+		It("Should move the plain key of a legacy alert file into a new secret", func(
+			ctx SpecContext,
+		) {
+			grantTypes(ctx, resource.TypeTask, resource.TypeStatus, resource.TypeSecret)
+			MustSucceed(importLegacy(ctx))
+			Expect(tasksNamed(ctx, name)).To(Equal(1))
+			Expect(secretsNamed(ctx, name+" routing key")).To(Equal(1))
+		})
+		It("Should refuse a legacy alert file without create on secrets", func(
+			ctx SpecContext,
+		) {
+			grantTypes(ctx, resource.TypeTask, resource.TypeStatus)
+			Expect(importLegacy(ctx)).Error().
+				To(deniedOnType(access.ActionCreate, resource.TypeSecret))
+			Expect(tasksNamed(ctx, name)).To(BeZero())
+			Expect(secretsNamed(ctx, name+" routing key")).To(BeZero())
+		})
+	})
+
+	Describe("Project", func() {
+		importProject := func(
+			ctx SpecContext,
+			routingKey secret.Key,
+		) (apiproject.ImportResponse, error) {
+			fctx := AuthedCtx(ctx, u)
+			fctx.Set("params", `{"file_name":"Alerts.zip"}`)
+			return importBundle(fctx, zip.Files{
+				"manifest.json": fmt.Appendf(nil,
+					`{"version":1,"type":"project","name":%q}`, name,
+				),
+				"Alerts.json": fmt.Appendf(nil,
+					`{"version":2,"type":%q,"name":%q,"routing_key":%q,`+
+						`"auto_start":false,"alerts":[]}`,
+					pagerduty.AlertTaskType,
+					name,
+					routingKey,
+				),
+			})
+		}
+		It("Should import a task that names a secret the subject can retrieve", func(
+			ctx SpecContext,
+		) {
+			routingKey := createSecret(ctx)
+			grantTypes(
+				ctx,
+				resource.TypeProject,
+				resource.TypeTask,
+				resource.TypeStatus,
+			)
+			grant(
+				ctx,
+				access.ActionRetrieve,
+				u.ResourceID(),
+				secret.ResourceID(routingKey),
+			)
+			MustSucceed(importProject(ctx, routingKey))
+			Expect(tasksNamed(ctx, name)).To(Equal(1))
+		})
+		It("Should refuse a task that names a secret the subject cannot retrieve", func(
+			ctx SpecContext,
+		) {
+			routingKey := createSecret(ctx)
+			grantTypes(
+				ctx,
+				resource.TypeProject,
+				resource.TypeTask,
+				resource.TypeStatus,
+			)
+			Expect(importProject(ctx, routingKey)).Error().
+				To(denied(u, access.ActionRetrieve, secret.ResourceID(routingKey)))
+			Expect(tasksNamed(ctx, name)).To(BeZero())
+		})
+	})
 })

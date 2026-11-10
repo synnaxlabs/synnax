@@ -104,6 +104,13 @@ const singleQueryZ = z
 /** The resources that use a secret, keyed by the secret. */
 type Uses = Pick<Base, "key" | "uses">;
 
+/** The deletes of secrets that land while fetches of uses run. */
+interface Deletes {
+  inFlight: number;
+  seq: number;
+  at: Map<Key, number>;
+}
+
 const stripUses = ({ uses: _, ...secret }: Secret): Secret => secret;
 const toUses = ({ key, uses }: Secret): Uses => ({ key, uses });
 
@@ -128,6 +135,7 @@ export class Client extends query.Retriever<
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
   private readonly usesStore: query.Table<Key, Uses>;
+  private readonly deletes: Deletes;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -141,13 +149,16 @@ export class Client extends query.Retriever<
     const usesStore = cache.createTable<Key, Uses>({
       name: "secret.uses",
       fetch: async (keys) =>
-        this.usesOf(
-          await this.execRetrieve({ ...query.keysRequest(keys), includeUses: true }),
-        ),
+        (
+          await this.retrieveUses({ ...query.keysRequest(keys), includeUses: true })
+        ).map(toUses),
     });
+    const deletes: Deletes = { inFlight: 0, seq: 0, at: new Map() };
     // A secret created again under a deleted key reads its uses again.
     store.subscribe((event) => {
-      if (event.variant === "delete") usesStore.evict(event.key);
+      if (event.variant !== "delete") return;
+      usesStore.evict(event.key);
+      if (deletes.inFlight > 0) deletes.at.set(event.key, ++deletes.seq);
     });
     // The Core announces no change to uses. Refetches run outside the change stream and
     // one at a time, so an older reply cannot overwrite a newer one. A change that
@@ -220,6 +231,7 @@ export class Client extends query.Retriever<
     this.cfg = cfg;
     this.store = store;
     this.usesStore = usesStore;
+    this.deletes = deletes;
     this.dispatcher = dispatcher;
   }
 
@@ -307,17 +319,27 @@ export class Client extends query.Retriever<
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
-    const secrets = await this.execRetrieve(req);
-    if (req.includeUses !== true) return secrets;
-    this.usesStore.set(this.usesOf(secrets));
+    if (req.includeUses !== true) return await this.execRetrieve(req);
+    const secrets = await this.retrieveUses(req);
+    this.usesStore.set(secrets.map(toUses));
     return secrets.map(stripUses);
   }
 
-  // A fetch that a delete overtakes must not restore the uses of the deleted secret.
-  private usesOf(secrets: Secret[]): Uses[] {
-    return secrets
-      .filter(({ key }) => this.store.status(key) !== "tombstoned")
-      .map(toUses);
+  // A delete of a secret that a retrieve returns makes its uses stale, so the retrieve
+  // runs again.
+  private async retrieveUses(req: RetrieveRequest): Promise<Secret[]> {
+    const { deletes } = this;
+    const since = deletes.seq;
+    deletes.inFlight++;
+    let secrets: Secret[];
+    try {
+      secrets = await this.execRetrieve(req);
+    } finally {
+      deletes.inFlight--;
+    }
+    const overtaken = secrets.some(({ key }) => (deletes.at.get(key) ?? 0) > since);
+    if (deletes.inFlight === 0) deletes.at.clear();
+    return overtaken ? await this.retrieveUses(req) : secrets;
   }
 
   private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
