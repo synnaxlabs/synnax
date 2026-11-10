@@ -185,6 +185,68 @@ var _ = Describe("Service", func() {
 				"holding_register_bit",
 			),
 		)
+
+		DescribeTable("Should refuse a register value the Driver cannot read",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				channelType string,
+				dataType string,
+				msg string,
+			) {
+				_, err := store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":          channelType,
+						"key":           "chan-1",
+						"data_type":     dataType,
+						"string_length": 4,
+					}},
+				})
+				Expect(err).To(MatchError(
+					ContainSubstring("channels.0.data_type: " + msg),
+				))
+			},
+			Entry(
+				"0.60 holding register string read",
+				func() config.Store { return svc.Read },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string; read a string with a "+
+					"register string channel",
+			),
+			Entry(
+				"0.60 input register string read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"string",
+				"must be a numeric data type, not string",
+			),
+			Entry(
+				"holding register string write",
+				func() config.Store { return svc.Write },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string",
+			),
+			Entry(
+				"timestamp read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"timestamp",
+				"must be a numeric data type, not timestamp",
+			),
+		)
+
+		It("Should accept every numeric register value type", func(ctx SpecContext) {
+			for _, dataType := range []string{
+				"int8", "uint8", "int16", "uint16", "int32",
+				"uint32", "int64", "uint64", "float32", "float64",
+			} {
+				Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{register(map[string]any{"data_type": dataType})},
+				})).Error().ToNot(HaveOccurred())
+			}
+		})
 	})
 
 	Describe("Byte and word order", func() {
