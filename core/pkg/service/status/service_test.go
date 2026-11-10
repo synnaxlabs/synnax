@@ -298,7 +298,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			)
 
 			It(
-				"Should set the status with the lowest key on each set by a shared name",
+				"Should set the status with the lowest key each time a name repeats",
 				func(ctx SpecContext) {
 					name := "by_name_order"
 					for i := range 16 {
