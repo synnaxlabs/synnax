@@ -433,11 +433,20 @@ class TestPackages:
         repo.tag("py/v0.58.2")
         assert "takes no bump" in repo.resolve_error("py", bump="minor", core="0.59.0")
 
-    def test_should_keep_a_version_claimed_at_head_on_main(self, repo: Repo) -> None:
+    @pytest.mark.parametrize("core", ["", "0.58.3"])
+    def test_should_reject_a_train_with_no_core(self, repo: Repo, core: str) -> None:
         repo.tag("ts/v0.58.4")
-        repo.commit("more")
-        repo.tag("ts/v0.59.0")
-        out = repo.resolve("ts", core="0.59.0")
+        repo.branch("release/console-0.59")
+        error = repo.resolve_error("ts", ref="release/console-0.59", core=core)
+        assert "no Core is released on 0.59" in error
+
+    def test_should_finish_a_partial_publish_from_main(self, repo: Repo) -> None:
+        repo.tag("ts/v0.58.4")
+        repo.commit("0.59 work")
+        repo.tag("core/v0.59.0", "ts/v0.59.0")
+        assert "only with the Core" in repo.resolve_error("ts")
+        repo.branch("release/core-0.59")
+        out = repo.resolve("ts", ref="release/core-0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "ts/v0.58.4"
 

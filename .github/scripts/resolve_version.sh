@@ -23,8 +23,9 @@
 # ts and py share the Core's minor, since the clients connect only to a Core with the
 # same major.minor. From main, they release only with the Core: core is the stable
 # version the same run releases, and they take the next patch on its minor. From a
-# release branch, they take the next patch on X.Y. For a stable run, a package tag at
-# HEAD on that train resolves to itself, so a rerun finishes its publish.
+# release branch, they take the next patch on X.Y, and fail when no Core is released on
+# X.Y. For a stable run, a package tag at HEAD on that train resolves to itself, so a
+# release branch cut at a run's commit finishes that run's publish.
 #
 # Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
 # counts from the highest tag on that minor. The first Desktop release must be a major
@@ -91,6 +92,11 @@ case "$PRODUCT" in
                 exit 1
             fi
             TRAIN=${BASH_REMATCH[1]}
+        fi
+        if [[ $PRODUCT =~ ^(ts|py)$ ]] && [[ $RUN_CORE != "$TRAIN".[0-9]* ]] \
+            && [ -z "$(git tag --list "core/v$TRAIN.*" | highest core)" ]; then
+            echo "no Core is released on $TRAIN, and $PRODUCT shares the Core's minor" >&2
+            exit 1
         fi
         if [ -n "$TRAIN" ]; then
             BASE=$TRAIN

@@ -62,7 +62,8 @@ Packages share the Core's minor, since the TypeScript and Python clients connect
 a Core with the same major.minor. From `main`, packages release only in the same run as
 the Core, at the next patch on the minor the Core releases; a packages-only run from
 `main` fails and asks for `release/core-X.Y`. From a release branch, packages release
-the next patch on `X.Y`, with or without the Core.
+the next patch on `X.Y`, with or without the Core, but only once a Core is released on
+`X.Y`.
 
 ### 2.1 Release workflow
 
@@ -131,8 +132,9 @@ manifests. It stops when the version's tag names another commit, or when the reg
 has the version without a tag, so one version never holds packages from two commits.
 
 The Python job claims the version by pushing its tag at the run's commit, then
-publishes. A run at the same commit keeps the version, since the resolve stage keeps a
-tag that names `HEAD`, and finishes a partial publish, since PyPI skips what already
+publishes. To finish a partial publish, rerun the failed jobs, which keep the resolved
+versions, or dispatch the packages from `release/core-X.Y` cut at the run's commit: the
+resolve stage keeps a tag on the train that names `HEAD`, and PyPI skips what already
 went up.
 
 The npm trusted publishers allow staging only. The npm job stages every package in one
