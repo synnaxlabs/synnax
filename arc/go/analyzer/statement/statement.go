@@ -788,15 +788,7 @@ func analyzeForRange(
 		if !argType.IsInteger() {
 			continue
 		}
-		if !loopVarType.IsValid() {
-			loopVarType = argType
-		} else if !atypes.Compatible(loopVarType, argType) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				ctx.AST,
-				"type mismatch: cannot use %s and %s in range()",
-				loopVarType, argType,
-			))
-		}
+		loopVarType = widerInteger(loopVarType, argType)
 	}
 	if !loopVarType.IsValid() {
 		loopVarType = types.I64()
@@ -827,6 +819,35 @@ func analyzeForRange(
 	addHiddenLocal(ctx, clause, "__for_limit", loopVarType)
 	if len(argExprs) >= 3 {
 		addHiddenLocal(ctx, clause, "__for_step", loopVarType)
+	}
+}
+
+func widerInteger(a, b types.Type) types.Type {
+	if !a.IsValid() {
+		return b
+	}
+	signed := a.IsSignedInteger() || b.IsSignedInteger()
+	switch max(getTypeBits(a), getTypeBits(b)) {
+	case 8:
+		if signed {
+			return types.I8()
+		}
+		return types.U8()
+	case 16:
+		if signed {
+			return types.I16()
+		}
+		return types.U16()
+	case 32:
+		if signed {
+			return types.I32()
+		}
+		return types.U32()
+	default:
+		if signed {
+			return types.I64()
+		}
+		return types.U64()
 	}
 }
 

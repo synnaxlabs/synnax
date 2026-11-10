@@ -3249,35 +3249,31 @@ var _ = Describe("Statement", func() {
 					`for i := range(0, 10, u8(2)) { x := i }`,
 					types.U8(),
 				),
-			)
-
-			DescribeTable("mixed integer types",
-				func(bCtx SpecContext, code, expected string) {
-					block := MustSucceed(parser.ParseBlock(code))
-					ctx := context.NewRoot(bCtx, block, NewRoot(nil))
-					statement.AnalyzeBlock(ctx)
-					Expect(*ctx.Diagnostics).To(HaveLen(1))
-					Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(expected))
-				},
-				Entry("i32 start with i64 end", `{
-					lo i32 := 1
-					hi i64 := 5
-					for i := range(lo, hi) { x := i }
-				}`, "type mismatch: cannot use i32 and i64 in range()"),
-				Entry("i64 step after an i32 end", `{
-					n i32 := 3
-					s i64 := 1
-					for i := range(0, 2 * n, s) { x := i }
-				}`, "type mismatch: cannot use i32 and i64 in range()"),
-				Entry("unsigned start with signed end", `{
-					lo u16 := 1
-					hi i16 := 5
-					for i := range(lo, hi) { x := i }
-				}`, "type mismatch: cannot use u16 and i16 in range()"),
-				Entry("cast literal end wider than the start", `{
-					n i32 := 5
-					for i := range(n, i64(100)) { x := i }
-				}`, "type mismatch: cannot use i32 and i64 in range()"),
+				Entry(
+					"i32 start with i64 end widens to i64",
+					`for i := range(i32(1), i64(5)) { x := i }`,
+					types.I64(),
+				),
+				Entry(
+					"i64 step after an i32 end widens to i64",
+					`for i := range(0, 2 * i32(3), i64(1)) { x := i }`,
+					types.I64(),
+				),
+				Entry(
+					"unsigned start with signed end is signed",
+					`for i := range(u16(1), i16(5)) { x := i }`,
+					types.I16(),
+				),
+				Entry(
+					"narrow signed with wide unsigned is signed at the wide width",
+					`for i := range(u32(1), i8(5)) { x := i }`,
+					types.I32(),
+				),
+				Entry(
+					"unsigned arguments stay unsigned",
+					`for i := range(u8(1), u64(5)) { x := i }`,
+					types.U64(),
+				),
 			)
 		})
 

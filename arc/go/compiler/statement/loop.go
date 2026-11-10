@@ -129,7 +129,7 @@ func compileForRange(
 
 	hintCtx := loopCtx.WithHint(loopVarType)
 	if startExpr != nil {
-		if _, err = expression.Compile(hintCtx.Child(startExpr)); err != nil {
+		if err = compileAndCast(hintCtx, startExpr, loopVarType); err != nil {
 			return err
 		}
 	} else {
@@ -142,7 +142,7 @@ func compileForRange(
 		return err
 	}
 	limitIdx := limitSym.ID
-	if _, err = expression.Compile(hintCtx.Child(endExpr)); err != nil {
+	if err = compileAndCast(hintCtx, endExpr, loopVarType); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(limitIdx)
@@ -154,7 +154,7 @@ func compileForRange(
 			return err
 		}
 		stepIdx = stepSym.ID
-		if _, err = expression.Compile(hintCtx.Child(stepExpr)); err != nil {
+		if err = compileAndCast(hintCtx, stepExpr, loopVarType); err != nil {
 			return err
 		}
 		ctx.Writer.WriteLocalSet(stepIdx)
@@ -464,6 +464,18 @@ func compileContinueStatement(
 	label := uint32(ctx.BlockDepth() - entry.ContinueDepth)
 	ctx.Writer.WriteBr(label)
 	return nil
+}
+
+func compileAndCast(
+	ctx context.Context[parser.IForStatementContext],
+	expr parser.IExpressionContext,
+	target types.Type,
+) error {
+	compiled, err := expression.Compile(ctx.Child(expr))
+	if err != nil {
+		return err
+	}
+	return expression.EmitCast(ctx, compiled, target)
 }
 
 func emitZero(w *wasm.Writer, t types.Type) {

@@ -507,8 +507,8 @@ ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 ```
 
 `for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
-Typed `range()` arguments must share one integer type, which types the loop variable.
-Untyped literals adopt it. All literals give `i64`.
+The widest typed `range()` argument types the loop variable, signed if any argument is
+signed. Untyped literals adopt it. All literals give `i64`.
 
 ```arc
 if pressure > 100 {
