@@ -118,6 +118,43 @@ class TestDeprecatePositional:
             def f(a: int) -> int:
                 return a
 
+    def test_positional_name_after_keyword_only_name_reorders(self) -> None:
+        @deprecate_positional("parent", "name", "key")
+        def f(name: str, *, parent: str = "", key: int = 0) -> tuple[str, str, int]:
+            return name, parent, key
+
+        assert f("n") == ("n", "", 0)
+        with pytest.warns(DeprecationWarning, match="Passing parent, name to"):
+            assert f("p", "n") == ("n", "p", 0)  # type: ignore[call-arg]
+        with pytest.warns(DeprecationWarning, match="Passing parent, name, key to"):
+            assert f("p", "n", 1) == ("n", "p", 1)  # type: ignore[call-arg]
+
+    def test_positional_name_without_keyword_only_name_raises(self) -> None:
+        with pytest.raises(ValueError, match="keyword-only"):
+
+            @deprecate_positional("a", "b")
+            def f(a: int, *, b: int = 0) -> int:
+                return a + b
+
+    def test_names_pass_through_kwargs_without_none(self) -> None:
+        @deprecate_positional("a", "b")
+        def f(
+            *, a: int | None = None, **kwargs: int
+        ) -> tuple[int | None, dict[str, int]]:
+            return a, kwargs
+
+        with pytest.warns(DeprecationWarning, match="Passing a, b to"):
+            assert f(None, 2) == (None, {"b": 2})  # type: ignore[call-arg]
+        with pytest.warns(DeprecationWarning, match="Passing a, b to"):
+            assert f(1, None) == (1, {})  # type: ignore[call-arg]
+
+    def test_unknown_name_without_kwargs_raises(self) -> None:
+        with pytest.raises(ValueError, match="keyword-only"):
+
+            @deprecate_positional("b")
+            def f(a: int) -> int:
+                return a
+
     def test_coroutine_functions_stay_coroutine_functions(self) -> None:
         @deprecate_positional("b")
         async def f(a: int, *, b: int = 0) -> int:
