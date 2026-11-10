@@ -1096,4 +1096,30 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to switch the device");
     EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
 }
+
+/// @brief it should refuse to switch a device that is not on its network.
+TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
+    this->start(true);
+    this->props.serial++;
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(
+        status.description,
+        "The device is not on eth0. Check its power and cabling."
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should refuse to switch a slave whose settings hold no mode.
+TEST_F(EtherCATScanModeTest, SetStandaloneRefusesASlaveWithNoMode) {
+    this->start(true);
+    this->props.settings->erase("mode");
+    this->serve();
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to switch the device");
+    EXPECT_EQ(status.description, "Synnax does not know how to switch this device.");
+    EXPECT_TRUE(this->master->written().empty());
+}
 }
