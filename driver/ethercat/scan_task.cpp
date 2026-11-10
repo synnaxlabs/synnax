@@ -321,7 +321,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
             status.variant = synnax::status::VARIANT_WARNING;
         }
         if (!sts.settings_error.empty()) {
-            if (!status.description.empty()) status.description += " ";
+            if (!status.description.empty()) status.description += ' ';
             status
                 .description += "Failed to read the settings: " + sts.settings_error +
                                 ". The Driver tries again while no task uses the port.";
