@@ -258,6 +258,16 @@ var _ = Describe("Service", func() {
 			Expect(MustSucceed(rec.Data())["performance"]).To(Equal("auto"))
 		})
 
+		It("Should reject an empty performance", func(ctx SpecContext) {
+			key := createTask(ctx)
+			Expect(svc.Edit(
+				ctx,
+				db,
+				key,
+				[]patch.Cursor{set([]string{"performance"}, "")},
+			)).Error().To(MatchError(validate.ErrValidation))
+		})
+
 		It("Should report a change when a value lacks a member", func(
 			ctx SpecContext,
 		) {
@@ -590,6 +600,24 @@ var _ = Describe("Service", func() {
 				arcversions.Latest,
 				msgpack.EncodedJSON{"arc_key": uuid.New().String()},
 			))
+			Expect(out).To(HaveKeyWithValue("performance", "auto"))
+		})
+
+		It("Should keep an explicit zero at the latest version", func(
+			ctx SpecContext,
+		) {
+			out := MustSucceed(svc.Normalize(ctx, db,
+				arcversions.Latest,
+				msgpack.EncodedJSON{"arc_key": uuid.New().String(), "performance": ""},
+			))
+			Expect(out).To(HaveKeyWithValue("performance", ""))
+		})
+
+		It("Should fill the defaults of a legacy config", func(ctx SpecContext) {
+			out := MustSucceed(versioned.Normalize(ctx, db, 0, msgpack.EncodedJSON{
+				"module":      uuid.New().String(),
+				"performance": "",
+			}))
 			Expect(out).To(HaveKeyWithValue("performance", "auto"))
 		})
 

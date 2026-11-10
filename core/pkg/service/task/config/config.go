@@ -351,12 +351,16 @@ func (s *Service[E]) Edit(
 // redecode returns e as a decode of its JSON form gives it, which fills each default
 // group whose members are all zero.
 func redecode[E any](e E) (E, error) {
+	var out E
 	b, err := json.Marshal(e)
 	if err != nil {
-		return e, err
+		return out, errors.Wrapf(validate.ErrValidation, "encoding config: %s", err)
 	}
-	var out E
-	return out, json.Unmarshal(b, &out)
+	if err = json.Unmarshal(b, &out); err != nil {
+		var zero E
+		return zero, errors.Wrapf(validate.ErrValidation, "decoding config: %s", err)
+	}
+	return out, nil
 }
 
 // prepare gives e key, resolves, and validates it.
@@ -456,7 +460,8 @@ func (s *Service[E]) Decode(
 	data msgpack.EncodedJSON,
 ) (Decoded, error) {
 	ladder := s.cfg.Ladder
-	if version < ladder.First || version <= s.cfg.LegacyVersion {
+	rewritten := version < ladder.First || version <= s.cfg.LegacyVersion
+	if rewritten {
 		rewrite := legacy.Rewrite{}
 		if s.cfg.Legacy != nil {
 			rewrite = *s.cfg.Legacy
@@ -480,8 +485,9 @@ func (s *Service[E]) Decode(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
-	// A migration gives a field that its source version lacks the zero value.
-	if version < ladder.Latest {
+	// A legacy rewrite or a migration gives a field that its source lacks the zero
+	// value.
+	if rewritten || version < ladder.Latest {
 		e = defaults.Fill(e)
 	}
 	return Decoded{normalize: func(
