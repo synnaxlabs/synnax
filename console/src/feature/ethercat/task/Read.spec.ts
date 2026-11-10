@@ -22,13 +22,17 @@ import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createIdentifier,
   createPDOs,
   createRepeatedNamePDOs,
   createRepeatedNameSlave,
+  createSettingsDescription,
   createSlaveDevice,
   createUnresolvedReadChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { Device } from "@/platform/device";
 import {
@@ -97,6 +101,27 @@ const THREE_INPUTS: ethercat.PDOEntry[] = [
 ];
 
 const LINEAR = { type: "linear", slope: 2, offset: 0 } as const;
+
+const createStrainSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+    settings: createSettingsDescription(),
+  });
+
+/** Creates a slave that DewesoftX sets up and that sends no data only it reads. */
+const createSharedSlave = async () =>
+  await createSlaveDevice(client, testRack.key, {
+    identifier: createIdentifier(),
+    network: "eth0",
+    pdos: { inputs: [STRAIN_ENTRY], outputs: [] },
+    settings: createDewesoftXSettings(true),
+  });
+
+const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16", name: "" };
+const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16", name: "" };
+const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "" };
 
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
@@ -223,6 +248,67 @@ describe("Read", () => {
         scale: { type: "linear", slope: 1, offset: 0 },
       });
     });
+  });
+
+  it("should save the setting picked for an entry that the catalog describes", async () => {
+    const slave = await createStrainSlave();
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(screen.queryByText("Excitation voltage")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+    expect(await screen.findByText("Excitation voltage")).toBeTruthy();
+    expect(
+      await screen.findByText("A bridge needs an excitation voltage above 0 V."),
+    ).toBeTruthy();
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.startupParameters).toEqual([
+        {
+          device: slave.key,
+          parameters: [
+            { ...MEASUREMENT, value: 6 },
+            { ...RANGE, value: 0 },
+            { ...EXCITATION, value: 0 },
+          ],
+        },
+      ]);
+    });
+  });
+
+  it("should show no settings for a channel of a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+  });
+
+  it("should share the settings of an input between the entries that read it", async () => {
+    const slave = await createStrainSlave();
+    await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+      ],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /^Measurement/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Bridge/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /0x6040:01/ }));
+    expect(
+      await screen.findByRole("button", { name: /^Measurement.*Bridge/ }),
+    ).toBeTruthy();
   });
 
   it("should show why an unresolved channel cannot run", async () => {
@@ -505,6 +591,145 @@ describe("Read", () => {
       schemas: EtherCAT.Device.SLAVE_SCHEMAS,
     });
     expect(updated.properties.readIndex).toBe(0);
+  });
+
+  it("should save one value for each setting of each input that a channel reads", async () => {
+    const slave = await createStrainSlave();
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+        EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+      ],
+      startupParameters: [
+        {
+          device: slave.key,
+          parameters: [
+            { ...EXCITATION, value: 5 },
+            { ...MEASUREMENT, value: 6 },
+          ],
+        },
+      ],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.startupParameters).toEqual([
+      {
+        device: slave.key,
+        parameters: [
+          { ...MEASUREMENT, value: 6 },
+          { ...RANGE, value: 0 },
+          { ...EXCITATION, value: 5 },
+        ],
+      },
+    ]);
+  });
+
+  it("should keep the setup of the card for a task that sets no values", async () => {
+    const card: Record<number, number> = { 1: 6, 3: 2, 0x1c: 5 };
+    const description = createSettingsDescription();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: {
+        ...description,
+        channels: description.channels.map((ch) => ({
+          ...ch,
+          settings: ch.settings.map((f) => ({ ...f, value: card[f.subIndex] })),
+        })),
+      },
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.startupParameters).toEqual([
+      {
+        device: slave.key,
+        parameters: [
+          { ...MEASUREMENT, value: 6 },
+          { ...RANGE, value: 2 },
+          { ...EXCITATION, value: 5 },
+        ],
+      },
+    ]);
+  });
+
+  it("should save no settings for a slave that DewesoftX sets up", async () => {
+    const slave = await createSharedSlave();
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 0 }] },
+      ],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.startupParameters).toEqual([]);
+  });
+
+  it("should leave out the settings of an input that only a disabled channel reads", async () => {
+    const slave = await createStrainSlave();
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(other.key, createPDOs().inputs[0]),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          disabled: true,
+        },
+      ],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.startupParameters).toEqual([]);
+  });
+
+  it("should block configuration of a setting that breaks a rule of the catalog", async () => {
+    const slave = await createStrainSlave();
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `^Entry 0x6030:01 on slave ${slave.name}: A bridge needs an excitation ` +
+          "voltage above 0 V\\.$",
+      ),
+    );
   });
 
   it("should configure a task whose unresolved channel is disabled", async () => {
@@ -1086,6 +1311,27 @@ describe("Read", () => {
     const { container, statuses } = await render("int16");
     await clickDeploy(container);
     await awaitStatus(statuses, /holds uint16 data, not int16/);
+  });
+
+  it("should reject a channel of an input that only DewesoftX reads", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: createDewesoftXSettings(true),
+    });
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(
+        `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+          "reads\\. Open the device settings of the slave to change its setup\\.$",
+      ),
+    );
   });
 
   describe("a slave with the identifier of a deleted slave", () => {
