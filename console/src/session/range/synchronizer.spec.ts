@@ -50,7 +50,7 @@ describe("Range.SYNCHRONIZERS", () => {
     });
   });
 
-  it("should show a session range's window on a line plot that stored its key", async () => {
+  it("should show a session range's window on a plot that stored its key", async () => {
     const local: Session.Range.StaticState = {
       variant: "static",
       key: uuid.create(),
