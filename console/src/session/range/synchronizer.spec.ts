@@ -182,16 +182,20 @@ describe("Range.SYNCHRONIZERS", () => {
         .spyOn(client.lineplots, "send")
         .mockRejectedValue(new Error("send failed"));
       try {
-        const { result, rewritten } = await mountWithLocal();
+        const local = createLocal();
+        await createPlot([{ variant: "key", key: local.key }]);
+        await createPlot([{ variant: "key", key: local.key }]);
+        const { result, rewritten } = await mount(local);
         await waitFor(() => expect(result.current.verified).toBe(true));
-        expect(result.current.statuses).toContainEqual(
+        await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
+        expect(result.current.statuses).toEqual([
           expect.objectContaining({
             variant: "error",
             name: "Line plot",
             message: "Failed to update static ranges",
             description: "send failed",
           }),
-        );
+        ]);
         expect(rewritten()).toBe(false);
       } finally {
         send.mockRestore();
@@ -199,10 +203,11 @@ describe("Range.SYNCHRONIZERS", () => {
       }
     });
 
-    it("should skip line plots the user cannot update", async () => {
+    it("should skip line plots the user cannot update and try again later", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       const { result, plot, local, rewritten } = await mountWithLocal(viewer);
-      await waitFor(() => expect(rewritten()).toBe(true));
+      await waitFor(() => expect(result.current.verified).toBe(true));
+      expect(rewritten()).toBe(false);
       expect(result.current.statuses).toEqual([]);
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
       expect(ranges).toEqual([{ variant: "key", key: local.key }]);

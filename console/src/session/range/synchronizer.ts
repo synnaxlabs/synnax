@@ -41,8 +41,9 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
 const REWRITE_FAILED = { name: "Line plot", message: "Failed to update static ranges" };
 
 // Desktop 1.0 stored a static range's key on a line plot. The Core cannot resolve the
-// key, so the plot shows the range's window instead. A plot the user cannot update, or
-// one deleted meanwhile, counts as done; any other failure retries on the next pass.
+// key, so the plot shows the range's window instead. A plot deleted meanwhile counts as
+// done. A plot the user cannot update, or a failed send, leaves the rewrite to a later
+// pass, as only this session holds its static ranges.
 const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
   const handleError = Status.useErrorHandler();
   return {
@@ -60,8 +61,10 @@ const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
       }
       const grantee = await client.users.current.retrieve();
       const plots = await client.lineplots.retrieve({});
-      const failed = await Promise.all(
-        plots.map(async ({ key, ranges }): Promise<boolean> => {
+      let skipped = false;
+      const errors: unknown[] = [];
+      await Promise.all(
+        plots.map(async ({ key, ranges }) => {
           const actions = ranges.flatMap((range) => {
             const window = range.variant === "key" ? windows.get(range.key) : undefined;
             if (window == null) return [];
@@ -70,23 +73,25 @@ const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
               lineplot.addRange({ range: window }),
             ];
           });
-          if (actions.length === 0) return false;
+          if (actions.length === 0) return;
           const updatable = await client.access.granted.retrieve(grantee, {
             objects: lineplot.resourceID(key),
             action: "update",
           });
-          if (!updatable) return false;
+          if (!updatable) {
+            skipped = true;
+            return;
+          }
           try {
             await client.lineplots.send(key, actions);
           } catch (e) {
-            if (NotFoundError.matches(e)) return false;
-            if (!ended()) handleError(e, REWRITE_FAILED);
-            return true;
+            if (!NotFoundError.matches(e)) errors.push(e);
           }
-          return false;
         }),
       );
-      if (!failed.some(Boolean) && !ended()) store.dispatch(markStaticKeysRewritten());
+      if (ended()) return;
+      if (errors.length > 0) handleError(errors[0], REWRITE_FAILED);
+      else if (!skipped) store.dispatch(markStaticKeysRewritten());
     },
   };
 };
