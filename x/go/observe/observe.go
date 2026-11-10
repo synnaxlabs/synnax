@@ -31,10 +31,10 @@ type Observable[T any] interface {
 // Observer is an interface that can notify subscribers of changes to an observable.
 type Observer[T any] interface {
 	Observable[T]
-	// Notify notifies all subscribers of the Value.
+	// Notify notifies all subscribers of the Value. It calls the handlers while it
+	// holds a lock, so a handler must not call Notify, OnChange, or a Disconnect on the
+	// same Observer: the call can deadlock.
 	Notify(context.Context, T)
-	// GoNotify starts a goroutine to notify all subscribers of the Value.
-	GoNotify(context.Context, T)
 }
 
 type base[T any] struct {
@@ -42,7 +42,8 @@ type base[T any] struct {
 	mu       sync.RWMutex
 }
 
-// New creates a new observer.
+// New creates a new observer. A Disconnect from it blocks until every running Notify
+// returns, so the handler never runs after Disconnect returns.
 func New[T any]() Observer[T] {
 	return &base[T]{handlers: set.New[*func(context.Context, T)]()}
 }
@@ -65,12 +66,6 @@ func (b *base[T]) Notify(ctx context.Context, v T) {
 	for h := range b.handlers {
 		(*h)(ctx, v)
 	}
-}
-
-func (b *base[T]) GoNotify(ctx context.Context, v T) {
-	// context.WithoutCancel is used because the goroutine outlives the caller - we
-	// sever the cancellation chain while preserving values such as trace spans.
-	go b.Notify(context.WithoutCancel(ctx), v)
 }
 
 // Noop is an observable that never calls its OnChange function and does
@@ -100,4 +95,24 @@ func (t Translator[I, O]) OnChange(handler func(context.Context, O)) Disconnect 
 		}
 		handler(ctx, result)
 	})
+}
+
+// Merge returns an Observable that notifies a handler on a change to any of
+// observables. Disconnecting the merged handler disconnects it from every one.
+func Merge[T any](observables ...Observable[T]) Observable[T] {
+	return merged[T](observables)
+}
+
+type merged[T any] []Observable[T]
+
+func (m merged[T]) OnChange(handler func(context.Context, T)) Disconnect {
+	disconnects := make([]Disconnect, len(m))
+	for i, o := range m {
+		disconnects[i] = o.OnChange(handler)
+	}
+	return func() {
+		for _, disconnect := range disconnects {
+			disconnect()
+		}
+	}
 }

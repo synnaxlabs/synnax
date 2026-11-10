@@ -257,7 +257,11 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
     ) -> Sequence[sy.ni.AOChannel]: ...
 
     def _channel_keys(self, task: sy.ni.AnalogWriteTask) -> list[int]:
-        return [ch.cmd_channel for ch in task.config.channels]
+        return [
+            ch.cmd_channel
+            for ch in task.config.channels
+            if not isinstance(ch, sy.ni.AOFuncGenChannel)
+        ]
 
 
 class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
