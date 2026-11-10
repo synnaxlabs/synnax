@@ -1239,6 +1239,18 @@ describe("Read", () => {
       );
     });
 
+    it("should not end the name of a scaled channel in its raw type", async () => {
+      const { statusChannel, deploy } = await createStatusSlave();
+      await deploy(["uint16"]);
+      const name = uniqueName("ecat_pressure");
+      const deployed = await deployRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [{ ...statusChannel("int16", name), scale: LINEAR }],
+      });
+      const key = deployed.config.channels[0].channel;
+      expect((await client.channels.retrieve(key)).name).toBe(name);
+    });
+
     it("should not add its type to a name that ends in it", async () => {
       const { deploy } = await createStatusSlave();
       const name = uniqueName("ecat_pressure");

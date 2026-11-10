@@ -205,9 +205,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   );
   const plans = slaves.map((slave) => {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
-    const missing = channels.filter(
-      (ch) => !dataTypes.has(readChannelOf(slave, ch, dataTypes)),
-    );
+    const missing = channels.filter((ch) => readChannelOf(slave, ch, dataTypes) === 0);
     return { slave, channels, missing };
   });
   // The name check runs before any create, so its failure leaves nothing behind.

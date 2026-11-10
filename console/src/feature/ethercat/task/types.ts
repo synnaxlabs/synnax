@@ -141,16 +141,13 @@ const isReadBinding = (
 ): ((b: ReadBinding) => boolean) => {
   const at = isAt(ch);
   const scaled = isScaled(ch);
-  return (b) =>
-    at(b) &&
-    b.scaled === scaled &&
-    (scaled || dataTypes.get(b.channel) === ch.dataType);
+  const dataType = readDataType(ch);
+  return (b) => at(b) && b.scaled === scaled && dataTypes.get(b.channel) === dataType;
 };
 
 /**
- * @returns the Synnax channel that the slave maps for the read channel, or 0. A scaled
- * channel writes float64 samples, so it maps to its own Synnax channel. An unscaled
- * channel maps to the channel of its entry that holds its data type.
+ * @returns the channel of the entry that holds the data type of the read channel, or 0.
+ * A scaled channel writes float64 samples, so it maps to its own Synnax channel.
  */
 export const readChannelOf = (
   slave: SlaveDevice,
