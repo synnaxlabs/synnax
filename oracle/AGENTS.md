@@ -77,8 +77,8 @@ or generator logic and schemas disagree.
   `@go marshal omit` field, a doc, or a validation rule. To mint,
   `oracle migrate <resource>` scaffolds v(N+1).oracle (alias lines to definers,
   omit-transient declarations redeclared, imports carried), then convert the changed
-  types to full declarations and run `oracle sync`. Shipped-ness is developer knowledge;
-  Oracle never tracks it.
+  types to full declarations and run `oracle sync`. A version is shipped when the latest
+  stable Core tag (`core/vX.Y.Z`) holds its file.
 - `oracle check`'s blocking `versions` gate enforces: live-file consistency (on-disk
   live file == merged projection), import placement, stored-pin currency, and delta
   minimality (a redeclaration structurally identical to its resolved predecessor must be
@@ -86,7 +86,9 @@ or generator logic and schemas disagree.
   version aliases from a frozen definer has the same `@validate`, `@default`,
   `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
   dependency type such a definer reaches through its pins, at its current version, has
-  the same `@validate` and `@default` in its live file and its version file).
+  the same `@validate` and `@default` in its live file and its version file), and
+  shipped versions (every version file the latest stable Core tag holds keeps the stored
+  shape it had there; docs, rules, and omit-transient types may change).
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a

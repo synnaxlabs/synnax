@@ -31,6 +31,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
+      # The versions gate compares version files with the latest stable release.
+      - name: Fetch the Core release tags
+        run: git fetch --no-tags --depth=1 origin 'refs/tags/core/v*:refs/tags/core/v*'
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:

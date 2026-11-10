@@ -152,10 +152,21 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		cache = loadCheckCache(repoRoot)
 	}
 
+	var shipped *check.Release
+	if wantedGates.has("versions") && len(result.Chains) > 0 {
+		release, err := extractRelease(ctx, repoRoot)
+		if err != nil {
+			return err
+		}
+		defer func() { _ = os.RemoveAll(release.Root) }()
+		shipped = &release
+	}
+
 	checkers := buildCheckers(formatters, cache, warningsAsErrors)
 	report := check.Run(ctx, result, check.Env{
 		RepoRoot:     repoRoot,
 		IncludeDiffs: includeDiffs,
+		Shipped:      shipped,
 	}, checkers, gates)
 
 	if err := check.Render(
