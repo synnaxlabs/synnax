@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type query, resource, type Synnax as Client } from "@synnaxlabs/client";
-import { deep, type destructor, type record } from "@synnaxlabs/x";
+import { type destructor, type record } from "@synnaxlabs/x";
 
 import { type Resource } from "@/platform/tree/types";
 
@@ -72,15 +72,16 @@ export const createSource = <Q, D extends record.Keyed<record.Key>>(
   toResource: (record: D) => Resource,
 ): Source => {
   const list = retriever.watch({ ...q, order: NAME_ORDER, limit: PAGE_SIZE });
-  // A record also changes on fields that its resource lacks, such as a status, so a row
-  // reads the same resource until the resource changes.
-  const resources = new Map<string, Resource>();
+  // A record keeps its identity until it changes, so a row reads the same resource
+  // until then.
+  const resources = new WeakMap<D, Resource>();
   const convert = (record: D): Resource => {
-    const next = toResource(record);
-    const kept = resources.get(next.key);
-    if (kept != null && deep.equal(kept, next)) return kept;
-    resources.set(next.key, next);
-    return next;
+    let res = resources.get(record);
+    if (res == null) {
+      res = toResource(record);
+      resources.set(record, res);
+    }
+    return res;
   };
   let held: { from: query.Window<D, unknown>; window: Window } | undefined;
   const toWindow = (from: query.Window<D, unknown>): Window => {
