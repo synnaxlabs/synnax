@@ -352,14 +352,16 @@ public:
     /// @brief opens a reader that collects a sample of the entries every 1 /
     /// sample_rate seconds and returns samples_per_read samples per read. Starts the
     /// bus when it is not running. Writes settings to the slaves before the first
-    /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. The
-    /// slaves keep them when the reader closes.
+    /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. On a
+    /// running bus, the IgH master writes nothing and takes only the values that the
+    /// slaves hold. The slaves keep the settings when the reader closes.
     /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
     /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
     /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
     /// process image. errors::SETTING_CONFLICT when an open reader sets an object to
-    /// another value. errors::STARTUP_PARAMETER_ERROR when a slave rejects a setting on
-    /// the running bus, or the error that kept the bus from starting.
+    /// another value, or when the IgH master runs the bus and a slave holds another
+    /// value. errors::STARTUP_PARAMETER_ERROR when a slave rejects or fails to read a
+    /// setting on the running bus, or the error that kept the bus from starting.
     [[nodiscard]] std::pair<std::unique_ptr<Reader>, x::errors::Error> open_reader(
         const std::vector<pdo::Entry> &entries,
         x::telem::Rate sample_rate,
