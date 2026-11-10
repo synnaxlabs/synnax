@@ -1066,13 +1066,18 @@ describe("Read", () => {
         network: "eth0",
         pdos: createPDOs(),
       });
-      const statusChannel = (dataType: string) =>
-        EtherCAT.Task.createEntryReadChannel(slave.key, { ...STATUS_ENTRY, dataType });
+      const statusChannel = (dataType: string, name = "") => ({
+        ...EtherCAT.Task.createEntryReadChannel(slave.key, {
+          ...STATUS_ENTRY,
+          dataType,
+        }),
+        name,
+      });
       const tasks: task.Key[] = [];
-      const deploy = async (dataTypes: string[]) => {
+      const deploy = async (dataTypes: string[], name = "") => {
         const rendered = await renderRead({
           ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-          channels: dataTypes.map(statusChannel),
+          channels: dataTypes.map((dataType) => statusChannel(dataType, name)),
         });
         const deployed = await deployAndAwaitTask(
           client,
@@ -1112,6 +1117,18 @@ describe("Read", () => {
       await client.tasks.delete(tasks);
       await client.channels.delete(first);
       expect(await deploy(["int16"])).toEqual([typed]);
+    });
+
+    it("should end the name the user gave it in its type", async () => {
+      const { deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      const [first] = await deploy(["uint16"], name);
+      const [typed] = await deploy(["int16"], name);
+      expect(typed).not.toBe(first);
+      const created = await client.channels.retrieve(typed);
+      expect(created.name).toBe(`${name}_int16`);
+      expect(created.dataType.toString()).toBe("int16");
+      expect(await deploy(["uint16"], name)).toEqual([first]);
     });
 
     it("should show the name of its own channel before deploying", async () => {
