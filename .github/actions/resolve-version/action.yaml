@@ -20,13 +20,9 @@ inputs:
     default: "false"
   ref:
     description:
-      The branch the release runs from (Console, Core, and Driver). A
+      The branch the release runs from (all products but Desktop). A
       release/<product>-X.Y branch resolves the next patch on X.Y; any other branch
       resolves the next minor.
-    required: false
-    default: ""
-  train:
-    description: The minor (X.Y) whose next patch a package (ts or py) releases
     required: false
     default: ""
   bump:
@@ -63,8 +59,7 @@ runs:
         PRODUCT: ${{ inputs.product }}
         PRERELEASE: ${{ inputs.prerelease }}
         REF: ${{ inputs.ref }}
-        TRAIN: ${{ inputs.train }}
         BUMP: ${{ inputs.bump }}
       run:
-        .github/scripts/resolve_version.sh "$PRODUCT" "$PRERELEASE" "$REF" "$TRAIN"
-        "$BUMP" >> "$GITHUB_OUTPUT"
+        .github/scripts/resolve_version.sh "$PRODUCT" "$PRERELEASE" "$REF" "$BUMP" >>
+        "$GITHUB_OUTPUT"

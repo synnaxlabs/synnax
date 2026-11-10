@@ -11,15 +11,15 @@
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
 # outputs (key=value lines).
-# Usage: resolve_version.sh <product> <prerelease> [ref] [train] [bump]
+# Usage: resolve_version.sh <product> <prerelease> [ref] [bump]
 #
-# Console, Core, and Driver: a release/<product>-X.Y ref resolves the next patch on X.Y,
-# or X.Y.0 when the train has no tag. Any other ref resolves the minor after the
-# product's newest stable tag. Packages (ts, py): the next patch on the train, or X.Y.0.
-# The train's newest tag at HEAD resolves to itself, so a rerun finishes its publish.
-# Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
-# counts from the highest tag on that minor. The first Desktop release must be a major
-# bump from 0.0.0, so it outranks the 1.0.0 candidates.
+# Console, Core, Driver, ts, and py: a release/<product>-X.Y ref resolves the next patch
+# on X.Y, or X.Y.0 when the train has no tag. Any other ref resolves the minor after the
+# product's newest stable tag. For a stable ts or py run, a tag at HEAD that the ref
+# builds on resolves to itself, so a rerun finishes its publish. Desktop: the bump applies to the
+# highest Desktop tag reachable from HEAD, and a patch counts from the highest tag on
+# that minor. The first Desktop release must be a major bump from 0.0.0, so it outranks
+# the 1.0.0 candidates.
 #
 # A candidate counts up from the candidates already tagged for the version. The train
 # rule caps every product but Desktop at one minor ahead of the Core's newest stable.
@@ -28,12 +28,11 @@
 
 set -euo pipefail
 
-USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [train] [bump]"
+USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [bump]"
 PRODUCT=${1:?$USAGE}
 PRERELEASE=${2:?$USAGE}
 REF=${3:-}
-TRAIN=${4:-}
-BUMP=${5:-}
+BUMP=${4:-}
 
 # Prints the highest X.Y.Z among stable tags of a product on stdin.
 highest() {
@@ -53,16 +52,19 @@ next_patch() {
 }
 
 case "$PRODUCT" in
-    console | core | driver)
-        if [ -n "$TRAIN$BUMP" ]; then
-            echo "$PRODUCT takes no train or bump; the ref sets its version" >&2
+    console | core | driver | ts | py)
+        if [ -n "$BUMP" ]; then
+            echo "$PRODUCT takes no bump; the ref sets its version" >&2
             exit 1
         fi
         if [[ $REF =~ ^release/(console|core|driver)-([0-9]+\.[0-9]+)$ ]]; then
             BASE=$REF
-            NEXT=$(next_patch "${BASH_REMATCH[2]}")
+            TRAIN=${BASH_REMATCH[2]}
+            CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
+            NEXT=$(next_patch "$TRAIN")
         else
-            BASE=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
+            CURRENT=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
+            BASE=$CURRENT
             if [ -z "$BASE" ]; then
                 echo "no stable $PRODUCT tag exists" >&2
                 exit 1
@@ -70,22 +72,11 @@ case "$PRODUCT" in
             IFS=. read -r MAJOR MINOR _ <<< "$BASE"
             NEXT="$MAJOR.$((MINOR + 1)).0"
         fi
-        ;;
-    ts | py)
-        if ! [[ $TRAIN =~ ^[0-9]+\.[0-9]+$ ]]; then
-            echo "malformed train: '$TRAIN' (expected X.Y)" >&2
-            exit 1
-        fi
-        if [ -n "$BUMP" ]; then
-            echo "$PRODUCT takes no bump; it releases the next patch on its train" >&2
-            exit 1
-        fi
-        BASE="train $TRAIN"
-        NEXT=$(next_patch "$TRAIN")
-        CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
-        # A tag at HEAD claims its version for this commit, so a rerun finishes it.
-        if [ -n "$CURRENT" ] && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
-            = "$(git rev-parse HEAD)" ]; then
+        # A package tag at HEAD keeps its version, so a rerun finishes the publish.
+        if [[ $PRODUCT =~ ^(ts|py)$ ]] && [ "$PRERELEASE" != true ] \
+            && [ -n "$CURRENT" ] \
+            && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
+                = "$(git rev-parse HEAD)" ]; then
             NEXT=$CURRENT
         fi
         ;;
