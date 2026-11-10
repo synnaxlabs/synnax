@@ -162,6 +162,24 @@ TEST(ChannelModuleTest, HandlesOnAndWrite) {
     EXPECT_FALSE(module.handles("constant"));
 }
 
+/// @brief gives the index of key a clock offset of arrival minus stamp: ingests sample
+/// at alignment 0, stamped stamp, then flushes at arrival.
+void learn_offset(
+    runtime::state::State &s,
+    const types::ChannelKey key,
+    const types::ChannelKey index,
+    ::x::telem::Series &&sample,
+    const ::x::telem::TimeStamp stamp,
+    const ::x::telem::TimeStamp arrival
+) {
+    ::x::telem::Frame frame(2);
+    frame.emplace(key, std::move(sample));
+    frame.emplace(index, ::x::telem::Series(std::vector{stamp}));
+    s.ingest(frame);
+    ::x::telem::Frame out;
+    s.flush_into(out, arrival);
+}
+
 TEST(OnTest, NextReadsChannelData) {
     types::Param output_param;
     output_param.name = ir::default_output_param;
@@ -244,6 +262,14 @@ TEST(OnTest, TrimmedBatchKeepsItsTimeRange) {
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
+    learn_offset(
+        s,
+        10,
+        11,
+        ::x::telem::Series(0.5f),
+        ::x::telem::TimeStamp(100),
+        ::x::telem::TimeStamp(100)
+    );
     auto ctx = make_context();
     ctx.cycle.now = ::x::telem::TimeStamp(101);
     node->reset(ctx);
@@ -252,8 +278,10 @@ TEST(OnTest, TrimmedBatchKeepsItsTimeRange) {
     ::x::telem::Frame frame(2);
     auto data = ::x::telem::Series(std::vector<float>{1.5f, 2.5f, 3.5f});
     data.time_range = range;
+    data.alignment = ::x::telem::Alignment(1);
     auto time = ::x::telem::Series(std::vector<int64_t>{100, 101, 102});
     time.time_range = range;
+    time.alignment = ::x::telem::Alignment(1);
     frame.emplace(10, std::move(data));
     frame.emplace(11, std::move(time));
     s.ingest(frame);
@@ -295,6 +323,14 @@ TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
+    learn_offset(
+        s,
+        10,
+        11,
+        ::x::telem::Series(0.5f),
+        ::x::telem::TimeStamp(100),
+        ::x::telem::TimeStamp(100)
+    );
     bool changed = false;
     auto ctx = make_context(&changed);
     ctx.cycle.now = ::x::telem::TimeStamp(200);
@@ -302,18 +338,18 @@ TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
 
     ::x::telem::Frame frame1(2);
     auto d1 = ::x::telem::Series(std::vector<float>{1.5f, 2.5f});
-    d1.alignment = ::x::telem::Alignment(0);
+    d1.alignment = ::x::telem::Alignment(1);
     auto t1 = ::x::telem::Series(std::vector<int64_t>{100, 101});
-    t1.alignment = ::x::telem::Alignment(0);
+    t1.alignment = ::x::telem::Alignment(1);
     frame1.emplace(10, std::move(d1));
     frame1.emplace(11, std::move(t1));
     s.ingest(frame1);
 
     ::x::telem::Frame frame2(2);
     auto d2 = ::x::telem::Series(3.5f);
-    d2.alignment = ::x::telem::Alignment(2);
+    d2.alignment = ::x::telem::Alignment(3);
     auto t2 = ::x::telem::Series(static_cast<int64_t>(201));
-    t2.alignment = ::x::telem::Alignment(2);
+    t2.alignment = ::x::telem::Alignment(3);
     frame2.emplace(10, std::move(d2));
     frame2.emplace(11, std::move(t2));
     s.ingest(frame2);
@@ -324,7 +360,7 @@ TEST(OnTest, SkipsABatchTakenEntirelyBeforeEntry) {
     const auto &output = checker.output(0);
     ASSERT_EQ(output->size(), 1);
     EXPECT_FLOAT_EQ(output->at<float>(0), 3.5f);
-    EXPECT_EQ(output->alignment, ::x::telem::Alignment(2));
+    EXPECT_EQ(output->alignment, ::x::telem::Alignment(3));
 }
 
 TEST(OnTest, TrimsAStringBatchAtEntry) {
@@ -355,13 +391,25 @@ TEST(OnTest, TrimsAStringBatchAtEntry) {
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
     );
 
+    learn_offset(
+        s,
+        12,
+        13,
+        ::x::telem::Series(std::vector<std::string>{"h"}),
+        ::x::telem::TimeStamp(100),
+        ::x::telem::TimeStamp(100)
+    );
     auto ctx = make_context();
     ctx.cycle.now = ::x::telem::TimeStamp(101);
     node->reset(ctx);
 
+    auto data = ::x::telem::Series(std::vector<std::string>{"a", "b", "c"});
+    data.alignment = ::x::telem::Alignment(1);
+    auto time = ::x::telem::Series(std::vector<int64_t>{100, 101, 102});
+    time.alignment = ::x::telem::Alignment(1);
     ::x::telem::Frame frame(2);
-    frame.emplace(12, ::x::telem::Series(std::vector<std::string>{"a", "b", "c"}));
-    frame.emplace(13, ::x::telem::Series(std::vector<int64_t>{100, 101, 102}));
+    frame.emplace(12, std::move(data));
+    frame.emplace(13, std::move(time));
     s.ingest(frame);
 
     ASSERT_NIL(node->next(ctx));
@@ -371,6 +419,154 @@ TEST(OnTest, TrimsAStringBatchAtEntry) {
     EXPECT_EQ(output->at<std::string>(0), "b");
     EXPECT_EQ(output->at<std::string>(1), "c");
     EXPECT_EQ(checker.output_time(0)->at<int64_t>(0), 101);
+}
+
+/// @brief an `on` source for channel 10, indexed by 11, entered and fed in seconds.
+class OnEntryTest : public ::testing::Test {
+protected:
+    ir::IR ir;
+    std::unique_ptr<runtime::state::State> s;
+    std::unique_ptr<runtime::node::Node> node;
+    bool changed = false;
+    uint64_t alignment = 1;
+
+    static ::x::telem::TimeStamp at(const double seconds) {
+        return ::x::telem::TimeStamp(
+            static_cast<int64_t>(seconds * ::x::telem::SECOND.nanoseconds())
+        );
+    }
+
+    void SetUp() override {
+        types::Param output_param;
+        output_param.name = ir::default_output_param;
+        output_param.type.kind = types::Kind::F32;
+        ir::Node ir_node;
+        ir_node.key = "source";
+        ir_node.type = "on";
+        ir_node.outputs.push_back(output_param);
+        types::Param channel_config;
+        channel_config.name = "channel";
+        channel_config.type.kind = types::Kind::U32;
+        channel_config.value = static_cast<uint32_t>(10);
+        ir_node.inputs.push_back(channel_config);
+        this->ir.nodes.push_back(ir_node);
+        this->s = std::make_unique<runtime::state::State>(
+            runtime::state::Config{
+                .ir = this->ir,
+                .channels = {{10, ::x::telem::FLOAT32_T, 11}}
+            },
+            runtime::errors::noop_handler
+        );
+        channels::Module module(nullptr, nullptr);
+        auto state_node = ASSERT_NIL_P(this->s->node("source"));
+        this->node = ASSERT_NIL_P(module.create(
+            runtime::node::Config(this->ir, ir_node, std::move(state_node))
+        ));
+    }
+
+    void learn(const double stamp, const double arrival) {
+        learn_offset(
+            *this->s,
+            10,
+            11,
+            ::x::telem::Series(0.5f),
+            at(stamp),
+            at(arrival)
+        );
+    }
+
+    void enter(const double seconds) {
+        auto ctx = make_context();
+        ctx.cycle.now = at(seconds);
+        this->node->reset(ctx);
+    }
+
+    /// @brief delivers one sample per stamp, valued at its stamp in seconds, and
+    /// returns what the source emits.
+    std::vector<float> deliver(const std::vector<double> &seconds) {
+        std::vector<::x::telem::TimeStamp> stamps;
+        std::vector<float> values;
+        for (const auto sec: seconds) {
+            stamps.push_back(at(sec));
+            values.push_back(static_cast<float>(sec));
+        }
+        auto data = ::x::telem::Series(values, ::x::telem::FLOAT32_T);
+        auto time = ::x::telem::Series(stamps);
+        data.alignment = time.alignment = ::x::telem::Alignment(this->alignment);
+        this->alignment += seconds.size();
+        ::x::telem::Frame frame(2);
+        frame.emplace(10, std::move(data));
+        frame.emplace(11, std::move(time));
+        this->s->ingest(frame);
+        this->changed = false;
+        auto ctx = make_context(&this->changed);
+        EXPECT_NIL(this->node->next(ctx));
+        if (!this->changed) return {};
+        auto checker = ASSERT_NIL_P(this->s->node("source"));
+        const auto &out = checker.output(0);
+        std::vector<float> emitted;
+        for (size_t i = 0; i < out->size(); i++)
+            emitted.push_back(out->at<float>(static_cast<int>(i)));
+        return emitted;
+    }
+};
+
+/// @brief it should keep samples taken after entry by a sender 3 s behind.
+TEST_F(OnEntryTest, KeepsSamplesTakenAfterEntryBySenderBehind) {
+    this->learn(97, 100);
+    this->enter(101);
+    EXPECT_EQ(this->deliver({98.5, 99}), (std::vector<float>{98.5f, 99.0f}));
+}
+
+/// @brief it should drop samples taken before entry by a sender 3 s ahead.
+TEST_F(OnEntryTest, DropsSamplesTakenBeforeEntryBySenderAhead) {
+    this->learn(103, 100);
+    this->enter(101);
+    EXPECT_EQ(this->deliver({103.5, 104.5}), (std::vector<float>{104.5f}));
+}
+
+/// @brief it should drop a stale batch on a channel with history.
+TEST_F(OnEntryTest, DropsStaleBatchOnChannelWithHistory) {
+    this->learn(100, 100);
+    this->enter(101);
+    EXPECT_TRUE(this->deliver({100.2, 100.5}).empty());
+}
+
+/// @brief it should keep the first batch on a channel with no history.
+TEST_F(OnEntryTest, KeepsFirstBatchOnChannelWithNoHistory) {
+    this->enter(101);
+    EXPECT_EQ(this->deliver({90, 91}), (std::vector<float>{90.0f, 91.0f}));
+}
+
+/// @brief it should filter by arrival only once the offset is two windows old.
+TEST_F(OnEntryTest, FiltersByArrivalOnceOffsetIsTwoWindowsOld) {
+    this->learn(100, 100);
+    this->enter(111);
+    EXPECT_EQ(this->deliver({105}), (std::vector<float>{105.0f}));
+}
+
+/// @brief it should keep the previous window's offset in the next window.
+TEST_F(OnEntryTest, KeepsPreviousWindowOffsetInNextWindow) {
+    this->learn(100, 100);
+    this->learn(103, 106);
+    this->enter(107);
+    EXPECT_TRUE(this->deliver({106.5}).empty());
+}
+
+/// @brief it should keep its entry stamp when the offset changes after entry.
+TEST_F(OnEntryTest, KeepsEntryStampWhenOffsetChangesAfterEntry) {
+    this->learn(100, 100);
+    this->enter(101);
+    this->learn(100, 111);
+    EXPECT_TRUE(this->deliver({100.5}).empty());
+}
+
+/// @brief it should not let a delayed batch raise the offset.
+TEST_F(OnEntryTest, DelayedBatchDoesNotRaiseOffset) {
+    this->learn(100, 100);
+    this->learn(97, 100.5);
+    this->enter(101);
+    EXPECT_TRUE(this->deliver({100.5}).empty());
 }
 
 TEST(OnTest, NextHandlesChannelWithoutIndex) {

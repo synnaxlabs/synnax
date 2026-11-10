@@ -30,6 +30,8 @@
 ///
 /// Timeline, with T the stamp at which the run stage enters:
 ///
+///   T-250 ms         a sample taken 2 ms earlier arrives, so the sensor index learns
+///                    its clock offset
 ///   T-34 .. T-14 ms  samples below 300 are taken, during the previous stage
 ///   T                run stage enters, check armed, step=700 written
 ///   T+2              that batch is delivered and dropped
@@ -169,6 +171,7 @@ public:
     /// @brief drives the sequence through startup into run and returns the entry
     /// stamp T, the stamp on the step=700 write.
     x::telem::TimeStamp enter_run() {
+        this->ingest_sensor({BASE - 2 * x::telem::MILLISECOND}, {400});
         auto [vals, stamps] = this->step_writes(this->cycle(BASE));
         EXPECT_EQ(vals, std::vector<std::int64_t>{600});
         auto out = this->cycle(BASE + STARTUP_WAIT);

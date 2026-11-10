@@ -10,6 +10,8 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
+#include <optional>
 #include <tuple>
 #include <unordered_map>
 #include <utility>
@@ -29,6 +31,50 @@ struct Digest {
     types::ChannelKey key{};
     x::telem::DataType data_type;
     types::ChannelKey index{};
+};
+
+/// @brief the width of the windows clock offsets are kept in. An observed offset
+/// counts until the end of the window after the one it was observed in.
+inline const x::telem::TimeSpan OFFSET_WINDOW = 5 * x::telem::SECOND;
+
+/// @brief estimates how far the local clock runs ahead of the stamps on an index,
+/// delivery delay included: the minimum offset observed in the current and previous
+/// window. Older offsets age out, so clock drift and jumps do not persist.
+class ClockOffset {
+    /// @brief holds the minimum offset observed in one window.
+    struct Bucket {
+        int64_t window = 0;
+        x::telem::TimeSpan min;
+        bool set = false;
+    };
+    std::array<Bucket, 2> buckets;
+
+    static int64_t window_of(const x::telem::TimeStamp now) {
+        return now.nanoseconds() / OFFSET_WINDOW.nanoseconds();
+    }
+
+public:
+    void observe(const x::telem::TimeStamp now, const x::telem::TimeSpan offset) {
+        const auto w = window_of(now);
+        auto &b = this->buckets[w & 1];
+        if (!b.set || b.window != w) {
+            b = Bucket{.window = w, .min = offset, .set = true};
+            return;
+        }
+        b.min = std::min(b.min, offset);
+    }
+
+    /// @returns the estimate at local time now, or nullopt when no offset is recent
+    /// enough.
+    [[nodiscard]] std::optional<x::telem::TimeSpan>
+    at(const x::telem::TimeStamp now) const {
+        const auto w = window_of(now);
+        std::optional<x::telem::TimeSpan> offset;
+        for (const auto &b: this->buckets)
+            if (b.set && b.window >= w - 1 && (!offset || b.min < *offset))
+                offset = b.min;
+        return offset;
+    }
 };
 
 class State {
@@ -52,6 +98,10 @@ class State {
     std::unordered_map<types::ChannelKey, int64_t> last_stamps;
     /// @brief counts the channels that wrote to each index this cycle.
     std::unordered_map<types::ChannelKey, size_t> writers;
+    /// @brief holds the newest stamp ingested on each index since the last flush_into.
+    std::unordered_map<types::ChannelKey, x::telem::TimeStamp> newest;
+    /// @brief holds the clock offset learned for each index.
+    std::unordered_map<types::ChannelKey, ClockOffset> offsets;
 
     /// @brief returns the index of key, or zero when key has none or is an index.
     [[nodiscard]] types::ChannelKey index_of(types::ChannelKey key) const;
@@ -151,6 +201,11 @@ public:
     std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key);
 
+    /// @brief returns the stamp on the index of key that matches local time now, or
+    /// zero when the index has no recent clock offset.
+    [[nodiscard]] x::telem::TimeStamp
+    entry_stamp(types::ChannelKey key, x::telem::TimeStamp now) const;
+
     void write_series(types::ChannelKey key, const Series &data, const Series &time);
 
     /// @brief flushes read and write state directly into the provided frame, avoiding
@@ -159,6 +214,8 @@ public:
     /// the index. Samples with equal timestamps keep the order the program wrote them
     /// in, and each moves 1ns after the one before it. Channels that share an index are
     /// stamped from now, and only when none of them supplied timestamps.
+    /// Also learns each index's clock offset from the stamps ingested since the last
+    /// call, with now as their arrival time.
     /// @returns the highest timestamp it synthesized, so the caller's clock can resume
     /// above it. Zero when nothing was synthesized.
     x::telem::TimeStamp flush_into(x::telem::Frame &out, x::telem::TimeStamp now);

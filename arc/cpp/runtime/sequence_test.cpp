@@ -4622,8 +4622,9 @@ TEST(ComputedInitializersTest, LetsAReassignmentReplaceAComputedInitializer) {
     );
 }
 
-// A stage sees only samples taken after it was entered. A batch sampled before entry
-// but delivered after it must not reach the stage.
+// Once pt's index has learned its clock offset, a stage sees only samples taken after
+// it was entered. A batch sampled before entry but delivered after it must not reach
+// the stage.
 namespace stage_entry_samples {
 const std::string SRC = R"(
     sequence main {
@@ -4660,6 +4661,11 @@ void ingest_pt(
     );
     h.settle();
 }
+
+/// @brief delivers a pt sample stamped now, so pt's index learns its clock offset.
+void learn(Sequence &h) {
+    ingest_pt(h, {h.now()}, {0.0f});
+}
 }
 
 TEST(StageEntrySamplesTest, DropsABatchTakenEntirelyBeforeEntry) {
@@ -4667,6 +4673,7 @@ TEST(StageEntrySamplesTest, DropsABatchTakenEntirelyBeforeEntry) {
     auto h = new_h();
     h.trigger("start_cmd");
     const auto pre = h.now();
+    learn(h);
     h.trigger("go_cmd");
     ingest_pt(
         h,
@@ -4683,6 +4690,7 @@ TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
     auto h = new_h();
     h.trigger("start_cmd");
     const auto pre = h.now();
+    learn(h);
     h.trigger("go_cmd");
     const auto post = h.now();
     ingest_pt(
@@ -4694,5 +4702,37 @@ TEST(StageEntrySamplesTest, EmitsOnlyTheSamplesTakenAtOrAfterEntry) {
         collect<float>(h.flush(), h.key("pt_seen")),
         (std::vector<float>{3.0f, 4.0f})
     );
+}
+
+/// @brief it should drop a pre-entry batch on a channel an alias rebinds to at entry.
+TEST(StageEntrySamplesTest, DropsAPreEntryBatchOnAChannelAnAliasRebindsTo) {
+    using namespace stage_entry_samples;
+    auto h = Sequence(
+        R"(
+    sequence main {
+        p := %other_pt%
+        stage a {
+            p -> %pt_seen%
+            %go_cmd% == 1 => next
+        }
+        stage b {
+            p = %pt%
+            p -> %pt_seen%
+        }
+    }
+    %start_cmd% == 1 => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"go_cmd", x::telem::UINT8_T},
+         {"pt_idx", x::telem::TIMESTAMP_T, "", true},
+         {"pt", x::telem::FLOAT32_T, "pt_idx"},
+         {"other_pt", x::telem::FLOAT32_T},
+         {"pt_seen", x::telem::FLOAT32_T}}
+    );
+    h.trigger("start_cmd");
+    const auto pre = h.now();
+    learn(h);
+    h.trigger("go_cmd");
+    ingest_pt(h, {pre - 10 * x::telem::MILLISECOND}, {289.6f});
+    EXPECT_TRUE(collect<float>(h.flush(), h.key("pt_seen")).empty());
 }
 }

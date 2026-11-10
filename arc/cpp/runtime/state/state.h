@@ -208,6 +208,11 @@ public:
     [[nodiscard]] std::tuple<x::telem::MultiSeries, x::telem::MultiSeries, bool>
     read_series(types::ChannelKey key) const;
 
+    /// @brief returns the stamp on the index of key that matches local time now, or
+    /// zero when the index has no recent clock offset.
+    [[nodiscard]] x::telem::TimeStamp
+    entry_stamp(types::ChannelKey key, x::telem::TimeStamp now) const;
+
     /// Writes data and time series to a channel buffer.
     void
     write_series(types::ChannelKey key, const Series &data, const Series &time) const;

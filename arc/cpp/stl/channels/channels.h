@@ -82,14 +82,16 @@ class On : public runtime::node::Node {
     /// alias-bound.
     size_t channel_idx;
     ::x::telem::Alignment high_water_mark{0};
-    /// @brief the cycle stamp of the last reset. Samples stamped earlier were taken
-    /// before the stage was entered and are dropped.
-    ::x::telem::TimeStamp entry_stamp{0};
+    /// @brief the cycle stamp of the last reset.
+    ::x::telem::TimeStamp entered{0};
+    /// @brief entered on the sender's clock. Samples stamped earlier are dropped.
+    ::x::telem::TimeStamp entry{0};
 
     /// @brief re-points the source at key. A rebind is not a value:
     /// only values arriving afterward fire
     void rebind_to(const types::ChannelKey key) {
         this->curr_key = key;
+        this->entry = this->state.entry_stamp(key, this->entered);
         this->high_water_mark = ::x::telem::Alignment(0);
         this->raise_water_mark();
     }
@@ -161,7 +163,7 @@ public:
 
             const size_t first = generate_synthetic
                                    ? 0
-                                   : first_at_or_after(time_series, this->entry_stamp);
+                                   : first_at_or_after(time_series, this->entry);
             if (first == time_series.size()) {
                 this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
                 continue;
@@ -184,17 +186,19 @@ public:
         return x::errors::NIL;
     }
 
-    /// @brief advances the high water mark to the current channel alignment and
-    /// the entry stamp to the current cycle, so a (re-)activated stage only responds
-    /// to samples taken and arriving after activation.
+    /// @brief advances the high water mark to the current channel alignment, so a
+    /// (re-)activated stage only responds to samples arriving after activation. When
+    /// the channel's index has a recent clock offset, the stage also drops samples
+    /// stamped before entry on the sender's clock.
     void reset(runtime::node::Context &ctx) override {
         this->state.reset();
-        this->entry_stamp = ctx.cycle.now;
+        this->entered = ctx.cycle.now;
         if (const auto k = bound_key(this->state, this->channel_idx, this->key);
             k != this->curr_key) {
             this->rebind_to(k);
             return;
         }
+        this->entry = this->state.entry_stamp(this->curr_key, this->entered);
         this->raise_water_mark();
     }
 

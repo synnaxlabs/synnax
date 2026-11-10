@@ -22,8 +22,27 @@ State::State(const std::vector<Digest> &digests) {
 }
 
 void State::ingest(const x::telem::Frame &frame) {
-    for (size_t i = 0; i < frame.size(); i++)
-        this->reads[frame.channels->at(i)].emplace_back(std::move(frame.series->at(i)));
+    for (size_t i = 0; i < frame.size(); i++) {
+        const auto key = frame.channels->at(i);
+        auto &series = frame.series->at(i);
+        if (series.data_type() == x::telem::TIMESTAMP_T && !series.empty()) {
+            const auto last = series.at<x::telem::TimeStamp>(-1);
+            auto [it, inserted] = this->newest.try_emplace(key, last);
+            if (!inserted) it->second = std::max(it->second, last);
+        }
+        this->reads[key].emplace_back(std::move(series));
+    }
+}
+
+x::telem::TimeStamp
+State::entry_stamp(const types::ChannelKey key, const x::telem::TimeStamp now) const {
+    const auto idx = this->indexes.find(key);
+    if (idx == this->indexes.end()) return x::telem::TimeStamp(0);
+    const auto it = this->offsets.find(idx->second);
+    if (it == this->offsets.end()) return x::telem::TimeStamp(0);
+    const auto offset = it->second.at(now);
+    if (!offset) return x::telem::TimeStamp(0);
+    return now - *offset;
 }
 
 std::pair<x::telem::MultiSeries, bool> State::read_value(const types::ChannelKey key) {
@@ -356,6 +375,9 @@ x::telem::TimeStamp State::stamp_group(
 
 x::telem::TimeStamp
 State::flush_into(x::telem::Frame &out, const x::telem::TimeStamp now) {
+    for (const auto &[idx, stamp]: this->newest)
+        this->offsets[idx].observe(now, now - stamp);
+    this->newest.clear();
     for (auto &series_vec: this->reads | std::views::values) {
         if (series_vec.size() <= 1) continue;
         auto last = std::move(series_vec.back());
@@ -383,6 +405,8 @@ void State::reset() {
     this->positions.clear();
     this->active_write_keys.clear();
     this->last_stamps.clear();
+    this->newest.clear();
+    this->offsets.clear();
 }
 
 }

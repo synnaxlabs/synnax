@@ -514,6 +514,11 @@ Node::read_series(const types::ChannelKey key) const {
     return this->state.channel->read_series(key);
 }
 
+x::telem::TimeStamp
+Node::entry_stamp(const types::ChannelKey key, const x::telem::TimeStamp now) const {
+    return this->state.channel->entry_stamp(key, now);
+}
+
 void Node::write_series(
     const types::ChannelKey key,
     const Series &data,
