@@ -12,6 +12,7 @@ package cesium
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -54,12 +55,17 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
+	var detached []string
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
 				"found unknown file %s in database root directory",
 				i.Name(),
 			))
+			continue
+		}
+		if strings.Contains(i.Name(), deletedDirInfix) {
+			detached = append(detached, i.Name())
 			continue
 		}
 		key, err := dirNameToKey(i.Name())
@@ -82,6 +88,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db.relay = openRelay(sCtx, o)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	db.removeDirs(detached...)
 	return db, nil
 }
 

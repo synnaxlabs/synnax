@@ -151,6 +151,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(f.Close()).To(Succeed())
 	})
 
+	It("Should make a removal wait for the function given to WithBeforeRemove", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		var ran bool
+		fs.SetOptions(WithBeforeRemove(func() { ran = true }))
+		Expect(fs.Remove("a.bin")).To(Succeed())
+		Expect(ran).To(BeTrue())
+	})
+
 	It("Should stop failing once its options are cleared", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
