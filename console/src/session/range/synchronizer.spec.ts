@@ -9,7 +9,7 @@
 
 import { type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { staticWindow, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -47,6 +47,40 @@ describe("Range.SYNCHRONIZERS", () => {
     await client.ranges.delete(range.key);
     await waitFor(() => {
       expect(Session.Range.selectState(store.getState(), range.key)).toBeUndefined();
+    });
+  });
+
+  it("should show a session range's window on a line plot that stored its key", async () => {
+    const local: Session.Range.StaticState = {
+      variant: "static",
+      key: uuid.create(),
+      name: uniqueName("local"),
+      timeRange: { start: 1, end: 2 },
+    };
+    const project = await client.projects.create({ name: uniqueName("project") });
+    const plot = await client.lineplots.create({
+      project: project.key,
+      name: uniqueName("plot"),
+      ranges: [{ variant: "key", key: local.key }],
+    });
+    const { wrapper } = await createConsoleWrapper({
+      client,
+      preloadedState: {
+        [Session.Range.SLICE_NAME]: { version: 0 as const, ranges: [local] },
+      },
+    });
+    renderHook(() => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS), {
+      wrapper,
+    });
+    const reader = createTestClient();
+    await waitFor(async () => {
+      const { ranges } = await reader.lineplots.retrieve(plot.key);
+      expect(ranges).toEqual([
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(local.timeRange)),
+        },
+      ]);
     });
   });
 });
