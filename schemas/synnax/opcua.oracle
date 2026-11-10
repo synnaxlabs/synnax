@@ -111,6 +111,7 @@ ReadConfig struct extends task.ReadConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "opc_read"
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -124,6 +125,7 @@ WriteConfig struct extends task.WriteConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "opc_write"
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -132,4 +134,5 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+    @task type  "opc_scan"
 }

@@ -19,3 +19,6 @@ type Alert = v1.Alert
 // TaskConfig configures a PagerDuty alert task, which forwards Synnax status changes to
 // PagerDuty as events.
 type TaskConfig = v1.TaskConfig
+
+// AlertTaskType is the task type of TaskConfig.
+const AlertTaskType = v1.AlertTaskType

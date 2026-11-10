@@ -223,20 +223,62 @@ export const orderZ = z.object({
 export interface Order extends z.infer<typeof orderZ> {}
 
 /**
- * Update holds changes to the fields of the schematic. An absent field does not change.
+ * LabelConfigUpdate holds changes to the fields of the label config. An absent field
+ * does not change.
  */
-export const updateZ = z.object({
-  /** name is a human-readable name for the schematic. */
-  name: z.string().optional(),
-  /** group is the group the schematic sits in, if any. */
-  group: patch.changeZ(group.keyZ).optional(),
+export const labelConfigUpdateZ = z.object({
+  /** label is the text content of the label. */
+  label: z.string().optional(),
+  /** level is the typography level of the label text. */
+  level: text.levelZ.optional(),
+  /** orientation is the placement of the label relative to the symbol. */
+  orientation: spatial.locationZ.optional(),
+  /** direction is the axis along which the label text flows. */
+  direction: spatial.directionZ.optional(),
   /**
-   * project is the project that owns the schematic, if any. Exactly one of project and
-   * range is set.
+   * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  project: patch.changeZ(project.keyZ).optional(),
+  maxInlineSize: z.number().optional(),
+  /** align is the alignment of the label text within its box. */
+  align: flexAlignmentZ.optional(),
 });
-export interface Update extends z.infer<typeof updateZ> {}
+export interface LabelConfigUpdate extends z.infer<typeof labelConfigUpdateZ> {}
+
+/**
+ * ControlStateConfigUpdate holds changes to the fields of the control state config. An
+ * absent field does not change.
+ */
+export const controlStateConfigUpdateZ = z.object({
+  /**
+   * authority is the control authority requested when the symbol acquires its command
+   * channel. Defaults to absolute authority when unset.
+   */
+  authority: patch.changeZ(zod.uint8).optional(),
+  /** hidden hides the control state widget. */
+  hidden: z.boolean().optional(),
+  /** chipHidden hides the authority chip. */
+  chipHidden: z.boolean().optional(),
+  /** indicatorHidden hides the state indicator. */
+  indicatorHidden: z.boolean().optional(),
+  /**
+   * orientation is the placement of the control state widget relative to the symbol.
+   */
+  orientation: spatial.locationZ.optional(),
+});
+export interface ControlStateConfigUpdate extends z.infer<
+  typeof controlStateConfigUpdateZ
+> {}
+
+/**
+ * PageUpdate holds changes to the fields of the page. An absent field does not change.
+ */
+export const pageUpdateZ = z.object({
+  /** type is the kind of page referenced. */
+  type: pageTypeZ.optional(),
+  /** key is the key of the referenced page. */
+  key: z.string().optional(),
+});
+export interface PageUpdate extends z.infer<typeof pageUpdateZ> {}
 
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
@@ -302,8 +344,3221 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
 
-export const updatePayloadZ = patch.updateZ(updateZ);
-export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+export const capElementConfigUpdateZ = z.object({
+  variant: z.literal("cap"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CapElementConfigUpdate extends z.infer<
+  typeof capElementConfigUpdateZ
+> {}
+
+export const filterElementConfigUpdateZ = z.object({
+  variant: z.literal("filter"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FilterElementConfigUpdate extends z.infer<
+  typeof filterElementConfigUpdateZ
+> {}
+
+export const flowStraightenerElementConfigUpdateZ = z.object({
+  variant: z.literal("flow_straightener"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowStraightenerElementConfigUpdate extends z.infer<
+  typeof flowStraightenerElementConfigUpdateZ
+> {}
+
+export const heaterElementElementConfigUpdateZ = z.object({
+  variant: z.literal("heater_element"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface HeaterElementElementConfigUpdate extends z.infer<
+  typeof heaterElementElementConfigUpdateZ
+> {}
+
+export const isoCapElementConfigUpdateZ = z.object({
+  variant: z.literal("iso_cap"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface IsoCapElementConfigUpdate extends z.infer<
+  typeof isoCapElementConfigUpdateZ
+> {}
+
+export const isoFilterElementConfigUpdateZ = z.object({
+  variant: z.literal("iso_filter"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface IsoFilterElementConfigUpdate extends z.infer<
+  typeof isoFilterElementConfigUpdateZ
+> {}
+
+export const nozzleElementConfigUpdateZ = z.object({
+  variant: z.literal("nozzle"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface NozzleElementConfigUpdate extends z.infer<
+  typeof nozzleElementConfigUpdateZ
+> {}
+
+export const orificeElementConfigUpdateZ = z.object({
+  variant: z.literal("orifice"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface OrificeElementConfigUpdate extends z.infer<
+  typeof orificeElementConfigUpdateZ
+> {}
+
+export const orificePlateElementConfigUpdateZ = z.object({
+  variant: z.literal("orifice_plate"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface OrificePlateElementConfigUpdate extends z.infer<
+  typeof orificePlateElementConfigUpdateZ
+> {}
+
+export const strainerElementConfigUpdateZ = z.object({
+  variant: z.literal("strainer"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface StrainerElementConfigUpdate extends z.infer<
+  typeof strainerElementConfigUpdateZ
+> {}
+
+export const strainerConeElementConfigUpdateZ = z.object({
+  variant: z.literal("strainer_cone"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface StrainerConeElementConfigUpdate extends z.infer<
+  typeof strainerConeElementConfigUpdateZ
+> {}
+
+export const thrusterElementConfigUpdateZ = z.object({
+  variant: z.literal("thruster"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ThrusterElementConfigUpdate extends z.infer<
+  typeof thrusterElementConfigUpdateZ
+> {}
+
+export const ventElementConfigUpdateZ = z.object({
+  variant: z.literal("vent"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface VentElementConfigUpdate extends z.infer<
+  typeof ventElementConfigUpdateZ
+> {}
+
+export const flowmeterGeneralElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_general"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterGeneralElementConfigUpdate extends z.infer<
+  typeof flowmeterGeneralElementConfigUpdateZ
+> {}
+
+export const flowmeterElectromagneticElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_electromagnetic"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterElectromagneticElementConfigUpdate extends z.infer<
+  typeof flowmeterElectromagneticElementConfigUpdateZ
+> {}
+
+export const flowmeterVariableAreaElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_variable_area"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterVariableAreaElementConfigUpdate extends z.infer<
+  typeof flowmeterVariableAreaElementConfigUpdateZ
+> {}
+
+export const flowmeterCoriolisElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_coriolis"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterCoriolisElementConfigUpdate extends z.infer<
+  typeof flowmeterCoriolisElementConfigUpdateZ
+> {}
+
+export const flowmeterNozzleElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_nozzle"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterNozzleElementConfigUpdate extends z.infer<
+  typeof flowmeterNozzleElementConfigUpdateZ
+> {}
+
+export const flowmeterVenturiElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_venturi"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterVenturiElementConfigUpdate extends z.infer<
+  typeof flowmeterVenturiElementConfigUpdateZ
+> {}
+
+export const flowmeterRingPistonElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_ring_piston"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterRingPistonElementConfigUpdate extends z.infer<
+  typeof flowmeterRingPistonElementConfigUpdateZ
+> {}
+
+export const flowmeterPositiveDisplacementElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_positive_displacement"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterPositiveDisplacementElementConfigUpdate extends z.infer<
+  typeof flowmeterPositiveDisplacementElementConfigUpdateZ
+> {}
+
+export const flowmeterTurbineElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_turbine"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterTurbineElementConfigUpdate extends z.infer<
+  typeof flowmeterTurbineElementConfigUpdateZ
+> {}
+
+export const flowmeterPulseElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_pulse"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterPulseElementConfigUpdate extends z.infer<
+  typeof flowmeterPulseElementConfigUpdateZ
+> {}
+
+export const flowmeterFloatSensorElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_float_sensor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterFloatSensorElementConfigUpdate extends z.infer<
+  typeof flowmeterFloatSensorElementConfigUpdateZ
+> {}
+
+export const flowmeterOrificeElementConfigUpdateZ = z.object({
+  variant: z.literal("flowmeter_orifice"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlowmeterOrificeElementConfigUpdate extends z.infer<
+  typeof flowmeterOrificeElementConfigUpdateZ
+> {}
+
+/** BoxElementConfigUpdate is the configuration for box annotation symbols. */
+export const boxElementConfigUpdateZ = z.object({
+  variant: z.literal("box"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** strokeColor is the border color of the box. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** fillColor is the fill color of the box. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** dimensions is the rendered size of the box in pixels. */
+  dimensions: patch
+    .structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ })
+    .optional(),
+  /** borderRadius is the uniform corner radius of the box in pixels. */
+  borderRadius: z.number().optional(),
+  /** strokeWidth is the border stroke width in pixels. */
+  strokeWidth: z.number().optional(),
+});
+export interface BoxElementConfigUpdate extends z.infer<
+  typeof boxElementConfigUpdateZ
+> {}
+
+/** ButtonElementConfigUpdate is the configuration for button symbols. */
+export const buttonElementConfigUpdateZ = z.object({
+  variant: z.literal("button"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** size is the rendered size preset of the button. */
+  size: componentSizeZ.optional(),
+  /** level is the typography level of the button text. */
+  level: patch.changeZ(text.levelZ).optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /** commandChannel is the channel button presses are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** mode is the actuation behavior of the button. */
+  mode: buttonModeZ.optional(),
+  /** fillColor is the fill color of the button, which its border follows. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+});
+export interface ButtonElementConfigUpdate extends z.infer<
+  typeof buttonElementConfigUpdateZ
+> {}
+
+/** CircleElementConfigUpdate is the configuration for circle annotation symbols. */
+export const circleElementConfigUpdateZ = z.object({
+  variant: z.literal("circle"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** radius is the radius of the circle in pixels. */
+  radius: z.number().optional(),
+  /** strokeColor is the border color of the circle. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** fillColor is the fill color of the circle. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** strokeWidth is the border stroke width in pixels. */
+  strokeWidth: z.number().optional(),
+});
+export interface CircleElementConfigUpdate extends z.infer<
+  typeof circleElementConfigUpdateZ
+> {}
+
+/** GaugeElementConfigUpdate is the configuration for gauge symbols. */
+export const gaugeElementConfigUpdateZ = z.object({
+  variant: z.literal("gauge"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** channel is the channel whose value the symbol displays. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: patch.changeZ(z.int32()).optional(),
+  /** precision is the number of decimal places shown. */
+  precision: z.number().optional(),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** position is the offset of the gauge contents within the symbol. */
+  position: patch
+    .changeZ(patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }))
+    .optional(),
+  /** strokeColor is the color of the gauge arc. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** bounds is the numeric range displayed by the gauge. */
+  bounds: spatial.boundsZ().optional(),
+  /** barWidth is the thickness of the gauge arc in pixels. */
+  barWidth: z.number().optional(),
+  /** location is the anchor of the value within the gauge. */
+  location: patch
+    .structZ({ u: spatial.locationXYUpdateZ, t: spatial.locationXYZ })
+    .optional(),
+  /** units is the unit suffix displayed after the value. */
+  units: z.string().optional(),
+  /** level is the typography level of the displayed value. */
+  level: text.levelZ.optional(),
+});
+export interface GaugeElementConfigUpdate extends z.infer<
+  typeof gaugeElementConfigUpdateZ
+> {}
+
+/** InputElementConfigUpdate is the configuration for free-form input symbols. */
+export const inputElementConfigUpdateZ = z.object({
+  variant: z.literal("input"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** size is the rendered size preset of the input. */
+  size: componentSizeZ.optional(),
+  /** commandChannel is the channel submitted values are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** stateChannel is the channel that reports the value the device holds. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** dimensions is the rendered size of the input in pixels. */
+  dimensions: patch
+    .changeZ(patch.structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ }))
+    .optional(),
+  /** fillColor is the fill color of the Set button, which the input border follows. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** disabled indicates whether the input rejects interaction. */
+  disabled: z.boolean().optional(),
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
+  inlineSize: z.number().optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+});
+export interface InputElementConfigUpdate extends z.infer<
+  typeof inputElementConfigUpdateZ
+> {}
+
+/** LightElementConfigUpdate is the configuration for indicator light symbols. */
+export const lightElementConfigUpdateZ = z.object({
+  variant: z.literal("light"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** channel is the channel whose value drives the light's on state. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** threshold is the value range within which the light is considered on. */
+  threshold: patch.changeZ(spatial.boundsZ()).optional(),
+  /** strokeColor is the outline color of the light. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** onColor is the fill color of the light while it is on. */
+  onColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface LightElementConfigUpdate extends z.infer<
+  typeof lightElementConfigUpdateZ
+> {}
+
+/** LineElementConfigUpdate is the configuration for straight line symbols. */
+export const lineElementConfigUpdateZ = z.object({
+  variant: z.literal("line"),
+  /** strokeColor is the stroke color of the line. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** start is the first endpoint, offset from the node position. */
+  start: patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }).optional(),
+  /** end is the second endpoint, offset from the node position. */
+  end: patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }).optional(),
+  /** strokeWidth is the stroke width of the line in pixels. */
+  strokeWidth: z.number().optional(),
+});
+export interface LineElementConfigUpdate extends z.infer<
+  typeof lineElementConfigUpdateZ
+> {}
+
+/**
+ * OffPageReferenceElementConfigUpdate is the configuration for off-page reference
+ * symbols.
+ */
+export const offPageReferenceElementConfigUpdateZ = z.object({
+  variant: z.literal("off_page_reference"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the direction the reference arrow points. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * fillColor is the fill color of a linked reference. An unlinked reference draws its
+   * outline in this color.
+   */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** page is the page this reference links to. */
+  page: patch.changeZ(patch.structZ({ u: pageUpdateZ, t: pageZ })).optional(),
+  /** dblClickNavDisabled stops double-clicking from navigating to the linked page. */
+  dblClickNavDisabled: z.boolean().optional(),
+});
+export interface OffPageReferenceElementConfigUpdate extends z.infer<
+  typeof offPageReferenceElementConfigUpdateZ
+> {}
+
+/** PolygonElementConfigUpdate is the configuration for polygon annotation symbols. */
+export const polygonElementConfigUpdateZ = z.object({
+  variant: z.literal("polygon"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** numSides is the number of sides of the polygon. */
+  numSides: z.number().optional(),
+  /** sideLength is the length of each side in pixels. */
+  sideLength: z.number().optional(),
+  /** rotation is the rotation of the polygon in degrees. */
+  rotation: z.number().optional(),
+  /** cornerRounding is the corner rounding radius in pixels. */
+  cornerRounding: z.number().optional(),
+  /** strokeColor is the border color of the polygon. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** fillColor is the fill color of the polygon. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** strokeWidth is the border stroke width in pixels. */
+  strokeWidth: z.number().optional(),
+});
+export interface PolygonElementConfigUpdate extends z.infer<
+  typeof polygonElementConfigUpdateZ
+> {}
+
+/** SelectElementConfigUpdate is the configuration for select symbols. */
+export const selectElementConfigUpdateZ = z.object({
+  variant: z.literal("select"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** size is the rendered size preset of the select. */
+  size: componentSizeZ.optional(),
+  /** commandChannel is the channel the selected value is written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** stateChannel is the channel that reports the state the device holds. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** fillColor is the fill color of the Set button, which the select border follows. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
+  inlineSize: z.number().optional(),
+  /** options is the set of selectable states. */
+  options: patch.valueListZ(stateMappingZ).optional(),
+  /** disabled indicates whether the select rejects interaction. */
+  disabled: z.boolean().optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+});
+export interface SelectElementConfigUpdate extends z.infer<
+  typeof selectElementConfigUpdateZ
+> {}
+
+/** ScaleElementConfigUpdate is the configuration for standalone scale symbols. */
+export const scaleElementConfigUpdateZ = z.object({
+  variant: z.literal("scale"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** channel is the channel whose value the symbol displays. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: patch.changeZ(z.int32()).optional(),
+  /** precision is the number of decimal places shown. */
+  precision: z.number().optional(),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** bounds is the numeric range the indicator maps onto its extent. */
+  bounds: spatial.boundsZ().optional(),
+  /**
+   * levelColor is the color of the filled portion, the caret, and the value readout
+   * border.
+   */
+  levelColor: patch.changeZ(color.colorZ).optional(),
+  /** axisColor is the color of the axis and its ticks. */
+  axisColor: patch.changeZ(color.colorZ).optional(),
+  /** textColor is the color of the tick labels. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /** units is the unit suffix displayed after each tick label. */
+  units: z.string().optional(),
+  /** levelHidden hides the filled portion. */
+  levelHidden: z.boolean().optional(),
+  /** caretHidden hides the caret marking the current value. */
+  caretHidden: z.boolean().optional(),
+  /** scaleHidden hides the axis and its tick labels. */
+  scaleHidden: z.boolean().optional(),
+  /** side is the edge the axis is drawn along. */
+  side: spatial.outerLocationZ.optional(),
+  /** caretSide is the edge the value readout sits on. */
+  caretSide: spatial.outerLocationZ.optional(),
+  /** level is the typography level of the tick labels. */
+  level: text.levelZ.optional(),
+  /**
+   * orientation is the axis the bar fills along: top for vertical, right for
+   * horizontal. Any other value reads as vertical.
+   */
+  orientation: spatial.outerLocationZ.optional(),
+  /** position is the offset of the scale contents within the symbol. */
+  position: patch
+    .changeZ(patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }))
+    .optional(),
+  /**
+   * dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+   * to the rendered size.
+   */
+  dimensions: patch
+    .structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ })
+    .optional(),
+});
+export interface ScaleElementConfigUpdate extends z.infer<
+  typeof scaleElementConfigUpdateZ
+> {}
+
+/** SetpointElementConfigUpdate is the configuration for numeric setpoint symbols. */
+export const setpointElementConfigUpdateZ = z.object({
+  variant: z.literal("setpoint"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** size is the rendered size preset of the setpoint. */
+  size: componentSizeZ.optional(),
+  /** commandChannel is the channel submitted setpoints are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** stateChannel is the channel that reports the value the device holds. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** dimensions is the rendered size of the setpoint in pixels. */
+  dimensions: patch
+    .changeZ(patch.structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ }))
+    .optional(),
+  /**
+   * fillColor is the fill color of the Set button, which the setpoint border follows.
+   */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** units is the unit suffix displayed after the value. */
+  units: z.string().optional(),
+  /** disabled indicates whether the setpoint rejects interaction. */
+  disabled: z.boolean().optional(),
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
+  inlineSize: z.number().optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+});
+export interface SetpointElementConfigUpdate extends z.infer<
+  typeof setpointElementConfigUpdateZ
+> {}
+
+/**
+ * StateIndicatorElementConfigUpdate is the configuration for multi-state indicator
+ * symbols.
+ */
+export const stateIndicatorElementConfigUpdateZ = z.object({
+  variant: z.literal("state_indicator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** channel is the channel whose value selects the displayed state. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** strokeColor is the border color of the indicator. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** inlineSize is the inline size of the indicator in pixels. */
+  inlineSize: z.number().optional(),
+  /** options is the set of displayable states. */
+  options: patch.valueListZ(stateMappingZ).optional(),
+  /** size is the rendered size preset of the indicator. */
+  size: componentSizeZ.optional(),
+});
+export interface StateIndicatorElementConfigUpdate extends z.infer<
+  typeof stateIndicatorElementConfigUpdateZ
+> {}
+
+/**
+ * StringDisplayElementConfigUpdate is the configuration for live string display
+ * symbols.
+ */
+export const stringDisplayElementConfigUpdateZ = z.object({
+  variant: z.literal("string_display"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** strokeColor is the border color of the display. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** textColor is the color of the displayed text. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /** tooltip is the list of tooltip lines shown on hover. */
+  tooltip: patch.valueListZ(z.string()).optional(),
+  /** inlineSize is the inline size of the display in pixels. */
+  inlineSize: z.number().optional(),
+  /** channel is the channel whose string value the symbol displays. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** level is the typography level of the displayed text. */
+  level: text.levelZ.optional(),
+});
+export interface StringDisplayElementConfigUpdate extends z.infer<
+  typeof stringDisplayElementConfigUpdateZ
+> {}
+
+export const switchElementConfigUpdateZ = z.object({
+  variant: z.literal("switch"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface SwitchElementConfigUpdate extends z.infer<
+  typeof switchElementConfigUpdateZ
+> {}
+
+/** TextBoxElementConfigUpdate is the configuration for text box annotation symbols. */
+export const textBoxElementConfigUpdateZ = z.object({
+  variant: z.literal("text_box"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** textColor is the text color. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /** width is the rendered width of the text box in pixels. */
+  width: z.number().optional(),
+  /** align is the alignment of the text within the box. */
+  align: flexAlignmentZ.optional(),
+  /** autoFitDisabled stops the box from resizing to fit its content. */
+  autoFitDisabled: z.boolean().optional(),
+  /** level is the typography level of the text. */
+  level: text.levelZ.optional(),
+  /** value is the text content of the box. */
+  value: z.string().optional(),
+});
+export interface TextBoxElementConfigUpdate extends z.infer<
+  typeof textBoxElementConfigUpdateZ
+> {}
+
+/** ValueElementConfigUpdate is the configuration for live telemetry value symbols. */
+export const valueElementConfigUpdateZ = z.object({
+  variant: z.literal("value"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** channel is the channel whose value the symbol displays. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: patch.changeZ(z.int32()).optional(),
+  /** precision is the number of decimal places shown. */
+  precision: z.number().optional(),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** position is the offset of the value contents within the symbol. */
+  position: patch
+    .changeZ(patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }))
+    .optional(),
+  /** strokeColor is the color of the value's border and units divider. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** textColor is the color of the displayed value. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * fillColor is the fill behind the value where no redline band paints. When absent
+   * the value paints no fill.
+   */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** tooltip is the list of tooltip lines shown on hover. */
+  tooltip: patch.valueListZ(z.string()).optional(),
+  /** redline is the threshold band mapping applied to the background. */
+  redline: patch.structZ({ u: color.scaleUpdateZ, t: color.scaleZ }).optional(),
+  /** units is the unit suffix displayed after the value. */
+  units: z.string().optional(),
+  /** inlineSize is the inline size of the value in pixels. */
+  inlineSize: z.number().optional(),
+  /** level is the typography level of the displayed value. */
+  level: text.levelZ.optional(),
+  /** location is the anchor of the value within the symbol. */
+  location: patch
+    .structZ({ u: spatial.locationXYUpdateZ, t: spatial.locationXYZ })
+    .optional(),
+});
+export interface ValueElementConfigUpdate extends z.infer<
+  typeof valueElementConfigUpdateZ
+> {}
+
+export const agitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface AgitatorElementConfigUpdate extends z.infer<
+  typeof agitatorElementConfigUpdateZ
+> {}
+
+export const crossBeamAgitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("cross_beam_agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CrossBeamAgitatorElementConfigUpdate extends z.infer<
+  typeof crossBeamAgitatorElementConfigUpdateZ
+> {}
+
+export const flatBladeAgitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("flat_blade_agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlatBladeAgitatorElementConfigUpdate extends z.infer<
+  typeof flatBladeAgitatorElementConfigUpdateZ
+> {}
+
+export const heatExchangerGeneralElementConfigUpdateZ = z.object({
+  variant: z.literal("heat_exchanger_general"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface HeatExchangerGeneralElementConfigUpdate extends z.infer<
+  typeof heatExchangerGeneralElementConfigUpdateZ
+> {}
+
+export const heatExchangerMElementConfigUpdateZ = z.object({
+  variant: z.literal("heat_exchanger_m"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface HeatExchangerMElementConfigUpdate extends z.infer<
+  typeof heatExchangerMElementConfigUpdateZ
+> {}
+
+export const heatExchangerStraightTubeElementConfigUpdateZ = z.object({
+  variant: z.literal("heat_exchanger_straight_tube"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface HeatExchangerStraightTubeElementConfigUpdate extends z.infer<
+  typeof heatExchangerStraightTubeElementConfigUpdateZ
+> {}
+
+export const helicalAgitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("helical_agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface HelicalAgitatorElementConfigUpdate extends z.infer<
+  typeof helicalAgitatorElementConfigUpdateZ
+> {}
+
+export const paddleAgitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("paddle_agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface PaddleAgitatorElementConfigUpdate extends z.infer<
+  typeof paddleAgitatorElementConfigUpdateZ
+> {}
+
+export const propellerAgitatorElementConfigUpdateZ = z.object({
+  variant: z.literal("propeller_agitator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface PropellerAgitatorElementConfigUpdate extends z.infer<
+  typeof propellerAgitatorElementConfigUpdateZ
+> {}
+
+export const rotaryMixerElementConfigUpdateZ = z.object({
+  variant: z.literal("rotary_mixer"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface RotaryMixerElementConfigUpdate extends z.infer<
+  typeof rotaryMixerElementConfigUpdateZ
+> {}
+
+export const staticMixerElementConfigUpdateZ = z.object({
+  variant: z.literal("static_mixer"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface StaticMixerElementConfigUpdate extends z.infer<
+  typeof staticMixerElementConfigUpdateZ
+> {}
+
+export const cavityPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("cavity_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CavityPumpElementConfigUpdate extends z.infer<
+  typeof cavityPumpElementConfigUpdateZ
+> {}
+
+export const centrifugalCompressorElementConfigUpdateZ = z.object({
+  variant: z.literal("centrifugal_compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CentrifugalCompressorElementConfigUpdate extends z.infer<
+  typeof centrifugalCompressorElementConfigUpdateZ
+> {}
+
+export const compressorElementConfigUpdateZ = z.object({
+  variant: z.literal("compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CompressorElementConfigUpdate extends z.infer<
+  typeof compressorElementConfigUpdateZ
+> {}
+
+export const diaphragmPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("diaphragm_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface DiaphragmPumpElementConfigUpdate extends z.infer<
+  typeof diaphragmPumpElementConfigUpdateZ
+> {}
+
+export const ejectionPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("ejection_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface EjectionPumpElementConfigUpdate extends z.infer<
+  typeof ejectionPumpElementConfigUpdateZ
+> {}
+
+export const ejectorCompressorElementConfigUpdateZ = z.object({
+  variant: z.literal("ejector_compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface EjectorCompressorElementConfigUpdate extends z.infer<
+  typeof ejectorCompressorElementConfigUpdateZ
+> {}
+
+export const liquidRingCompressorElementConfigUpdateZ = z.object({
+  variant: z.literal("liquid_ring_compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface LiquidRingCompressorElementConfigUpdate extends z.infer<
+  typeof liquidRingCompressorElementConfigUpdateZ
+> {}
+
+export const pistonPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("piston_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface PistonPumpElementConfigUpdate extends z.infer<
+  typeof pistonPumpElementConfigUpdateZ
+> {}
+
+export const pumpElementConfigUpdateZ = z.object({
+  variant: z.literal("pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface PumpElementConfigUpdate extends z.infer<
+  typeof pumpElementConfigUpdateZ
+> {}
+
+export const rollerVaneCompressorElementConfigUpdateZ = z.object({
+  variant: z.literal("roller_vane_compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface RollerVaneCompressorElementConfigUpdate extends z.infer<
+  typeof rollerVaneCompressorElementConfigUpdateZ
+> {}
+
+export const screwPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("screw_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ScrewPumpElementConfigUpdate extends z.infer<
+  typeof screwPumpElementConfigUpdateZ
+> {}
+
+export const turboCompressorElementConfigUpdateZ = z.object({
+  variant: z.literal("turbo_compressor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface TurboCompressorElementConfigUpdate extends z.infer<
+  typeof turboCompressorElementConfigUpdateZ
+> {}
+
+export const vacuumPumpElementConfigUpdateZ = z.object({
+  variant: z.literal("vacuum_pump"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface VacuumPumpElementConfigUpdate extends z.infer<
+  typeof vacuumPumpElementConfigUpdateZ
+> {}
+
+export const burstDiscElementConfigUpdateZ = z.object({
+  variant: z.literal("burst_disc"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface BurstDiscElementConfigUpdate extends z.infer<
+  typeof burstDiscElementConfigUpdateZ
+> {}
+
+export const flameArrestorElementConfigUpdateZ = z.object({
+  variant: z.literal("flame_arrestor"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlameArrestorElementConfigUpdate extends z.infer<
+  typeof flameArrestorElementConfigUpdateZ
+> {}
+
+export const flameArrestorDetonationElementConfigUpdateZ = z.object({
+  variant: z.literal("flame_arrestor_detonation"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlameArrestorDetonationElementConfigUpdate extends z.infer<
+  typeof flameArrestorDetonationElementConfigUpdateZ
+> {}
+
+export const flameArrestorExplosionElementConfigUpdateZ = z.object({
+  variant: z.literal("flame_arrestor_explosion"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlameArrestorExplosionElementConfigUpdate extends z.infer<
+  typeof flameArrestorExplosionElementConfigUpdateZ
+> {}
+
+export const flameArrestorFireResElementConfigUpdateZ = z.object({
+  variant: z.literal("flame_arrestor_fire_res"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlameArrestorFireResElementConfigUpdate extends z.infer<
+  typeof flameArrestorFireResElementConfigUpdateZ
+> {}
+
+export const flameArrestorFireResDetonationElementConfigUpdateZ = z.object({
+  variant: z.literal("flame_arrestor_fire_res_detonation"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FlameArrestorFireResDetonationElementConfigUpdate extends z.infer<
+  typeof flameArrestorFireResDetonationElementConfigUpdateZ
+> {}
+
+export const isoBurstDiscElementConfigUpdateZ = z.object({
+  variant: z.literal("iso_burst_disc"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface IsoBurstDiscElementConfigUpdate extends z.infer<
+  typeof isoBurstDiscElementConfigUpdateZ
+> {}
+
+export const angledValveElementConfigUpdateZ = z.object({
+  variant: z.literal("angled_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface AngledValveElementConfigUpdate extends z.infer<
+  typeof angledValveElementConfigUpdateZ
+> {}
+
+export const angledReliefValveElementConfigUpdateZ = z.object({
+  variant: z.literal("angled_relief_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface AngledReliefValveElementConfigUpdate extends z.infer<
+  typeof angledReliefValveElementConfigUpdateZ
+> {}
+
+export const angledSpringLoadedReliefValveElementConfigUpdateZ = z.object({
+  variant: z.literal("angled_spring_loaded_relief_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface AngledSpringLoadedReliefValveElementConfigUpdate extends z.infer<
+  typeof angledSpringLoadedReliefValveElementConfigUpdateZ
+> {}
+
+export const ballValveElementConfigUpdateZ = z.object({
+  variant: z.literal("ball_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface BallValveElementConfigUpdate extends z.infer<
+  typeof ballValveElementConfigUpdateZ
+> {}
+
+export const breatherValveElementConfigUpdateZ = z.object({
+  variant: z.literal("breather_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface BreatherValveElementConfigUpdate extends z.infer<
+  typeof breatherValveElementConfigUpdateZ
+> {}
+
+export const butterflyValveOneElementConfigUpdateZ = z.object({
+  variant: z.literal("butterfly_valve_one"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ButterflyValveOneElementConfigUpdate extends z.infer<
+  typeof butterflyValveOneElementConfigUpdateZ
+> {}
+
+export const butterflyValveTwoElementConfigUpdateZ = z.object({
+  variant: z.literal("butterfly_valve_two"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ButterflyValveTwoElementConfigUpdate extends z.infer<
+  typeof butterflyValveTwoElementConfigUpdateZ
+> {}
+
+export const checkValveElementConfigUpdateZ = z.object({
+  variant: z.literal("check_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CheckValveElementConfigUpdate extends z.infer<
+  typeof checkValveElementConfigUpdateZ
+> {}
+
+export const checkValveWithArrowElementConfigUpdateZ = z.object({
+  variant: z.literal("check_valve_with_arrow"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CheckValveWithArrowElementConfigUpdate extends z.infer<
+  typeof checkValveWithArrowElementConfigUpdateZ
+> {}
+
+export const electricRegulatorElementConfigUpdateZ = z.object({
+  variant: z.literal("electric_regulator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ElectricRegulatorElementConfigUpdate extends z.infer<
+  typeof electricRegulatorElementConfigUpdateZ
+> {}
+
+export const electricRegulatorMotorizedElementConfigUpdateZ = z.object({
+  variant: z.literal("electric_regulator_motorized"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ElectricRegulatorMotorizedElementConfigUpdate extends z.infer<
+  typeof electricRegulatorMotorizedElementConfigUpdateZ
+> {}
+
+export const fourWayValveElementConfigUpdateZ = z.object({
+  variant: z.literal("four_way_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface FourWayValveElementConfigUpdate extends z.infer<
+  typeof fourWayValveElementConfigUpdateZ
+> {}
+
+export const gateValveElementConfigUpdateZ = z.object({
+  variant: z.literal("gate_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface GateValveElementConfigUpdate extends z.infer<
+  typeof gateValveElementConfigUpdateZ
+> {}
+
+export const isoCheckValveElementConfigUpdateZ = z.object({
+  variant: z.literal("iso_check_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface IsoCheckValveElementConfigUpdate extends z.infer<
+  typeof isoCheckValveElementConfigUpdateZ
+> {}
+
+export const manualValveElementConfigUpdateZ = z.object({
+  variant: z.literal("manual_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ManualValveElementConfigUpdate extends z.infer<
+  typeof manualValveElementConfigUpdateZ
+> {}
+
+export const needleValveElementConfigUpdateZ = z.object({
+  variant: z.literal("needle_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface NeedleValveElementConfigUpdate extends z.infer<
+  typeof needleValveElementConfigUpdateZ
+> {}
+
+export const regulatorElementConfigUpdateZ = z.object({
+  variant: z.literal("regulator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface RegulatorElementConfigUpdate extends z.infer<
+  typeof regulatorElementConfigUpdateZ
+> {}
+
+export const regulatorManualElementConfigUpdateZ = z.object({
+  variant: z.literal("regulator_manual"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface RegulatorManualElementConfigUpdate extends z.infer<
+  typeof regulatorManualElementConfigUpdateZ
+> {}
+
+export const reliefValveElementConfigUpdateZ = z.object({
+  variant: z.literal("relief_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ReliefValveElementConfigUpdate extends z.infer<
+  typeof reliefValveElementConfigUpdateZ
+> {}
+
+/** SolenoidValveElementConfigUpdate is the configuration for solenoid valve symbols. */
+export const solenoidValveElementConfigUpdateZ = z.object({
+  variant: z.literal("solenoid_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** normallyOpen indicates whether the valve is open when unpowered. */
+  normallyOpen: z.boolean().optional(),
+});
+export interface SolenoidValveElementConfigUpdate extends z.infer<
+  typeof solenoidValveElementConfigUpdateZ
+> {}
+
+export const springLoadedReliefValveElementConfigUpdateZ = z.object({
+  variant: z.literal("spring_loaded_relief_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** enabled indicates whether the symbol renders in its active state. */
+  enabled: z.boolean().optional(),
+  /** clickable indicates whether clicking the symbol toggles its state. */
+  clickable: z.boolean().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface SpringLoadedReliefValveElementConfigUpdate extends z.infer<
+  typeof springLoadedReliefValveElementConfigUpdateZ
+> {}
+
+export const threeWayValveElementConfigUpdateZ = z.object({
+  variant: z.literal("three_way_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ThreeWayValveElementConfigUpdate extends z.infer<
+  typeof threeWayValveElementConfigUpdateZ
+> {}
+
+export const threeWayBallValveElementConfigUpdateZ = z.object({
+  variant: z.literal("three_way_ball_valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ThreeWayBallValveElementConfigUpdate extends z.infer<
+  typeof threeWayBallValveElementConfigUpdateZ
+> {}
+
+export const valveElementConfigUpdateZ = z.object({
+  variant: z.literal("valve"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /**
+   * strokeColor is the stroke color of the symbol, which also fills it while it is
+   * active.
+   */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ValveElementConfigUpdate extends z.infer<
+  typeof valveElementConfigUpdateZ
+> {}
+
+export const crossJunctionElementConfigUpdateZ = z.object({
+  variant: z.literal("cross_junction"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CrossJunctionElementConfigUpdate extends z.infer<
+  typeof crossJunctionElementConfigUpdateZ
+> {}
+
+/** CylinderElementConfigUpdate is the configuration for cylinder vessel symbols. */
+export const cylinderElementConfigUpdateZ = z.object({
+  variant: z.literal("cylinder"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** dimensions is the rendered size of the cylinder in pixels. */
+  dimensions: patch
+    .structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ })
+    .optional(),
+  /** borderRadius is the corner radius of the cylinder. */
+  borderRadius: patch.changeZ(border.radiusZ).optional(),
+  /** strokeColor is the border color of the cylinder. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** fillColor is the fill color of the cylinder. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface CylinderElementConfigUpdate extends z.infer<
+  typeof cylinderElementConfigUpdateZ
+> {}
+
+/** TankElementConfigUpdate is the configuration for tank vessel symbols. */
+export const tankElementConfigUpdateZ = z.object({
+  variant: z.literal("tank"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** channel is the channel whose value the symbol displays. */
+  channel: patch.changeZ(channel.keyZ).optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: patch.changeZ(z.int32()).optional(),
+  /** precision is the number of decimal places shown. */
+  precision: z.number().optional(),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** bounds is the numeric range the indicator maps onto its extent. */
+  bounds: spatial.boundsZ().optional(),
+  /**
+   * levelColor is the color of the filled portion, the caret, and the value readout
+   * border.
+   */
+  levelColor: patch.changeZ(color.colorZ).optional(),
+  /** axisColor is the color of the axis and its ticks. */
+  axisColor: patch.changeZ(color.colorZ).optional(),
+  /** textColor is the color of the tick labels. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /** units is the unit suffix displayed after each tick label. */
+  units: z.string().optional(),
+  /** levelHidden hides the filled portion. */
+  levelHidden: z.boolean().optional(),
+  /** caretSide is the edge the value readout sits on. */
+  caretSide: spatial.outerLocationZ.optional(),
+  /** level is the typography level of the tick labels. */
+  level: text.levelZ.optional(),
+  /** position is the offset of the tank contents within the symbol. */
+  position: patch
+    .changeZ(patch.structZ({ u: spatial.xyUpdateZ, t: spatial.xyZ }))
+    .optional(),
+  /** strokeColor is the color of the tank's wall. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /** fillColor is the fill color of the tank body. */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** dimensions is the rendered size of the tank in pixels. */
+  dimensions: patch
+    .structZ({ u: spatial.dimensionsUpdateZ, t: spatial.dimensionsZ })
+    .optional(),
+  /** borderRadius is the corner radius of the tank. */
+  borderRadius: border.radiusZ.optional(),
+  /** caretVisible shows the caret marking the current level. */
+  caretVisible: z.boolean().optional(),
+  /** scaleVisible shows the axis and its tick labels. */
+  scaleVisible: z.boolean().optional(),
+  /** side is the edge the axis is drawn along. */
+  side: spatial.outerLocationZ.optional(),
+});
+export interface TankElementConfigUpdate extends z.infer<
+  typeof tankElementConfigUpdateZ
+> {}
+
+export const tJunctionElementConfigUpdateZ = z.object({
+  variant: z.literal("t_junction"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** strokeColor is the stroke color of the symbol. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface TJunctionElementConfigUpdate extends z.infer<
+  typeof tJunctionElementConfigUpdateZ
+> {}
+
+/**
+ * CustomActuatorElementConfigUpdate is the configuration for user-defined actuator
+ * symbols.
+ */
+export const customActuatorElementConfigUpdateZ = z.object({
+  variant: z.literal("custom_actuator"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /** stalenessColor is the color applied when the value is stale. */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+  /** stateChannel is the channel whose value drives the symbol's active state. */
+  stateChannel: patch.changeZ(channel.keyZ).optional(),
+  /** commandChannel is the channel actuation commands are written to. */
+  commandChannel: patch.changeZ(channel.keyZ).optional(),
+  /** control is the control state display configuration. */
+  control: patch
+    .changeZ(patch.structZ({ u: controlStateConfigUpdateZ, t: controlStateConfigZ }))
+    .optional(),
+  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+  onClickDelay: z.number().optional(),
+  /** specKey is the key of the custom symbol spec this instance renders. */
+  specKey: z.string().optional(),
+  /**
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
+   */
+  stateOverrides: patch.valueListZ(symbol.stateZ).optional(),
+});
+export interface CustomActuatorElementConfigUpdate extends z.infer<
+  typeof customActuatorElementConfigUpdateZ
+> {}
+
+/**
+ * CustomStaticElementConfigUpdate is the configuration for user-defined static symbols.
+ */
+export const customStaticElementConfigUpdateZ = z.object({
+  variant: z.literal("custom_static"),
+  /** label is the symbol's label configuration. */
+  label: patch.structZ({ u: labelConfigUpdateZ, t: labelConfigZ }).optional(),
+  /** orientation is the orientation of the symbol's primitive within the diagram. */
+  orientation: spatial.outerLocationZ.optional(),
+  /** scale is the rendered scale multiplier of the symbol. */
+  scale: z.number().optional(),
+  /** specKey is the key of the custom symbol spec this instance renders. */
+  specKey: z.string().optional(),
+  /**
+   * stateOverrides contains per-instance overrides of the spec's visual states, matched
+   * to the spec's states by key.
+   */
+  stateOverrides: patch.valueListZ(symbol.stateZ).optional(),
+});
+export interface CustomStaticElementConfigUpdate extends z.infer<
+  typeof customStaticElementConfigUpdateZ
+> {}
+
+/**
+ * GroupBoxElementConfigUpdate is the configuration for a group box, the symbol that
+ * bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+ */
+export const groupBoxElementConfigUpdateZ = z.object({
+  variant: z.literal("group_box"),
+  /** members lists the keys of the symbols the group contains. */
+  members: patch.valueListZ(z.string()).optional(),
+  /** locked pins the group and its members in place. */
+  locked: z.boolean().optional(),
+});
+export interface GroupBoxElementConfigUpdate extends z.infer<
+  typeof groupBoxElementConfigUpdateZ
+> {}
+
+export const pipeElementConfigUpdateZ = z.object({
+  variant: z.literal("pipe"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface PipeElementConfigUpdate extends z.infer<
+  typeof pipeElementConfigUpdateZ
+> {}
+
+export const electricElementConfigUpdateZ = z.object({
+  variant: z.literal("electric"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface ElectricElementConfigUpdate extends z.infer<
+  typeof electricElementConfigUpdateZ
+> {}
+
+export const secondaryElementConfigUpdateZ = z.object({
+  variant: z.literal("secondary"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface SecondaryElementConfigUpdate extends z.infer<
+  typeof secondaryElementConfigUpdateZ
+> {}
+
+export const jacketedElementConfigUpdateZ = z.object({
+  variant: z.literal("jacketed"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface JacketedElementConfigUpdate extends z.infer<
+  typeof jacketedElementConfigUpdateZ
+> {}
+
+export const hydraulicElementConfigUpdateZ = z.object({
+  variant: z.literal("hydraulic"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface HydraulicElementConfigUpdate extends z.infer<
+  typeof hydraulicElementConfigUpdateZ
+> {}
+
+export const pneumaticElementConfigUpdateZ = z.object({
+  variant: z.literal("pneumatic"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface PneumaticElementConfigUpdate extends z.infer<
+  typeof pneumaticElementConfigUpdateZ
+> {}
+
+export const dataElementConfigUpdateZ = z.object({
+  variant: z.literal("data"),
+  /** strokeColor is the stroke color of the edge. */
+  strokeColor: patch.changeZ(color.colorZ).optional(),
+  /**
+   * segments is the ordered list of orthogonal runs that trace the connector path from
+   * the source handle to the target handle.
+   */
+  segments: patch.valueListZ(segmentZ).optional(),
+});
+export interface DataElementConfigUpdate extends z.infer<
+  typeof dataElementConfigUpdateZ
+> {}
+
+export const ELEMENT_CONFIG_UPDATE_TYPES = [
+  "cap",
+  "filter",
+  "flow_straightener",
+  "heater_element",
+  "iso_cap",
+  "iso_filter",
+  "nozzle",
+  "orifice",
+  "orifice_plate",
+  "strainer",
+  "strainer_cone",
+  "thruster",
+  "vent",
+  "flowmeter_general",
+  "flowmeter_electromagnetic",
+  "flowmeter_variable_area",
+  "flowmeter_coriolis",
+  "flowmeter_nozzle",
+  "flowmeter_venturi",
+  "flowmeter_ring_piston",
+  "flowmeter_positive_displacement",
+  "flowmeter_turbine",
+  "flowmeter_pulse",
+  "flowmeter_float_sensor",
+  "flowmeter_orifice",
+  "box",
+  "button",
+  "circle",
+  "gauge",
+  "input",
+  "light",
+  "line",
+  "off_page_reference",
+  "polygon",
+  "select",
+  "scale",
+  "setpoint",
+  "state_indicator",
+  "string_display",
+  "switch",
+  "text_box",
+  "value",
+  "agitator",
+  "cross_beam_agitator",
+  "flat_blade_agitator",
+  "heat_exchanger_general",
+  "heat_exchanger_m",
+  "heat_exchanger_straight_tube",
+  "helical_agitator",
+  "paddle_agitator",
+  "propeller_agitator",
+  "rotary_mixer",
+  "static_mixer",
+  "cavity_pump",
+  "centrifugal_compressor",
+  "compressor",
+  "diaphragm_pump",
+  "ejection_pump",
+  "ejector_compressor",
+  "liquid_ring_compressor",
+  "piston_pump",
+  "pump",
+  "roller_vane_compressor",
+  "screw_pump",
+  "turbo_compressor",
+  "vacuum_pump",
+  "burst_disc",
+  "flame_arrestor",
+  "flame_arrestor_detonation",
+  "flame_arrestor_explosion",
+  "flame_arrestor_fire_res",
+  "flame_arrestor_fire_res_detonation",
+  "iso_burst_disc",
+  "angled_valve",
+  "angled_relief_valve",
+  "angled_spring_loaded_relief_valve",
+  "ball_valve",
+  "breather_valve",
+  "butterfly_valve_one",
+  "butterfly_valve_two",
+  "check_valve",
+  "check_valve_with_arrow",
+  "electric_regulator",
+  "electric_regulator_motorized",
+  "four_way_valve",
+  "gate_valve",
+  "iso_check_valve",
+  "manual_valve",
+  "needle_valve",
+  "regulator",
+  "regulator_manual",
+  "relief_valve",
+  "solenoid_valve",
+  "spring_loaded_relief_valve",
+  "three_way_valve",
+  "three_way_ball_valve",
+  "valve",
+  "cross_junction",
+  "cylinder",
+  "tank",
+  "t_junction",
+  "custom_actuator",
+  "custom_static",
+  "group_box",
+  "pipe",
+  "electric",
+  "secondary",
+  "jacketed",
+  "hydraulic",
+  "pneumatic",
+  "data",
+] as const;
+export const elementConfigUpdateTypeZ = z.enum(ELEMENT_CONFIG_UPDATE_TYPES);
+export type ElementConfigUpdateType = z.infer<typeof elementConfigUpdateTypeZ>;
+
+/**
+ * ElementConfigUpdate holds changes to the fields of the element config. A variant that
+ * differs from the stored one changes the variant.
+ */
+export const elementConfigUpdateZ = z.discriminatedUnion("variant", [
+  z.lazy(() => capElementConfigUpdateZ),
+  z.lazy(() => filterElementConfigUpdateZ),
+  z.lazy(() => flowStraightenerElementConfigUpdateZ),
+  z.lazy(() => heaterElementElementConfigUpdateZ),
+  z.lazy(() => isoCapElementConfigUpdateZ),
+  z.lazy(() => isoFilterElementConfigUpdateZ),
+  z.lazy(() => nozzleElementConfigUpdateZ),
+  z.lazy(() => orificeElementConfigUpdateZ),
+  z.lazy(() => orificePlateElementConfigUpdateZ),
+  z.lazy(() => strainerElementConfigUpdateZ),
+  z.lazy(() => strainerConeElementConfigUpdateZ),
+  z.lazy(() => thrusterElementConfigUpdateZ),
+  z.lazy(() => ventElementConfigUpdateZ),
+  z.lazy(() => flowmeterGeneralElementConfigUpdateZ),
+  z.lazy(() => flowmeterElectromagneticElementConfigUpdateZ),
+  z.lazy(() => flowmeterVariableAreaElementConfigUpdateZ),
+  z.lazy(() => flowmeterCoriolisElementConfigUpdateZ),
+  z.lazy(() => flowmeterNozzleElementConfigUpdateZ),
+  z.lazy(() => flowmeterVenturiElementConfigUpdateZ),
+  z.lazy(() => flowmeterRingPistonElementConfigUpdateZ),
+  z.lazy(() => flowmeterPositiveDisplacementElementConfigUpdateZ),
+  z.lazy(() => flowmeterTurbineElementConfigUpdateZ),
+  z.lazy(() => flowmeterPulseElementConfigUpdateZ),
+  z.lazy(() => flowmeterFloatSensorElementConfigUpdateZ),
+  z.lazy(() => flowmeterOrificeElementConfigUpdateZ),
+  z.lazy(() => boxElementConfigUpdateZ),
+  z.lazy(() => buttonElementConfigUpdateZ),
+  z.lazy(() => circleElementConfigUpdateZ),
+  z.lazy(() => gaugeElementConfigUpdateZ),
+  z.lazy(() => inputElementConfigUpdateZ),
+  z.lazy(() => lightElementConfigUpdateZ),
+  z.lazy(() => lineElementConfigUpdateZ),
+  z.lazy(() => offPageReferenceElementConfigUpdateZ),
+  z.lazy(() => polygonElementConfigUpdateZ),
+  z.lazy(() => selectElementConfigUpdateZ),
+  z.lazy(() => scaleElementConfigUpdateZ),
+  z.lazy(() => setpointElementConfigUpdateZ),
+  z.lazy(() => stateIndicatorElementConfigUpdateZ),
+  z.lazy(() => stringDisplayElementConfigUpdateZ),
+  z.lazy(() => switchElementConfigUpdateZ),
+  z.lazy(() => textBoxElementConfigUpdateZ),
+  z.lazy(() => valueElementConfigUpdateZ),
+  z.lazy(() => agitatorElementConfigUpdateZ),
+  z.lazy(() => crossBeamAgitatorElementConfigUpdateZ),
+  z.lazy(() => flatBladeAgitatorElementConfigUpdateZ),
+  z.lazy(() => heatExchangerGeneralElementConfigUpdateZ),
+  z.lazy(() => heatExchangerMElementConfigUpdateZ),
+  z.lazy(() => heatExchangerStraightTubeElementConfigUpdateZ),
+  z.lazy(() => helicalAgitatorElementConfigUpdateZ),
+  z.lazy(() => paddleAgitatorElementConfigUpdateZ),
+  z.lazy(() => propellerAgitatorElementConfigUpdateZ),
+  z.lazy(() => rotaryMixerElementConfigUpdateZ),
+  z.lazy(() => staticMixerElementConfigUpdateZ),
+  z.lazy(() => cavityPumpElementConfigUpdateZ),
+  z.lazy(() => centrifugalCompressorElementConfigUpdateZ),
+  z.lazy(() => compressorElementConfigUpdateZ),
+  z.lazy(() => diaphragmPumpElementConfigUpdateZ),
+  z.lazy(() => ejectionPumpElementConfigUpdateZ),
+  z.lazy(() => ejectorCompressorElementConfigUpdateZ),
+  z.lazy(() => liquidRingCompressorElementConfigUpdateZ),
+  z.lazy(() => pistonPumpElementConfigUpdateZ),
+  z.lazy(() => pumpElementConfigUpdateZ),
+  z.lazy(() => rollerVaneCompressorElementConfigUpdateZ),
+  z.lazy(() => screwPumpElementConfigUpdateZ),
+  z.lazy(() => turboCompressorElementConfigUpdateZ),
+  z.lazy(() => vacuumPumpElementConfigUpdateZ),
+  z.lazy(() => burstDiscElementConfigUpdateZ),
+  z.lazy(() => flameArrestorElementConfigUpdateZ),
+  z.lazy(() => flameArrestorDetonationElementConfigUpdateZ),
+  z.lazy(() => flameArrestorExplosionElementConfigUpdateZ),
+  z.lazy(() => flameArrestorFireResElementConfigUpdateZ),
+  z.lazy(() => flameArrestorFireResDetonationElementConfigUpdateZ),
+  z.lazy(() => isoBurstDiscElementConfigUpdateZ),
+  z.lazy(() => angledValveElementConfigUpdateZ),
+  z.lazy(() => angledReliefValveElementConfigUpdateZ),
+  z.lazy(() => angledSpringLoadedReliefValveElementConfigUpdateZ),
+  z.lazy(() => ballValveElementConfigUpdateZ),
+  z.lazy(() => breatherValveElementConfigUpdateZ),
+  z.lazy(() => butterflyValveOneElementConfigUpdateZ),
+  z.lazy(() => butterflyValveTwoElementConfigUpdateZ),
+  z.lazy(() => checkValveElementConfigUpdateZ),
+  z.lazy(() => checkValveWithArrowElementConfigUpdateZ),
+  z.lazy(() => electricRegulatorElementConfigUpdateZ),
+  z.lazy(() => electricRegulatorMotorizedElementConfigUpdateZ),
+  z.lazy(() => fourWayValveElementConfigUpdateZ),
+  z.lazy(() => gateValveElementConfigUpdateZ),
+  z.lazy(() => isoCheckValveElementConfigUpdateZ),
+  z.lazy(() => manualValveElementConfigUpdateZ),
+  z.lazy(() => needleValveElementConfigUpdateZ),
+  z.lazy(() => regulatorElementConfigUpdateZ),
+  z.lazy(() => regulatorManualElementConfigUpdateZ),
+  z.lazy(() => reliefValveElementConfigUpdateZ),
+  z.lazy(() => solenoidValveElementConfigUpdateZ),
+  z.lazy(() => springLoadedReliefValveElementConfigUpdateZ),
+  z.lazy(() => threeWayValveElementConfigUpdateZ),
+  z.lazy(() => threeWayBallValveElementConfigUpdateZ),
+  z.lazy(() => valveElementConfigUpdateZ),
+  z.lazy(() => crossJunctionElementConfigUpdateZ),
+  z.lazy(() => cylinderElementConfigUpdateZ),
+  z.lazy(() => tankElementConfigUpdateZ),
+  z.lazy(() => tJunctionElementConfigUpdateZ),
+  z.lazy(() => customActuatorElementConfigUpdateZ),
+  z.lazy(() => customStaticElementConfigUpdateZ),
+  z.lazy(() => groupBoxElementConfigUpdateZ),
+  z.lazy(() => pipeElementConfigUpdateZ),
+  z.lazy(() => electricElementConfigUpdateZ),
+  z.lazy(() => secondaryElementConfigUpdateZ),
+  z.lazy(() => jacketedElementConfigUpdateZ),
+  z.lazy(() => hydraulicElementConfigUpdateZ),
+  z.lazy(() => pneumaticElementConfigUpdateZ),
+  z.lazy(() => dataElementConfigUpdateZ),
+]);
+export type ElementConfigUpdate =
+  | CapElementConfigUpdate
+  | FilterElementConfigUpdate
+  | FlowStraightenerElementConfigUpdate
+  | HeaterElementElementConfigUpdate
+  | IsoCapElementConfigUpdate
+  | IsoFilterElementConfigUpdate
+  | NozzleElementConfigUpdate
+  | OrificeElementConfigUpdate
+  | OrificePlateElementConfigUpdate
+  | StrainerElementConfigUpdate
+  | StrainerConeElementConfigUpdate
+  | ThrusterElementConfigUpdate
+  | VentElementConfigUpdate
+  | FlowmeterGeneralElementConfigUpdate
+  | FlowmeterElectromagneticElementConfigUpdate
+  | FlowmeterVariableAreaElementConfigUpdate
+  | FlowmeterCoriolisElementConfigUpdate
+  | FlowmeterNozzleElementConfigUpdate
+  | FlowmeterVenturiElementConfigUpdate
+  | FlowmeterRingPistonElementConfigUpdate
+  | FlowmeterPositiveDisplacementElementConfigUpdate
+  | FlowmeterTurbineElementConfigUpdate
+  | FlowmeterPulseElementConfigUpdate
+  | FlowmeterFloatSensorElementConfigUpdate
+  | FlowmeterOrificeElementConfigUpdate
+  | BoxElementConfigUpdate
+  | ButtonElementConfigUpdate
+  | CircleElementConfigUpdate
+  | GaugeElementConfigUpdate
+  | InputElementConfigUpdate
+  | LightElementConfigUpdate
+  | LineElementConfigUpdate
+  | OffPageReferenceElementConfigUpdate
+  | PolygonElementConfigUpdate
+  | SelectElementConfigUpdate
+  | ScaleElementConfigUpdate
+  | SetpointElementConfigUpdate
+  | StateIndicatorElementConfigUpdate
+  | StringDisplayElementConfigUpdate
+  | SwitchElementConfigUpdate
+  | TextBoxElementConfigUpdate
+  | ValueElementConfigUpdate
+  | AgitatorElementConfigUpdate
+  | CrossBeamAgitatorElementConfigUpdate
+  | FlatBladeAgitatorElementConfigUpdate
+  | HeatExchangerGeneralElementConfigUpdate
+  | HeatExchangerMElementConfigUpdate
+  | HeatExchangerStraightTubeElementConfigUpdate
+  | HelicalAgitatorElementConfigUpdate
+  | PaddleAgitatorElementConfigUpdate
+  | PropellerAgitatorElementConfigUpdate
+  | RotaryMixerElementConfigUpdate
+  | StaticMixerElementConfigUpdate
+  | CavityPumpElementConfigUpdate
+  | CentrifugalCompressorElementConfigUpdate
+  | CompressorElementConfigUpdate
+  | DiaphragmPumpElementConfigUpdate
+  | EjectionPumpElementConfigUpdate
+  | EjectorCompressorElementConfigUpdate
+  | LiquidRingCompressorElementConfigUpdate
+  | PistonPumpElementConfigUpdate
+  | PumpElementConfigUpdate
+  | RollerVaneCompressorElementConfigUpdate
+  | ScrewPumpElementConfigUpdate
+  | TurboCompressorElementConfigUpdate
+  | VacuumPumpElementConfigUpdate
+  | BurstDiscElementConfigUpdate
+  | FlameArrestorElementConfigUpdate
+  | FlameArrestorDetonationElementConfigUpdate
+  | FlameArrestorExplosionElementConfigUpdate
+  | FlameArrestorFireResElementConfigUpdate
+  | FlameArrestorFireResDetonationElementConfigUpdate
+  | IsoBurstDiscElementConfigUpdate
+  | AngledValveElementConfigUpdate
+  | AngledReliefValveElementConfigUpdate
+  | AngledSpringLoadedReliefValveElementConfigUpdate
+  | BallValveElementConfigUpdate
+  | BreatherValveElementConfigUpdate
+  | ButterflyValveOneElementConfigUpdate
+  | ButterflyValveTwoElementConfigUpdate
+  | CheckValveElementConfigUpdate
+  | CheckValveWithArrowElementConfigUpdate
+  | ElectricRegulatorElementConfigUpdate
+  | ElectricRegulatorMotorizedElementConfigUpdate
+  | FourWayValveElementConfigUpdate
+  | GateValveElementConfigUpdate
+  | IsoCheckValveElementConfigUpdate
+  | ManualValveElementConfigUpdate
+  | NeedleValveElementConfigUpdate
+  | RegulatorElementConfigUpdate
+  | RegulatorManualElementConfigUpdate
+  | ReliefValveElementConfigUpdate
+  | SolenoidValveElementConfigUpdate
+  | SpringLoadedReliefValveElementConfigUpdate
+  | ThreeWayValveElementConfigUpdate
+  | ThreeWayBallValveElementConfigUpdate
+  | ValveElementConfigUpdate
+  | CrossJunctionElementConfigUpdate
+  | CylinderElementConfigUpdate
+  | TankElementConfigUpdate
+  | TJunctionElementConfigUpdate
+  | CustomActuatorElementConfigUpdate
+  | CustomStaticElementConfigUpdate
+  | GroupBoxElementConfigUpdate
+  | PipeElementConfigUpdate
+  | ElectricElementConfigUpdate
+  | SecondaryElementConfigUpdate
+  | JacketedElementConfigUpdate
+  | HydraulicElementConfigUpdate
+  | PneumaticElementConfigUpdate
+  | DataElementConfigUpdate;
+
+export const ELEMENT_CONFIG_UPDATE_SCHEMAS: {
+  [K in ElementConfigUpdateType]: z.ZodType<
+    Extract<ElementConfigUpdate, { variant: K }>
+  >;
+} = {
+  cap: capElementConfigUpdateZ,
+  filter: filterElementConfigUpdateZ,
+  flow_straightener: flowStraightenerElementConfigUpdateZ,
+  heater_element: heaterElementElementConfigUpdateZ,
+  iso_cap: isoCapElementConfigUpdateZ,
+  iso_filter: isoFilterElementConfigUpdateZ,
+  nozzle: nozzleElementConfigUpdateZ,
+  orifice: orificeElementConfigUpdateZ,
+  orifice_plate: orificePlateElementConfigUpdateZ,
+  strainer: strainerElementConfigUpdateZ,
+  strainer_cone: strainerConeElementConfigUpdateZ,
+  thruster: thrusterElementConfigUpdateZ,
+  vent: ventElementConfigUpdateZ,
+  flowmeter_general: flowmeterGeneralElementConfigUpdateZ,
+  flowmeter_electromagnetic: flowmeterElectromagneticElementConfigUpdateZ,
+  flowmeter_variable_area: flowmeterVariableAreaElementConfigUpdateZ,
+  flowmeter_coriolis: flowmeterCoriolisElementConfigUpdateZ,
+  flowmeter_nozzle: flowmeterNozzleElementConfigUpdateZ,
+  flowmeter_venturi: flowmeterVenturiElementConfigUpdateZ,
+  flowmeter_ring_piston: flowmeterRingPistonElementConfigUpdateZ,
+  flowmeter_positive_displacement: flowmeterPositiveDisplacementElementConfigUpdateZ,
+  flowmeter_turbine: flowmeterTurbineElementConfigUpdateZ,
+  flowmeter_pulse: flowmeterPulseElementConfigUpdateZ,
+  flowmeter_float_sensor: flowmeterFloatSensorElementConfigUpdateZ,
+  flowmeter_orifice: flowmeterOrificeElementConfigUpdateZ,
+  box: boxElementConfigUpdateZ,
+  button: buttonElementConfigUpdateZ,
+  circle: circleElementConfigUpdateZ,
+  gauge: gaugeElementConfigUpdateZ,
+  input: inputElementConfigUpdateZ,
+  light: lightElementConfigUpdateZ,
+  line: lineElementConfigUpdateZ,
+  off_page_reference: offPageReferenceElementConfigUpdateZ,
+  polygon: polygonElementConfigUpdateZ,
+  select: selectElementConfigUpdateZ,
+  scale: scaleElementConfigUpdateZ,
+  setpoint: setpointElementConfigUpdateZ,
+  state_indicator: stateIndicatorElementConfigUpdateZ,
+  string_display: stringDisplayElementConfigUpdateZ,
+  switch: switchElementConfigUpdateZ,
+  text_box: textBoxElementConfigUpdateZ,
+  value: valueElementConfigUpdateZ,
+  agitator: agitatorElementConfigUpdateZ,
+  cross_beam_agitator: crossBeamAgitatorElementConfigUpdateZ,
+  flat_blade_agitator: flatBladeAgitatorElementConfigUpdateZ,
+  heat_exchanger_general: heatExchangerGeneralElementConfigUpdateZ,
+  heat_exchanger_m: heatExchangerMElementConfigUpdateZ,
+  heat_exchanger_straight_tube: heatExchangerStraightTubeElementConfigUpdateZ,
+  helical_agitator: helicalAgitatorElementConfigUpdateZ,
+  paddle_agitator: paddleAgitatorElementConfigUpdateZ,
+  propeller_agitator: propellerAgitatorElementConfigUpdateZ,
+  rotary_mixer: rotaryMixerElementConfigUpdateZ,
+  static_mixer: staticMixerElementConfigUpdateZ,
+  cavity_pump: cavityPumpElementConfigUpdateZ,
+  centrifugal_compressor: centrifugalCompressorElementConfigUpdateZ,
+  compressor: compressorElementConfigUpdateZ,
+  diaphragm_pump: diaphragmPumpElementConfigUpdateZ,
+  ejection_pump: ejectionPumpElementConfigUpdateZ,
+  ejector_compressor: ejectorCompressorElementConfigUpdateZ,
+  liquid_ring_compressor: liquidRingCompressorElementConfigUpdateZ,
+  piston_pump: pistonPumpElementConfigUpdateZ,
+  pump: pumpElementConfigUpdateZ,
+  roller_vane_compressor: rollerVaneCompressorElementConfigUpdateZ,
+  screw_pump: screwPumpElementConfigUpdateZ,
+  turbo_compressor: turboCompressorElementConfigUpdateZ,
+  vacuum_pump: vacuumPumpElementConfigUpdateZ,
+  burst_disc: burstDiscElementConfigUpdateZ,
+  flame_arrestor: flameArrestorElementConfigUpdateZ,
+  flame_arrestor_detonation: flameArrestorDetonationElementConfigUpdateZ,
+  flame_arrestor_explosion: flameArrestorExplosionElementConfigUpdateZ,
+  flame_arrestor_fire_res: flameArrestorFireResElementConfigUpdateZ,
+  flame_arrestor_fire_res_detonation:
+    flameArrestorFireResDetonationElementConfigUpdateZ,
+  iso_burst_disc: isoBurstDiscElementConfigUpdateZ,
+  angled_valve: angledValveElementConfigUpdateZ,
+  angled_relief_valve: angledReliefValveElementConfigUpdateZ,
+  angled_spring_loaded_relief_valve: angledSpringLoadedReliefValveElementConfigUpdateZ,
+  ball_valve: ballValveElementConfigUpdateZ,
+  breather_valve: breatherValveElementConfigUpdateZ,
+  butterfly_valve_one: butterflyValveOneElementConfigUpdateZ,
+  butterfly_valve_two: butterflyValveTwoElementConfigUpdateZ,
+  check_valve: checkValveElementConfigUpdateZ,
+  check_valve_with_arrow: checkValveWithArrowElementConfigUpdateZ,
+  electric_regulator: electricRegulatorElementConfigUpdateZ,
+  electric_regulator_motorized: electricRegulatorMotorizedElementConfigUpdateZ,
+  four_way_valve: fourWayValveElementConfigUpdateZ,
+  gate_valve: gateValveElementConfigUpdateZ,
+  iso_check_valve: isoCheckValveElementConfigUpdateZ,
+  manual_valve: manualValveElementConfigUpdateZ,
+  needle_valve: needleValveElementConfigUpdateZ,
+  regulator: regulatorElementConfigUpdateZ,
+  regulator_manual: regulatorManualElementConfigUpdateZ,
+  relief_valve: reliefValveElementConfigUpdateZ,
+  solenoid_valve: solenoidValveElementConfigUpdateZ,
+  spring_loaded_relief_valve: springLoadedReliefValveElementConfigUpdateZ,
+  three_way_valve: threeWayValveElementConfigUpdateZ,
+  three_way_ball_valve: threeWayBallValveElementConfigUpdateZ,
+  valve: valveElementConfigUpdateZ,
+  cross_junction: crossJunctionElementConfigUpdateZ,
+  cylinder: cylinderElementConfigUpdateZ,
+  tank: tankElementConfigUpdateZ,
+  t_junction: tJunctionElementConfigUpdateZ,
+  custom_actuator: customActuatorElementConfigUpdateZ,
+  custom_static: customStaticElementConfigUpdateZ,
+  group_box: groupBoxElementConfigUpdateZ,
+  pipe: pipeElementConfigUpdateZ,
+  electric: electricElementConfigUpdateZ,
+  secondary: secondaryElementConfigUpdateZ,
+  jacketed: jacketedElementConfigUpdateZ,
+  hydraulic: hydraulicElementConfigUpdateZ,
+  pneumatic: pneumaticElementConfigUpdateZ,
+  data: dataElementConfigUpdateZ,
+};
 
 /** Where is a filter that selects schematics. */
 export type Where = {
@@ -3449,6 +6704,29 @@ export const setConfigPayloadZ = z.object({
 export interface SetConfigPayload extends z.infer<typeof setConfigPayloadZ> {}
 
 /**
+ * Update holds changes to the fields of the schematic. An absent field does not change.
+ */
+export const updateZ = z.object({
+  /** name is a human-readable name for the schematic. */
+  name: z.string().optional(),
+  /**
+   * configs contains per-element configuration keyed by node or edge key. The variant
+   * of each value selects the symbol or edge style it configures.
+   */
+  configs: patch
+    .typedMapZ({ k: z.string(), v: elementConfigZ, u: elementConfigUpdateZ })
+    .optional(),
+  /** group is the group the schematic sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+  /**
+   * project is the project that owns the schematic, if any. Exactly one of project and
+   * range is set.
+   */
+  project: patch.changeZ(project.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
+/**
  * CreatePayload replaces the state with the created schematic. Only the Core emits it.
  */
 export const createPayloadZ = z.object({
@@ -3464,6 +6742,9 @@ export const retrieveResponseZ = z.object({
   schematics: schematicZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
 
 export const createActionZ = z.object({
   type: z.literal("create"),

@@ -14,13 +14,17 @@ package table
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/table/versions"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/patch"
+	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -1087,6 +1091,10 @@ func (u Action) Validate() error {
 type Update struct {
 	// Name is a human-readable name for the table.
 	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Cells contains all cells in the table, keyed by cell key. Cell positions are
+	// derived from rows[*].cells[*] references; cells not referenced by any row are
+	// orphaned and will be pruned on the next structural edit.
+	Cells *patch.TypedMap[string, CellConfig, CellConfigUpdate] `json:"cells,omitzero" msgpack:"cells,omitempty"`
 	// Group is the group the table sits in, if any.
 	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that owns the table, if any. Exactly one of project and
@@ -1108,12 +1116,266 @@ func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // hold.
 type UpdatePayload patch.Update[Update]
 
+// CellConfigUpdateType is the "variant" value that selects a variant of
+// CellConfigUpdate.
+type CellConfigUpdateType string
+
+const (
+	// TextCellConfigUpdateType is the configuration for static text cells.
+	TextCellConfigUpdateType CellConfigUpdateType = "text"
+	// ValueCellConfigUpdateType is the configuration for live telemetry value cells.
+	ValueCellConfigUpdateType CellConfigUpdateType = "value"
+)
+
+// CellConfigUpdateVariant is implemented by every CellConfigUpdate variant.
+type CellConfigUpdateVariant interface {
+	isCellConfigUpdateVariant()
+}
+
+// TextCellConfigUpdate is the configuration for static text cells.
+type TextCellConfigUpdate struct {
+	// Value is the text content of the cell.
+	Value *string `json:"value,omitzero" msgpack:"value,omitempty"`
+	// Level is the typography level of the cell text.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Weight is the font weight of the cell text.
+	Weight *float64 `json:"weight,omitzero" msgpack:"weight,omitempty"`
+	// Align is the alignment of the cell text along the row axis.
+	Align *FlexAlignment `json:"align,omitzero" msgpack:"align,omitempty"`
+	// FillColor is the background color of the cell. When absent the theme picks the
+	// fill; a fully transparent value paints nothing.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// TextColor is the color of the cell text. When absent the theme picks the color.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+}
+
+func (TextCellConfigUpdate) isCellConfigUpdateVariant() {}
+
+// ValueCellConfigUpdate is the configuration for live telemetry value cells.
+type ValueCellConfigUpdate struct {
+	// Channel is the channel whose value the cell displays.
+	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage *int32 `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown. When absent the formatter picks
+	// the precision; zero shows whole numbers.
+	Precision patch.Change[int32] `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline *patch.Struct[color.ScaleUpdate, color.Scale] `json:"redline,omitzero" msgpack:"redline,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the cell paints no fill.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// TextColor is the color of the displayed text. When absent the value renders with
+	// a theme-derived legible color.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale. When absent the
+	// value renders with the theme warning color.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+}
+
+func (ValueCellConfigUpdate) isCellConfigUpdateVariant() {}
+
+// CellConfigUpdate holds changes to the fields of the cell config. A variant that
+// differs from the stored one changes the variant.
+type CellConfigUpdate struct {
+	Variant CellConfigUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u CellConfigUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case TextCellConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CellConfigUpdateType `json:"variant"`
+			TextCellConfigUpdate
+		}{Type: TextCellConfigUpdateType, TextCellConfigUpdate: v})
+	case ValueCellConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type CellConfigUpdateType `json:"variant"`
+			ValueCellConfigUpdate
+		}{Type: ValueCellConfigUpdateType, ValueCellConfigUpdate: v})
+	default:
+		return errors.Newf("CellConfigUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *CellConfigUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type CellConfigUpdateType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case TextCellConfigUpdateType:
+		var v struct {
+			Type CellConfigUpdateType `json:"variant"`
+			TextCellConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TextCellConfigUpdate
+	case ValueCellConfigUpdateType:
+		var v struct {
+			Type CellConfigUpdateType `json:"variant"`
+			ValueCellConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValueCellConfigUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CellConfigUpdate: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
 // ApplyTo applies u to x. An absent field of u leaves its field of x alone.
 func (u Update) ApplyTo(x *Table) error {
 	if u.Name != nil {
 		x.Name = *u.Name
 	}
+	if u.Cells != nil {
+		if err := patch.ApplyMap(
+			&x.Cells,
+			*u.Cells,
+			func(v *CellConfig, w CellConfigUpdate) error { return w.ApplyTo(v) },
+		); err != nil {
+			return err
+		}
+	}
 	u.Group.ApplyOptional(&x.Group)
 	u.Project.ApplyOptional(&x.Project)
 	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u CellConfigUpdate) ApplyTo(x *CellConfig) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case TextCellConfigUpdate:
+		next, same := x.Variant.(TextCellConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ValueCellConfigUpdate:
+		next, same := x.Variant.(ValueCellConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TextCellConfigUpdate) ApplyTo(x *TextCellConfig) error {
+	if u.Value != nil {
+		x.Value = *u.Value
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if u.Weight != nil {
+		x.Weight = *u.Weight
+	}
+	if u.Align != nil {
+		x.Align = *u.Align
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	u.TextColor.ApplyOptional(&x.TextColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TextCellConfigUpdate) Defaults() (TextCellConfig, error) {
+	var x TextCellConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ValueCellConfigUpdate) ApplyTo(x *ValueCellConfig) error {
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.RollingAverage != nil {
+		x.RollingAverage = *u.RollingAverage
+	}
+	u.Precision.ApplyOptional(&x.Precision)
+	if u.Notation != nil {
+		x.Notation = *u.Notation
+	}
+	if u.Redline != nil {
+		if err := u.Redline.ApplyTo(&x.Redline, func(v *color.Scale, w color.ScaleUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	u.TextColor.ApplyOptional(&x.TextColor)
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ValueCellConfigUpdate) Defaults() (ValueCellConfig, error) {
+	var x ValueCellConfig
+	x.ApplyDefaults()
+	return x, nil
 }

@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"path"
 	"regexp"
 	"slices"
 	"sort"
@@ -405,6 +406,12 @@ func (p *Plugin) generateFile(
 			})
 		}
 	}
+
+	configs, err := taskConfigs(structs, req.Resolutions, path.Base(outputPath))
+	if err != nil {
+		return nil, err
+	}
+	data.TaskConfigs = configs
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -866,7 +873,12 @@ func (p *Plugin) processStruct(
 		}
 	}
 	for _, tp := range form.TypeParams {
-		sd.TypeParams = append(sd.TypeParams, p.processTypeParam(tp, table, data))
+		tpd := p.processTypeParam(tp, table, data)
+		if entry.Updates != "" && tpd.IsJSON {
+			structSchemasParam(&tpd)
+			addXImport(data, xImport{name: "patch", submodule: "patch"})
+		}
+		sd.TypeParams = append(sd.TypeParams, tpd)
 	}
 	for _, tp := range sd.TypeParams {
 		if tp.IsJSON || strings.Contains(tp.Constraint, "record.") ||
@@ -1704,6 +1716,17 @@ func (p *Plugin) processField(
 		IsArray:    isArray,
 		IsSelfRef:  needsGetter,
 	}
+	if param, ok := structParam(field, parentType); ok {
+		addXImport(data, xImport{name: "patch", submodule: "patch"})
+		addXImport(data, xImport{name: "record", submodule: "record"})
+		arg := casing.CamelAcronym(param)
+		fd.ZodType = fmt.Sprintf(
+			"(%s == null ? record.unknownZ() : patch.structZ(%s)).optional()", arg, arg,
+		)
+		fd.TSType = fmt.Sprintf(`patch.Struct<%s["u"], %s["t"]>`, param, param)
+		fd.ZodSchemaType = "z.ZodOptional<z.ZodType>"
+		return fd
+	}
 	if typeOverride := getFieldTypeOverride(field, "ts"); typeOverride != "" {
 		// A `@ts type` override may name either a primitive (e.g. `string`) or another
 		// schema type (e.g. `telem.TimeRangeBounded`). When it resolves to a known
@@ -1920,6 +1943,26 @@ func (p *Plugin) processField(
 		fd.ZodType = fmt.Sprintf("caseconv.preserveKeys(%s)", fd.ZodType)
 	}
 	return fd
+}
+
+// structParam returns the type parameter that types field of the update parent when the
+// parameter takes a record. Such a parameter takes the update and record schemas of a
+// struct, which the field merges into. Without them the field replaces a record whole.
+func structParam(field resolution.Field, parent resolution.Type) (string, bool) {
+	tp := field.Type.TypeParam
+	if parent.Updates == "" || tp == nil || tp.Constraint == nil ||
+		tp.Constraint.Name != "record" {
+		return "", false
+	}
+	return tp.Name, true
+}
+
+// structSchemasParam makes tpd take the schemas of a struct, not a record schema.
+func structSchemasParam(tpd *typeParamData) {
+	tpd.Constraint = "patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>>"
+	tpd.Default = "patch.StructSchemas<z.ZodType<record.Unknown>, " +
+		"z.ZodType<record.Unknown>>"
+	tpd.HasDefault = true
 }
 
 // optionalInTS reports whether field is optional in TypeScript. A bare any field is, so
@@ -3051,9 +3094,47 @@ type templateData struct {
 	SortedDecls      []sortedDeclData
 	CurrentDeclIndex int
 	GenerateTypes    bool
+	// TaskConfigs are the config structs of the file that @task type links to a task.
+	TaskConfigs []taskConfigData
 	// missingIncludes holds the hand-written types referenced in this namespace that
 	// declare no `@ts include` module.
 	missingIncludes set.Set[string]
+}
+
+// taskConfigData is the type of the task that a config struct configures, and the
+// schemas of the config.
+type taskConfigData struct{ Const, Value, Config, Update, Record string }
+
+// taskConfigs returns the task types that the config structs configure. It returns an
+// error for a config with no update type.
+func taskConfigs(
+	structs []resolution.Type,
+	table *resolution.Table,
+	ns string,
+) ([]taskConfigData, error) {
+	var configs []taskConfigData
+	for _, typ := range structs {
+		value, name, ok := domain.TaskType(typ, ns)
+		if !ok {
+			continue
+		}
+		update, ok := table.Get(typ.QualifiedName + "Update")
+		if !ok {
+			return nil, errors.Newf(
+				"%s: a config with @task type needs @patch for its update type",
+				typ.QualifiedName,
+			)
+		}
+		configName := domain.GetName(typ, "ts")
+		configs = append(configs, taskConfigData{
+			Const:  strings.ToUpper(name),
+			Value:  value,
+			Config: configName,
+			Update: casing.CamelAcronym(domain.GetName(update, "ts")) + "Z",
+			Record: casing.CamelAcronym(configName) + "Z",
+		})
+	}
+	return configs, nil
 }
 
 type sortedDeclData struct {
@@ -3678,6 +3759,19 @@ export const {{ .SchemasConst }}: {
 
 export const resourceID = resource.createIDFactory<{{ .Resource.KeyType }}>("{{ .Resource.TypeName }}");
 export const TYPE_RESOURCE_ID = resourceID({{ .Resource.KeyZeroValue }});
+{{- end }}
+{{- if .TaskConfigs }}
+{{ range .TaskConfigs }}
+/** {{ .Const }} is the task type of {{ .Config }}. */
+export const {{ .Const }} = "{{ .Value }}";
+{{- end }}
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+{{- range .TaskConfigs }}
+  [{{ .Const }}]: { u: {{ .Update }}, t: {{ .Record }} },
+{{- end }}
+};
 {{- end }}
 `),
 )

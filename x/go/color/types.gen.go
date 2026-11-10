@@ -11,7 +11,10 @@
 
 package color
 
-import "github.com/synnaxlabs/x/color/versions"
+import (
+	"github.com/synnaxlabs/x/color/versions"
+	"github.com/synnaxlabs/x/patch"
+)
 
 // Color is an RGBA color with RGB as 0-255 and alpha as 0-1.
 type Color = versions.Color
@@ -24,3 +27,26 @@ type Band = versions.Band
 
 // Scale maps a value to a color through threshold bands.
 type Scale = versions.Scale
+
+// ScaleUpdate holds changes to the fields of the scale. An absent field does not
+// change.
+type ScaleUpdate struct {
+	// Bands is the list of threshold bands. A band paints values at or above its
+	// threshold and below the next higher threshold.
+	Bands *patch.ValueList[Band] `json:"bands,omitzero" msgpack:"bands,omitempty"`
+	// Smooth is true when the fill interpolates between band colors.
+	Smooth *bool `json:"smooth,omitzero" msgpack:"smooth,omitempty"`
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScaleUpdate) ApplyTo(x *Scale) error {
+	if u.Bands != nil {
+		if err := patch.ApplyValueList(&x.Bands, *u.Bands); err != nil {
+			return err
+		}
+	}
+	if u.Smooth != nil {
+		x.Smooth = *u.Smooth
+	}
+	return nil
+}

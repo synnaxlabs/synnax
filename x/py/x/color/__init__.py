@@ -8,6 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 from x.color.color import Color, Crude
-from x.color.types_gen import Band, Scale
+from x.color.types_gen import Band, Scale, ScaleUpdate
 
-__all__ = ["Band", "Color", "Crude", "Scale"]
+__all__ = ["Band", "Color", "Crude", "Scale", "ScaleUpdate"]

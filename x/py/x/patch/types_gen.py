@@ -76,6 +76,14 @@ class TypedMap(BaseModel, Generic[K, V, U]):
     update: dict[K, U] | None = None
 
 
+# TypedMapDict is the dict form of TypedMap.
+class TypedMapDict(TypedDict, Generic[K, V, U], total=False):
+    set: dict[K, V]
+    insert: dict[K, V]
+    remove: list[K]
+    update: dict[K, U]
+
+
 class Set(BaseModel):
     """Replaces the value at a path. It creates the absent objects on the path, and does
     nothing when the path goes through a missing list entry.

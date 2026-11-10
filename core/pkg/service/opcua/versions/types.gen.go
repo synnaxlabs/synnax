@@ -25,8 +25,17 @@ type WriteChannel = v2.WriteChannel
 // ReadConfig configures an OPC UA read task.
 type ReadConfig = v2.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = v2.ReadTaskType
+
 // WriteConfig configures an OPC UA write task.
 type WriteConfig = v2.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = v2.WriteTaskType
+
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v2.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = v2.ScanTaskType

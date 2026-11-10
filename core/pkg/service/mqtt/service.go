@@ -23,18 +23,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const (
-	// ReadTaskType is the type of a task that reads topics and Sparkplug B tags.
-	ReadTaskType = "mqtt_read"
-	// WriteTaskType is the type of a task that publishes to topics and commands
-	// Sparkplug B tags.
-	WriteTaskType = "mqtt_write"
-	// ScanTaskType is the type of the internal task that checks broker devices.
-	ScanTaskType = "mqtt_scan"
-	// EdgeTaskType is the type of a task that is one Sparkplug B edge node.
-	EdgeTaskType = "mqtt_sparkplug_edge"
-)
-
 // ServiceConfig is the configuration for opening the MQTT task config service.
 type ServiceConfig struct {
 	// DB is the database config records are stored in.
@@ -137,7 +125,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			DB:                 cfg.DB,
 			References:         edgeConfigReferences(),
 			Instrumentation:    cfg.Instrumentation,
-			Type:               EdgeTaskType,
+			Type:               SparkplugEdgeTaskType,
 			Ladder:             versions.EdgeConfigLadder,
 			SetEntryKey:        (*EdgeConfig).SetKey,
 			PatchEntry:         (*EdgeConfig).Patch,

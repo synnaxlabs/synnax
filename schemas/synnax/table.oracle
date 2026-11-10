@@ -206,6 +206,7 @@ Table struct {
             derived from rows[*].cells[*] references; cells not referenced by any row
             are orphaned and will be pruned on the next structural edit.
         """
+        @patch
         @ts preserve_keys
     }
     group   group.Key?              {

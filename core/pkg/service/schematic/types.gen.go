@@ -14,14 +14,20 @@ package schematic
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions"
+	"github.com/synnaxlabs/x/border"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/text"
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 	vmsgpack "github.com/vmihailenco/msgpack/v5"
@@ -1734,6 +1740,9 @@ func (u Action) Validate() error {
 type Update struct {
 	// Name is a human-readable name for the schematic.
 	Name *string `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Configs contains per-element configuration keyed by node or edge key. The variant
+	// of each value selects the symbol or edge style it configures.
+	Configs *patch.TypedMap[string, ElementConfig, ElementConfigUpdate] `json:"configs,omitzero" msgpack:"configs,omitempty"`
 	// Group is the group the schematic sits in, if any.
 	Group patch.Change[group.Key] `json:"group,omitzero" msgpack:"group,omitempty"`
 	// Project is the project that owns the schematic, if any. Exactly one of project
@@ -1755,12 +1764,9492 @@ func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // guards hold.
 type UpdatePayload patch.Update[Update]
 
+// ElementConfigUpdateType is the "variant" value that selects a variant of
+// ElementConfigUpdate.
+type ElementConfigUpdateType string
+
+const (
+	// CapElementConfigUpdateType selects the CapElementConfigUpdate variant.
+	CapElementConfigUpdateType ElementConfigUpdateType = "cap"
+	// FilterElementConfigUpdateType selects the FilterElementConfigUpdate variant.
+	FilterElementConfigUpdateType ElementConfigUpdateType = "filter"
+	// FlowStraightenerElementConfigUpdateType selects the
+	// FlowStraightenerElementConfigUpdate variant.
+	FlowStraightenerElementConfigUpdateType ElementConfigUpdateType = "flow_straightener"
+	// HeaterElementElementConfigUpdateType selects the HeaterElementElementConfigUpdate
+	// variant.
+	HeaterElementElementConfigUpdateType ElementConfigUpdateType = "heater_element"
+	// IsoCapElementConfigUpdateType selects the IsoCapElementConfigUpdate variant.
+	IsoCapElementConfigUpdateType ElementConfigUpdateType = "iso_cap"
+	// IsoFilterElementConfigUpdateType selects the IsoFilterElementConfigUpdate
+	// variant.
+	IsoFilterElementConfigUpdateType ElementConfigUpdateType = "iso_filter"
+	// NozzleElementConfigUpdateType selects the NozzleElementConfigUpdate variant.
+	NozzleElementConfigUpdateType ElementConfigUpdateType = "nozzle"
+	// OrificeElementConfigUpdateType selects the OrificeElementConfigUpdate variant.
+	OrificeElementConfigUpdateType ElementConfigUpdateType = "orifice"
+	// OrificePlateElementConfigUpdateType selects the OrificePlateElementConfigUpdate
+	// variant.
+	OrificePlateElementConfigUpdateType ElementConfigUpdateType = "orifice_plate"
+	// StrainerElementConfigUpdateType selects the StrainerElementConfigUpdate variant.
+	StrainerElementConfigUpdateType ElementConfigUpdateType = "strainer"
+	// StrainerConeElementConfigUpdateType selects the StrainerConeElementConfigUpdate
+	// variant.
+	StrainerConeElementConfigUpdateType ElementConfigUpdateType = "strainer_cone"
+	// ThrusterElementConfigUpdateType selects the ThrusterElementConfigUpdate variant.
+	ThrusterElementConfigUpdateType ElementConfigUpdateType = "thruster"
+	// VentElementConfigUpdateType selects the VentElementConfigUpdate variant.
+	VentElementConfigUpdateType ElementConfigUpdateType = "vent"
+	// FlowmeterGeneralElementConfigUpdateType selects the
+	// FlowmeterGeneralElementConfigUpdate variant.
+	FlowmeterGeneralElementConfigUpdateType ElementConfigUpdateType = "flowmeter_general"
+	// FlowmeterElectromagneticElementConfigUpdateType selects the
+	// FlowmeterElectromagneticElementConfigUpdate variant.
+	FlowmeterElectromagneticElementConfigUpdateType ElementConfigUpdateType = "flowmeter_electromagnetic"
+	// FlowmeterVariableAreaElementConfigUpdateType selects the
+	// FlowmeterVariableAreaElementConfigUpdate variant.
+	FlowmeterVariableAreaElementConfigUpdateType ElementConfigUpdateType = "flowmeter_variable_area"
+	// FlowmeterCoriolisElementConfigUpdateType selects the
+	// FlowmeterCoriolisElementConfigUpdate variant.
+	FlowmeterCoriolisElementConfigUpdateType ElementConfigUpdateType = "flowmeter_coriolis"
+	// FlowmeterNozzleElementConfigUpdateType selects the
+	// FlowmeterNozzleElementConfigUpdate variant.
+	FlowmeterNozzleElementConfigUpdateType ElementConfigUpdateType = "flowmeter_nozzle"
+	// FlowmeterVenturiElementConfigUpdateType selects the
+	// FlowmeterVenturiElementConfigUpdate variant.
+	FlowmeterVenturiElementConfigUpdateType ElementConfigUpdateType = "flowmeter_venturi"
+	// FlowmeterRingPistonElementConfigUpdateType selects the
+	// FlowmeterRingPistonElementConfigUpdate variant.
+	FlowmeterRingPistonElementConfigUpdateType ElementConfigUpdateType = "flowmeter_ring_piston"
+	// FlowmeterPositiveDisplacementElementConfigUpdateType selects the
+	// FlowmeterPositiveDisplacementElementConfigUpdate variant.
+	FlowmeterPositiveDisplacementElementConfigUpdateType ElementConfigUpdateType = "flowmeter_positive_displacement"
+	// FlowmeterTurbineElementConfigUpdateType selects the
+	// FlowmeterTurbineElementConfigUpdate variant.
+	FlowmeterTurbineElementConfigUpdateType ElementConfigUpdateType = "flowmeter_turbine"
+	// FlowmeterPulseElementConfigUpdateType selects the
+	// FlowmeterPulseElementConfigUpdate variant.
+	FlowmeterPulseElementConfigUpdateType ElementConfigUpdateType = "flowmeter_pulse"
+	// FlowmeterFloatSensorElementConfigUpdateType selects the
+	// FlowmeterFloatSensorElementConfigUpdate variant.
+	FlowmeterFloatSensorElementConfigUpdateType ElementConfigUpdateType = "flowmeter_float_sensor"
+	// FlowmeterOrificeElementConfigUpdateType selects the
+	// FlowmeterOrificeElementConfigUpdate variant.
+	FlowmeterOrificeElementConfigUpdateType ElementConfigUpdateType = "flowmeter_orifice"
+	// BoxElementConfigUpdateType is the configuration for box annotation symbols.
+	BoxElementConfigUpdateType ElementConfigUpdateType = "box"
+	// ButtonElementConfigUpdateType is the configuration for button symbols.
+	ButtonElementConfigUpdateType ElementConfigUpdateType = "button"
+	// CircleElementConfigUpdateType is the configuration for circle annotation symbols.
+	CircleElementConfigUpdateType ElementConfigUpdateType = "circle"
+	// GaugeElementConfigUpdateType is the configuration for gauge symbols.
+	GaugeElementConfigUpdateType ElementConfigUpdateType = "gauge"
+	// InputElementConfigUpdateType is the configuration for free-form input symbols.
+	InputElementConfigUpdateType ElementConfigUpdateType = "input"
+	// LightElementConfigUpdateType is the configuration for indicator light symbols.
+	LightElementConfigUpdateType ElementConfigUpdateType = "light"
+	// LineElementConfigUpdateType is the configuration for straight line symbols.
+	LineElementConfigUpdateType ElementConfigUpdateType = "line"
+	// OffPageReferenceElementConfigUpdateType is the configuration for off-page
+	// reference symbols.
+	OffPageReferenceElementConfigUpdateType ElementConfigUpdateType = "off_page_reference"
+	// PolygonElementConfigUpdateType is the configuration for polygon annotation
+	// symbols.
+	PolygonElementConfigUpdateType ElementConfigUpdateType = "polygon"
+	// SelectElementConfigUpdateType is the configuration for select symbols.
+	SelectElementConfigUpdateType ElementConfigUpdateType = "select"
+	// ScaleElementConfigUpdateType is the configuration for standalone scale symbols.
+	ScaleElementConfigUpdateType ElementConfigUpdateType = "scale"
+	// SetpointElementConfigUpdateType is the configuration for numeric setpoint
+	// symbols.
+	SetpointElementConfigUpdateType ElementConfigUpdateType = "setpoint"
+	// StateIndicatorElementConfigUpdateType is the configuration for multi-state
+	// indicator symbols.
+	StateIndicatorElementConfigUpdateType ElementConfigUpdateType = "state_indicator"
+	// StringDisplayElementConfigUpdateType is the configuration for live string display
+	// symbols.
+	StringDisplayElementConfigUpdateType ElementConfigUpdateType = "string_display"
+	// SwitchElementConfigUpdateType selects the SwitchElementConfigUpdate variant.
+	SwitchElementConfigUpdateType ElementConfigUpdateType = "switch"
+	// TextBoxElementConfigUpdateType is the configuration for text box annotation
+	// symbols.
+	TextBoxElementConfigUpdateType ElementConfigUpdateType = "text_box"
+	// ValueElementConfigUpdateType is the configuration for live telemetry value
+	// symbols.
+	ValueElementConfigUpdateType ElementConfigUpdateType = "value"
+	// AgitatorElementConfigUpdateType selects the AgitatorElementConfigUpdate variant.
+	AgitatorElementConfigUpdateType ElementConfigUpdateType = "agitator"
+	// CrossBeamAgitatorElementConfigUpdateType selects the
+	// CrossBeamAgitatorElementConfigUpdate variant.
+	CrossBeamAgitatorElementConfigUpdateType ElementConfigUpdateType = "cross_beam_agitator"
+	// FlatBladeAgitatorElementConfigUpdateType selects the
+	// FlatBladeAgitatorElementConfigUpdate variant.
+	FlatBladeAgitatorElementConfigUpdateType ElementConfigUpdateType = "flat_blade_agitator"
+	// HeatExchangerGeneralElementConfigUpdateType selects the
+	// HeatExchangerGeneralElementConfigUpdate variant.
+	HeatExchangerGeneralElementConfigUpdateType ElementConfigUpdateType = "heat_exchanger_general"
+	// HeatExchangerMElementConfigUpdateType selects the
+	// HeatExchangerMElementConfigUpdate variant.
+	HeatExchangerMElementConfigUpdateType ElementConfigUpdateType = "heat_exchanger_m"
+	// HeatExchangerStraightTubeElementConfigUpdateType selects the
+	// HeatExchangerStraightTubeElementConfigUpdate variant.
+	HeatExchangerStraightTubeElementConfigUpdateType ElementConfigUpdateType = "heat_exchanger_straight_tube"
+	// HelicalAgitatorElementConfigUpdateType selects the
+	// HelicalAgitatorElementConfigUpdate variant.
+	HelicalAgitatorElementConfigUpdateType ElementConfigUpdateType = "helical_agitator"
+	// PaddleAgitatorElementConfigUpdateType selects the
+	// PaddleAgitatorElementConfigUpdate variant.
+	PaddleAgitatorElementConfigUpdateType ElementConfigUpdateType = "paddle_agitator"
+	// PropellerAgitatorElementConfigUpdateType selects the
+	// PropellerAgitatorElementConfigUpdate variant.
+	PropellerAgitatorElementConfigUpdateType ElementConfigUpdateType = "propeller_agitator"
+	// RotaryMixerElementConfigUpdateType selects the RotaryMixerElementConfigUpdate
+	// variant.
+	RotaryMixerElementConfigUpdateType ElementConfigUpdateType = "rotary_mixer"
+	// StaticMixerElementConfigUpdateType selects the StaticMixerElementConfigUpdate
+	// variant.
+	StaticMixerElementConfigUpdateType ElementConfigUpdateType = "static_mixer"
+	// CavityPumpElementConfigUpdateType selects the CavityPumpElementConfigUpdate
+	// variant.
+	CavityPumpElementConfigUpdateType ElementConfigUpdateType = "cavity_pump"
+	// CentrifugalCompressorElementConfigUpdateType selects the
+	// CentrifugalCompressorElementConfigUpdate variant.
+	CentrifugalCompressorElementConfigUpdateType ElementConfigUpdateType = "centrifugal_compressor"
+	// CompressorElementConfigUpdateType selects the CompressorElementConfigUpdate
+	// variant.
+	CompressorElementConfigUpdateType ElementConfigUpdateType = "compressor"
+	// DiaphragmPumpElementConfigUpdateType selects the DiaphragmPumpElementConfigUpdate
+	// variant.
+	DiaphragmPumpElementConfigUpdateType ElementConfigUpdateType = "diaphragm_pump"
+	// EjectionPumpElementConfigUpdateType selects the EjectionPumpElementConfigUpdate
+	// variant.
+	EjectionPumpElementConfigUpdateType ElementConfigUpdateType = "ejection_pump"
+	// EjectorCompressorElementConfigUpdateType selects the
+	// EjectorCompressorElementConfigUpdate variant.
+	EjectorCompressorElementConfigUpdateType ElementConfigUpdateType = "ejector_compressor"
+	// LiquidRingCompressorElementConfigUpdateType selects the
+	// LiquidRingCompressorElementConfigUpdate variant.
+	LiquidRingCompressorElementConfigUpdateType ElementConfigUpdateType = "liquid_ring_compressor"
+	// PistonPumpElementConfigUpdateType selects the PistonPumpElementConfigUpdate
+	// variant.
+	PistonPumpElementConfigUpdateType ElementConfigUpdateType = "piston_pump"
+	// PumpElementConfigUpdateType selects the PumpElementConfigUpdate variant.
+	PumpElementConfigUpdateType ElementConfigUpdateType = "pump"
+	// RollerVaneCompressorElementConfigUpdateType selects the
+	// RollerVaneCompressorElementConfigUpdate variant.
+	RollerVaneCompressorElementConfigUpdateType ElementConfigUpdateType = "roller_vane_compressor"
+	// ScrewPumpElementConfigUpdateType selects the ScrewPumpElementConfigUpdate
+	// variant.
+	ScrewPumpElementConfigUpdateType ElementConfigUpdateType = "screw_pump"
+	// TurboCompressorElementConfigUpdateType selects the
+	// TurboCompressorElementConfigUpdate variant.
+	TurboCompressorElementConfigUpdateType ElementConfigUpdateType = "turbo_compressor"
+	// VacuumPumpElementConfigUpdateType selects the VacuumPumpElementConfigUpdate
+	// variant.
+	VacuumPumpElementConfigUpdateType ElementConfigUpdateType = "vacuum_pump"
+	// BurstDiscElementConfigUpdateType selects the BurstDiscElementConfigUpdate
+	// variant.
+	BurstDiscElementConfigUpdateType ElementConfigUpdateType = "burst_disc"
+	// FlameArrestorElementConfigUpdateType selects the FlameArrestorElementConfigUpdate
+	// variant.
+	FlameArrestorElementConfigUpdateType ElementConfigUpdateType = "flame_arrestor"
+	// FlameArrestorDetonationElementConfigUpdateType selects the
+	// FlameArrestorDetonationElementConfigUpdate variant.
+	FlameArrestorDetonationElementConfigUpdateType ElementConfigUpdateType = "flame_arrestor_detonation"
+	// FlameArrestorExplosionElementConfigUpdateType selects the
+	// FlameArrestorExplosionElementConfigUpdate variant.
+	FlameArrestorExplosionElementConfigUpdateType ElementConfigUpdateType = "flame_arrestor_explosion"
+	// FlameArrestorFireResElementConfigUpdateType selects the
+	// FlameArrestorFireResElementConfigUpdate variant.
+	FlameArrestorFireResElementConfigUpdateType ElementConfigUpdateType = "flame_arrestor_fire_res"
+	// FlameArrestorFireResDetonationElementConfigUpdateType selects the
+	// FlameArrestorFireResDetonationElementConfigUpdate variant.
+	FlameArrestorFireResDetonationElementConfigUpdateType ElementConfigUpdateType = "flame_arrestor_fire_res_detonation"
+	// IsoBurstDiscElementConfigUpdateType selects the IsoBurstDiscElementConfigUpdate
+	// variant.
+	IsoBurstDiscElementConfigUpdateType ElementConfigUpdateType = "iso_burst_disc"
+	// AngledValveElementConfigUpdateType selects the AngledValveElementConfigUpdate
+	// variant.
+	AngledValveElementConfigUpdateType ElementConfigUpdateType = "angled_valve"
+	// AngledReliefValveElementConfigUpdateType selects the
+	// AngledReliefValveElementConfigUpdate variant.
+	AngledReliefValveElementConfigUpdateType ElementConfigUpdateType = "angled_relief_valve"
+	// AngledSpringLoadedReliefValveElementConfigUpdateType selects the
+	// AngledSpringLoadedReliefValveElementConfigUpdate variant.
+	AngledSpringLoadedReliefValveElementConfigUpdateType ElementConfigUpdateType = "angled_spring_loaded_relief_valve"
+	// BallValveElementConfigUpdateType selects the BallValveElementConfigUpdate
+	// variant.
+	BallValveElementConfigUpdateType ElementConfigUpdateType = "ball_valve"
+	// BreatherValveElementConfigUpdateType selects the BreatherValveElementConfigUpdate
+	// variant.
+	BreatherValveElementConfigUpdateType ElementConfigUpdateType = "breather_valve"
+	// ButterflyValveOneElementConfigUpdateType selects the
+	// ButterflyValveOneElementConfigUpdate variant.
+	ButterflyValveOneElementConfigUpdateType ElementConfigUpdateType = "butterfly_valve_one"
+	// ButterflyValveTwoElementConfigUpdateType selects the
+	// ButterflyValveTwoElementConfigUpdate variant.
+	ButterflyValveTwoElementConfigUpdateType ElementConfigUpdateType = "butterfly_valve_two"
+	// CheckValveElementConfigUpdateType selects the CheckValveElementConfigUpdate
+	// variant.
+	CheckValveElementConfigUpdateType ElementConfigUpdateType = "check_valve"
+	// CheckValveWithArrowElementConfigUpdateType selects the
+	// CheckValveWithArrowElementConfigUpdate variant.
+	CheckValveWithArrowElementConfigUpdateType ElementConfigUpdateType = "check_valve_with_arrow"
+	// ElectricRegulatorElementConfigUpdateType selects the
+	// ElectricRegulatorElementConfigUpdate variant.
+	ElectricRegulatorElementConfigUpdateType ElementConfigUpdateType = "electric_regulator"
+	// ElectricRegulatorMotorizedElementConfigUpdateType selects the
+	// ElectricRegulatorMotorizedElementConfigUpdate variant.
+	ElectricRegulatorMotorizedElementConfigUpdateType ElementConfigUpdateType = "electric_regulator_motorized"
+	// FourWayValveElementConfigUpdateType selects the FourWayValveElementConfigUpdate
+	// variant.
+	FourWayValveElementConfigUpdateType ElementConfigUpdateType = "four_way_valve"
+	// GateValveElementConfigUpdateType selects the GateValveElementConfigUpdate
+	// variant.
+	GateValveElementConfigUpdateType ElementConfigUpdateType = "gate_valve"
+	// IsoCheckValveElementConfigUpdateType selects the IsoCheckValveElementConfigUpdate
+	// variant.
+	IsoCheckValveElementConfigUpdateType ElementConfigUpdateType = "iso_check_valve"
+	// ManualValveElementConfigUpdateType selects the ManualValveElementConfigUpdate
+	// variant.
+	ManualValveElementConfigUpdateType ElementConfigUpdateType = "manual_valve"
+	// NeedleValveElementConfigUpdateType selects the NeedleValveElementConfigUpdate
+	// variant.
+	NeedleValveElementConfigUpdateType ElementConfigUpdateType = "needle_valve"
+	// RegulatorElementConfigUpdateType selects the RegulatorElementConfigUpdate
+	// variant.
+	RegulatorElementConfigUpdateType ElementConfigUpdateType = "regulator"
+	// RegulatorManualElementConfigUpdateType selects the
+	// RegulatorManualElementConfigUpdate variant.
+	RegulatorManualElementConfigUpdateType ElementConfigUpdateType = "regulator_manual"
+	// ReliefValveElementConfigUpdateType selects the ReliefValveElementConfigUpdate
+	// variant.
+	ReliefValveElementConfigUpdateType ElementConfigUpdateType = "relief_valve"
+	// SolenoidValveElementConfigUpdateType is the configuration for solenoid valve
+	// symbols.
+	SolenoidValveElementConfigUpdateType ElementConfigUpdateType = "solenoid_valve"
+	// SpringLoadedReliefValveElementConfigUpdateType selects the
+	// SpringLoadedReliefValveElementConfigUpdate variant.
+	SpringLoadedReliefValveElementConfigUpdateType ElementConfigUpdateType = "spring_loaded_relief_valve"
+	// ThreeWayValveElementConfigUpdateType selects the ThreeWayValveElementConfigUpdate
+	// variant.
+	ThreeWayValveElementConfigUpdateType ElementConfigUpdateType = "three_way_valve"
+	// ThreeWayBallValveElementConfigUpdateType selects the
+	// ThreeWayBallValveElementConfigUpdate variant.
+	ThreeWayBallValveElementConfigUpdateType ElementConfigUpdateType = "three_way_ball_valve"
+	// ValveElementConfigUpdateType selects the ValveElementConfigUpdate variant.
+	ValveElementConfigUpdateType ElementConfigUpdateType = "valve"
+	// CrossJunctionElementConfigUpdateType selects the CrossJunctionElementConfigUpdate
+	// variant.
+	CrossJunctionElementConfigUpdateType ElementConfigUpdateType = "cross_junction"
+	// CylinderElementConfigUpdateType is the configuration for cylinder vessel symbols.
+	CylinderElementConfigUpdateType ElementConfigUpdateType = "cylinder"
+	// TankElementConfigUpdateType is the configuration for tank vessel symbols.
+	TankElementConfigUpdateType ElementConfigUpdateType = "tank"
+	// TJunctionElementConfigUpdateType selects the TJunctionElementConfigUpdate
+	// variant.
+	TJunctionElementConfigUpdateType ElementConfigUpdateType = "t_junction"
+	// CustomActuatorElementConfigUpdateType is the configuration for user-defined
+	// actuator symbols.
+	CustomActuatorElementConfigUpdateType ElementConfigUpdateType = "custom_actuator"
+	// CustomStaticElementConfigUpdateType is the configuration for user-defined static
+	// symbols.
+	CustomStaticElementConfigUpdateType ElementConfigUpdateType = "custom_static"
+	// GroupBoxElementConfigUpdateType is the configuration for a group box, the symbol
+	// that bounds a set of grouped symbols. Groups nest: a member may itself be a
+	// group.
+	GroupBoxElementConfigUpdateType ElementConfigUpdateType = "group_box"
+	// PipeElementConfigUpdateType selects the PipeElementConfigUpdate variant.
+	PipeElementConfigUpdateType ElementConfigUpdateType = "pipe"
+	// ElectricElementConfigUpdateType selects the ElectricElementConfigUpdate variant.
+	ElectricElementConfigUpdateType ElementConfigUpdateType = "electric"
+	// SecondaryElementConfigUpdateType selects the SecondaryElementConfigUpdate
+	// variant.
+	SecondaryElementConfigUpdateType ElementConfigUpdateType = "secondary"
+	// JacketedElementConfigUpdateType selects the JacketedElementConfigUpdate variant.
+	JacketedElementConfigUpdateType ElementConfigUpdateType = "jacketed"
+	// HydraulicElementConfigUpdateType selects the HydraulicElementConfigUpdate
+	// variant.
+	HydraulicElementConfigUpdateType ElementConfigUpdateType = "hydraulic"
+	// PneumaticElementConfigUpdateType selects the PneumaticElementConfigUpdate
+	// variant.
+	PneumaticElementConfigUpdateType ElementConfigUpdateType = "pneumatic"
+	// DataElementConfigUpdateType selects the DataElementConfigUpdate variant.
+	DataElementConfigUpdateType ElementConfigUpdateType = "data"
+)
+
+// ElementConfigUpdateVariant is implemented by every ElementConfigUpdate variant.
+type ElementConfigUpdateVariant interface {
+	isElementConfigUpdateVariant()
+}
+
+type CapElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CapElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FilterElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FilterElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowStraightenerElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowStraightenerElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HeaterElementElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (HeaterElementElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type IsoCapElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (IsoCapElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type IsoFilterElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (IsoFilterElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type NozzleElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (NozzleElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type OrificeElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (OrificeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type OrificePlateElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (OrificePlateElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type StrainerElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (StrainerElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type StrainerConeElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (StrainerConeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ThrusterElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ThrusterElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type VentElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (VentElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterGeneralElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterGeneralElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterElectromagneticElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterElectromagneticElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterVariableAreaElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterVariableAreaElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterCoriolisElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterCoriolisElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterNozzleElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterNozzleElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterVenturiElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterVenturiElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterRingPistonElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterRingPistonElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterPositiveDisplacementElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterPositiveDisplacementElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterTurbineElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterTurbineElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterPulseElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterPulseElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterFloatSensorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterFloatSensorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlowmeterOrificeElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlowmeterOrificeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// BoxElementConfigUpdate is the configuration for box annotation symbols.
+type BoxElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StrokeColor is the border color of the box.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the box.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Dimensions is the rendered size of the box in pixels.
+	Dimensions *patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the uniform corner radius of the box in pixels.
+	BorderRadius *float64 `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+}
+
+func (BoxElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// ButtonElementConfigUpdate is the configuration for button symbols.
+type ButtonElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Size is the rendered size preset of the button.
+	Size *ComponentSize `json:"size,omitzero" msgpack:"size,omitempty"`
+	// Level is the typography level of the button text.
+	Level patch.Change[text.Level] `json:"level,omitzero" msgpack:"level,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// CommandChannel is the channel button presses are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Mode is the actuation behavior of the button.
+	Mode *ButtonMode `json:"mode,omitzero" msgpack:"mode,omitempty"`
+	// FillColor is the fill color of the button, which its border follows.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+}
+
+func (ButtonElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// CircleElementConfigUpdate is the configuration for circle annotation symbols.
+type CircleElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Radius is the radius of the circle in pixels.
+	Radius *float64 `json:"radius,omitzero" msgpack:"radius,omitempty"`
+	// StrokeColor is the border color of the circle.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the circle.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+}
+
+func (CircleElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// GaugeElementConfigUpdate is the configuration for gauge symbols.
+type GaugeElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage patch.Change[int32] `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Position is the offset of the gauge contents within the symbol.
+	Position patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]] `json:"position,omitzero" msgpack:"position,omitempty"`
+	// StrokeColor is the color of the gauge arc.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Bounds is the numeric range displayed by the gauge.
+	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	// BarWidth is the thickness of the gauge arc in pixels.
+	BarWidth *float64 `json:"bar_width,omitzero" msgpack:"bar_width,omitempty"`
+	// Location is the anchor of the value within the gauge.
+	Location *patch.Struct[spatial.LocationXYUpdate, spatial.LocationXY] `json:"location,omitzero" msgpack:"location,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+}
+
+func (GaugeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// InputElementConfigUpdate is the configuration for free-form input symbols.
+type InputElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Size is the rendered size preset of the input.
+	Size *ComponentSize `json:"size,omitzero" msgpack:"size,omitempty"`
+	// CommandChannel is the channel submitted values are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// StateChannel is the channel that reports the value the device holds.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// Dimensions is the rendered size of the input in pixels.
+	Dimensions patch.Change[patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// FillColor is the fill color of the Set button, which the input border follows.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Disabled indicates whether the input rejects interaction.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// InlineSize is the width of the field in pixels, not counting the Set button.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+}
+
+func (InputElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// LightElementConfigUpdate is the configuration for indicator light symbols.
+type LightElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Channel is the channel whose value drives the light's on state.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Threshold is the value range within which the light is considered on.
+	Threshold patch.Change[spatial.Bounds] `json:"threshold,omitzero" msgpack:"threshold,omitempty"`
+	// StrokeColor is the outline color of the light.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// OnColor is the fill color of the light while it is on.
+	OnColor patch.Change[color.Color] `json:"on_color,omitzero" msgpack:"on_color,omitempty"`
+}
+
+func (LightElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// LineElementConfigUpdate is the configuration for straight line symbols.
+type LineElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the line.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Start is the first endpoint, offset from the node position.
+	Start *patch.Struct[spatial.XYUpdate, spatial.XY] `json:"start,omitzero" msgpack:"start,omitempty"`
+	// End is the second endpoint, offset from the node position.
+	End *patch.Struct[spatial.XYUpdate, spatial.XY] `json:"end,omitzero" msgpack:"end,omitempty"`
+	// StrokeWidth is the stroke width of the line in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+}
+
+func (LineElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// OffPageReferenceElementConfigUpdate is the configuration for off-page reference
+// symbols.
+type OffPageReferenceElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the direction the reference arrow points.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// FillColor is the fill color of a linked reference. An unlinked reference draws
+	// its outline in this color.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Page is the page this reference links to.
+	Page patch.Change[patch.Struct[PageUpdate, Page]] `json:"page,omitzero" msgpack:"page,omitempty"`
+	// DblClickNavDisabled stops double-clicking from navigating to the linked page.
+	DblClickNavDisabled *bool `json:"dbl_click_nav_disabled,omitzero" msgpack:"dbl_click_nav_disabled,omitempty"`
+}
+
+func (OffPageReferenceElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// PolygonElementConfigUpdate is the configuration for polygon annotation symbols.
+type PolygonElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// NumSides is the number of sides of the polygon.
+	NumSides *float64 `json:"num_sides,omitzero" msgpack:"num_sides,omitempty"`
+	// SideLength is the length of each side in pixels.
+	SideLength *float64 `json:"side_length,omitzero" msgpack:"side_length,omitempty"`
+	// Rotation is the rotation of the polygon in degrees.
+	Rotation *float64 `json:"rotation,omitzero" msgpack:"rotation,omitempty"`
+	// CornerRounding is the corner rounding radius in pixels.
+	CornerRounding *float64 `json:"corner_rounding,omitzero" msgpack:"corner_rounding,omitempty"`
+	// StrokeColor is the border color of the polygon.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the polygon.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// StrokeWidth is the border stroke width in pixels.
+	StrokeWidth *float64 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+}
+
+func (PolygonElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// SelectElementConfigUpdate is the configuration for select symbols.
+type SelectElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Size is the rendered size preset of the select.
+	Size *ComponentSize `json:"size,omitzero" msgpack:"size,omitempty"`
+	// CommandChannel is the channel the selected value is written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// StateChannel is the channel that reports the state the device holds.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// FillColor is the fill color of the Set button, which the select border follows.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// InlineSize is the width of the field in pixels, not counting the Set button.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// Options is the set of selectable states.
+	Options *patch.ValueList[StateMapping] `json:"options,omitzero" msgpack:"options,omitempty"`
+	// Disabled indicates whether the select rejects interaction.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+}
+
+func (SelectElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// ScaleElementConfigUpdate is the configuration for standalone scale symbols.
+type ScaleElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage patch.Change[int32] `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor patch.Change[color.Color] `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor patch.Change[color.Color] `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// LevelHidden hides the filled portion.
+	LevelHidden *bool `json:"level_hidden,omitzero" msgpack:"level_hidden,omitempty"`
+	// CaretHidden hides the caret marking the current value.
+	CaretHidden *bool `json:"caret_hidden,omitzero" msgpack:"caret_hidden,omitempty"`
+	// ScaleHidden hides the axis and its tick labels.
+	ScaleHidden *bool `json:"scale_hidden,omitzero" msgpack:"scale_hidden,omitempty"`
+	// Side is the edge the axis is drawn along.
+	Side *spatial.OuterLocation `json:"side,omitzero" msgpack:"side,omitempty"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide *spatial.OuterLocation `json:"caret_side,omitzero" msgpack:"caret_side,omitempty"`
+	// Level is the typography level of the tick labels.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Orientation is the axis the bar fills along: top for vertical, right for
+	// horizontal. Any other value reads as vertical.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Position is the offset of the scale contents within the symbol.
+	Position patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]] `json:"position,omitzero" msgpack:"position,omitempty"`
+	// Dimensions is the size of the bar alone in pixels. The tick gutter beside it adds
+	// to the rendered size.
+	Dimensions *patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+}
+
+func (ScaleElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// SetpointElementConfigUpdate is the configuration for numeric setpoint symbols.
+type SetpointElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Size is the rendered size preset of the setpoint.
+	Size *ComponentSize `json:"size,omitzero" msgpack:"size,omitempty"`
+	// CommandChannel is the channel submitted setpoints are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// StateChannel is the channel that reports the value the device holds.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// Dimensions is the rendered size of the setpoint in pixels.
+	Dimensions patch.Change[patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions]] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// FillColor is the fill color of the Set button, which the setpoint border follows.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// Disabled indicates whether the setpoint rejects interaction.
+	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
+	// InlineSize is the width of the field in pixels, not counting the Set button.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+}
+
+func (SetpointElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// StateIndicatorElementConfigUpdate is the configuration for multi-state indicator
+// symbols.
+type StateIndicatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Channel is the channel whose value selects the displayed state.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// StrokeColor is the border color of the indicator.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// InlineSize is the inline size of the indicator in pixels.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// Options is the set of displayable states.
+	Options *patch.ValueList[StateMapping] `json:"options,omitzero" msgpack:"options,omitempty"`
+	// Size is the rendered size preset of the indicator.
+	Size *ComponentSize `json:"size,omitzero" msgpack:"size,omitempty"`
+}
+
+func (StateIndicatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// StringDisplayElementConfigUpdate is the configuration for live string display
+// symbols.
+type StringDisplayElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StrokeColor is the border color of the display.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed text.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Tooltip is the list of tooltip lines shown on hover.
+	Tooltip *patch.ValueList[string] `json:"tooltip,omitzero" msgpack:"tooltip,omitempty"`
+	// InlineSize is the inline size of the display in pixels.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// Channel is the channel whose string value the symbol displays.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// Level is the typography level of the displayed text.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+}
+
+func (StringDisplayElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type SwitchElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (SwitchElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// TextBoxElementConfigUpdate is the configuration for text box annotation symbols.
+type TextBoxElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// TextColor is the text color.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Width is the rendered width of the text box in pixels.
+	Width *float64 `json:"width,omitzero" msgpack:"width,omitempty"`
+	// Align is the alignment of the text within the box.
+	Align *FlexAlignment `json:"align,omitzero" msgpack:"align,omitempty"`
+	// AutoFitDisabled stops the box from resizing to fit its content.
+	AutoFitDisabled *bool `json:"auto_fit_disabled,omitzero" msgpack:"auto_fit_disabled,omitempty"`
+	// Level is the typography level of the text.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Value is the text content of the box.
+	Value *string `json:"value,omitzero" msgpack:"value,omitempty"`
+}
+
+func (TextBoxElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// ValueElementConfigUpdate is the configuration for live telemetry value symbols.
+type ValueElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage patch.Change[int32] `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Position is the offset of the value contents within the symbol.
+	Position patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]] `json:"position,omitzero" msgpack:"position,omitempty"`
+	// StrokeColor is the color of the value's border and units divider.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// TextColor is the color of the displayed value.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// FillColor is the fill behind the value where no redline band paints. When absent
+	// the value paints no fill.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Tooltip is the list of tooltip lines shown on hover.
+	Tooltip *patch.ValueList[string] `json:"tooltip,omitzero" msgpack:"tooltip,omitempty"`
+	// Redline is the threshold band mapping applied to the background.
+	Redline *patch.Struct[color.ScaleUpdate, color.Scale] `json:"redline,omitzero" msgpack:"redline,omitempty"`
+	// Units is the unit suffix displayed after the value.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// InlineSize is the inline size of the value in pixels.
+	InlineSize *float64 `json:"inline_size,omitzero" msgpack:"inline_size,omitempty"`
+	// Level is the typography level of the displayed value.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Location is the anchor of the value within the symbol.
+	Location *patch.Struct[spatial.LocationXYUpdate, spatial.LocationXY] `json:"location,omitzero" msgpack:"location,omitempty"`
+}
+
+func (ValueElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type AgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (AgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CrossBeamAgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CrossBeamAgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlatBladeAgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlatBladeAgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HeatExchangerGeneralElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (HeatExchangerGeneralElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HeatExchangerMElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (HeatExchangerMElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HeatExchangerStraightTubeElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (HeatExchangerStraightTubeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HelicalAgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (HelicalAgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PaddleAgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (PaddleAgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PropellerAgitatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (PropellerAgitatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type RotaryMixerElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (RotaryMixerElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type StaticMixerElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (StaticMixerElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CavityPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CavityPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CentrifugalCompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CentrifugalCompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type DiaphragmPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (DiaphragmPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type EjectionPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (EjectionPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type EjectorCompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (EjectorCompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type LiquidRingCompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (LiquidRingCompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PistonPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (PistonPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (PumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type RollerVaneCompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (RollerVaneCompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ScrewPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ScrewPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type TurboCompressorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (TurboCompressorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type VacuumPumpElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (VacuumPumpElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type BurstDiscElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (BurstDiscElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlameArrestorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlameArrestorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlameArrestorDetonationElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlameArrestorDetonationElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlameArrestorExplosionElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlameArrestorExplosionElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlameArrestorFireResElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlameArrestorFireResElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FlameArrestorFireResDetonationElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FlameArrestorFireResDetonationElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type IsoBurstDiscElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (IsoBurstDiscElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type AngledValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (AngledValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type AngledReliefValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (AngledReliefValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type AngledSpringLoadedReliefValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (AngledSpringLoadedReliefValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type BallValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (BallValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type BreatherValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (BreatherValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ButterflyValveOneElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ButterflyValveOneElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ButterflyValveTwoElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ButterflyValveTwoElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CheckValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CheckValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CheckValveWithArrowElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CheckValveWithArrowElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ElectricRegulatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ElectricRegulatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ElectricRegulatorMotorizedElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ElectricRegulatorMotorizedElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type FourWayValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (FourWayValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type GateValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (GateValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type IsoCheckValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (IsoCheckValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ManualValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ManualValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type NeedleValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (NeedleValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type RegulatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (RegulatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type RegulatorManualElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (RegulatorManualElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ReliefValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ReliefValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// SolenoidValveElementConfigUpdate is the configuration for solenoid valve symbols.
+type SolenoidValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// NormallyOpen indicates whether the valve is open when unpowered.
+	NormallyOpen *bool `json:"normally_open,omitzero" msgpack:"normally_open,omitempty"`
+}
+
+func (SolenoidValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type SpringLoadedReliefValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Enabled indicates whether the symbol renders in its active state.
+	Enabled *bool `json:"enabled,omitzero" msgpack:"enabled,omitempty"`
+	// Clickable indicates whether clicking the symbol toggles its state.
+	Clickable *bool `json:"clickable,omitzero" msgpack:"clickable,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (SpringLoadedReliefValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ThreeWayValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ThreeWayValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ThreeWayBallValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ThreeWayBallValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ValveElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// StrokeColor is the stroke color of the symbol, which also fills it while it is
+	// active.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (ValveElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type CrossJunctionElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (CrossJunctionElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// CylinderElementConfigUpdate is the configuration for cylinder vessel symbols.
+type CylinderElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// Dimensions is the rendered size of the cylinder in pixels.
+	Dimensions *patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the cylinder.
+	BorderRadius patch.Change[border.Radius] `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
+	// StrokeColor is the border color of the cylinder.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the cylinder.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+}
+
+func (CylinderElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// TankElementConfigUpdate is the configuration for tank vessel symbols.
+type TankElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Channel is the channel whose value the symbol displays.
+	Channel patch.Change[channel.Key] `json:"channel,omitzero" msgpack:"channel,omitempty"`
+	// RollingAverage is the sample window for rolling-average smoothing.
+	RollingAverage patch.Change[int32] `json:"rolling_average,omitzero" msgpack:"rolling_average,omitempty"`
+	// Precision is the number of decimal places shown.
+	Precision *float64 `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	// Notation is the numeric notation used to format the value.
+	Notation *notation.Notation `json:"notation,omitzero" msgpack:"notation,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// Bounds is the numeric range the indicator maps onto its extent.
+	Bounds *spatial.Bounds `json:"bounds,omitzero" msgpack:"bounds,omitempty"`
+	// LevelColor is the color of the filled portion, the caret, and the value readout
+	// border.
+	LevelColor patch.Change[color.Color] `json:"level_color,omitzero" msgpack:"level_color,omitempty"`
+	// AxisColor is the color of the axis and its ticks.
+	AxisColor patch.Change[color.Color] `json:"axis_color,omitzero" msgpack:"axis_color,omitempty"`
+	// TextColor is the color of the tick labels.
+	TextColor patch.Change[color.Color] `json:"text_color,omitzero" msgpack:"text_color,omitempty"`
+	// Units is the unit suffix displayed after each tick label.
+	Units *string `json:"units,omitzero" msgpack:"units,omitempty"`
+	// LevelHidden hides the filled portion.
+	LevelHidden *bool `json:"level_hidden,omitzero" msgpack:"level_hidden,omitempty"`
+	// CaretSide is the edge the value readout sits on.
+	CaretSide *spatial.OuterLocation `json:"caret_side,omitzero" msgpack:"caret_side,omitempty"`
+	// Level is the typography level of the tick labels.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Position is the offset of the tank contents within the symbol.
+	Position patch.Change[patch.Struct[spatial.XYUpdate, spatial.XY]] `json:"position,omitzero" msgpack:"position,omitempty"`
+	// StrokeColor is the color of the tank's wall.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// FillColor is the fill color of the tank body.
+	FillColor patch.Change[color.Color] `json:"fill_color,omitzero" msgpack:"fill_color,omitempty"`
+	// Dimensions is the rendered size of the tank in pixels.
+	Dimensions *patch.Struct[spatial.DimensionsUpdate, spatial.Dimensions] `json:"dimensions,omitzero" msgpack:"dimensions,omitempty"`
+	// BorderRadius is the corner radius of the tank.
+	BorderRadius *border.Radius `json:"border_radius,omitzero" msgpack:"border_radius,omitempty"`
+	// CaretVisible shows the caret marking the current level.
+	CaretVisible *bool `json:"caret_visible,omitzero" msgpack:"caret_visible,omitempty"`
+	// ScaleVisible shows the axis and its tick labels.
+	ScaleVisible *bool `json:"scale_visible,omitzero" msgpack:"scale_visible,omitempty"`
+	// Side is the edge the axis is drawn along.
+	Side *spatial.OuterLocation `json:"side,omitzero" msgpack:"side,omitempty"`
+}
+
+func (TankElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type TJunctionElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StrokeColor is the stroke color of the symbol.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+}
+
+func (TJunctionElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// CustomActuatorElementConfigUpdate is the configuration for user-defined actuator
+// symbols.
+type CustomActuatorElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// StalenessTimeout is the duration in seconds after which the value is considered
+	// stale.
+	StalenessTimeout *float64 `json:"staleness_timeout,omitzero" msgpack:"staleness_timeout,omitempty"`
+	// StalenessColor is the color applied when the value is stale.
+	StalenessColor patch.Change[color.Color] `json:"staleness_color,omitzero" msgpack:"staleness_color,omitempty"`
+	// StateChannel is the channel whose value drives the symbol's active state.
+	StateChannel patch.Change[channel.Key] `json:"state_channel,omitzero" msgpack:"state_channel,omitempty"`
+	// CommandChannel is the channel actuation commands are written to.
+	CommandChannel patch.Change[channel.Key] `json:"command_channel,omitzero" msgpack:"command_channel,omitempty"`
+	// Control is the control state display configuration.
+	Control patch.Change[patch.Struct[ControlStateConfigUpdate, ControlStateConfig]] `json:"control,omitzero" msgpack:"control,omitempty"`
+	// OnClickDelay is the debounce delay applied to clicks, in milliseconds.
+	OnClickDelay *float64 `json:"on_click_delay,omitzero" msgpack:"on_click_delay,omitempty"`
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey *string `json:"spec_key,omitzero" msgpack:"spec_key,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides *patch.ValueList[symbol.State] `json:"state_overrides,omitzero" msgpack:"state_overrides,omitempty"`
+}
+
+func (CustomActuatorElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// CustomStaticElementConfigUpdate is the configuration for user-defined static symbols.
+type CustomStaticElementConfigUpdate struct {
+	// Label is the symbol's label configuration.
+	Label *patch.Struct[LabelConfigUpdate, LabelConfig] `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Orientation is the orientation of the symbol's primitive within the diagram.
+	Orientation *spatial.OuterLocation `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Scale is the rendered scale multiplier of the symbol.
+	Scale *float64 `json:"scale,omitzero" msgpack:"scale,omitempty"`
+	// SpecKey is the key of the custom symbol spec this instance renders.
+	SpecKey *string `json:"spec_key,omitzero" msgpack:"spec_key,omitempty"`
+	// StateOverrides contains per-instance overrides of the spec's visual states,
+	// matched to the spec's states by key.
+	StateOverrides *patch.ValueList[symbol.State] `json:"state_overrides,omitzero" msgpack:"state_overrides,omitempty"`
+}
+
+func (CustomStaticElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// GroupBoxElementConfigUpdate is the configuration for a group box, the symbol that
+// bounds a set of grouped symbols. Groups nest: a member may itself be a group.
+type GroupBoxElementConfigUpdate struct {
+	// Members lists the keys of the symbols the group contains.
+	Members *patch.ValueList[string] `json:"members,omitzero" msgpack:"members,omitempty"`
+	// Locked pins the group and its members in place.
+	Locked *bool `json:"locked,omitzero" msgpack:"locked,omitempty"`
+}
+
+func (GroupBoxElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PipeElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (PipeElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type ElectricElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (ElectricElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type SecondaryElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (SecondaryElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type JacketedElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (JacketedElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type HydraulicElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (HydraulicElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type PneumaticElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (PneumaticElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+type DataElementConfigUpdate struct {
+	// StrokeColor is the stroke color of the edge.
+	StrokeColor patch.Change[color.Color] `json:"stroke_color,omitzero" msgpack:"stroke_color,omitempty"`
+	// Segments is the ordered list of orthogonal runs that trace the connector path
+	// from the source handle to the target handle.
+	Segments *patch.ValueList[Segment] `json:"segments,omitzero" msgpack:"segments,omitempty"`
+}
+
+func (DataElementConfigUpdate) isElementConfigUpdateVariant() {}
+
+// ElementConfigUpdate holds changes to the fields of the element config. A variant that
+// differs from the stored one changes the variant.
+type ElementConfigUpdate struct {
+	Variant ElementConfigUpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "variant" tag injected.
+func (u ElementConfigUpdate) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case CapElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CapElementConfigUpdate
+		}{Type: CapElementConfigUpdateType, CapElementConfigUpdate: v})
+	case FilterElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FilterElementConfigUpdate
+		}{Type: FilterElementConfigUpdateType, FilterElementConfigUpdate: v})
+	case FlowStraightenerElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowStraightenerElementConfigUpdate
+		}{Type: FlowStraightenerElementConfigUpdateType, FlowStraightenerElementConfigUpdate: v})
+	case HeaterElementElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeaterElementElementConfigUpdate
+		}{Type: HeaterElementElementConfigUpdateType, HeaterElementElementConfigUpdate: v})
+	case IsoCapElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoCapElementConfigUpdate
+		}{Type: IsoCapElementConfigUpdateType, IsoCapElementConfigUpdate: v})
+	case IsoFilterElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoFilterElementConfigUpdate
+		}{Type: IsoFilterElementConfigUpdateType, IsoFilterElementConfigUpdate: v})
+	case NozzleElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			NozzleElementConfigUpdate
+		}{Type: NozzleElementConfigUpdateType, NozzleElementConfigUpdate: v})
+	case OrificeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OrificeElementConfigUpdate
+		}{Type: OrificeElementConfigUpdateType, OrificeElementConfigUpdate: v})
+	case OrificePlateElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OrificePlateElementConfigUpdate
+		}{Type: OrificePlateElementConfigUpdateType, OrificePlateElementConfigUpdate: v})
+	case StrainerElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StrainerElementConfigUpdate
+		}{Type: StrainerElementConfigUpdateType, StrainerElementConfigUpdate: v})
+	case StrainerConeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StrainerConeElementConfigUpdate
+		}{Type: StrainerConeElementConfigUpdateType, StrainerConeElementConfigUpdate: v})
+	case ThrusterElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThrusterElementConfigUpdate
+		}{Type: ThrusterElementConfigUpdateType, ThrusterElementConfigUpdate: v})
+	case VentElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			VentElementConfigUpdate
+		}{Type: VentElementConfigUpdateType, VentElementConfigUpdate: v})
+	case FlowmeterGeneralElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterGeneralElementConfigUpdate
+		}{Type: FlowmeterGeneralElementConfigUpdateType, FlowmeterGeneralElementConfigUpdate: v})
+	case FlowmeterElectromagneticElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterElectromagneticElementConfigUpdate
+		}{Type: FlowmeterElectromagneticElementConfigUpdateType, FlowmeterElectromagneticElementConfigUpdate: v})
+	case FlowmeterVariableAreaElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterVariableAreaElementConfigUpdate
+		}{Type: FlowmeterVariableAreaElementConfigUpdateType, FlowmeterVariableAreaElementConfigUpdate: v})
+	case FlowmeterCoriolisElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterCoriolisElementConfigUpdate
+		}{Type: FlowmeterCoriolisElementConfigUpdateType, FlowmeterCoriolisElementConfigUpdate: v})
+	case FlowmeterNozzleElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterNozzleElementConfigUpdate
+		}{Type: FlowmeterNozzleElementConfigUpdateType, FlowmeterNozzleElementConfigUpdate: v})
+	case FlowmeterVenturiElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterVenturiElementConfigUpdate
+		}{Type: FlowmeterVenturiElementConfigUpdateType, FlowmeterVenturiElementConfigUpdate: v})
+	case FlowmeterRingPistonElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterRingPistonElementConfigUpdate
+		}{Type: FlowmeterRingPistonElementConfigUpdateType, FlowmeterRingPistonElementConfigUpdate: v})
+	case FlowmeterPositiveDisplacementElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterPositiveDisplacementElementConfigUpdate
+		}{Type: FlowmeterPositiveDisplacementElementConfigUpdateType, FlowmeterPositiveDisplacementElementConfigUpdate: v})
+	case FlowmeterTurbineElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterTurbineElementConfigUpdate
+		}{Type: FlowmeterTurbineElementConfigUpdateType, FlowmeterTurbineElementConfigUpdate: v})
+	case FlowmeterPulseElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterPulseElementConfigUpdate
+		}{Type: FlowmeterPulseElementConfigUpdateType, FlowmeterPulseElementConfigUpdate: v})
+	case FlowmeterFloatSensorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterFloatSensorElementConfigUpdate
+		}{Type: FlowmeterFloatSensorElementConfigUpdateType, FlowmeterFloatSensorElementConfigUpdate: v})
+	case FlowmeterOrificeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterOrificeElementConfigUpdate
+		}{Type: FlowmeterOrificeElementConfigUpdateType, FlowmeterOrificeElementConfigUpdate: v})
+	case BoxElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BoxElementConfigUpdate
+		}{Type: BoxElementConfigUpdateType, BoxElementConfigUpdate: v})
+	case ButtonElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButtonElementConfigUpdate
+		}{Type: ButtonElementConfigUpdateType, ButtonElementConfigUpdate: v})
+	case CircleElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CircleElementConfigUpdate
+		}{Type: CircleElementConfigUpdateType, CircleElementConfigUpdate: v})
+	case GaugeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GaugeElementConfigUpdate
+		}{Type: GaugeElementConfigUpdateType, GaugeElementConfigUpdate: v})
+	case InputElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			InputElementConfigUpdate
+		}{Type: InputElementConfigUpdateType, InputElementConfigUpdate: v})
+	case LightElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LightElementConfigUpdate
+		}{Type: LightElementConfigUpdateType, LightElementConfigUpdate: v})
+	case LineElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LineElementConfigUpdate
+		}{Type: LineElementConfigUpdateType, LineElementConfigUpdate: v})
+	case OffPageReferenceElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OffPageReferenceElementConfigUpdate
+		}{Type: OffPageReferenceElementConfigUpdateType, OffPageReferenceElementConfigUpdate: v})
+	case PolygonElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PolygonElementConfigUpdate
+		}{Type: PolygonElementConfigUpdateType, PolygonElementConfigUpdate: v})
+	case SelectElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SelectElementConfigUpdate
+		}{Type: SelectElementConfigUpdateType, SelectElementConfigUpdate: v})
+	case ScaleElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ScaleElementConfigUpdate
+		}{Type: ScaleElementConfigUpdateType, ScaleElementConfigUpdate: v})
+	case SetpointElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SetpointElementConfigUpdate
+		}{Type: SetpointElementConfigUpdateType, SetpointElementConfigUpdate: v})
+	case StateIndicatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StateIndicatorElementConfigUpdate
+		}{Type: StateIndicatorElementConfigUpdateType, StateIndicatorElementConfigUpdate: v})
+	case StringDisplayElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StringDisplayElementConfigUpdate
+		}{Type: StringDisplayElementConfigUpdateType, StringDisplayElementConfigUpdate: v})
+	case SwitchElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SwitchElementConfigUpdate
+		}{Type: SwitchElementConfigUpdateType, SwitchElementConfigUpdate: v})
+	case TextBoxElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TextBoxElementConfigUpdate
+		}{Type: TextBoxElementConfigUpdateType, TextBoxElementConfigUpdate: v})
+	case ValueElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ValueElementConfigUpdate
+		}{Type: ValueElementConfigUpdateType, ValueElementConfigUpdate: v})
+	case AgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AgitatorElementConfigUpdate
+		}{Type: AgitatorElementConfigUpdateType, AgitatorElementConfigUpdate: v})
+	case CrossBeamAgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CrossBeamAgitatorElementConfigUpdate
+		}{Type: CrossBeamAgitatorElementConfigUpdateType, CrossBeamAgitatorElementConfigUpdate: v})
+	case FlatBladeAgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlatBladeAgitatorElementConfigUpdate
+		}{Type: FlatBladeAgitatorElementConfigUpdateType, FlatBladeAgitatorElementConfigUpdate: v})
+	case HeatExchangerGeneralElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerGeneralElementConfigUpdate
+		}{Type: HeatExchangerGeneralElementConfigUpdateType, HeatExchangerGeneralElementConfigUpdate: v})
+	case HeatExchangerMElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerMElementConfigUpdate
+		}{Type: HeatExchangerMElementConfigUpdateType, HeatExchangerMElementConfigUpdate: v})
+	case HeatExchangerStraightTubeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerStraightTubeElementConfigUpdate
+		}{Type: HeatExchangerStraightTubeElementConfigUpdateType, HeatExchangerStraightTubeElementConfigUpdate: v})
+	case HelicalAgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HelicalAgitatorElementConfigUpdate
+		}{Type: HelicalAgitatorElementConfigUpdateType, HelicalAgitatorElementConfigUpdate: v})
+	case PaddleAgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PaddleAgitatorElementConfigUpdate
+		}{Type: PaddleAgitatorElementConfigUpdateType, PaddleAgitatorElementConfigUpdate: v})
+	case PropellerAgitatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PropellerAgitatorElementConfigUpdate
+		}{Type: PropellerAgitatorElementConfigUpdateType, PropellerAgitatorElementConfigUpdate: v})
+	case RotaryMixerElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RotaryMixerElementConfigUpdate
+		}{Type: RotaryMixerElementConfigUpdateType, RotaryMixerElementConfigUpdate: v})
+	case StaticMixerElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StaticMixerElementConfigUpdate
+		}{Type: StaticMixerElementConfigUpdateType, StaticMixerElementConfigUpdate: v})
+	case CavityPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CavityPumpElementConfigUpdate
+		}{Type: CavityPumpElementConfigUpdateType, CavityPumpElementConfigUpdate: v})
+	case CentrifugalCompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CentrifugalCompressorElementConfigUpdate
+		}{Type: CentrifugalCompressorElementConfigUpdateType, CentrifugalCompressorElementConfigUpdate: v})
+	case CompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CompressorElementConfigUpdate
+		}{Type: CompressorElementConfigUpdateType, CompressorElementConfigUpdate: v})
+	case DiaphragmPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			DiaphragmPumpElementConfigUpdate
+		}{Type: DiaphragmPumpElementConfigUpdateType, DiaphragmPumpElementConfigUpdate: v})
+	case EjectionPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			EjectionPumpElementConfigUpdate
+		}{Type: EjectionPumpElementConfigUpdateType, EjectionPumpElementConfigUpdate: v})
+	case EjectorCompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			EjectorCompressorElementConfigUpdate
+		}{Type: EjectorCompressorElementConfigUpdateType, EjectorCompressorElementConfigUpdate: v})
+	case LiquidRingCompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LiquidRingCompressorElementConfigUpdate
+		}{Type: LiquidRingCompressorElementConfigUpdateType, LiquidRingCompressorElementConfigUpdate: v})
+	case PistonPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PistonPumpElementConfigUpdate
+		}{Type: PistonPumpElementConfigUpdateType, PistonPumpElementConfigUpdate: v})
+	case PumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PumpElementConfigUpdate
+		}{Type: PumpElementConfigUpdateType, PumpElementConfigUpdate: v})
+	case RollerVaneCompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RollerVaneCompressorElementConfigUpdate
+		}{Type: RollerVaneCompressorElementConfigUpdateType, RollerVaneCompressorElementConfigUpdate: v})
+	case ScrewPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ScrewPumpElementConfigUpdate
+		}{Type: ScrewPumpElementConfigUpdateType, ScrewPumpElementConfigUpdate: v})
+	case TurboCompressorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TurboCompressorElementConfigUpdate
+		}{Type: TurboCompressorElementConfigUpdateType, TurboCompressorElementConfigUpdate: v})
+	case VacuumPumpElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			VacuumPumpElementConfigUpdate
+		}{Type: VacuumPumpElementConfigUpdateType, VacuumPumpElementConfigUpdate: v})
+	case BurstDiscElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BurstDiscElementConfigUpdate
+		}{Type: BurstDiscElementConfigUpdateType, BurstDiscElementConfigUpdate: v})
+	case FlameArrestorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorElementConfigUpdate
+		}{Type: FlameArrestorElementConfigUpdateType, FlameArrestorElementConfigUpdate: v})
+	case FlameArrestorDetonationElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorDetonationElementConfigUpdate
+		}{Type: FlameArrestorDetonationElementConfigUpdateType, FlameArrestorDetonationElementConfigUpdate: v})
+	case FlameArrestorExplosionElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorExplosionElementConfigUpdate
+		}{Type: FlameArrestorExplosionElementConfigUpdateType, FlameArrestorExplosionElementConfigUpdate: v})
+	case FlameArrestorFireResElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorFireResElementConfigUpdate
+		}{Type: FlameArrestorFireResElementConfigUpdateType, FlameArrestorFireResElementConfigUpdate: v})
+	case FlameArrestorFireResDetonationElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorFireResDetonationElementConfigUpdate
+		}{Type: FlameArrestorFireResDetonationElementConfigUpdateType, FlameArrestorFireResDetonationElementConfigUpdate: v})
+	case IsoBurstDiscElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoBurstDiscElementConfigUpdate
+		}{Type: IsoBurstDiscElementConfigUpdateType, IsoBurstDiscElementConfigUpdate: v})
+	case AngledValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledValveElementConfigUpdate
+		}{Type: AngledValveElementConfigUpdateType, AngledValveElementConfigUpdate: v})
+	case AngledReliefValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledReliefValveElementConfigUpdate
+		}{Type: AngledReliefValveElementConfigUpdateType, AngledReliefValveElementConfigUpdate: v})
+	case AngledSpringLoadedReliefValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledSpringLoadedReliefValveElementConfigUpdate
+		}{Type: AngledSpringLoadedReliefValveElementConfigUpdateType, AngledSpringLoadedReliefValveElementConfigUpdate: v})
+	case BallValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BallValveElementConfigUpdate
+		}{Type: BallValveElementConfigUpdateType, BallValveElementConfigUpdate: v})
+	case BreatherValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BreatherValveElementConfigUpdate
+		}{Type: BreatherValveElementConfigUpdateType, BreatherValveElementConfigUpdate: v})
+	case ButterflyValveOneElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButterflyValveOneElementConfigUpdate
+		}{Type: ButterflyValveOneElementConfigUpdateType, ButterflyValveOneElementConfigUpdate: v})
+	case ButterflyValveTwoElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButterflyValveTwoElementConfigUpdate
+		}{Type: ButterflyValveTwoElementConfigUpdateType, ButterflyValveTwoElementConfigUpdate: v})
+	case CheckValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CheckValveElementConfigUpdate
+		}{Type: CheckValveElementConfigUpdateType, CheckValveElementConfigUpdate: v})
+	case CheckValveWithArrowElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CheckValveWithArrowElementConfigUpdate
+		}{Type: CheckValveWithArrowElementConfigUpdateType, CheckValveWithArrowElementConfigUpdate: v})
+	case ElectricRegulatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricRegulatorElementConfigUpdate
+		}{Type: ElectricRegulatorElementConfigUpdateType, ElectricRegulatorElementConfigUpdate: v})
+	case ElectricRegulatorMotorizedElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricRegulatorMotorizedElementConfigUpdate
+		}{Type: ElectricRegulatorMotorizedElementConfigUpdateType, ElectricRegulatorMotorizedElementConfigUpdate: v})
+	case FourWayValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FourWayValveElementConfigUpdate
+		}{Type: FourWayValveElementConfigUpdateType, FourWayValveElementConfigUpdate: v})
+	case GateValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GateValveElementConfigUpdate
+		}{Type: GateValveElementConfigUpdateType, GateValveElementConfigUpdate: v})
+	case IsoCheckValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoCheckValveElementConfigUpdate
+		}{Type: IsoCheckValveElementConfigUpdateType, IsoCheckValveElementConfigUpdate: v})
+	case ManualValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ManualValveElementConfigUpdate
+		}{Type: ManualValveElementConfigUpdateType, ManualValveElementConfigUpdate: v})
+	case NeedleValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			NeedleValveElementConfigUpdate
+		}{Type: NeedleValveElementConfigUpdateType, NeedleValveElementConfigUpdate: v})
+	case RegulatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RegulatorElementConfigUpdate
+		}{Type: RegulatorElementConfigUpdateType, RegulatorElementConfigUpdate: v})
+	case RegulatorManualElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RegulatorManualElementConfigUpdate
+		}{Type: RegulatorManualElementConfigUpdateType, RegulatorManualElementConfigUpdate: v})
+	case ReliefValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ReliefValveElementConfigUpdate
+		}{Type: ReliefValveElementConfigUpdateType, ReliefValveElementConfigUpdate: v})
+	case SolenoidValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SolenoidValveElementConfigUpdate
+		}{Type: SolenoidValveElementConfigUpdateType, SolenoidValveElementConfigUpdate: v})
+	case SpringLoadedReliefValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SpringLoadedReliefValveElementConfigUpdate
+		}{Type: SpringLoadedReliefValveElementConfigUpdateType, SpringLoadedReliefValveElementConfigUpdate: v})
+	case ThreeWayValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThreeWayValveElementConfigUpdate
+		}{Type: ThreeWayValveElementConfigUpdateType, ThreeWayValveElementConfigUpdate: v})
+	case ThreeWayBallValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThreeWayBallValveElementConfigUpdate
+		}{Type: ThreeWayBallValveElementConfigUpdateType, ThreeWayBallValveElementConfigUpdate: v})
+	case ValveElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ValveElementConfigUpdate
+		}{Type: ValveElementConfigUpdateType, ValveElementConfigUpdate: v})
+	case CrossJunctionElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CrossJunctionElementConfigUpdate
+		}{Type: CrossJunctionElementConfigUpdateType, CrossJunctionElementConfigUpdate: v})
+	case CylinderElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CylinderElementConfigUpdate
+		}{Type: CylinderElementConfigUpdateType, CylinderElementConfigUpdate: v})
+	case TankElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TankElementConfigUpdate
+		}{Type: TankElementConfigUpdateType, TankElementConfigUpdate: v})
+	case TJunctionElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TJunctionElementConfigUpdate
+		}{Type: TJunctionElementConfigUpdateType, TJunctionElementConfigUpdate: v})
+	case CustomActuatorElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CustomActuatorElementConfigUpdate
+		}{Type: CustomActuatorElementConfigUpdateType, CustomActuatorElementConfigUpdate: v})
+	case CustomStaticElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CustomStaticElementConfigUpdate
+		}{Type: CustomStaticElementConfigUpdateType, CustomStaticElementConfigUpdate: v})
+	case GroupBoxElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GroupBoxElementConfigUpdate
+		}{Type: GroupBoxElementConfigUpdateType, GroupBoxElementConfigUpdate: v})
+	case PipeElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PipeElementConfigUpdate
+		}{Type: PipeElementConfigUpdateType, PipeElementConfigUpdate: v})
+	case ElectricElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricElementConfigUpdate
+		}{Type: ElectricElementConfigUpdateType, ElectricElementConfigUpdate: v})
+	case SecondaryElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SecondaryElementConfigUpdate
+		}{Type: SecondaryElementConfigUpdateType, SecondaryElementConfigUpdate: v})
+	case JacketedElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			JacketedElementConfigUpdate
+		}{Type: JacketedElementConfigUpdateType, JacketedElementConfigUpdate: v})
+	case HydraulicElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HydraulicElementConfigUpdate
+		}{Type: HydraulicElementConfigUpdateType, HydraulicElementConfigUpdate: v})
+	case PneumaticElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PneumaticElementConfigUpdate
+		}{Type: PneumaticElementConfigUpdateType, PneumaticElementConfigUpdate: v})
+	case DataElementConfigUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			DataElementConfigUpdate
+		}{Type: DataElementConfigUpdateType, DataElementConfigUpdate: v})
+	default:
+		return errors.Newf("ElementConfigUpdate: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "variant" field.
+func (u *ElementConfigUpdate) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ElementConfigUpdateType `json:"variant"`
+	}
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case CapElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CapElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CapElementConfigUpdate
+	case FilterElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FilterElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FilterElementConfigUpdate
+	case FlowStraightenerElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowStraightenerElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowStraightenerElementConfigUpdate
+	case HeaterElementElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeaterElementElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HeaterElementElementConfigUpdate
+	case IsoCapElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoCapElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IsoCapElementConfigUpdate
+	case IsoFilterElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoFilterElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IsoFilterElementConfigUpdate
+	case NozzleElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			NozzleElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NozzleElementConfigUpdate
+	case OrificeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OrificeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.OrificeElementConfigUpdate
+	case OrificePlateElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OrificePlateElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.OrificePlateElementConfigUpdate
+	case StrainerElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StrainerElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StrainerElementConfigUpdate
+	case StrainerConeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StrainerConeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StrainerConeElementConfigUpdate
+	case ThrusterElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThrusterElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ThrusterElementConfigUpdate
+	case VentElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			VentElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.VentElementConfigUpdate
+	case FlowmeterGeneralElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterGeneralElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterGeneralElementConfigUpdate
+	case FlowmeterElectromagneticElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterElectromagneticElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterElectromagneticElementConfigUpdate
+	case FlowmeterVariableAreaElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterVariableAreaElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterVariableAreaElementConfigUpdate
+	case FlowmeterCoriolisElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterCoriolisElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterCoriolisElementConfigUpdate
+	case FlowmeterNozzleElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterNozzleElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterNozzleElementConfigUpdate
+	case FlowmeterVenturiElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterVenturiElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterVenturiElementConfigUpdate
+	case FlowmeterRingPistonElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterRingPistonElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterRingPistonElementConfigUpdate
+	case FlowmeterPositiveDisplacementElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterPositiveDisplacementElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterPositiveDisplacementElementConfigUpdate
+	case FlowmeterTurbineElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterTurbineElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterTurbineElementConfigUpdate
+	case FlowmeterPulseElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterPulseElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterPulseElementConfigUpdate
+	case FlowmeterFloatSensorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterFloatSensorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterFloatSensorElementConfigUpdate
+	case FlowmeterOrificeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlowmeterOrificeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlowmeterOrificeElementConfigUpdate
+	case BoxElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BoxElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BoxElementConfigUpdate
+	case ButtonElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButtonElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ButtonElementConfigUpdate
+	case CircleElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CircleElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CircleElementConfigUpdate
+	case GaugeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GaugeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GaugeElementConfigUpdate
+	case InputElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			InputElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.InputElementConfigUpdate
+	case LightElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LightElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LightElementConfigUpdate
+	case LineElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LineElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LineElementConfigUpdate
+	case OffPageReferenceElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			OffPageReferenceElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.OffPageReferenceElementConfigUpdate
+	case PolygonElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PolygonElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PolygonElementConfigUpdate
+	case SelectElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SelectElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SelectElementConfigUpdate
+	case ScaleElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ScaleElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ScaleElementConfigUpdate
+	case SetpointElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SetpointElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SetpointElementConfigUpdate
+	case StateIndicatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StateIndicatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StateIndicatorElementConfigUpdate
+	case StringDisplayElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StringDisplayElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StringDisplayElementConfigUpdate
+	case SwitchElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SwitchElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SwitchElementConfigUpdate
+	case TextBoxElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TextBoxElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TextBoxElementConfigUpdate
+	case ValueElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ValueElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValueElementConfigUpdate
+	case AgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AgitatorElementConfigUpdate
+	case CrossBeamAgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CrossBeamAgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CrossBeamAgitatorElementConfigUpdate
+	case FlatBladeAgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlatBladeAgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlatBladeAgitatorElementConfigUpdate
+	case HeatExchangerGeneralElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerGeneralElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HeatExchangerGeneralElementConfigUpdate
+	case HeatExchangerMElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerMElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HeatExchangerMElementConfigUpdate
+	case HeatExchangerStraightTubeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HeatExchangerStraightTubeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HeatExchangerStraightTubeElementConfigUpdate
+	case HelicalAgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HelicalAgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HelicalAgitatorElementConfigUpdate
+	case PaddleAgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PaddleAgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PaddleAgitatorElementConfigUpdate
+	case PropellerAgitatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PropellerAgitatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PropellerAgitatorElementConfigUpdate
+	case RotaryMixerElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RotaryMixerElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.RotaryMixerElementConfigUpdate
+	case StaticMixerElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			StaticMixerElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.StaticMixerElementConfigUpdate
+	case CavityPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CavityPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CavityPumpElementConfigUpdate
+	case CentrifugalCompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CentrifugalCompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CentrifugalCompressorElementConfigUpdate
+	case CompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CompressorElementConfigUpdate
+	case DiaphragmPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			DiaphragmPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DiaphragmPumpElementConfigUpdate
+	case EjectionPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			EjectionPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EjectionPumpElementConfigUpdate
+	case EjectorCompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			EjectorCompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.EjectorCompressorElementConfigUpdate
+	case LiquidRingCompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			LiquidRingCompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.LiquidRingCompressorElementConfigUpdate
+	case PistonPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PistonPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PistonPumpElementConfigUpdate
+	case PumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PumpElementConfigUpdate
+	case RollerVaneCompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RollerVaneCompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.RollerVaneCompressorElementConfigUpdate
+	case ScrewPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ScrewPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ScrewPumpElementConfigUpdate
+	case TurboCompressorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TurboCompressorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TurboCompressorElementConfigUpdate
+	case VacuumPumpElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			VacuumPumpElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.VacuumPumpElementConfigUpdate
+	case BurstDiscElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BurstDiscElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BurstDiscElementConfigUpdate
+	case FlameArrestorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlameArrestorElementConfigUpdate
+	case FlameArrestorDetonationElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorDetonationElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlameArrestorDetonationElementConfigUpdate
+	case FlameArrestorExplosionElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorExplosionElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlameArrestorExplosionElementConfigUpdate
+	case FlameArrestorFireResElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorFireResElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlameArrestorFireResElementConfigUpdate
+	case FlameArrestorFireResDetonationElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FlameArrestorFireResDetonationElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FlameArrestorFireResDetonationElementConfigUpdate
+	case IsoBurstDiscElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoBurstDiscElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IsoBurstDiscElementConfigUpdate
+	case AngledValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AngledValveElementConfigUpdate
+	case AngledReliefValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledReliefValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AngledReliefValveElementConfigUpdate
+	case AngledSpringLoadedReliefValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			AngledSpringLoadedReliefValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.AngledSpringLoadedReliefValveElementConfigUpdate
+	case BallValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BallValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BallValveElementConfigUpdate
+	case BreatherValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			BreatherValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.BreatherValveElementConfigUpdate
+	case ButterflyValveOneElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButterflyValveOneElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ButterflyValveOneElementConfigUpdate
+	case ButterflyValveTwoElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ButterflyValveTwoElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ButterflyValveTwoElementConfigUpdate
+	case CheckValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CheckValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CheckValveElementConfigUpdate
+	case CheckValveWithArrowElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CheckValveWithArrowElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CheckValveWithArrowElementConfigUpdate
+	case ElectricRegulatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricRegulatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricRegulatorElementConfigUpdate
+	case ElectricRegulatorMotorizedElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricRegulatorMotorizedElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricRegulatorMotorizedElementConfigUpdate
+	case FourWayValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			FourWayValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.FourWayValveElementConfigUpdate
+	case GateValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GateValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GateValveElementConfigUpdate
+	case IsoCheckValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			IsoCheckValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.IsoCheckValveElementConfigUpdate
+	case ManualValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ManualValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ManualValveElementConfigUpdate
+	case NeedleValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			NeedleValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.NeedleValveElementConfigUpdate
+	case RegulatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RegulatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.RegulatorElementConfigUpdate
+	case RegulatorManualElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			RegulatorManualElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.RegulatorManualElementConfigUpdate
+	case ReliefValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ReliefValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ReliefValveElementConfigUpdate
+	case SolenoidValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SolenoidValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SolenoidValveElementConfigUpdate
+	case SpringLoadedReliefValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SpringLoadedReliefValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SpringLoadedReliefValveElementConfigUpdate
+	case ThreeWayValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThreeWayValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ThreeWayValveElementConfigUpdate
+	case ThreeWayBallValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ThreeWayBallValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ThreeWayBallValveElementConfigUpdate
+	case ValveElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ValveElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ValveElementConfigUpdate
+	case CrossJunctionElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CrossJunctionElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CrossJunctionElementConfigUpdate
+	case CylinderElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CylinderElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CylinderElementConfigUpdate
+	case TankElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TankElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TankElementConfigUpdate
+	case TJunctionElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			TJunctionElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.TJunctionElementConfigUpdate
+	case CustomActuatorElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CustomActuatorElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CustomActuatorElementConfigUpdate
+	case CustomStaticElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			CustomStaticElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.CustomStaticElementConfigUpdate
+	case GroupBoxElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			GroupBoxElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.GroupBoxElementConfigUpdate
+	case PipeElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PipeElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PipeElementConfigUpdate
+	case ElectricElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			ElectricElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.ElectricElementConfigUpdate
+	case SecondaryElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			SecondaryElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.SecondaryElementConfigUpdate
+	case JacketedElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			JacketedElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.JacketedElementConfigUpdate
+	case HydraulicElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			HydraulicElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.HydraulicElementConfigUpdate
+	case PneumaticElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			PneumaticElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.PneumaticElementConfigUpdate
+	case DataElementConfigUpdateType:
+		var v struct {
+			Type ElementConfigUpdateType `json:"variant"`
+			DataElementConfigUpdate
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v.DataElementConfigUpdate
+	default:
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ElementConfigUpdate: unknown variant %q",
+			disc.Type,
+		)
+	}
+	return nil
+}
+
+// LabelConfigUpdate holds changes to the fields of the label config. An absent field
+// does not change.
+type LabelConfigUpdate struct {
+	// Label is the text content of the label.
+	Label *string `json:"label,omitzero" msgpack:"label,omitempty"`
+	// Level is the typography level of the label text.
+	Level *text.Level `json:"level,omitzero" msgpack:"level,omitempty"`
+	// Orientation is the placement of the label relative to the symbol.
+	Orientation *spatial.Location `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+	// Direction is the axis along which the label text flows.
+	Direction *spatial.Direction `json:"direction,omitzero" msgpack:"direction,omitempty"`
+	// MaxInlineSize is the maximum inline size of the label in pixels before wrapping.
+	MaxInlineSize *float64 `json:"max_inline_size,omitzero" msgpack:"max_inline_size,omitempty"`
+	// Align is the alignment of the label text within its box.
+	Align *FlexAlignment `json:"align,omitzero" msgpack:"align,omitempty"`
+}
+
+// ControlStateConfigUpdate holds changes to the fields of the control state config. An
+// absent field does not change.
+type ControlStateConfigUpdate struct {
+	// Authority is the control authority requested when the symbol acquires its command
+	// channel. Defaults to absolute authority when unset.
+	Authority patch.Change[uint8] `json:"authority,omitzero" msgpack:"authority,omitempty"`
+	// Hidden hides the control state widget.
+	Hidden *bool `json:"hidden,omitzero" msgpack:"hidden,omitempty"`
+	// ChipHidden hides the authority chip.
+	ChipHidden *bool `json:"chip_hidden,omitzero" msgpack:"chip_hidden,omitempty"`
+	// IndicatorHidden hides the state indicator.
+	IndicatorHidden *bool `json:"indicator_hidden,omitzero" msgpack:"indicator_hidden,omitempty"`
+	// Orientation is the placement of the control state widget relative to the symbol.
+	Orientation *spatial.Location `json:"orientation,omitzero" msgpack:"orientation,omitempty"`
+}
+
+// EncodeMsgpack implements msgpack.CustomEncoder.
+func (c ControlStateConfigUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
+	return patch.EncodeMsgpack(enc, c)
+}
+
+// DecodeMsgpack implements msgpack.CustomDecoder.
+func (c *ControlStateConfigUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	return patch.DecodeMsgpack(dec, c)
+}
+
+// PageUpdate holds changes to the fields of the page. An absent field does not change.
+type PageUpdate struct {
+	// Type is the kind of page referenced.
+	Type *PageType `json:"type,omitzero" msgpack:"type,omitempty"`
+	// Key is the key of the referenced page.
+	Key *string `json:"key,omitzero" msgpack:"key,omitempty"`
+}
+
 // ApplyTo applies u to x. An absent field of u leaves its field of x alone.
 func (u Update) ApplyTo(x *Schematic) error {
 	if u.Name != nil {
 		x.Name = *u.Name
 	}
+	if u.Configs != nil {
+		if err := patch.ApplyMap(
+			&x.Configs,
+			*u.Configs,
+			func(v *ElementConfig, w ElementConfigUpdate) error { return w.ApplyTo(v) },
+		); err != nil {
+			return err
+		}
+	}
 	u.Group.ApplyOptional(&x.Group)
 	u.Project.ApplyOptional(&x.Project)
 	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u ElementConfigUpdate) ApplyTo(x *ElementConfig) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case CapElementConfigUpdate:
+		next, same := x.Variant.(CapElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FilterElementConfigUpdate:
+		next, same := x.Variant.(FilterElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowStraightenerElementConfigUpdate:
+		next, same := x.Variant.(FlowStraightenerElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HeaterElementElementConfigUpdate:
+		next, same := x.Variant.(HeaterElementElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case IsoCapElementConfigUpdate:
+		next, same := x.Variant.(IsoCapElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case IsoFilterElementConfigUpdate:
+		next, same := x.Variant.(IsoFilterElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case NozzleElementConfigUpdate:
+		next, same := x.Variant.(NozzleElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case OrificeElementConfigUpdate:
+		next, same := x.Variant.(OrificeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case OrificePlateElementConfigUpdate:
+		next, same := x.Variant.(OrificePlateElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case StrainerElementConfigUpdate:
+		next, same := x.Variant.(StrainerElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case StrainerConeElementConfigUpdate:
+		next, same := x.Variant.(StrainerConeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ThrusterElementConfigUpdate:
+		next, same := x.Variant.(ThrusterElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case VentElementConfigUpdate:
+		next, same := x.Variant.(VentElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterGeneralElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterGeneralElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterElectromagneticElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterElectromagneticElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterVariableAreaElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterVariableAreaElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterCoriolisElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterCoriolisElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterNozzleElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterNozzleElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterVenturiElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterVenturiElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterRingPistonElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterRingPistonElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterPositiveDisplacementElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterPositiveDisplacementElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterTurbineElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterTurbineElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterPulseElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterPulseElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterFloatSensorElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterFloatSensorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlowmeterOrificeElementConfigUpdate:
+		next, same := x.Variant.(FlowmeterOrificeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case BoxElementConfigUpdate:
+		next, same := x.Variant.(BoxElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ButtonElementConfigUpdate:
+		next, same := x.Variant.(ButtonElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CircleElementConfigUpdate:
+		next, same := x.Variant.(CircleElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case GaugeElementConfigUpdate:
+		next, same := x.Variant.(GaugeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case InputElementConfigUpdate:
+		next, same := x.Variant.(InputElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case LightElementConfigUpdate:
+		next, same := x.Variant.(LightElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case LineElementConfigUpdate:
+		next, same := x.Variant.(LineElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case OffPageReferenceElementConfigUpdate:
+		next, same := x.Variant.(OffPageReferenceElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PolygonElementConfigUpdate:
+		next, same := x.Variant.(PolygonElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SelectElementConfigUpdate:
+		next, same := x.Variant.(SelectElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ScaleElementConfigUpdate:
+		next, same := x.Variant.(ScaleElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SetpointElementConfigUpdate:
+		next, same := x.Variant.(SetpointElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case StateIndicatorElementConfigUpdate:
+		next, same := x.Variant.(StateIndicatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case StringDisplayElementConfigUpdate:
+		next, same := x.Variant.(StringDisplayElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SwitchElementConfigUpdate:
+		next, same := x.Variant.(SwitchElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TextBoxElementConfigUpdate:
+		next, same := x.Variant.(TextBoxElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ValueElementConfigUpdate:
+		next, same := x.Variant.(ValueElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AgitatorElementConfigUpdate:
+		next, same := x.Variant.(AgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CrossBeamAgitatorElementConfigUpdate:
+		next, same := x.Variant.(CrossBeamAgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlatBladeAgitatorElementConfigUpdate:
+		next, same := x.Variant.(FlatBladeAgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HeatExchangerGeneralElementConfigUpdate:
+		next, same := x.Variant.(HeatExchangerGeneralElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HeatExchangerMElementConfigUpdate:
+		next, same := x.Variant.(HeatExchangerMElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HeatExchangerStraightTubeElementConfigUpdate:
+		next, same := x.Variant.(HeatExchangerStraightTubeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HelicalAgitatorElementConfigUpdate:
+		next, same := x.Variant.(HelicalAgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PaddleAgitatorElementConfigUpdate:
+		next, same := x.Variant.(PaddleAgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PropellerAgitatorElementConfigUpdate:
+		next, same := x.Variant.(PropellerAgitatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case RotaryMixerElementConfigUpdate:
+		next, same := x.Variant.(RotaryMixerElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case StaticMixerElementConfigUpdate:
+		next, same := x.Variant.(StaticMixerElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CavityPumpElementConfigUpdate:
+		next, same := x.Variant.(CavityPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CentrifugalCompressorElementConfigUpdate:
+		next, same := x.Variant.(CentrifugalCompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CompressorElementConfigUpdate:
+		next, same := x.Variant.(CompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case DiaphragmPumpElementConfigUpdate:
+		next, same := x.Variant.(DiaphragmPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case EjectionPumpElementConfigUpdate:
+		next, same := x.Variant.(EjectionPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case EjectorCompressorElementConfigUpdate:
+		next, same := x.Variant.(EjectorCompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case LiquidRingCompressorElementConfigUpdate:
+		next, same := x.Variant.(LiquidRingCompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PistonPumpElementConfigUpdate:
+		next, same := x.Variant.(PistonPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PumpElementConfigUpdate:
+		next, same := x.Variant.(PumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case RollerVaneCompressorElementConfigUpdate:
+		next, same := x.Variant.(RollerVaneCompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ScrewPumpElementConfigUpdate:
+		next, same := x.Variant.(ScrewPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TurboCompressorElementConfigUpdate:
+		next, same := x.Variant.(TurboCompressorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case VacuumPumpElementConfigUpdate:
+		next, same := x.Variant.(VacuumPumpElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case BurstDiscElementConfigUpdate:
+		next, same := x.Variant.(BurstDiscElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlameArrestorElementConfigUpdate:
+		next, same := x.Variant.(FlameArrestorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlameArrestorDetonationElementConfigUpdate:
+		next, same := x.Variant.(FlameArrestorDetonationElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlameArrestorExplosionElementConfigUpdate:
+		next, same := x.Variant.(FlameArrestorExplosionElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlameArrestorFireResElementConfigUpdate:
+		next, same := x.Variant.(FlameArrestorFireResElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FlameArrestorFireResDetonationElementConfigUpdate:
+		next, same := x.Variant.(FlameArrestorFireResDetonationElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case IsoBurstDiscElementConfigUpdate:
+		next, same := x.Variant.(IsoBurstDiscElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AngledValveElementConfigUpdate:
+		next, same := x.Variant.(AngledValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AngledReliefValveElementConfigUpdate:
+		next, same := x.Variant.(AngledReliefValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AngledSpringLoadedReliefValveElementConfigUpdate:
+		next, same := x.Variant.(AngledSpringLoadedReliefValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case BallValveElementConfigUpdate:
+		next, same := x.Variant.(BallValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case BreatherValveElementConfigUpdate:
+		next, same := x.Variant.(BreatherValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ButterflyValveOneElementConfigUpdate:
+		next, same := x.Variant.(ButterflyValveOneElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ButterflyValveTwoElementConfigUpdate:
+		next, same := x.Variant.(ButterflyValveTwoElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CheckValveElementConfigUpdate:
+		next, same := x.Variant.(CheckValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CheckValveWithArrowElementConfigUpdate:
+		next, same := x.Variant.(CheckValveWithArrowElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ElectricRegulatorElementConfigUpdate:
+		next, same := x.Variant.(ElectricRegulatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ElectricRegulatorMotorizedElementConfigUpdate:
+		next, same := x.Variant.(ElectricRegulatorMotorizedElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case FourWayValveElementConfigUpdate:
+		next, same := x.Variant.(FourWayValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case GateValveElementConfigUpdate:
+		next, same := x.Variant.(GateValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case IsoCheckValveElementConfigUpdate:
+		next, same := x.Variant.(IsoCheckValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ManualValveElementConfigUpdate:
+		next, same := x.Variant.(ManualValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case NeedleValveElementConfigUpdate:
+		next, same := x.Variant.(NeedleValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case RegulatorElementConfigUpdate:
+		next, same := x.Variant.(RegulatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case RegulatorManualElementConfigUpdate:
+		next, same := x.Variant.(RegulatorManualElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ReliefValveElementConfigUpdate:
+		next, same := x.Variant.(ReliefValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SolenoidValveElementConfigUpdate:
+		next, same := x.Variant.(SolenoidValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SpringLoadedReliefValveElementConfigUpdate:
+		next, same := x.Variant.(SpringLoadedReliefValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ThreeWayValveElementConfigUpdate:
+		next, same := x.Variant.(ThreeWayValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ThreeWayBallValveElementConfigUpdate:
+		next, same := x.Variant.(ThreeWayBallValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ValveElementConfigUpdate:
+		next, same := x.Variant.(ValveElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CrossJunctionElementConfigUpdate:
+		next, same := x.Variant.(CrossJunctionElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CylinderElementConfigUpdate:
+		next, same := x.Variant.(CylinderElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TankElementConfigUpdate:
+		next, same := x.Variant.(TankElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TJunctionElementConfigUpdate:
+		next, same := x.Variant.(TJunctionElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CustomActuatorElementConfigUpdate:
+		next, same := x.Variant.(CustomActuatorElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CustomStaticElementConfigUpdate:
+		next, same := x.Variant.(CustomStaticElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case GroupBoxElementConfigUpdate:
+		next, same := x.Variant.(GroupBoxElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PipeElementConfigUpdate:
+		next, same := x.Variant.(PipeElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ElectricElementConfigUpdate:
+		next, same := x.Variant.(ElectricElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SecondaryElementConfigUpdate:
+		next, same := x.Variant.(SecondaryElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case JacketedElementConfigUpdate:
+		next, same := x.Variant.(JacketedElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case HydraulicElementConfigUpdate:
+		next, same := x.Variant.(HydraulicElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PneumaticElementConfigUpdate:
+		next, same := x.Variant.(PneumaticElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case DataElementConfigUpdate:
+		next, same := x.Variant.(DataElementConfig)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CapElementConfigUpdate) ApplyTo(x *CapElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CapElementConfigUpdate) Defaults() (CapElementConfig, error) {
+	var x CapElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FilterElementConfigUpdate) ApplyTo(x *FilterElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FilterElementConfigUpdate) Defaults() (FilterElementConfig, error) {
+	var x FilterElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowStraightenerElementConfigUpdate) ApplyTo(x *FlowStraightenerElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowStraightenerElementConfigUpdate) Defaults() (FlowStraightenerElementConfig, error) {
+	var x FlowStraightenerElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HeaterElementElementConfigUpdate) ApplyTo(x *HeaterElementElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HeaterElementElementConfigUpdate) Defaults() (HeaterElementElementConfig, error) {
+	var x HeaterElementElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u IsoCapElementConfigUpdate) ApplyTo(x *IsoCapElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u IsoCapElementConfigUpdate) Defaults() (IsoCapElementConfig, error) {
+	var x IsoCapElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u IsoFilterElementConfigUpdate) ApplyTo(x *IsoFilterElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u IsoFilterElementConfigUpdate) Defaults() (IsoFilterElementConfig, error) {
+	var x IsoFilterElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u NozzleElementConfigUpdate) ApplyTo(x *NozzleElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u NozzleElementConfigUpdate) Defaults() (NozzleElementConfig, error) {
+	var x NozzleElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u OrificeElementConfigUpdate) ApplyTo(x *OrificeElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u OrificeElementConfigUpdate) Defaults() (OrificeElementConfig, error) {
+	var x OrificeElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u OrificePlateElementConfigUpdate) ApplyTo(x *OrificePlateElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u OrificePlateElementConfigUpdate) Defaults() (OrificePlateElementConfig, error) {
+	var x OrificePlateElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StrainerElementConfigUpdate) ApplyTo(x *StrainerElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StrainerElementConfigUpdate) Defaults() (StrainerElementConfig, error) {
+	var x StrainerElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StrainerConeElementConfigUpdate) ApplyTo(x *StrainerConeElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StrainerConeElementConfigUpdate) Defaults() (StrainerConeElementConfig, error) {
+	var x StrainerConeElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ThrusterElementConfigUpdate) ApplyTo(x *ThrusterElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ThrusterElementConfigUpdate) Defaults() (ThrusterElementConfig, error) {
+	var x ThrusterElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u VentElementConfigUpdate) ApplyTo(x *VentElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u VentElementConfigUpdate) Defaults() (VentElementConfig, error) {
+	var x VentElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterGeneralElementConfigUpdate) ApplyTo(x *FlowmeterGeneralElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterGeneralElementConfigUpdate) Defaults() (FlowmeterGeneralElementConfig, error) {
+	var x FlowmeterGeneralElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterElectromagneticElementConfigUpdate) ApplyTo(x *FlowmeterElectromagneticElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterElectromagneticElementConfigUpdate) Defaults() (FlowmeterElectromagneticElementConfig, error) {
+	var x FlowmeterElectromagneticElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterVariableAreaElementConfigUpdate) ApplyTo(x *FlowmeterVariableAreaElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterVariableAreaElementConfigUpdate) Defaults() (FlowmeterVariableAreaElementConfig, error) {
+	var x FlowmeterVariableAreaElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterCoriolisElementConfigUpdate) ApplyTo(x *FlowmeterCoriolisElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterCoriolisElementConfigUpdate) Defaults() (FlowmeterCoriolisElementConfig, error) {
+	var x FlowmeterCoriolisElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterNozzleElementConfigUpdate) ApplyTo(x *FlowmeterNozzleElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterNozzleElementConfigUpdate) Defaults() (FlowmeterNozzleElementConfig, error) {
+	var x FlowmeterNozzleElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterVenturiElementConfigUpdate) ApplyTo(x *FlowmeterVenturiElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterVenturiElementConfigUpdate) Defaults() (FlowmeterVenturiElementConfig, error) {
+	var x FlowmeterVenturiElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterRingPistonElementConfigUpdate) ApplyTo(x *FlowmeterRingPistonElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterRingPistonElementConfigUpdate) Defaults() (FlowmeterRingPistonElementConfig, error) {
+	var x FlowmeterRingPistonElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterPositiveDisplacementElementConfigUpdate) ApplyTo(x *FlowmeterPositiveDisplacementElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterPositiveDisplacementElementConfigUpdate) Defaults() (FlowmeterPositiveDisplacementElementConfig, error) {
+	var x FlowmeterPositiveDisplacementElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterTurbineElementConfigUpdate) ApplyTo(x *FlowmeterTurbineElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterTurbineElementConfigUpdate) Defaults() (FlowmeterTurbineElementConfig, error) {
+	var x FlowmeterTurbineElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterPulseElementConfigUpdate) ApplyTo(x *FlowmeterPulseElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterPulseElementConfigUpdate) Defaults() (FlowmeterPulseElementConfig, error) {
+	var x FlowmeterPulseElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterFloatSensorElementConfigUpdate) ApplyTo(x *FlowmeterFloatSensorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterFloatSensorElementConfigUpdate) Defaults() (FlowmeterFloatSensorElementConfig, error) {
+	var x FlowmeterFloatSensorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlowmeterOrificeElementConfigUpdate) ApplyTo(x *FlowmeterOrificeElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlowmeterOrificeElementConfigUpdate) Defaults() (FlowmeterOrificeElementConfig, error) {
+	var x FlowmeterOrificeElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u BoxElementConfigUpdate) ApplyTo(x *BoxElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Dimensions != nil {
+		if err := u.Dimensions.ApplyTo(&x.Dimensions, func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.BorderRadius != nil {
+		x.BorderRadius = *u.BorderRadius
+	}
+	if u.StrokeWidth != nil {
+		x.StrokeWidth = *u.StrokeWidth
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u BoxElementConfigUpdate) Defaults() (BoxElementConfig, error) {
+	var x BoxElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ButtonElementConfigUpdate) ApplyTo(x *ButtonElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Size != nil {
+		x.Size = *u.Size
+	}
+	u.Level.ApplyOptional(&x.Level)
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if u.Mode != nil {
+		x.Mode = *u.Mode
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ButtonElementConfigUpdate) Defaults() (ButtonElementConfig, error) {
+	var x ButtonElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CircleElementConfigUpdate) ApplyTo(x *CircleElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Radius != nil {
+		x.Radius = *u.Radius
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.StrokeWidth != nil {
+		x.StrokeWidth = *u.StrokeWidth
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CircleElementConfigUpdate) Defaults() (CircleElementConfig, error) {
+	var x CircleElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u GaugeElementConfigUpdate) ApplyTo(x *GaugeElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.Channel.ApplyOptional(&x.Channel)
+	u.RollingAverage.ApplyOptional(&x.RollingAverage)
+	if u.Precision != nil {
+		x.Precision = *u.Precision
+	}
+	if u.Notation != nil {
+		x.Notation = *u.Notation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if err := patch.ApplyOptionalStruct(
+		&x.Position,
+		u.Position,
+		func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) },
+		spatial.XYUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Bounds != nil {
+		x.Bounds = *u.Bounds
+	}
+	if u.BarWidth != nil {
+		x.BarWidth = *u.BarWidth
+	}
+	if u.Location != nil {
+		if err := u.Location.ApplyTo(&x.Location, func(v *spatial.LocationXY, w spatial.LocationXYUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u GaugeElementConfigUpdate) Defaults() (GaugeElementConfig, error) {
+	var x GaugeElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u InputElementConfigUpdate) ApplyTo(x *InputElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if u.Size != nil {
+		x.Size = *u.Size
+	}
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Dimensions,
+		u.Dimensions,
+		func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) },
+		spatial.DimensionsUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u InputElementConfigUpdate) Defaults() (InputElementConfig, error) {
+	var x InputElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LightElementConfigUpdate) ApplyTo(x *LightElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.Channel.ApplyOptional(&x.Channel)
+	u.Threshold.ApplyOptional(&x.Threshold)
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.OnColor.ApplyOptional(&x.OnColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u LightElementConfigUpdate) Defaults() (LightElementConfig, error) {
+	var x LightElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LineElementConfigUpdate) ApplyTo(x *LineElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Start != nil {
+		if err := u.Start.ApplyTo(&x.Start, func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.End != nil {
+		if err := u.End.ApplyTo(&x.End, func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.StrokeWidth != nil {
+		x.StrokeWidth = *u.StrokeWidth
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u LineElementConfigUpdate) Defaults() (LineElementConfig, error) {
+	var x LineElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u OffPageReferenceElementConfigUpdate) ApplyTo(x *OffPageReferenceElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if err := patch.ApplyOptionalStruct(
+		&x.Page,
+		u.Page,
+		func(v *Page, w PageUpdate) error { return w.ApplyTo(v) },
+		PageUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.DblClickNavDisabled != nil {
+		x.DblClickNavDisabled = *u.DblClickNavDisabled
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u OffPageReferenceElementConfigUpdate) Defaults() (OffPageReferenceElementConfig, error) {
+	var x OffPageReferenceElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PolygonElementConfigUpdate) ApplyTo(x *PolygonElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.NumSides != nil {
+		x.NumSides = *u.NumSides
+	}
+	if u.SideLength != nil {
+		x.SideLength = *u.SideLength
+	}
+	if u.Rotation != nil {
+		x.Rotation = *u.Rotation
+	}
+	if u.CornerRounding != nil {
+		x.CornerRounding = *u.CornerRounding
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.StrokeWidth != nil {
+		x.StrokeWidth = *u.StrokeWidth
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PolygonElementConfigUpdate) Defaults() (PolygonElementConfig, error) {
+	var x PolygonElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SelectElementConfigUpdate) ApplyTo(x *SelectElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if u.Size != nil {
+		x.Size = *u.Size
+	}
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	if u.Options != nil {
+		if err := patch.ApplyValueList(&x.Options, *u.Options); err != nil {
+			return err
+		}
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SelectElementConfigUpdate) Defaults() (SelectElementConfig, error) {
+	var x SelectElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScaleElementConfigUpdate) ApplyTo(x *ScaleElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	u.Channel.ApplyOptional(&x.Channel)
+	u.RollingAverage.ApplyOptional(&x.RollingAverage)
+	if u.Precision != nil {
+		x.Precision = *u.Precision
+	}
+	if u.Notation != nil {
+		x.Notation = *u.Notation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if u.Bounds != nil {
+		x.Bounds = *u.Bounds
+	}
+	u.LevelColor.ApplyOptional(&x.LevelColor)
+	u.AxisColor.ApplyOptional(&x.AxisColor)
+	u.TextColor.ApplyOptional(&x.TextColor)
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.LevelHidden != nil {
+		x.LevelHidden = *u.LevelHidden
+	}
+	if u.CaretHidden != nil {
+		x.CaretHidden = *u.CaretHidden
+	}
+	if u.ScaleHidden != nil {
+		x.ScaleHidden = *u.ScaleHidden
+	}
+	if u.Side != nil {
+		x.Side = *u.Side
+	}
+	if u.CaretSide != nil {
+		x.CaretSide = *u.CaretSide
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if err := patch.ApplyOptionalStruct(
+		&x.Position,
+		u.Position,
+		func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) },
+		spatial.XYUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.Dimensions != nil {
+		if err := u.Dimensions.ApplyTo(&x.Dimensions, func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ScaleElementConfigUpdate) Defaults() (ScaleElementConfig, error) {
+	var x ScaleElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SetpointElementConfigUpdate) ApplyTo(x *SetpointElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if u.Size != nil {
+		x.Size = *u.Size
+	}
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Dimensions,
+		u.Dimensions,
+		func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) },
+		spatial.DimensionsUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SetpointElementConfigUpdate) Defaults() (SetpointElementConfig, error) {
+	var x SetpointElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StateIndicatorElementConfigUpdate) ApplyTo(x *StateIndicatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.Channel.ApplyOptional(&x.Channel)
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	if u.Options != nil {
+		if err := patch.ApplyValueList(&x.Options, *u.Options); err != nil {
+			return err
+		}
+	}
+	if u.Size != nil {
+		x.Size = *u.Size
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StateIndicatorElementConfigUpdate) Defaults() (StateIndicatorElementConfig, error) {
+	var x StateIndicatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StringDisplayElementConfigUpdate) ApplyTo(x *StringDisplayElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.TextColor.ApplyOptional(&x.TextColor)
+	if u.Tooltip != nil {
+		if err := patch.ApplyValueList(&x.Tooltip, *u.Tooltip); err != nil {
+			return err
+		}
+	}
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	u.Channel.ApplyOptional(&x.Channel)
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StringDisplayElementConfigUpdate) Defaults() (StringDisplayElementConfig, error) {
+	var x StringDisplayElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SwitchElementConfigUpdate) ApplyTo(x *SwitchElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SwitchElementConfigUpdate) Defaults() (SwitchElementConfig, error) {
+	var x SwitchElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TextBoxElementConfigUpdate) ApplyTo(x *TextBoxElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.TextColor.ApplyOptional(&x.TextColor)
+	if u.Width != nil {
+		x.Width = *u.Width
+	}
+	if u.Align != nil {
+		x.Align = *u.Align
+	}
+	if u.AutoFitDisabled != nil {
+		x.AutoFitDisabled = *u.AutoFitDisabled
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if u.Value != nil {
+		x.Value = *u.Value
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TextBoxElementConfigUpdate) Defaults() (TextBoxElementConfig, error) {
+	var x TextBoxElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ValueElementConfigUpdate) ApplyTo(x *ValueElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.Channel.ApplyOptional(&x.Channel)
+	u.RollingAverage.ApplyOptional(&x.RollingAverage)
+	if u.Precision != nil {
+		x.Precision = *u.Precision
+	}
+	if u.Notation != nil {
+		x.Notation = *u.Notation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if err := patch.ApplyOptionalStruct(
+		&x.Position,
+		u.Position,
+		func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) },
+		spatial.XYUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.TextColor.ApplyOptional(&x.TextColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Tooltip != nil {
+		if err := patch.ApplyValueList(&x.Tooltip, *u.Tooltip); err != nil {
+			return err
+		}
+	}
+	if u.Redline != nil {
+		if err := u.Redline.ApplyTo(&x.Redline, func(v *color.Scale, w color.ScaleUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.InlineSize != nil {
+		x.InlineSize = *u.InlineSize
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if u.Location != nil {
+		if err := u.Location.ApplyTo(&x.Location, func(v *spatial.LocationXY, w spatial.LocationXYUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ValueElementConfigUpdate) Defaults() (ValueElementConfig, error) {
+	var x ValueElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AgitatorElementConfigUpdate) ApplyTo(x *AgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AgitatorElementConfigUpdate) Defaults() (AgitatorElementConfig, error) {
+	var x AgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CrossBeamAgitatorElementConfigUpdate) ApplyTo(x *CrossBeamAgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CrossBeamAgitatorElementConfigUpdate) Defaults() (CrossBeamAgitatorElementConfig, error) {
+	var x CrossBeamAgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlatBladeAgitatorElementConfigUpdate) ApplyTo(x *FlatBladeAgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlatBladeAgitatorElementConfigUpdate) Defaults() (FlatBladeAgitatorElementConfig, error) {
+	var x FlatBladeAgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HeatExchangerGeneralElementConfigUpdate) ApplyTo(x *HeatExchangerGeneralElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HeatExchangerGeneralElementConfigUpdate) Defaults() (HeatExchangerGeneralElementConfig, error) {
+	var x HeatExchangerGeneralElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HeatExchangerMElementConfigUpdate) ApplyTo(x *HeatExchangerMElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HeatExchangerMElementConfigUpdate) Defaults() (HeatExchangerMElementConfig, error) {
+	var x HeatExchangerMElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HeatExchangerStraightTubeElementConfigUpdate) ApplyTo(x *HeatExchangerStraightTubeElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HeatExchangerStraightTubeElementConfigUpdate) Defaults() (HeatExchangerStraightTubeElementConfig, error) {
+	var x HeatExchangerStraightTubeElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HelicalAgitatorElementConfigUpdate) ApplyTo(x *HelicalAgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HelicalAgitatorElementConfigUpdate) Defaults() (HelicalAgitatorElementConfig, error) {
+	var x HelicalAgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PaddleAgitatorElementConfigUpdate) ApplyTo(x *PaddleAgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PaddleAgitatorElementConfigUpdate) Defaults() (PaddleAgitatorElementConfig, error) {
+	var x PaddleAgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PropellerAgitatorElementConfigUpdate) ApplyTo(x *PropellerAgitatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PropellerAgitatorElementConfigUpdate) Defaults() (PropellerAgitatorElementConfig, error) {
+	var x PropellerAgitatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u RotaryMixerElementConfigUpdate) ApplyTo(x *RotaryMixerElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u RotaryMixerElementConfigUpdate) Defaults() (RotaryMixerElementConfig, error) {
+	var x RotaryMixerElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StaticMixerElementConfigUpdate) ApplyTo(x *StaticMixerElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StaticMixerElementConfigUpdate) Defaults() (StaticMixerElementConfig, error) {
+	var x StaticMixerElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CavityPumpElementConfigUpdate) ApplyTo(x *CavityPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CavityPumpElementConfigUpdate) Defaults() (CavityPumpElementConfig, error) {
+	var x CavityPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CentrifugalCompressorElementConfigUpdate) ApplyTo(x *CentrifugalCompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CentrifugalCompressorElementConfigUpdate) Defaults() (CentrifugalCompressorElementConfig, error) {
+	var x CentrifugalCompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CompressorElementConfigUpdate) ApplyTo(x *CompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CompressorElementConfigUpdate) Defaults() (CompressorElementConfig, error) {
+	var x CompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DiaphragmPumpElementConfigUpdate) ApplyTo(x *DiaphragmPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u DiaphragmPumpElementConfigUpdate) Defaults() (DiaphragmPumpElementConfig, error) {
+	var x DiaphragmPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u EjectionPumpElementConfigUpdate) ApplyTo(x *EjectionPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u EjectionPumpElementConfigUpdate) Defaults() (EjectionPumpElementConfig, error) {
+	var x EjectionPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u EjectorCompressorElementConfigUpdate) ApplyTo(x *EjectorCompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u EjectorCompressorElementConfigUpdate) Defaults() (EjectorCompressorElementConfig, error) {
+	var x EjectorCompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LiquidRingCompressorElementConfigUpdate) ApplyTo(x *LiquidRingCompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u LiquidRingCompressorElementConfigUpdate) Defaults() (LiquidRingCompressorElementConfig, error) {
+	var x LiquidRingCompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PistonPumpElementConfigUpdate) ApplyTo(x *PistonPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PistonPumpElementConfigUpdate) Defaults() (PistonPumpElementConfig, error) {
+	var x PistonPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PumpElementConfigUpdate) ApplyTo(x *PumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PumpElementConfigUpdate) Defaults() (PumpElementConfig, error) {
+	var x PumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u RollerVaneCompressorElementConfigUpdate) ApplyTo(x *RollerVaneCompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u RollerVaneCompressorElementConfigUpdate) Defaults() (RollerVaneCompressorElementConfig, error) {
+	var x RollerVaneCompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScrewPumpElementConfigUpdate) ApplyTo(x *ScrewPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ScrewPumpElementConfigUpdate) Defaults() (ScrewPumpElementConfig, error) {
+	var x ScrewPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TurboCompressorElementConfigUpdate) ApplyTo(x *TurboCompressorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TurboCompressorElementConfigUpdate) Defaults() (TurboCompressorElementConfig, error) {
+	var x TurboCompressorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u VacuumPumpElementConfigUpdate) ApplyTo(x *VacuumPumpElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u VacuumPumpElementConfigUpdate) Defaults() (VacuumPumpElementConfig, error) {
+	var x VacuumPumpElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u BurstDiscElementConfigUpdate) ApplyTo(x *BurstDiscElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u BurstDiscElementConfigUpdate) Defaults() (BurstDiscElementConfig, error) {
+	var x BurstDiscElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlameArrestorElementConfigUpdate) ApplyTo(x *FlameArrestorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlameArrestorElementConfigUpdate) Defaults() (FlameArrestorElementConfig, error) {
+	var x FlameArrestorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlameArrestorDetonationElementConfigUpdate) ApplyTo(x *FlameArrestorDetonationElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlameArrestorDetonationElementConfigUpdate) Defaults() (FlameArrestorDetonationElementConfig, error) {
+	var x FlameArrestorDetonationElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlameArrestorExplosionElementConfigUpdate) ApplyTo(x *FlameArrestorExplosionElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlameArrestorExplosionElementConfigUpdate) Defaults() (FlameArrestorExplosionElementConfig, error) {
+	var x FlameArrestorExplosionElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlameArrestorFireResElementConfigUpdate) ApplyTo(x *FlameArrestorFireResElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlameArrestorFireResElementConfigUpdate) Defaults() (FlameArrestorFireResElementConfig, error) {
+	var x FlameArrestorFireResElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FlameArrestorFireResDetonationElementConfigUpdate) ApplyTo(x *FlameArrestorFireResDetonationElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FlameArrestorFireResDetonationElementConfigUpdate) Defaults() (FlameArrestorFireResDetonationElementConfig, error) {
+	var x FlameArrestorFireResDetonationElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u IsoBurstDiscElementConfigUpdate) ApplyTo(x *IsoBurstDiscElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u IsoBurstDiscElementConfigUpdate) Defaults() (IsoBurstDiscElementConfig, error) {
+	var x IsoBurstDiscElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AngledValveElementConfigUpdate) ApplyTo(x *AngledValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AngledValveElementConfigUpdate) Defaults() (AngledValveElementConfig, error) {
+	var x AngledValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AngledReliefValveElementConfigUpdate) ApplyTo(x *AngledReliefValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AngledReliefValveElementConfigUpdate) Defaults() (AngledReliefValveElementConfig, error) {
+	var x AngledReliefValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AngledSpringLoadedReliefValveElementConfigUpdate) ApplyTo(x *AngledSpringLoadedReliefValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AngledSpringLoadedReliefValveElementConfigUpdate) Defaults() (AngledSpringLoadedReliefValveElementConfig, error) {
+	var x AngledSpringLoadedReliefValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u BallValveElementConfigUpdate) ApplyTo(x *BallValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u BallValveElementConfigUpdate) Defaults() (BallValveElementConfig, error) {
+	var x BallValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u BreatherValveElementConfigUpdate) ApplyTo(x *BreatherValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u BreatherValveElementConfigUpdate) Defaults() (BreatherValveElementConfig, error) {
+	var x BreatherValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ButterflyValveOneElementConfigUpdate) ApplyTo(x *ButterflyValveOneElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ButterflyValveOneElementConfigUpdate) Defaults() (ButterflyValveOneElementConfig, error) {
+	var x ButterflyValveOneElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ButterflyValveTwoElementConfigUpdate) ApplyTo(x *ButterflyValveTwoElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ButterflyValveTwoElementConfigUpdate) Defaults() (ButterflyValveTwoElementConfig, error) {
+	var x ButterflyValveTwoElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CheckValveElementConfigUpdate) ApplyTo(x *CheckValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CheckValveElementConfigUpdate) Defaults() (CheckValveElementConfig, error) {
+	var x CheckValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CheckValveWithArrowElementConfigUpdate) ApplyTo(x *CheckValveWithArrowElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CheckValveWithArrowElementConfigUpdate) Defaults() (CheckValveWithArrowElementConfig, error) {
+	var x CheckValveWithArrowElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ElectricRegulatorElementConfigUpdate) ApplyTo(x *ElectricRegulatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ElectricRegulatorElementConfigUpdate) Defaults() (ElectricRegulatorElementConfig, error) {
+	var x ElectricRegulatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ElectricRegulatorMotorizedElementConfigUpdate) ApplyTo(x *ElectricRegulatorMotorizedElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ElectricRegulatorMotorizedElementConfigUpdate) Defaults() (ElectricRegulatorMotorizedElementConfig, error) {
+	var x ElectricRegulatorMotorizedElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u FourWayValveElementConfigUpdate) ApplyTo(x *FourWayValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u FourWayValveElementConfigUpdate) Defaults() (FourWayValveElementConfig, error) {
+	var x FourWayValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u GateValveElementConfigUpdate) ApplyTo(x *GateValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u GateValveElementConfigUpdate) Defaults() (GateValveElementConfig, error) {
+	var x GateValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u IsoCheckValveElementConfigUpdate) ApplyTo(x *IsoCheckValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u IsoCheckValveElementConfigUpdate) Defaults() (IsoCheckValveElementConfig, error) {
+	var x IsoCheckValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ManualValveElementConfigUpdate) ApplyTo(x *ManualValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ManualValveElementConfigUpdate) Defaults() (ManualValveElementConfig, error) {
+	var x ManualValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u NeedleValveElementConfigUpdate) ApplyTo(x *NeedleValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u NeedleValveElementConfigUpdate) Defaults() (NeedleValveElementConfig, error) {
+	var x NeedleValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u RegulatorElementConfigUpdate) ApplyTo(x *RegulatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u RegulatorElementConfigUpdate) Defaults() (RegulatorElementConfig, error) {
+	var x RegulatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u RegulatorManualElementConfigUpdate) ApplyTo(x *RegulatorManualElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u RegulatorManualElementConfigUpdate) Defaults() (RegulatorManualElementConfig, error) {
+	var x RegulatorManualElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReliefValveElementConfigUpdate) ApplyTo(x *ReliefValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ReliefValveElementConfigUpdate) Defaults() (ReliefValveElementConfig, error) {
+	var x ReliefValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SolenoidValveElementConfigUpdate) ApplyTo(x *SolenoidValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.NormallyOpen != nil {
+		x.NormallyOpen = *u.NormallyOpen
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SolenoidValveElementConfigUpdate) Defaults() (SolenoidValveElementConfig, error) {
+	var x SolenoidValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SpringLoadedReliefValveElementConfigUpdate) ApplyTo(x *SpringLoadedReliefValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Enabled != nil {
+		x.Enabled = *u.Enabled
+	}
+	if u.Clickable != nil {
+		x.Clickable = *u.Clickable
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SpringLoadedReliefValveElementConfigUpdate) Defaults() (SpringLoadedReliefValveElementConfig, error) {
+	var x SpringLoadedReliefValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ThreeWayValveElementConfigUpdate) ApplyTo(x *ThreeWayValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ThreeWayValveElementConfigUpdate) Defaults() (ThreeWayValveElementConfig, error) {
+	var x ThreeWayValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ThreeWayBallValveElementConfigUpdate) ApplyTo(x *ThreeWayBallValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ThreeWayBallValveElementConfigUpdate) Defaults() (ThreeWayBallValveElementConfig, error) {
+	var x ThreeWayBallValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ValveElementConfigUpdate) ApplyTo(x *ValveElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ValveElementConfigUpdate) Defaults() (ValveElementConfig, error) {
+	var x ValveElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CrossJunctionElementConfigUpdate) ApplyTo(x *CrossJunctionElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CrossJunctionElementConfigUpdate) Defaults() (CrossJunctionElementConfig, error) {
+	var x CrossJunctionElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CylinderElementConfigUpdate) ApplyTo(x *CylinderElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.Dimensions != nil {
+		if err := u.Dimensions.ApplyTo(&x.Dimensions, func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	u.BorderRadius.ApplyOptional(&x.BorderRadius)
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CylinderElementConfigUpdate) Defaults() (CylinderElementConfig, error) {
+	var x CylinderElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TankElementConfigUpdate) ApplyTo(x *TankElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	u.Channel.ApplyOptional(&x.Channel)
+	u.RollingAverage.ApplyOptional(&x.RollingAverage)
+	if u.Precision != nil {
+		x.Precision = *u.Precision
+	}
+	if u.Notation != nil {
+		x.Notation = *u.Notation
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	if u.Bounds != nil {
+		x.Bounds = *u.Bounds
+	}
+	u.LevelColor.ApplyOptional(&x.LevelColor)
+	u.AxisColor.ApplyOptional(&x.AxisColor)
+	u.TextColor.ApplyOptional(&x.TextColor)
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.LevelHidden != nil {
+		x.LevelHidden = *u.LevelHidden
+	}
+	if u.CaretSide != nil {
+		x.CaretSide = *u.CaretSide
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if err := patch.ApplyOptionalStruct(
+		&x.Position,
+		u.Position,
+		func(v *spatial.XY, w spatial.XYUpdate) error { return w.ApplyTo(v) },
+		spatial.XYUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	u.FillColor.ApplyOptional(&x.FillColor)
+	if u.Dimensions != nil {
+		if err := u.Dimensions.ApplyTo(&x.Dimensions, func(v *spatial.Dimensions, w spatial.DimensionsUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.BorderRadius != nil {
+		x.BorderRadius = *u.BorderRadius
+	}
+	if u.CaretVisible != nil {
+		x.CaretVisible = *u.CaretVisible
+	}
+	if u.ScaleVisible != nil {
+		x.ScaleVisible = *u.ScaleVisible
+	}
+	if u.Side != nil {
+		x.Side = *u.Side
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TankElementConfigUpdate) Defaults() (TankElementConfig, error) {
+	var x TankElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TJunctionElementConfigUpdate) ApplyTo(x *TJunctionElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TJunctionElementConfigUpdate) Defaults() (TJunctionElementConfig, error) {
+	var x TJunctionElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CustomActuatorElementConfigUpdate) ApplyTo(x *CustomActuatorElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.StalenessTimeout != nil {
+		x.StalenessTimeout = *u.StalenessTimeout
+	}
+	u.StalenessColor.ApplyOptional(&x.StalenessColor)
+	u.StateChannel.ApplyOptional(&x.StateChannel)
+	u.CommandChannel.ApplyOptional(&x.CommandChannel)
+	if err := patch.ApplyOptionalStruct(
+		&x.Control,
+		u.Control,
+		func(v *ControlStateConfig, w ControlStateConfigUpdate) error { return w.ApplyTo(v) },
+		ControlStateConfigUpdate.Defaults,
+	); err != nil {
+		return err
+	}
+	if u.OnClickDelay != nil {
+		x.OnClickDelay = *u.OnClickDelay
+	}
+	if u.SpecKey != nil {
+		x.SpecKey = *u.SpecKey
+	}
+	if u.StateOverrides != nil {
+		if u.StateOverrides.Insert != nil || u.StateOverrides.Remove != nil || u.StateOverrides.Move != nil {
+			return errors.Wrap(validate.ErrValidation, "state_overrides takes only set")
+		}
+		if u.StateOverrides.Set != nil {
+			x.StateOverrides = u.StateOverrides.Set
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CustomActuatorElementConfigUpdate) Defaults() (CustomActuatorElementConfig, error) {
+	if u.SpecKey == nil {
+		return CustomActuatorElementConfig{}, errors.Wrap(validate.ErrValidation, "spec_key is required")
+	}
+	var x CustomActuatorElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CustomStaticElementConfigUpdate) ApplyTo(x *CustomStaticElementConfig) error {
+	if u.Label != nil {
+		if err := u.Label.ApplyTo(&x.Label, func(v *LabelConfig, w LabelConfigUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Scale != nil {
+		x.Scale = *u.Scale
+	}
+	if u.SpecKey != nil {
+		x.SpecKey = *u.SpecKey
+	}
+	if u.StateOverrides != nil {
+		if u.StateOverrides.Insert != nil || u.StateOverrides.Remove != nil || u.StateOverrides.Move != nil {
+			return errors.Wrap(validate.ErrValidation, "state_overrides takes only set")
+		}
+		if u.StateOverrides.Set != nil {
+			x.StateOverrides = u.StateOverrides.Set
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CustomStaticElementConfigUpdate) Defaults() (CustomStaticElementConfig, error) {
+	if u.SpecKey == nil {
+		return CustomStaticElementConfig{}, errors.Wrap(validate.ErrValidation, "spec_key is required")
+	}
+	var x CustomStaticElementConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u GroupBoxElementConfigUpdate) ApplyTo(x *GroupBoxElementConfig) error {
+	if u.Members != nil {
+		if err := patch.ApplyValueList(&x.Members, *u.Members); err != nil {
+			return err
+		}
+	}
+	if u.Locked != nil {
+		x.Locked = *u.Locked
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u GroupBoxElementConfigUpdate) Defaults() (GroupBoxElementConfig, error) {
+	var x GroupBoxElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PipeElementConfigUpdate) ApplyTo(x *PipeElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PipeElementConfigUpdate) Defaults() (PipeElementConfig, error) {
+	if u.Segments == nil {
+		return PipeElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x PipeElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ElectricElementConfigUpdate) ApplyTo(x *ElectricElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ElectricElementConfigUpdate) Defaults() (ElectricElementConfig, error) {
+	if u.Segments == nil {
+		return ElectricElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x ElectricElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SecondaryElementConfigUpdate) ApplyTo(x *SecondaryElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SecondaryElementConfigUpdate) Defaults() (SecondaryElementConfig, error) {
+	if u.Segments == nil {
+		return SecondaryElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x SecondaryElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u JacketedElementConfigUpdate) ApplyTo(x *JacketedElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u JacketedElementConfigUpdate) Defaults() (JacketedElementConfig, error) {
+	if u.Segments == nil {
+		return JacketedElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x JacketedElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u HydraulicElementConfigUpdate) ApplyTo(x *HydraulicElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u HydraulicElementConfigUpdate) Defaults() (HydraulicElementConfig, error) {
+	if u.Segments == nil {
+		return HydraulicElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x HydraulicElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PneumaticElementConfigUpdate) ApplyTo(x *PneumaticElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PneumaticElementConfigUpdate) Defaults() (PneumaticElementConfig, error) {
+	if u.Segments == nil {
+		return PneumaticElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x PneumaticElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DataElementConfigUpdate) ApplyTo(x *DataElementConfig) error {
+	u.StrokeColor.ApplyOptional(&x.StrokeColor)
+	if u.Segments != nil {
+		if err := patch.ApplyValueList(&x.Segments, *u.Segments); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u DataElementConfigUpdate) Defaults() (DataElementConfig, error) {
+	if u.Segments == nil {
+		return DataElementConfig{}, errors.Wrap(validate.ErrValidation, "segments is required")
+	}
+	var x DataElementConfig
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LabelConfigUpdate) ApplyTo(x *LabelConfig) error {
+	if u.Label != nil {
+		x.Label = *u.Label
+	}
+	if u.Level != nil {
+		x.Level = *u.Level
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	if u.Direction != nil {
+		x.Direction = *u.Direction
+	}
+	if u.MaxInlineSize != nil {
+		x.MaxInlineSize = *u.MaxInlineSize
+	}
+	if u.Align != nil {
+		x.Align = *u.Align
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ControlStateConfigUpdate) ApplyTo(x *ControlStateConfig) error {
+	u.Authority.ApplyOptional(&x.Authority)
+	if u.Hidden != nil {
+		x.Hidden = *u.Hidden
+	}
+	if u.ChipHidden != nil {
+		x.ChipHidden = *u.ChipHidden
+	}
+	if u.IndicatorHidden != nil {
+		x.IndicatorHidden = *u.IndicatorHidden
+	}
+	if u.Orientation != nil {
+		x.Orientation = *u.Orientation
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ControlStateConfigUpdate) Defaults() (ControlStateConfig, error) {
+	var x ControlStateConfig
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PageUpdate) ApplyTo(x *Page) error {
+	if u.Type != nil {
+		x.Type = *u.Type
+	}
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PageUpdate) Defaults() (Page, error) {
+	if u.Type == nil {
+		return Page{}, errors.Wrap(validate.ErrValidation, "type is required")
+	}
+	if u.Key == nil {
+		return Page{}, errors.Wrap(validate.ErrValidation, "key is required")
+	}
+	var x Page
+	return x, nil
 }

@@ -443,3 +443,12 @@ func (s ScanConfig) Validate() error {
 	v.GreaterThanEq("tcp_scan_multiplier", s.TCPScanMultiplier, 1)
 	return v.Error()
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "labjack_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "labjack_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "labjack_scan"
+)

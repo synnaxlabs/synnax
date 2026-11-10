@@ -100,6 +100,7 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+    @task type  "kafka_scan"
 }
 
 ReadField struct {
@@ -172,6 +173,7 @@ ReadConfig struct extends task.PersistConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "kafka_read"
 }
 
 WriteChannel struct {
@@ -261,6 +263,7 @@ WriteConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "kafka_write"
 }
 
 ReadRecord struct {

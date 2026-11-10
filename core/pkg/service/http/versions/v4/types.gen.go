@@ -241,3 +241,12 @@ type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
 type ScanConfig = v3.ScanConfig
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "http_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "http_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "http_scan"
+)

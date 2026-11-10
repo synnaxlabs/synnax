@@ -37,6 +37,10 @@ var _ = Describe("Update types", func() {
 			ValueList struct<E> {
 				set E[]?
 			}
+			TypedMap struct<K extends comparable, V, U> {
+				set    map<K, V>?
+				update map<K, U>?
+			}
 		`)
 	})
 

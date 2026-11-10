@@ -85,12 +85,21 @@ type UnresolvedWriteChannel = versions.UnresolvedWriteChannel
 // its own slave; all slaves must share one network interface.
 type ReadConfig = versions.ReadConfig
 
+// ReadTaskType is the task type of ReadConfig.
+const ReadTaskType = versions.ReadTaskType
+
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
 type WriteConfig = versions.WriteConfig
 
+// WriteTaskType is the task type of WriteConfig.
+const WriteTaskType = versions.WriteTaskType
+
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = versions.ScanConfig
+
+// ScanTaskType is the task type of ScanConfig.
+const ScanTaskType = versions.ScanTaskType
 
 // ReadConfigUpdate holds changes to the fields of the read config. An absent field does
 // not change.

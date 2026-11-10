@@ -37,7 +37,7 @@ func (p UpdatePayload) Handle(r Panel) (Panel, error) {
 	return next, nil
 }
 
-// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when p changes a field
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when p changes a field
 // that only the Core sets.
 func (p UpdatePayload) CheckCoreOnly() error {
 	return nil

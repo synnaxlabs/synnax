@@ -129,20 +129,6 @@ export const orderZ = z.object({
 });
 export interface Order extends z.infer<typeof orderZ> {}
 
-/** Update holds changes to the fields of the table. An absent field does not change. */
-export const updateZ = z.object({
-  /** name is a human-readable name for the table. */
-  name: z.string().optional(),
-  /** group is the group the table sits in, if any. */
-  group: patch.changeZ(group.keyZ).optional(),
-  /**
-   * project is the project that owns the table, if any. Exactly one of project and
-   * range is set.
-   */
-  project: patch.changeZ(project.keyZ).optional(),
-});
-export interface Update extends z.infer<typeof updateZ> {}
-
 export const setPayloadZ = patch.setZ;
 export type SetPayload = z.infer<typeof setPayloadZ>;
 
@@ -243,8 +229,90 @@ export const CELL_CONFIG_SCHEMAS: {
   value: valueCellConfigZ,
 };
 
-export const updatePayloadZ = patch.updateZ(updateZ);
-export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+/** TextCellConfigUpdate is the configuration for static text cells. */
+export const textCellConfigUpdateZ = z.object({
+  variant: z.literal("text"),
+  /** value is the text content of the cell. */
+  value: z.string().optional(),
+  /** level is the typography level of the cell text. */
+  level: text.levelZ.optional(),
+  /** weight is the font weight of the cell text. */
+  weight: z.number().optional(),
+  /** align is the alignment of the cell text along the row axis. */
+  align: flexAlignmentZ.optional(),
+  /**
+   * fillColor is the background color of the cell. When absent the theme picks the
+   * fill; a fully transparent value paints nothing.
+   */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** textColor is the color of the cell text. When absent the theme picks the color. */
+  textColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface TextCellConfigUpdate extends z.infer<typeof textCellConfigUpdateZ> {}
+
+/** ValueCellConfigUpdate is the configuration for live telemetry value cells. */
+export const valueCellConfigUpdateZ = z.object({
+  variant: z.literal("value"),
+  /** channel is the channel whose value the cell displays. */
+  channel: channel.keyZ.optional(),
+  /** rollingAverage is the sample window for rolling-average smoothing. */
+  rollingAverage: z.int32().optional(),
+  /**
+   * precision is the number of decimal places shown. When absent the formatter picks
+   * the precision; zero shows whole numbers.
+   */
+  precision: patch.changeZ(z.int32()).optional(),
+  /** notation is the numeric notation used to format the value. */
+  notation: notation.notationZ.optional(),
+  /** redline is the threshold band mapping applied to the background. */
+  redline: patch.structZ({ u: color.scaleUpdateZ, t: color.scaleZ }).optional(),
+  /**
+   * fillColor is the fill behind the value where no redline band paints. When absent
+   * the cell paints no fill.
+   */
+  fillColor: patch.changeZ(color.colorZ).optional(),
+  /** level is the typography level of the displayed value. */
+  level: text.levelZ.optional(),
+  /**
+   * textColor is the color of the displayed text. When absent the value renders with a
+   * theme-derived legible color.
+   */
+  textColor: patch.changeZ(color.colorZ).optional(),
+  /** units is the unit suffix displayed after the value. */
+  units: z.string().optional(),
+  /**
+   * stalenessTimeout is the duration in seconds after which the value is considered
+   * stale.
+   */
+  stalenessTimeout: z.number().optional(),
+  /**
+   * stalenessColor is the color applied when the value is stale. When absent the value
+   * renders with the theme warning color.
+   */
+  stalenessColor: patch.changeZ(color.colorZ).optional(),
+});
+export interface ValueCellConfigUpdate extends z.infer<typeof valueCellConfigUpdateZ> {}
+
+export const CELL_CONFIG_UPDATE_TYPES = ["text", "value"] as const;
+export const cellConfigUpdateTypeZ = z.enum(CELL_CONFIG_UPDATE_TYPES);
+export type CellConfigUpdateType = z.infer<typeof cellConfigUpdateTypeZ>;
+
+/**
+ * CellConfigUpdate holds changes to the fields of the cell config. A variant that
+ * differs from the stored one changes the variant.
+ */
+export const cellConfigUpdateZ = z.discriminatedUnion("variant", [
+  textCellConfigUpdateZ,
+  valueCellConfigUpdateZ,
+]);
+export type CellConfigUpdate = TextCellConfigUpdate | ValueCellConfigUpdate;
+
+export const CELL_CONFIG_UPDATE_SCHEMAS: {
+  [K in CellConfigUpdateType]: z.ZodType<Extract<CellConfigUpdate, { variant: K }>>;
+} = {
+  text: textCellConfigUpdateZ,
+  value: valueCellConfigUpdateZ,
+};
 
 /** Where is a filter that selects tables. */
 export type Where = {
@@ -357,6 +425,28 @@ export const eraseCellsPayloadZ = z.object({
 });
 export interface EraseCellsPayload extends z.infer<typeof eraseCellsPayloadZ> {}
 
+/** Update holds changes to the fields of the table. An absent field does not change. */
+export const updateZ = z.object({
+  /** name is a human-readable name for the table. */
+  name: z.string().optional(),
+  /**
+   * cells contains all cells in the table, keyed by cell key. Cell positions are
+   * derived from rows[*].cells[*] references; cells not referenced by any row are
+   * orphaned and will be pruned on the next structural edit.
+   */
+  cells: patch
+    .typedMapZ({ k: z.string(), v: cellConfigZ, u: cellConfigUpdateZ })
+    .optional(),
+  /** group is the group the table sits in, if any. */
+  group: patch.changeZ(group.keyZ).optional(),
+  /**
+   * project is the project that owns the table, if any. Exactly one of project and
+   * range is set.
+   */
+  project: patch.changeZ(project.keyZ).optional(),
+});
+export interface Update extends z.infer<typeof updateZ> {}
+
 /** RetrieveRequest is a request to retrieve tables. */
 export const retrieveRequestZ = z.strictObject({
   /** where selects the tables to retrieve. An absent where selects all of them. */
@@ -443,6 +533,9 @@ export const retrieveResponseZ = z.object({
   tables: tableZ.array().default(() => []),
 });
 export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
+
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
 
 export const createActionZ = z.object({
   type: z.literal("create"),

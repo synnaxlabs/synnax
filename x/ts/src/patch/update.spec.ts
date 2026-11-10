@@ -14,6 +14,7 @@ import { z } from "zod";
 
 import { errors } from "@/errors";
 import { patch } from "@/patch";
+import { TimeRange, TimeStamp } from "@/telem";
 
 // The vectors are shared with the Go implementation so that both runtimes apply an
 // update alike. The canonical copy lives in x/testdata/update.
@@ -913,6 +914,48 @@ describe("typed maps", () => {
       expect(() => patch.nest(sheetUpdateZ, sheet, ["widths", "c1", "px"], 4)).toThrow(
         "widths.c1 holds no fields",
       );
+    });
+  });
+});
+
+describe("class records", () => {
+  const rangeUpdateZ = z.object({
+    start: TimeStamp.z.optional(),
+    end: TimeStamp.z.optional(),
+  });
+  const u = z.object({
+    timeRange: patch.structZ({ u: rangeUpdateZ, t: TimeRange.z }).optional(),
+  });
+  const t = z.object({ timeRange: TimeRange.z });
+  const state = { timeRange: new TimeRange(10, 15) };
+  const apply = (value: z.output<typeof u>) =>
+    patch.applyUpdate({ u, t }, state, { value, guards: [] }).next;
+
+  it("should merge a partial into a class value and keep its class", () => {
+    const { timeRange } = apply({ timeRange: { end: new TimeStamp(20) } });
+    expect(timeRange).toBeInstanceOf(TimeRange);
+    expect(timeRange).toEqual(new TimeRange(10, 20));
+  });
+
+  it("should replace a class value", () => {
+    expect(apply({ timeRange: { set: new TimeRange(1, 2) } }).timeRange).toEqual(
+      new TimeRange(1, 2),
+    );
+  });
+
+  it("should diff a class value by its fields and apply the diff", () => {
+    const next = { timeRange: new TimeRange(10, 20) };
+    const update = patch.diffUpdate(u, state, next);
+    expect(update).toEqual({
+      value: { timeRange: { end: new TimeStamp(20) } },
+      guards: [],
+    });
+    expect(patch.applyUpdate({ u, t }, state, update).next).toEqual(next);
+  });
+
+  it("should nest into a field of a class value", () => {
+    expect(patch.nest(u, state, ["timeRange", "end"], 20)).toEqual({
+      timeRange: { end: 20 },
     });
   });
 });

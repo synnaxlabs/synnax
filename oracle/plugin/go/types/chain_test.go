@@ -2234,3 +2234,99 @@ Doc struct {
 		Expect(demoted).ToNot(ContainSubstring("Size int"))
 	})
 })
+
+var _ = Describe("Task type constants through a version chain", func() {
+	var files map[string]string
+
+	BeforeEach(func() {
+		root := GinkgoT().TempDir()
+		write := func(rel, content string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte(content), 0o644)).To(Succeed())
+		}
+		write("schemas/synnax/versions/plot/v0.oracle", `
+ReadConfig struct {
+	rate float64
+
+	@go marshal
+}
+
+WriteConfig struct {
+	rate float64
+
+	@go marshal
+	@task type "plot_write"
+}
+`)
+		write("schemas/synnax/versions/plot/v1.oracle", `
+ReadConfig = v0.ReadConfig
+WriteConfig = v0.WriteConfig
+
+ScanConfig struct {
+	rate float64
+
+	@go marshal
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		resolver := versions.NewResolver(
+			chains, analyzer.NewStandardFileLoader(root),
+		)
+		table := resolution.NewTable()
+		diag := analyzer.AnalyzeSeeded(GinkgoT().Context(), `
+@go output "core/pkg/service/plot"
+
+ReadConfig struct {
+	rate float64
+	@task type "plot_read"
+}
+
+WriteConfig struct {
+	rate float64
+	@task type "plot_write"
+}
+
+ScanConfig struct {
+	rate float64
+	@task type "plot_scan"
+}
+`, "schemas/synnax/plot.oracle", "plot",
+			analyzer.NewStandardFileLoader(root), table,
+		)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		req := &plugin.Request{Resolutions: table, RepoRoot: root, Versions: resolver}
+		resp := MustSucceed(gotypes.New(gotypes.DefaultOptions()).Generate(req))
+		files = make(map[string]string, len(resp.Files))
+		for _, f := range resp.Files {
+			files[f.Path] = string(f.Content)
+		}
+	})
+
+	It("Should declare the constant beside the config that declares it", func() {
+		Expect(files["core/pkg/service/plot/versions/v0/types.gen.go"]).To(And(
+			ContainSubstring("\tWriteTaskType = \"plot_write\"\n"),
+			Not(ContainSubstring("ReadTaskType")),
+		))
+		Expect(files["core/pkg/service/plot/versions/v1/types.gen.go"]).To(
+			ContainSubstring("\tScanTaskType = \"plot_scan\"\n"),
+		)
+	})
+
+	It("Should alias the constant of a predecessor that declares it", func() {
+		Expect(files["core/pkg/service/plot/versions/v1/types.gen.go"]).To(And(
+			ContainSubstring("\tWriteTaskType = v0.WriteTaskType\n"),
+			ContainSubstring("\tReadTaskType = \"plot_read\"\n"),
+		))
+	})
+
+	It("Should re-export the constant from the version selector and the root", func() {
+		Expect(files["core/pkg/service/plot/versions/types.gen.go"]).To(
+			ContainSubstring("const ReadTaskType = v1.ReadTaskType\n"),
+		)
+		Expect(files["core/pkg/service/plot/types.gen.go"]).To(
+			ContainSubstring("const ReadTaskType = versions.ReadTaskType\n"),
+		)
+	})
+})

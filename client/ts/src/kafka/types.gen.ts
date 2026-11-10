@@ -378,3 +378,17 @@ export const readConfigUpdateZ = z.object({
     .optional(),
 });
 export interface ReadConfigUpdate extends z.infer<typeof readConfigUpdateZ> {}
+
+/** SCAN_TASK_TYPE is the task type of ScanConfig. */
+export const SCAN_TASK_TYPE = "kafka_scan";
+/** READ_TASK_TYPE is the task type of ReadConfig. */
+export const READ_TASK_TYPE = "kafka_read";
+/** WRITE_TASK_TYPE is the task type of WriteConfig. */
+export const WRITE_TASK_TYPE = "kafka_write";
+
+/** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
+export const CONFIG_SCHEMAS = {
+  [SCAN_TASK_TYPE]: { u: scanConfigUpdateZ, t: scanConfigZ },
+  [READ_TASK_TYPE]: { u: readConfigUpdateZ, t: readConfigZ },
+  [WRITE_TASK_TYPE]: { u: writeConfigUpdateZ, t: writeConfigZ },
+};

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
@@ -39,11 +40,14 @@ func (p UpdatePayload) Handle(r User) (User, error) {
 	return next, nil
 }
 
-// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when p changes a field
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when p changes a field
 // that only the Core sets.
 func (p UpdatePayload) CheckCoreOnly() error {
 	if p.Value.RootUser != nil {
-		return errors.Wrap(actions.ErrCoreOnly, "root_user")
+		return errors.Mark(
+			errors.Wrap(validate.ErrValidation, "root_user is set by the Core"),
+			actions.ErrCoreOnly,
+		)
 	}
 	return nil
 }

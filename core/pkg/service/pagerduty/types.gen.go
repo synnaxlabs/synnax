@@ -25,6 +25,9 @@ type Alert = versions.Alert
 // PagerDuty as events.
 type TaskConfig = versions.TaskConfig
 
+// AlertTaskType is the task type of TaskConfig.
+const AlertTaskType = versions.AlertTaskType
+
 // TaskConfigUpdate holds changes to the fields of the task config. An absent field does
 // not change.
 type TaskConfigUpdate struct {

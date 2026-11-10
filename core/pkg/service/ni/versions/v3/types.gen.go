@@ -4047,3 +4047,18 @@ type ScanConfig struct {
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
 }
+
+const (
+	// AnalogReadTaskType is the task type of AnalogReadConfig.
+	AnalogReadTaskType = "ni_analog_read"
+	// CounterReadTaskType is the task type of CounterReadConfig.
+	CounterReadTaskType = "ni_counter_read"
+	// AnalogWriteTaskType is the task type of AnalogWriteConfig.
+	AnalogWriteTaskType = "ni_analog_write"
+	// DigitalReadTaskType is the task type of DigitalReadConfig.
+	DigitalReadTaskType = "ni_digital_read"
+	// DigitalWriteTaskType is the task type of DigitalWriteConfig.
+	DigitalWriteTaskType = "ni_digital_write"
+	// ScannerTaskType is the task type of ScanConfig.
+	ScannerTaskType = "ni_scanner"
+)
