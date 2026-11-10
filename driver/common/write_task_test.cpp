@@ -425,6 +425,34 @@ TEST(TestCommonWriteTask, StartAfterFailureRestarts) {
     EXPECT_EQ(sink->stop_count, 2);
 }
 
+/// @brief it should stop the sink before it restarts a task whose command pipeline
+/// exited without an error.
+TEST(TestCommonWriteTask, StartAfterCleanExitStopsSink) {
+    auto streamer_factory = std::make_shared<pipeline::mock::StreamerFactory>(
+        std::vector<x::errors::Error>{},
+        std::make_shared<std::vector<pipeline::mock::StreamerConfig>>(
+            std::vector{pipeline::mock::StreamerConfig{
+                std::make_shared<std::vector<x::telem::Frame>>(),
+                std::make_shared<std::vector<x::errors::Error>>(
+                    std::vector{freighter::STREAM_CLOSED}
+                ),
+                x::errors::NIL,
+            }}
+        )
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    // A start while the command pipeline still runs is answered without a restart.
+    ASSERT_EVENTUALLY_TRUE(write_task->start("start_cmd_2"));
+    EXPECT_EQ(sink->stop_count, 1);
+    EXPECT_EQ(sink->start_count, 2);
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+    EXPECT_EQ(sink->stop_count, 2);
+}
+
 /// @brief it should stop when both pipelines run out of retries while the Core is
 /// unreachable.
 TEST(TestCommonWriteTask, CoreOutageStopsBothPipelines) {
