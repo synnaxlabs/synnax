@@ -351,6 +351,7 @@ func (w Writer) create(
 			Exec(ctx, w.tx); err != nil {
 			return err
 		}
+		keyPositions := positions(keys)
 		for _, c := range stored {
 			if !opts.retrieveIfNameExists {
 				return errors.Wrapf(
@@ -360,7 +361,7 @@ func (w Writer) create(
 					c.Key(),
 				)
 			}
-			channels[lo.IndexOf(keys, c.Key())] = c
+			channels[keyPositions[c.Key()][0]] = c
 		}
 	}
 	var written Keys
@@ -376,12 +377,11 @@ func (w Writer) create(
 			Exec(ctx, w.tx); err != nil {
 			return err
 		}
+		namePositions := positions(names)
 		for _, e := range existing {
-			idx := lo.IndexOf(names, e.Name)
-			if idx < 0 {
-				continue
+			if p := namePositions[e.Name]; len(p) != 0 {
+				channels[p[0]] = e
 			}
-			channels[idx] = e
 		}
 	}
 
@@ -442,11 +442,13 @@ func (w Writer) create(
 			Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return err
 		}
+		namePositions := positions(indexNames)
 		for _, ex := range existing {
-			idx := lo.IndexOf(indexNames, ex.Name)
-			if idx < 0 {
+			p := namePositions[ex.Name]
+			if len(p) == 0 {
 				continue
 			}
+			idx := p[0]
 			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
 				ex.DataType == telem.TimestampT {
 				indexChannels[idx] = ex
@@ -478,14 +480,15 @@ func (w Writer) create(
 				return errors.Skip(err, query.ErrNotFound)
 			}
 			keysToDelete := make(Keys, 0, len(existing))
+			namePositions := positions(names)
 			for _, ex := range existing {
-				ch, i, found := lo.FindIndexOf(channels, func(ch Channel) bool {
-					return ch.Name == ex.Name && ch.Key() != ex.Key()
+				i, found := lo.Find(namePositions[ex.Name], func(i int) bool {
+					return channels[i].Key() != ex.Key()
 				})
 				if !found {
 					continue
 				}
-				if ch.Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
+				if channels[i].Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
 					channels[i] = ex
 					continue
 				}
@@ -834,4 +837,13 @@ func (w Writer) renameStored(ctx context.Context, count int) error {
 		names[r.key] = r.name
 	}
 	return w.svc.cfg.Channel.Rename(ctx, names)
+}
+
+// positions maps each value in vals to the positions that hold it, in ascending order.
+func positions[T comparable](vals []T) map[T][]int {
+	pos := make(map[T][]int, len(vals))
+	for i, v := range vals {
+		pos[v] = append(pos[v], i)
+	}
+	return pos
 }
