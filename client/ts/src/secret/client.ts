@@ -136,6 +136,8 @@ export class Client extends query.Retriever<
   private readonly store: query.Table<Key, Secret>;
   private readonly usesStore: query.Table<Key, Uses>;
   private readonly deletes: Deletes;
+  private readonly usesChanges: { count: number };
+  private readonly refetchUses: () => void;
   private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -178,8 +180,16 @@ export class Client extends query.Retriever<
           cache.onError(new Error("failed to refetch secret uses", { cause: exc }));
         });
     };
+    const usesChanges = { count: 0 };
     cfg.usesChannels.forEach((channel) =>
-      cache.listen({ channel, schema: z.unknown(), onChange: refetchUses }),
+      cache.listen({
+        channel,
+        schema: z.unknown(),
+        onChange: () => {
+          usesChanges.count++;
+          refetchUses();
+        },
+      }),
     );
     const usesTrigger = query.trigger(
       usesStore,
@@ -232,6 +242,8 @@ export class Client extends query.Retriever<
     this.store = store;
     this.usesStore = usesStore;
     this.deletes = deletes;
+    this.usesChanges = usesChanges;
+    this.refetchUses = refetchUses;
     this.dispatcher = dispatcher;
   }
 
@@ -320,8 +332,11 @@ export class Client extends query.Retriever<
 
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
     if (req.includeUses !== true) return await this.execRetrieve(req);
+    const changes = this.usesChanges.count;
     const secrets = await this.retrieveUses(req);
     this.usesStore.set(secrets.map(toUses));
+    // A refetch that a change started can miss these keys or land first.
+    if (this.usesChanges.count !== changes) this.refetchUses();
     return secrets.map(stripUses);
   }
 

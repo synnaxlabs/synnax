@@ -1104,6 +1104,7 @@ var _ = Describe("Import", func() {
 
 	Describe("File", func() {
 		importLegacy := func(ctx SpecContext) (apiimex.ImportResponse, error) {
+			GinkgoHelper()
 			var env apiimex.ImportRequest
 			Expect(json.Unmarshal(fmt.Appendf(nil,
 				`{"type":%q,"name":%q,"routingKey":"rk-legacy","autoStart":false,`+

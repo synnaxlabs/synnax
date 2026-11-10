@@ -391,6 +391,37 @@ describe("Secret", () => {
       }
     });
 
+    it("should refetch uses that change while a list reads them", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const s = await client.secrets.set({
+        name: "Listed routing key",
+        source: "stored",
+        value: "abc",
+      });
+      const held = holdResponses(client, "/secret/retrieve");
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      const usesOf = () => list.getCached()?.records.find((r) => r.key === s.key)?.uses;
+      try {
+        const fetched = list.retrieve();
+        await held.responded;
+        const r = await client.racks.create({ name: "Listed uses" });
+        const t = await r.createTask({
+          name: "Alerts",
+          type: "pagerduty_alert",
+          config: { routingKey: s.key },
+        });
+        // Long enough for the task change to reach the client.
+        await sleep.sleep(TimeSpan.seconds(1));
+        held.release();
+        await fetched;
+        await vi.waitFor(() => expect(usesOf()).toEqual([task.resourceID(t.key)]));
+      } finally {
+        off();
+      }
+    });
+
     it("should apply refetched uses in the order of the changes", async () => {
       const client = createTestClient();
       await waitForStreamLive(client.connection);
