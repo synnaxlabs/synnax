@@ -26,7 +26,6 @@ const conditionZ = z.object({
 export interface Condition extends z.infer<typeof conditionZ> {}
 
 const optionZ = z.object({ value: z.number(), name: z.string() });
-interface Option extends z.infer<typeof optionZ> {}
 
 /** A CoE object of a slave that a user sets by name. */
 const fieldZ = z.object({
@@ -50,7 +49,6 @@ const requirementZ = z.object({
   then: conditionZ,
   message: z.string(),
 });
-interface Requirement extends z.infer<typeof requirementZ> {}
 
 /** An entry that reads an input. onlyReadBy names the one program that reads it. */
 const entryZ = z.object({ ...ADDRESS, onlyReadBy: z.string().optional() });
