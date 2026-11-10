@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
+	"github.com/synnaxlabs/x/defaults"
 )
 
 var _ = Describe("AccelChargeSensitivityUnits", func() {
@@ -69,6 +70,19 @@ var _ = Describe("Default groups", func() {
 			"a range with one bound keeps the other bound at zero",
 			`{"type":"ci_frequency","max_val":50}`,
 			v2.MinMaxVal{MinVal: 0, MaxVal: 50},
+		),
+	)
+
+	DescribeTable("Should fill a legacy range as one group",
+		func(in, expected v2.MinMaxVal) {
+			ch := defaults.Fill(v2.AIVoltageChannel{MinMaxVal: in})
+			Expect(ch.MinMaxVal).To(Equal(expected))
+		},
+		Entry("all zero", v2.MinMaxVal{}, v2.MinMaxVal{MinVal: 0, MaxVal: 1}),
+		Entry(
+			"one bound zero",
+			v2.MinMaxVal{MinVal: -10},
+			v2.MinMaxVal{MinVal: -10, MaxVal: 0},
 		),
 	)
 })
