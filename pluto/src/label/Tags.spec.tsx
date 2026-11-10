@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { label } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
@@ -39,7 +40,10 @@ describe("Tags", () => {
     expect(await findByText(first.name)).toBeTruthy();
     expect(await findByText(second.name)).toBeTruthy();
     const renamed = `renamed-${id.create()}`;
-    await client.labels.create({ ...first, name: renamed });
+    await client.labels.dispatch(
+      first.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     expect(await findByText(renamed)).toBeTruthy();
   });
 
@@ -61,7 +65,10 @@ describe("Tags", () => {
     await findByText(other.name);
     const before = { ...renders };
     const renamed = `renamed-${id.create()}`;
-    await client.labels.create({ ...held, name: renamed });
+    await client.labels.dispatch(
+      held.key,
+      label.set({ path: ["name"], value: renamed }),
+    );
     await findByText(renamed);
     expect(renders.held).toBeGreaterThan(before.held);
     expect(renders.other).toEqual(before.other);

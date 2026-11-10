@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack } from "@synnaxlabs/client";
+import { type rack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -129,15 +129,15 @@ describe("Device.useConnectModal", () => {
         type: LabJack.Task.SCAN_TYPE,
         config: {},
       });
-      await client.tasks.create({
-        ...scanner.payload,
-        status: createTaskStatus({
+      await client.statuses.set(
+        createTaskStatus({
+          owner: task.resourceID(scanner.key),
           variant: "error",
           message: "Failed to start scan task",
           description: "LJM library not found",
           details: { rack: rack.key },
         }),
-      });
+      );
       await open({ integration: "labjack", rack: rack.key });
       await screen.findByText("Failed to start scan task");
       expect(screen.getByText("LJM library not found")).toBeTruthy();

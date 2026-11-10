@@ -16,6 +16,7 @@ import Grid from "@/components/card/Grid.astro";
 import Choice from "@/components/landing/Choice.astro";
 import Hero from "@/components/landing/Hero.astro";
 import Use from "@/components/landing/Use.astro";
+import { ID } from "@/components/console/tour/stills";
 import { Image } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -23,14 +24,14 @@ export const components = mdxOverrides;
 <Hero>
 <Fragment slot="media">
   <Image
-    id="console/ui-overview/tour/00a1e81cb06a/mosaic"
+    id={`${ID}/mosaic`}
     extension="webp"
     loading="eager"
     alt="The Synnax Console with a schematic, a line plot, a table, a log, and an Arc sequence open"
   />
 </Fragment>
 
-Synnax is a unified industrial control and operations platform. It combines data
+Synnax is mission control and data review for hardware operations. It combines data
 acquisition, a time-series database, live visualization, manual and automated control,
 and data processing in one system.
 
@@ -84,7 +85,7 @@ and data processing in one system.
   <Card
     href="/reference/hardware"
     title="Record data from a test stand"
-    description="Read sensors from NI, LabJack, Modbus, OPC UA, EtherCAT, and HTTP devices."
+    description="Read sensors from NI, LabJack, EtherCAT, Modbus, OPC UA, HTTP, MQTT, and Kafka."
   >
     <Icon.Hardware slot="icon" />
   </Card>

@@ -10,7 +10,6 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { nameZ } from "@/ranger/payload";
 import { keyZ, type New, newZ, type Payload, payloadZ } from "@/ranger/types.gen";
 
 const createReqZ = z.object({ ranges: newZ.array(), dispatchKey: z.string() });
@@ -19,19 +18,12 @@ const createResZ = z.object({ ranges: payloadZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 
-const renameReqZ = z.object({ key: keyZ, name: nameZ });
-const renameResZ = z.object({});
-
-/** Creates, renames, and deletes ranges. Reach it through `client.ranges`. */
+/** Creates and deletes ranges. Reach it through `client.ranges`. */
 export class Writer {
   client: UnaryClient;
 
   constructor(client: UnaryClient) {
     this.client = client;
-  }
-
-  async rename(key: string, name: string): Promise<void> {
-    await this.client.send("/range/rename", { key, name }, renameReqZ, renameResZ);
   }
 
   /**

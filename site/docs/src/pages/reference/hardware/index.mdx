@@ -38,6 +38,11 @@ devices.
   -> EtherCAT tasks exchange data with Beckhoff,
   [Dewesoft](/reference/hardware/ethercat/dewesoft), and other modules on a network
   port.
+- [Read and write MQTT topics](/reference/hardware/mqtt/connect-broker) -> MQTT tasks
+  read messages from a broker into channels and publish commands, with
+  [Sparkplug B](/reference/hardware/mqtt/sparkplug) support.
+- [Stream records to and from Kafka](/reference/hardware/kafka/connect-cluster) -> Kafka
+  tasks read records from a topic into channels, and write channel values to a topic.
 - [Connect hardware that Synnax does not support](/reference/hardware/custom) -> write
   your own integration with the Python or TypeScript client.
 
@@ -50,7 +55,7 @@ to the Driver.
 
 - [Devices](/reference/hardware/devices) -> a device is one piece of hardware or one
   server. The Driver finds NI, LabJack, and EtherCAT devices by itself. You connect
-  Modbus, OPC UA, and HTTP servers by their address.
+  Modbus, OPC UA, and HTTP servers, MQTT brokers, and Kafka clusters by their address.
 - [Tasks](/reference/hardware/tasks) -> a task is a job that the Driver runs on a
   device. A read task records values in channels. A write task sends the commands from
   channels to outputs.
@@ -113,7 +118,8 @@ to the download.
 Synnax Desktop starts a Synnax Core on your computer, and the Core runs the Driver. The
 Driver reaches the devices plugged into the computer and the devices on any network the
 computer can reach. In the [devices toolbar](/reference/hardware/devices), devices that
-the Driver finds show under **Node 1 Embedded Driver**.
+the Driver finds show under **Node 1 Embedded Driver**. MQTT and Kafka tasks run inside
+the Core, under **Node 1**.
 
 <Edition.Enterprise>
 

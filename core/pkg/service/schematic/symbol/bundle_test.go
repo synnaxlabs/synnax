@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -90,11 +91,11 @@ var _ = Describe("ExportGroup", func() {
 	}
 	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 		GinkgoHelper()
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name:  name,
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &g.Key,
-		}
+		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &sym)
 		})).To(Succeed())
@@ -302,11 +303,11 @@ var _ = Describe("ImportGroup", func() {
 				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
 			})).To(Succeed())
 		})
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name:  "Inlet",
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &src.Key,
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

@@ -1320,7 +1320,15 @@ var _ = Describe("Calculation", Ordered, func() {
 						"return %s + 100 / %s", dependent.Name, base.Name,
 					)
 					Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-						return channelSvc.NewWriter(tx).Create(ctx, &calc)
+						_, err := channelSvc.NewWriter(tx).Apply(
+							ctx,
+							calc.Key(),
+							channel.NewSetAction(channel.SetPayload{
+								Path:  []string{"expression"},
+								Value: calc.Expression,
+							}),
+						)
+						return err
 					})).To(Succeed())
 					Eventually(written).Should(ContainElement(SatisfyAll(
 						compileFailure(),
@@ -1496,7 +1504,15 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", bases[0].Name)
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calcs[0])
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcs[0].Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: calcs[0].Expression,
+					}),
+				)
+				return err
 			})).To(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -1555,7 +1571,15 @@ var _ = Describe("Calculation", Ordered, func() {
 
 			calcs[0].Expression = fmt.Sprintf("return %s * 3", baseCh2.Name)
 			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
-				return channelSvc.NewWriter(tx).Create(ctx, &calcs[0])
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcs[0].Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: calcs[0].Expression,
+					}),
+				)
+				return err
 			})).To(Succeed())
 
 			Eventually(func(g Gomega) {

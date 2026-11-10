@@ -19,58 +19,29 @@ import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
+import { type Task } from "@/platform/task";
 
-const PREFIXES = [
-  EtherCAT.Task.PREFIX,
-  HTTP.Task.PREFIX,
-  Kafka.Task.PREFIX,
-  LabJack.Task.PREFIX,
-  Modbus.Task.PREFIX,
-  MQTT.Task.PREFIX,
-  NI.Task.PREFIX,
-  OPCUA.Task.PREFIX,
-  PagerDuty.Task.PREFIX,
-] as const;
-type Prefix = (typeof PREFIXES)[number];
+export const INTEGRATIONS: Task.Integration[] = [
+  EtherCAT.Task.INTEGRATION,
+  HTTP.Task.INTEGRATION,
+  Kafka.Task.INTEGRATION,
+  LabJack.Task.INTEGRATION,
+  Modbus.Task.INTEGRATION,
+  MQTT.Task.INTEGRATION,
+  NI.Task.INTEGRATION,
+  OPCUA.Task.INTEGRATION,
+  PagerDuty.Task.INTEGRATION,
+];
 
-const ICONS: Record<Prefix, Icon.ReactElement> = {
-  [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
-  [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
-  [Kafka.Task.PREFIX]: <Icon.Logo.Kafka />,
-  [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
-  [Modbus.Task.PREFIX]: <Icon.Logo.Modbus />,
-  [MQTT.Task.PREFIX]: <Icon.Logo.MQTT />,
-  [NI.Task.PREFIX]: <Icon.Logo.NI />,
-  [OPCUA.Task.PREFIX]: <Icon.Logo.OPCUA />,
-  [PagerDuty.Task.PREFIX]: <Icon.Logo.PagerDuty />,
-};
+const TASK_ICON = <Icon.Task />;
 
-export const getIcon = (type: string): Icon.ReactElement => {
-  for (const prefix of PREFIXES) if (type.startsWith(prefix)) return ICONS[prefix];
-  return <Icon.Task />;
-};
-
-const PREFIX_NAMES: Record<Prefix, string> = {
-  [EtherCAT.Task.PREFIX]: "EtherCAT",
-  [HTTP.Task.PREFIX]: "HTTP",
-  [Kafka.Task.PREFIX]: "Kafka",
-  [LabJack.Task.PREFIX]: "LabJack",
-  [Modbus.Task.PREFIX]: "Modbus",
-  [MQTT.Task.PREFIX]: "MQTT",
-  [NI.Task.PREFIX]: "NI",
-  [OPCUA.Task.PREFIX]: "OPC UA",
-  [PagerDuty.Task.PREFIX]: "PagerDuty",
-};
+export const getIcon = (type: string): Icon.ReactElement =>
+  INTEGRATIONS.find(({ prefix }) => type.startsWith(prefix))?.icon ?? TASK_ICON;
 
 export const parseType = (type: string): string => {
-  const words = type.split("_");
-  let isFirstWordModified = false;
-  for (const prefix of PREFIXES)
-    if (words[0] === prefix) {
-      isFirstWordModified = true;
-      words[0] = PREFIX_NAMES[prefix];
-      break;
-    }
-  if (!isFirstWordModified) words[0] = caseconv.capitalize(words[0]);
-  return `${words.join(" ")} task`;
+  const [first, ...rest] = type.split("_");
+  const name =
+    INTEGRATIONS.find(({ prefix }) => prefix === first)?.name ??
+    caseconv.capitalize(first);
+  return `${[name, ...rest].join(" ")} task`;
 };
