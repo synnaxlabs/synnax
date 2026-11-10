@@ -132,3 +132,140 @@ type WriteChannelUpdate struct {
 	// CmdChannel is the Synnax channel commands are read from.
 	CmdChannel *channel.Key `json:"cmd_channel,omitzero" msgpack:"cmd_channel,omitempty"`
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadConfigUpdate) ApplyTo(x *ReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.SampleRate != nil {
+		x.SampleRate = *u.SampleRate
+	}
+	if u.StreamRate != nil {
+		x.StreamRate = *u.StreamRate
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.ArrayMode != nil {
+		x.ArrayMode = *u.ArrayMode
+	}
+	if u.ArraySize != nil {
+		x.ArraySize = *u.ArraySize
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e ReadChannel) string { return e.Key },
+			func(w ReadChannelUpdate) string { return w.Key },
+			func(e *ReadChannel, w ReadChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	if u.NanFillEnabled != nil {
+		x.NanFillEnabled = *u.NanFillEnabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteConfigUpdate) ApplyTo(x *WriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e WriteChannel) string { return e.Key },
+			func(w WriteChannelUpdate) string { return w.Key },
+			func(e *WriteChannel, w WriteChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScanConfigUpdate) ApplyTo(x *ScanConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.Rate != nil {
+		x.Rate = *u.Rate
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadChannelUpdate) ApplyTo(x *ReadChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.NodeID != nil {
+		x.NodeID = *u.NodeID
+	}
+	if u.NodeName != nil {
+		x.NodeName = *u.NodeName
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.IsIndex != nil {
+		x.IsIndex = *u.IsIndex
+	}
+	if u.Field != nil {
+		x.Field = *u.Field
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteChannelUpdate) ApplyTo(x *WriteChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.NodeID != nil {
+		x.NodeID = *u.NodeID
+	}
+	if u.NodeName != nil {
+		x.NodeName = *u.NodeName
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	return nil
+}

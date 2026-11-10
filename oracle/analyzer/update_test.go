@@ -42,6 +42,9 @@ List struct<E, K, U> {
 ValueList struct<E> {
     set E[]?
 }
+Update struct<V> {
+    value V
+}
 `
 
 func ref(name string, args ...resolution.TypeRef) resolution.TypeRef {
@@ -224,6 +227,30 @@ var _ = Describe("Update types", func() {
 			}
 		})
 
+		It("Should give the record the update action after create", func(
+			ctx SpecContext,
+		) {
+			table := analyze(ctx, record)
+			plot := table.MustGet("test.Plot")
+			names := make([]string, 0, len(plot.Actions()))
+			for _, a := range plot.Actions() {
+				names = append(names, a.Name)
+			}
+			Expect(names).To(Equal([]string{
+				"Create", "Update", "Set", "Remove", "Insert", "Move",
+			}))
+			update := plot.Actions()[1]
+			Expect(update.Update).To(BeTrue())
+			Expect(update.CoreFields).To(Equal([]string{"hash"}))
+			Expect(update.Payload.Name).To(Equal("test.UpdatePayload"))
+			action := table.MustGet("test.Action").Form.(resolution.UnionForm)
+			Expect(action.Variants[1].Name).To(Equal("update"))
+			payload := table.MustGet("test.UpdatePayload").
+				Form.(resolution.DistinctForm)
+			Expect(payload.Base.Name).To(Equal("patch.Update"))
+			Expect(payload.Base.TypeArgs[0].Name).To(Equal("test.Update"))
+		})
+
 		It("Should derive no update for a record without @patch fields", func(
 			ctx SpecContext,
 		) {
@@ -345,6 +372,41 @@ var _ = Describe("Update types", func() {
 			base := table.MustGet("test.BaseUpdate").Form.(resolution.StructForm)
 			Expect(fieldNames(base)).To(Equal([]string{"name"}))
 		})
+
+		It("Should give the union record the update action", func(ctx SpecContext) {
+			table := analyze(ctx, record)
+			update := table.MustGet("test.View").Actions()[1]
+			Expect(update.Name).To(Equal("Update"))
+			Expect(update.Update).To(BeTrue())
+			Expect(update.CoreFields).To(BeEmpty())
+		})
+
+		It(
+			"Should leave a base field that a variant drops out of the base update",
+			func(
+				ctx SpecContext,
+			) {
+				table := analyze(ctx, `
+				import "schemas/x/patch"
+
+				Base struct {
+					key  uuid
+					name string { @patch }
+					port int32  { @patch }
+				}
+
+				View union on type extends Base {
+					range {}
+					builtin {
+						-port
+					}
+					@actions
+				}
+			`)
+				base := table.MustGet("test.BaseUpdate").Form.(resolution.StructForm)
+				Expect(fieldNames(base)).To(Equal([]string{"name"}))
+			},
+		)
 
 		It("Should give each variant update the base and variant fields", func(
 			ctx SpecContext,
@@ -475,6 +537,25 @@ View union on type extends Base {
     range {}
     @actions
 }`, "5:4 error: View.hash: a union record takes no Core-only field"),
+		Entry("an update action that the schema declares", `
+import "schemas/x/patch"
+Plot struct {
+    key  uuid
+    name string { @patch }
+    action Update {}
+    @actions
+}`, "6:4 error: action Update of Plot: @patch already declares Update"),
+		Entry("an update payload name that the schema declares", `
+import "schemas/x/patch"
+UpdatePayload struct {
+    key uuid
+}
+Plot struct {
+    key  uuid
+    name string { @patch }
+    @actions
+}`, "6:0 error: the update action of Plot needs the name UpdatePayload, which "+
+			"the schema declares"),
 		Entry("an option on @presence", `
 Box struct<T> {
     value T?

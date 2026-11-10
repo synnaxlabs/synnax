@@ -26,6 +26,7 @@ import {
   type MovePayload,
   movePayloadZ,
   type Policy,
+  policyZ,
   type RemoveAction,
   removeActionZ,
   type RemovePayload,
@@ -34,8 +35,18 @@ import {
   setActionZ,
   type SetPayload,
   setPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/access/policy/types.gen";
 import { actions } from "@/actions";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "policy.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -69,11 +80,15 @@ export interface Handlers {
   move: (state: Draft<Policy>, payload: MovePayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: policyZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Policy, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -88,8 +103,9 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
-  SetAction | RemoveAction | InsertAction | MoveAction
+  UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

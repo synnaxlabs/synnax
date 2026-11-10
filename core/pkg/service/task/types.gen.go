@@ -174,6 +174,8 @@ type ActionType string
 const (
 	// CreateActionType selects the CreatePayload variant.
 	CreateActionType ActionType = "create"
+	// UpdateActionType selects the UpdatePayload variant.
+	UpdateActionType ActionType = "update"
 	// SetActionType selects the SetPayload variant.
 	SetActionType ActionType = "set"
 	// RemoveActionType selects the RemovePayload variant.
@@ -190,6 +192,8 @@ type ActionVariant interface {
 }
 
 func (CreatePayload) isActionVariant() {}
+
+func (UpdatePayload) isActionVariant() {}
 
 func (SetPayload) isActionVariant() {}
 
@@ -214,6 +218,11 @@ func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type    ActionType    `json:"type"`
 			Payload CreatePayload `json:"create"`
 		}{Type: CreateActionType, Payload: v})
+	case UpdatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload UpdatePayload `json:"update"`
+		}{Type: UpdateActionType, Payload: v})
 	case SetPayload:
 		return json.MarshalEncode(enc, struct {
 			Type    ActionType `json:"type"`
@@ -263,6 +272,18 @@ func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		var v struct {
 			Type    ActionType     `json:"type"`
 			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case UpdateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *UpdatePayload `json:"update"`
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
@@ -335,6 +356,11 @@ func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 			Type    ActionType    `msgpack:"type"`
 			Payload CreatePayload `msgpack:"create"`
 		}{Type: CreateActionType, Payload: v})
+	case UpdatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload UpdatePayload `msgpack:"update"`
+		}{Type: UpdateActionType, Payload: v})
 	case SetPayload:
 		return enc.Encode(struct {
 			Type    ActionType `msgpack:"type"`
@@ -380,6 +406,17 @@ func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	case CreateActionType:
 		var v struct {
 			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case UpdateActionType:
+		var v struct {
+			Payload *UpdatePayload `msgpack:"update"`
 		}
 		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
 			return err
@@ -443,6 +480,8 @@ func (u Action) Type() ActionType {
 	switch u.Variant.(type) {
 	case CreatePayload:
 		return CreateActionType
+	case UpdatePayload:
+		return UpdateActionType
 	case SetPayload:
 		return SetActionType
 	case RemovePayload:
@@ -470,6 +509,10 @@ type Update struct {
 	// drift.
 	ConfigHash *string `json:"config_hash,omitzero" msgpack:"config_hash,omitempty"`
 }
+
+// UpdatePayload changes the fields of the task that the update holds, when its guards
+// hold.
+type UpdatePayload patch.Update[Update]
 
 // ScaleUpdateType is the "type" value that selects a variant of ScaleUpdate.
 type ScaleUpdateType string
@@ -677,4 +720,191 @@ func (u ScaleUpdate) Type() ScaleUpdateType {
 		return NoneScaleUpdateType
 	}
 	return ""
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u Update) ApplyTo(x *Task) error {
+	if u.Rack != nil {
+		x.Rack = *u.Rack
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Config != nil {
+		x.Config = u.Config
+	}
+	if u.ConfigHash != nil {
+		x.ConfigHash = *u.ConfigHash
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u ScaleUpdate) ApplyTo(x *Scale) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case LinearScaleUpdate:
+		next, same := x.Variant.(LinearScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case MapScaleUpdate:
+		next, same := x.Variant.(MapScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PolynomialScaleUpdate:
+		next, same := x.Variant.(PolynomialScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TableScaleUpdate:
+		next, same := x.Variant.(TableScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case NoneScaleUpdate:
+		next, same := x.Variant.(NoneScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LinearScaleUpdate) ApplyTo(x *LinearScale) error {
+	if u.Slope != nil {
+		x.Slope = *u.Slope
+	}
+	if u.Offset != nil {
+		x.Offset = *u.Offset
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u LinearScaleUpdate) Defaults() (LinearScale, error) {
+	var x LinearScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u MapScaleUpdate) ApplyTo(x *MapScale) error {
+	if u.PreScaledMin != nil {
+		x.PreScaledMin = *u.PreScaledMin
+	}
+	if u.PreScaledMax != nil {
+		x.PreScaledMax = *u.PreScaledMax
+	}
+	if u.ScaledMin != nil {
+		x.ScaledMin = *u.ScaledMin
+	}
+	if u.ScaledMax != nil {
+		x.ScaledMax = *u.ScaledMax
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u MapScaleUpdate) Defaults() (MapScale, error) {
+	var x MapScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PolynomialScaleUpdate) ApplyTo(x *PolynomialScale) error {
+	if u.Coeffs != nil {
+		if err := patch.ApplyValueList(&x.Coeffs, *u.Coeffs); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PolynomialScaleUpdate) Defaults() (PolynomialScale, error) {
+	var x PolynomialScale
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TableScaleUpdate) ApplyTo(x *TableScale) error {
+	if u.PreScaledVals != nil {
+		if err := patch.ApplyValueList(&x.PreScaledVals, *u.PreScaledVals); err != nil {
+			return err
+		}
+	}
+	if u.ScaledVals != nil {
+		if err := patch.ApplyValueList(&x.ScaledVals, *u.ScaledVals); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TableScaleUpdate) Defaults() (TableScale, error) {
+	var x TableScale
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u NoneScaleUpdate) ApplyTo(x *NoneScale) error {
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u NoneScaleUpdate) Defaults() (NoneScale, error) {
+	var x NoneScale
+	return x, nil
 }

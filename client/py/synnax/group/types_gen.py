@@ -151,6 +151,9 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class CreatePayload(BaseModel):
     """Replaces the state with the created group. Only the Core emits it.
 
@@ -196,6 +199,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -224,6 +232,7 @@ class SetParentAction(BaseModel):
 # Holds one group mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

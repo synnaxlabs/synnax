@@ -75,7 +75,18 @@ import {
   type SetPayload,
   setPayloadZ,
   type Table,
+  tableZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/table/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "table.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -171,11 +182,15 @@ export interface Handlers {
   eraseCells: (state: Draft<Table>, payload: EraseCellsPayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: tableZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Table, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -210,6 +225,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -225,6 +241,7 @@ const dispatchedActionZ: z.ZodType<
   | SetCellAction
   | EraseCellsAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

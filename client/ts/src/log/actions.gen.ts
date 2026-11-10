@@ -27,6 +27,7 @@ import {
   insertPayloadZ,
   keyZ,
   type Log,
+  logZ,
   type MoveAction,
   moveActionZ,
   type MovePayload,
@@ -91,7 +92,17 @@ import {
   swapChannelActionZ,
   type SwapChannelPayload,
   swapChannelPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/log/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "log.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -289,11 +300,15 @@ export interface Handlers {
   setTimeZone: (state: Draft<Log>, payload: SetTimeZonePayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: logZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Log, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -342,6 +357,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -361,6 +377,7 @@ const dispatchedActionZ: z.ZodType<
   | SetTimestampsHiddenAction
   | SetTimeZoneAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

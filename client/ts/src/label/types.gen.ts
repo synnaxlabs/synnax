@@ -51,6 +51,9 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /**
  * Label is a tagging and categorization entity with a name and associated color. Labels
  * can be attached to resources like ranges for organization and filtering.
@@ -139,6 +142,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -163,25 +172,34 @@ export const moveActionZ = z.object({
 });
 export interface MoveAction extends z.infer<typeof moveActionZ> {}
 
-export const ACTION_TYPES = ["create", "set", "remove", "insert", "move"] as const;
+export const ACTION_TYPES = [
+  "create",
+  "update",
+  "set",
+  "remove",
+  "insert",
+  "move",
+] as const;
 export const actionTypeZ = z.enum(ACTION_TYPES);
 export type ActionType = z.infer<typeof actionTypeZ>;
 
 /** Action holds one label mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
   moveActionZ,
 ]);
 export type Action =
-  CreateAction | SetAction | RemoveAction | InsertAction | MoveAction;
+  CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction;
 
 export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

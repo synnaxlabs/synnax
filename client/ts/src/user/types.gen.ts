@@ -67,6 +67,9 @@ export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 export interface UpdateInput extends Omit<z.input<typeof updateZ>, "rootUser"> {}
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /**
  * User is an account entity representing a person accessing the Synnax system. Each
  * user holds one role, which grants its permissions.
@@ -169,6 +172,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -201,6 +210,7 @@ export interface SetUsernameAction extends z.infer<typeof setUsernameActionZ> {}
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -213,6 +223,7 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 /** Action holds one user mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
@@ -221,6 +232,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
 ]);
 export type Action =
   | CreateAction
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -231,6 +243,7 @@ export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

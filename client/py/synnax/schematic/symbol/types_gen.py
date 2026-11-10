@@ -274,9 +274,17 @@ class RetrieveResponse(BaseModel):
     symbols: list[Symbol] = Field(default_factory=list)
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
+
+
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
 
 
 class SetAction(BaseModel):
@@ -301,7 +309,7 @@ class MoveAction(BaseModel):
 
 # Holds one symbol mutation.
 Action = Annotated[
-    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
 

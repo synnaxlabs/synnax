@@ -11,8 +11,9 @@
 // actions. The ts/types plugin emits the payload schemas and the Action union. This
 // plugin emits one builder per action that clients dispatch, a Handlers interface, a
 // createReduceAll factory that binds a caller-provided Handlers object, and the scoped
-// and dispatch schemas. HandlerResult, ReduceAllResult, and the outer reduceAll loop
-// live in the shared actions package.
+// and dispatch schemas. The factory applies the update action itself, so Handlers
+// leaves it out. HandlerResult, ReduceAllResult, applyUpdate, and the outer reduceAll
+// loop live in the shared actions package.
 package actions
 
 import (
@@ -118,6 +119,12 @@ func (p *Plugin) generateFile(
 			Label:       payload.QualifiedName,
 			CoreOnly:    action.CoreOnly,
 		}
+		if action.Update {
+			a.UpdateZ = schemaOf(fp, typ, resolution.TypeRef{
+				Name: typ.Namespace + "." + action.Name,
+			})
+			a.RecordZ = schemaOf(fp, typ, resolution.TypeRef{Name: typ.QualifiedName})
+		}
 		mgr.AddImport(typesPath, a.PayloadType)
 		if !action.CoreOnly {
 			mgr.AddImport(typesPath, a.PayloadZ)
@@ -161,6 +168,17 @@ func (p *Plugin) generateFile(
 	return buf.Bytes(), nil
 }
 
+// schemaOf returns the zod schema of ref in the file of typ, and imports it.
+func schemaOf(
+	fp *tstypes.FieldProcessor,
+	typ resolution.Type,
+	ref resolution.TypeRef,
+) string {
+	schema := fp.ProcessField(resolution.Field{Name: "value", Type: ref}, typ).ZodType
+	fp.CollectTypeImports(&ref)
+	return schema
+}
+
 // templateData's fields are read by fileTemplate, so they must stay exported.
 type templateData struct {
 	*imports.Manager
@@ -185,6 +203,10 @@ type actionData struct {
 	PayloadZ    string
 	Label       string
 	CoreOnly    bool
+	// UpdateZ and RecordZ are the schemas of the update and of the record, set only for
+	// the update action.
+	UpdateZ string
+	RecordZ string
 }
 
 var fileTemplate = template.Must(
@@ -215,16 +237,29 @@ export type ReduceAllResult = actions.ReduceAllResult<{{ .TargetTypeName }}, {{ 
 
 export interface Handlers {
 {{- range .Actions }}
+{{- if not .UpdateZ }}
   {{ .Member }}: (state: Draft<{{ $.TargetTypeName }}>, payload: {{ .PayloadType }}) => HandlerResult;
 {{- end }}
+{{- end }}
 }
+
+{{- range .Actions }}
+{{- if .UpdateZ }}
+
+const updateSchemas = { u: {{ .UpdateZ }}, t: {{ .RecordZ }} };
+{{- end }}
+{{- end }}
 
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<{{ .TargetTypeName }}, {{ .ActionType }}>((state, action) => {
     switch (action.type) {
 {{- range .Actions }}
       case "{{ .Type }}":
+{{- if .UpdateZ }}
+        return actions.applyUpdate(state, action.{{ .Member }}, updateSchemas);
+{{- else }}
         return handlers.{{ .Member }}(state, action.{{ .Member }});
+{{- end }}
 {{- end }}
     }
   });

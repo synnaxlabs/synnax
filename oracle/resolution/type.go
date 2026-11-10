@@ -276,6 +276,12 @@ type Action struct {
 	Payload TypeRef
 	// CoreOnly reports that only the Core emits the action. Clients never dispatch it.
 	CoreOnly bool
+	// Update reports that the action carries the update of the record and its guards,
+	// which generated code applies.
+	Update bool
+	// CoreFields names the record fields that only the Core sets, which an update from
+	// a client leaves alone.
+	CoreFields []string
 }
 
 type Field struct {

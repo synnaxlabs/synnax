@@ -55,7 +55,7 @@ export const reduceAll = createReduceAll(handlers);
  * form that the Core stores.
  */
 export const encode = (state: Label, action: Action): Action =>
-  action.type === "create"
+  action.type === "create" || action.type === "update"
     ? action
     : patch.camelToSnake(action, { schema: documentZ, data: state });
 

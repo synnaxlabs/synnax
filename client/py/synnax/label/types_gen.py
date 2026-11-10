@@ -125,6 +125,9 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class CreatePayload(BaseModel):
     """Replaces the state with the created label. Only the Core emits it.
 
@@ -170,6 +173,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -192,7 +200,7 @@ class MoveAction(BaseModel):
 
 # Holds one label mutation.
 Action = Annotated[
-    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
 

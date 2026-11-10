@@ -374,15 +374,18 @@ func processEnum(typ resolution.Type, data *templateData) enumData {
 
 // typeDefRefsSameNamespaceType reports whether a type alias's target references a
 // type declared in the same namespace (and therefore the same generated file).
-// Array and map wrappers are followed to their element/value types. Only these
+// Type arguments, such as the element of an array, are followed. Only these
 // aliases carry a same-file forward-reference hazard: an eagerly-evaluated
 // list[...] / dict[...] assignment names a class that may be defined later in the
 // file. References to primitives or to imported (cross-namespace) types are safe.
 func typeDefRefsSameNamespaceType(td resolution.Type, table *resolution.Table) bool {
 	var refs func(ref resolution.TypeRef) bool
 	refs = func(ref resolution.TypeRef) bool {
+		if slices.ContainsFunc(ref.TypeArgs, refs) {
+			return true
+		}
 		if ref.Name == "Array" || ref.Name == "Map" {
-			return slices.ContainsFunc(ref.TypeArgs, refs)
+			return false
 		}
 		if ref.Name == "" || ref.IsTypeParam() || resolution.IsPrimitive(ref.Name) {
 			return false

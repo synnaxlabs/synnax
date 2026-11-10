@@ -9,9 +9,9 @@
 
 // Package actions generates the reducer of each struct or union that has actions. The
 // go/types plugin emits the payloads and the Action union. This plugin emits Reduce,
-// one New<Name>Action constructor per action, and the Handle method of each payload
-// that only the Core emits. Every other Handle method is hand-written in a sibling
-// file.
+// one New<Name>Action constructor per action, the Handle method of each payload that
+// only the Core emits, and the Handle and CheckCoreOnly methods of the update payload.
+// Every other Handle method is hand-written in a sibling file.
 package actions
 
 import (
@@ -19,6 +19,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/presence"
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -99,11 +101,17 @@ func (p *Plugin) generateFile(
 				"%s: unresolved payload %s", typ.QualifiedName, action.Payload.Name,
 			)
 		}
-		data.Actions = append(data.Actions, actionData{
+		ad := actionData{
 			Name:     casing.TypePascal(action.Name),
 			Payload:  naming.GetGoName(payload),
 			CoreOnly: action.CoreOnly,
-		})
+		}
+		if action.Update {
+			if err := p.update(&ad, payload, action, &data, table); err != nil {
+				return nil, errors.Wrap(err, typ.QualifiedName)
+			}
+		}
+		data.Actions = append(data.Actions, ad)
 		if action.CoreOnly {
 			mgr.AddExternal(p.Options.RuntimeImportPath)
 		}
@@ -113,6 +121,59 @@ func (p *Plugin) generateFile(
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// update fills the data of the update action, whose payload holds the update and its
+// guards.
+func (p *Plugin) update(
+	ad *actionData,
+	payload resolution.Type,
+	action resolution.Action,
+	data *templateData,
+	table *resolution.Table,
+) error {
+	form, ok := payload.Form.(resolution.DistinctForm)
+	if !ok || len(form.Base.TypeArgs) != 1 {
+		return errors.Newf(
+			"the update payload %s holds no update",
+			payload.QualifiedName,
+		)
+	}
+	update, ok := form.Base.TypeArgs[0].Resolve(table)
+	if !ok {
+		return errors.Newf("unresolved update %s", form.Base.TypeArgs[0].Name)
+	}
+	data.AddExternal(patchImportPath)
+	ad.Update = naming.GetGoName(update)
+	if len(action.CoreFields) == 0 {
+		return nil
+	}
+	fields, ok := update.Form.(resolution.StructForm)
+	if !ok {
+		return errors.Newf(
+			"%s has Core-only fields but is no struct",
+			update.QualifiedName,
+		)
+	}
+	data.AddExternal(p.Options.RuntimeImportPath)
+	for _, name := range action.CoreFields {
+		f, ok := lo.Find(fields.Fields, func(f resolution.Field) bool {
+			return f.Name == name
+		})
+		if !ok {
+			return errors.Newf("%s holds no field %s", update.QualifiedName, name)
+		}
+		sel := "p.Value." + naming.GetFieldName(f)
+		changed := sel + " != nil"
+		if presence.Field(f, table) {
+			changed = "!" + sel + ".IsZero()"
+		}
+		ad.CoreFields = append(
+			ad.CoreFields,
+			coreFieldData{Name: name, Changed: changed},
+		)
+	}
+	return nil
 }
 
 // targetType returns the Go type that Reduce takes. Go keeps only the type parameters
@@ -137,7 +198,17 @@ type actionData struct {
 	Name     string
 	Payload  string
 	CoreOnly bool
+	// Update is the update type that the payload of the update action holds, or empty
+	// for any other action.
+	Update     string
+	CoreFields []coreFieldData
 }
+
+// coreFieldData is a field that only the Core sets, with the condition under which an
+// update changes it.
+type coreFieldData struct{ Name, Changed string }
+
+const patchImportPath = "github.com/synnaxlabs/x/patch"
 
 var fileTemplate = template.Must(
 	template.New("go-actions").
@@ -165,6 +236,33 @@ import (
 // Handle returns actions.ErrCoreOnly, as only the Core emits a {{.Payload}}.
 func ({{.Payload}}) Handle({{$.TargetType}}) ({{$.TargetType}}, error) {
 	return {{$.TargetType}}{}, actions.ErrCoreOnly
+}
+{{- end}}
+{{- if .Update}}
+
+// Handle applies the update in p to r when its guards hold. It returns r and an error
+// wrapping patch.ErrStale when a guard does not hold, and r for any other error.
+func (p {{.Payload}}) Handle(r {{$.TargetType}}) ({{$.TargetType}}, error) {
+	u := patch.Update[{{.Update}}](p)
+	if err := u.Check(r); err != nil {
+		return r, err
+	}
+	next := r
+	if err := u.Value.ApplyTo(&next); err != nil {
+		return r, err
+	}
+	return next, nil
+}
+
+// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when p changes a field
+// that only the Core sets.
+func (p {{.Payload}}) CheckCoreOnly() error {
+{{- range .CoreFields}}
+	if {{.Changed}} {
+		return errors.Wrap(actions.ErrCoreOnly, "{{.Name}}")
+	}
+{{- end}}
+	return nil
 }
 {{- end}}
 {{- end}}

@@ -20,7 +20,13 @@ from synnax.task.types_gen import (
     RemovePayload,
     SetAction,
     SetPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

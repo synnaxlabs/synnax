@@ -48,7 +48,13 @@ from synnax.log.types_gen import (
     SetTimeZonePayload,
     SwapChannelAction,
     SwapChannelPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

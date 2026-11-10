@@ -503,6 +503,7 @@ inline x::json::json to_json(const Scale &value) {
 inline Action parse_action(x::json::Parser parser) {
     const auto discriminator = parser.field<std::string>("type");
     if (discriminator == "create") return CreatePayload::parse(parser.child("create"));
+    if (discriminator == "update") return UpdatePayload::parse(parser.child("update"));
     if (discriminator == "set") return SetPayload::parse(parser.child("set"));
     if (discriminator == "remove") return RemovePayload::parse(parser.child("remove"));
     if (discriminator == "insert") return InsertPayload::parse(parser.child("insert"));
@@ -513,7 +514,7 @@ inline Action parse_action(x::json::Parser parser) {
 
 inline x::json::json to_json(const Action &value) {
     static constexpr const char *discriminators[] =
-        {"create", "set", "remove", "insert", "move"};
+        {"create", "update", "set", "remove", "insert", "move"};
     const std::string discriminator = discriminators[value.index()];
     x::json::json j = x::json::json::object();
     j["type"] = discriminator;

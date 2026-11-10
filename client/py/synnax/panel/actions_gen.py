@@ -38,7 +38,13 @@ from synnax.panel.types_gen import (
     SetTabViewPayload,
     SplitTabAction,
     SplitTabPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

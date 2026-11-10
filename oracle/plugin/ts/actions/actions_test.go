@@ -208,6 +208,48 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should apply the update in the reducer instead of a handler",
+				func(ctx SpecContext) {
+					loader.Add("schemas/x/patch", `
+						@ts output "x/ts/src/patch"
+
+						Set struct { path string[] }
+						Remove struct { path string[] }
+						Insert struct { path string[] }
+						Move struct { path string[] }
+						Change struct<T> {
+							value T?
+							@presence
+						}
+						Update struct<V> { value V }
+					`)
+					source := `
+					import "schemas/x/patch"
+
+					@ts output "client/ts/src/board"
+
+					Board struct {
+						key  uuid @key
+						name string { @patch }
+
+						@actions
+					}
+				`
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							"export const update = "+
+								"(payload: z.input<typeof updatePayloadZ>)",
+							"const updateSchemas = { u: updateZ, t: boardZ };",
+							`case "update":`+"\n"+
+								"        return actions.applyUpdate("+
+								"state, action.update, updateSchemas);",
+						).
+						ToNotContain("update: (state: Draft<Board>")
+				},
+			)
+
+			It(
 				"Should name the state type by its TS name",
 				func(ctx SpecContext) {
 					source := `

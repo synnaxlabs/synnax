@@ -417,3 +417,182 @@ func (r ReadFieldUpdate) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 func (r *ReadFieldUpdate) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return patch.DecodeMsgpack(dec, r)
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScanConfigUpdate) ApplyTo(x *ScanConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.Rate != nil {
+		x.Rate = *u.Rate
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadConfigUpdate) ApplyTo(x *ReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Topic != nil {
+		x.Topic = *u.Topic
+	}
+	if u.Group != nil {
+		x.Group = *u.Group
+	}
+	if u.StartOffset != nil {
+		x.StartOffset = *u.StartOffset
+	}
+	if u.Records != nil {
+		if err := patch.ApplyList(
+			&x.Records,
+			*u.Records,
+			func(e ReadRecord) string { return e.Key },
+			func(w ReadRecordUpdate) string { return w.Key },
+			func(e *ReadRecord, w ReadRecordUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteConfigUpdate) ApplyTo(x *WriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Topic != nil {
+		x.Topic = *u.Topic
+	}
+	if u.RecordKey != nil {
+		x.RecordKey = *u.RecordKey
+	}
+	if u.Record != nil {
+		if err := u.Record.ApplyTo(&x.Record, func(v *Record, w RecordUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e WriteChannel) string { return e.Key },
+			func(w WriteChannelUpdate) string { return w.Key },
+			func(e *WriteChannel, w WriteChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadRecordUpdate) ApplyTo(x *ReadRecord) error {
+	if u.RecordKey != nil {
+		x.RecordKey = *u.RecordKey
+	}
+	if u.Index != nil {
+		x.Index = *u.Index
+	}
+	if u.Fields != nil {
+		if err := patch.ApplyList(
+			&x.Fields,
+			*u.Fields,
+			func(e ReadField) string { return e.Key },
+			func(w ReadFieldUpdate) string { return w.Key },
+			func(e *ReadField, w ReadFieldUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u RecordUpdate) ApplyTo(x *Record) error {
+	if u.ValuePointer != nil {
+		x.ValuePointer = *u.ValuePointer
+	}
+	u.ChannelPointer.ApplyOptional(&x.ChannelPointer)
+	u.TimestampPointer.ApplyOptional(&x.TimestampPointer)
+	if u.TimeFormat != nil {
+		x.TimeFormat = *u.TimeFormat
+	}
+	if u.Fields != nil {
+		if err := patch.ApplyList(
+			&x.Fields,
+			*u.Fields,
+			func(e http.WriteField) string { return e.Base().Key },
+			func(w http.WriteFieldUpdate) string { return w.Key() },
+			func(e *http.WriteField, w http.WriteFieldUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteChannelUpdate) ApplyTo(x *WriteChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.JSONType != nil {
+		x.JSONType = *u.JSONType
+	}
+	u.TimeFormat.ApplyOptional(&x.TimeFormat)
+	if u.EnumValues != nil {
+		if err := patch.ApplyValueList(&x.EnumValues, *u.EnumValues); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadFieldUpdate) ApplyTo(x *ReadField) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	u.TimeFormat.ApplyOptional(&x.TimeFormat)
+	if u.EnumValues != nil {
+		if err := patch.ApplyValueList(&x.EnumValues, *u.EnumValues); err != nil {
+			return err
+		}
+	}
+	return nil
+}

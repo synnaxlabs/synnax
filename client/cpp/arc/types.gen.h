@@ -374,6 +374,10 @@ struct Base {
     from_proto(const ::service::arc::pb::Base &pb);
 };
 
+/// @brief UpdatePayload changes the fields of the arc that the update holds, when its
+/// guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the arcs that match the term, closest match first.
@@ -500,6 +504,7 @@ struct RetrieveResponse {
 /// @brief Action holds one arc mutation.
 using Action = std::variant<
     CreatePayload,
+    UpdatePayload,
     SetPayload,
     RemovePayload,
     InsertPayload,

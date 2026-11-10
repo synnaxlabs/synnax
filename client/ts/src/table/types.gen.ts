@@ -243,6 +243,9 @@ export const CELL_CONFIG_SCHEMAS: {
   value: valueCellConfigZ,
 };
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /** Where is a filter that selects tables. */
 export type Where = {
   and?: Where[];
@@ -447,6 +450,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -533,6 +542,7 @@ export interface EraseCellsAction extends z.infer<typeof eraseCellsActionZ> {}
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -553,24 +563,26 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 
 /** Action holds one table mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
-  createActionZ,
-  setActionZ,
-  removeActionZ,
-  insertActionZ,
-  moveActionZ,
-  addRowActionZ,
-  removeRowActionZ,
-  addColActionZ,
-  removeColActionZ,
-  resizeRowActionZ,
-  resizeColActionZ,
-  moveRowActionZ,
-  moveColActionZ,
-  setCellActionZ,
-  eraseCellsActionZ,
+  z.lazy(() => createActionZ),
+  z.lazy(() => updateActionZ),
+  z.lazy(() => setActionZ),
+  z.lazy(() => removeActionZ),
+  z.lazy(() => insertActionZ),
+  z.lazy(() => moveActionZ),
+  z.lazy(() => addRowActionZ),
+  z.lazy(() => removeRowActionZ),
+  z.lazy(() => addColActionZ),
+  z.lazy(() => removeColActionZ),
+  z.lazy(() => resizeRowActionZ),
+  z.lazy(() => resizeColActionZ),
+  z.lazy(() => moveRowActionZ),
+  z.lazy(() => moveColActionZ),
+  z.lazy(() => setCellActionZ),
+  z.lazy(() => eraseCellsActionZ),
 ]);
 export type Action =
   | CreateAction
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -590,6 +602,7 @@ export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

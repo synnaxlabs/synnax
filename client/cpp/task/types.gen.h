@@ -387,6 +387,10 @@ struct ScanConfig : public KeyedConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief UpdatePayload changes the fields of the task that the update holds, when its
+/// guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief Order is a sort of tasks.
 struct Order {
     /// @brief field is the field to sort by. Records with equal values sort by key.
@@ -553,8 +557,13 @@ struct WriteConfig : public PersistConfig {
 };
 
 /// @brief Action holds one task mutation.
-using Action = std::
-    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+using Action = std::variant<
+    CreatePayload,
+    UpdatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload>;
 
 Action parse_action(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Action &value);

@@ -285,3 +285,14 @@ type TimeRangeUpdate struct {
 	// End is the exclusive end of the time range.
 	End *TimeStamp `json:"end,omitzero" msgpack:"end,omitempty"`
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TimeRangeUpdate) ApplyTo(x *TimeRange) error {
+	if u.Start != nil {
+		x.Start = *u.Start
+	}
+	if u.End != nil {
+		x.End = *u.End
+	}
+	return nil
+}

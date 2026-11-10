@@ -546,8 +546,6 @@ export const aiChannelBaseUpdateZ = z.object({
   disabled: z.boolean().optional(),
   /** channel is the Synnax channel that raw samples are written to. */
   channel: channel.keyZ.optional(),
-  /** port is the physical port the channel reads from. */
-  port: z.uint32().optional(),
   /** device is the key of the device the channel belongs to. */
   device: device.keyZ.optional(),
 });
@@ -2924,6 +2922,7 @@ export const aiChannelUpdateZ = z.union([
 export type AIChannelUpdate =
   | (AIChannelBaseUpdate & {
       type?: never;
+      port?: never;
       minVal?: never;
       maxVal?: never;
       terminalConfig?: never;

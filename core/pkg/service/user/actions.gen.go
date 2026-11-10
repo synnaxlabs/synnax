@@ -14,12 +14,36 @@ package user
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/union"
 )
 
 // Handle returns actions.ErrCoreOnly, as only the Core emits a CreatePayload.
 func (CreatePayload) Handle(User) (User, error) {
 	return User{}, actions.ErrCoreOnly
+}
+
+// Handle applies the update in p to r when its guards hold. It returns r and an error
+// wrapping patch.ErrStale when a guard does not hold, and r for any other error.
+func (p UpdatePayload) Handle(r User) (User, error) {
+	u := patch.Update[Update](p)
+	if err := u.Check(r); err != nil {
+		return r, err
+	}
+	next := r
+	if err := u.Value.ApplyTo(&next); err != nil {
+		return r, err
+	}
+	return next, nil
+}
+
+// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when p changes a field
+// that only the Core sets.
+func (p UpdatePayload) CheckCoreOnly() error {
+	if p.Value.RootUser != nil {
+		return errors.Wrap(actions.ErrCoreOnly, "root_user")
+	}
+	return nil
 }
 
 // Reduce applies acts to state in order through the Handle method of each payload. It
@@ -30,6 +54,8 @@ func Reduce(state User, acts ...Action) (User, error) {
 	for _, a := range acts {
 		switch v := a.Variant.(type) {
 		case CreatePayload:
+			state, err = v.Handle(state)
+		case UpdatePayload:
 			state, err = v.Handle(state)
 		case SetPayload:
 			state, err = v.Handle(state)
@@ -55,6 +81,9 @@ func Reduce(state User, acts ...Action) (User, error) {
 
 // NewCreateAction returns an Action that carries p.
 func NewCreateAction(p CreatePayload) Action { return Action{Variant: p} }
+
+// NewUpdateAction returns an Action that carries p.
+func NewUpdateAction(p UpdatePayload) Action { return Action{Variant: p} }
 
 // NewSetAction returns an Action that carries p.
 func NewSetAction(p SetPayload) Action { return Action{Variant: p} }

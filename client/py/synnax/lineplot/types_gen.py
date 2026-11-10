@@ -582,6 +582,9 @@ class SetRulePayload(BaseModel):
     rule: Rule
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve line plots.
 
@@ -687,6 +690,11 @@ class RetrieveResponse(BaseModel):
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
+
+
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
 
 
 class SetAction(BaseModel):
@@ -872,6 +880,7 @@ class RemoveRuleAction(BaseModel):
 # Holds one line plot mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

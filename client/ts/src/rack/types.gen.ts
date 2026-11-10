@@ -132,6 +132,9 @@ export const retrieveRequestZ = z.strictObject({
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /**
  * Payload is a collection container for hardware devices and tasks running on a
  * specific Core. Racks are the integration point between the Core and physical hardware
@@ -191,6 +194,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -215,25 +224,34 @@ export const moveActionZ = z.object({
 });
 export interface MoveAction extends z.infer<typeof moveActionZ> {}
 
-export const ACTION_TYPES = ["create", "set", "remove", "insert", "move"] as const;
+export const ACTION_TYPES = [
+  "create",
+  "update",
+  "set",
+  "remove",
+  "insert",
+  "move",
+] as const;
 export const actionTypeZ = z.enum(ACTION_TYPES);
 export type ActionType = z.infer<typeof actionTypeZ>;
 
 /** Action holds one rack mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
   moveActionZ,
 ]);
 export type Action =
-  CreateAction | SetAction | RemoveAction | InsertAction | MoveAction;
+  CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction;
 
 export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

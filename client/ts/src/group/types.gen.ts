@@ -59,6 +59,9 @@ export type MovePayload = z.infer<typeof movePayloadZ>;
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /**
  * Group is a named folder that holds records of the types its scope allows. A group
  * sits in its parent, or at the top of its tree when it has none.
@@ -160,6 +163,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -192,6 +201,7 @@ export interface SetParentAction extends z.infer<typeof setParentActionZ> {}
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -204,6 +214,7 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 /** Action holds one group mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
@@ -211,12 +222,19 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   setParentActionZ,
 ]);
 export type Action =
-  CreateAction | SetAction | RemoveAction | InsertAction | MoveAction | SetParentAction;
+  | CreateAction
+  | UpdateAction
+  | SetAction
+  | RemoveAction
+  | InsertAction
+  | MoveAction
+  | SetParentAction;
 
 export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

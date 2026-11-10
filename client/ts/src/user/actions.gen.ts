@@ -38,8 +38,19 @@ import {
   setUsernameActionZ,
   type SetUsernamePayload,
   setUsernamePayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
   type User,
+  userZ,
 } from "@/user/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "user.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -81,11 +92,15 @@ export interface Handlers {
   setUsername: (state: Draft<User>, payload: SetUsernamePayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: userZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<User, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -102,8 +117,14 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
-  SetAction | RemoveAction | InsertAction | MoveAction | SetUsernameAction
+  | UpdateAction
+  | SetAction
+  | RemoveAction
+  | InsertAction
+  | MoveAction
+  | SetUsernameAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

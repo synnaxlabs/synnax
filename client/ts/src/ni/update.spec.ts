@@ -31,10 +31,16 @@ describe("AIChannelUpdate", () => {
   });
 
   it("should hold only base fields without a type", () => {
-    const update: ni.AIChannelUpdate = { key: "c3", port: 4 };
+    const update: ni.AIChannelUpdate = { key: "c3", name: "Pressure" };
     expect(ni.aiChannelUpdateZ.parse(update)).toEqual(update);
     // @ts-expect-error - a variant field needs a type.
     const bad: ni.AIChannelUpdate = { key: "c3", maxVal: 10 };
+    expect(ni.aiChannelUpdateZ.safeParse(bad).success).toBe(false);
+  });
+
+  it("should need a type for a base field that a variant drops", () => {
+    // @ts-expect-error - a built-in temperature channel has no port.
+    const bad: ni.AIChannelUpdate = { key: "c3", port: 4 };
     expect(ni.aiChannelUpdateZ.safeParse(bad).success).toBe(false);
   });
 

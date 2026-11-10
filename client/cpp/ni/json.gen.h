@@ -858,7 +858,6 @@ inline AIChannelBaseUpdate AIChannelBaseUpdate::parse(x::json::Parser parser) {
         .name = parser.field<std::optional<std::string>>("name"),
         .disabled = parser.field<std::optional<bool>>("disabled"),
         .channel = parser.field<std::optional<::synnax::channel::Key>>("channel"),
-        .port = parser.field<std::optional<std::uint32_t>>("port"),
         .device = parser.field<std::optional<::synnax::device::Key>>("device"),
     };
 }
@@ -869,7 +868,6 @@ inline x::json::json AIChannelBaseUpdate::to_json() const {
     if (this->name.has_value()) j["name"] = *this->name;
     if (this->disabled.has_value()) j["disabled"] = *this->disabled;
     if (this->channel.has_value()) j["channel"] = *this->channel;
-    if (this->port.has_value()) j["port"] = *this->port;
     if (this->device.has_value()) j["device"] = *this->device;
     return j;
 }

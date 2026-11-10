@@ -26,6 +26,7 @@ import {
   type MovePayload,
   movePayloadZ,
   type Pair,
+  pairZ,
   type RemoveAction,
   removeActionZ,
   type RemovePayload,
@@ -34,7 +35,17 @@ import {
   setActionZ,
   type SetPayload,
   setPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/ranger/kv/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "kv.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -68,11 +79,15 @@ export interface Handlers {
   move: (state: Draft<Pair>, payload: MovePayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: pairZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Pair, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -87,8 +102,9 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(z.string(), actionZ);
 
 const dispatchedActionZ: z.ZodType<
-  SetAction | RemoveAction | InsertAction | MoveAction
+  UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

@@ -827,7 +827,6 @@ class AIChannelBaseUpdate(TypedDict, total=False):
         name: Is the human-readable channel name.
         disabled: Is true when the channel is excluded from acquisition.
         channel: Is the Synnax channel that raw samples are written to.
-        port: Is the physical port the channel reads from.
         device: Is the key of the device the channel belongs to.
     """
 
@@ -835,7 +834,6 @@ class AIChannelBaseUpdate(TypedDict, total=False):
     name: str
     disabled: bool
     channel: channel_.Key
-    port: int
     device: device_.Key
 
 

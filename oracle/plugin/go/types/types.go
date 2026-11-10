@@ -563,6 +563,7 @@ func renderGoFile(
 	}
 
 	var predAlias string
+	defaulted := defaultedUpdates(table)
 	for _, d := range orderDecls(table, order, typeDefs, enums, structs, unions) {
 		if omit.IsSkipped(d.typ, "go") {
 			continue
@@ -609,6 +610,13 @@ func renderGoFile(
 				return nil, nil, err
 			}
 			data.Decls = append(data.Decls, declData{Union: &u})
+		}
+		if d.typ.Updates != "" && !d.typ.Synthetic {
+			methods, err := applyMethods(d.typ, procData, defaulted)
+			if err != nil {
+				return nil, nil, err
+			}
+			data.Applies = append(data.Applies, methods)
 		}
 	}
 
@@ -1104,6 +1112,8 @@ type templateData struct {
 	Namespace      string
 	repoRoot       string
 	Decls          []declData
+	// Applies are the methods that apply each update type of the file.
+	Applies []string
 }
 
 // importAlias returns the import alias for a cross-package reference,
@@ -1922,6 +1932,10 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 }
 {{- end}}
 {{- end}}
+{{- end}}
+{{- range .Applies}}
+
+{{.}}
 {{- end}}
 `),
 )

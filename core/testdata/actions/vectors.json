@@ -14,6 +14,16 @@
       }
     },
     {
+      "name": "update",
+      "action": {
+        "type": "update",
+        "update": {
+          "value": { "name": "Rack 2", "integrations": { "insert": ["labjack"] } },
+          "guards": []
+        }
+      }
+    },
+    {
       "name": "set",
       "action": {
         "type": "set",

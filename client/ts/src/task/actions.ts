@@ -40,7 +40,7 @@ export const reduceAll = createReduceAll(handlers);
  * form that the Core stores.
  */
 export const encode = (state: Payload, action: Action): Action =>
-  action.type === "create"
+  action.type === "create" || action.type === "update"
     ? action
     : patch.camelToSnake(action, { schema: PAYLOAD_Z, data: state });
 

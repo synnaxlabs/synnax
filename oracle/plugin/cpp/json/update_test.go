@@ -33,6 +33,7 @@ var _ = Describe("Update types", func() {
 				@cpp hand
 				@presence
 			}
+			Update struct<V> { value V }
 		`)
 		resp := MustGenerate(ctx, `
 			import "schemas/x/patch"
@@ -55,7 +56,7 @@ var _ = Describe("Update types", func() {
 				@actions
 			}
 		`, "view", loader, json.New(json.DefaultOptions()))
-		ExpectContent(resp, "json.gen.h").ToContain(
+		ExpectContent(resp, "client/cpp/view/json.gen.h").ToContain(
 			"inline Update parse_update(x::json::Parser parser) {\n" +
 				"    if (!parser.has(\"type\")) return BaseUpdate::parse(parser);\n",
 		)

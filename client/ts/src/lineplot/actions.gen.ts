@@ -31,6 +31,7 @@ import {
   insertPayloadZ,
   keyZ,
   type LinePlot,
+  linePlotZ,
   type MoveAction,
   moveActionZ,
   type MovePayload,
@@ -163,7 +164,17 @@ import {
   setXChannelActionZ,
   type SetXChannelPayload,
   setXChannelPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/lineplot/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "lineplot.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -534,11 +545,15 @@ export interface Handlers {
   removeRule: (state: Draft<LinePlot>, payload: RemoveRulePayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: linePlotZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<LinePlot, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -617,6 +632,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -654,6 +670,7 @@ const dispatchedActionZ: z.ZodType<
   | SetRulePositionAction
   | RemoveRuleAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

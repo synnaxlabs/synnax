@@ -81,6 +81,10 @@ struct Label {
     from_proto(const ::service::label::pb::Label &pb);
 };
 
+/// @brief UpdatePayload changes the fields of the label that the update holds, when its
+/// guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief CreatePayload replaces the state with the created label. Only the Core emits
 /// it.
 struct CreatePayload {
@@ -92,8 +96,13 @@ struct CreatePayload {
 };
 
 /// @brief Action holds one label mutation.
-using Action = std::
-    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+using Action = std::variant<
+    CreatePayload,
+    UpdatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload>;
 
 Action parse_action(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Action &value);

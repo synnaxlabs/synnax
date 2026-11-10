@@ -43,6 +43,7 @@ import {
   type RemovePayload,
   removePayloadZ,
   type Schematic,
+  schematicZ,
   type SetAction,
   setActionZ,
   type SetConfigAction,
@@ -59,7 +60,17 @@ import {
   setNodePositionPayloadZ,
   type SetPayload,
   setPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/schematic/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "schematic.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -142,11 +153,15 @@ export interface Handlers {
   setConfig: (state: Draft<Schematic>, payload: SetConfigPayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: schematicZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Schematic, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -173,6 +188,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -184,6 +200,7 @@ const dispatchedActionZ: z.ZodType<
   | RemoveEdgeAction
   | SetConfigAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

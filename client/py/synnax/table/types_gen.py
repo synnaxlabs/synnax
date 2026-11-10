@@ -251,6 +251,9 @@ class Cursor(BaseModel):
     name: str | None = None
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class Cell(BaseModel):
     """Is a keyed cell configuration used by actions that address cells explicitly.
     Inside the table state itself, cell configurations are stored in the cells map keyed
@@ -409,6 +412,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -482,6 +490,7 @@ class EraseCellsAction(BaseModel):
 # Holds one table mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

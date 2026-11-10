@@ -175,6 +175,63 @@ var _ = Describe("Go Actions Plugin", func() {
 			)
 
 			It(
+				"Should apply the update and check its Core-only fields",
+				func(ctx SpecContext) {
+					loader.Add("schemas/x/patch", `
+						@go output "x/go/patch"
+
+						Set struct { path string[] }
+						Remove struct { path string[] }
+						Insert struct { path string[] }
+						Move struct { path string[] }
+						Change struct<T> {
+							value T?
+							@presence
+						}
+						Update struct<V> { value V }
+					`)
+					source := `
+					import "schemas/x/patch"
+
+					@go output "core/pkg/service/counter"
+
+					Counter struct {
+						key  uuid
+						name string  { @patch }
+						hash string  { @patch core }
+						note string? { @patch core }
+
+						@actions
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.go").
+						ToBeValidGoSource().
+						ToContain(
+							`"github.com/synnaxlabs/x/patch"`,
+							"func (p UpdatePayload) Handle(r Counter) "+
+								"(Counter, error) {\n"+
+								"\tu := patch.Update[Update](p)\n"+
+								"\tif err := u.Check(r); err != nil {\n"+
+								"\t\treturn r, err\n\t}\n"+
+								"\tnext := r\n"+
+								"\tif err := u.Value.ApplyTo(&next); err != nil {\n"+
+								"\t\treturn r, err\n\t}\n"+
+								"\treturn next, nil\n}",
+							"func (p UpdatePayload) CheckCoreOnly() error {\n"+
+								"\tif p.Value.Hash != nil {\n"+
+								"\t\treturn errors.Wrap(actions.ErrCoreOnly, "+
+								"\"hash\")\n\t}\n"+
+								"\tif !p.Value.Note.IsZero() {\n"+
+								"\t\treturn errors.Wrap(actions.ErrCoreOnly, "+
+								"\"note\")\n\t}\n"+
+								"\treturn nil\n}",
+							"case UpdatePayload:\n\t\t\tstate, err = v.Handle(state)",
+						)
+				},
+			)
+
+			It(
 				"Should reduce a generic struct with any for each kept type parameter",
 				func(ctx SpecContext) {
 					source := `

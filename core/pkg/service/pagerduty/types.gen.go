@@ -56,3 +56,51 @@ type AlertUpdate struct {
 	// Disabled is true when the alert is excluded from the task.
 	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TaskConfigUpdate) ApplyTo(x *TaskConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.RoutingKey != nil {
+		x.RoutingKey = *u.RoutingKey
+	}
+	if u.Alerts != nil {
+		if err := patch.ApplyList(
+			&x.Alerts,
+			*u.Alerts,
+			func(e Alert) string { return e.Key },
+			func(w AlertUpdate) string { return w.Key },
+			func(e *Alert, w AlertUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AlertUpdate) ApplyTo(x *Alert) error {
+	if u.Status != nil {
+		x.Status = *u.Status
+	}
+	if u.ErrorsCritical != nil {
+		x.ErrorsCritical = *u.ErrorsCritical
+	}
+	if u.Component != nil {
+		x.Component = *u.Component
+	}
+	if u.Group != nil {
+		x.Group = *u.Group
+	}
+	if u.Class != nil {
+		x.Class = *u.Class
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}

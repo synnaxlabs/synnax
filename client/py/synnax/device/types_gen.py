@@ -181,6 +181,8 @@ class Cursor(BaseModel):
 
 Status: TypeAlias = status_.Status[StatusDetails]
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
 
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve devices.
@@ -269,6 +271,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -296,7 +303,13 @@ class SetRackAction(BaseModel):
 
 # Holds one device mutation.
 Action = Annotated[
-    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction | SetRackAction,
+    CreateAction
+    | UpdateAction
+    | SetAction
+    | RemoveAction
+    | InsertAction
+    | MoveAction
+    | SetRackAction,
     Field(discriminator="type"),
 ]
 

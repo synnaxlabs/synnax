@@ -236,6 +236,10 @@ struct RetrieveResponse {
     from_proto(const ::api::ranger::pb::RetrieveResponse &pb);
 };
 
+/// @brief UpdatePayload changes the fields of the range that the update holds, when its
+/// guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
 struct RetrieveOptions {
     /// @brief search_term keeps the ranges that match the term, closest match first.
@@ -284,8 +288,13 @@ struct RetrieveRequest {
 };
 
 /// @brief Action holds one range mutation.
-using Action = std::
-    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+using Action = std::variant<
+    CreatePayload,
+    UpdatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload>;
 
 Action parse_action(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Action &value);

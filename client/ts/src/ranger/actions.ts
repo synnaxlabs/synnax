@@ -119,7 +119,7 @@ const exactTimes = (action: patch.Action): patch.Action => {
  * form that the Core stores, with exact timestamps.
  */
 export const encode = (state: Payload, action: Action): Action =>
-  action.type === "create"
+  action.type === "create" || action.type === "update"
     ? action
     : exactTimes(patch.camelToSnake(action, { schema: documentZ, data: state }));
 

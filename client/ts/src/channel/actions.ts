@@ -11,7 +11,7 @@ import { patch, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
-import { keyZ, nameZ } from "@/channel/types.gen";
+import { keyZ, nameZ, updateZ } from "@/channel/types.gen";
 
 /**
  * Rename renames the channel. The Core also renames the channel's storage when the
@@ -21,14 +21,29 @@ export const renamePayloadZ = z.object({ name: nameZ });
 
 export type RenamePayload = z.infer<typeof renamePayloadZ>;
 
+/** Update changes the fields of the channel that it holds, when its guards hold. */
+export const updatePayloadZ = patch.updateZ(updateZ);
+
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /** Action is an edit of a channel, in the form the Core takes. */
 export type Action =
-  { type: "set"; set: patch.Set } | { type: "rename"; rename: RenamePayload };
+  | { type: "update"; update: UpdatePayload }
+  | { type: "set"; set: patch.Set }
+  | { type: "rename"; rename: RenamePayload };
 
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("update"), update: updatePayloadZ }),
   z.object({ type: z.literal("set"), set: patch.setZ }),
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
 ]);
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, {
+    label: "channel update action payload",
+  }),
+});
 
 /** Set replaces the value at a path in the channel. */
 export const set = (payload: z.input<typeof patch.setZ>): Action => ({

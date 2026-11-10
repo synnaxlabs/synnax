@@ -40,7 +40,13 @@ from synnax.table.types_gen import (
     SetCellAction,
     SetCellPayload,
     SetPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

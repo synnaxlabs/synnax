@@ -22,7 +22,13 @@ from synnax.device.types_gen import (
     SetPayload,
     SetRackAction,
     SetRackPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

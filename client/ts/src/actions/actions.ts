@@ -152,6 +152,43 @@ export const replace = <S extends record.Keyed<record.Key>>(
   return { inverse: [], targets: [String(created.key)] };
 };
 
+/** The update action of a record whose update value has the schema U. */
+export interface UpdateAction<U extends z.ZodType> {
+  type: "update";
+  update: patch.Update<U>;
+}
+
+/**
+ * Applies the update that an update action carries to a draft of a cached record. The
+ * result targets each top-level field that the update holds, by wire name, and holds
+ * the update action that reverts it.
+ * @param schemas - The schema of the update value, and the record schema for defaults.
+ * @throws {patch.StaleError} if a guard does not hold or a list key is missing.
+ * @throws {Error} if the record cannot take the update.
+ */
+export const applyUpdate = <S extends object, U extends z.ZodType, T extends z.ZodType>(
+  state: Draft<S>,
+  update: patch.Update<U>,
+  schemas: patch.StructSchemas<U, T>,
+): HandlerResult<UpdateAction<U>> => {
+  const { next, inverse } = patch.applyUpdate(
+    schemas,
+    snapshotDraft(state) as z.output<T>,
+    update,
+  );
+  const reverted = (inverse as patch.Update<z.ZodType>).value as record.Unknown;
+  if (Object.keys(reverted).length === 0) return NO_OP_RESULT;
+  const draft = state as record.Unknown;
+  const result = next as record.Unknown;
+  for (const key of Object.keys(draft)) if (!(key in result)) delete draft[key];
+  Object.assign(draft, result);
+  const { value } = update as patch.Update<z.ZodType>;
+  const targets = Object.keys(value as record.Unknown).map(
+    (field) => caseconv.camelToSnakePath([field], { schema: schemas.t }).path[0],
+  );
+  return { inverse: [{ type: "update", update: inverse }], targets };
+};
+
 const PATH_TYPES: ReadonlySet<string> = new Set(["set", "remove", "insert", "move"]);
 
 /**

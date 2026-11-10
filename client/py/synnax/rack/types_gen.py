@@ -189,6 +189,9 @@ class RetrieveRequest(BaseModel):
     include_status: bool = False
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class Rack(BaseModel):
     """Contains parameters for creating a new rack.
 
@@ -245,6 +248,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -267,7 +275,7 @@ class MoveAction(BaseModel):
 
 # Holds one rack mutation.
 Action = Annotated[
-    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
 

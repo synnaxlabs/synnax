@@ -901,7 +901,7 @@ class TestNIChannelUpdate:
 
     def test_update_without_type_holds_base_fields(self) -> None:
         """Should hold only base fields in an update without a type."""
-        base: AIChannelUpdate = {"key": "c3", "port": 4}
+        base: AIChannelUpdate = {"key": "c3", "name": "Pressure"}
         variant: AIChannelUpdate = {  # type: ignore[assignment]
             "key": "c3",
             "max_val": 10,

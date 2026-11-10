@@ -30,6 +30,27 @@ TEST(ActionsTests, testCreateRoundTrip) {
     ASSERT_EQ(payload.rack.name, "Edge");
 }
 
+/// @brief it should write an update action in the form that the Core takes.
+TEST(ActionsTests, testUpdateToJSON) {
+    const auto action = update(
+        UpdatePayload{
+            .value = {
+                .name = "Rack 2",
+                .integrations = x::patch::ValueList<std::string>{
+                    .insert = std::vector<std::string>{"labjack"},
+                },
+            },
+        }
+    );
+    ASSERT_EQ(to_json(action), x::json::json::parse(R"({
+            "type": "update",
+            "update": {
+                "value": {"name": "Rack 2", "integrations": {"insert": ["labjack"]}},
+                "guards": []
+            }
+        })"));
+}
+
 /// @brief it should decode each action envelope that the Core and every client share.
 TEST(ActionsTests, testVectors) {
     std::ifstream f("core/testdata/actions/vectors.json");

@@ -97,6 +97,9 @@ export type Key = z.infer<typeof keyZ>;
 export const statusZ = status.statusZ({ details: statusDetailsZ });
 export type Status = z.infer<typeof statusZ>;
 
+export const updatePayloadZ = patch.updateZ(updateZ());
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /** Where is a filter that selects devices. */
 export type Where = {
   and?: Where[];
@@ -264,6 +267,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -296,6 +305,7 @@ export interface SetRackAction extends z.infer<typeof setRackActionZ> {}
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -308,6 +318,7 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 /** Action holds one device mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
@@ -315,12 +326,19 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   setRackActionZ,
 ]);
 export type Action =
-  CreateAction | SetAction | RemoveAction | InsertAction | MoveAction | SetRackAction;
+  | CreateAction
+  | UpdateAction
+  | SetAction
+  | RemoveAction
+  | InsertAction
+  | MoveAction
+  | SetRackAction;
 
 export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

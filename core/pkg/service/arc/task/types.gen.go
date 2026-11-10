@@ -51,3 +51,26 @@ type ConfigUpdate struct {
 	// Performance sets how closely the runtime holds timer deadlines.
 	Performance *Performance `json:"performance,omitzero" msgpack:"performance,omitempty"`
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ConfigUpdate) ApplyTo(x *Config) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.ArcKey != nil {
+		x.ArcKey = *u.ArcKey
+	}
+	if u.Hash != nil {
+		x.Hash = *u.Hash
+	}
+	if u.Performance != nil {
+		x.Performance = *u.Performance
+	}
+	return nil
+}

@@ -91,6 +91,9 @@ export type TabKey = z.infer<typeof tabKeyZ>;
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /** TabBase carries the identity shared by every tab variant. */
 export const tabBaseZ = z.object({
   /**
@@ -397,6 +400,12 @@ export const createActionZ = z.object({
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
 
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
+
 export const setActionZ = z.object({
   type: z.literal("set"),
   set: setPayloadZ,
@@ -477,6 +486,7 @@ export interface SetTabViewAction extends z.infer<typeof setTabViewActionZ> {}
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -497,6 +507,7 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 /** Action holds one panel mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   createActionZ,
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,
@@ -513,6 +524,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
 ]);
 export type Action =
   | CreateAction
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -531,6 +543,7 @@ export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

@@ -224,6 +224,9 @@ class SetTabViewPayload(BaseModel):
     view: View
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class ResourceTab(TabBase):
     """Is a tab displaying a backing Core document."""
 
@@ -382,6 +385,11 @@ class CreateAction(BaseModel):
     create: CreatePayload
 
 
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
+
+
 class SetAction(BaseModel):
     type: Literal["set"] = "set"
     set: SetPayload
@@ -450,6 +458,7 @@ class SetTabViewAction(BaseModel):
 # Holds one panel mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

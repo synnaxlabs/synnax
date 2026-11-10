@@ -854,3 +854,601 @@ func (u WriteFieldUpdate) Type() WriteFieldUpdateType {
 	}
 	return ""
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadConfigUpdate) ApplyTo(x *ReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Entries != nil {
+		if err := patch.ApplyList(
+			&x.Entries,
+			*u.Entries,
+			func(e ReadEntry) string { return e.Base().Key },
+			func(w ReadEntryUpdate) string { return w.Key() },
+			func(e *ReadEntry, w ReadEntryUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteConfigUpdate) ApplyTo(x *WriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Targets != nil {
+		if err := patch.ApplyList(
+			&x.Targets,
+			*u.Targets,
+			func(e WriteTarget) string { return e.Base().Key },
+			func(w WriteTargetUpdate) string { return w.Key() },
+			func(e *WriteTarget, w WriteTargetUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScanConfigUpdate) ApplyTo(x *ScanConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.Rate != nil {
+		x.Rate = *u.Rate
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u EdgeConfigUpdate) ApplyTo(x *EdgeConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Group != nil {
+		x.Group = *u.Group
+	}
+	if u.EdgeNode != nil {
+		x.EdgeNode = *u.EdgeNode
+	}
+	if u.Authority != nil {
+		x.Authority = *u.Authority
+	}
+	if u.Tags != nil {
+		if err := patch.ApplyList(
+			&x.Tags,
+			*u.Tags,
+			func(e EdgeTag) string { return e.Key },
+			func(w EdgeTagUpdate) string { return w.Key },
+			func(e *EdgeTag, w EdgeTagUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadEntryBaseUpdate) ApplyTo(x *BaseReadEntry) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u ReadEntryUpdate) ApplyTo(x *ReadEntry) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case ReadEntryBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case PlainReadEntryUpdate:
+		next, same := x.Variant.(PlainReadEntry)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseReadEntry = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SparkplugReadEntryUpdate:
+		next, same := x.Variant.(SparkplugReadEntry)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseReadEntry = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u ReadEntryUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case ReadEntryBaseUpdate:
+		key = v.Key
+	case PlainReadEntryUpdate:
+		key = v.Key
+	case SparkplugReadEntryUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PlainReadEntryUpdate) ApplyTo(x *PlainReadEntry) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Topic != nil {
+		x.Topic = *u.Topic
+	}
+	if u.Qos != nil {
+		x.Qos = *u.Qos
+	}
+	if u.RetainedIgnored != nil {
+		x.RetainedIgnored = *u.RetainedIgnored
+	}
+	if u.Fields != nil {
+		if err := patch.ApplyList(
+			&x.Fields,
+			*u.Fields,
+			func(e ReadField) string { return e.Key },
+			func(w ReadFieldUpdate) string { return w.Key },
+			func(e *ReadField, w ReadFieldUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	if u.Index != nil {
+		x.Index = *u.Index
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PlainReadEntryUpdate) Defaults() (PlainReadEntry, error) {
+	if u.Fields == nil {
+		return PlainReadEntry{}, errors.Wrap(validate.ErrValidation, "fields is required")
+	}
+	var x PlainReadEntry
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SparkplugReadEntryUpdate) ApplyTo(x *SparkplugReadEntry) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Group != nil {
+		x.Group = *u.Group
+	}
+	if u.EdgeNode != nil {
+		x.EdgeNode = *u.EdgeNode
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Tag != nil {
+		x.Tag = *u.Tag
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SparkplugReadEntryUpdate) Defaults() (SparkplugReadEntry, error) {
+	var x SparkplugReadEntry
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteTargetBaseUpdate) ApplyTo(x *BaseWriteTarget) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u WriteTargetUpdate) ApplyTo(x *WriteTarget) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case WriteTargetBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case PlainWriteTargetUpdate:
+		next, same := x.Variant.(PlainWriteTarget)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteTarget = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case SparkplugWriteTargetUpdate:
+		next, same := x.Variant.(SparkplugWriteTarget)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteTarget = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u WriteTargetUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case WriteTargetBaseUpdate:
+		key = v.Key
+	case PlainWriteTargetUpdate:
+		key = v.Key
+	case SparkplugWriteTargetUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PlainWriteTargetUpdate) ApplyTo(x *PlainWriteTarget) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Topic != nil {
+		x.Topic = *u.Topic
+	}
+	if u.Qos != nil {
+		x.Qos = *u.Qos
+	}
+	if u.Retained != nil {
+		x.Retained = *u.Retained
+	}
+	if u.Channel != nil {
+		if err := u.Channel.ApplyTo(&x.Channel, func(v *ChannelField, w ChannelFieldUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	if u.Fields != nil {
+		if err := patch.ApplyList(
+			&x.Fields,
+			*u.Fields,
+			func(e WriteField) string { return e.Base().Key },
+			func(w WriteFieldUpdate) string { return w.Key() },
+			func(e *WriteField, w WriteFieldUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PlainWriteTargetUpdate) Defaults() (PlainWriteTarget, error) {
+	if u.Fields == nil {
+		return PlainWriteTarget{}, errors.Wrap(validate.ErrValidation, "fields is required")
+	}
+	var x PlainWriteTarget
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u SparkplugWriteTargetUpdate) ApplyTo(x *SparkplugWriteTarget) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Group != nil {
+		x.Group = *u.Group
+	}
+	if u.EdgeNode != nil {
+		x.EdgeNode = *u.EdgeNode
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Tag != nil {
+		x.Tag = *u.Tag
+	}
+	if u.TagType != nil {
+		x.TagType = *u.TagType
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u SparkplugWriteTargetUpdate) Defaults() (SparkplugWriteTarget, error) {
+	var x SparkplugWriteTarget
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u EdgeTagUpdate) ApplyTo(x *EdgeTag) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.TagType != nil {
+		x.TagType = *u.TagType
+	}
+	if u.CommandChannel != nil {
+		x.CommandChannel = *u.CommandChannel
+	}
+	u.CommandChannelName.ApplyOptional(&x.CommandChannelName)
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadFieldUpdate) ApplyTo(x *ReadField) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	u.TimeFormat.ApplyOptional(&x.TimeFormat)
+	if u.EnumValues != nil {
+		if err := patch.ApplyValueList(&x.EnumValues, *u.EnumValues); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ChannelFieldUpdate) ApplyTo(x *ChannelField) error {
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	if u.JSONType != nil {
+		x.JSONType = *u.JSONType
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.DataType != nil {
+		x.DataType = *u.DataType
+	}
+	u.TimeFormat.ApplyOptional(&x.TimeFormat)
+	if u.EnumValues != nil {
+		if err := patch.ApplyValueList(&x.EnumValues, *u.EnumValues); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteFieldBaseUpdate) ApplyTo(x *BaseWriteField) error {
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u WriteFieldUpdate) ApplyTo(x *WriteField) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case WriteFieldBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case StaticWriteFieldUpdate:
+		next, same := x.Variant.(StaticWriteField)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteField = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case GeneratedWriteFieldUpdate:
+		next, same := x.Variant.(GeneratedWriteField)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteField = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u WriteFieldUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case WriteFieldBaseUpdate:
+		key = v.Key
+	case StaticWriteFieldUpdate:
+		key = v.Key
+	case GeneratedWriteFieldUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StaticWriteFieldUpdate) ApplyTo(x *StaticWriteField) error {
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	if u.JSONType != nil {
+		x.JSONType = *u.JSONType
+	}
+	if u.Value != nil {
+		x.Value = *u.Value
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u StaticWriteFieldUpdate) Defaults() (StaticWriteField, error) {
+	if u.Value == nil {
+		return StaticWriteField{}, errors.Wrap(validate.ErrValidation, "value is required")
+	}
+	var x StaticWriteField
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u GeneratedWriteFieldUpdate) ApplyTo(x *GeneratedWriteField) error {
+	if u.Pointer != nil {
+		x.Pointer = *u.Pointer
+	}
+	if u.Generator != nil {
+		x.Generator = *u.Generator
+	}
+	u.TimeFormat.ApplyOptional(&x.TimeFormat)
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u GeneratedWriteFieldUpdate) Defaults() (GeneratedWriteField, error) {
+	var x GeneratedWriteField
+	x.ApplyDefaults()
+	return x, nil
+}

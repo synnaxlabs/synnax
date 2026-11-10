@@ -42,7 +42,13 @@ from synnax.arc.types_gen import (
     SetNodePositionAction,
     SetNodePositionPayload,
     SetPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

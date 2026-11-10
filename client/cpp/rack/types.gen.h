@@ -185,6 +185,10 @@ struct Rack {
     task::Client tasks;
 };
 
+/// @brief UpdatePayload changes the fields of the rack that the update holds, when its
+/// guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief Order is a sort of racks.
 struct Order {
     /// @brief field is the field to sort by. Records with equal values sort by key.
@@ -278,8 +282,13 @@ struct RetrieveRequest {
 };
 
 /// @brief Action holds one rack mutation.
-using Action = std::
-    variant<CreatePayload, SetPayload, RemovePayload, InsertPayload, MovePayload>;
+using Action = std::variant<
+    CreatePayload,
+    UpdatePayload,
+    SetPayload,
+    RemovePayload,
+    InsertPayload,
+    MovePayload>;
 
 Action parse_action(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Action &value);

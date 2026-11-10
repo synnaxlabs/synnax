@@ -32,6 +32,8 @@ const (
 	coreExpr = "core"
 	// updateSuffix ends the name of the update type of a struct or union.
 	updateSuffix = "Update"
+	// updateAction is the standard action that carries an update.
+	updateAction = "Update"
 )
 
 // The qualified names of the patch types that the fields of an update hold.
@@ -159,13 +161,16 @@ func (s *updateSynth) root(typ resolution.Type) {
 	if len(fields) == 0 {
 		return
 	}
-	s.derive(typ, updateSuffix, fields, form.TypeParams, false)
+	if !s.derive(typ, updateSuffix, fields, form.TypeParams, false) {
+		return
+	}
 	core := lo.FilterMap(fields, func(f resolution.Field, _ int) (string, bool) {
 		return f.Name, coreOnly(f)
 	})
 	if len(core) > 0 {
 		s.input(typ, core)
 	}
+	s.updateAction(typ, core)
 }
 
 // rootUnion derives the update of a union record with @patch fields in its base or its
@@ -190,15 +195,107 @@ func (s *updateSynth) rootUnion(typ resolution.Type, form resolution.UnionForm) 
 		))
 		return
 	}
-	s.deriveUnion(typ, updateSuffix, patched, false)
+	if s.deriveUnion(typ, updateSuffix, patched, false) {
+		s.updateAction(typ, nil)
+	}
+}
+
+// updateAction gives the record owner the update action after create. Its payload
+// holds the update of owner and the guards that must hold before it applies. core names
+// the fields that only the Core sets.
+func (s *updateSynth) updateAction(owner resolution.Type, core []string) {
+	owner = s.c.table.MustGet(owner.QualifiedName)
+	union, ok := s.c.table.Get(resolution.ActionUnion(owner))
+	if !ok {
+		return
+	}
+	actions := owner.Actions()
+	if existing, ok := lo.Find(actions, func(a resolution.Action) bool {
+		return a.Name == updateAction
+	}); ok {
+		if !existing.Update {
+			s.report(owner, diagnostics.Errorf(ruleCtx(existing.AST),
+				"action %s of %s: @patch already declares %s",
+				updateAction, owner.Name, updateAction,
+			))
+		}
+		return
+	}
+	payload := resolution.TypeRef{
+		Name: owner.Namespace + "." + updateAction + "Payload",
+	}
+	if _, exists := s.c.table.Get(payload.Name); exists {
+		s.report(owner, diagnostics.Errorf(ruleCtx(owner.AST),
+			"the update action of %s needs the name %sPayload, which the schema "+
+				"declares",
+			owner.Name, updateAction,
+		))
+		return
+	}
+	create := s.c.table.MustGet(owner.Namespace + "." + createAction + "Payload")
+	noun := strings.ReplaceAll(casing.TypeSnake(owner.Name), "_", " ")
+	lo.Must0(s.c.table.Add(resolution.Type{
+		Name:          updateAction + "Payload",
+		Namespace:     owner.Namespace,
+		QualifiedName: payload.Name,
+		FilePath:      owner.FilePath,
+		Form: resolution.DistinctForm{Base: generic(
+			patchNamespace+"."+updateAction,
+			resolution.TypeRef{Name: owner.Namespace + "." + updateSuffix},
+		)},
+		Domains: withDoc(
+			create.Domains,
+			"changes the fields of the "+noun+" that the update holds, when its "+
+				"guards hold.",
+		),
+	}))
+	action := resolution.Action{
+		AST:        owner.AST,
+		Name:       updateAction,
+		Payload:    payload,
+		Update:     true,
+		CoreFields: core,
+	}
+	form := union.Form.(resolution.UnionForm)
+	form.Variants = slices.Insert(
+		slices.Clone(form.Variants),
+		1,
+		resolution.UnionVariant{
+			Name:    casing.TypeSnake(updateAction),
+			Type:    payload,
+			Domains: map[string]resolution.Domain{},
+		},
+	)
+	union.Form = form
+	replaceType(s.c.table, union)
+	actions = slices.Insert(slices.Clone(actions), 1, action)
+	switch form := owner.Form.(type) {
+	case resolution.StructForm:
+		form.Actions = actions
+		owner.Form = form
+	case resolution.UnionForm:
+		form.Actions = actions
+		owner.Form = form
+	}
+	replaceType(s.c.table, owner)
 }
 
 // baseFields returns the fields that every variant of a union shares.
 func baseFields(form resolution.UnionForm, table *resolution.Table) []resolution.Field {
+	dropped := make(set.Set[string])
+	for _, v := range form.Variants {
+		if payload, ok := v.Type.Resolve(table); ok && v.Inline {
+			dropped.Add(payload.Form.(resolution.StructForm).OmittedFields...)
+		}
+	}
+	isDropped := func(f resolution.Field, _ int) bool { return dropped.Contains(f.Name) }
 	var fields []resolution.Field
 	for _, ref := range form.Extends {
 		if base, _, ok := resolution.Dealias(ref, table); ok {
-			fields = append(fields, resolution.UnifiedFields(base, table)...)
+			fields = append(
+				fields,
+				lo.Reject(resolution.UnifiedFields(base, table), isDropped)...,
+			)
 		}
 	}
 	return fields
@@ -213,10 +310,10 @@ func (s *updateSynth) deriveUnion(
 	name string,
 	keep func(resolution.Field) bool,
 	reached bool,
-) {
+) bool {
 	qualified := owner.Namespace + "." + name
 	if s.declared(owner, qualified) {
-		return
+		return false
 	}
 	form := owner.Form.(resolution.UnionForm)
 	var untagged resolution.TypeRef
@@ -224,7 +321,7 @@ func (s *updateSynth) deriveUnion(
 	if base := lo.Filter(baseFields(form, s.c.table), kept); len(base) > 0 {
 		baseName := strings.TrimSuffix(name, updateSuffix) + "Base" + updateSuffix
 		if !s.derive(owner, baseName, base, nil, reached) {
-			return
+			return false
 		}
 		untagged = resolution.TypeRef{Name: owner.Namespace + "." + baseName}
 	}
@@ -233,11 +330,11 @@ func (s *updateSynth) deriveUnion(
 		fields := lo.Filter(resolution.UnifiedVariantFields(owner, v, s.c.table), kept)
 		updates, ok := s.fields(owner, fields, reached)
 		if !ok {
-			return
+			return false
 		}
 		payload := name + pascalIdent(v.Name) + "Payload"
 		if s.declared(owner, owner.Namespace+"."+payload) {
-			return
+			return false
 		}
 		lo.Must0(s.c.table.Add(resolution.Type{
 			Name:          payload,
@@ -275,6 +372,7 @@ func (s *updateSynth) deriveUnion(
 		),
 		Updates: owner.QualifiedName,
 	}))
+	return true
 }
 
 // declared reports whether the table already holds the type qualified that owner

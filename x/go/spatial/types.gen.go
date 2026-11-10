@@ -12,8 +12,10 @@
 package spatial
 
 import (
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
 	"github.com/synnaxlabs/x/spatial/versions"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
@@ -181,4 +183,40 @@ type XYUpdate struct {
 	X *float64 `json:"x,omitzero" msgpack:"x,omitempty"`
 	// Y is the vertical coordinate.
 	Y *float64 `json:"y,omitzero" msgpack:"y,omitempty"`
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ViewportUpdate) ApplyTo(x *Viewport) error {
+	if u.Zoom != nil {
+		x.Zoom = *u.Zoom
+	}
+	if u.Position != nil {
+		if err := u.Position.ApplyTo(&x.Position, func(v *XY, w XYUpdate) error { return w.ApplyTo(v) }); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ViewportUpdate) Defaults() (Viewport, error) {
+	if u.Position == nil {
+		return Viewport{}, errors.Wrap(validate.ErrValidation, "position is required")
+	}
+	var x Viewport
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u XYUpdate) ApplyTo(x *XY) error {
+	if u.X != nil {
+		x.X = *u.X
+	}
+	if u.Y != nil {
+		x.Y = *u.Y
+	}
+	return nil
 }

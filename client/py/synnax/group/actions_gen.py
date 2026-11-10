@@ -22,7 +22,13 @@ from synnax.group.types_gen import (
     SetParentAction,
     SetParentPayload,
     SetPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

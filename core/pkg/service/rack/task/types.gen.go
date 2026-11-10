@@ -25,3 +25,11 @@ type StatusConfigUpdate struct {
 	// Key is the unique identifier for the stored configuration record.
 	Key *uuid.UUID `json:"key,omitzero" msgpack:"key,omitempty"`
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u StatusConfigUpdate) ApplyTo(x *StatusConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	return nil
+}

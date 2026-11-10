@@ -278,6 +278,9 @@ export const baseZ = z.object({
 });
 export interface Base extends z.infer<typeof baseZ> {}
 
+export const updatePayloadZ = patch.updateZ(updateZ);
+export type UpdatePayload = z.infer<typeof updatePayloadZ>;
+
 /** RetrieveRequest is a request to retrieve arcs. */
 export const retrieveRequestZ = z.strictObject({
   /** where selects the arcs to retrieve. An absent where selects all of them. */
@@ -343,6 +346,12 @@ export const createActionZ = z.object({
   create: createPayloadZ,
 });
 export interface CreateAction extends z.infer<typeof createActionZ> {}
+
+export const updateActionZ = z.object({
+  type: z.literal("update"),
+  update: updatePayloadZ,
+});
+export interface UpdateAction extends z.infer<typeof updateActionZ> {}
 
 export const setActionZ = z.object({
   type: z.literal("set"),
@@ -436,6 +445,7 @@ export interface SetDirectoryAction extends z.infer<typeof setDirectoryActionZ> 
 
 export const ACTION_TYPES = [
   "create",
+  "update",
   "set",
   "remove",
   "insert",
@@ -458,6 +468,7 @@ export type ActionType = z.infer<typeof actionTypeZ>;
 /** Action holds one arc mutation. */
 export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.lazy(() => createActionZ),
+  z.lazy(() => updateActionZ),
   z.lazy(() => setActionZ),
   z.lazy(() => removeActionZ),
   z.lazy(() => insertActionZ),
@@ -476,6 +487,7 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
 ]);
 export type Action =
   | CreateAction
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -496,6 +508,7 @@ export const ACTION_SCHEMAS: {
   [K in ActionType]: z.ZodType<Extract<Action, { type: K }>>;
 } = {
   create: createActionZ,
+  update: updateActionZ,
   set: setActionZ,
   remove: removeActionZ,
   insert: insertActionZ,

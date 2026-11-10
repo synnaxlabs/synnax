@@ -268,6 +268,9 @@ class ChannelEntry(BaseModel):
     )
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class RetrieveRequest(BaseModel):
     """Is a request to retrieve logs.
 
@@ -356,6 +359,11 @@ class RetrieveResponse(BaseModel):
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
+
+
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
 
 
 class SetAction(BaseModel):
@@ -451,6 +459,7 @@ class SetTimeZoneAction(BaseModel):
 # Holds one log mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

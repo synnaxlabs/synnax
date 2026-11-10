@@ -1135,8 +1135,6 @@ type AIChannelBaseUpdate struct {
 	Disabled *bool `json:"disabled,omitzero" msgpack:"disabled,omitempty"`
 	// Channel is the Synnax channel that raw samples are written to.
 	Channel *channel.Key `json:"channel,omitzero" msgpack:"channel,omitempty"`
-	// Port is the physical port the channel reads from.
-	Port *uint32 `json:"port,omitzero" msgpack:"port,omitempty"`
 	// Device is the key of the device the channel belongs to.
 	Device *device.Key `json:"device,omitzero" msgpack:"device,omitempty"`
 }
@@ -4124,4 +4122,4115 @@ func (u CJCUpdate) Source() CJCUpdateType {
 		return ChanCJCUpdateType
 	}
 	return ""
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AnalogReadConfigUpdate) ApplyTo(x *AnalogReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.SampleRate != nil {
+		x.SampleRate = *u.SampleRate
+	}
+	if u.StreamRate != nil {
+		x.StreamRate = *u.StreamRate
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e AIChannel) string { return baseOfAIChannel(&e).Key },
+			func(w AIChannelUpdate) string { return w.Key() },
+			func(e *AIChannel, w AIChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CounterReadConfigUpdate) ApplyTo(x *CounterReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.SampleRate != nil {
+		x.SampleRate = *u.SampleRate
+	}
+	if u.StreamRate != nil {
+		x.StreamRate = *u.StreamRate
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e CIChannel) string { return e.Base().Key },
+			func(w CIChannelUpdate) string { return w.Key() },
+			func(e *CIChannel, w CIChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AnalogWriteConfigUpdate) ApplyTo(x *AnalogWriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.StateRate != nil {
+		x.StateRate = *u.StateRate
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e AOChannel) string { return e.Base().Key },
+			func(w AOChannelUpdate) string { return w.Key() },
+			func(e *AOChannel, w AOChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DigitalReadConfigUpdate) ApplyTo(x *DigitalReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.SampleRate != nil {
+		x.SampleRate = *u.SampleRate
+	}
+	if u.StreamRate != nil {
+		x.StreamRate = *u.StreamRate
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e DIChannel) string { return e.Key },
+			func(w DIChannelUpdate) string { return w.Key },
+			func(e *DIChannel, w DIChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DigitalWriteConfigUpdate) ApplyTo(x *DigitalWriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.StateRate != nil {
+		x.StateRate = *u.StateRate
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e DOChannel) string { return e.Key },
+			func(w DOChannelUpdate) string { return w.Key },
+			func(e *DOChannel, w DOChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScanConfigUpdate) ApplyTo(x *ScanConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.Rate != nil {
+		x.Rate = *u.Rate
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIChannelBaseUpdate) ApplyTo(x *BaseAIChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u AIChannelUpdate) ApplyTo(x *AIChannel) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case AIChannelBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := baseOfAIChannel(x)
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		setBaseOfAIChannel(x, base)
+	case AIVoltageChannelUpdate:
+		next, same := x.Variant.(AIVoltageChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIVoltageChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIAccelChannelUpdate:
+		next, same := x.Variant.(AIAccelChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIAccelChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIBridgeChannelUpdate:
+		next, same := x.Variant.(AIBridgeChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIBridgeChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AICurrentChannelUpdate:
+		next, same := x.Variant.(AICurrentChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AICurrentChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIForceBridgeTableChannelUpdate:
+		next, same := x.Variant.(AIForceBridgeTableChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIForceBridgeTableChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIForceBridgeTwoPointLinChannelUpdate:
+		next, same := x.Variant.(AIForceBridgeTwoPointLinChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIForceBridgeTwoPointLinChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIForceIEPEChannelUpdate:
+		next, same := x.Variant.(AIForceIEPEChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIForceIEPEChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIMicrophoneChannelUpdate:
+		next, same := x.Variant.(AIMicrophoneChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIMicrophoneChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIPressureBridgeTableChannelUpdate:
+		next, same := x.Variant.(AIPressureBridgeTableChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIPressureBridgeTableChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIPressureBridgeTwoPointLinChannelUpdate:
+		next, same := x.Variant.(AIPressureBridgeTwoPointLinChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIPressureBridgeTwoPointLinChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIResistanceChannelUpdate:
+		next, same := x.Variant.(AIResistanceChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIResistanceChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIRTDChannelUpdate:
+		next, same := x.Variant.(AIRTDChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIRTDChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIStrainGaugeChannelUpdate:
+		next, same := x.Variant.(AIStrainGaugeChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIStrainGaugeChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AITempBuiltinChannelUpdate:
+		next, same := x.Variant.(AITempBuiltinChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AITempBuiltinChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIThermocoupleChannelUpdate:
+		next, same := x.Variant.(AIThermocoupleChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIThermocoupleChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AITorqueBridgeTableChannelUpdate:
+		next, same := x.Variant.(AITorqueBridgeTableChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AITorqueBridgeTableChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AITorqueBridgeTwoPointLinChannelUpdate:
+		next, same := x.Variant.(AITorqueBridgeTwoPointLinChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AITorqueBridgeTwoPointLinChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIVelocityIEPEChannelUpdate:
+		next, same := x.Variant.(AIVelocityIEPEChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIVelocityIEPEChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIAccel4WireDCVoltageChannelUpdate:
+		next, same := x.Variant.(AIAccel4WireDCVoltageChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIAccel4WireDCVoltageChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIAccelChargeChannelUpdate:
+		next, same := x.Variant.(AIAccelChargeChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIAccelChargeChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIChargeChannelUpdate:
+		next, same := x.Variant.(AIChargeChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIChargeChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AICurrentRMSChannelUpdate:
+		next, same := x.Variant.(AICurrentRMSChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AICurrentRMSChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIForceBridgePolynomialChannelUpdate:
+		next, same := x.Variant.(AIForceBridgePolynomialChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIForceBridgePolynomialChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIFreqVoltageChannelUpdate:
+		next, same := x.Variant.(AIFreqVoltageChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIFreqVoltageChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIPressureBridgePolynomialChannelUpdate:
+		next, same := x.Variant.(AIPressureBridgePolynomialChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIPressureBridgePolynomialChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIThermistorIexChannelUpdate:
+		next, same := x.Variant.(AIThermistorIexChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIThermistorIexChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIThermistorVexChannelUpdate:
+		next, same := x.Variant.(AIThermistorVexChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIThermistorVexChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AITorqueBridgePolynomialChannelUpdate:
+		next, same := x.Variant.(AITorqueBridgePolynomialChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AITorqueBridgePolynomialChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIVoltageRMSChannelUpdate:
+		next, same := x.Variant.(AIVoltageRMSChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIVoltageRMSChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AIVoltageWithExcitChannelUpdate:
+		next, same := x.Variant.(AIVoltageWithExcitChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				base := baseOfAIChannel(x)
+				x.Variant = next
+				setBaseOfAIChannel(x, base)
+				next = x.Variant.(AIVoltageWithExcitChannel)
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u AIChannelUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case AIChannelBaseUpdate:
+		key = v.Key
+	case AIVoltageChannelUpdate:
+		key = v.Key
+	case AIAccelChannelUpdate:
+		key = v.Key
+	case AIBridgeChannelUpdate:
+		key = v.Key
+	case AICurrentChannelUpdate:
+		key = v.Key
+	case AIForceBridgeTableChannelUpdate:
+		key = v.Key
+	case AIForceBridgeTwoPointLinChannelUpdate:
+		key = v.Key
+	case AIForceIEPEChannelUpdate:
+		key = v.Key
+	case AIMicrophoneChannelUpdate:
+		key = v.Key
+	case AIPressureBridgeTableChannelUpdate:
+		key = v.Key
+	case AIPressureBridgeTwoPointLinChannelUpdate:
+		key = v.Key
+	case AIResistanceChannelUpdate:
+		key = v.Key
+	case AIRTDChannelUpdate:
+		key = v.Key
+	case AIStrainGaugeChannelUpdate:
+		key = v.Key
+	case AITempBuiltinChannelUpdate:
+		key = v.Key
+	case AIThermocoupleChannelUpdate:
+		key = v.Key
+	case AITorqueBridgeTableChannelUpdate:
+		key = v.Key
+	case AITorqueBridgeTwoPointLinChannelUpdate:
+		key = v.Key
+	case AIVelocityIEPEChannelUpdate:
+		key = v.Key
+	case AIAccel4WireDCVoltageChannelUpdate:
+		key = v.Key
+	case AIAccelChargeChannelUpdate:
+		key = v.Key
+	case AIChargeChannelUpdate:
+		key = v.Key
+	case AICurrentRMSChannelUpdate:
+		key = v.Key
+	case AIForceBridgePolynomialChannelUpdate:
+		key = v.Key
+	case AIFreqVoltageChannelUpdate:
+		key = v.Key
+	case AIPressureBridgePolynomialChannelUpdate:
+		key = v.Key
+	case AIThermistorIexChannelUpdate:
+		key = v.Key
+	case AIThermistorVexChannelUpdate:
+		key = v.Key
+	case AITorqueBridgePolynomialChannelUpdate:
+		key = v.Key
+	case AIVoltageRMSChannelUpdate:
+		key = v.Key
+	case AIVoltageWithExcitChannelUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// baseOfAIChannel returns the base fields that the variant of x holds.
+func baseOfAIChannel(x *AIChannel) BaseAIChannel {
+	var base BaseAIChannel
+	switch v := x.Variant.(type) {
+	case AIVoltageChannel:
+		base = v.BaseAIChannel
+	case AIAccelChannel:
+		base = v.BaseAIChannel
+	case AIBridgeChannel:
+		base = v.BaseAIChannel
+	case AICurrentChannel:
+		base = v.BaseAIChannel
+	case AIForceBridgeTableChannel:
+		base = v.BaseAIChannel
+	case AIForceBridgeTwoPointLinChannel:
+		base = v.BaseAIChannel
+	case AIForceIEPEChannel:
+		base = v.BaseAIChannel
+	case AIMicrophoneChannel:
+		base = v.BaseAIChannel
+	case AIPressureBridgeTableChannel:
+		base = v.BaseAIChannel
+	case AIPressureBridgeTwoPointLinChannel:
+		base = v.BaseAIChannel
+	case AIResistanceChannel:
+		base = v.BaseAIChannel
+	case AIRTDChannel:
+		base = v.BaseAIChannel
+	case AIStrainGaugeChannel:
+		base = v.BaseAIChannel
+	case AITempBuiltinChannel:
+		base.Key = v.Key
+		base.Name = v.Name
+		base.Disabled = v.Disabled
+		base.Channel = v.Channel
+		base.Device = v.Device
+	case AIThermocoupleChannel:
+		base = v.BaseAIChannel
+	case AITorqueBridgeTableChannel:
+		base = v.BaseAIChannel
+	case AITorqueBridgeTwoPointLinChannel:
+		base = v.BaseAIChannel
+	case AIVelocityIEPEChannel:
+		base = v.BaseAIChannel
+	case AIAccel4WireDCVoltageChannel:
+		base = v.BaseAIChannel
+	case AIAccelChargeChannel:
+		base = v.BaseAIChannel
+	case AIChargeChannel:
+		base = v.BaseAIChannel
+	case AICurrentRMSChannel:
+		base = v.BaseAIChannel
+	case AIForceBridgePolynomialChannel:
+		base = v.BaseAIChannel
+	case AIFreqVoltageChannel:
+		base = v.BaseAIChannel
+	case AIPressureBridgePolynomialChannel:
+		base = v.BaseAIChannel
+	case AIThermistorIexChannel:
+		base = v.BaseAIChannel
+	case AIThermistorVexChannel:
+		base = v.BaseAIChannel
+	case AITorqueBridgePolynomialChannel:
+		base = v.BaseAIChannel
+	case AIVoltageRMSChannel:
+		base = v.BaseAIChannel
+	case AIVoltageWithExcitChannel:
+		base = v.BaseAIChannel
+	}
+	return base
+}
+
+// setBaseOfAIChannel replaces the base fields that the variant of x holds.
+func setBaseOfAIChannel(x *AIChannel, base BaseAIChannel) {
+	switch v := x.Variant.(type) {
+	case AIVoltageChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIAccelChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIBridgeChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AICurrentChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIForceBridgeTableChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIForceBridgeTwoPointLinChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIForceIEPEChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIMicrophoneChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIPressureBridgeTableChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIPressureBridgeTwoPointLinChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIResistanceChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIRTDChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIStrainGaugeChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AITempBuiltinChannel:
+		v.Key = base.Key
+		v.Name = base.Name
+		v.Disabled = base.Disabled
+		v.Channel = base.Channel
+		v.Device = base.Device
+		x.Variant = v
+	case AIThermocoupleChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AITorqueBridgeTableChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AITorqueBridgeTwoPointLinChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIVelocityIEPEChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIAccel4WireDCVoltageChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIAccelChargeChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIChargeChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AICurrentRMSChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIForceBridgePolynomialChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIFreqVoltageChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIPressureBridgePolynomialChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIThermistorIexChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIThermistorVexChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AITorqueBridgePolynomialChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIVoltageRMSChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	case AIVoltageWithExcitChannel:
+		v.BaseAIChannel = base
+		x.Variant = v
+	}
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIVoltageChannelUpdate) ApplyTo(x *AIVoltageChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIVoltageChannelUpdate) Defaults() (AIVoltageChannel, error) {
+	var x AIVoltageChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIAccelChannelUpdate) ApplyTo(x *AIAccelChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.Sensitivity != nil {
+		x.Sensitivity.Sensitivity = *u.Sensitivity
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.SensitivityUnits != nil {
+		x.SensitivityUnits = *u.SensitivityUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIAccelChannelUpdate) Defaults() (AIAccelChannel, error) {
+	var x AIAccelChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIBridgeChannelUpdate) ApplyTo(x *AIBridgeChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIBridgeChannelUpdate) Defaults() (AIBridgeChannel, error) {
+	var x AIBridgeChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AICurrentChannelUpdate) ApplyTo(x *AICurrentChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.ShuntResistorLoc != nil {
+		x.ShuntResistorLoc = *u.ShuntResistorLoc
+	}
+	if u.ExtShuntResistorVal != nil {
+		x.ExtShuntResistorVal = *u.ExtShuntResistorVal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AICurrentChannelUpdate) Defaults() (AICurrentChannel, error) {
+	var x AICurrentChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIForceBridgeTableChannelUpdate) ApplyTo(x *AIForceBridgeTableChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ElectricalVals != nil {
+		if err := patch.ApplyValueList(&x.ElectricalVals, *u.ElectricalVals); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.PhysicalVals != nil {
+		if err := patch.ApplyValueList(&x.PhysicalVals, *u.PhysicalVals); err != nil {
+			return err
+		}
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIForceBridgeTableChannelUpdate) Defaults() (AIForceBridgeTableChannel, error) {
+	var x AIForceBridgeTableChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIForceBridgeTwoPointLinChannelUpdate) ApplyTo(x *AIForceBridgeTwoPointLinChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.FirstElectricalVal != nil {
+		x.FirstElectricalVal = *u.FirstElectricalVal
+	}
+	if u.SecondElectricalVal != nil {
+		x.SecondElectricalVal = *u.SecondElectricalVal
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.FirstPhysicalVal != nil {
+		x.FirstPhysicalVal = *u.FirstPhysicalVal
+	}
+	if u.SecondPhysicalVal != nil {
+		x.SecondPhysicalVal = *u.SecondPhysicalVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIForceBridgeTwoPointLinChannelUpdate) Defaults() (AIForceBridgeTwoPointLinChannel, error) {
+	var x AIForceBridgeTwoPointLinChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIForceIEPEChannelUpdate) ApplyTo(x *AIForceIEPEChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.Sensitivity != nil {
+		x.Sensitivity.Sensitivity = *u.Sensitivity
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.SensitivityUnits != nil {
+		x.SensitivityUnits = *u.SensitivityUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIForceIEPEChannelUpdate) Defaults() (AIForceIEPEChannel, error) {
+	var x AIForceIEPEChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIMicrophoneChannelUpdate) ApplyTo(x *AIMicrophoneChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MicSensitivity != nil {
+		x.MicSensitivity = *u.MicSensitivity
+	}
+	if u.MaxSndPressLevel != nil {
+		x.MaxSndPressLevel = *u.MaxSndPressLevel
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIMicrophoneChannelUpdate) Defaults() (AIMicrophoneChannel, error) {
+	var x AIMicrophoneChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIPressureBridgeTableChannelUpdate) ApplyTo(x *AIPressureBridgeTableChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ElectricalVals != nil {
+		if err := patch.ApplyValueList(&x.ElectricalVals, *u.ElectricalVals); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.PhysicalVals != nil {
+		if err := patch.ApplyValueList(&x.PhysicalVals, *u.PhysicalVals); err != nil {
+			return err
+		}
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIPressureBridgeTableChannelUpdate) Defaults() (AIPressureBridgeTableChannel, error) {
+	var x AIPressureBridgeTableChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIPressureBridgeTwoPointLinChannelUpdate) ApplyTo(x *AIPressureBridgeTwoPointLinChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.FirstElectricalVal != nil {
+		x.FirstElectricalVal = *u.FirstElectricalVal
+	}
+	if u.SecondElectricalVal != nil {
+		x.SecondElectricalVal = *u.SecondElectricalVal
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.FirstPhysicalVal != nil {
+		x.FirstPhysicalVal = *u.FirstPhysicalVal
+	}
+	if u.SecondPhysicalVal != nil {
+		x.SecondPhysicalVal = *u.SecondPhysicalVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIPressureBridgeTwoPointLinChannelUpdate) Defaults() (AIPressureBridgeTwoPointLinChannel, error) {
+	var x AIPressureBridgeTwoPointLinChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIResistanceChannelUpdate) ApplyTo(x *AIResistanceChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.ResistanceConfig != nil {
+		x.ResistanceConfig = *u.ResistanceConfig
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIResistanceChannelUpdate) Defaults() (AIResistanceChannel, error) {
+	var x AIResistanceChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIRTDChannelUpdate) ApplyTo(x *AIRTDChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.ResistanceConfig != nil {
+		x.ResistanceConfig = *u.ResistanceConfig
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.RtdType != nil {
+		x.RtdType = *u.RtdType
+	}
+	if u.R0 != nil {
+		x.R0 = *u.R0
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIRTDChannelUpdate) Defaults() (AIRTDChannel, error) {
+	var x AIRTDChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIStrainGaugeChannelUpdate) ApplyTo(x *AIStrainGaugeChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.StrainConfig != nil {
+		x.StrainConfig = *u.StrainConfig
+	}
+	if u.GageFactor != nil {
+		x.GageFactor = *u.GageFactor
+	}
+	if u.InitialBridgeVoltage != nil {
+		x.InitialBridgeVoltage = *u.InitialBridgeVoltage
+	}
+	if u.NominalGageResistance != nil {
+		x.NominalGageResistance = *u.NominalGageResistance
+	}
+	if u.PoissonRatio != nil {
+		x.PoissonRatio = *u.PoissonRatio
+	}
+	if u.LeadWireResistance != nil {
+		x.LeadWireResistance = *u.LeadWireResistance
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIStrainGaugeChannelUpdate) Defaults() (AIStrainGaugeChannel, error) {
+	var x AIStrainGaugeChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AITempBuiltinChannelUpdate) ApplyTo(x *AITempBuiltinChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AITempBuiltinChannelUpdate) Defaults() (AITempBuiltinChannel, error) {
+	var x AITempBuiltinChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIThermocoupleChannelUpdate) ApplyTo(x *AIThermocoupleChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.ThermocoupleType != nil {
+		x.ThermocoupleType = *u.ThermocoupleType
+	}
+	if u.Cjc != nil {
+		if err := u.Cjc.ApplyTo(&x.Cjc); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIThermocoupleChannelUpdate) Defaults() (AIThermocoupleChannel, error) {
+	var x AIThermocoupleChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AITorqueBridgeTableChannelUpdate) ApplyTo(x *AITorqueBridgeTableChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ElectricalVals != nil {
+		if err := patch.ApplyValueList(&x.ElectricalVals, *u.ElectricalVals); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.PhysicalVals != nil {
+		if err := patch.ApplyValueList(&x.PhysicalVals, *u.PhysicalVals); err != nil {
+			return err
+		}
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AITorqueBridgeTableChannelUpdate) Defaults() (AITorqueBridgeTableChannel, error) {
+	var x AITorqueBridgeTableChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AITorqueBridgeTwoPointLinChannelUpdate) ApplyTo(x *AITorqueBridgeTwoPointLinChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.FirstElectricalVal != nil {
+		x.FirstElectricalVal = *u.FirstElectricalVal
+	}
+	if u.SecondElectricalVal != nil {
+		x.SecondElectricalVal = *u.SecondElectricalVal
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.FirstPhysicalVal != nil {
+		x.FirstPhysicalVal = *u.FirstPhysicalVal
+	}
+	if u.SecondPhysicalVal != nil {
+		x.SecondPhysicalVal = *u.SecondPhysicalVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AITorqueBridgeTwoPointLinChannelUpdate) Defaults() (AITorqueBridgeTwoPointLinChannel, error) {
+	var x AITorqueBridgeTwoPointLinChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIVelocityIEPEChannelUpdate) ApplyTo(x *AIVelocityIEPEChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.Sensitivity != nil {
+		x.Sensitivity.Sensitivity = *u.Sensitivity
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.SensitivityUnits != nil {
+		x.SensitivityUnits = *u.SensitivityUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIVelocityIEPEChannelUpdate) Defaults() (AIVelocityIEPEChannel, error) {
+	var x AIVelocityIEPEChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIAccel4WireDCVoltageChannelUpdate) ApplyTo(x *AIAccel4WireDCVoltageChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.Sensitivity != nil {
+		x.Sensitivity.Sensitivity = *u.Sensitivity
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.SensitivityUnits != nil {
+		x.SensitivityUnits = *u.SensitivityUnits
+	}
+	if u.ScaledByExcitation != nil {
+		x.ScaledByExcitation = *u.ScaledByExcitation
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIAccel4WireDCVoltageChannelUpdate) Defaults() (AIAccel4WireDCVoltageChannel, error) {
+	var x AIAccel4WireDCVoltageChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIAccelChargeChannelUpdate) ApplyTo(x *AIAccelChargeChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.Sensitivity != nil {
+		x.Sensitivity.Sensitivity = *u.Sensitivity
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.SensitivityUnits != nil {
+		x.SensitivityUnits = *u.SensitivityUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIAccelChargeChannelUpdate) Defaults() (AIAccelChargeChannel, error) {
+	var x AIAccelChargeChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIChargeChannelUpdate) ApplyTo(x *AIChargeChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIChargeChannelUpdate) Defaults() (AIChargeChannel, error) {
+	var x AIChargeChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AICurrentRMSChannelUpdate) ApplyTo(x *AICurrentRMSChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.ShuntResistorLoc != nil {
+		x.ShuntResistorLoc = *u.ShuntResistorLoc
+	}
+	if u.ExtShuntResistorVal != nil {
+		x.ExtShuntResistorVal = *u.ExtShuntResistorVal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AICurrentRMSChannelUpdate) Defaults() (AICurrentRMSChannel, error) {
+	var x AICurrentRMSChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIForceBridgePolynomialChannelUpdate) ApplyTo(x *AIForceBridgePolynomialChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ForwardCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ForwardCoeffs, *u.ForwardCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ReverseCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ReverseCoeffs, *u.ReverseCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIForceBridgePolynomialChannelUpdate) Defaults() (AIForceBridgePolynomialChannel, error) {
+	var x AIForceBridgePolynomialChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIFreqVoltageChannelUpdate) ApplyTo(x *AIFreqVoltageChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.ThresholdLevel != nil {
+		x.ThresholdLevel = *u.ThresholdLevel
+	}
+	if u.Hysteresis != nil {
+		x.Hysteresis = *u.Hysteresis
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIFreqVoltageChannelUpdate) Defaults() (AIFreqVoltageChannel, error) {
+	var x AIFreqVoltageChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIPressureBridgePolynomialChannelUpdate) ApplyTo(x *AIPressureBridgePolynomialChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ForwardCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ForwardCoeffs, *u.ForwardCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ReverseCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ReverseCoeffs, *u.ReverseCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIPressureBridgePolynomialChannelUpdate) Defaults() (AIPressureBridgePolynomialChannel, error) {
+	var x AIPressureBridgePolynomialChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIThermistorIexChannelUpdate) ApplyTo(x *AIThermistorIexChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.ResistanceConfig != nil {
+		x.ResistanceConfig = *u.ResistanceConfig
+	}
+	if u.CurrentExcitSource != nil {
+		x.CurrentExcitSource = *u.CurrentExcitSource
+	}
+	if u.CurrentExcitVal != nil {
+		x.CurrentExcitVal = *u.CurrentExcitVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.A != nil {
+		x.A = *u.A
+	}
+	if u.B != nil {
+		x.B = *u.B
+	}
+	if u.C != nil {
+		x.C = *u.C
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIThermistorIexChannelUpdate) Defaults() (AIThermistorIexChannel, error) {
+	var x AIThermistorIexChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIThermistorVexChannelUpdate) ApplyTo(x *AIThermistorVexChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.ResistanceConfig != nil {
+		x.ResistanceConfig = *u.ResistanceConfig
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.A != nil {
+		x.A = *u.A
+	}
+	if u.B != nil {
+		x.B = *u.B
+	}
+	if u.C != nil {
+		x.C = *u.C
+	}
+	if u.R1 != nil {
+		x.R1 = *u.R1
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIThermistorVexChannelUpdate) Defaults() (AIThermistorVexChannel, error) {
+	var x AIThermistorVexChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AITorqueBridgePolynomialChannelUpdate) ApplyTo(x *AITorqueBridgePolynomialChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.NominalBridgeResistance != nil {
+		x.NominalBridgeResistance = *u.NominalBridgeResistance
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.ForwardCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ForwardCoeffs, *u.ForwardCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ReverseCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ReverseCoeffs, *u.ReverseCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ElectricalUnits != nil {
+		x.ElectricalUnits = *u.ElectricalUnits
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.PhysicalUnits != nil {
+		x.PhysicalUnits = *u.PhysicalUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AITorqueBridgePolynomialChannelUpdate) Defaults() (AITorqueBridgePolynomialChannel, error) {
+	var x AITorqueBridgePolynomialChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIVoltageRMSChannelUpdate) ApplyTo(x *AIVoltageRMSChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIVoltageRMSChannelUpdate) Defaults() (AIVoltageRMSChannel, error) {
+	var x AIVoltageRMSChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AIVoltageWithExcitChannelUpdate) ApplyTo(x *AIVoltageWithExcitChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.TerminalConfig != nil {
+		x.TerminalConfig = *u.TerminalConfig
+	}
+	if u.VoltageExcitSource != nil {
+		x.VoltageExcitSource = *u.VoltageExcitSource
+	}
+	if u.VoltageExcitVal != nil {
+		x.VoltageExcitVal = *u.VoltageExcitVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.BridgeConfig != nil {
+		x.BridgeConfig = *u.BridgeConfig
+	}
+	if u.ScaledByExcitation != nil {
+		x.ScaledByExcitation = *u.ScaledByExcitation
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AIVoltageWithExcitChannelUpdate) Defaults() (AIVoltageWithExcitChannel, error) {
+	var x AIVoltageWithExcitChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIChannelBaseUpdate) ApplyTo(x *BaseCIChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u CIChannelUpdate) ApplyTo(x *CIChannel) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case CIChannelBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case CIFrequencyChannelUpdate:
+		next, same := x.Variant.(CIFrequencyChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIEdgeCountChannelUpdate:
+		next, same := x.Variant.(CIEdgeCountChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIPeriodChannelUpdate:
+		next, same := x.Variant.(CIPeriodChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIPulseWidthChannelUpdate:
+		next, same := x.Variant.(CIPulseWidthChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CISemiPeriodChannelUpdate:
+		next, same := x.Variant.(CISemiPeriodChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CITwoEdgeSepChannelUpdate:
+		next, same := x.Variant.(CITwoEdgeSepChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIVelocityLinearChannelUpdate:
+		next, same := x.Variant.(CIVelocityLinearChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIVelocityAngularChannelUpdate:
+		next, same := x.Variant.(CIVelocityAngularChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIPositionLinearChannelUpdate:
+		next, same := x.Variant.(CIPositionLinearChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIPositionAngularChannelUpdate:
+		next, same := x.Variant.(CIPositionAngularChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case CIDutyCycleChannelUpdate:
+		next, same := x.Variant.(CIDutyCycleChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseCIChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u CIChannelUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case CIChannelBaseUpdate:
+		key = v.Key
+	case CIFrequencyChannelUpdate:
+		key = v.Key
+	case CIEdgeCountChannelUpdate:
+		key = v.Key
+	case CIPeriodChannelUpdate:
+		key = v.Key
+	case CIPulseWidthChannelUpdate:
+		key = v.Key
+	case CISemiPeriodChannelUpdate:
+		key = v.Key
+	case CITwoEdgeSepChannelUpdate:
+		key = v.Key
+	case CIVelocityLinearChannelUpdate:
+		key = v.Key
+	case CIVelocityAngularChannelUpdate:
+		key = v.Key
+	case CIPositionLinearChannelUpdate:
+		key = v.Key
+	case CIPositionAngularChannelUpdate:
+		key = v.Key
+	case CIDutyCycleChannelUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIFrequencyChannelUpdate) ApplyTo(x *CIFrequencyChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.Edge != nil {
+		x.Edge = *u.Edge
+	}
+	if u.MeasMethod != nil {
+		x.MeasMethod = *u.MeasMethod
+	}
+	if u.MeasTime != nil {
+		x.MeasTime = *u.MeasTime
+	}
+	if u.Divisor != nil {
+		x.Divisor = *u.Divisor
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIFrequencyChannelUpdate) Defaults() (CIFrequencyChannel, error) {
+	var x CIFrequencyChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIEdgeCountChannelUpdate) ApplyTo(x *CIEdgeCountChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.ActiveEdge != nil {
+		x.ActiveEdge = *u.ActiveEdge
+	}
+	if u.CountDirection != nil {
+		x.CountDirection = *u.CountDirection
+	}
+	if u.InitialCount != nil {
+		x.InitialCount = *u.InitialCount
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIEdgeCountChannelUpdate) Defaults() (CIEdgeCountChannel, error) {
+	var x CIEdgeCountChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIPeriodChannelUpdate) ApplyTo(x *CIPeriodChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.StartingEdge != nil {
+		x.StartingEdge = *u.StartingEdge
+	}
+	if u.MeasMethod != nil {
+		x.MeasMethod = *u.MeasMethod
+	}
+	if u.MeasTime != nil {
+		x.MeasTime = *u.MeasTime
+	}
+	if u.Divisor != nil {
+		x.Divisor = *u.Divisor
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIPeriodChannelUpdate) Defaults() (CIPeriodChannel, error) {
+	var x CIPeriodChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIPulseWidthChannelUpdate) ApplyTo(x *CIPulseWidthChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.StartingEdge != nil {
+		x.StartingEdge = *u.StartingEdge
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIPulseWidthChannelUpdate) Defaults() (CIPulseWidthChannel, error) {
+	var x CIPulseWidthChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CISemiPeriodChannelUpdate) ApplyTo(x *CISemiPeriodChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CISemiPeriodChannelUpdate) Defaults() (CISemiPeriodChannel, error) {
+	var x CISemiPeriodChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CITwoEdgeSepChannelUpdate) ApplyTo(x *CITwoEdgeSepChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.FirstEdge != nil {
+		x.FirstEdge = *u.FirstEdge
+	}
+	if u.SecondEdge != nil {
+		x.SecondEdge = *u.SecondEdge
+	}
+	if u.FirstTerminal != nil {
+		x.FirstTerminal = *u.FirstTerminal
+	}
+	if u.SecondTerminal != nil {
+		x.SecondTerminal = *u.SecondTerminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CITwoEdgeSepChannelUpdate) Defaults() (CITwoEdgeSepChannel, error) {
+	var x CITwoEdgeSepChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIVelocityLinearChannelUpdate) ApplyTo(x *CIVelocityLinearChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.DecodingType != nil {
+		x.DecodingType = *u.DecodingType
+	}
+	if u.DistPerPulse != nil {
+		x.DistPerPulse = *u.DistPerPulse
+	}
+	if u.TerminalA != nil {
+		x.TerminalA = *u.TerminalA
+	}
+	if u.TerminalB != nil {
+		x.TerminalB = *u.TerminalB
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIVelocityLinearChannelUpdate) Defaults() (CIVelocityLinearChannel, error) {
+	var x CIVelocityLinearChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIVelocityAngularChannelUpdate) ApplyTo(x *CIVelocityAngularChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.DecodingType != nil {
+		x.DecodingType = *u.DecodingType
+	}
+	if u.PulsesPerRev != nil {
+		x.PulsesPerRev = *u.PulsesPerRev
+	}
+	if u.TerminalA != nil {
+		x.TerminalA = *u.TerminalA
+	}
+	if u.TerminalB != nil {
+		x.TerminalB = *u.TerminalB
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIVelocityAngularChannelUpdate) Defaults() (CIVelocityAngularChannel, error) {
+	var x CIVelocityAngularChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIPositionLinearChannelUpdate) ApplyTo(x *CIPositionLinearChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.ZIndexEnabled != nil {
+		x.ZIndexEnabled = *u.ZIndexEnabled
+	}
+	if u.ZIndexVal != nil {
+		x.ZIndexVal = *u.ZIndexVal
+	}
+	if u.ZIndexPhase != nil {
+		x.ZIndexPhase = *u.ZIndexPhase
+	}
+	if u.TerminalZ != nil {
+		x.TerminalZ = *u.TerminalZ
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.DecodingType != nil {
+		x.DecodingType = *u.DecodingType
+	}
+	if u.DistPerPulse != nil {
+		x.DistPerPulse = *u.DistPerPulse
+	}
+	if u.InitialPos != nil {
+		x.InitialPos = *u.InitialPos
+	}
+	if u.TerminalA != nil {
+		x.TerminalA = *u.TerminalA
+	}
+	if u.TerminalB != nil {
+		x.TerminalB = *u.TerminalB
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIPositionLinearChannelUpdate) Defaults() (CIPositionLinearChannel, error) {
+	var x CIPositionLinearChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIPositionAngularChannelUpdate) ApplyTo(x *CIPositionAngularChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.ZIndexEnabled != nil {
+		x.ZIndexEnabled = *u.ZIndexEnabled
+	}
+	if u.ZIndexVal != nil {
+		x.ZIndexVal = *u.ZIndexVal
+	}
+	if u.ZIndexPhase != nil {
+		x.ZIndexPhase = *u.ZIndexPhase
+	}
+	if u.TerminalZ != nil {
+		x.TerminalZ = *u.TerminalZ
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.DecodingType != nil {
+		x.DecodingType = *u.DecodingType
+	}
+	if u.PulsesPerRev != nil {
+		x.PulsesPerRev = *u.PulsesPerRev
+	}
+	if u.InitialAngle != nil {
+		x.InitialAngle = *u.InitialAngle
+	}
+	if u.TerminalA != nil {
+		x.TerminalA = *u.TerminalA
+	}
+	if u.TerminalB != nil {
+		x.TerminalB = *u.TerminalB
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIPositionAngularChannelUpdate) Defaults() (CIPositionAngularChannel, error) {
+	var x CIPositionAngularChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u CIDutyCycleChannelUpdate) ApplyTo(x *CIDutyCycleChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.ActiveEdge != nil {
+		x.ActiveEdge = *u.ActiveEdge
+	}
+	if u.Terminal != nil {
+		x.Terminal = *u.Terminal
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u CIDutyCycleChannelUpdate) Defaults() (CIDutyCycleChannel, error) {
+	var x CIDutyCycleChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AOChannelBaseUpdate) ApplyTo(x *BaseAOChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u AOChannelUpdate) ApplyTo(x *AOChannel) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case AOChannelBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case AOCurrentChannelUpdate:
+		next, same := x.Variant.(AOCurrentChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseAOChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AOFuncGenChannelUpdate:
+		next, same := x.Variant.(AOFuncGenChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseAOChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case AOVoltageChannelUpdate:
+		next, same := x.Variant.(AOVoltageChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseAOChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u AOChannelUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case AOChannelBaseUpdate:
+		key = v.Key
+	case AOCurrentChannelUpdate:
+		key = v.Key
+	case AOFuncGenChannelUpdate:
+		key = v.Key
+	case AOVoltageChannelUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AOCurrentChannelUpdate) ApplyTo(x *AOCurrentChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AOCurrentChannelUpdate) Defaults() (AOCurrentChannel, error) {
+	var x AOCurrentChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AOFuncGenChannelUpdate) ApplyTo(x *AOFuncGenChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.WaveType != nil {
+		x.WaveType = *u.WaveType
+	}
+	if u.Frequency != nil {
+		x.Frequency = *u.Frequency
+	}
+	if u.Amplitude != nil {
+		x.Amplitude = *u.Amplitude
+	}
+	if u.Offset != nil {
+		x.Offset = *u.Offset
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AOFuncGenChannelUpdate) Defaults() (AOFuncGenChannel, error) {
+	var x AOFuncGenChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AOVoltageChannelUpdate) ApplyTo(x *AOVoltageChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.MinVal != nil {
+		x.MinVal = *u.MinVal
+	}
+	if u.MaxVal != nil {
+		x.MaxVal = *u.MaxVal
+	}
+	if u.CustomScale != nil {
+		if err := u.CustomScale.ApplyTo(&x.CustomScale.CustomScale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AOVoltageChannelUpdate) Defaults() (AOVoltageChannel, error) {
+	var x AOVoltageChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DIChannelUpdate) ApplyTo(x *DIChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Line != nil {
+		x.Line = *u.Line
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DOChannelUpdate) ApplyTo(x *DOChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Line != nil {
+		x.Line = *u.Line
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u ScaleUpdate) ApplyTo(x *Scale) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case LinearScaleUpdate:
+		next, same := x.Variant.(LinearScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case MapScaleUpdate:
+		next, same := x.Variant.(MapScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case TableScaleUpdate:
+		next, same := x.Variant.(TableScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case PolynomialScaleUpdate:
+		next, same := x.Variant.(PolynomialScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case NoneScaleUpdate:
+		next, same := x.Variant.(NoneScale)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u LinearScaleUpdate) ApplyTo(x *LinearScale) error {
+	if u.Slope != nil {
+		x.Slope = *u.Slope
+	}
+	if u.YIntercept != nil {
+		x.YIntercept = *u.YIntercept
+	}
+	if u.PreScaledUnits != nil {
+		x.PreScaledUnits = *u.PreScaledUnits
+	}
+	if u.ScaledUnits != nil {
+		x.ScaledUnits = *u.ScaledUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u LinearScaleUpdate) Defaults() (LinearScale, error) {
+	var x LinearScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u MapScaleUpdate) ApplyTo(x *MapScale) error {
+	if u.PreScaledMin != nil {
+		x.PreScaledMin = *u.PreScaledMin
+	}
+	if u.PreScaledMax != nil {
+		x.PreScaledMax = *u.PreScaledMax
+	}
+	if u.ScaledMin != nil {
+		x.ScaledMin = *u.ScaledMin
+	}
+	if u.ScaledMax != nil {
+		x.ScaledMax = *u.ScaledMax
+	}
+	if u.PreScaledUnits != nil {
+		x.PreScaledUnits = *u.PreScaledUnits
+	}
+	if u.ScaledUnits != nil {
+		x.ScaledUnits = *u.ScaledUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u MapScaleUpdate) Defaults() (MapScale, error) {
+	var x MapScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u TableScaleUpdate) ApplyTo(x *TableScale) error {
+	if u.PreScaledVals != nil {
+		if err := patch.ApplyValueList(&x.PreScaledVals, *u.PreScaledVals); err != nil {
+			return err
+		}
+	}
+	if u.ScaledVals != nil {
+		if err := patch.ApplyValueList(&x.ScaledVals, *u.ScaledVals); err != nil {
+			return err
+		}
+	}
+	if u.PreScaledUnits != nil {
+		x.PreScaledUnits = *u.PreScaledUnits
+	}
+	if u.ScaledUnits != nil {
+		x.ScaledUnits = *u.ScaledUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u TableScaleUpdate) Defaults() (TableScale, error) {
+	var x TableScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u PolynomialScaleUpdate) ApplyTo(x *PolynomialScale) error {
+	if u.ForwardCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ForwardCoeffs, *u.ForwardCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.ReverseCoeffs != nil {
+		if err := patch.ApplyValueList(&x.ReverseCoeffs, *u.ReverseCoeffs); err != nil {
+			return err
+		}
+	}
+	if u.PreScaledUnits != nil {
+		x.PreScaledUnits = *u.PreScaledUnits
+	}
+	if u.ScaledUnits != nil {
+		x.ScaledUnits = *u.ScaledUnits
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u PolynomialScaleUpdate) Defaults() (PolynomialScale, error) {
+	var x PolynomialScale
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u NoneScaleUpdate) ApplyTo(x *NoneScale) error {
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u NoneScaleUpdate) Defaults() (NoneScale, error) {
+	var x NoneScale
+	return x, nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u CJCUpdate) ApplyTo(x *CJC) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case BuiltInCJCUpdate:
+		next, same := x.Variant.(BuiltInCJC)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ConstValCJCUpdate:
+		next, same := x.Variant.(ConstValCJC)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ChanCJCUpdate:
+		next, same := x.Variant.(ChanCJC)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u BuiltInCJCUpdate) ApplyTo(x *BuiltInCJC) error {
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u BuiltInCJCUpdate) Defaults() (BuiltInCJC, error) {
+	var x BuiltInCJC
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ConstValCJCUpdate) ApplyTo(x *ConstValCJC) error {
+	if u.Val != nil {
+		x.Val = *u.Val
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ConstValCJCUpdate) Defaults() (ConstValCJC, error) {
+	var x ConstValCJC
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ChanCJCUpdate) ApplyTo(x *ChanCJC) error {
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ChanCJCUpdate) Defaults() (ChanCJC, error) {
+	var x ChanCJC
+	return x, nil
 }

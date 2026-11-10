@@ -190,6 +190,10 @@ struct Cursor {
 
 using Status = ::synnax::status::Status<StatusDetails>;
 
+/// @brief UpdatePayload changes the fields of the device that the update holds, when
+/// its guards hold.
+using UpdatePayload = ::x::patch::Update<Update>;
+
 /// @brief Order is a sort of devices.
 struct Order {
     /// @brief field is the field to sort by. Records with equal values sort by key.
@@ -326,6 +330,7 @@ struct RetrieveResponse {
 /// @brief Action holds one device mutation.
 using Action = std::variant<
     CreatePayload,
+    UpdatePayload,
     SetPayload,
     RemovePayload,
     InsertPayload,

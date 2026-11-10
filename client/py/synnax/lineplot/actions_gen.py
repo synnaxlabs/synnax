@@ -84,7 +84,13 @@ from synnax.lineplot.types_gen import (
     SetTitleVisiblePayload,
     SetXChannelAction,
     SetXChannelPayload,
+    UpdateAction,
+    UpdatePayload,
 )
+
+
+def update(payload: UpdatePayload) -> UpdateAction:
+    return UpdateAction(update=payload)
 
 
 def set(payload: SetPayload) -> SetAction:

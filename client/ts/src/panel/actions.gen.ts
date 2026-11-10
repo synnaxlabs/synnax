@@ -35,6 +35,7 @@ import {
   type MoveTabPayload,
   moveTabPayloadZ,
   type Panel,
+  panelZ,
   type RemoveAction,
   removeActionZ,
   type RemovePayload,
@@ -71,7 +72,17 @@ import {
   splitTabActionZ,
   type SplitTabPayload,
   splitTabPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/panel/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "panel.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -172,11 +183,15 @@ export interface Handlers {
   setTabView: (state: Draft<Panel>, payload: SetTabViewPayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: panelZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Panel, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -209,6 +224,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -223,6 +239,7 @@ const dispatchedActionZ: z.ZodType<
   | SetTabResourceAction
   | SetTabViewAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

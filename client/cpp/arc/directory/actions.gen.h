@@ -16,6 +16,11 @@
 namespace synnax::arc::directory {
 
 /// @brief returns an Action that carries the given payload.
+inline Action update(UpdatePayload payload) {
+    return payload;
+}
+
+/// @brief returns an Action that carries the given payload.
 inline Action set(SetPayload payload) {
     return payload;
 }

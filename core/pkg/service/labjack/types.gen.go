@@ -585,3 +585,442 @@ func (u WriteChannelUpdate) Type() WriteChannelUpdateType {
 	}
 	return ""
 }
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadConfigUpdate) ApplyTo(x *ReadConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.SampleRate != nil {
+		x.SampleRate = *u.SampleRate
+	}
+	if u.StreamRate != nil {
+		x.StreamRate = *u.StreamRate
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e ReadChannel) string { return e.Base().Key },
+			func(w ReadChannelUpdate) string { return w.Key() },
+			func(e *ReadChannel, w ReadChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	u.DeviceScanBacklogWarnOnCount.ApplyOptional(&x.DeviceScanBacklogWarnOnCount)
+	u.LjmScanBacklogWarnOnCount.ApplyOptional(&x.LjmScanBacklogWarnOnCount)
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteConfigUpdate) ApplyTo(x *WriteConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.AutoStart != nil {
+		x.AutoStart = *u.AutoStart
+	}
+	if u.DataSavingDisabled != nil {
+		x.DataSavingDisabled = *u.DataSavingDisabled
+	}
+	if u.Device != nil {
+		x.Device = *u.Device
+	}
+	if u.StateRate != nil {
+		x.StateRate = *u.StateRate
+	}
+	if u.Channels != nil {
+		if err := patch.ApplyList(
+			&x.Channels,
+			*u.Channels,
+			func(e WriteChannel) string { return e.Base().Key },
+			func(w WriteChannelUpdate) string { return w.Key() },
+			func(e *WriteChannel, w WriteChannelUpdate) error { return w.ApplyTo(e) },
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ScanConfigUpdate) ApplyTo(x *ScanConfig) error {
+	if u.Key != nil {
+		x.Key = *u.Key
+	}
+	if u.Rate != nil {
+		x.Rate = *u.Rate
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.TCPScanMultiplier != nil {
+		x.TCPScanMultiplier = *u.TCPScanMultiplier
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ReadChannelBaseUpdate) ApplyTo(x *BaseReadChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u ReadChannelUpdate) ApplyTo(x *ReadChannel) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case ReadChannelBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case AnalogReadChannelUpdate:
+		next, same := x.Variant.(AnalogReadChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseReadChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case DigitalReadChannelUpdate:
+		next, same := x.Variant.(DigitalReadChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseReadChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case ThermocoupleReadChannelUpdate:
+		next, same := x.Variant.(ThermocoupleReadChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseReadChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u ReadChannelUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case ReadChannelBaseUpdate:
+		key = v.Key
+	case AnalogReadChannelUpdate:
+		key = v.Key
+	case DigitalReadChannelUpdate:
+		key = v.Key
+	case ThermocoupleReadChannelUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AnalogReadChannelUpdate) ApplyTo(x *AnalogReadChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.Range != nil {
+		x.Range = *u.Range
+	}
+	u.NegChan.ApplyOptional(&x.NegChan)
+	if u.Scale != nil {
+		if err := u.Scale.ApplyTo(&x.Scale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AnalogReadChannelUpdate) Defaults() (AnalogReadChannel, error) {
+	var x AnalogReadChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DigitalReadChannelUpdate) ApplyTo(x *DigitalReadChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u DigitalReadChannelUpdate) Defaults() (DigitalReadChannel, error) {
+	var x DigitalReadChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u ThermocoupleReadChannelUpdate) ApplyTo(x *ThermocoupleReadChannel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.Channel != nil {
+		x.Channel = *u.Channel
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	if u.ThermocoupleType != nil {
+		x.ThermocoupleType = *u.ThermocoupleType
+	}
+	u.NegChan.ApplyOptional(&x.NegChan)
+	if u.CjcSource != nil {
+		x.CjcSource = *u.CjcSource
+	}
+	if u.CjcSlope != nil {
+		x.CjcSlope = *u.CjcSlope
+	}
+	if u.CjcOffset != nil {
+		x.CjcOffset = *u.CjcOffset
+	}
+	if u.Units != nil {
+		x.Units = *u.Units
+	}
+	if u.Scale != nil {
+		if err := u.Scale.ApplyTo(&x.Scale); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u ThermocoupleReadChannelUpdate) Defaults() (ThermocoupleReadChannel, error) {
+	var x ThermocoupleReadChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u WriteChannelBaseUpdate) ApplyTo(x *BaseWriteChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// ApplyTo applies u to x. An update of the variant that x holds merges into it. An
+// update of another variant replaces it, keeping the fields that every variant shares
+// and filling the rest with their defaults.
+func (u WriteChannelUpdate) ApplyTo(x *WriteChannel) error {
+	switch v := u.Variant.(type) {
+	case nil:
+	case WriteChannelBaseUpdate:
+		if x.Variant == nil {
+			return errors.Wrap(validate.ErrValidation, "type is required")
+		}
+		base := x.Base()
+		if err := v.ApplyTo(&base); err != nil {
+			return err
+		}
+		x.SetBase(base)
+	case AnalogWriteChannelUpdate:
+		next, same := x.Variant.(AnalogWriteChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	case DigitalWriteChannelUpdate:
+		next, same := x.Variant.(DigitalWriteChannel)
+		if !same {
+			var err error
+			if next, err = v.Defaults(); err != nil {
+				return err
+			}
+			if x.Variant != nil {
+				next.BaseWriteChannel = x.Base()
+			}
+		}
+		if err := v.ApplyTo(&next); err != nil {
+			return err
+		}
+		x.Variant = next
+	}
+	return nil
+}
+
+// Key returns the key of the entry that u changes.
+func (u WriteChannelUpdate) Key() string {
+	var key string
+	switch v := u.Variant.(type) {
+	case WriteChannelBaseUpdate:
+		key = v.Key
+	case AnalogWriteChannelUpdate:
+		key = v.Key
+	case DigitalWriteChannelUpdate:
+		key = v.Key
+	}
+	return key
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u AnalogWriteChannelUpdate) ApplyTo(x *AnalogWriteChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u AnalogWriteChannelUpdate) Defaults() (AnalogWriteChannel, error) {
+	var x AnalogWriteChannel
+	x.ApplyDefaults()
+	return x, nil
+}
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u DigitalWriteChannelUpdate) ApplyTo(x *DigitalWriteChannel) error {
+	if u.Disabled != nil {
+		x.Disabled = *u.Disabled
+	}
+	if u.CmdChannel != nil {
+		x.CmdChannel = *u.CmdChannel
+	}
+	if u.StateChannel != nil {
+		x.StateChannel = *u.StateChannel
+	}
+	if u.CmdChannelName != nil {
+		x.CmdChannelName = *u.CmdChannelName
+	}
+	if u.StateChannelName != nil {
+		x.StateChannelName = *u.StateChannelName
+	}
+	if u.Port != nil {
+		x.Port = *u.Port
+	}
+	return nil
+}
+
+// Defaults returns the value that u merges into when there is none, which holds the
+// defaults of the schema. It returns an error wrapping validate.ErrValidation when u
+// leaves out a field that has no default.
+func (u DigitalWriteChannelUpdate) Defaults() (DigitalWriteChannel, error) {
+	var x DigitalWriteChannel
+	x.ApplyDefaults()
+	return x, nil
+}

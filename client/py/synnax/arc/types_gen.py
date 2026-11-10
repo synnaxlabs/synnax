@@ -310,6 +310,9 @@ class RetrieveRequest(BaseModel):
     include_program: bool = False
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class AutomationPayload(Base):
     """Is an Arc that runs on a rack as a task."""
 
@@ -355,6 +358,11 @@ class RetrieveResponse(BaseModel):
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
+
+
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
 
 
 class SetAction(BaseModel):
@@ -435,6 +443,7 @@ class SetDirectoryAction(BaseModel):
 # Holds one arc mutation.
 Action = Annotated[
     CreateAction
+    | UpdateAction
     | SetAction
     | RemoveAction
     | InsertAction

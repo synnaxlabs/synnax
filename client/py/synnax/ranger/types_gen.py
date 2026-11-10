@@ -226,9 +226,17 @@ class RetrieveRequest(BaseModel):
     limit: int | None = Field(default=None, ge=0, le=4294967295)
 
 
+UpdatePayload: TypeAlias = patch.Update[Update]
+
+
 class CreateAction(BaseModel):
     type: Literal["create"] = "create"
     create: CreatePayload
+
+
+class UpdateAction(BaseModel):
+    type: Literal["update"] = "update"
+    update: UpdatePayload
 
 
 class SetAction(BaseModel):
@@ -253,7 +261,7 @@ class MoveAction(BaseModel):
 
 # Holds one range mutation.
 Action = Annotated[
-    CreateAction | SetAction | RemoveAction | InsertAction | MoveAction,
+    CreateAction | UpdateAction | SetAction | RemoveAction | InsertAction | MoveAction,
     Field(discriminator="type"),
 ]
 

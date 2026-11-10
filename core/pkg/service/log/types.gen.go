@@ -241,6 +241,8 @@ type ActionType string
 const (
 	// CreateActionType selects the CreatePayload variant.
 	CreateActionType ActionType = "create"
+	// UpdateActionType selects the UpdatePayload variant.
+	UpdateActionType ActionType = "update"
 	// SetActionType selects the SetPayload variant.
 	SetActionType ActionType = "set"
 	// RemoveActionType selects the RemovePayload variant.
@@ -287,6 +289,8 @@ type ActionVariant interface {
 }
 
 func (CreatePayload) isActionVariant() {}
+
+func (UpdatePayload) isActionVariant() {}
 
 func (SetPayload) isActionVariant() {}
 
@@ -339,6 +343,11 @@ func (u Action) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type    ActionType    `json:"type"`
 			Payload CreatePayload `json:"create"`
 		}{Type: CreateActionType, Payload: v})
+	case UpdatePayload:
+		return json.MarshalEncode(enc, struct {
+			Type    ActionType    `json:"type"`
+			Payload UpdatePayload `json:"update"`
+		}{Type: UpdateActionType, Payload: v})
 	case SetPayload:
 		return json.MarshalEncode(enc, struct {
 			Type    ActionType `json:"type"`
@@ -458,6 +467,18 @@ func (u *Action) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		var v struct {
 			Type    ActionType     `json:"type"`
 			Payload *CreatePayload `json:"create"`
+		}
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case UpdateActionType:
+		var v struct {
+			Type    ActionType     `json:"type"`
+			Payload *UpdatePayload `json:"update"`
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
@@ -698,6 +719,11 @@ func (u Action) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 			Type    ActionType    `msgpack:"type"`
 			Payload CreatePayload `msgpack:"create"`
 		}{Type: CreateActionType, Payload: v})
+	case UpdatePayload:
+		return enc.Encode(struct {
+			Type    ActionType    `msgpack:"type"`
+			Payload UpdatePayload `msgpack:"update"`
+		}{Type: UpdateActionType, Payload: v})
 	case SetPayload:
 		return enc.Encode(struct {
 			Type    ActionType `msgpack:"type"`
@@ -813,6 +839,17 @@ func (u *Action) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	case CreateActionType:
 		var v struct {
 			Payload *CreatePayload `msgpack:"create"`
+		}
+		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
+			return err
+		}
+		if v.Payload == nil {
+			return union.MissingPayload(string(disc.Type))
+		}
+		u.Variant = *v.Payload
+	case UpdateActionType:
+		var v struct {
+			Payload *UpdatePayload `msgpack:"update"`
 		}
 		if err := vmsgpack.Unmarshal(raw, &v); err != nil {
 			return err
@@ -1030,6 +1067,8 @@ func (u Action) Type() ActionType {
 	switch u.Variant.(type) {
 	case CreatePayload:
 		return CreateActionType
+	case UpdatePayload:
+		return UpdateActionType
 	case SetPayload:
 		return SetActionType
 	case RemovePayload:
@@ -1122,4 +1161,18 @@ func (u Update) EncodeMsgpack(enc *vmsgpack.Encoder) error {
 // DecodeMsgpack implements msgpack.CustomDecoder.
 func (u *Update) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return patch.DecodeMsgpack(dec, u)
+}
+
+// UpdatePayload changes the fields of the log that the update holds, when its guards
+// hold.
+type UpdatePayload patch.Update[Update]
+
+// ApplyTo applies u to x. An absent field of u leaves its field of x alone.
+func (u Update) ApplyTo(x *Log) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
+	u.Group.ApplyOptional(&x.Group)
+	u.Project.ApplyOptional(&x.Project)
+	return nil
 }

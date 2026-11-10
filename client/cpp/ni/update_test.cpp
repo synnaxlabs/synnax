@@ -17,12 +17,12 @@ namespace synnax::ni {
 /// @brief it should parse an update without a type as base fields only.
 TEST(AIChannelUpdate, testParseWithoutTypeAsBase) {
     const auto update = parse_ai_channel_update(
-        x::json::Parser(x::json::json{{"key", "c3"}, {"port", 4}})
+        x::json::Parser(x::json::json{{"key", "c3"}, {"name", "Pressure"}})
     );
     ASSERT_TRUE(std::holds_alternative<AIChannelBaseUpdate>(update));
     const auto &base = std::get<AIChannelBaseUpdate>(update);
     EXPECT_EQ(base.key, "c3");
-    EXPECT_EQ(base.port, 4);
+    EXPECT_EQ(base.name, "Pressure");
 }
 
 /// @brief it should parse an update with a type as the named variant.
@@ -38,8 +38,8 @@ TEST(AIChannelUpdate, testParseWithTypeAsVariant) {
 
 /// @brief it should write an update without a type as base fields only.
 TEST(AIChannelUpdate, testToJSONWithoutType) {
-    const AIChannelUpdate update = AIChannelBaseUpdate{.key = "c3", .port = 4};
-    EXPECT_EQ(to_json(update), (x::json::json{{"key", "c3"}, {"port", 4}}));
+    const AIChannelUpdate update = AIChannelBaseUpdate{.key = "c3", .name = "Pressure"};
+    EXPECT_EQ(to_json(update), (x::json::json{{"key", "c3"}, {"name", "Pressure"}}));
 }
 
 /// @brief it should parse and write the channel updates of a config by their variant.
@@ -47,7 +47,7 @@ TEST(AnalogReadConfigUpdate, testChannelUpdatesByVariant) {
     const auto j = x::json::json::parse(R"({
         "channels": {
             "update": [
-                {"key": "c3", "port": 4},
+                {"key": "c3", "name": "Pressure"},
                 {"key": "c4", "type": "ai_voltage", "max_val": 10}
             ]
         }

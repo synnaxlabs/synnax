@@ -21,6 +21,7 @@ import {
   type AddEdgePayload,
   addEdgePayloadZ,
   type Arc,
+  arcZ,
   type CreatePayload,
   type DeleteCharAction,
   deleteCharActionZ,
@@ -79,7 +80,17 @@ import {
   setNodePositionPayloadZ,
   type SetPayload,
   setPayloadZ,
+  type UpdateAction,
+  updateActionZ,
+  UpdatePayload,
+  updatePayloadZ,
+  updateZ,
 } from "@/arc/types.gen";
+
+export const update = (payload: z.input<typeof updatePayloadZ>): Action => ({
+  type: "update",
+  update: zod.parse(updatePayloadZ, payload, { label: "arc.UpdatePayload" }),
+});
 
 export const set = (payload: z.input<typeof setPayloadZ>): Action => ({
   type: "set",
@@ -208,11 +219,15 @@ export interface Handlers {
   setDirectory: (state: Draft<Arc>, payload: SetDirectoryPayload) => HandlerResult;
 }
 
+const updateSchemas = { u: updateZ, t: arcZ };
+
 export const createReduceAll = (handlers: Handlers) =>
   actions.createReduceAll<Arc, Action>((state, action) => {
     switch (action.type) {
       case "create":
         return handlers.create(state, action.create);
+      case "update":
+        return actions.applyUpdate(state, action.update, updateSchemas);
       case "set":
         return handlers.set(state, action.set);
       case "remove":
@@ -249,6 +264,7 @@ export const createReduceAll = (handlers: Handlers) =>
 export const scopedActionZ = actions.scopedZ(keyZ, actionZ);
 
 const dispatchedActionZ: z.ZodType<
+  | UpdateAction
   | SetAction
   | RemoveAction
   | InsertAction
@@ -265,6 +281,7 @@ const dispatchedActionZ: z.ZodType<
   | ForgetCharsAction
   | SetDirectoryAction
 > = z.discriminatedUnion("type", [
+  updateActionZ,
   setActionZ,
   removeActionZ,
   insertActionZ,

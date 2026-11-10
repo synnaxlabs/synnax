@@ -433,8 +433,6 @@ struct AIChannelBaseUpdate {
     std::optional<bool> disabled;
     /// @brief channel is the Synnax channel that raw samples are written to.
     std::optional<::synnax::channel::Key> channel;
-    /// @brief port is the physical port the channel reads from.
-    std::optional<std::uint32_t> port;
     /// @brief device is the key of the device the channel belongs to.
     std::optional<::synnax::device::Key> device;
 
