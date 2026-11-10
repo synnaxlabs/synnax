@@ -347,13 +347,14 @@ class TestTaskClient:
         t.join()
 
     @pytest.mark.parametrize(
-        "variant", [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_ERROR]
+        "variant",
+        [sy.status.VARIANT_SUCCESS, sy.status.VARIANT_WARNING, sy.status.VARIANT_ERROR],
     )
     def test_execute_command_sync_waits_through_a_live_rack(
         self, client: sy.Synnax, variant: sy.status.Variant
     ) -> None:
-        """A rack status from a live Driver, an error included, does not end the
-        wait."""
+        """A rack status from a running Driver, a warning or an error included, does
+        not end the wait."""
         rack = client.racks.create(name=f"alive-{uuid4()}")
         tsk = client.tasks.create(name="test", type="pagerduty_alert", rack=rack.key)
 
@@ -367,7 +368,7 @@ class TestTaskClient:
                     sy.rack.Status(
                         variant=variant,
                         message="Driver is running",
-                        details={},
+                        details={"running": True},
                         owner=sy.rack.resource_id(rack.key),
                     )
                 )

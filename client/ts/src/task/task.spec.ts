@@ -1299,36 +1299,49 @@ describe("Task", async () => {
       await ended;
     });
 
-    it("should keep waiting through a healthy status of the rack", async () => {
-      const alive = await client.racks.create({ name: `alive-${id.create()}` });
-      const t = await alive.createTask({
-        name: `alive-${id.create()}`,
-        config: {},
-        type: "pagerduty_alert",
-      });
-      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
-      onTestFinished(() => streamer.close());
-      const wait = t.executeCommandSync({ type: "scan", timeout: TimeSpan.minutes(1) });
-      const cmd = await readCommand(streamer, t.key);
-      await setRackStatus(alive.key, "success", "Driver is running");
-      const reply = {
-        owner: task.resourceID(t.key),
-        name: t.name,
-        variant: "success" as const,
-        message: "Scan complete",
-        description: "",
-        time: TimeStamp.now(),
-        details: {
-          running: true,
-          cmd: cmd.key,
-          configHash: "",
-          rack: alive.key,
-          data: {},
-        },
-      };
-      await writer.statuses.set(reply);
-      expect(await wait).toMatchObject({ message: "Scan complete" });
-    });
+    it.each(["success", "warning"] as const)(
+      "should keep waiting through a %s status from a running Driver",
+      async (variant) => {
+        const alive = await client.racks.create({ name: `alive-${id.create()}` });
+        const t = await alive.createTask({
+          name: `alive-${id.create()}`,
+          config: {},
+          type: "pagerduty_alert",
+        });
+        const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+        onTestFinished(() => streamer.close());
+        const wait = t.executeCommandSync({
+          type: "scan",
+          timeout: TimeSpan.minutes(1),
+        });
+        const cmd = await readCommand(streamer, t.key);
+        await writer.statuses.set({
+          owner: rack.resourceID(alive.key),
+          name: "Rack Status",
+          variant,
+          message: "Driver is running",
+          time: TimeStamp.now(),
+          details: { running: true },
+        });
+        const reply = {
+          owner: task.resourceID(t.key),
+          name: t.name,
+          variant: "success" as const,
+          message: "Scan complete",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            running: true,
+            cmd: cmd.key,
+            configHash: "",
+            rack: alive.key,
+            data: {},
+          },
+        };
+        await writer.statuses.set(reply);
+        expect(await wait).toMatchObject({ message: "Scan complete" });
+      },
+    );
 
     const setReply = async (
       t: task.Task,
