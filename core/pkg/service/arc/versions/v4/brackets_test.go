@@ -323,6 +323,30 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 			Expect(gotIR.Edges).To(HaveLen(3))
 		})
 
+	DescribeTable("Should lex names as a Core with dashed names did",
+		func(old, want string) {
+			cfg := parser.Config{AllowDashedNames: true}
+			got := v4.SwapBrackets(old, cfg)
+			Expect(got).To(Equal(want))
+			MustSucceed(parser.Parse(got, cfg))
+		},
+		Entry("dashed declaration",
+			"func my-fn{k f64}(x f64) f64 {\n    if x > k {\n        return 1.0\n    }"+
+				"\n    return 0.0\n}",
+			"func my-fn(k f64){x f64} f64 {\n    if x > k {\n        return 1.0\n    }"+
+				"\n    return 0.0\n}"),
+		Entry("dashed stage name",
+			"sequence s {\n  stage pre-press {\n    a -> b{x=1}\n  }\n}",
+			"sequence s {\n  stage pre-press {\n    a -> b(x=1)\n  }\n}"),
+		Entry("dashed call",
+			"tank-pt -> my-fn{k=2.0} -> out",
+			"tank-pt -> my-fn(k=2.0) -> out"),
+		Entry("dashed expression call", "my-fn(x) -> out", "(my-fn(x)) -> out"),
+		Entry("spaced subtraction",
+			"func f(a f64, b f64) f64 {\n    return a - b\n}",
+			"func f() {a f64, b f64} f64 {\n    return a - b\n}"),
+	)
+
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {
 			Expect(v4.SwapBrackets(src)).To(Equal(src))
