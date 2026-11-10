@@ -2210,7 +2210,7 @@ var _ = Describe("Compiler", func() {
 		)
 	})
 
-	Describe("Narrow integer types", func() {
+	Describe("Integer width", func() {
 		BeforeEach(func(ctx SpecContext) {
 			bindDefaultModules(ctx, r)
 		})
@@ -2390,6 +2390,113 @@ var _ = Describe("Compiler", func() {
 				}
 				return count
 			}`, float64(4)),
+			Entry("i32 to the maximum", `{
+				count i64 := 0
+				for i := range(i32(0), i32(2147483647), i32(1000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i32 with a negative step", `{
+				count i64 := 0
+				for i := range(i32(0), i32(-2147483647), i32(-1000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("u32 to the maximum", `{
+				count i64 := 0
+				for i := range(u32(0), u32(4294967295), u32(2000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 to the maximum", `{
+				count i64 := 0
+				for i := range(0, 9223372036854775807, 4000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 with a negative step", `{
+				count i64 := 0
+				for i := range(0, -9223372036854775807, -4000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("u64 to the maximum", `{
+				count i64 := 0
+				limit u64 := 0
+				limit -= 1
+				for i := range(u64(0), limit, u64(8000000000000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i8 across the full range", `{
+				count i64 := 0
+				for i := range(i8(-127), i8(127), i8(100)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i32 across the full range", `{
+				count i64 := 0
+				for i := range(i32(-2147483647), i32(2147483647), i32(2000000000)) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("i64 across the full range", `{
+				count i64 := 0
+				for i := range(-9223372036854775807, 9223372036854775807, 9000000000000000000) {
+					count += 1
+				}
+				return count
+			}`, float64(3)),
+			Entry("step that lands on the limit", `{
+				count i64 := 0
+				for i := range(0, 10, 5) {
+					count += 1
+				}
+				return count
+			}`, float64(2)),
+			Entry("step that passes the limit", `{
+				count i64 := 0
+				for i := range(0, 10, 3) {
+					count += 1
+				}
+				return count
+			}`, float64(4)),
+			Entry("step larger than the range", `{
+				count i64 := 0
+				for i := range(0, 10, 100) {
+					count += 1
+				}
+				return count
+			}`, float64(1)),
+			Entry("negative step that lands on the limit", `{
+				count i64 := 0
+				for i := range(10, 0, -5) {
+					count += 1
+				}
+				return count
+			}`, float64(2)),
+			Entry("negative step larger than the range", `{
+				count i64 := 0
+				for i := range(5, 0, -100) {
+					count += 1
+				}
+				return count
+			}`, float64(1)),
+			Entry("empty range with a step", `{
+				count i64 := 0
+				for i := range(10, 0, 2) {
+					count += 1
+				}
+				return count
+			}`, float64(0)),
 			Entry("u8 loop variable keeps its value", `{
 				total i64 := 0
 				for i := range(u8(0), u8(255), u8(2)) {

@@ -288,6 +288,57 @@ func step_sum_u8() {n u8} i64 {
     return total
 }
 
+// The same loop over a 32-bit or 64-bit type. Each one runs 3 passes.
+func step_i32() {n i32} i64 {
+    count i64 := 0
+    for i := range(i32(0), i32(2147483647), n) {
+        count = count + 1
+    }
+    return count
+}
+
+func step_down_i32() {n i32} i64 {
+    count i64 := 0
+    for i := range(i32(0), i32(-2147483647), n) {
+        count = count + 1
+    }
+    return count
+}
+
+func step_u32() {n u32} i64 {
+    count i64 := 0
+    for i := range(u32(0), u32(4294967295), n) {
+        count = count + 1
+    }
+    return count
+}
+
+func step_i64() {n i64} i64 {
+    count i64 := 0
+    for i := range(0, 9223372036854775807, n) {
+        count = count + 1
+    }
+    return count
+}
+
+func step_down_i64() {n i64} i64 {
+    count i64 := 0
+    for i := range(0, -9223372036854775807, n) {
+        count = count + 1
+    }
+    return count
+}
+
+func step_u64() {n u64} i64 {
+    count i64 := 0
+    limit u64 := 0
+    limit = limit - 1
+    for i := range(u64(0), limit, n) {
+        count = count + 1
+    }
+    return count
+}
+
 for_in_i32 -> sum_i32() -> for_out_i32
 for_in_u8 -> sum_u8() -> for_out_u8
 for_in_u32 -> sum_u32() -> for_out_u32
@@ -310,6 +361,12 @@ for_in_step_down_i8 -> step_down_i8() -> for_out_step_down_i8
 for_in_step_i16 -> step_i16() -> for_out_step_i16
 for_in_step_down_i16 -> step_down_i16() -> for_out_step_down_i16
 for_in_step_sum_u8 -> step_sum_u8() -> for_out_step_sum_u8
+for_in_step_i32 -> step_i32() -> for_out_step_i32
+for_in_step_down_i32 -> step_down_i32() -> for_out_step_down_i32
+for_in_step_u32 -> step_u32() -> for_out_step_u32
+for_in_step_i64 -> step_i64() -> for_out_step_i64
+for_in_step_down_i64 -> step_down_i64() -> for_out_step_down_i64
+for_in_step_u64 -> step_u64() -> for_out_step_u64
 interval(period=100ms) -> loop_channel_write()
 interval(period=100ms) -> sum_all()
 interval(period=100ms) -> find_peak()
@@ -468,7 +525,9 @@ CASES = [
         5,
         8,
     ),
-    # A stepped loop over a narrow type ends at the limit of the type
+    # Stepped loops whose step passes the limit of the loop variable type. Each loop
+    # must end there and not wrap around to run forever. One case covers each integer
+    # type, with a negative step too for the signed types.
     ForLoopCase(
         "step_u8",
         "for_in_step_u8",
@@ -523,7 +582,7 @@ CASES = [
         -10000,
         4,
     ),
-    # The loop variable keeps its value up to the last pass: 0 + 2 + ... + 254
+    # The loop variable keeps its value up to the last pass, 0 + 2 + ... + 254
     ForLoopCase(
         "step_sum_u8",
         "for_in_step_sum_u8",
@@ -532,6 +591,60 @@ CASES = [
         sy.DataType.INT64,
         2,
         16256,
+    ),
+    ForLoopCase(
+        "step_i32",
+        "for_in_step_i32",
+        sy.DataType.INT32,
+        "for_out_step_i32",
+        sy.DataType.INT64,
+        1000000000,
+        3,
+    ),
+    ForLoopCase(
+        "step_down_i32",
+        "for_in_step_down_i32",
+        sy.DataType.INT32,
+        "for_out_step_down_i32",
+        sy.DataType.INT64,
+        -1000000000,
+        3,
+    ),
+    ForLoopCase(
+        "step_u32",
+        "for_in_step_u32",
+        sy.DataType.UINT32,
+        "for_out_step_u32",
+        sy.DataType.INT64,
+        2000000000,
+        3,
+    ),
+    ForLoopCase(
+        "step_i64",
+        "for_in_step_i64",
+        sy.DataType.INT64,
+        "for_out_step_i64",
+        sy.DataType.INT64,
+        4000000000000000000,
+        3,
+    ),
+    ForLoopCase(
+        "step_down_i64",
+        "for_in_step_down_i64",
+        sy.DataType.INT64,
+        "for_out_step_down_i64",
+        sy.DataType.INT64,
+        -4000000000000000000,
+        3,
+    ),
+    ForLoopCase(
+        "step_u64",
+        "for_in_step_u64",
+        sy.DataType.UINT64,
+        "for_out_step_u64",
+        sy.DataType.INT64,
+        8000000000000000000,
+        3,
     ),
 ]
 
