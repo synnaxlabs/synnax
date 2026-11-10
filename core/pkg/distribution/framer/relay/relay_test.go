@@ -17,18 +17,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	alamostestutil "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	storagetestutil "github.com/synnaxlabs/synnax/pkg/storage/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap/zapcore"
 )
 
 type scenario struct {
@@ -296,6 +299,73 @@ var _ = Describe("Relay", func() {
 						To(Equal(telem.NewSeriesV(v + 1).Data))
 				}
 				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
+			"Should warn once per drop episode, ending it when the buffer empties",
+			func(ctx SpecContext) {
+				ins, logs := alamostestutil.ObservedInstrumentation(zapcore.WarnLevel)
+				store := storagetestutil.OpenLayer(ctx)
+				DeferCleanup(store.Close)
+				freeWrites := confluence.NewStream[relay.Response](10)
+				r := MustSucceed(relay.Open(relay.Config{
+					Instrumentation:    ins,
+					TS:                 store.TS,
+					FreeWrites:         freeWrites,
+					StreamerBufferSize: 4,
+				}))
+				DeferCleanup(r.Close)
+				key := channel.NewKey(node.KeyFree, 1)
+				openStreamer := func(buffer int) confluence.Outlet[relay.Response] {
+					GinkgoHelper()
+					reader := MustSucceed(r.NewStreamer(relay.StreamerConfig{
+						Keys:        channel.Keys{key},
+						SendOpenAck: new(true),
+					}))
+					sCtx, cancel := signal.Isolated()
+					req, res := confluence.Attach(reader, buffer)
+					reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+					DeferCleanup(func() {
+						req.Close()
+						cancel()
+						confluence.Drain(res)
+					})
+					Eventually(res.Outlet()).Should(Receive())
+					return res
+				}
+				stalled := openStreamer(0)
+				live := openStreamer(10)
+				// The delta serves streamers in connection order, so a frame on live
+				// means the delta is done with stalled.
+				send := func(n int) {
+					GinkgoHelper()
+					for v := range int64(n) {
+						freeWrites.Inlet() <- relay.Response{
+							Frame: frame.NewUnary(key, telem.NewSeriesV(v)),
+						}
+						Eventually(live.Outlet()).Should(Receive())
+					}
+				}
+				warnings := func() int {
+					return logs.FilterMessageSnippet("dropping frames").Len()
+				}
+				// stalled holds at most one frame and buffers four.
+				send(8)
+				Expect(warnings()).To(Equal(1))
+				// stalled takes the next buffered frame, so its buffer stays non-empty.
+				Eventually(stalled.Outlet()).Should(Receive())
+				send(4)
+				Expect(warnings()).To(Equal(1))
+				for drained := false; !drained; {
+					select {
+					case <-stalled.Outlet():
+					case <-time.After(100 * time.Millisecond):
+						drained = true
+					}
+				}
+				send(6)
+				Expect(warnings()).To(Equal(2))
 			},
 		)
 	})
