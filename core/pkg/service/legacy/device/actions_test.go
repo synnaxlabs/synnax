@@ -11,6 +11,7 @@ package device_test
 
 import (
 	"context"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -391,6 +392,24 @@ var _ = Describe("Actions", func() {
 			Entry("holds", "Model", true),
 			Entry("does not hold", "Other", false),
 		)
+
+		It("Should apply a set whose guard on the group holds", func() {
+			key := uuid.New()
+			next := MustSucceed(device.Reduce(
+				device.Device{Group: &key, Properties: stored()},
+				device.NewSetAction(device.SetPayload{
+					Path:  at("channels", "b"),
+					Value: 2,
+					Guards: []patch.Guard{
+						{Path: []string{"group"}, Value: key.String()},
+					},
+				}),
+			))
+			Expect(next.Properties["read"]).To(HaveKeyWithValue(
+				"channels",
+				map[string]any{"a": 1.0, "b": 2.0},
+			))
+		})
 
 		It("Should refuse properties that are not an object", func(ctx SpecContext) {
 			Expect(apply(ctx, set("properties", "text"))).

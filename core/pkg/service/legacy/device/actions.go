@@ -10,6 +10,7 @@
 package device
 
 import (
+	"encoding/json/v2"
 	"maps"
 	"slices"
 
@@ -72,17 +73,7 @@ func edit(d Device, path []string, a patch.Action) (Device, error) {
 	if len(path) > 1 && path[0] == propertiesField {
 		return editProperties(d, path, a)
 	}
-	doc, err := patch.Edit(
-		document{
-			Name:       d.Name,
-			Model:      d.Model,
-			Location:   d.Location,
-			Configured: d.Configured,
-			Properties: d.Properties,
-			Group:      d.Group,
-		},
-		a.Apply,
-	)
+	doc, err := patch.Edit(documentOf(d), a.Apply)
 	if err != nil {
 		return Device{}, err
 	}
@@ -91,17 +82,33 @@ func edit(d Device, path []string, a patch.Action) (Device, error) {
 	return d, nil
 }
 
+func documentOf(d Device) document {
+	return document{
+		Name:       d.Name,
+		Model:      d.Model,
+		Location:   d.Location,
+		Configured: d.Configured,
+		Properties: d.Properties,
+		Group:      d.Group,
+	}
+}
+
 // editProperties applies a to a copy of the objects and lists on path, so the rest of
 // the properties stay shared with d.
 func editProperties(d Device, path []string, a patch.Action) (Device, error) {
-	// A guard can read any string member, so the document holds each of them.
-	doc := map[string]any{
-		"name":          d.Name,
-		"model":         d.Model,
-		"location":      d.Location,
-		propertiesField: copyPath(map[string]any(d.Properties), path[1:]),
+	// Guards read the other members, so only the properties skip the encode.
+	members := documentOf(d)
+	members.Properties = nil
+	b, err := json.Marshal(members)
+	if err != nil {
+		return Device{}, err
 	}
-	if err := a.Apply(doc); err != nil {
+	var doc map[string]any
+	if err = json.Unmarshal(b, &doc); err != nil {
+		return Device{}, err
+	}
+	doc[propertiesField] = copyPath(map[string]any(d.Properties), path[1:])
+	if err = a.Apply(doc); err != nil {
 		return Device{}, err
 	}
 	d.Properties = doc[propertiesField].(map[string]any)
