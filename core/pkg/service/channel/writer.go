@@ -379,9 +379,7 @@ func (w Writer) create(
 		}
 		namePositions := positions(names)
 		for _, e := range existing {
-			if p := namePositions[e.Name]; len(p) != 0 {
-				channels[p[0]] = e
-			}
+			channels[namePositions[e.Name][0]] = e
 		}
 	}
 
@@ -444,11 +442,7 @@ func (w Writer) create(
 		}
 		namePositions := positions(indexNames)
 		for _, ex := range existing {
-			p := namePositions[ex.Name]
-			if len(p) == 0 {
-				continue
-			}
-			idx := p[0]
+			idx := namePositions[ex.Name][0]
 			if ex.IsIndex && ex.Virtual && ex.Leaseholder == node.KeyFree &&
 				ex.DataType == telem.TimestampT {
 				indexChannels[idx] = ex
