@@ -199,15 +199,16 @@ Core's own rack (`core/pkg/service/driver/driver.go:92`) for Kafka, MQTT, and Pa
 A file certificate names the paths of its certificate and key. A file secret names only
 a file in the rack's secrets folder. An admin sets the folder with `secrets_dir` in the
 Driver's config (`driver/rack/file.cpp`), or with `--secrets-dir` on the Core. With no
-folder set, a file secret fails at connect. The Core refuses a file name that holds `/`
-or `\`, or that is `.` or `..`, so a file secret cannot reach outside its folder. A
-secret's bytes go to a server that the user picks, such as a Kafka broker, so a path
-would let the user send any file that the reader can open, the secrets key included. TLS
-sends no private key, so a certificate's paths can point anywhere. Each integration's
-Core service refuses a device or task that names a file item of another rack, directly
-or through a certificate. A replace of an item in use keeps its source and rack, or
-fails as a delete does. So an item has one file and one set of details. The reader opens
-the file at each connect, and the value never enters the store.
+folder set, a file secret fails at connect. The Core refuses a file name that is `.` or
+`..`, or that holds `/`, `\`, or `:` (a Windows drive), so a file secret cannot reach
+outside its folder. A secret's bytes go to a server that the user picks, such as a Kafka
+broker, so a path would let the user send any file that the reader can open, the secrets
+key included. TLS sends no private key, so a certificate's paths can point anywhere.
+Each integration's Core service refuses a device or task that names a file item of
+another rack, directly or through a certificate. A replace of an item in use keeps its
+source and rack, or fails as a delete does. So an item has one file and one set of
+details. The reader opens the file at each connect, and the value never enters the
+store.
 
 A new integration, `file`, gives every rack one internal task, "File Browser", through
 `InitialTasks` (`core/pkg/service/driver/factory.go:32`) in the Core and
