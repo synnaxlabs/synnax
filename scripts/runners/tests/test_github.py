@@ -7,17 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import threading
 import urllib.error
 import urllib.request
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from email.message import Message
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
-from github import API, REPO, GitHub
+from github import API, REPO, GitHub, send
 
 APP_ID = "5687191"
 RUNNERS = f"{API}/repos/{REPO}/actions/runners"
@@ -175,3 +179,34 @@ class TestGet:
             github.get("/actions/runners")
         github.get("/actions/runners")
         assert server.auth(-1) == "Bearer token-2"
+
+
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:
+        body = json.dumps({"path": self.path}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, format: str, *args: object) -> None:
+        pass
+
+
+@pytest.fixture
+def local() -> Iterator[str]:
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever)
+    thread.start()
+    yield f"http://127.0.0.1:{server.server_port}"
+    server.shutdown()
+    thread.join()
+    server.server_close()
+
+
+class TestSend:
+    """Tests for sending a request over HTTP."""
+
+    def test_should_decode_the_json_response(self, local: str) -> None:
+        assert send(urllib.request.Request(f"{local}/x")) == {"path": "/x"}
