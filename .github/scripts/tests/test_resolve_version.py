@@ -262,3 +262,23 @@ class TestLatestVersion:
 
     def test_should_print_nothing_for_an_empty_train(self, repo: Repo) -> None:
         assert latest(repo, product="core", minor="0.60") == ""
+
+
+class TestPackages:
+    """Tests for the npm and PyPI packages, which share the train."""
+
+    def test_should_bump_from_the_reachable_packages_tag(self, repo: Repo) -> None:
+        repo.tag("packages/v0.58.4")
+        repo.commit("more")
+        out = repo.resolve("packages", bump="patch")
+        assert out["version"] == "0.58.5"
+        assert out["tag"] == "packages/v0.58.5"
+        assert out["previous_tag"] == "packages/v0.58.4"
+
+    def test_should_require_a_packages_tag(self, repo: Repo) -> None:
+        assert "no stable packages tag" in repo.resolve_error("packages", bump="patch")
+
+    def test_should_keep_the_train_rule(self, repo: Repo) -> None:
+        repo.tag("packages/v0.59.0")
+        repo.commit("more")
+        assert "train rule" in repo.resolve_error("packages", bump="minor")

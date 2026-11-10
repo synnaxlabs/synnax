@@ -30,7 +30,7 @@ on:
         type: boolean
         default: true
       packages:
-        description: Publish the npm and PyPI packages whose versions are not published
+        description: Publish the npm and PyPI packages at the next packages version
         type: boolean
         default: true
       bump:
@@ -136,6 +136,10 @@ jobs:
       train:
         ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
         steps.driver.outputs.minor }}
+      packages_version: ${{ steps.packages.outputs.version }}
+      packages_tag: ${{ steps.packages.outputs.tag }}
+      packages_minor: ${{ steps.packages.outputs.minor }}
+      packages_latest: ${{ steps.packages.outputs.latest }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
@@ -187,19 +191,13 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      # A manifest off the train would ship a Console and clients that report the wrong
-      # minor to the Core.
-      - name: Check manifests against the train
-        if: inputs.console || inputs.driver || inputs.core
-        env:
-          MINORS: >-
-            ${{ steps.console.outputs.minor }} ${{ steps.driver.outputs.minor }} ${{
-            steps.core.outputs.minor }}
-        run: |
-          read -ra minors <<< "$MINORS"
-          for minor in $(printf '%s\n' "${minors[@]}" | sort -u); do
-            scripts/check_versions.sh --train "$minor"
-          done
+      - name: Resolve packages version
+        id: packages
+        if: inputs.packages && !inputs.prerelease
+        uses: ./.github/actions/resolve-version
+        with:
+          product: packages
+          bump: ${{ inputs.bump }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -383,7 +381,7 @@ jobs:
 
   # Packages have no candidate channel, so a candidate run never publishes them. The
   # registries trust this file by name, so the publish jobs live here and not in a called
-  # workflow. pnpm and the prune step skip versions already on the registry.
+  # workflow.
   publish-ts:
     name: Publish TypeScript packages
     needs: [resolve, ci]
@@ -403,29 +401,22 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.packages_version }}
+        run: .github/scripts/stamp_versions.sh "$VERSION"
+
       - name: Build
         run: pnpm build:client
 
-      # A hotfix on an older train must not move `latest` back. Every package shares the
-      # client's minor.
-      - name: Pick the dist-tag
-        id: dist-tag
-        shell: bash
-        run: |
-          minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
-          latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
-          newest=$(printf '%s\n%s\n' "$minor" "$latest" | sort -V | tail -n 1)
-          if [ "$minor" = "$newest" ]; then
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=train-$minor" >> "$GITHUB_OUTPUT"
-          fi
-
+      # A hotfix on an older train must not move `latest` back.
       - name: Publish
         env:
-          TAG: ${{ steps.dist-tag.outputs.tag }}
-        # pnpm refuses a branch other than main unless it is named here.
-        run: pnpm publish -r --tag "$TAG" --publish-branch "$GITHUB_REF_NAME"
+          TAG:
+            ${{ needs.resolve.outputs.packages_latest == 'true' && 'latest' ||
+            format('train-{0}', needs.resolve.outputs.packages_minor) }}
+        # The stamp dirties the tree, and the resolve job already checked the branch.
+        run: pnpm publish -r --tag "$TAG" --no-git-checks
 
   publish-py:
     name: Publish Python packages
@@ -443,6 +434,11 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
+
+      - name: Stamp package versions
+        env:
+          VERSION: ${{ needs.resolve.outputs.packages_version }}
+        run: .github/scripts/stamp_versions.sh "$VERSION"
 
       - name: Pin internal dependency constraints
         run: .github/scripts/pin_internal_deps.sh
@@ -463,6 +459,21 @@ jobs:
           else
             echo "All distributions already published; nothing to upload."
           fi
+
+  # A failed publish leaves no tag, so a rerun resolves the same version and the
+  # registries skip what already went up.
+  tag-packages:
+    name: Tag packages
+    needs: [resolve, publish-ts, publish-py]
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.resolve.outputs.packages_tag }}
+    steps:
+      - name: Tag packages
+        run:
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
