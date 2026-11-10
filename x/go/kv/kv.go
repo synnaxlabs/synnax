@@ -78,8 +78,7 @@ type Tx interface {
 
 // OnApplied is a Commit option. The DB calls it once the commit's writes are visible to
 // reads, before Commit returns. The writes may not be durable yet. Commit can still
-// fail
-// after the call.
+// fail after the call.
 type OnApplied func()
 
 // DB represents a general key-value store.
