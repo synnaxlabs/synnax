@@ -57,7 +57,7 @@ TEST(TestKeys, DeletedKey) {
 
 /// @brief it should reject a key the Core never issued.
 TEST(TestKeys, UnknownKey) {
-    const auto keyed = keyed_client("syk_00000000-0000-0000-0000-000000000000secret");
+    const auto keyed = keyed_client("syk_00000000-0000-0000-0000-000000000001secret");
     ASSERT_OCCURRED_AS(keyed.auth->authenticate(), ERR);
 }
 }

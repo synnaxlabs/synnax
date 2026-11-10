@@ -22,6 +22,7 @@ var _ = Describe("IsDev", func() {
 		Entry("unstamped", "0.0.0", true),
 		Entry("stamped by CI", "0.0.0-dev.0.60.1.abc1234", true),
 		Entry("numeric commit", "0.0.0-dev.0123456", true),
+		Entry("patch", "0.0.1", true),
 		Entry("release", "0.60.1", false),
 		Entry("candidate", "0.60.0-rc.1", false),
 	)

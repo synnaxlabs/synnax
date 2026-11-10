@@ -22,7 +22,7 @@ def registry() -> Registry:
 
 class TestDecode:
     def test_eof(self, registry: Registry) -> None:
-        """Should decode a freighter EOF payload."""
+        """Should decode an EOF payload."""
         pld = ExceptionPayload(type=freighter.EOF.TYPE, data="EOF")
         assert isinstance(registry.decode(pld), freighter.EOF)
 
