@@ -395,6 +395,35 @@ TEST_F(EtherCATScanStatusTest, FailedPDODiscoveryRediscoversEverySixthScan) {
     EXPECT_EQ(this->master->call_count("deactivate"), 2);
 }
 
+/// @brief it should show a failed settings read as a warning that says the Driver tries
+/// again.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadShowsAWarning) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
+    EXPECT_EQ(
+        status.description,
+        "Failed to read the settings: failed to read 0x8050:03: Object does not exist in the object dictionary. "
+        "The Driver tries again while no task uses the port."
+    );
+}
+
+/// @brief it should discover the slaves again every sixth scan while a slave has a
+/// failed settings read.
+TEST_F(EtherCATScanStatusTest, FailedSettingsReadRediscoversEverySixthScan) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    for (size_t i = 0; i < 13; ++i)
+        ASSERT_NIL_P(this->scanner->scan({.count = i}));
+    EXPECT_EQ(this->master->call_count("deactivate"), 2);
+}
+
 /// @brief it should not discover the slaves again for a disabled slave whose PDO
 /// discovery failed.
 TEST_F(EtherCATScanStatusTest, DisabledSlaveIsNotRediscovered) {

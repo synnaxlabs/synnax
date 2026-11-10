@@ -208,8 +208,9 @@ private:
     /// @brief populates the cached slave list from SOEM's slavelist.
     void populate_slaves();
 
-    /// @brief reads the settings that the ESI catalog describes for the slave from it.
-    void read_settings(slave::Properties &props);
+    /// @brief reads the settings that the ESI catalog describes for the slave from it,
+    /// or the reason the read failed into its status.
+    void read_settings(slave::DiscoveryResult &slave);
 
     /// @brief reads the identity and PDO layout of the slave at a position.
     slave::DiscoveryResult discover_slave(uint16_t pos);

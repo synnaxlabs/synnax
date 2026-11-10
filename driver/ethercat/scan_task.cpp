@@ -202,7 +202,9 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
                 key,
                 scan_ctx
             );
-            rediscovery_needed |= enabled && !slave.status.pdo_discovery_error.empty();
+            rediscovery_needed |= enabled &&
+                                  (!slave.status.pdo_discovery_error.empty() ||
+                                   !slave.status.settings_error.empty());
             devices.push_back(std::move(dev));
         }
         if (!rediscovery_needed)
@@ -301,6 +303,13 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         // A fallback, such as the SII after a failed CoE read, gives PDOs and an error.
         if (!sts.pdo_discovery_error.empty()) {
             status.description = pdo_error_description(sts.pdo_discovery_error);
+            status.variant = synnax::status::VARIANT_WARNING;
+        }
+        if (!sts.settings_error.empty()) {
+            if (!status.description.empty()) status.description += " ";
+            status
+                .description += "Failed to read the settings: " + sts.settings_error +
+                                ". The Driver tries again while no task uses the port.";
             status.variant = synnax::status::VARIANT_WARNING;
         }
     }

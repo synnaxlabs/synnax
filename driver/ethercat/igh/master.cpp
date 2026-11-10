@@ -202,9 +202,7 @@ x::errors::Error Master::initialize() {
             result.properties.op_modes,
             sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
         );
-        if (settings_err)
-            LOG(WARNING) << "[ethercat] failed to read the settings of slave " << i + 1
-                         << ": " << settings_err.message();
+        result.status.settings_error = settings_err.data;
         result.properties.settings = std::move(settings);
         this->cached_slaves.push_back(std::move(result));
     }
