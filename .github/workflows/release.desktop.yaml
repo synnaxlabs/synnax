@@ -198,8 +198,8 @@ jobs:
   deploy-docs:
     name: Deploy docs
     needs: publish
-    # The docs read stable versions at build time, so a stable release redeploys every
-    # version that links the Desktop download.
+    # The docs read stable versions at build time, so a stable release redeploys next,
+    # latest, and previous. An older site keeps the Desktop link of its last deploy.
     if: ${{ !inputs.prerelease }}
     uses: ./.github/workflows/deploy.docs.yaml
     with:

@@ -45,7 +45,7 @@ To deploy, run the `Deploy - Docs` workflow with one or more versions: a train s
 its newest stable Core tag, or from its `release/core-X.Y` branch if the branch holds
 that tag. Set `ref` to build one version from another ref. A push to `main` deploys
 `next`. A stable release deploys `next`, `latest`, `previous`, and the train it
-released.
+released. An older site keeps the download links of its last deploy.
 
 To fix the docs of a released train, merge the fix into `main`, cherry-pick it onto the
 train's release branch, and deploy the train. If a patch of the train shipped from
