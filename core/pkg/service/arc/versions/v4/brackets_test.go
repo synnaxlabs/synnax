@@ -280,6 +280,21 @@ median3(pt_1, pt_2, pt_3) -> tank_pt`)
 		),
 	)
 
+	DescribeTable("Should keep a wrapped call apart from the top-level item before it",
+		func(old, want string) {
+			got := v4.SwapBrackets(old)
+			Expect(got).To(Equal(want))
+			prog := MustSucceed(parser.Parse(got))
+			Expect(prog.AllTopLevelItem()).To(HaveLen(2))
+		},
+		Entry("after a declaration",
+			"limit := 100.0\nmedian3(pt_1, pt_2) -> tank_pt",
+			"limit := 100.0\n(median3(pt_1, pt_2)) -> tank_pt"),
+		Entry("after an assignment",
+			"count = 0\nlen(ch) -> out",
+			"count = 0\n(len(ch)) -> out"),
+	)
+
 	DescribeTable("Should leave a construct it cannot close unchanged",
 		func(src string) {
 			Expect(v4.SwapBrackets(src)).To(Equal(src))
