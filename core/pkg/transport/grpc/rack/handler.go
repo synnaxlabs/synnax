@@ -207,7 +207,7 @@ func (dispatchRequestTranslator) Forward(
 	acts := make([][]byte, len(req.Actions))
 	for i, a := range req.Actions {
 		var err error
-		if acts[i], err = json.Codec.Encode(ctx, a); err != nil {
+		if acts[i], err = json.Codec.Encode(a); err != nil {
 			return nil, err
 		}
 	}
@@ -224,7 +224,7 @@ func (dispatchRequestTranslator) Backward(
 ) (rack.DispatchRequest, error) {
 	acts := make([]svcrack.Action, len(req.Actions))
 	for i, b := range req.Actions {
-		if err := json.Codec.Decode(ctx, b, &acts[i]); err != nil {
+		if err := json.Codec.Decode(b, &acts[i]); err != nil {
 			return rack.DispatchRequest{}, validate.PathedError(
 				errors.Wrap(validate.ErrValidation, err.Error()),
 				"actions",

@@ -3879,9 +3879,9 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](3, 4),
 					},
 				)
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			})
 
@@ -3893,9 +3893,9 @@ var _ = Describe("Frame", func() {
 						telem.NewSeriesV[int64](3, 4),
 					},
 				).KeepKeys(set.New[int32](1))
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded).To(Equal(telem.UnaryFrame[int32](
 					1,
 					telem.NewSeriesV[int64](1, 2),
@@ -3915,17 +3915,17 @@ var _ = Describe("Frame", func() {
 				// it decodes next.
 				decoded := full.KeepKeys(set.New[int32](1))
 				Expect(decoded.Count()).To(Equal(1))
-				buf := MustSucceed(codec.Encode(ctx, full))
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				buf := MustSucceed(codec.Encode(full))
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded.Count()).To(Equal(3))
 				Expect(decoded.KeysSlice()).To(Equal([]int32{1, 2, 3}))
 			})
 
 			It("Should encode and decode an empty frame", func(ctx SpecContext) {
 				original := telem.Frame[int32]{}
-				buf := MustSucceed(codec.Encode(ctx, original))
+				buf := MustSucceed(codec.Encode(original))
 				var decoded telem.Frame[int32]
-				Expect(codec.Decode(ctx, buf, &decoded)).To(Succeed())
+				Expect(codec.Decode(buf, &decoded)).To(Succeed())
 				Expect(decoded.Empty()).To(BeTrue())
 				Expect(decoded.Count()).To(Equal(0))
 				Expect(decoded.Len()).To(Equal(int64(0)))
