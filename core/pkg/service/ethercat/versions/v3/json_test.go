@@ -56,25 +56,26 @@ var _ = Describe("JSON", func() {
 		})
 	})
 
-	Describe("SlaveSettings", func() {
-		settings := []v3.SlaveSettings{{
+	Describe("SlaveStartupParameters", func() {
+		parameters := []v3.SlaveStartupParameters{{
 			Device: "d",
-			Values: []v3.Setting{
+			Parameters: []v3.StartupParameter{
 				{Index: 0x8040, SubIndex: 1, DataType: telem.Uint16T, Value: 6},
 			},
 		}}
-		encoded := `[{"device": "d", "values": [
-			{"index": 32832, "sub_index": 1, "data_type": "uint16", "value": 6}
-		]}]`
+		encoded := `[{"device": "d", "parameters": [{
+			"index": 32832, "sub_index": 1, "data_type": "uint16", "value": 6,
+			"name": ""
+		}]}]`
 
-		It("Should encode the values of each slave", func() {
-			Expect(MustSucceed(json.Marshal(settings))).To(MatchJSON(encoded))
+		It("Should encode the parameters of each slave", func() {
+			Expect(MustSucceed(json.Marshal(parameters))).To(MatchJSON(encoded))
 		})
 
-		It("Should decode the values of each slave", func() {
-			var decoded []v3.SlaveSettings
+		It("Should decode the parameters of each slave", func() {
+			var decoded []v3.SlaveStartupParameters
 			Expect(json.Unmarshal([]byte(encoded), &decoded)).To(Succeed())
-			Expect(decoded).To(Equal(settings))
+			Expect(decoded).To(Equal(parameters))
 		})
 	})
 

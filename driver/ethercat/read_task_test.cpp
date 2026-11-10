@@ -735,16 +735,16 @@ TEST_F(EtherCATReadTest, StartAppliesSavedSlaveSettingsOnTheNetwork) {
     read_task->exec(stop);
 }
 
-/// @brief it should write the settings of each slave to it, in order, when the task
-/// starts the bus.
-TEST_F(EtherCATReadTest, StartWritesTheSlaveSettings) {
+/// @brief it should write the startup parameters of each slave to it, in order, when
+/// the task starts the bus.
+TEST_F(EtherCATReadTest, StartWritesTheStartupParameters) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
     cfg["channels"].push_back(ch);
-    cfg["settings"] = {{
+    cfg["startup_parameters"] = {{
         {"device", ch["device"]},
-        {"values",
+        {"parameters",
          {
              {{"index", 0x8040},
               {"sub_index", 0x1C},
@@ -781,15 +781,15 @@ TEST_F(EtherCATReadTest, StartWritesTheSlaveSettings) {
     read_task->exec(stop);
 }
 
-/// @brief it should reject a slave setting whose value does not fit its data type.
-TEST_F(EtherCATReadTest, ParseConfigRejectsASettingThatDoesNotFitItsType) {
+/// @brief it should reject a startup parameter whose value does not fit its data type.
+TEST_F(EtherCATReadTest, ParseConfigRejectsAParameterThatDoesNotFitItsType) {
     const auto data_ch = this->create_data_channel("analog", x::telem::INT16_T);
     auto cfg = this->create_base_config();
     const auto ch = this->create_input_channel_config(data_ch, 0x6000, 1, "int16");
     cfg["channels"].push_back(ch);
-    cfg["settings"] = {{
+    cfg["startup_parameters"] = {{
         {"device", ch["device"]},
-        {"values",
+        {"parameters",
          {{{"index", 0x8040},
            {"sub_index", 1},
            {"data_type", "uint16"},

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -15,10 +16,7 @@ import { DataType, deep, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import {
-  type SlaveDevice,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 
 const DATA_TYPES = [
   DataType.INT8,
@@ -76,7 +74,7 @@ const parametersZ = z.array(
   }),
 );
 
-const FIELDS: (keyof StartupParameter)[] = [
+const FIELDS: (keyof ethercat.StartupParameter)[] = [
   "index",
   "subIndex",
   "dataType",

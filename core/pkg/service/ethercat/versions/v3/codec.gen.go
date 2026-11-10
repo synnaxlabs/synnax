@@ -103,11 +103,11 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(rc.Settings != nil)
-	if rc.Settings != nil {
-		w.Uint32(uint32(len(rc.Settings)))
-		for i := range rc.Settings {
-			if err := rc.Settings[i].EncodeOrc(w); err != nil {
+	w.Bool(rc.StartupParameters != nil)
+	if rc.StartupParameters != nil {
+		w.Uint32(uint32(len(rc.StartupParameters)))
+		for i := range rc.StartupParameters {
+			if err := rc.StartupParameters[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -169,9 +169,9 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			rc.Settings = make([]SlaveSettings, n)
-			for i := range rc.Settings {
-				if err = rc.Settings[i].DecodeOrc(r); err != nil {
+			rc.StartupParameters = make([]SlaveStartupParameters, n)
+			for i := range rc.StartupParameters {
+				if err = rc.StartupParameters[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -181,44 +181,13 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 }
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (s Setting) EncodeOrc(w *orc.Writer) error {
-	w.Uint16(uint16(s.Index))
-	w.Uint8(uint8(s.SubIndex))
-	w.String(string(s.DataType))
-	w.Float64(float64(s.Value))
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (s *Setting) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if s.Index, err = r.Uint16(); err != nil {
-		return err
-	}
-	if s.SubIndex, err = r.Uint8(); err != nil {
-		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		s.DataType = telem.DataType(rawV)
-	}
-	if s.Value, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
-func (ss SlaveSettings) EncodeOrc(w *orc.Writer) error {
-	w.String(ss.Device)
-	w.Bool(ss.Values != nil)
-	if ss.Values != nil {
-		w.Uint32(uint32(len(ss.Values)))
-		for i := range ss.Values {
-			if err := ss.Values[i].EncodeOrc(w); err != nil {
+func (ssp SlaveStartupParameters) EncodeOrc(w *orc.Writer) error {
+	w.String(ssp.Device)
+	w.Bool(ssp.Parameters != nil)
+	if ssp.Parameters != nil {
+		w.Uint32(uint32(len(ssp.Parameters)))
+		for i := range ssp.Parameters {
+			if err := ssp.Parameters[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
@@ -227,9 +196,9 @@ func (ss SlaveSettings) EncodeOrc(w *orc.Writer) error {
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
-func (ss *SlaveSettings) DecodeOrc(r *orc.Reader) error {
+func (ssp *SlaveStartupParameters) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if ss.Device, err = r.String(); err != nil {
+	if ssp.Device, err = r.String(); err != nil {
 		return err
 	}
 	{
@@ -242,13 +211,48 @@ func (ss *SlaveSettings) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			ss.Values = make([]Setting, n)
-			for i := range ss.Values {
-				if err = ss.Values[i].DecodeOrc(r); err != nil {
+			ssp.Parameters = make([]StartupParameter, n)
+			for i := range ssp.Parameters {
+				if err = ssp.Parameters[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sp StartupParameter) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(sp.Index))
+	w.Uint8(uint8(sp.SubIndex))
+	w.String(string(sp.DataType))
+	w.Float64(float64(sp.Value))
+	w.String(sp.Name)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sp *StartupParameter) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sp.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if sp.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sp.DataType = telem.DataType(rawV)
+	}
+	if sp.Value, err = r.Float64(); err != nil {
+		return err
+	}
+	if sp.Name, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }
