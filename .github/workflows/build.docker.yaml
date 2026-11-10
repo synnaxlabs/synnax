@@ -52,9 +52,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # The tag hashes the Git objects of every path the Dockerfile copies, the files
-      # that drive the build, and the digests of the base images. Two commits with the
-      # same sources share an image until a base image moves.
+      # The tag hashes the Git objects of every file the Dockerfile copies, the files
+      # that drive the build, and the digests of the base images. Unit tests are not
+      # part of a build, so they are left out. Two commits with the same sources share
+      # an image until a base image moves.
       - name: Tag the image
         id: tag
         env:
@@ -67,7 +68,9 @@ jobs:
             "$dockerfile")
           read -ra paths <<< "${sources//$'\n'/ } $dockerfile .dockerignore \
             .github/workflows/build.docker.yaml"
-          objects=$(git rev-parse "${paths[@]/#/HEAD:}")
+          mapfile -t tests < <(yq '.unit_tests[]' .github/filters.yaml)
+          objects=$(git ls-files --stage -- "${paths[@]}" \
+            "${tests[@]/#/:(exclude,glob)}")
           stages=$(awk '$1 == "FROM" && $3 == "AS" { print $4 }' "$dockerfile")
           bases=$(awk '$1 == "FROM" { print $2 }' "$dockerfile" |
             sed "s/\${GO_VERSION}/$go_version/" | grep -vxF "$stages")

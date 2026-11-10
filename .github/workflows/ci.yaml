@@ -92,9 +92,9 @@ permissions:
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
   # group touched one of its paths. The ci output is a JSON list of the jobs that an
-  # edit to this file or the change map selects. spec_only is true when the change
-  # touches only unit tests. keys maps each job to a hash of its inputs, and reused
-  # lists the jobs whose key passed in an earlier run, which then skip.
+  # edit to this file or the change map selects. keys maps each job to a hash of its
+  # inputs, and reused lists the jobs whose key passed in an earlier run, which then
+  # skip.
   changes:
     # paths-filter lists the changed files of a pull request through the API. Finding a
     # pass reads the artifacts.
@@ -154,7 +154,6 @@ jobs:
       runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
-      spec_only: ${{ steps.spec.outputs.spec_only }}
       stylelint: ${{ steps.filter.outputs.stylelint }}
       stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
@@ -186,17 +185,6 @@ jobs:
             python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
           echo "$jobs"
           echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
-
-      - name: Find whether the change touches only unit tests
-        id: spec
-        env:
-          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
-          PR_BASE: ${{ github.event.pull_request.base.sha }}
-        run: |
-          spec_only=$(uv run --locked --project .github/scripts \
-            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
-          echo "$spec_only"
-          echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
 
       - name: Key the jobs by their inputs
         id: keys
@@ -857,13 +845,15 @@ jobs:
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-  # A merge group that changes only unit tests skips integration.
+  # The builds it tests come after its own filter, so their unit tests are not in its
+  # key.
   integration:
     needs: changes
     if:
-      inputs.full || ((github.event_name == 'merge_group' &&
-      needs.changes.outputs.spec_only != 'true' || inputs.integration) &&
+      inputs.full || ((github.event_name == 'merge_group' || inputs.integration) &&
       (needs.changes.outputs.integration == 'true' ||
+      needs.changes.outputs.console_build == 'true' || needs.changes.outputs.core_build
+      == 'true' || needs.changes.outputs.driver_build == 'true' ||
       contains(fromJSON(needs.changes.outputs.ci), 'integration'))) &&
       !contains(fromJSON(needs.changes.outputs.reused), 'integration')
     permissions:

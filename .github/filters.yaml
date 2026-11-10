@@ -419,11 +419,10 @@ driver_build: &driver_build
   - *driver
   - scripts/run_bazel.sh
 
+# The integration job also reads console_build, core_build, and driver_build, whose unit
+# tests its key skips.
 integration:
   - *client_py
-  - *console_build
-  - *core_build
-  - *driver_build
   - *py
   - *x_py
   - .github/scripts/check_artifact_cache.sh
@@ -448,3 +447,14 @@ freighter_image:
   - *freighter_py
   - *freighter_ts
   - .github/workflows/build.docker.yaml
+
+# Not a filter a job reads. The unit test files, which no build includes, so a job key
+# skips them in every filter but the job's own, and the image tags and the integration
+# artifact cache skip them too.
+unit_tests:
+  - "**/*.spec.ts"
+  - "**/*.spec.tsx"
+  - "**/*_test.cpp"
+  - "**/*_test.go"
+  - "**/test_*.py"
+  - "**/testdata/**"

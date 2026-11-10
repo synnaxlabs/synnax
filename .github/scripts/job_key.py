@@ -15,8 +15,11 @@
 keys prints a JSON map from job ID to a hash of the job's inputs: its block in the
 workflow, the workflows it calls, the CI actions and scripts, the values of the filters
 its inputs read, and the path and blob ID of each file in HEAD that a filter its
-condition reads matches. FILTER_OUTPUTS holds the filter outputs as JSON. Only a job
-whose condition reads a filter and that no other job needs gets a key.
+condition reads matches. The first filter the condition reads is the job's own. Every
+other filter skips the unit test files that the unit_tests key of the change map lists,
+since only the job's own tests can change its result. FILTER_OUTPUTS holds the filter
+outputs as JSON. Only a job whose condition reads a filter and that no other job needs
+gets a key.
 
 reused prints the JSON list of jobs whose key has a live pass artifact from a run of
 this repository, never a fork. GITHUB_REPOSITORY and GITHUB_REPOSITORY_ID name it.
@@ -37,6 +40,8 @@ from changed_jobs import FILTER_REF, FILTERS, SHARED_JOBS, WORKFLOW, load, paths
 
 # Bump to drop every earlier pass.
 VERSION = "1"
+# The change map key that lists the unit test files.
+UNIT_TESTS = "unit_tests"
 # Jobs that run after or around the others, never reused.
 UNKEYED = SHARED_JOBS | {"shepherd", "stamp"}
 # Every job reads these, so they are part of every key.
@@ -94,8 +99,11 @@ def tree(rev: str = "HEAD") -> list[Entry]:
 
 
 def _refs(value: Any, names: Iterable[str]) -> list[str]:
-    """Returns the sorted filter names that value reads."""
-    return sorted(set(FILTER_REF.findall(json.dumps(value))) & set(names))
+    """Returns the filter names that value reads, in the order it first reads them."""
+    names = set(names)
+    return [
+        r for r in dict.fromkeys(FILTER_REF.findall(json.dumps(value))) if r in names
+    ]
 
 
 def _needed(jobs: dict[str, Any]) -> set[str]:
@@ -110,7 +118,8 @@ def _needed(jobs: dict[str, Any]) -> set[str]:
 
 
 def reusable(jobs: dict[str, Any], filters: Iterable[str]) -> dict[str, list[str]]:
-    """Returns each job that can reuse a pass, with the filters its condition reads."""
+    """Returns each job that can reuse a pass, with the filters its condition reads,
+    its own first."""
     needed = _needed(jobs)
     out = {}
     for job, block in jobs.items():
@@ -155,11 +164,18 @@ def keys(
     selected = reusable(jobs, globs)
     files: dict[str, str] = {}
 
-    def of(name: str, patterns: Iterable[str]) -> str:
-        if name not in files:
+    tests = matcher(globs[UNIT_TESTS])
+
+    def of(name: str, patterns: Iterable[str], *, own: bool = True) -> str:
+        cached = f"{name} {own}"
+        if cached not in files:
             pattern = matcher(patterns)
-            files[name] = digest(f"{p} {b}" for p, b in entries if pattern.fullmatch(p))
-        return files[name]
+            files[cached] = digest(
+                f"{p} {b}"
+                for p, b in entries
+                if pattern.fullmatch(p) and (own or not tests.fullmatch(p))
+            )
+        return files[cached]
 
     common = of("", COMMON)
     out = {}
@@ -174,7 +190,7 @@ def keys(
             common,
             *(f"{f}={outputs[f]}" for f in _refs(block.get("with", {}), globs)),
             *(f"{w} {of(w, [w])}" for w in sorted(workflows)),
-            *(f"{r} {of(r, globs[r])}" for r in refs),
+            *(f"{r} {of(r, globs[r], own=r == refs[0])}" for r in refs),
         ]
         out[job] = digest(lines)[:40]
     return out

@@ -50,9 +50,13 @@ core: &core
   - *go
   - core/**
 client:
-  - *core
+  - *go
   - client/**
   - "**/*.arc"
+unit_tests:
+  - "**/*_test.go"
+  - "**/*.spec.ts"
+  - "**/testdata/**"
 """
 
 WORKFLOWS = {
@@ -69,8 +73,11 @@ ENTRIES: list[Entry] = [
     (".github/workflows/inner.yaml", "w2"),
     (".github/workflows/test.yaml", "w3"),
     (".golangci.yaml", "g1"),
+    ("client/a.spec.ts", "c3"),
     ("client/a.ts", "c1"),
     ("core/a.go", "k1"),
+    ("core/a_test.go", "t1"),
+    ("core/testdata/a.json", "j1"),
     ("docs/a.md", "d1"),
 ]
 
@@ -190,6 +197,15 @@ class TestKeys:
         )
         assert run()["core"] != run(ci=ci)["core"]
 
+    @pytest.mark.parametrize("path", ["core/a_test.go", "core/testdata/a.json"])
+    def test_should_skip_the_unit_tests_of_a_dependency(self, path: str) -> None:
+        before, after = run(), run(edit(path, "x9"))
+        assert before["client"] == after["client"]
+        assert before["core"] != after["core"]
+
+    def test_should_read_the_unit_tests_of_the_job_itself(self) -> None:
+        assert run()["client"] != run(edit("client/a.spec.ts", "c4"))["client"]
+
     def test_should_change_with_a_filter_value_the_inputs_read(self) -> None:
         before = run(outputs={"client": "true", "core": "false"})
         after = run(outputs={"client": "false", "core": "false"})
@@ -250,11 +266,35 @@ def test_tree_should_list_every_file_with_its_blob(
     ]
 
 
+ROOT = Path(__file__).resolve().parents[3]
+
+
+def real() -> tuple[dict[str, Any], dict[str, list[str]]]:
+    jobs = load((ROOT / WORKFLOW).read_text())[0]["jobs"]
+    return jobs, reusable(jobs, load((ROOT / FILTERS).read_text())[0])
+
+
+def test_each_job_reads_its_own_filter_first() -> None:
+    deps = {job: refs[1:] for job, refs in real()[1].items() if len(refs) > 1}
+    core = ["core"]
+    assert deps == {
+        "arc-cpp": core,
+        "client-cpp": core,
+        "client-py": core,
+        "client-py-lowest": core,
+        "client-ts": core,
+        "console": core,
+        "driver": core,
+        "freighter-py": ["freighter_integration"],
+        "freighter-py-lowest": ["freighter_integration"],
+        "freighter-ts": ["freighter_integration"],
+        "integration": ["console_build", "core_build", "driver_build"],
+        "pluto": core,
+    }
+
+
 def test_every_keyed_job_skips_when_reused() -> None:
-    root = Path(__file__).resolve().parents[3]
-    jobs = load((root / WORKFLOW).read_text())[0]["jobs"]
-    filters = load((root / FILTERS).read_text())[0]
-    keyed = reusable(jobs, filters)
+    jobs, keyed = real()
     guarded = {
         job
         for job, block in jobs.items()
