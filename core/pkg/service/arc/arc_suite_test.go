@@ -56,6 +56,7 @@ var (
 	rackSvc    *rack.Service
 	testRack   *rack.Rack
 	imexSvc    *imex.Service
+	arcTable   *arc.Table
 	arcClock   = telem.Now
 )
 
@@ -89,7 +90,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		),
 	}))
 	imexSvc = imex.NewService()
-	arcTable := MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
+	arcTable = MustOpen(arc.OpenTable(ctx, arc.TableConfig{DB: db}))
 	arcTaskSvc = MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{
 		DB: db,
 	}))
