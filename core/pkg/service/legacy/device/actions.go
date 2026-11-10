@@ -48,10 +48,11 @@ func (p SetRackPayload) Handle(d Device) (Device, error) {
 	return d, nil
 }
 
-// document is the part of a device that path actions edit: its name, location,
+// document is the part of a device that path actions edit: its name, model, location,
 // configured flag, properties, and group.
 type document struct {
 	Name       string              `json:"name"`
+	Model      string              `json:"model"`
 	Location   string              `json:"location"`
 	Configured bool                `json:"configured"`
 	Properties msgpack.EncodedJSON `json:"properties"`
@@ -64,6 +65,7 @@ func edit(d Device, apply func(map[string]any) error) (Device, error) {
 	doc, err := patch.Edit(
 		document{
 			Name:       d.Name,
+			Model:      d.Model,
 			Location:   d.Location,
 			Configured: d.Configured,
 			Properties: d.Properties,
@@ -74,7 +76,7 @@ func edit(d Device, apply func(map[string]any) error) (Device, error) {
 	if err != nil {
 		return Device{}, err
 	}
-	d.Name, d.Location, d.Configured = doc.Name, doc.Location, doc.Configured
-	d.Properties, d.Group = doc.Properties, doc.Group
+	d.Name, d.Model, d.Location = doc.Name, doc.Model, doc.Location
+	d.Configured, d.Properties, d.Group = doc.Configured, doc.Properties, doc.Group
 	return d, nil
 }

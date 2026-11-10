@@ -11,8 +11,17 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { actions } from "@/actions";
 import { query } from "@/query";
 import { resource } from "@/resource";
+import { createOf, reduceAll } from "@/secret/actions";
+import {
+  type Action,
+  dispatchReqZ,
+  dispatchResZ,
+  scopedActionZ,
+  set,
+} from "@/secret/actions.gen";
 import {
   fileSecretZ,
   type Key,
@@ -27,13 +36,14 @@ import {
 import {
   compareCursors,
   cursor,
+  LIST_FIELDS,
   matches,
   retrieveInputZ,
   serverComputed,
   shortcutZ,
 } from "@/secret/where.gen";
 
-export const SET_CHANNEL_NAME = "sy_secret_set";
+export const ACTION_CHANNEL_NAME = "sy_secret_action_set";
 export const DELETE_CHANNEL_NAME = "sy_secret_delete";
 
 const newStoredZ = storedSecretZ.omit({ updated: true }).extend({
@@ -49,10 +59,9 @@ const newFileZ = fileSecretZ.omit({ updated: true });
 export const newZ = z.discriminatedUnion("source", [newStoredZ, newFileZ]);
 export type New = z.input<typeof newZ>;
 
-const createReqZ = z.object({ secrets: newZ.array() });
-const createResZ = z.object({ secrets: secretZ.array() });
+const setReqZ = z.object({ secrets: newZ.array() });
+const setResZ = z.object({ secrets: secretZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const emptyResZ = z.object({});
 
 const grantKeyZ = z.uuid();
@@ -78,17 +87,26 @@ export interface ClientConfig {
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Secret> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Secret>;
+  private readonly dispatcher: actions.Controller<Key, Secret, Action>;
 
   constructor(cfg: ClientConfig) {
     const { cache } = cfg;
     const store = cache.createTable<Key, Secret>({
       name: "secrets",
       fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
-      listen: [
-        query.createSetListener(SET_CHANNEL_NAME, secretZ),
-        query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
-      ],
+      listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
+    // Every write to a secret reaches the client as actions.
+    const dispatcher = new actions.Controller<Key, Secret, Action>({
+      store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
+      onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
+      send: actions.sender(cfg.unary, "/secret/dispatch", dispatchReqZ, dispatchResZ),
+      reduce: reduceAll,
+      createOf,
+    });
+    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
     super(cache, {
       name: "secret",
       table: store,
@@ -103,6 +121,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
     });
     this.cfg = cfg;
     this.store = store;
+    this.dispatcher = dispatcher;
   }
 
   /**
@@ -113,40 +132,34 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Se
    * @throws {AccessDeniedError} if the caller cannot create secrets, or cannot update a
    * secret that the call replaces.
    */
-  async create(secret: New): Promise<Secret>;
-  async create(secrets: New[]): Promise<Secret[]>;
-  async create(secrets: New | New[]): Promise<Secret | Secret[]> {
+  async set(secret: New): Promise<Secret>;
+  async set(secrets: New[]): Promise<Secret[]>;
+  async set(secrets: New | New[]): Promise<Secret | Secret[]> {
     const isMany = Array.isArray(secrets);
     const res = await this.cfg.unary.send(
-      "/secret/create",
+      "/secret/set",
       { secrets: array.toArray(secrets) },
-      createReqZ,
-      createResZ,
+      setReqZ,
+      setResZ,
     );
     this.store.set(res.secrets);
     return isMany ? res.secrets : res.secrets[0];
   }
 
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatch(key, set({ path: ["name"], value: name }));
+  }
+
   /**
-   * Renames a secret.
-   * @throws {PathError} if the name is empty.
-   * @throws {NotFoundError} if no secret has the key.
+   * Applies the actions to the cached secret until the Core echoes them, and sends them
+   * to the Core to apply in one transaction. Path actions edit only the name.
+   * @throws {Error} if the cached secret cannot hold an action, before any send.
+   * @throws {ValidationError} if the secret cannot hold an action.
+   * @throws {NotFoundError} if the secret does not exist.
    * @throws {AccessDeniedError} if the caller cannot update the secret.
    */
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [query.partialUpdate(this.store, key, { name })];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/secret/rename",
-          { key, name },
-          renameReqZ,
-          emptyResZ,
-        ),
-    });
-    rename();
+  async dispatch(key: Key, actions: Action | Action[]): Promise<void> {
+    await this.dispatcher.send(key, array.toArray(actions));
   }
 
   /**

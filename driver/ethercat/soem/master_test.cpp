@@ -73,7 +73,8 @@ protected:
     std::chrono::microseconds cycle_gap{100};
 
     void SetUp() override {
-        this->create_master(x::telem::MILLISECOND * 50);
+        // A loaded Windows host can take tens of milliseconds to cycle two frames.
+        this->create_master(x::telem::SECOND);
         this->brk.start();
     }
 
@@ -1588,9 +1589,9 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
     EXPECT_EQ(
         err.data,
         "the clock of slave 1 (16xAO) is " + x::telem::TimeSpan(20'000).to_string() +
-            " off the reference clock after " +
-            (x::telem::MILLISECOND * 50).to_string() + ". It must be within " +
-            (x::telem::MICROSECOND * 10).to_string() + " before SYNC0 starts."
+            " off the reference clock after " + x::telem::SECOND.to_string() +
+            ". It must be within " + (x::telem::MICROSECOND * 10).to_string() +
+            " before SYNC0 starts."
     );
     EXPECT_EQ(this->mock->register_writes.size(), 2);
     EXPECT_TRUE(this->mock->state_change_requests.empty());
@@ -1600,6 +1601,7 @@ TEST_F(SOEMMasterTest, ActivateFailsWhenADCClockDoesNotSettle) {
 /// no frame carries the reference clock to the slaves, since the clock difference of a
 /// slave keeps its old value until one does.
 TEST_F(SOEMMasterTest, ActivateReadsTheClockDifferenceOnlyAfterAFrame) {
+    this->create_master(x::telem::MILLISECOND * 50);
     this->initialize_with_dc_slave({DC_ONLY});
     const auto err = this->master->activate({.period = PERIOD}, no_cycle).err;
     ASSERT_OCCURRED_AS(err, errors::ACTIVATION_ERROR);
@@ -2219,7 +2221,7 @@ TEST_F(SOEMMasterTest, CheckIgnoresTheDCTimeOfAFrameWithAWorkingCounterMismatch)
     ASSERT_OCCURRED_AS(this->master->receive(), errors::WORKING_COUNTER_ERROR);
     this->mock->slave_infos[0].state = EC_STATE_INIT;
     this->mock->register_values[{1, 0x0918}] = 2'000;
-    this->master->check(this->brk);
+    this->check_while_cycling();
     const auto error = this->written_offset(1) -
                        (this->mock->latched_at + 7'000'000'000 - 2'000);
     EXPECT_LT(std::abs(error), x::telem::SECOND.nanoseconds());

@@ -407,7 +407,8 @@ func optStr(s string) protocol.Optional[string] {
 func (s *Server) Completion(
 	ctx context.Context,
 	params *protocol.CompletionParams,
-) (protocol.CompletionResult, error) {
+) (result protocol.CompletionResult, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -486,8 +487,7 @@ func (s *Server) getCompletionItems(
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
 		// functions, constants, and module-qualified members alongside the
-		// stage keyword. ExecWASM-only functions are filtered out by the
-		// execFilter below.
+		// stage keyword.
 		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
@@ -524,12 +524,10 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation {
+		// A flow expression can call a WASM function, so only a func body filters.
 		var execFilter symbol.ExecContext
-		switch nesting {
-		case NestingFunction:
+		if nesting == NestingFunction {
 			execFilter = symbol.ExecWASM
-		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
-			execFilter = symbol.ExecFlow
 		}
 		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
 		startChar := pos.Character - uint32(len(prefix))
@@ -575,8 +573,8 @@ func (s *Server) getCompletionItems(
 					importEdit = buildAutoImportEdit(doc, mod.Name)
 				}
 				for _, sym := range mod.Children() {
-					if sym.Kind != symbol.KindFunction || sym.Internal ||
-						(mod.UserDefined && !sym.Exported) {
+					if sym.Internal || (mod.UserDefined && !sym.Exported) ||
+						(sym.Kind != symbol.KindFunction && sym.Kind != symbol.KindConstant) {
 						continue
 					}
 					if !sym.Exec.Compatible(execFilter) {
@@ -678,6 +676,9 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 		detail = typeStr
 	} else {
 		kind = protocol.CompletionItemKindVariable
+	}
+	if sym.Kind == symbol.KindConstant {
+		kind = protocol.CompletionItemKindConstant
 	}
 	return protocol.CompletionItem{
 		Label:  sym.Name,

@@ -52,23 +52,27 @@ Core does not start.
 
 <Fragment slot="Linux">
 
-Download the new binary:
+If the Core runs as a [service](/reference/enterprise/service), update it:
+
+<UpdateCommand os="linux" target="release" />
+
+The command downloads the new Core and checks its signature. It stops the service, puts
+the new binary in place of the old one, and starts the service. It then waits up to 10
+minutes for the new Core to commit the update. To change the wait, add `--timeout`, such
+as `--timeout 30m`. If the new Core fails, the command puts the old Core back and starts
+it. The old binary stays next to the new one, with an `.old` extension. If the wait ends
+first, the command fails and leaves the new Core to finish. If that Core then undoes the
+update, run `synnax update undo` to put the old Core back.
+
+An older Core cannot download an update, so the command fails. Then download the new
+binary and update with it:
 
 <DownloadURL os="linux" />
 
-If the Core runs as a [service](/reference/enterprise/service), update it with the new
-binary, because an older Core has no update command:
-
 <UpdateCommand os="linux" target="service" />
 
-The command stops the service, puts the new binary in place of the old one, and starts
-the service. It then waits up to 10 minutes for the new Core to commit the update. To
-change the wait, add `--timeout`, such as `--timeout 30m`. If the new Core fails, the
-command puts the old Core back and starts it. The old binary stays next to the new one,
-with an `.old` extension.
-
-If the Core runs in a terminal, stop it with **Ctrl+C**, then put the new binary in
-place of the old one:
+If the Core runs in a terminal, download the new binary as above. Stop the Core with
+**Ctrl+C**, then put the new binary in place of the old one:
 
 <UpdateCommand os="linux" target="binary" />
 
@@ -108,7 +112,7 @@ Core again and stops with an error. The service keeps its settings in
 
 <Fragment slot="Docker">
 
-1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.59.0`, so you can
+1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.61.0`, so you can
    go back to the old image:
 
    ```bash
@@ -181,18 +185,29 @@ If you snapshot the data folder before each update, you can turn off the backup 
 
 ## Update the Console and Drivers
 
-- **Console app** -> the Console checks for updates and shows **Update available**.
-  Click it to update.
+- **Console app** -> the Console gets the matching release from its Core and shows
+  **Update available**. Click it to update. The update needs no internet access. The
+  Core serves updates for macOS and Windows. On Linux, install the new release by hand.
 - **Console in a browser** -> updates with the Core.
 - **Standalone Drivers** -> install the new release on each computer. See
   [Install a standalone Driver](/reference/enterprise/driver/install).
 
 The desktop Console does not open the workspace when its major or minor version differs
-from the Core. Click **Open in browser** to use the Console that the Core serves. A
-browser reloads the page by itself to get the Console that matches the Core. The client
-libraries warn and still connect. Upgrade the Core first, then the Console and Drivers.
-A Console older than 0.60 shows errors instead of the activation screen when a Core 0.60
-has no license, so upgrade the Console with the Core.
+from the Core. Click **Update Console** to install the Console that matches the Core, or
+**Open in browser** to use the Console that the Core serves. A browser reloads the page
+by itself to get the Console that matches the Core. The client libraries warn and still
+connect. A standalone Driver on another major or minor version starts no tasks, and its
+rack shows the status
+[`Driver ... cannot work with Core ...`](/reference/hardware/troubleshooting#driver--cannot-work-with-core-).
+Upgrade the Core first, then the Console and Drivers. A Console older than 0.60 shows
+errors instead of the activation screen when a Core 0.60 has no license, so upgrade the
+Console with the Core.
+
+A user with permission to update the Synnax version, such as an Owner, also sees the
+newest stable Console when its minor version is newer than the Core's. The Console asks
+you to confirm first, because it cannot open the workspace until you upgrade the Core.
+When a newer Core release exists, this user also gets a notification with the command
+that updates the Core.
 
 Drivers after 0.60 number the EtherCAT modules on IgH from 1, as on the built-in master.
 If a Driver uses IgH, delete its
@@ -225,8 +240,9 @@ To go back, undo the update:
    with `sudo`. Otherwise, add the same `--data` flag as `synnax start`.
 
    The command restores the backup of the last update and prints the Core version to
-   run. It refuses if the last update is already undone. If `synnax update` installed
-   the new binary, the undo also puts the old binary back.
+   run. If `synnax update` installed the new binary, the undo also puts the old binary
+   back. If the Core already undid the update, the undo only puts the old binary back.
+   With no old binary to put back, it refuses.
 
 3. If the undo did not put the old binary back, install that version of the Core. Then
    start the Core.

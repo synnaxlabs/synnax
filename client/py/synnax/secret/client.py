@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from freighter import Empty, UnaryClient
 from synnax.exceptions import ValidationError
 from synnax.resource import ID, CrudeID
+from synnax.secret import actions_gen
 from synnax.secret.payload import New, NewFile, NewStored
 from synnax.secret.types_gen import (
     Cursor,
@@ -31,17 +32,18 @@ from x import filter
 from x.lists import normalize
 
 
-class _CreateRequest(BaseModel):
+class _SetRequest(BaseModel):
     secrets: list[New]
 
 
-class _CreateResponse(BaseModel):
+class _SetResponse(BaseModel):
     secrets: list[Secret]
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -64,18 +66,18 @@ class Client:
         self._client = client
 
     @overload
-    def create(self, *, name: str, value: str) -> Secret: ...
+    def set(self, *, name: str, value: str) -> Secret: ...
 
     @overload
-    def create(self, *, name: str, path: str) -> Secret: ...
+    def set(self, *, name: str, path: str) -> Secret: ...
 
     @overload
-    def create(self, secrets: New) -> Secret: ...
+    def set(self, secrets: New) -> Secret: ...
 
     @overload
-    def create(self, secrets: list[New]) -> list[Secret]: ...
+    def set(self, secrets: list[New]) -> list[Secret]: ...
 
-    def create(
+    def set(
         self,
         secrets: New | list[New] | None = None,
         *,
@@ -110,8 +112,8 @@ class Client:
                 raise ValidationError(
                     "A secret needs a name and exactly one of a value or a path."
                 )
-        req = _CreateRequest(secrets=normalize(secrets))
-        res = self._client.send("/secret/create", req, _CreateResponse)
+        req = _SetRequest(secrets=normalize(secrets))
+        res = self._client.send("/secret/set", req, _SetResponse)
         return res.secrets[0] if is_single else res.secrets
 
     def delete(self, keys: Key | list[Key]) -> None:
@@ -132,7 +134,9 @@ class Client:
         :raises NotFoundError: If no secret has the given key.
         :raises AccessDenied: If the caller cannot update the secret.
         """
-        self._client.send("/secret/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/secret/dispatch", req, Empty)
 
     def grant(self, subject: CrudeID, secrets: Key | list[Key]) -> UUID:
         """Lets a subject read secrets once, within a minute, such as for a rack to

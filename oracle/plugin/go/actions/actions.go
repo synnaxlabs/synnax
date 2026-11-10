@@ -118,6 +118,9 @@ func (p *Plugin) generateFile(
 			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
+		if action.IsAlias() {
+			ad.Target = r.ResolveTypeRef(action.Alias, ctx)
+		}
 		for _, field := range action.Fields {
 			ad.Fields = append(ad.Fields, processField(field, r, ctx))
 		}
@@ -181,7 +184,11 @@ type actionData struct {
 	Name     string
 	TypeName string
 	Doc      string
-	Fields   []fieldData
+	// Target is the Go type of the struct that an action alias uses as its payload. The
+	// payload is a defined type over it, not a Go alias, so the package can declare its
+	// Handle method.
+	Target string
+	Fields []fieldData
 }
 
 type fieldData struct {
@@ -264,11 +271,15 @@ const (
 {{- if .Doc}}
 {{formatDoc (printf "%sPayload" .Name) .Doc}}
 {{end -}}
+{{if .Target -}}
+type {{.Name}}Payload {{.Target}}
+{{- else -}}
 type {{.Name}}Payload struct {
 {{- range .Fields}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 }
+{{- end}}
 {{end}}
 // Action is a discriminated union for all {{.TargetName}} mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
@@ -280,9 +291,9 @@ type Action struct {
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on each
-// action's Type to the matching payload's Handle method. An unknown action type, or a
-// known type with a nil payload pointer, returns an error. Returns the first error
-// encountered along with the partially-reduced state.
+// action's Type to the matching payload's Handle method. It returns the first error
+// with a zero {{.TargetType}}: an unknown action type, a known type with a nil payload
+// pointer, or an error from a Handle method.
 func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 	var err error
 	for _, a := range actions {
@@ -290,15 +301,15 @@ func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 {{- range .Actions}}
 		case ActionType{{.Name}}:
 			if a.{{.Name}} == nil {
-				return state, union.MissingPayload(a.Type)
+				return {{$.TargetType}}{}, union.MissingPayload(a.Type)
 			}
 			state, err = a.{{.Name}}.Handle(state)
 {{- end}}
 		default:
-			return state, union.UnknownVariant(a.Type)
+			return {{.TargetType}}{}, union.UnknownVariant(a.Type)
 		}
 		if err != nil {
-			return state, err
+			return {{.TargetType}}{}, err
 		}
 	}
 	return state, nil

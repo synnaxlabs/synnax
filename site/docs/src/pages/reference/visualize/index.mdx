@@ -59,7 +59,8 @@ schematics, tables, and logs. Each visualization opens in a tab. You arrange tab
 
 Synnax stores each project, its panels, and its visualizations in the Synnax Core. The
 Console saves each change that you make, so everyone on the same Core can
-[share](/reference/visualize/share) them.
+[share](/reference/visualize/share) them. A Python or TypeScript script can also create
+and change them. See [visualizations in code](/reference/visualize/code).
 
 <Diagram.Nest
   title="A project holds panels. A panel holds tabs, and each tab shows one visualization: a line plot, a schematic, a table, or a log."
@@ -72,9 +73,9 @@ Console saves each change that you make, so everyone on the same Core can
 
 ### Watch a test live
 
-A [line plot](/reference/visualize/line-plots) with a rolling time span, such as the
-last 30 seconds, shows each new sample when it arrives. Put the pressures of one tank on
-one plot to see how they change together.
+A [line plot](/reference/visualize/line-plots) with a live window, such as the last 30
+seconds, shows each new sample when it arrives. Put the pressures of one tank on one
+plot to see how they change together.
 
 ### Review and compare past tests
 
@@ -96,8 +97,9 @@ its value passes a limit.
 
 ### Follow messages and states
 
-A [log](/reference/visualize/logs) shows each new value of its channels as a line of
-text. Use it for operator notes, sequence states, and other text channels.
+A [log](/reference/visualize/logs) shows the values of its channels as lines of text,
+and adds each new value when it arrives. Use it for operator notes, sequence states, and
+other text channels.
 
 <Divider.Divider x />
 
@@ -108,11 +110,12 @@ text. Use it for operator notes, sequence states, and other text channels.
 | [Line plot](/reference/visualize/line-plots) | Values over time, one line for each channel | Yes       | No             | [Watch a test live](#watch-a-test-live) and [compare past tests](#review-and-compare-past-tests). |
 | [Schematic](/reference/visualize/schematics) | Latest values on a drawing of your system   | No        | Yes            | [Operate your system](#operate-your-system).                                                      |
 | [Table](/reference/visualize/tables)         | Latest values in a grid of cells            | No        | No             | [Watch many values at once](#watch-many-values-at-once).                                          |
-| [Log](/reference/visualize/logs)             | Each new value as a line of text            | No        | No             | [Follow messages and states](#follow-messages-and-states).                                        |
+| [Log](/reference/visualize/logs)             | Values as lines of text, newest last        | Yes       | No             | [Follow messages and states](#follow-messages-and-states).                                        |
 
 A schematic and a table both show the latest values of many channels. Use a schematic
 when the position of a value on your system matters, or when you must command hardware.
 Use a table for a dense grid of values with no drawing.
 
-A log shows the values that arrive while it is open. It does not read stored data. To
-see stored data, use a line plot.
+A line plot and a log both show stored data. Use a log to read each value as text, and
+scroll back through all of the stored values. Use a line plot to see how numbers change
+over time.

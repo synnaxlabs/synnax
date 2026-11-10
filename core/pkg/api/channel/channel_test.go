@@ -389,41 +389,6 @@ var _ = Describe("Service", func() {
 					Error().To(MatchError(ts.ErrChannelNotFound))
 			},
 		)
-		It(
-			"Should keep both names when the subject cannot update the channel",
-			func(ctx SpecContext) {
-				Expect(renameChannels(
-					AuthedCtx(ctx, outsider),
-					apichannel.RenameRequest{
-						Keys:  channel.Keys{ch.Key()},
-						Names: []string{UniqueChannelName()},
-					},
-				)).Error().To(MatchError(access.ErrDenied))
-				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(ch.Name))
-				Expect(stored(ctx).Name).To(Equal(ch.Name))
-			},
-		)
-		It(
-			"Should rename the channel in both stores when the subject can update it",
-			func(ctx SpecContext) {
-				grantOn(
-					ctx,
-					outsider.ResourceID(),
-					[]access.Action{access.ActionUpdate},
-					channel.ResourceID(ch.Key()),
-				)
-				name := UniqueChannelName()
-				MustSucceed(renameChannels(
-					AuthedCtx(ctx, outsider),
-					apichannel.RenameRequest{
-						Keys:  channel.Keys{ch.Key()},
-						Names: []string{name},
-					},
-				))
-				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
-				Expect(stored(ctx).Name).To(Equal(name))
-			},
-		)
 		Describe("Dispatch", func() {
 			renameTo := func(name string) apichannel.DispatchRequest {
 				return apichannel.DispatchRequest{
@@ -461,7 +426,7 @@ var _ = Describe("Service", func() {
 			})
 		})
 	})
-	Describe("SetGroup", func() {
+	Describe("Dispatch group move", func() {
 		// denied matches an error that denies the subject the action on object.
 		denied := func(
 			subject resource.ID,
@@ -479,14 +444,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 			g group.Group,
 			ch channel.Channel,
-		) (struct{}, error) {
-			return setGroup(
-				AuthedCtx(ctx, author),
-				apichannel.SetGroupRequest{
-					Group: &g.Key,
-					Keys:  []channel.Key{ch.Key()},
-				},
-			)
+		) (apichannel.DispatchResponse, error) {
+			return dispatch(AuthedCtx(ctx, author), apichannel.DispatchRequest{
+				Key: ch.Key(),
+				Actions: []channel.Action{channel.NewSetAction(channel.SetPayload{
+					Path:  []string{"group"},
+					Value: g.Key.String(),
+				})},
+			})
 		}
 		It(
 			"Should refuse a move without update on the destination group",

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.arc import compiler, graph, ir, program, text, types
+from synnax.arc import compiler, directory, graph, ir, program, text, types
 from synnax.arc.client import Arc, Automation, Client, Module
 from synnax.arc.graph import Edge as GraphEdge, Graph, Node as GraphNode
 from synnax.arc.ir import Edge, Handle
@@ -15,6 +15,8 @@ from synnax.arc.task import Task, TaskConfig
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
     TYPE_RESOURCE_ID,
+    Change,
+    ChangeKind,
     Cursor,
     GraphSource,
     Key,
@@ -33,6 +35,8 @@ __all__ = [
     "TYPE_RESOURCE_ID",
     "Arc",
     "Automation",
+    "Change",
+    "ChangeKind",
     "Client",
     "Cursor",
     "Edge",
@@ -55,6 +59,7 @@ __all__ = [
     "Where",
     "WhereInput",
     "compiler",
+    "directory",
     "graph",
     "ir",
     "program",

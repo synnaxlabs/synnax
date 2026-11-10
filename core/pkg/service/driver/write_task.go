@@ -163,8 +163,7 @@ func (t *WriteTask) run(
 	)
 	streamer.InFrom(requests)
 	streamer.OutTo(responses)
-	// A routine never starts under a cancelled context, and then never closes its
-	// outlets. The streamer runs apart from ctx, so the drain below always ends.
+	// The streamer runs apart from ctx. Closing the requests stops it.
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.cfg.Instrumentation),
 	)

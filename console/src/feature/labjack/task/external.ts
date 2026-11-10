@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Read, ReadSelectable } from "@/feature/labjack/task/Read";
+import { Read } from "@/feature/labjack/task/Read";
 import { READ_TYPE, WRITE_TYPE } from "@/feature/labjack/task/types";
-import { Write, WriteSelectable } from "@/feature/labjack/task/Write";
-import { type Selector } from "@/platform/selector";
+import { Write } from "@/feature/labjack/task/Write";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/labjack/task/commands";
+export * from "@/feature/labjack/task/integration";
 export * from "@/feature/labjack/task/Read";
 export * from "@/feature/labjack/task/SelectReadChannelTypeField";
 export * from "@/feature/labjack/task/SelectWriteChannelType";
@@ -24,5 +24,3 @@ export const FORMS: Task.Forms = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
 };
-
-export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];

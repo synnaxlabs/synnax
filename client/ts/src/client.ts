@@ -134,17 +134,17 @@ const changes = (set: string, del: string): resource.Channels => ({ set, delete:
 const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   arc: changes(arc.SET_CHANNEL_NAME, arc.DELETE_CHANNEL_NAME),
   arc_directory: changes(
-    arc.directory.SET_CHANNEL_NAME,
+    arc.directory.ACTION_CHANNEL_NAME,
     arc.directory.DELETE_CHANNEL_NAME,
   ),
   builtin: null,
   certificate: changes(certificate.SET_CHANNEL_NAME, certificate.DELETE_CHANNEL_NAME),
   channel: changes(channel.SET_CHANNEL_NAME, channel.DELETE_CHANNEL_NAME),
-  device: changes(device.SET_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
+  device: changes(device.ACTION_CHANNEL_NAME, device.DELETE_CHANNEL_NAME),
   ethercat_master: null,
   ethercat_slave: null,
   framer: null,
-  group: changes(group.SET_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
+  group: changes(group.ACTION_CHANNEL_NAME, group.DELETE_CHANNEL_NAME),
   http_server: null,
   label: changes(label.ACTION_CHANNEL_NAME, label.DELETE_CHANNEL_NAME),
   labjack_device: null,
@@ -156,23 +156,23 @@ const RESOURCE_CHANNELS: Record<resource.Type, resource.Channels | null> = {
   node: null,
   opcua_server: null,
   panel: changes(panel.SET_CHANNEL_NAME, panel.DELETE_CHANNEL_NAME),
-  policy: changes(access.policy.SET_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
-  project: changes(project.SET_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
-  rack: changes(rack.SET_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
+  policy: changes(access.policy.ACTION_CHANNEL_NAME, access.policy.DELETE_CHANNEL_NAME),
+  project: changes(project.ACTION_CHANNEL_NAME, project.DELETE_CHANNEL_NAME),
+  rack: changes(rack.ACTION_CHANNEL_NAME, rack.DELETE_CHANNEL_NAME),
   range: changes(ranger.ACTION_CHANNEL_NAME, ranger.DELETE_CHANNEL_NAME),
   "range-alias": null,
-  role: changes(access.role.SET_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
+  role: changes(access.role.ACTION_CHANNEL_NAME, access.role.DELETE_CHANNEL_NAME),
   schematic: changes(schematic.SET_CHANNEL_NAME, schematic.DELETE_CHANNEL_NAME),
   schematic_symbol: changes(
-    schematic.symbol.SET_CHANNEL_NAME,
+    schematic.symbol.ACTION_CHANNEL_NAME,
     schematic.symbol.DELETE_CHANNEL_NAME,
   ),
-  secret: changes(secret.SET_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
+  secret: changes(secret.ACTION_CHANNEL_NAME, secret.DELETE_CHANNEL_NAME),
   status: changes(status.SET_CHANNEL_NAME, status.DELETE_CHANNEL_NAME),
   table: changes(table.SET_CHANNEL_NAME, table.DELETE_CHANNEL_NAME),
   task: changes(task.ACTION_CHANNEL_NAME, task.DELETE_CHANNEL_NAME),
-  user: changes(user.SET_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
-  view: changes(view.SET_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
+  user: changes(user.ACTION_CHANNEL_NAME, user.DELETE_CHANNEL_NAME),
+  view: changes(view.ACTION_CHANNEL_NAME, view.DELETE_CHANNEL_NAME),
 };
 
 /**
@@ -309,6 +309,7 @@ export default class Synnax extends framer.Client {
     this.params = parsedParams;
     this.transport = transport;
     const unary = this.transport.unary;
+    this.batch = new batch.Client(unary);
     this.resources = new resource.Client({ unary, cache, channels: RESOURCE_CHANNELS });
     this.license = new license.Client({ unary, connection: this.conn, cache });
     this.labels = new label.Client({
@@ -336,11 +337,13 @@ export default class Synnax extends framer.Client {
       statuses: this.statuses,
       ranges: this.ranges,
       cache,
+      batch: this.batch,
     });
     this.control = new control.Client({ unary, cache });
     this.users = new user.Client({
       unary,
       cache,
+      batch: this.batch,
       connection: this.conn,
       identity,
     });
@@ -378,12 +381,29 @@ export default class Synnax extends framer.Client {
       tasks: this.tasks,
       cache,
       statuses: this.statuses,
+      batch: this.batch,
     });
     this.views = new view.Client({ unary, cache });
     this.secrets = new secret.Client({ unary, cache });
     this.certificates = new certificate.Client({ unary, cache });
-    this.groups = new group.Client({ unary, cache });
-    this.batch = new batch.Client(unary);
+    this.groups = new group.Client({
+      unary,
+      cache,
+      batch: this.batch,
+      setGroup: {
+        channel: (keys, to) => this.channels.setGroupRequest(keys.map(Number), to),
+        device: (keys, to) => this.devices.setGroupRequest(keys, to),
+        lineplot: (keys, to) => this.lineplots.setGroupRequest(keys, to),
+        log: (keys, to) => this.logs.setGroupRequest(keys, to),
+        panel: (keys, to) => this.panels.setGroupRequest(keys, to),
+        project: (keys, to) => this.projects.setGroupRequest(keys, to),
+        rack: (keys, to) => this.racks.setGroupRequest(keys.map(Number), to),
+        schematic: (keys, to) => this.schematics.setGroupRequest(keys, to),
+        schematic_symbol: (keys, to) =>
+          this.schematics.symbols.setGroupRequest(keys, to),
+        table: (keys, to) => this.tables.setGroupRequest(keys, to),
+      },
+    });
     this.schematics = new schematic.Client({
       unary,
       file: this.transport.file,

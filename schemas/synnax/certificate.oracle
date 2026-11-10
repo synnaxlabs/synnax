@@ -101,23 +101,13 @@ Certificate union on source secret.Source extends Base {
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the certificate."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value """
-            removes an entry from a list or a field from an object in the certificate.
-        """
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the certificate."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the certificate."
-    }
+    action Move = patch.Move
 
     @doc value     """
         is a public certificate that a device uses to secure a connection, with the

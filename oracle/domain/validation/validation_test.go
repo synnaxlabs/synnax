@@ -74,6 +74,38 @@ var _ = Describe("Parse", func() {
 		Expect(rules.Min.Int).To(Equal(int64(10)))
 	})
 
+	It("should parse gt expression with int", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{
+				Name: "gt",
+				Values: []resolution.ExpressionValue{
+					{Kind: resolution.ValueKindInt, IntValue: 0},
+				},
+			}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.GT).NotTo(BeNil())
+		Expect(rules.GT.IsInt).To(BeTrue())
+		Expect(rules.GT.Int).To(Equal(int64(0)))
+		Expect(rules.Min).To(BeNil())
+		Expect(validation.IsEmpty(rules)).To(BeFalse())
+	})
+
+	It("should parse gt expression with float", func() {
+		domain := resolution.Domain{
+			Expressions: []resolution.Expression{{
+				Name: "gt",
+				Values: []resolution.ExpressionValue{
+					{Kind: resolution.ValueKindFloat, FloatValue: 0.5},
+				},
+			}},
+		}
+		rules := validation.Parse(domain)
+		Expect(rules.GT).NotTo(BeNil())
+		Expect(rules.GT.IsInt).To(BeFalse())
+		Expect(rules.GT.Float).To(Equal(0.5))
+	})
+
 	It("should parse min expression with float", func() {
 		domain := resolution.Domain{
 			Expressions: []resolution.Expression{

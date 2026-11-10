@@ -12,13 +12,14 @@ import { describe, expect, it } from "vitest";
 
 import { NotFoundError, PathError } from "@/index";
 import { rack } from "@/rack";
-import { createTestClient, waitForStreamLive } from "@/testutil";
+import { secret } from "@/secret";
+import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
 
 describe("Secret", () => {
-  describe("create", () => {
+  describe("set", () => {
     it("should create a stored secret", async () => {
       const client = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Broker password",
         source: "stored",
         value: "hunter2",
@@ -29,7 +30,7 @@ describe("Secret", () => {
 
     it("should create a file secret", async () => {
       const client = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Client key",
         source: "file",
         path: "/etc/synnax/client.key",
@@ -43,7 +44,7 @@ describe("Secret", () => {
 
     it("should create multiple secrets", async () => {
       const client = createTestClient();
-      const secrets = await client.secrets.create([
+      const secrets = await client.secrets.set([
         { name: "Token", source: "stored", value: "abc" },
         { name: "Key file", source: "file", path: "/tmp/key.pem" },
       ]);
@@ -54,12 +55,12 @@ describe("Secret", () => {
 
     it("should replace a secret that has the same key", async () => {
       const client = createTestClient();
-      const first = await client.secrets.create({
+      const first = await client.secrets.set({
         name: "API key",
         source: "stored",
         value: "one",
       });
-      const second = await client.secrets.create({
+      const second = await client.secrets.set({
         key: first.key,
         name: "API key v2",
         source: "file",
@@ -75,7 +76,7 @@ describe("Secret", () => {
   describe("retrieve", () => {
     it("should retrieve a secret by key", async () => {
       const client = createTestClient();
-      const created = await client.secrets.create({
+      const created = await client.secrets.set({
         name: "Retrieve",
         source: "stored",
         value: "abc",
@@ -86,7 +87,7 @@ describe("Secret", () => {
 
     it("should retrieve multiple secrets", async () => {
       const client = createTestClient();
-      const created = await client.secrets.create([
+      const created = await client.secrets.set([
         { name: "Multi 1", source: "stored", value: "a" },
         { name: "Multi 2", source: "stored", value: "b" },
       ]);
@@ -97,7 +98,7 @@ describe("Secret", () => {
 
     it("should leave out a key that no secret has in a filter", async () => {
       const client = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Kept",
         source: "stored",
         value: "a",
@@ -111,7 +112,7 @@ describe("Secret", () => {
     it("should search for secrets by name", async () => {
       const client = createTestClient();
       const name = `${id.create()} password`;
-      const created = await client.secrets.create({
+      const created = await client.secrets.set({
         name,
         source: "stored",
         value: "abc",
@@ -123,7 +124,7 @@ describe("Secret", () => {
 
     it("should retrieve a secret by name", async () => {
       const name = `${id.create()} token`;
-      const created = await createTestClient().secrets.create({
+      const created = await createTestClient().secrets.set({
         name,
         source: "stored",
         value: "abc",
@@ -133,7 +134,7 @@ describe("Secret", () => {
 
     it("should page secrets in name order with a cursor", async () => {
       const prefix = id.create();
-      const created = await createTestClient().secrets.create(
+      const created = await createTestClient().secrets.set(
         ["C", "A", "B"].map((n) => ({
           name: `${prefix} ${n}`,
           source: "stored" as const,
@@ -164,7 +165,7 @@ describe("Secret", () => {
         if (w != null) seen.push(w.records.map((s) => s.name));
       });
       try {
-        await createTestClient().secrets.create({
+        await createTestClient().secrets.set({
           name: `${prefix} watched`,
           source: "stored",
           value: "v",
@@ -186,7 +187,7 @@ describe("Secret", () => {
   describe("rename", () => {
     it("should rename a secret", async () => {
       const client = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Before",
         source: "stored",
         value: "abc",
@@ -199,7 +200,7 @@ describe("Secret", () => {
     it("should update the cache of another client", async () => {
       const client = createTestClient();
       const remote = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Remote",
         source: "stored",
         value: "abc",
@@ -215,7 +216,7 @@ describe("Secret", () => {
 
     it("should reject an empty name", async () => {
       const client = createTestClient();
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Keep",
         source: "stored",
         value: "abc",
@@ -227,10 +228,26 @@ describe("Secret", () => {
     });
   });
 
+  describe("dispatch", () => {
+    it("should refuse a set of the value before it sends", async () => {
+      const client = createTestClient();
+      const s = await client.secrets.set({
+        name: "Hidden",
+        source: "stored",
+        value: "abc",
+      });
+      const send = spyOnSend(client);
+      await expect(
+        client.secrets.dispatch(s.key, secret.set({ path: ["value"], value: "x" })),
+      ).rejects.toThrow('no editable field at "value"');
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
+
   describe("delete", () => {
     it("should delete secrets", async () => {
       const client = createTestClient();
-      const secrets = await client.secrets.create([
+      const secrets = await client.secrets.set([
         { name: "Delete 1", source: "stored", value: "a" },
         { name: "Delete 2", source: "file", path: "/tmp/b" },
       ]);
@@ -246,7 +263,7 @@ describe("Secret", () => {
     it("should return the key of a new grant", async () => {
       const client = createTestClient();
       const r = await client.racks.create({ name: "Grant rack" });
-      const s = await client.secrets.create({
+      const s = await client.secrets.set({
         name: "Grant",
         source: "stored",
         value: "abc",

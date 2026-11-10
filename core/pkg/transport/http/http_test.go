@@ -122,11 +122,11 @@ var _ = Describe("HTTP", func() {
 			Entry("unary frame delete", http.MethodPost, "/api/v1/frame/delete"),
 			Entry("unary frame read", http.MethodPost, "/api/v1/frame/read"),
 			Entry("stream frame writer", http.MethodGet, "/api/v1/frame/write"),
-			Entry("unary task rename", http.MethodPost, "/api/v1/task/rename"),
-			Entry("unary device rename", http.MethodPost, "/api/v1/device/rename"),
-			Entry("unary rack rename", http.MethodPost, "/api/v1/rack/rename"),
+			Entry("unary task dispatch", http.MethodPost, "/api/v1/task/dispatch"),
+			Entry("unary device dispatch", http.MethodPost, "/api/v1/device/dispatch"),
+			Entry("unary rack dispatch", http.MethodPost, "/api/v1/rack/dispatch"),
 			Entry("unary status rename", http.MethodPost, "/api/v1/status/rename"),
-			Entry("unary view rename", http.MethodPost, "/api/v1/view/rename"),
+			Entry("unary view dispatch", http.MethodPost, "/api/v1/view/dispatch"),
 			Entry("unary secret resolve", http.MethodPost, "/api/v1/secret/resolve"),
 			Entry(
 				"unary secret grant create",
@@ -138,6 +138,36 @@ var _ = Describe("HTTP", func() {
 				http.MethodPost,
 				"/api/v1/certificate/create",
 			),
+		)
+
+		DescribeTable("Should not register a route for a deleted edit endpoint",
+			func(path string) {
+				res := MustSucceed(app.Test(
+					httptest.NewRequest(http.MethodPost, "/api/v1"+path, nil),
+				))
+				Expect(res.StatusCode).To(Equal(http.StatusNotFound))
+			},
+			Entry("user rename", "/user/rename"),
+			Entry("user change username", "/user/change-username"),
+			Entry("user set role", "/user/set-role"),
+			Entry("channel rename", "/channel/rename"),
+			Entry("channel set group", "/channel/set-group"),
+			Entry("range rename", "/range/rename"),
+			Entry("range set end", "/range/set-end"),
+			Entry("group rename", "/group/rename"),
+			Entry("group set parent", "/group/set-parent"),
+			Entry("project rename", "/project/rename"),
+			Entry("project set group", "/project/set-group"),
+			Entry("schematic symbol rename", "/schematic/symbol/rename"),
+			Entry("schematic symbol set group", "/schematic/symbol/set-group"),
+			Entry("rack rename", "/rack/rename"),
+			Entry("rack set group", "/rack/set-group"),
+			Entry("device rename", "/device/rename"),
+			Entry("device set group", "/device/set-group"),
+			Entry("task rename", "/task/rename"),
+			Entry("view rename", "/view/rename"),
+			Entry("arc directory rename", "/arc/directory/rename"),
+			Entry("arc move", "/arc/move"),
 		)
 
 		It("Should not register a route for an unknown path", func() {

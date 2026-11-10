@@ -208,7 +208,7 @@ func NewHost(
 				DataType: ser.DataType,
 				Data:     ser.Data[startIdx*density : endIdx*density],
 			}
-			return s.Store(sliced)
+			return s.StoreView(sliced)
 		}).Export("slice")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint32 {

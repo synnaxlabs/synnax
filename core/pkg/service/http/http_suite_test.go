@@ -15,15 +15,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var db *gorp.DB
+var (
+	db         *gorp.DB
+	statusSvc  *status.Service
+	channelSvc *channel.Service
+)
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	db = DeferClose(gorp.Wrap(memkv.New()))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db}))
+	statusSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
+		Channel: node.Channel,
+		DB:      db,
+		HostKey: node.Identity.HostKey,
+		Status:  statusSvc,
+	}))
 })
 
 func TestHTTP(t *testing.T) {

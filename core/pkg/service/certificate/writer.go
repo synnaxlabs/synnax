@@ -139,7 +139,7 @@ func (w Writer) prepareStored(
 			Key:  lo.FromPtr(c.PrivateKey),
 			Name: keyName(c.Name),
 		}}}
-		if err = w.secrets.Create(ctx, &key, privateKey); err != nil {
+		if err = w.secrets.Set(ctx, &key, privateKey); err != nil {
 			return StoredCertificate{}, err
 		}
 		c.PrivateKey = new(key.Base().Key)
