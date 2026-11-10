@@ -183,7 +183,10 @@ export interface Observer {
    * opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
-  /** Fires on a definitive credential rejection, never on token self-heal. */
+  /**
+   * Fires on a definitive credential rejection, and when the Core keeps rejecting fresh
+   * sessions after every token retry. Never fires for a token error a retry fixes.
+   */
   onFailure?: (error: Error) => void;
 }
 
@@ -546,7 +549,9 @@ export class Client {
       try {
         return await next(reqCtx);
       } catch (err) {
-        if (RETRY_ON.some((e) => e.matches(err)) && retries < MAX_RETRIES) {
+        const parsed = errors.fromUnknown(err);
+        if (!RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
+        if (retries < MAX_RETRIES) {
           // only the session this request carried is dead; a login that finished in
           // the meantime holds a different one
           if (this.authState === authState) {
@@ -555,7 +560,9 @@ export class Client {
           }
           return await attempt(reqCtx, next, retries + 1);
         }
-        throw errors.fromUnknown(err);
+        // the Core rejects every fresh session, so logging in again cannot fix it
+        this.observer.onFailure?.(parsed);
+        throw parsed;
       }
     };
     return async (reqCtx, next) => await attempt(reqCtx, next, 0);

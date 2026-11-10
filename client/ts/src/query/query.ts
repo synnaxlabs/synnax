@@ -277,8 +277,8 @@ export const DEFAULT_TEARDOWN_GRACE = TimeSpan.seconds(5);
 
 /**
  * Opens change delivery in the background, since a streaming failure must never block
- * a read. Never rejects. A failed login, a denial, or a missing license belongs to the
- * connection, which reports it once, so only other failures go to report.
+ * a read. Never rejects. A rejected login or session, a denial, or a missing license
+ * belongs to the connection, which reports it once. Only other failures go to report.
  */
 export const startStreaming = async (
   hooks: SpaceHooks,

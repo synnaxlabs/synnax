@@ -444,7 +444,7 @@ export class Client implements Handle {
         this.takeStreamProbe()
       )
         this.stream?.ensure().catch((err: unknown) => {
-          // the failed login or the transition into denied already reported it
+          // the auth observer or the transition into denied already reported it
           if (AuthError.matches(err)) return;
           this.onInternalError(
             new Error("failed to bring up change stream", { cause: err }),
