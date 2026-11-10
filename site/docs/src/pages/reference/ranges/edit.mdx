@@ -84,20 +84,25 @@ Python cannot change the start, the color, or the parent of a range.
 Call `client.ranges.dispatch` with a `ranger.set` action for each field to change. You
 can change `timeRange`, `color`, and `parent`. Set `color` to `null` to clear it.
 
+`dispatch` applies only to a range that the client holds in its cache. It returns
+`false` and sends nothing when the range is not in the cache, so retrieve the range
+first:
+
 ```typescript
 import { ranger, TimeRange, TimeStamp } from "@synnaxlabs/client";
 
 const myRange = await client.ranges.retrieve("My Range");
-await client.ranges.dispatch(myRange.key, [
+const sent = await client.ranges.dispatch(myRange.key, [
   ranger.set({
     path: ["timeRange"],
     value: new TimeRange(
       new TimeStamp("2023-02-12 13:00:00"),
       new TimeStamp("2023-02-12 15:00:00"),
-    ).numeric,
+    ),
   }),
   ranger.set({ path: ["color"], value: "#00FF00" }),
 ]);
+if (!sent) throw new Error("My Range is not in the client cache");
 ```
 
   </Fragment>
