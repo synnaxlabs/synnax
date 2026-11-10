@@ -20,7 +20,13 @@ Position | Slave
 from pydantic import JsonValue
 
 import synnax as sy
-from tests.driver.task import ReadTaskCase, WriteTaskCase, create_channel, create_index
+from tests.driver.task import (
+    ReadTaskCase,
+    WriteTaskCase,
+    assert_states,
+    create_channel,
+    create_index,
+)
 
 SLAVES = [
     "IOLITE GATE LATCH v2.00 BUS1",
@@ -253,19 +259,10 @@ class EtherCATWrite(WriteTaskCase[sy.ethercat.WriteTask]):
 
     def assert_written(self) -> None:
         assert self.tsk is not None and self.command_values is not None
-        expected = self.command_values[-1]
-        states = [ch.state_channel for ch in self.tsk.config.channels]
-        # A state from before the last command can come from an earlier run of the task.
-        cmd = self.client.channels.retrieve(self.tsk.config.channels[0].cmd_channel)
-        sent = sy.TimeStamp(self.client.read_latest(cmd.index).to_numpy()[-1])
-
-        def written() -> bool | None:
-            frame = self.client.read(sy.TimeRange(sent, sy.TimeStamp.MAX), states)
-            done = all(
-                len(frame[k]) > 0 and frame[k][-1] == v
-                for k, v in zip(states, expected, strict=True)
-            )
-            return True if done else None
-
-        if sy.poll(written, timeout=5 * sy.TimeSpan.SECOND, interval=0.1) is None:
-            raise AssertionError(f"Expected the 32xDO states {expected}")
+        channels = self.tsk.config.channels
+        assert_states(
+            self.client,
+            cmd=channels[0].cmd_channel,
+            states=[ch.state_channel for ch in channels],
+            expected=self.command_values[-1],
+        )

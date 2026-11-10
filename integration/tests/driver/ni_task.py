@@ -23,6 +23,7 @@ from tests.driver.task import (
     TaskCase,
     TaskT,
     WriteTaskCase,
+    assert_states,
 )
 
 _NI_MAX_CONFIG = pathlib.Path(__file__).parent.parent / "fixtures" / "ni_max_config.nce"
@@ -199,6 +200,18 @@ class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
             channels=channels,
         )
 
+    @abstractmethod
+    def _state_keys(self, task: TaskT) -> list[int]: ...
+
+    def assert_written(self) -> None:
+        assert self.tsk is not None and self.command_values is not None
+        assert_states(
+            self.client,
+            cmd=self._channel_keys(self.tsk)[0],
+            states=self._state_keys(self.tsk),
+            expected=self.command_values[-1],
+        )
+
 
 class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
     """Base class for NI analog read task tests."""
@@ -263,6 +276,13 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
             if not isinstance(ch, sy.ni.AOFuncGenChannel)
         ]
 
+    def _state_keys(self, task: sy.ni.AnalogWriteTask) -> list[int]:
+        return [
+            ch.state_channel
+            for ch in task.config.channels
+            if not isinstance(ch, sy.ni.AOFuncGenChannel)
+        ]
+
 
 class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
     """Base class for NI digital write task tests."""
@@ -277,3 +297,6 @@ class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
 
     def _channel_keys(self, task: sy.ni.DigitalWriteTask) -> list[int]:
         return [ch.cmd_channel for ch in task.config.channels]
+
+    def _state_keys(self, task: sy.ni.DigitalWriteTask) -> list[int]:
+        return [ch.state_channel for ch in task.config.channels]

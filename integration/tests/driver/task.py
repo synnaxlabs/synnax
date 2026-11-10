@@ -222,6 +222,37 @@ def send_and_verify_commands(
     )
 
 
+def assert_states(
+    client: sy.Synnax,
+    *,
+    cmd: int,
+    states: list[int],
+    expected: list[float],
+    timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND,
+) -> None:
+    """Wait until each state channel reports its expected value after the last write to
+    the indexed command channel cmd. A Driver sets a state only after the device takes
+    the command.
+
+    :raises AssertionError: If a state channel does not report its value within
+        timeout.
+    """
+    # A state from before the last command can come from an earlier run of the task.
+    index = client.channels.retrieve(cmd).index
+    sent = sy.TimeStamp(client.read_latest(index).to_numpy()[-1])
+    last: dict[int, float] = {}
+
+    def written() -> bool | None:
+        frame = client.read(sy.TimeRange(sent, sy.TimeStamp.MAX), states)
+        last.update({k: to_float(frame[k][-1]) for k in states if len(frame[k]) > 0})
+        done = all(last.get(k) == v for k, v in zip(states, expected, strict=True))
+        return True if done else None
+
+    if sy.poll(written, timeout=timeout, interval=0.1) is None:
+        read = [last.get(k) for k in states]
+        raise AssertionError(f"Expected the states {expected}, but read {read}")
+
+
 def cleanup_task(client: sy.Synnax, task: sy.task.Protocol) -> None:
     """Delete the task if it was assigned a key during save."""
     if task.key is not None:
