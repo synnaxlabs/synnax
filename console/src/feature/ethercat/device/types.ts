@@ -52,16 +52,6 @@ const opModeChoiceZ = z.object({
   sync1Cycle: z.number().default(0),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
-/** A CoE object the Driver writes to the slave before each move to SAFE-OP. */
-const startupParameterZ = z.object({
-  index: z.number(),
-  subIndex: z.number(),
-  dataType: z.string(),
-  value: z.number(),
-  name: z.string().default(""),
-});
-export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
-
 /** The mode that a slave held at the scan, as its catalog describes it. */
 const modeZ = z.object({
   /** The address of the CoE object that holds the mode. */
@@ -73,7 +63,7 @@ const modeZ = z.object({
   /** The sync mode that the mode needs. */
   opMode: opModeChoiceZ.optional(),
   /** The writes that make the slave standalone. Empty when it is. */
-  switch: z.array(startupParameterZ),
+  switch: z.array(ethercat.startupParameterZ),
 });
 export interface Mode extends z.infer<typeof modeZ> {}
 
@@ -105,7 +95,7 @@ export const slavePropertiesZ = z.object({
   opModes: z.array(opModeZ).default(() => []),
   /** The mode the Driver sets up. Unset means the Driver picks it. */
   opMode: opModeChoiceZ.optional(),
-  startupParameters: z.array(startupParameterZ).default(() => []),
+  startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
   settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
 });

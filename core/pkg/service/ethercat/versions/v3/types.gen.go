@@ -29,8 +29,9 @@ import (
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel = v2.BaseReadChannel
 
-// Setting is a value that a task writes to a CoE object of its slave.
-type Setting struct {
+// StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP, before
+// the slave moves to SAFE-OP.
+type StartupParameter struct {
 	// Index is the CoE object dictionary index of the object.
 	Index uint16 `json:"index" msgpack:"index"`
 	// SubIndex is the CoE object dictionary sub-index of the object.
@@ -39,14 +40,17 @@ type Setting struct {
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 	// Value is the value written to the object.
 	Value float64 `json:"value" msgpack:"value"`
+	// Name is what the parameter sets, for display.
+	Name string `json:"name" msgpack:"name"`
 }
 
-// SlaveSettings is what a read task writes to one slave when it starts.
-type SlaveSettings struct {
-	// Device is the key of the slave device the values are written to.
+// SlaveStartupParameters holds the startup parameters that a read task writes to one
+// slave.
+type SlaveStartupParameters struct {
+	// Device is the key of the slave device the parameters are written to.
 	Device device.Key `json:"device" msgpack:"device"`
-	// Values are the values written to the slave's CoE objects, in order.
-	Values []Setting `json:"values" msgpack:"values"`
+	// Parameters are the parameters written to the slave, in order.
+	Parameters []StartupParameter `json:"parameters" msgpack:"parameters"`
 }
 
 // ReadChannelType is the "type" value that selects a variant of ReadChannel.
@@ -386,8 +390,8 @@ type ReadConfig struct {
 	task.ReadConfig
 	// Channels are the channels the task acquires.
 	Channels []ReadChannel `json:"channels" msgpack:"channels"`
-	// Settings are the values the task writes to its slaves when it starts.
-	Settings []SlaveSettings `json:"settings" msgpack:"settings"`
+	// StartupParameters are the startup parameters the task writes to its slaves.
+	StartupParameters []SlaveStartupParameters `json:"startup_parameters" msgpack:"startup_parameters"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.

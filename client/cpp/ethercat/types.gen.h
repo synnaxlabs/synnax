@@ -27,8 +27,8 @@ namespace synnax::ethercat {
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
-struct Setting;
-struct SlaveSettings;
+struct StartupParameter;
+struct SlaveStartupParameters;
 struct WriteConfig;
 struct ReadConfig;
 
@@ -79,8 +79,9 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief Setting is a value that a task writes to a CoE object of its slave.
-struct Setting {
+/// @brief StartupParameter is a CoE object that the Driver writes to a slave in PRE-OP,
+/// before the slave moves to SAFE-OP.
+struct StartupParameter {
     /// @brief index is the CoE object dictionary index of the object.
     std::uint16_t index = 0;
     /// @brief sub_index is the CoE object dictionary sub-index of the object.
@@ -90,8 +91,10 @@ struct Setting {
     ::x::telem::DataType data_type;
     /// @brief value is the value written to the object.
     double value = 0;
+    /// @brief name is what the parameter sets, for display.
+    std::string name = "";
 
-    static Setting parse(x::json::Parser parser);
+    static StartupParameter parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -181,14 +184,15 @@ WriteChannel parse_write_channel(x::json::Parser parser);
     );
 }
 
-/// @brief SlaveSettings is what a read task writes to one slave when it starts.
-struct SlaveSettings {
-    /// @brief device is the key of the slave device the values are written to.
+/// @brief SlaveStartupParameters holds the startup parameters that a read task writes
+/// to one slave.
+struct SlaveStartupParameters {
+    /// @brief device is the key of the slave device the parameters are written to.
     ::synnax::device::Key device = "";
-    /// @brief values are the values written to the slave's CoE objects, in order.
-    std::vector<Setting> values = {};
+    /// @brief parameters are the parameters written to the slave, in order.
+    std::vector<StartupParameter> parameters = {};
 
-    static SlaveSettings parse(x::json::Parser parser);
+    static SlaveStartupParameters parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -213,8 +217,9 @@ struct WriteConfig : public ::synnax::task::PersistConfig {
 struct ReadConfig : public ::synnax::task::ReadConfig {
     /// @brief channels are the channels the task acquires.
     std::vector<ReadChannel> channels;
-    /// @brief settings are the values the task writes to its slaves when it starts.
-    std::vector<SlaveSettings> settings = {};
+    /// @brief startup_parameters are the startup parameters the task writes to its
+    /// slaves.
+    std::vector<SlaveStartupParameters> startup_parameters = {};
 
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

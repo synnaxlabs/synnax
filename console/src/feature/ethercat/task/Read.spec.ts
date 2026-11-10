@@ -119,9 +119,9 @@ const createSharedSlave = async () =>
     settings: createDewesoftXSettings(true),
   });
 
-const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16" };
-const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16" };
-const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32" };
+const MEASUREMENT = { index: 0x8040, subIndex: 1, dataType: "uint16", name: "" };
+const RANGE = { index: 0x8040, subIndex: 3, dataType: "uint16", name: "" };
+const EXCITATION = { index: 0x8040, subIndex: 0x1c, dataType: "float32", name: "" };
 
 describe("Read", () => {
   it("should render channels from the task row's config with their port labels", async () => {
@@ -269,10 +269,10 @@ describe("Read", () => {
         key: draft.key,
         schemas: EtherCAT.Task.READ_SCHEMAS,
       });
-      expect(saved.config.settings).toEqual([
+      expect(saved.config.startupParameters).toEqual([
         {
           device: slave.key,
-          values: [
+          parameters: [
             { ...MEASUREMENT, value: 6 },
             { ...RANGE, value: 0 },
             { ...EXCITATION, value: 0 },
@@ -601,10 +601,10 @@ describe("Read", () => {
         EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
         EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
       ],
-      settings: [
+      startupParameters: [
         {
           device: slave.key,
-          values: [
+          parameters: [
             { ...EXCITATION, value: 5 },
             { ...MEASUREMENT, value: 6 },
           ],
@@ -617,10 +617,10 @@ describe("Read", () => {
       draft.key,
       EtherCAT.Task.READ_SCHEMAS,
     );
-    expect(created.config.settings).toEqual([
+    expect(created.config.startupParameters).toEqual([
       {
         device: slave.key,
-        values: [
+        parameters: [
           { ...MEASUREMENT, value: 6 },
           { ...RANGE, value: 0 },
           { ...EXCITATION, value: 5 },
@@ -654,10 +654,10 @@ describe("Read", () => {
       draft.key,
       EtherCAT.Task.READ_SCHEMAS,
     );
-    expect(created.config.settings).toEqual([
+    expect(created.config.startupParameters).toEqual([
       {
         device: slave.key,
-        values: [
+        parameters: [
           { ...MEASUREMENT, value: 6 },
           { ...RANGE, value: 2 },
           { ...EXCITATION, value: 5 },
@@ -671,7 +671,9 @@ describe("Read", () => {
     const { container, draft } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
-      settings: [{ device: slave.key, values: [{ ...MEASUREMENT, value: 0 }] }],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 0 }] },
+      ],
     });
     const created = await deployAndAwaitTask(
       client,
@@ -679,7 +681,7 @@ describe("Read", () => {
       draft.key,
       EtherCAT.Task.READ_SCHEMAS,
     );
-    expect(created.config.settings).toEqual([]);
+    expect(created.config.startupParameters).toEqual([]);
   });
 
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {
@@ -687,7 +689,9 @@ describe("Read", () => {
     const { container, statuses } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
-      settings: [{ device: slave.key, values: [{ ...MEASUREMENT, value: 6 }] }],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
     });
     await clickDeploy(container);
     await awaitStatus(

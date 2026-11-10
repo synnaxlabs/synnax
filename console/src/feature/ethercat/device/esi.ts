@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ethercat } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
 import { sameAddress } from "@/feature/ethercat/device/settings";
-import {
-  type Mode,
-  type SlaveProperties,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+import { type Mode, type SlaveProperties } from "@/feature/ethercat/device/types";
 
 const DATA_TYPES: Record<number, DataType> = {
   1: DataType.UINT8,
@@ -42,7 +39,7 @@ const formatHex = (value: number, digits: number): string =>
 const childText = (el: Element, tag: string): string | null =>
   Array.from(el.children).find((c) => c.tagName === tag)?.textContent ?? null;
 
-const parseCommand = (cmd: Element): StartupParameter | null => {
+const parseCommand = (cmd: Element): ethercat.StartupParameter | null => {
   const transitions = Array.from(cmd.children)
     .filter((c) => c.tagName === "Transition")
     .map((c) => c.textContent?.trim() ?? "");
@@ -77,11 +74,11 @@ export interface StartupCommands {
   /** The name of the matching device in the ESI file. */
   device: string;
   /** The commands to add as startup parameters. */
-  parameters: StartupParameter[];
+  parameters: ethercat.StartupParameter[];
   /** The number of commands that the Driver cannot write before SAFE-OP. */
   unwritable: number;
   /** The commands on the object that holds the slave's mode, which Synnax sets. */
-  mode: StartupParameter[];
+  mode: ethercat.StartupParameter[];
 }
 
 /**
@@ -132,8 +129,8 @@ export const parseStartupCommands = (
   );
   const writable = commands
     .map(parseCommand)
-    .filter((p): p is StartupParameter => p != null);
-  const holdsMode = (p: StartupParameter) => mode != null && sameAddress(p, mode);
+    .filter((p): p is ethercat.StartupParameter => p != null);
+  const holdsMode = (p: ethercat.StartupParameter) => mode != null && sameAddress(p, mode);
   return {
     device: types[found]?.textContent?.trim() ?? "",
     parameters: writable.filter((p) => !holdsMode(p)),
@@ -147,10 +144,10 @@ export const parseStartupCommands = (
  * existing ones on the same objects, and come last in the order of the file.
  */
 export const mergeStartupParameters = (
-  existing: StartupParameter[],
-  imported: StartupParameter[],
-): StartupParameter[] => {
-  const key = ({ index, subIndex }: StartupParameter) => `${index}:${subIndex}`;
+  existing: ethercat.StartupParameter[],
+  imported: ethercat.StartupParameter[],
+): ethercat.StartupParameter[] => {
+  const key = ({ index, subIndex }: ethercat.StartupParameter) => `${index}:${subIndex}`;
   const importedKeys = new Set(imported.map(key));
   return [...existing.filter((p) => !importedKeys.has(key(p))), ...imported];
 };

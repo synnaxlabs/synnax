@@ -78,20 +78,23 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class Setting(BaseModel):
-    """Is a value that a task writes to a CoE object of its slave.
+class StartupParameter(BaseModel):
+    """Is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+    moves to SAFE-OP.
 
     Attributes:
         index: Is the CoE object dictionary index of the object.
         sub_index: Is the CoE object dictionary sub-index of the object.
         data_type: Is the data type of the object, which sets the size of the write.
         value: Is the value written to the object.
+        name: Is what the parameter sets, for display.
     """
 
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
     value: float
+    name: str = ""
 
 
 class EntryReadChannel(BaseReadChannel):
@@ -148,16 +151,16 @@ WriteChannel = Annotated[
 ]
 
 
-class SlaveSettings(BaseModel):
-    """Is what a read task writes to one slave when it starts.
+class SlaveStartupParameters(BaseModel):
+    """Holds the startup parameters that a read task writes to one slave.
 
     Attributes:
-        device: Is the key of the slave device the values are written to.
-        values: Are the values written to the slave's CoE objects, in order.
+        device: Is the key of the slave device the parameters are written to.
+        parameters: Are the parameters written to the slave, in order.
     """
 
     device: device_.Key = ""
-    values: list[Setting] = Field(default_factory=list)
+    parameters: list[StartupParameter] = Field(default_factory=list)
 
 
 class WriteConfig(task.PersistConfig):
@@ -185,11 +188,11 @@ class ReadConfig(task.ReadConfig):
 
     Attributes:
         channels: Are the channels the task acquires.
-        settings: Are the values the task writes to its slaves when it starts.
+        startup_parameters: Are the startup parameters the task writes to its slaves.
     """
 
     channels: list[ReadChannel] = Field(default_factory=list)
-    settings: list[SlaveSettings] = Field(default_factory=list)
+    startup_parameters: list[SlaveStartupParameters] = Field(default_factory=list)
 
     @_override
     def __hash__(self) -> int:

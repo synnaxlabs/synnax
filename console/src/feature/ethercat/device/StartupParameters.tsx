@@ -23,10 +23,7 @@ import {
   parseStartupCommands,
   type StartupCommands,
 } from "@/feature/ethercat/device/esi";
-import {
-  type SlaveDevice,
-  type StartupParameter,
-} from "@/feature/ethercat/device/types";
+import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Runtime } from "@/platform/runtime";
 
 const DATA_TYPES = [
@@ -85,7 +82,7 @@ const parametersZ = z.array(
   }),
 );
 
-const FIELDS: (keyof StartupParameter)[] = [
+const FIELDS: (keyof ethercat.StartupParameter)[] = [
   "index",
   "subIndex",
   "dataType",
