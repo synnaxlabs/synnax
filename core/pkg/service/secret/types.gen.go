@@ -40,7 +40,8 @@ type SecretVariant = versions.SecretVariant
 // StoredSecret is a secret whose value the Core stores.
 type StoredSecret = versions.StoredSecret
 
-// FileSecret is a secret whose value is a file on the computer that uses it.
+// FileSecret is a secret whose value is a file in the secrets folder that an admin sets
+// on the rack that uses it.
 type FileSecret = versions.FileSecret
 
 // Where is a filter that selects secrets.

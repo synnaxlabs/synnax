@@ -12,6 +12,7 @@ package secret
 import (
 	"context"
 	"crypto/cipher"
+	"strings"
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
@@ -108,13 +109,19 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 		Exec(ctx, w.tx)
 }
 
+// isFileName reports whether name stays in the folder that a rack joins it to.
+func isFileName(name string) bool {
+	return name != "." && name != ".." && !strings.ContainsAny(name, `/\`)
+}
+
 func validateSecret(s Secret, value []byte) error {
 	v := validate.New("secret")
 	switch variant := s.Variant.(type) {
 	case StoredSecret:
 		v.Ternary("value", len(value) == 0, "required")
 	case FileSecret:
-		v.NotEmptyString("path", variant.Path)
+		v.NotEmptyString("file_name", variant.FileName)
+		v.Ternary("file_name", !isFileName(variant.FileName), "must not name a folder")
 		v.Ternary("value", len(value) != 0, "must be empty for a file secret")
 	default:
 		v.Ternary("source", true, "required")
