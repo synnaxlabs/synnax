@@ -129,8 +129,12 @@ std::pair<Config, x::errors::Error>
 Config::login(x::args::Parser &args, const synnax::Config &conn) {
     Config cfg;
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
-    if (!cfg.connection.api_key.empty()) {
-        const auto [info, err] = retrieve_key_rack(conn, cfg.connection.api_key);
+    const auto &saved = cfg.connection;
+    // Only the Core that issued the saved key may receive it, and never in plaintext
+    // when the key was saved with TLS.
+    if (!saved.api_key.empty() && saved.host == conn.host && saved.port == conn.port &&
+        (conn.secure || !saved.secure)) {
+        const auto [info, err] = retrieve_key_rack(conn, saved.api_key);
         if (err) return {cfg, err};
         if (info.rack_key != 0) cfg.remote_info = info;
     }

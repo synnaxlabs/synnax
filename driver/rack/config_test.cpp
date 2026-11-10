@@ -226,6 +226,26 @@ TEST_F(RackConfigTest, LoginKeepsEnrolledRackWithoutClusterKey) {
     ASSERT_EQ(second.rack.key, first.rack.key);
 }
 
+/// @brief it should not send the saved API key to a Core at another address.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyAtOtherAddress) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto other = key_conn(first.connection.api_key);
+    other.port = 1;
+    ASSERT_NIL(Config::save_api_key(args, other));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should not send the saved API key without TLS when it was saved with TLS.
+TEST_F(RackConfigTest, LoginSkipsSavedKeyWithoutTLS) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    auto secure = key_conn(first.connection.api_key);
+    secure.secure = true;
+    ASSERT_NIL(Config::save_api_key(args, secure));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
 /// @brief it should create a new rack when the Core rejects the saved API key.
 TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
     const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
