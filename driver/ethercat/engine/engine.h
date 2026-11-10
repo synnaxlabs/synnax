@@ -354,7 +354,8 @@ public:
     /// bus when it is not running. Writes settings to the slaves before the first
     /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. On a
     /// running bus, the IgH master writes nothing and takes only the values that the
-    /// slaves hold. The slaves keep the settings when the reader closes.
+    /// slaves hold, and a slave that loses power goes back to the values it stores. The
+    /// slaves keep the settings when the reader closes.
     /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
     /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
     /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
