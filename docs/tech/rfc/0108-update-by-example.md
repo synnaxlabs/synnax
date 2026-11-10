@@ -101,6 +101,7 @@ client.racks.update({.key = rk, .integrations = {.insert = {"labjack"}}});
 | Struct                  | Merges into it   | `{ set: value }` replaces it                |
 | List with entry keys    | Compile error    | `set`, `insert`, `remove`, `move`, `update` |
 | List of values          | Compile error    | `set`, `insert`, `remove`, `move`           |
+| Map with a value schema | Compile error    | `set`, `insert`, `remove`, `update`         |
 | Record without a schema | Replaces it      | -                                           |
 
 ```ts
@@ -127,6 +128,17 @@ await client.tasks.update({
       move: [{ key: newChannel.key, after: "c2" }],
     },
   },
+});
+```
+
+A map with a value schema, such as table `cells`, takes the list operators but `move`,
+because a map has no order. `insert` and `update` take an object keyed by map key, and
+`remove` takes keys:
+
+```ts
+await client.tables.update({
+  key: t,
+  cells: { update: { c1: { value: "Pressure" } }, remove: ["c2"] },
 });
 ```
 
@@ -230,7 +242,7 @@ rejects them from a client.
 
 ### 4.6 Core
 
-The list operator types (`List`, `ValueList`) are generic structs in
+The operator types (`List`, `ValueList`, `Map`) are generic structs in
 `schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
 generates an `Apply` method on each record for its update type, built from the typed
 helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service
@@ -319,6 +331,10 @@ actions, so phase 8 deletes them with no migration.
 8. **7.7 An untyped record is replaced whole.** The Core cannot merge by entry key
    without a schema. The trade is real: two edits to different device properties at the
    same time race, and the later one wins.
+9. **7.8 A typed map takes operators.** A plain object that merges by map key would
+   read a key named `set` or `remove` as an operator, and a whole-map replace loses a
+   concurrent edit to another entry. The trade is real: a one-entry edit is one level
+   deeper than a merge.
 
 ## 8 Open questions
 
