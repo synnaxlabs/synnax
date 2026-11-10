@@ -388,14 +388,24 @@ See [Find channels](/reference/channels/find).
 - Python: `task.start()` raises `RuntimeError` when the Driver fails to start the task.
 - Python: `wait_until` and `wait_while` check the current value first.
 - Python: `client.read` with a list of channels also returns their index channels, and
-  `Frame.to_df()` drops index columns. Retrieves page with `limit` and `after`, not
-  `offset`.
+  `Frame.to_df()` drops index columns. Call `df.reset_index()` to get the time column
+  back. Retrieves page with `limit` and `after`, not `offset`.
+- Python: `Frame.get` returns `None` for a channel that the frame does not hold. Use
+  `frame[key]` to get an empty series.
+- Python: a timestamp series gives `TimeStamp` values, not `np.int64`. A number added
+  to, subtracted from, or multiplied by a `TimeStamp` raises `TypeError`, and
+  `TimeStamp - TimeStamp` gives a `TimeSpan`. Use `float(t)` or `series.to_numpy()` for
+  number math.
 - Python: OPC UA read channels take `sampling=sy.opcua.ArraySampling(size=5)` instead of
   `array_mode` and `array_size`. LabJack `neg_chan` takes 0 to 127, or `None` for
   ground. Modbus strings use `HoldingRegisterStringReadChannel(length=N)`.
 - TypeScript: retrieve parameters are strict filters. Use `{ name }`, `{ key }`,
   `{ make }`, and `{ model }` instead of `{ names }`, `{ keys }`, `{ makes }`, and
   `{ models }`.
+- TypeScript: `writer.commit()` throws `WriterClosedError` after the Core closes the
+  writer, instead of returning `TimeStamp.ZERO`.
+- TypeScript: a writer opened with a bare channel list no longer sets `start` to now. An
+  overlap with stored data fails the first write instead of the open.
 
 #### Arc
 
