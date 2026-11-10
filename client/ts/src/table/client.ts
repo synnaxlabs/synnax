@@ -101,6 +101,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Ta
     });
     const dispatcher = new actions.Controller<Key, Table, Action>({
       store,
+      schema: tableZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

@@ -49,6 +49,7 @@ const createHarness = (send: SendFn): Harness => {
     onError,
     onEpoch: () => destructor.NOOP,
     reduce: schematic.reduceAll,
+    schema: schematic.schematicZ,
     kindOf: schematic.kindOf,
     send: async (_, actions) => {
       await send(actions);

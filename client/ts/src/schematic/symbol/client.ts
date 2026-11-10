@@ -103,6 +103,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     // Every write to a symbol reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Symbol, Action>({
       store,
+      schema: symbolZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

@@ -102,6 +102,7 @@ export class Client extends query.Retriever<
     // Every write to a directory reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Directory, Action>({
       store,
+      schema: directoryZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

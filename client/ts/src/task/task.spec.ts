@@ -14,6 +14,7 @@ import { z } from "zod";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
+import { ni } from "@/ni";
 import { query } from "@/query";
 import { rack } from "@/rack";
 import { resource } from "@/resource";
@@ -773,6 +774,78 @@ describe("Task", async () => {
         patch.StaleError,
       );
       expect((await createTestClient().tasks.retrieve(t.key)).name).toBe(t.name);
+    });
+
+    describe("a guard into a multi-word field", () => {
+      const createScaledTask = async () =>
+        await testRack.createTask({
+          name: `dispatch-guard-${id.create()}`,
+          type: ni.ANALOG_READ_TASK_TYPE,
+          config: {
+            device: "d",
+            sampleRate: 10,
+            streamRate: 5,
+            channels: [
+              {
+                key: "c3",
+                type: "ai_voltage",
+                port: 1,
+                customScale: { type: "linear" },
+              },
+            ],
+          },
+        });
+      const rescale = task.update({
+        value: {
+          config: {
+            channels: {
+              update: [
+                {
+                  key: "c3",
+                  type: "ai_voltage",
+                  customScale: { type: "linear", slope: 2 },
+                },
+              ],
+            },
+          },
+        },
+        guards: [
+          {
+            path: ["config", "channels", "c3", "customScale", "type"],
+            value: "linear",
+          },
+        ],
+      });
+      const rescaled = { channels: [{ customScale: { type: "linear", slope: 2 } }] };
+
+      it("should hold on the Core and on the echo", async () => {
+        const local = createTestClient();
+        await waitForStreamLive(local.connection);
+        const t = await createScaledTask();
+        await local.tasks.retrieve(t.key);
+        expect(await local.tasks.dispatch(t.key, rescale)).toBe(true);
+        await local.tasks.settled(t.key);
+        expect(expectLive(local.tasks.watch(t.key).getCached()).config).toMatchObject(
+          rescaled,
+        );
+        const stored = await createTestClient().tasks.retrieve(t.key);
+        expect(stored.config).toMatchObject(rescaled);
+      });
+
+      it("should hold on the cached task of another client", async () => {
+        const remote = createTestClient();
+        await waitForStreamLive(remote.connection);
+        const t = await createScaledTask();
+        const params = { key: t.key };
+        onTestFinished(remote.tasks.watch(params).onChange(vi.fn()));
+        await remote.tasks.retrieve(params);
+        const send = spyOnSend(remote);
+        expect(await client.tasks.dispatch(t.key, rescale)).toBe(true);
+        await expect
+          .poll(() => expectLive(remote.tasks.watch(params).getCached()).config)
+          .toMatchObject(rescaled);
+        expect(send).not.toHaveBeenCalled();
+      });
     });
   });
 

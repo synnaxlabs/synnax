@@ -21,9 +21,9 @@ import {
 import { AccessDeniedError } from "@/errors";
 import { Table } from "@/query/table";
 
-interface Doc {
-  values: Record<string, number>;
-}
+const docZ = z.object({ values: z.record(z.string(), z.number()) });
+
+interface Doc extends z.infer<typeof docZ> {}
 
 type Action =
   | { type: "set"; key: string; value: number }
@@ -111,6 +111,7 @@ const setupStore = (
     onError,
     onEpoch: (callback) => epochs.onChange(callback),
     reduce: reducer,
+    schema: docZ,
     send,
     sendAll,
     encode: opts.encode,
@@ -1231,6 +1232,33 @@ describe("actions.Controller", () => {
       calls[0].reject(new patch.StaleError("a is not 0"));
       await expect(sent).rejects.toThrow(patch.StaleError);
       expect(docs.get("k")).toEqual({ values: { a: 9 } });
+    });
+
+    it("fetches the doc again when a remote edit is stale on it", async () => {
+      const fetch = vi.fn(async () => [{ key: "k", values: { a: 3 } }]);
+      const { docs, controller, errors } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      controller.applyRemote("k", 1, "foreign-1", [
+        { type: "guarded", key: "a", value: 3, when: 2 },
+      ]);
+      await expect.poll(() => docs.get("k")?.values).toEqual({ a: 3 });
+      expect(fetch).toHaveBeenCalledOnce();
+      controller.applyRemote("k", 2, "foreign-2", [set("b", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 3, b: 1 });
+      expect(errors).toEqual([]);
+    });
+
+    it("keeps pending dispatches on the doc it fetches after a stale edit", async () => {
+      const { send } = createHeldSend();
+      const fetch = async () => [{ key: "k", values: { a: 3 } }];
+      const { docs, controller, errors } = setupStore({ fetch, send });
+      prime(docs, "k", { a: 0 });
+      void controller.dispatch("k", [set("b", 1)]);
+      controller.applyRemote("k", 1, "foreign-1", [
+        { type: "guarded", key: "a", value: 3, when: 2 },
+      ]);
+      await expect.poll(() => docs.get("k")?.values).toEqual({ a: 3, b: 1 });
+      expect(errors).toEqual([]);
     });
 
     it("is a no-op when the doc is not cached", () => {

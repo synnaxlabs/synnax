@@ -181,6 +181,7 @@ export class Client extends query.Retriever<
     // Every write to a device reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Omit<Device, "status">, Action>({
       store,
+      schema: deviceZ(),
       listed: (action) =>
         action.type === "set_rack" || actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,

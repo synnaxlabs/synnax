@@ -140,6 +140,7 @@ export class Client extends query.Retriever<
     // Every write to a user reaches the client as actions.
     const dispatcher = new actions.Controller<Key, User, Action>({
       store,
+      schema: userZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

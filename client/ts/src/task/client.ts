@@ -435,6 +435,7 @@ export class Client extends query.Retriever<
     // Every write to a task reaches the client as actions, the config hash included.
     const dispatcher = new actions.Controller<Key, Omit<Task, "status">, Action>({
       store,
+      schema: payloadZ(),
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

@@ -146,6 +146,7 @@ export class Client extends query.Retriever<
     // Every write to a rack reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Omit<Payload, "status">, Action>({
       store,
+      schema: payloadZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

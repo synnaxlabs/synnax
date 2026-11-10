@@ -120,6 +120,7 @@ export class Client extends query.Retriever<
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
       store,
+      schema: schematicZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

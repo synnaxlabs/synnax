@@ -44,6 +44,7 @@ import {
   keyZ,
   type New,
   type Payload,
+  payloadZ,
   resourceID,
   retrieveRequestZ,
   retrieveResponseZ,
@@ -317,6 +318,7 @@ export class Client extends query.Retriever<
     // Every write to a range reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Range, Action>({
       store: ranges,
+      schema: payloadZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

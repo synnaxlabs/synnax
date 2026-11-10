@@ -108,6 +108,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     // Every write to a label reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Label, Action>({
       store,
+      schema: labelZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

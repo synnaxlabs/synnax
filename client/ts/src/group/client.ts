@@ -100,6 +100,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Gr
     // Every write to a group reaches the client as actions.
     const dispatcher = new actions.Controller<Key, Group, Action>({
       store,
+      schema: groupZ,
       listed: (action) =>
         action.type === "set_parent" || actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,

@@ -79,6 +79,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     // Every write to a view reaches the client as actions.
     const dispatcher = new actions.Controller<Key, View, Action>({
       store,
+      schema: viewZ,
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),

@@ -10,11 +10,13 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
+  caseconv,
   compare,
   deep,
   destructor,
   errors,
   id,
+  narrow,
   patch,
   type record,
   TimeSpan,
@@ -202,6 +204,17 @@ export interface Frame<Key, Action> {
   actions: Action[];
 }
 
+interface Guarded {
+  type: "update";
+  update: { guards: patch.Guard[] };
+}
+
+const isGuarded = (action: unknown): action is Guarded => {
+  if (!narrow.isObject(action) || action.type !== "update") return false;
+  const { update } = action as { update?: { guards?: unknown[] } };
+  return (update?.guards?.length ?? 0) > 0;
+};
+
 export interface ControllerParams<
   Key extends record.Key,
   State extends query.Data,
@@ -217,6 +230,11 @@ export interface ControllerParams<
    */
   onEpoch: (callback: (epoch: number) => void) => destructor.Destructor;
   reduce: Reducer<State, Action>;
+  /**
+   * The schema of a cached doc. The guard paths of an update reach the Core in
+   * snake_case, and the schema converts them as the wire converts the doc's keys.
+   */
+  schema: z.ZodType;
   /** Sends dispatches to the Core. Supplied by the caller so the controller stays free
    *  of network concerns. */
   send: SendDispatch<Key, Action>;
@@ -358,6 +376,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     this.params = {
       onError: opts.onError,
       reduce: opts.reduce,
+      schema: opts.schema,
       send: opts.send,
       sendAll: opts.sendAll,
       encode: opts.encode,
@@ -474,7 +493,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     }
     let added: Action[][];
     try {
-      added = await this.params.sendAll(dispatches);
+      added = await this.params.sendAll(
+        dispatches.map((d) => ({ ...d, actions: this.toCore(d.key, d.actions) })),
+      );
     } catch (e) {
       discardAll();
       throw errors.fromUnknown(e);
@@ -560,7 +581,11 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         // A remake after a failed send can leave a batch with nothing to send.
         if (entry.actions.length > 0) {
           entry.epoch = this.epoch;
-          const applied = await this.params.send(key, entry.actions, entry.dispatchKey);
+          const applied = await this.params.send(
+            key,
+            this.toCore(key, entry.actions),
+            entry.dispatchKey,
+          );
           this.accept(key, entry.dispatchKey, applied);
         }
         batch.members.forEach(({ result }) => result.resolve());
@@ -715,7 +740,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.echo = applied;
+    p.echo = this.fromCore(key, applied);
     // No echo arrives in epoch 0, which has no change stream. The echo may also have
     // been lost when the epoch changed during the send.
     if (this.epoch === 0 || p.epoch !== this.epoch)
@@ -1076,9 +1101,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * changes a field that a list reads. A frame whose dispatch key matches a pending
    * entry is that entry's echo: it moves into the base, and the doc changes only if
    * other frames came first. Any other frame applies to the base, under the pending
-   * entries, and marks its targets as remote-touched.
+   * entries, and marks its targets as remote-touched. A frame whose guards do not hold
+   * on the cached doc fetches the doc again.
    */
-  applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
+  applyRemote(key: Key, seq: number, dispatchKey: string, received: Action[]): void {
     // Until the fetch caches the doc, a frame only marks that the Core may answer from
     // before it.
     if (this.listing.has(key) && this.docs.get(key) == null) {
@@ -1090,6 +1116,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
+    const actions = this.fromCore(key, received);
+    const r = this.rebases.get(key);
+    try {
+      this.applyFrame(key, dispatchKey, actions);
+    } catch (e) {
+      if (!patch.StaleError.matches(e)) throw errors.fromUnknown(e);
+      // The Core applied the frame, so the cached doc missed an edit before it.
+      if (r != null) this.discard(key, dispatchKey);
+      this.docs.refetch([key]);
+    }
+  }
+
+  private applyFrame(key: Key, dispatchKey: string, actions: Action[]): void {
     const doc = this.docs.get(key);
     if (doc == null) {
       // Anything but a create predates our knowledge of the doc, so it drops.
@@ -1111,6 +1150,32 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     }
     const { own, targets } = this.settle(key, r, dispatchKey, actions);
     if (!own) this.markRemoteTouched(key, targets);
+  }
+
+  // Converts the guard paths of each update between the case of the cached doc and the
+  // snake_case of the Core.
+  private toCore(key: Key, actions: Action[]): Action[] {
+    return this.convertGuards(key, actions, caseconv.camelToSnakePath);
+  }
+
+  private fromCore(key: Key, actions: Action[]): Action[] {
+    return this.convertGuards(key, actions, caseconv.snakeToCamelPath);
+  }
+
+  private convertGuards(
+    key: Key,
+    actions: Action[],
+    convert: typeof caseconv.camelToSnakePath,
+  ): Action[] {
+    const opts = { schema: this.params.schema, data: this.docs.get(key) };
+    return actions.map((action) => {
+      if (!isGuarded(action)) return action;
+      const guards = action.update.guards.map((g) => ({
+        ...g,
+        path: convert(g.path, opts).path,
+      }));
+      return { ...action, update: { ...action.update, guards } };
+    });
   }
 
   /**
