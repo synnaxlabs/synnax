@@ -629,6 +629,43 @@ describe("Read", () => {
     ]);
   });
 
+  it("should keep the setup of the card for a task that sets no values", async () => {
+    const card: Record<number, number> = { 1: 6, 3: 2, 0x1c: 5 };
+    const description = createSettingsDescription();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+      settings: {
+        ...description,
+        channels: description.channels.map((ch) => ({
+          ...ch,
+          settings: ch.settings.map((f) => ({ ...f, value: card[f.subIndex] })),
+        })),
+      },
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY)],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.settings).toEqual([
+      {
+        device: slave.key,
+        values: [
+          { ...MEASUREMENT, value: 6 },
+          { ...RANGE, value: 2 },
+          { ...EXCITATION, value: 5 },
+        ],
+      },
+    ]);
+  });
+
   it("should save no settings for a slave that DewesoftX sets up", async () => {
     const slave = await createSharedSlave();
     const { container, draft } = await renderRead({

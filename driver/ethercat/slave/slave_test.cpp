@@ -269,6 +269,25 @@ TEST(PropertiesToJson, WritesTheSettingsOfTheCatalog) {
     EXPECT_EQ(props.to_json().at("settings"), settings);
 }
 
+/// @brief it should replace a startup parameter at the same address in place, and add
+/// a parameter at a new address last.
+TEST(ConfigAddStartupParameters, ReplacesAParameterAtTheSameAddressInPlace) {
+    const auto param = [](const uint8_t sub_index, const double value) {
+        return StartupParameter{
+            .index = 0x8040,
+            .sub_index = sub_index,
+            .data_type = x::telem::UINT16_T,
+            .value = value,
+        };
+    };
+    Config config{.startup_parameters = {param(1, 1), param(2, 2)}};
+    config.add_startup_parameters({param(1, 5), param(3, 7)});
+    EXPECT_EQ(
+        config.startup_parameters,
+        (std::vector<StartupParameter>{param(1, 5), param(2, 2), param(3, 7)})
+    );
+}
+
 /// @brief it should leave out the settings of a slave that the catalog does not
 /// describe.
 TEST(PropertiesToJson, LeavesOutMissingSettings) {

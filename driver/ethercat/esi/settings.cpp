@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <format>
 #include <string>
@@ -182,8 +183,25 @@ x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
     return x::errors::NIL;
 }
 
+/// @brief sets the "value" of each setting to the float32 or unsigned value that the
+/// card holds.
+x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
+    for (auto &setting: settings) {
+        const auto [raw, err] = read(
+            setting["index"].get<uint16_t>(),
+            setting["sub_index"].get<uint8_t>()
+        );
+        if (err) return err;
+        if (setting["data_type"] == "float32")
+            setting["value"] = std::bit_cast<float>(raw);
+        else
+            setting["value"] = raw;
+    }
+    return x::errors::NIL;
+}
+
 /// @brief appends the settings of each input that channels describes to out, with the
-/// option lists and limits that the card holds.
+/// option lists, limits, and values that the card holds.
 x::errors::Error read_channels(
     const x::json::json &channels,
     const coe::Read &read,
@@ -202,6 +220,7 @@ x::errors::Error read_channels(
         for (auto &rule: channel["requires"])
             shift(rule, step);
         if (auto err = resolve_all(channel["settings"], read)) return err;
+        if (auto err = read_values(channel["settings"], read)) return err;
         out.push_back(std::move(channel));
     }
     return x::errors::NIL;

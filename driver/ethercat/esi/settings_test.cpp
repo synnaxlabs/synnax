@@ -92,6 +92,37 @@ TEST(ReadSettings, Describes6xSTGInputsFromTheCardTables) {
     EXPECT_EQ(settings.value()["device"][0]["index"], 0x8020);
 }
 
+/// @brief it should give each setting of a 6xSTG input the value that the card holds.
+TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    const auto &input_2 = settings.value()["channels"][1];
+    EXPECT_EQ(setting(input_2, 1)["value"], 6);
+    EXPECT_EQ(setting(input_2, 3)["value"], 2);
+    EXPECT_EQ(setting(input_2, 28)["value"], 5.0);
+    EXPECT_EQ(setting(input_2, 34)["value"], 0.0);
+}
+
+/// @brief it should report a setting whose value the card cannot read.
+TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
+    auto objects = testutil::stg_objects(0);
+    objects.erase({0x8041, 28});
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_OP_MODES,
+        testutil::read_of(std::move(objects))
+    );
+    ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8041:1C: Object does not exist in the object dictionary"
+    );
+    EXPECT_FALSE(settings.has_value());
+}
+
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
 /// and buffered PDO layouts.
 TEST(ReadSettings, Lists6xSTGInputEntriesInEveryLayout) {
@@ -216,7 +247,7 @@ TEST(ReadSettings, KeepsTheOtherSettingsWhenTheModeReadFails) {
         "failed to read 0x8020:09: Object does not exist in the object dictionary"
     );
     ASSERT_TRUE(settings.has_value());
-    EXPECT_FALSE(settings->contains("mode"));
+    EXPECT_FALSE(settings.value().contains("mode"));
     EXPECT_EQ(settings.value()["channels"].size(), 6);
 }
 

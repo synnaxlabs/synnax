@@ -483,6 +483,29 @@ TEST_F(EtherCATScanStatusTest, StoresTheSettingsThatAScanReads) {
     EXPECT_EQ(rescanned.at(1).properties.at("settings"), settings);
 }
 
+/// @brief it should keep the stored settings of a slave when a rescan fails to read
+/// them.
+TEST_F(EtherCATScanStatusTest, KeepsTheStoredSettingsWhenTheirReadFails) {
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+    auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);
+    EXPECT_FALSE(dev.properties.contains("settings"));
+    const x::json::json settings{
+        {"device", x::json::json::array()},
+        {"channels", x::json::json::array()},
+    };
+    dev.properties["settings"] = settings;
+    const std::unordered_map<std::string, synnax::device::Device> devices{
+        {dev.key, dev}
+    };
+    const auto rescanned = ASSERT_NIL_P(
+        this->scanner->scan({.count = 1, .devices = &devices})
+    );
+    EXPECT_EQ(rescanned.at(0).properties.at("settings"), settings);
+}
+
 /// @brief it should keep the invalid properties error of a saved device on a rescan.
 TEST_F(EtherCATScanStatusTest, KeepsTheInvalidPropertiesErrorOnARescan) {
     auto dev = ASSERT_NIL_P(this->scanner->scan({.count = 0})).at(0);

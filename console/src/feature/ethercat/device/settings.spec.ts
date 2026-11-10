@@ -13,6 +13,7 @@ import { EtherCAT } from "@/feature/ethercat";
 import { createSettingsDescription } from "@/feature/ethercat/testutil";
 
 const { Settings } = EtherCAT.Device;
+const { sameAddress } = Settings;
 
 const MEASUREMENT = { index: 0x8040, subIndex: 1 };
 const RANGE = { index: 0x8040, subIndex: 3 };
@@ -29,6 +30,16 @@ describe("Settings", () => {
         { ...RANGE, dataType: "uint16", value: 0 },
         { ...EXCITATION, dataType: "float32", value: 0 },
       ]);
+    });
+
+    it("should start a field from the value that the card holds", () => {
+      const held = fields.map((f) =>
+        sameAddress(f, MEASUREMENT) ? { ...f, value: 6 } : f,
+      );
+      expect(Settings.fill(held, []).map(({ value }) => value)).toEqual([6, 0, 0]);
+      expect(
+        Settings.fill(held, [{ ...MEASUREMENT, value: 1 }]).map(({ value }) => value),
+      ).toEqual([1, 0, 0]);
     });
 
     it("should drop a value at an address that no field names", () => {
