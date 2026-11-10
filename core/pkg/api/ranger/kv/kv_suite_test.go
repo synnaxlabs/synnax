@@ -43,7 +43,7 @@ var (
 	svc *service.Layer
 	// set, dispatch, del, and get run their routes as the API layer binds them.
 	set      freighter.UnaryHandler[apikv.SetRequest, struct{}]
-	dispatch freighter.UnaryHandler[apikv.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apikv.DispatchRequest, apikv.DispatchResponse]
 	del      freighter.UnaryHandler[apikv.DeleteRequest, struct{}]
 	get      freighter.UnaryHandler[apikv.GetRequest, apikv.GetResponse]
 )

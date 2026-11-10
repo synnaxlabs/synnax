@@ -247,7 +247,7 @@ var _ = Describe("Dispatch", func() {
 		u user.User,
 		r rack.Rack,
 		g group.Group,
-	) (struct{}, error) {
+	) (apirack.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
 			Key:         r.Key,
 			DispatchKey: "dk",
@@ -695,7 +695,7 @@ var _ = Describe("Dispatch group move", func() {
 		u user.User,
 		g group.Group,
 		r rack.Rack,
-	) (struct{}, error) {
+	) (apirack.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
 			Key: r.Key,
 			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{

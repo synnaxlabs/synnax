@@ -142,7 +142,10 @@ var _ = Describe("Dispatch", func() {
 			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
 		})).To(Succeed())
 	})
-	dispatchAs := func(ctx SpecContext, name string) (struct{}, error) {
+	dispatchAs := func(
+		ctx SpecContext,
+		name string,
+	) (apialias.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apialias.DispatchRequest{
 			Key: alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey(),
 			Actions: []alias.Action{alias.NewSetAction(

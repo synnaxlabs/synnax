@@ -44,7 +44,7 @@ var (
 	retrieve freighter.UnaryHandler[apiview.RetrieveRequest, apiview.RetrieveResponse]
 	create   freighter.UnaryHandler[apiview.CreateRequest, apiview.CreateResponse]
 	del      freighter.UnaryHandler[apiview.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apiview.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiview.DispatchRequest, apiview.DispatchResponse]
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {

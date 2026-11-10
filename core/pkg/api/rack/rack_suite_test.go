@@ -46,7 +46,7 @@ var (
 	// create, dispatch, del, and retrieve run their routes as the API layer binds
 	// them.
 	create   freighter.UnaryHandler[apirack.CreateRequest, apirack.CreateResponse]
-	dispatch freighter.UnaryHandler[apirack.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apirack.DispatchRequest, apirack.DispatchResponse]
 	del      freighter.UnaryHandler[apirack.DeleteRequest, struct{}]
 	retrieve freighter.UnaryHandler[
 		apirack.RetrieveRequest,

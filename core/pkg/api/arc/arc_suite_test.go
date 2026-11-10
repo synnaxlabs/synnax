@@ -68,7 +68,7 @@ var (
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
 	del        freighter.UnaryHandler[apiarc.DeleteRequest, struct{}]
-	dispatch   freighter.UnaryHandler[apiarc.DispatchRequest, struct{}]
+	dispatch   freighter.UnaryHandler[apiarc.DispatchRequest, apiarc.DispatchResponse]
 	updateTask freighter.UnaryHandler[
 		apiarc.UpdateTaskRequest,
 		apiarc.UpdateTaskResponse,
@@ -79,7 +79,7 @@ var (
 	]
 	dispatchDirectory freighter.UnaryHandler[
 		apiarc.DispatchDirectoryRequest,
-		struct{},
+		apiarc.DispatchDirectoryResponse,
 	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
 	retrieve        freighter.UnaryHandler[

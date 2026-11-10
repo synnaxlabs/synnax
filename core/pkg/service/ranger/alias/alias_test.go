@@ -135,7 +135,8 @@ var _ = Describe("Alias", Ordered, func() {
 		}
 		apply := func(ctx context.Context, key string, acts ...alias.Action) error {
 			return write(ctx, func(w alias.Writer) error {
-				return w.Apply(ctx, key, acts...)
+				_, err := w.Apply(ctx, key, acts...)
+				return err
 			})
 		}
 		retrieve := func(ctx context.Context) string {

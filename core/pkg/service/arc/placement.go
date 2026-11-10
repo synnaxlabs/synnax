@@ -72,7 +72,7 @@ func (w Writer) Move(
 		}
 	}
 	for _, key := range dirKeys {
-		if err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
+		if _, err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
 			directory.SetPayload{Path: []string{"parent"}, Value: to},
 		)); err != nil {
 			return err
@@ -80,7 +80,7 @@ func (w Writer) Move(
 	}
 	set := NewSetDirectoryAction(SetDirectoryPayload{Directory: to})
 	for _, key := range arcKeys {
-		if err = w.Apply(ctx, key, set); err != nil {
+		if _, err = w.Apply(ctx, key, set); err != nil {
 			return err
 		}
 	}

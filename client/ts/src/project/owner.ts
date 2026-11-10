@@ -101,8 +101,9 @@ export const moveCached = <K extends record.Key, V extends Movable>(
 
 /**
  * Returns a builder of group move entries for the dispatch endpoint of a visualization
- * type. When the batch commits, each entry applies the actions that the Core adds, such
- * as a set of the project, to its cached visualization.
+ * type. When the batch commits, each entry applies the actions that the Core applied to
+ * its cached visualization. These include the actions that the Core adds, such as a set
+ * of the project.
  */
 export const createGroupMoveRequest = <K extends record.Key, V extends Movable, A>(
   endpoint: string,

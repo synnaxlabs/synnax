@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
@@ -50,6 +51,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a table and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[table.Key, table.Action]
+
 	internal *table.Service
 }
 
@@ -59,6 +64,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Table.NewWriter, table.Writer.Apply),
 		internal: cfg.Table,
 	}, nil
 }
@@ -96,25 +102,8 @@ func (s *Service) Create(
 // frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[table.Key, table.Action]
 
-// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
-// of the project that a move into a group of another project needs.
+// DispatchResponse carries the actions that the Core applied for a dispatch.
 type DispatchResponse = actions.DispatchResponse[table.Action]
-
-// Dispatch applies the action sequence to the target table in tx. Subscribers to the
-// table action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (DispatchResponse, error) {
-	added, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{Actions: added}, nil
-}
 
 var _ bind.Named = RetrieveRequest{}
 

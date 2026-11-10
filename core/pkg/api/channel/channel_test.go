@@ -419,8 +419,9 @@ var _ = Describe("Service", func() {
 					channel.ResourceID(ch.Key()),
 				)
 				name := UniqueChannelName()
-				Expect(dispatch(AuthedCtx(ctx, outsider), renameTo(name))).
-					To(Equal(apichannel.DispatchResponse{}))
+				req := renameTo(name)
+				Expect(dispatch(AuthedCtx(ctx, outsider), req)).
+					To(Equal(apichannel.DispatchResponse{Actions: req.Actions}))
 				Expect(retrieveChannel(ctx, ch.Key()).Name).To(Equal(name))
 				Expect(stored(ctx).Name).To(Equal(name))
 			})

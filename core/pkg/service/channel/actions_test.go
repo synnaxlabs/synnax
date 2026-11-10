@@ -58,14 +58,14 @@ var _ = Describe("Actions", Ordered, func() {
 		[]channel.Action,
 		error,
 	) {
-		var computed []channel.Action
+		var applied []channel.Action
 		err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-			computed, err = svc.NewWriter(tx).
+			applied, err = svc.NewWriter(tx).
 				WithDispatchKey("dk").
 				Apply(ctx, key, acts...)
 			return err
 		})
-		return computed, err
+		return applied, err
 	}
 	retrieve := func(ctx context.Context, key channel.Key) channel.Channel {
 		GinkgoHelper()
@@ -104,7 +104,7 @@ var _ = Describe("Actions", Ordered, func() {
 		ch := create(ctx, index)
 		name := UniqueChannelName()
 		rename := channel.NewRenameAction(channel.RenamePayload{Name: name})
-		Expect(apply(ctx, ch.Key(), rename)).To(BeEmpty())
+		Expect(apply(ctx, ch.Key(), rename)).To(Equal([]channel.Action{rename}))
 		Expect(retrieve(ctx, ch.Key()).Name).To(Equal(name))
 		stored := MustSucceed(
 			dist.Storage.TS.RetrieveChannel(ctx, ch.Key().StorageKey()),
@@ -146,16 +146,16 @@ var _ = Describe("Actions", Ordered, func() {
 	It("Should infer the data type of an edited expression", func(ctx SpecContext) {
 		ch := create(ctx, calculated)
 		edit := set("expression", "return 1.5 * 2.0")
-		computed := MustSucceed(apply(ctx, ch.Key(), edit))
-		Expect(computed).To(Equal([]channel.Action{set("data_type", telem.Float64T)}))
+		applied := MustSucceed(apply(ctx, ch.Key(), edit))
+		Expect(applied).To(Equal([]channel.Action{
+			edit,
+			set("data_type", telem.Float64T),
+		}))
 		stored := retrieve(ctx, ch.Key())
 		Expect(stored.Expression).To(Equal("return 1.5 * 2.0"))
 		Expect(stored.DataType).To(Equal(telem.Float64T))
 		frames := rec.Snapshot()
-		Expect(frames[len(frames)-1].Actions).To(Equal(append(
-			[]channel.Action{edit},
-			computed...,
-		)))
+		Expect(frames[len(frames)-1].Actions).To(Equal(applied))
 	})
 
 	It("Should refuse an expression for a channel that is not calculated", func(

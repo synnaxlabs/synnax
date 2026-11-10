@@ -139,17 +139,18 @@ func (w Writer) renameStatus(ctx context.Context, key Key, name string) error {
 // Apply applies the actions to the task with the given key and attaches them to the
 // transaction of w, so its commit broadcasts them with the dispatch key of w, then a
 // set of the stored config when storing changed it, such as by filling a default, then
-// a set of the new config hash. Apply returns the sets it added. Apply returns an error
-// wrapping validate.ErrValidation when an action is a create, an action other than a
-// set of the name targets a snapshot, or the result fails to decode or validate, and an
-// error wrapping query.ErrNotFound when no task has the key.
+// a set of the new config hash. Apply returns every action that it attaches. Apply
+// returns an error wrapping validate.ErrValidation when an action is a create, an
+// action other than a set of the name targets a snapshot, or the result fails to decode
+// or validate, and an error wrapping query.ErrNotFound when no task has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	added, err := w.apply(ctx, key, acts)
 	if err != nil {
 		return nil, err
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, added)...)
-	return added, nil
+	applied := slices.Concat(acts, added)
+	w.dispatcher.Attach(w.tx, key, applied...)
+	return applied, nil
 }
 
 // apply applies the actions to the task with the given key and stores the result. It

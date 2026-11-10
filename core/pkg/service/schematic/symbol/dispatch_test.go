@@ -71,7 +71,8 @@ var _ = Describe("Dispatch", func() {
 	}
 	apply := func(ctx context.Context, acts ...symbol.Action) error {
 		return write(ctx, func(w symbol.Writer) error {
-			return w.Apply(ctx, sym.Key, acts...)
+			_, err := w.Apply(ctx, sym.Key, acts...)
+			return err
 		})
 	}
 	record := func() *Recorder[symbol.Key, symbol.Action] {

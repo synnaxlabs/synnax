@@ -234,7 +234,7 @@ func (s *Service) RetrieveOrCreateEmbedded(
 		} else if err != nil {
 			return err
 		} else if len(acts) > 0 {
-			if err = w.Apply(ctx, r.Key, acts...); err != nil {
+			if _, err = w.Apply(ctx, r.Key, acts...); err != nil {
 				return err
 			}
 			if err = s.NewRetrieve().

@@ -81,7 +81,7 @@ type Transport struct {
 	UserDelete   freighter.UnaryServer[user.DeleteRequest, struct{}]
 	UserRetrieve freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// UserDispatch applies actions to a user.
-	UserDispatch freighter.UnaryServer[user.DispatchRequest, struct{}]
+	UserDispatch freighter.UnaryServer[user.DispatchRequest, user.DispatchResponse]
 	// CHANNEL
 	ChannelCreate   freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
 	ChannelRetrieve freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
@@ -107,13 +107,13 @@ type Transport struct {
 	RangeRetrieve freighter.UnaryServer[ranger.RetrieveRequest, ranger.RetrieveResponse]
 	RangeDelete   freighter.UnaryServer[ranger.DeleteRequest, struct{}]
 	// RangeDispatch applies path actions to a range.
-	RangeDispatch freighter.UnaryServer[ranger.DispatchRequest, struct{}]
+	RangeDispatch freighter.UnaryServer[ranger.DispatchRequest, ranger.DispatchResponse]
 	// KV
 	KVGet    freighter.UnaryServer[kv.GetRequest, kv.GetResponse]
 	KVSet    freighter.UnaryServer[kv.SetRequest, struct{}]
 	KVDelete freighter.UnaryServer[kv.DeleteRequest, struct{}]
 	// KVDispatch applies path actions to a range key-value pair.
-	KVDispatch freighter.UnaryServer[kv.DispatchRequest, struct{}]
+	KVDispatch freighter.UnaryServer[kv.DispatchRequest, kv.DispatchResponse]
 	// ALIAS
 	AliasSet      freighter.UnaryServer[alias.SetRequest, struct{}]
 	AliasResolve  freighter.UnaryServer[alias.ResolveRequest, alias.ResolveResponse]
@@ -121,21 +121,21 @@ type Transport struct {
 	AliasList     freighter.UnaryServer[alias.ListRequest, alias.ListResponse]
 	AliasRetrieve freighter.UnaryServer[alias.RetrieveRequest, alias.RetrieveResponse]
 	// AliasDispatch applies path actions to a range alias.
-	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, struct{}]
+	AliasDispatch freighter.UnaryServer[alias.DispatchRequest, alias.DispatchResponse]
 	// RESOURCE
 	ResourceSearch   freighter.UnaryServer[apiresource.SearchRequest, apiresource.SearchResponse]
 	ResourceRetrieve freighter.UnaryServer[apiresource.RetrieveRequest, apiresource.RetrieveResponse]
 	// GROUP
 	GroupCreate            freighter.UnaryServer[group.CreateRequest, group.CreateResponse]
 	GroupDelete            freighter.UnaryServer[group.DeleteRequest, struct{}]
-	GroupDispatch          freighter.UnaryServer[group.DispatchRequest, struct{}]
+	GroupDispatch          freighter.UnaryServer[group.DispatchRequest, group.DispatchResponse]
 	GroupRetrieve          freighter.UnaryServer[group.RetrieveRequest, group.RetrieveResponse]
 	GroupRetrieveAncestors freighter.UnaryServer[group.RetrieveAncestorsRequest, group.RetrieveAncestorsResponse]
 	// PROJECT
 	ProjectCreate   freighter.UnaryServer[project.CreateRequest, project.CreateResponse]
 	ProjectRetrieve freighter.UnaryServer[project.RetrieveRequest, project.RetrieveResponse]
 	ProjectDelete   freighter.UnaryServer[project.DeleteRequest, struct{}]
-	ProjectDispatch freighter.UnaryServer[project.DispatchRequest, struct{}]
+	ProjectDispatch freighter.UnaryServer[project.DispatchRequest, project.DispatchResponse]
 	ProjectExport   freighter.UnaryServer[project.ExportRequest, project.ExportResponse]
 	ProjectImport   freighter.UnaryServer[project.ImportRequest, project.ImportResponse]
 	// SCHEMATIC
@@ -148,7 +148,7 @@ type Transport struct {
 	SchematicSymbolCreate      freighter.UnaryServer[symbol.CreateRequest, symbol.CreateResponse]
 	SchematicSymbolRetrieve    freighter.UnaryServer[symbol.RetrieveRequest, symbol.RetrieveResponse]
 	SchematicSymbolDelete      freighter.UnaryServer[symbol.DeleteRequest, struct{}]
-	SchematicSymbolDispatch    freighter.UnaryServer[symbol.DispatchRequest, struct{}]
+	SchematicSymbolDispatch    freighter.UnaryServer[symbol.DispatchRequest, symbol.DispatchResponse]
 	SchematicSymbolExportGroup freighter.UnaryServer[symbol.ExportGroupRequest, symbol.ExportGroupResponse]
 	SchematicSymbolImportGroup freighter.UnaryServer[symbol.ImportGroupRequest, symbol.ImportGroupResponse]
 	SchematicSymbolDeleteGroup freighter.UnaryServer[symbol.DeleteGroupRequest, struct{}]
@@ -179,13 +179,13 @@ type Transport struct {
 	LabelAdd      freighter.UnaryServer[label.AddRequest, struct{}]
 	LabelRemove   freighter.UnaryServer[label.RemoveRequest, struct{}]
 	// LabelDispatch applies path actions to a label.
-	LabelDispatch freighter.UnaryServer[label.DispatchRequest, struct{}]
+	LabelDispatch freighter.UnaryServer[label.DispatchRequest, label.DispatchResponse]
 	// RACK
 	RackCreate   freighter.UnaryServer[rack.CreateRequest, rack.CreateResponse]
 	RackRetrieve freighter.UnaryServer[rack.RetrieveRequest, rack.RetrieveResponse]
 	RackDelete   freighter.UnaryServer[rack.DeleteRequest, struct{}]
 	// RackDispatch applies actions to a rack.
-	RackDispatch freighter.UnaryServer[rack.DispatchRequest, struct{}]
+	RackDispatch freighter.UnaryServer[rack.DispatchRequest, rack.DispatchResponse]
 	// TASK
 	TaskCreate   freighter.UnaryServer[task.CreateRequest, task.CreateResponse]
 	TaskRetrieve freighter.UnaryServer[task.RetrieveRequest, task.RetrieveResponse]
@@ -198,7 +198,7 @@ type Transport struct {
 	DeviceRetrieve freighter.UnaryServer[device.RetrieveRequest, device.RetrieveResponse]
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceDispatch applies actions to a device.
-	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, struct{}]
+	DeviceDispatch freighter.UnaryServer[device.DispatchRequest, device.DispatchResponse]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[policy.CreateRequest, policy.CreateResponse]
 	AccessDeletePolicy   freighter.UnaryServer[policy.DeleteRequest, struct{}]
@@ -207,9 +207,9 @@ type Transport struct {
 	AccessDeleteRole     freighter.UnaryServer[role.DeleteRequest, struct{}]
 	AccessRetrieveRole   freighter.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]
 	// AccessDispatchPolicy applies path actions to a policy.
-	AccessDispatchPolicy freighter.UnaryServer[policy.DispatchRequest, struct{}]
+	AccessDispatchPolicy freighter.UnaryServer[policy.DispatchRequest, policy.DispatchResponse]
 	// AccessDispatchRole applies path actions to a role.
-	AccessDispatchRole freighter.UnaryServer[role.DispatchRequest, struct{}]
+	AccessDispatchRole freighter.UnaryServer[role.DispatchRequest, role.DispatchResponse]
 	// STATUS
 	StatusSet      freighter.UnaryServer[status.SetRequest, status.SetResponse]
 	StatusRetrieve freighter.UnaryServer[status.RetrieveRequest, status.RetrieveResponse]
@@ -221,19 +221,22 @@ type Transport struct {
 	ArcCreate            freighter.UnaryServer[arc.CreateRequest, arc.CreateResponse]
 	ArcDelete            freighter.UnaryServer[arc.DeleteRequest, struct{}]
 	ArcRetrieve          freighter.UnaryServer[arc.RetrieveRequest, arc.RetrieveResponse]
-	ArcDispatch          freighter.UnaryServer[arc.DispatchRequest, struct{}]
+	ArcDispatch          freighter.UnaryServer[arc.DispatchRequest, arc.DispatchResponse]
 	ArcUpdateTask        freighter.UnaryServer[arc.UpdateTaskRequest, arc.UpdateTaskResponse]
 	ArcRetrieveDirectory freighter.UnaryServer[arcdirectory.RetrieveRequest, arcdirectory.RetrieveResponse]
 	ArcCreateDirectory   freighter.UnaryServer[arc.CreateDirectoryRequest, arc.CreateDirectoryResponse]
-	ArcDispatchDirectory freighter.UnaryServer[arc.DispatchDirectoryRequest, struct{}]
-	ArcDeleteDirectory   freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
-	ArcLSP               freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
+	ArcDispatchDirectory freighter.UnaryServer[
+		arc.DispatchDirectoryRequest,
+		arc.DispatchDirectoryResponse,
+	]
+	ArcDeleteDirectory freighter.UnaryServer[arc.DeleteDirectoryRequest, struct{}]
+	ArcLSP             freighter.StreamServer[arc.LSPMessage, arc.LSPMessage]
 	// VIEW
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, struct{}]
 	// ViewDispatch applies path actions to a view.
-	ViewDispatch freighter.UnaryServer[view.DispatchRequest, struct{}]
+	ViewDispatch freighter.UnaryServer[view.DispatchRequest, view.DispatchResponse]
 	// IMPORT/EXPORT
 	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
 	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]

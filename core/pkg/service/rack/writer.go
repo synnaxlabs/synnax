@@ -148,7 +148,7 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
 	for _, k := range keys {
-		if err := w.Apply(ctx, k, set); err != nil {
+		if _, err := w.Apply(ctx, k, set); err != nil {
 			return err
 		}
 	}
@@ -170,32 +170,33 @@ func (w Writer) CreateMany(ctx context.Context, racks *[]Rack) error {
 // query.ErrNotFound if no rack with the key exists and a validation error if name is
 // empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.Apply(
+	_, err := w.Apply(
 		ctx,
 		key,
 		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
 	)
+	return err
 }
 
 // Apply applies the actions to the rack with the given key and attaches them to the
-// transaction of w. A change of name also renames the rack's status. Apply returns an
-// error wrapping validate.ErrValidation when an action is a create, the result fails to
-// validate, or the rack's group cannot hold racks, and an error wrapping
-// query.ErrNotFound when no rack has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w. It returns the actions that it attaches. A change of name also
+// renames the rack's status. Apply returns an error wrapping validate.ErrValidation
+// when an action is a create, the result fails to validate, or the rack's group cannot
+// hold racks, and an error wrapping query.ErrNotFound when no rack has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var prev Rack
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Rack](key)).
 		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	next, err := Reduce(prev, acts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = next.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err = group.CheckMember(
 		ctx,
@@ -204,18 +205,18 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		resource.TypeRack,
 		nil,
 	); err != nil {
-		return err
+		return nil, err
 	}
 	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	if next.Name != prev.Name {
 		if err = w.writeStatus(ctx, &next); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // Delete deletes the racks with keys, their statuses, and every task they hold. It

@@ -666,16 +666,16 @@ var _ = Describe("Task", Ordered, func() {
 			dispatchKey string,
 			acts []task.Action,
 		) ([]task.Action, error) {
-			var added []task.Action
+			var applied []task.Action
 			if err := db.WithTx(ctx, func(tx gorp.Tx) (err error) {
-				added, err = svc.NewWriter(tx).
+				applied, err = svc.NewWriter(tx).
 					WithDispatchKey(dispatchKey).
 					Apply(ctx, key, acts...)
 				return err
 			}); err != nil {
 				return nil, err
 			}
-			return added, nil
+			return applied, nil
 		}
 		retrieve := func(ctx context.Context, key task.Key) task.Task {
 			GinkgoHelper()
@@ -759,10 +759,11 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should do nothing for a path through a missing list entry", func(
 			ctx SpecContext,
 		) {
-			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+			applied := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"config", "alerts", "z", "status"}, "st-b"),
 			}))
-			Expect(computed).To(Equal([]task.Action{
+			Expect(applied).To(Equal([]task.Action{
+				set([]string{"config", "alerts", "z", "status"}, "st-b"),
 				set([]string{"config_hash"}, alerts.ConfigHash),
 			}))
 			expectUnchanged(ctx)
@@ -771,10 +772,10 @@ var _ = Describe("Task", Ordered, func() {
 		It("Should leave the config and its hash alone for a rename", func(
 			ctx SpecContext,
 		) {
-			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
+			applied := MustSucceed(dispatch(ctx, alerts.Key, "dk", []task.Action{
 				set([]string{"name"}, "Renamed"),
 			}))
-			Expect(computed).To(BeEmpty())
+			Expect(applied).To(Equal([]task.Action{set([]string{"name"}, "Renamed")}))
 			res := retrieve(ctx, alerts.Key)
 			Expect(res.Config).To(Equal(alerts.Config))
 			Expect(res.ConfigHash).To(Equal(alerts.ConfigHash))
@@ -920,17 +921,18 @@ var _ = Describe("Task", Ordered, func() {
 		) {
 			frames := collect()
 			acts := []task.Action{set([]string{"config", "routing_key"}, "rk-2")}
-			computed := MustSucceed(dispatch(ctx, alerts.Key, "dk-1", acts))
+			applied := MustSucceed(dispatch(ctx, alerts.Key, "dk-1", acts))
 			hash := retrieve(ctx, alerts.Key).ConfigHash
-			Expect(
-				computed,
-			).To(Equal([]task.Action{set([]string{"config_hash"}, hash)}))
+			Expect(applied).To(Equal([]task.Action{
+				set([]string{"config", "routing_key"}, "rk-2"),
+				set([]string{"config_hash"}, hash),
+			}))
 			Expect(*frames).To(HaveLen(1))
 			f := (*frames)[0]
 			Expect(f.Key).To(Equal(alerts.Key))
 			Expect(f.DispatchKey).To(Equal("dk-1"))
 			Expect(f.Seq).To(BeNumerically(">", 0))
-			Expect(f.Actions).To(Equal(append(acts, computed...)))
+			Expect(f.Actions).To(Equal(applied))
 		})
 
 		It(
@@ -950,15 +952,16 @@ var _ = Describe("Task", Ordered, func() {
 				createCommitted(ctx, arcTask)
 				frames := collect()
 				acts := []task.Action{set([]string{"config", "performance"}, "")}
-				computed := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
+				applied := MustSucceed(dispatch(ctx, arcTask.Key, "dk", acts))
 				stored := retrieve(ctx, arcTask.Key)
 				Expect(stored.Config).To(HaveKeyWithValue("performance", "auto"))
-				Expect(computed).To(Equal([]task.Action{
+				Expect(applied).To(Equal([]task.Action{
+					set([]string{"config", "performance"}, ""),
 					set([]string{"config"}, stored.Config),
 					set([]string{"config_hash"}, stored.ConfigHash),
 				}))
 				Expect(*frames).To(HaveLen(1))
-				Expect((*frames)[0].Actions).To(Equal(append(acts, computed...)))
+				Expect((*frames)[0].Actions).To(Equal(applied))
 			},
 		)
 

@@ -327,10 +327,12 @@ func dispatchEnd(
 		return ""
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
-		return rng.NewWriter(tx).Apply(ctx, uid, ranger.NewSetAction(ranger.SetPayload{
-			Path:  []string{"time_range", "end"},
-			Value: telem.Now(),
-		}))
+		_, err := rng.NewWriter(tx).
+			Apply(ctx, uid, ranger.NewSetAction(ranger.SetPayload{
+				Path:  []string{"time_range", "end"},
+				Value: telem.Now(),
+			}))
+		return err
 	}); err != nil {
 		report(ctx, status.VariantWarning, endFailed, err.Error())
 		return ""

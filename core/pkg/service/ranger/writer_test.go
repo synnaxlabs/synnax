@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -136,7 +137,7 @@ var _ = Describe("Writer", func() {
 			It("Should move the range to a new parent", func(ctx SpecContext) {
 				first, second := create(ctx, "First", nil), create(ctx, "Second", nil)
 				r := create(ctx, "Range", &first.Key)
-				Expect(w.Apply(ctx, r.Key, setParent(second.Key))).To(Succeed())
+				MustSucceed(w.Apply(ctx, r.Key, setParent(second.Key)))
 				Expect(retrieve(ctx, r.Key).Parent).To(HaveValue(Equal(second.Key)))
 			})
 			It("Should find the children of a range", func(ctx SpecContext) {
@@ -169,7 +170,7 @@ var _ = Describe("Writer", func() {
 				grandparent := create(ctx, "Grandparent", nil)
 				parent := create(ctx, "Parent", &grandparent.Key)
 				child := create(ctx, "Child", &parent.Key)
-				err := w.Apply(ctx, grandparent.Key, setParent(child.Key))
+				_, err := w.Apply(ctx, grandparent.Key, setParent(child.Key))
 				Expect(err).To(BeAssignableToTypeOf(validate.PathError{}))
 				Expect(err).To(MatchError(
 					"parent: range " + grandparent.Key.String() +
@@ -563,7 +564,8 @@ var _ = Describe("Writer in concurrent transactions", func() {
 						Value: fmt.Sprintf("Concurrent %d", i),
 					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx).Apply(ctx, r.Key, rename)
+						_, err := svc.NewWriter(tx).Apply(ctx, r.Key, rename)
+						return err
 					})).To(Succeed())
 				}
 			})
