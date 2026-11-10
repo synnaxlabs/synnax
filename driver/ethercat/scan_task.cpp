@@ -52,8 +52,8 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              ". The other devices on the network started without it. "
                              "The Driver tries it again the next time the network "
                              "starts.";
-        if (health.refusal->dc_sync_invalid)
-            status.description.append(" ").append(slave::DC_SYNC_ADVICE);
+        if (!health.refusal->advice.empty())
+            status.description.append(" ").append(health.refusal->advice);
         return;
     }
     if (health.lost) {
@@ -129,20 +129,8 @@ std::string only_reader(const slave::Properties &props) {
 
 /// @brief sets status to the warning for a slave that sends data that only reader
 /// reads.
-void set_mode_status(
-    const slave::Properties &props,
-    const std::string &reader,
-    synnax::device::Status &status
-) {
+void set_mode_status(const std::string &reader, synnax::device::Status &status) {
     status.variant = synnax::status::VARIANT_WARNING;
-    const auto &settings = *props.settings;
-    if (settings.contains("mode") && !settings.at("mode").at("shared").get<bool>()) {
-        status.message = "Restart the power of the device";
-        status.description = "The device changes to Synnax only after a power "
-                             "restart. Until then, it sends data that only " +
-                             reader + " reads.";
-        return;
-    }
     status.message = "Set up for " + reader;
     status.description = "On this port, the device sends data that only " + reader +
                          " reads. In the device settings, switch the device to "
@@ -291,7 +279,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (const auto reader = only_reader(props); !reader.empty())
-        set_mode_status(props, reader, status);
+        set_mode_status(reader, status);
     else if (live != health.end())
         set_live_status(*live, status);
     else if (
@@ -464,8 +452,9 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     });
     if (!switch_parser.ok())
         return fail(common::config_err_description(switch_parser.error()));
-    if (auto configure_err = engine->configure(props.position, parameters))
-        return fail(configure_err.data);
+    if (!parameters.empty())
+        if (auto configure_err = engine->configure(props.position, parameters))
+            return fail(configure_err.data);
     task_status.variant = synnax::status::VARIANT_SUCCESS;
     task_status.message = "Switched " + dev.name + " to Synnax only";
     task_status.description = parameters.empty()

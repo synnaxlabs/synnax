@@ -135,7 +135,7 @@ x::errors::Error left_out_error(
         name,
         refusal.reason
     );
-    if (refusal.dc_sync_invalid) msg.append(" ").append(slave::DC_SYNC_ADVICE);
+    if (!refusal.advice.empty()) msg.append(" ").append(refusal.advice);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
 }
 }
@@ -145,18 +145,24 @@ x::errors::Error Engine::start_error(
     const std::map<uint16_t, slave::Refusal> &refused,
     const std::map<uint16_t, LeftOut> &left_out
 ) {
-    bool dc_sync_refused = std::ranges::any_of(refused, [](const auto &r) {
-        return r.second.dc_sync_invalid;
-    });
+    std::vector<std::string_view> advice;
+    const auto add_advice = [&advice](const slave::Refusal &refusal) {
+        if (!refusal.advice.empty() &&
+            std::ranges::find(advice, refusal.advice) == advice.end())
+            advice.push_back(refusal.advice);
+    };
+    for (const auto &[_, refusal]: refused)
+        add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
         if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
-        dc_sync_refused |= left.refusal.dc_sync_invalid;
+        add_advice(left.refusal);
     }
-    if (!dc_sync_refused) return err;
+    if (advice.empty()) return err;
     if (!err.data.ends_with('.')) err.data += '.';
-    err.data.append(" ").append(slave::DC_SYNC_ADVICE);
+    for (const auto a: advice)
+        err.data.append(" ").append(a);
     return err;
 }
 

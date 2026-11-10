@@ -366,14 +366,20 @@ inline constexpr std::string_view DC_SYNC_ADVICE =
     "list the mode it expects, change its mode with the configuration tool of its "
     "vendor.";
 
+/// @brief advice for a slave that reports an invalid input or output configuration.
+inline constexpr std::string_view MODE_RESTART_ADVICE =
+    "After a change to its mode, such as a switch to Synnax only, a device can refuse "
+    "to start until its power restarts. If its mode changed, restart the power of the "
+    "device.";
+
 /// @brief why the bus started without a slave that refused a state.
 struct Refusal {
     /// @brief the refused state and the AL status text, such as "refused SAFE-OP:
     /// Inconsistent settings".
     std::string reason;
-    /// @brief whether the slave reports "Invalid DC SYNC configuration", so that a
-    /// message about the refusal ends with DC_SYNC_ADVICE.
-    bool dc_sync_invalid = false;
+    /// @brief what the user can do about the refusal, such as DC_SYNC_ADVICE, or empty
+    /// for none. Each message about the refusal ends with it.
+    std::string_view advice;
 
     bool operator==(const Refusal &) const = default;
 };

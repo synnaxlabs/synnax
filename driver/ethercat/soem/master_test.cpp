@@ -982,7 +982,6 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
-    EXPECT_FALSE(this->activation.refusals.at(1).dc_sync_invalid);
 }
 
 /// @brief it should wait for a state change on the clock of its config, so a fake clock
@@ -1056,9 +1055,20 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {2,
          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-          .dc_sync_invalid = true}},
+          .advice = slave::DC_SYNC_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
+}
+
+/// @brief it should give the mode restart advice with the refusal of a slave that
+/// reports an invalid input or output configuration.
+TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
+    for (const uint16_t code: {0x001D, 0x001E}) {
+        this->create_master(x::telem::SECOND);
+        this->add_pending_and_refusing_slaves(code);
+        ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+        EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
+    }
 }
 
 /// @brief it should record why a slave refused OP after SAFE-OP when another slave with
@@ -1102,7 +1112,9 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {1, {.reason = "refused SAFE-OP: Invalid output configuration"}},
+        {1,
+         {.reason = "refused SAFE-OP: Invalid output configuration",
+          .advice = slave::MODE_RESTART_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1131,8 +1143,8 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration"
     );
-    EXPECT_TRUE(this->activation.refusals.at(1).dc_sync_invalid);
-    EXPECT_TRUE(this->activation.refusals.at(2).dc_sync_invalid);
+    EXPECT_EQ(this->activation.refusals.at(1).advice, slave::DC_SYNC_ADVICE);
+    EXPECT_EQ(this->activation.refusals.at(2).advice, slave::DC_SYNC_ADVICE);
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.

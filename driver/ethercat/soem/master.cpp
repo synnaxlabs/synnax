@@ -81,13 +81,25 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
+/// @brief returns what the user can do about a slave that refuses a state with the AL
+/// status code, or an empty view for no advice.
+std::string_view refusal_advice(const uint16_t code) {
+    switch (code) {
+        case 0x001D: // Invalid output configuration
+        case 0x001E: // Invalid input configuration
+            return slave::MODE_RESTART_ADVICE;
+        case 0x0030: // Invalid DC SYNC configuration
+            return slave::DC_SYNC_ADVICE;
+        default:
+            return {};
+    }
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
-/// AL status code for "Invalid DC SYNC configuration".
-constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -1253,7 +1265,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
-                .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
+                .advice = refusal_advice(code),
             };
         msg += ": " + text;
     }

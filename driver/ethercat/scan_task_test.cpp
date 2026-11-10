@@ -598,7 +598,7 @@ TEST_F(EtherCATScanStatusTest, LeftOutSlaveShowsTheDCSyncAdvice) {
     this->master->refuse(
         2,
         {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-         .dc_sync_invalid = true}
+         .advice = slave::DC_SYNC_ADVICE}
     );
     const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
     const auto reader = ASSERT_NIL_P(
@@ -915,20 +915,6 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
     );
 }
 
-/// @brief it should ask for a power restart when a switched slave still sends data
-/// that only DewesoftX reads.
-TEST_F(EtherCATScanModeTest, AsksForAPowerRestartAfterTheSwitch) {
-    this->start(false);
-    const auto status = this->scan_status();
-    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(status.message, "Restart the power of the device");
-    EXPECT_EQ(
-        status.description,
-        "The device changes to Synnax only after a power restart. Until then, it sends "
-        "data that only DewesoftX reads."
-    );
-}
-
 /// @brief it should not warn about a shared slave on the port that DewesoftX does not
 /// use.
 TEST_F(EtherCATScanModeTest, ShowsDiscoveryOnThePortThatDewesoftXDoesNotUse) {
@@ -951,6 +937,15 @@ TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
             {1, this->standalone},
         })
     );
+}
+
+/// @brief it should write nothing to a slave that already runs Synnax only.
+TEST_F(EtherCATScanModeTest, SetStandaloneWritesNothingToAStandaloneSlave) {
+    this->start(false, 0x6041);
+    const auto status = this->set_standalone();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.description, "The device already runs Synnax only.");
+    EXPECT_TRUE(this->master->written().empty());
 }
 
 /// @brief it should refuse to switch a slave while a task runs its bus.

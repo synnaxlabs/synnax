@@ -49,10 +49,10 @@ const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
 /// @brief why a slave in the specs refuses SAFE-OP.
 const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"};
-/// @brief a refusal that needs slave::DC_SYNC_ADVICE.
+/// @brief a refusal with slave::DC_SYNC_ADVICE.
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-    .dc_sync_invalid = true,
+    .advice = slave::DC_SYNC_ADVICE,
 };
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
@@ -1244,6 +1244,36 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should end the error of a failed start with each distinct advice of the
+/// left-out slaves, in the order of the slaves.
+TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->add_slave(io_slave(3));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->refuse(
+        2,
+        {.reason = "refused SAFE-OP: Invalid output configuration",
+         .advice = slave::MODE_RESTART_ADVICE}
+    );
+    this->master->refuse(3, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "refused SAFE-OP: Invalid output configuration. The Driver left out slave 3 "
+        "because it refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(slave::DC_SYNC_ADVICE) + " " +
+            std::string(slave::MODE_RESTART_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
 }
