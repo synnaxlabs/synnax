@@ -1667,10 +1667,12 @@ var _ = Describe("Graph", func() {
 							return nil
 						})).To(Succeed())
 					}()
-					<-held
+					Eventually(held).Should(BeClosed())
 					report()
 					close(reported)
-					return !<-timedOut
+					var expired bool
+					Eventually(timedOut).Should(Receive(&expired))
+					return !expired
 				}
 				Eventually(reportsUnderSnapshot, 2*time.Second).Should(BeTrue())
 			},
