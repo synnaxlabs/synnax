@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -224,10 +225,11 @@ func MatchNames(vals ...string) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Range) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}

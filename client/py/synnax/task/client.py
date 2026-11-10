@@ -30,7 +30,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
-from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
+from synnax.status import VARIANT_ERROR, VARIANT_LOADING
 from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
@@ -286,9 +286,9 @@ def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
         rack_status = rack_.Status.model_validate(sample)
     except ValidationError:
         return
-    # Only the Core writes warnings to rack statuses, when it stops hearing from the
-    # Driver.
-    if rack_status.owner != rack_id or rack_status.variant != VARIANT_WARNING:
+    if rack_status.owner != rack_id or (
+        rack_status.details is not None and rack_status.details.running
+    ):
         return
     raise _status_error(rack_status.message, rack_status.description)
 
