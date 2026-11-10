@@ -496,14 +496,26 @@ jobs:
       - name: Build
         run: pnpm build:client
 
-      # A hotfix on an older train must not move `latest` back.
-      - name: Publish
+      # A hotfix on an older train must not move `latest` back. The trusted publisher
+      # may only stage, so nothing installs until a maintainer approves it with 2FA.
+      - name: Stage
         env:
           TAG:
             ${{ needs.resolve.outputs.ts_latest == 'true' && 'latest' ||
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
         # The stamp dirties the tree, and the resolve job already checked the branch.
-        run: pnpm publish -r --tag "$TAG" --no-git-checks
+        run: pnpm stage publish -r --tag "$TAG" --no-git-checks
+
+      - name: Ask for approval
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+        run: |
+          {
+            echo "### Approve the npm packages"
+            echo "Approve every \`@synnaxlabs\` $VERSION version in the Staged"
+            echo "Packages tab on npmjs.com, or run \`pnpm stage approve\`."
+            echo "Nothing installs until then."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   publish-py:
     name: Publish Python packages

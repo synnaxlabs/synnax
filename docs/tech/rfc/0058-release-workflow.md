@@ -121,10 +121,12 @@ registry has the version without a tag, so one version never holds packages from
 commits. A run at the same commit keeps the version, since the resolve stage keeps a tag
 that names `HEAD`, and finishes a partial publish, since the registry skips what already
 went up. The job then runs `stamp_versions.sh` to write the version into that language's
-manifests and publishes every package of the language at it. A merge publishes nothing.
-Both publish through OIDC trusted publishing with `id-token: write`, so no registry
-token lives in the repo's secrets. The registries trust `release.yaml` by name, so the
-publish jobs live in it, not in a called workflow. Packages have no candidate channel: a
+manifests and publishes every package of the language at it. The npm trusted publishers
+allow staging only, so the job runs `pnpm stage publish`, and the npm packages go live
+when a maintainer approves them on npmjs.com with 2FA. A merge publishes nothing. Both
+publish through OIDC trusted publishing with `id-token: write`, so no registry token
+lives in the repo's secrets. The registries trust `release.yaml` by name, so the publish
+jobs live in it, not in a called workflow. Packages have no candidate channel: a
 candidate run never publishes them.
 
 ### 2.2 Versions
