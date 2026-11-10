@@ -188,6 +188,24 @@ TEST_F(RackConfigTest, EnrollSavedRack) {
     ASSERT_EQ(state["conn_params"]["api_key"], cfg.connection.api_key);
 }
 
+/// @brief it should log in as the saved rack that needs enrollment, so the Driver keeps
+/// the rack after an upgrade.
+TEST_F(RackConfigTest, LoginKeepsSavedRack) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("upgraded rack"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+    const auto loaded = ASSERT_NIL_P(Config::load(args, brk));
+    ASSERT_EQ(loaded.rack.key, rack.key);
+    const auto state = read_state();
+    ASSERT_EQ(state["remote_info"]["cluster_key"], cluster_key.to_string());
+    ASSERT_FALSE(state["conn_params"].contains("password"));
+}
+
 /// @brief it should keep the saved rack and the password when the caller cannot create
 /// an API key for the rack.
 TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {

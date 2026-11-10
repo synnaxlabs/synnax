@@ -90,6 +90,16 @@ x::errors::Error Config::enroll() {
     return x::errors::NIL;
 }
 
+std::pair<Config, x::errors::Error>
+Config::login(x::args::Parser &args, const synnax::Config &conn) {
+    Config cfg;
+    if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
+    cfg.connection = conn;
+    if (auto err = cfg.enroll()) return {cfg, err};
+    if (auto err = save_api_key(args, cfg.connection)) return {cfg, err};
+    return {cfg, save_remote_info(args, cfg.remote_info)};
+}
+
 x::errors::Error Config::load_remote() {
     const auto client = synnax::Synnax(this->connection);
     if (const auto err = client.auth->authenticate()) return err;
