@@ -23,7 +23,6 @@ from synnax.channel.payload import (
     normalize_params,
 )
 from synnax.channel.types_gen import Update
-from synnax.transport import send_batch
 from x import patch
 
 
@@ -40,26 +39,14 @@ class _DeleteRequest(BaseModel):
     names: list[str] | tuple[str, ...] | None = None
 
 
-class _RenamePayload(BaseModel):
-    name: str
-
-
-class _RenameAction(BaseModel):
-    type: Literal["rename"] = "rename"
-    rename: _RenamePayload
-
-
 class _UpdateAction(BaseModel):
     type: Literal["update"] = "update"
     update: patch.Update[Update]
 
 
-_Action = _RenameAction | _UpdateAction
-
-
 class Writer:
     _client: UnaryClient
-    _sender: actions.Sender[Key, _Action]
+    _sender: actions.Sender[Key, _UpdateAction]
     instrumentation: Instrumentation
 
     def __init__(
@@ -69,7 +56,7 @@ class Writer:
         instrumentation: Instrumentation,
     ):
         self._client = client
-        self._sender = actions.Sender[Key, _Action](
+        self._sender = actions.Sender[Key, _UpdateAction](
             client=client, endpoint="/channel/dispatch", update=_UpdateAction
         )
         self.instrumentation = instrumentation
@@ -95,13 +82,7 @@ class Writer:
     def rename(
         self, keys: list[Key] | tuple[Key, ...], names: list[str] | tuple[str, ...]
     ) -> None:
-        reqs = [
-            actions.DispatchRequest(
-                key=k, actions=[_RenameAction(rename=_RenamePayload(name=n))]
-            )
-            for k, n in zip(keys, names, strict=True)
-        ]
-        send_batch(self._client, "/channel/dispatch", reqs)
+        self.update([{"key": k, "name": n} for k, n in zip(keys, names, strict=True)])
 
     @trace("debug")
     def update(self, updates: Sequence[Mapping[str, Any]]) -> None:

@@ -155,6 +155,7 @@ CLIENTS = [
         id="policy",
     ),
     pytest.param(arc.Client, ID, "/arc/dispatch", id="arc"),
+    pytest.param(_channels, 7, "/channel/dispatch", id="channel"),
 ]
 
 # Each case is a client factory, the key of a record, and an optional field.
@@ -254,6 +255,17 @@ class TestUpdate:
         assert [e["payload"] for e in body["requests"]] == [
             _request(7, {"expression": "return 1"}),
             _request(8, {"group": str(ID)}),
+        ]
+
+    def test_rename_channels(self) -> None:
+        """Should rename channels with updates in one batch."""
+        r = Recorder()
+        _channels(r.unary).rename([7, 8], ["A", "B"])
+        endpoint, body = r.sent()
+        assert endpoint == "/batch"
+        assert [e["payload"] for e in body["requests"]] == [
+            _request(7, {"name": "A"}),
+            _request(8, {"name": "B"}),
         ]
 
     def test_set_expression(self) -> None:
