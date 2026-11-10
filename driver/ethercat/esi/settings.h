@@ -31,10 +31,11 @@ namespace driver::ethercat::esi {
 /// value needs as a dc::Choice among op_modes ("op_mode"), and the startup parameters
 /// that make the card standalone ("switch"). Reads the values, option lists, limits,
 /// and mode from the card through read. Returns nullopt when the catalog describes no
-/// settings for the product. Leaves out each setting that the card cannot give, each
-/// setting and rule that depends on one, and the mode when its read fails.
-/// @returns the error of the first failed read, or errors::SDO_READ_ERROR when the card
-/// counts no options, or more than its table can hold.
+/// settings for the product. Leaves out each setting whose object the card does not
+/// have, or whose table counts no options or more than it can hold, each setting and
+/// rule that depends on one, and the mode when the card does not have its object.
+/// Returns nullopt on any other failed read, such as a read that gets no answer.
+/// @returns the error of that read, or else the first error.
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     uint32_t vendor_id,
     uint32_t product_code,

@@ -33,6 +33,7 @@ constexpr uint32_t FIRST_PROCESS_DATA_SM = 2;
 /// @brief the most PDOs an assign object, or objects a PDO, can count.
 constexpr uint32_t MAX_SUB_INDEX = 254;
 constexpr uint32_t ABORT_OBJECT_MISSING = 0x06020000;
+constexpr uint32_t ABORT_SUBINDEX_MISSING = 0x06090011;
 
 /// @brief returns the size in bytes of each entry of the sync manager type object, a
 /// PDO assign object, or a PDO mapping object, or 0 for another object.
@@ -87,8 +88,11 @@ Read with_complete_access(Read read, ReadAll read_all) {
 
 x::errors::Error
 read_error(const uint16_t index, const uint8_t sub_index, const uint32_t abort_code) {
+    const auto &type = abort_code == ABORT_OBJECT_MISSING   ? OBJECT_MISSING
+                     : abort_code == ABORT_SUBINDEX_MISSING ? SUBINDEX_MISSING
+                                                            : errors::SDO_READ_ERROR;
     return x::errors::Error(
-        abort_code == ABORT_OBJECT_MISSING ? OBJECT_MISSING : errors::SDO_READ_ERROR,
+        type,
         "failed to read " + telem::format_index_sub_index(index, sub_index) + ": " +
             errors::sdo_abort_reason(abort_code)
     );
