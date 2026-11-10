@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError, query, status } from "@synnaxlabs/client";
+import { device, NotFoundError, query, type rack, status } from "@synnaxlabs/client";
 import {
   createTestClient,
   spyOnSend,
@@ -16,7 +16,7 @@ import {
 import { id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
@@ -543,19 +543,24 @@ describe("queries", () => {
   });
 
   describe("useResultAncestors", () => {
+    let rackKey: rack.Key;
+    beforeAll(async () => {
+      rackKey = (await client.racks.create({ name: "test" })).key;
+    });
+
+    const create = async (name: string, parent?: device.Key) =>
+      await client.devices.create({
+        key: id.create(),
+        name,
+        rack: rackKey,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+        parent,
+      });
+
     it("should keep the devices and the devices above them live", async () => {
-      const rack = await client.racks.create({ name: "test" });
-      const create = async (name: string, parent?: device.Key) =>
-        await client.devices.create({
-          key: id.create(),
-          name,
-          rack: rack.key,
-          location: "test",
-          make: "test",
-          model: "test",
-          properties: {},
-          parent,
-        });
       const top = await create("top");
       const mid = await create("mid", top.key);
       const leaf = await create("leaf", mid.key);
@@ -577,6 +582,24 @@ describe("queries", () => {
       await waitFor(() =>
         expect(result.current.data).toContainEqual(
           expect.objectContaining({ key: top.key, name: "renamed" }),
+        ),
+      );
+    });
+
+    it("should fetch a device that joins the chain uncached", async () => {
+      const chassis = await create("chassis");
+      const leaf = await create("leaf", chassis.key);
+      const holder = await create("holder");
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Device.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      await client.devices.create({ ...chassis, parent: holder.key });
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key).sort()).toEqual(
+          [leaf.key, chassis.key, holder.key].sort(),
         ),
       );
     });
