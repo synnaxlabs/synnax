@@ -44,21 +44,22 @@ func (w Writer) RenameDirectory(
 	key directory.Key,
 	name string,
 ) error {
-	return w.ApplyDirectory(ctx, key, directory.NewSetAction(
+	_, err := w.ApplyDirectory(ctx, key, directory.NewSetAction(
 		directory.SetPayload{Path: []string{"name"}, Value: name},
 	))
+	return err
 }
 
 // ApplyDirectory applies acts to the directory with key and attaches them to the
-// transaction of w. A change to the root, and a name that the directory's parent cannot
-// hold, are validation errors.
+// transaction of w. It returns the actions that it attaches. A change to the root, and
+// a name that the directory's parent cannot hold, are validation errors.
 func (w Writer) ApplyDirectory(
 	ctx context.Context,
 	key directory.Key,
 	acts ...directory.Action,
-) error {
+) ([]directory.Action, error) {
 	if key == w.root {
-		return errRoot("changed")
+		return nil, errRoot("changed")
 	}
 	if err := w.directories.NewWriter(w.tx).Update(ctx, key, func(
 		d directory.Directory,
@@ -79,10 +80,10 @@ func (w Writer) ApplyDirectory(
 		}
 		return next, nil
 	}); err != nil {
-		return err
+		return nil, err
 	}
 	w.directoryDispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // DeleteDirectory deletes the empty directories with keys.

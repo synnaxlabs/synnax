@@ -2038,6 +2038,72 @@ var _ = Describe("Writer", func() {
 					Exists(ctx, db)).To(BeTrue())
 			},
 		)
+		rename := func(name string) channel.Action {
+			return channel.NewUpdateAction(channel.UpdatePayload{
+				Value: channel.Update{Name: &name},
+			})
+		}
+		It(
+			"Should rename the storage channel when an update of the name commits",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				name := UniqueChannelName()
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if _, err := svc.NewWriter(tx).
+						Apply(ctx, ch.Key(), rename(name)); err != nil {
+						return err
+					}
+					Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+					return nil
+				})).To(Succeed())
+				Expect(stored(ctx, ch).Name).To(Equal(name))
+				var res channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal(name))
+			},
+		)
+		It(
+			"Should keep the storage name when an update of the name fails to commit",
+			func(ctx SpecContext) {
+				ch := create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					gorp.BeforeCommit(
+						tx,
+						func(context.Context) error { return rollback },
+					)
+					_, err := svc.NewWriter(tx).
+						Apply(ctx, ch.Key(), rename(UniqueChannelName()))
+					return err
+				})).To(MatchError(rollback))
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+				var res channel.Channel
+				Expect(svc.NewRetrieve().
+					Where(channel.MatchKeys(ch.Key())).
+					Entry(&res).
+					Exec(ctx, db)).To(Succeed())
+				Expect(res.Name).To(Equal(ch.Name))
+			},
+		)
+		It(
+			"Should reject an update of the name that another channel holds",
+			func(ctx SpecContext) {
+				ch, other := create(ctx), create(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					_, err := svc.NewWriter(tx).Apply(ctx, ch.Key(), rename(other.Name))
+					return err
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring(
+						"channel with name '%s' already exists",
+						other.Name,
+					)),
+				))
+				Expect(stored(ctx, ch).Name).To(Equal(ch.Name))
+			},
+		)
 		It(
 			"Should rename the storage channel when the transaction commits",
 			func(ctx SpecContext) {

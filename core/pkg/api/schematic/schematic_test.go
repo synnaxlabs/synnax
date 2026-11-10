@@ -278,6 +278,21 @@ var _ = Describe("Service", func() {
 				},
 			)
 
+			It("Should rename the schematic by an update", func(ctx SpecContext) {
+				s := createSchematic(ctx, "Before")
+				grantUpdateOn(ctx, author.ResourceID(), s.ResourceID())
+				acts := []schematic.Action{
+					schematic.NewUpdateAction(schematic.UpdatePayload{
+						Value: schematic.Update{Name: new("After")},
+					}),
+				}
+				Expect(dispatch(
+					AuthedCtx(ctx, author),
+					apischematic.DispatchRequest{Key: s.Key, Actions: acts},
+				)).To(HaveField("Actions", acts))
+				Expect(retrieveSchematic(ctx, s.Key).Name).To(Equal("After"))
+			})
+
 			It(
 				"Should bubble up validate.ErrValidation when dispatching to a snapshot",
 				func(ctx SpecContext) {
@@ -716,7 +731,7 @@ var _ = Describe("Dispatch of a move", func() {
 	}
 	It("Should move the schematic into a group", func(ctx SpecContext) {
 		Expect(moveAs(ctx, []schematic.Action{setGroup(g.Key)}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []schematic.Action{setGroup(g.Key)}))
 		Expect(retrieveSchematic(ctx, target.Key).Group).To(Equal(&g.Key))
 		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
 			HaveField("DispatchKey", "dk-move"),
@@ -733,7 +748,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]schematic.Action{setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]schematic.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrieveSchematic(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -746,7 +764,7 @@ var _ = Describe("Dispatch of a move", func() {
 	It("Should move the schematic out of its group", func(ctx SpecContext) {
 		inGroup(ctx)
 		Expect(moveAs(ctx, []schematic.Action{removeGroup}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []schematic.Action{removeGroup}))
 		Expect(retrieveSchematic(ctx, target.Key).Group).To(BeNil())
 	})
 	It("Should move the schematic into another project", func(ctx SpecContext) {
@@ -755,7 +773,7 @@ var _ = Describe("Dispatch of a move", func() {
 			[]schematic.Action{setProject(dest.Key)},
 			project.ResourceID(proj.Key),
 			dest.ResourceID(),
-		)).To(HaveField("Actions", BeEmpty()))
+		)).To(HaveField("Actions", []schematic.Action{setProject(dest.Key)}))
 		Expect(retrieveSchematic(ctx, target.Key).Project).To(Equal(&dest.Key))
 	})
 	It(
@@ -769,7 +787,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]schematic.Action{removeGroup}))
+			Expect(res.Actions).To(Equal([]schematic.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrieveSchematic(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

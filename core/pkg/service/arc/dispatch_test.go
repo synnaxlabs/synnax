@@ -487,7 +487,7 @@ var _ = Describe("Collaborative text", func() {
 			base = base.Add(10 * telem.Second)
 			rollback := errors.New("rolled back")
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				if err := svc.NewWriter(tx).Apply(
+				if _, err := svc.NewWriter(tx).Apply(
 					ctx,
 					a.Base().Key,
 					toInsertActions(load().Insert(0, "Z"))...,

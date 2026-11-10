@@ -54,11 +54,12 @@ func (w Writer) Create(ctx context.Context, r *Role) error {
 }
 
 // Apply applies the actions to the role with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns a validation error when an action is a create or leaves the role invalid, or
-// when the role is built in and w does not allow internal writes, and an error wrapping
-// query.ErrNotFound when no role has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. Apply returns a validation error when an action
+// is a create or leaves the role invalid, or when the role is built in and w does not
+// allow internal writes, and an error wrapping query.ErrNotFound when no role has the
+// key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Role](key)).
 		ChangeErr(func(_ gorp.Context, r Role) (Role, error) {
@@ -79,10 +80,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // CreateMany creates the given roles. It returns an error wrapping

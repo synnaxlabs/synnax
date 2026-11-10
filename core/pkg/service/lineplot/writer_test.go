@@ -340,7 +340,7 @@ var _ = Describe("Writer", func() {
 			v := lineplot.LinePlot{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
-				To(BeEmpty())
+				To(Equal([]lineplot.Action{setProject(dest.Key)}))
 			var res lineplot.LinePlot
 			Expect(svc.NewRetrieve().
 				Where(lineplot.MatchKeys(v.Key)).

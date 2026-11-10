@@ -70,11 +70,10 @@ type DispatchRequest[K comparable, A any] struct {
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 
-// DispatchResponse is the wire-format response body for a dispatch endpoint whose
-// service adds actions to a dispatch, such as a set of a field that only the Core
-// computes.
+// DispatchResponse is the wire-format response body for a dispatch endpoint.
 type DispatchResponse[A any] struct {
-	// Actions are the actions the Core added after the dispatched ones.
+	// Actions are the actions that the Core applied: the dispatched actions, then the
+	// actions that only the Core computes, such as a set of a derived field.
 	Actions []A `json:"actions" msgpack:"actions"`
 }
 

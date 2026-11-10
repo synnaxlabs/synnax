@@ -134,7 +134,7 @@ func (w Writer) CreateMany(ctx context.Context, devices *[]Device) error {
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
 	for _, k := range keys {
-		if err := w.Apply(ctx, k, set); err != nil {
+		if _, err := w.Apply(ctx, k, set); err != nil {
 			return err
 		}
 	}
@@ -153,46 +153,48 @@ func (w Writer) checkGroup(ctx context.Context, key *group.Key, d Device) error 
 // query.ErrNotFound if no device with the key exists and a validation error if name is
 // empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.Apply(
+	_, err := w.Apply(
 		ctx,
 		key,
 		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
 	)
+	return err
 }
 
 // Apply applies the actions to the device with the given key and attaches them to the
-// transaction of w. A change of name or rack also updates the device's status. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create, the
-// result fails to validate, or the device's group does not sit under its rack or
-// parent, and an error wrapping query.ErrNotFound when no device has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w. It returns the actions that it attaches. A change of name or rack
+// also updates the device's status. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create, the result fails to validate, or
+// the device's group does not sit under its rack or parent, and an error wrapping
+// query.ErrNotFound when no device has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var prev Device
 	if err := w.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, Device](key)).
 		Entry(&prev).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	next, err := Reduce(prev, acts...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err = next.Validate(); err != nil {
-		return err
+		return nil, err
 	}
 	if err = w.checkGroup(ctx, next.Group, next); err != nil {
-		return err
+		return nil, err
 	}
 	if err = w.table.NewCreate().Entry(&next).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	if next.Name != prev.Name || next.Rack != prev.Rack {
 		if err = w.writeStatus(ctx, &next); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // Delete deletes the device with the given key, its status, and every device it holds.

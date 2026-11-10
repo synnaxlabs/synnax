@@ -88,7 +88,7 @@ var _ = Describe("Apply of a move", func() {
 			DeferCleanup(svc.OnAction(rec.Record))
 			tx := DeferClose(db.OpenTx())
 			Expect(svc.NewWriter(tx).Apply(ctx, target.Key, setGroup(g.Key))).
-				To(BeEmpty())
+				To(Equal([]schematic.Action{setGroup(g.Key)}))
 			Expect(rec.Snapshot()).To(BeEmpty())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			seen := rec.Snapshot()
@@ -102,7 +102,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should retrieve schematics by whether they sit in a group",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]schematic.Action{setGroup(g.Key)}))
 			var grouped, ungrouped []schematic.Schematic
 			Expect(svc.NewRetrieve().
 				Where(schematic.MatchKeys(target.Key, other.Key)).
@@ -135,7 +137,10 @@ var _ = Describe("Apply of a move", func() {
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(apply(ctx, target.Key, setGroup(inDest.Key))).
-				To(Equal([]schematic.Action{setProject(dest.Key)}))
+				To(Equal([]schematic.Action{
+					setGroup(inDest.Key),
+					setProject(dest.Key),
+				}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(Equal(&inDest.Key))
 			Expect(res.Project).To(Equal(&dest.Key))
@@ -147,8 +152,12 @@ var _ = Describe("Apply of a move", func() {
 	)
 
 	It("Should move a schematic out of its group", func(ctx SpecContext) {
-		Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
-		Expect(apply(ctx, target.Key, removeGroup)).To(BeEmpty())
+		Expect(
+			apply(ctx, target.Key, setGroup(g.Key)),
+		).To(Equal([]schematic.Action{setGroup(g.Key)}))
+		Expect(
+			apply(ctx, target.Key, removeGroup),
+		).To(Equal([]schematic.Action{removeGroup}))
 		res := retrieve(ctx, target.Key)
 		Expect(res.Group).To(BeNil())
 		Expect(res.Project).To(Equal(&proj.Key))
@@ -177,12 +186,14 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should move a schematic out of its group when it moves into a project",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]schematic.Action{setGroup(g.Key)}))
 			dest := createProject(ctx)
 			rec := &Recorder[schematic.Key, schematic.Action]{}
 			DeferCleanup(svc.OnAction(rec.Record))
 			Expect(apply(ctx, target.Key, setProject(dest.Key))).
-				To(Equal([]schematic.Action{removeGroup}))
+				To(Equal([]schematic.Action{setProject(dest.Key), removeGroup}))
 			res := retrieve(ctx, target.Key)
 			Expect(res.Group).To(BeNil())
 			Expect(res.Project).To(Equal(&dest.Key))
@@ -207,7 +218,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should move the schematics in a group into the project the group moves under",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]schematic.Action{setGroup(g.Key)}))
 			dest := createProject(ctx)
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.MoveGroups(
@@ -226,7 +239,9 @@ var _ = Describe("Apply of a move", func() {
 	It(
 		"Should reject a group move that leaves a schematic under no project",
 		func(ctx SpecContext) {
-			Expect(apply(ctx, target.Key, setGroup(g.Key))).To(BeEmpty())
+			Expect(
+				apply(ctx, target.Key, setGroup(g.Key)),
+			).To(Equal([]schematic.Action{setGroup(g.Key)}))
 			Expect(svc.MoveGroups(ctx, db, []group.Key{g.Key}, nil)).To(MatchError(
 				"group: a schematic sits only in a group under a project: validation error",
 			))

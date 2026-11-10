@@ -124,9 +124,23 @@ export const statusZ = status.statusZ();
 export type Status = z.infer<typeof statusZ>;
 
 /**
+ * Cursor is a position in an order of channels: the sort value and the key of a
+ * channel.
+ */
+export const cursorZ = z.object({
+  /** key is the key of the channel at the position. */
+  key: keyZ,
+  /** name is the name of the channel at the position, when the order sorts by it. */
+  name: nameZ.optional(),
+});
+export interface Cursor extends z.infer<typeof cursorZ> {}
+
+/**
  * Update holds changes to the fields of the channel. An absent field does not change.
  */
 export const updateZ = z.object({
+  /** name is the human-readable channel name. */
+  name: nameZ.optional(),
   /** dataType is the data type of samples stored in this channel. */
   dataType: telem.dataTypeZ.optional(),
   /** operations contains aggregation operations applied to this channel's data. */
@@ -140,18 +154,6 @@ export const updateZ = z.object({
   group: patch.changeZ(group.keyZ).optional(),
 });
 export interface Update extends z.infer<typeof updateZ> {}
-
-/**
- * Cursor is a position in an order of channels: the sort value and the key of a
- * channel.
- */
-export const cursorZ = z.object({
-  /** key is the key of the channel at the position. */
-  key: keyZ,
-  /** name is the name of the channel at the position, when the order sorts by it. */
-  name: nameZ.optional(),
-});
-export interface Cursor extends z.infer<typeof cursorZ> {}
 
 /**
  * Payload is a logical collection of samples emitted by or representing values from a
@@ -216,7 +218,6 @@ export const payloadZ = z.object({
   group: group.keyZ.optional(),
 });
 export interface Payload extends z.infer<typeof payloadZ> {}
-export interface UpdateInput extends Omit<z.input<typeof updateZ>, "dataType"> {}
 
 /** RetrieveRequest is a request to retrieve channels. */
 export const retrieveRequestZ = z.strictObject({
@@ -234,6 +235,7 @@ export const retrieveRequestZ = z.strictObject({
   includeStatus: z.boolean().optional(),
 });
 export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
+export interface UpdateInput extends Omit<z.input<typeof updateZ>, "dataType"> {}
 export interface New extends z.input<typeof payloadZ> {}
 
 /** RetrieveResponse holds the channels a RetrieveRequest selects. */

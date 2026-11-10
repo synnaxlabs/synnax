@@ -52,3 +52,14 @@ func (EmptyTranslator) Forward(context.Context, struct{}) (*emptypb.Empty, error
 func (EmptyTranslator) Backward(context.Context, *emptypb.Empty) (struct{}, error) {
 	return struct{}{}, nil
 }
+
+// DiscardTranslator translates a response into an empty gRPC response, for a server
+// whose gRPC clients do not read the response.
+type DiscardTranslator[I freighter.Payload] struct{}
+
+var _ ForwardTranslator[struct{}, *emptypb.Empty] = DiscardTranslator[struct{}]{}
+
+// Forward implements ForwardTranslator.
+func (DiscardTranslator[I]) Forward(context.Context, I) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}

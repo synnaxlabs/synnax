@@ -231,6 +231,15 @@ var _ = Describe("Dispatch", func() {
 		MustSucceed(dispatchAs(ctx, rename))
 		Expect(retrieveLog(ctx, l.Key).Name).To(Equal("Renamed"))
 	})
+	It("Should rename the log by an update", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
+		update := log.NewUpdateAction(log.UpdatePayload{
+			Value: log.Update{Name: new("After")},
+		})
+		Expect(dispatchAs(ctx, update)).
+			To(HaveField("Actions", []log.Action{update}))
+		Expect(retrieveLog(ctx, l.Key).Name).To(Equal("After"))
+	})
 	It("Should require retrieve on a channel that an action adds", func(
 		ctx SpecContext,
 	) {
@@ -432,7 +441,7 @@ var _ = Describe("Dispatch of a move", func() {
 	}
 	It("Should move the log into a group", func(ctx SpecContext) {
 		Expect(moveAs(ctx, []log.Action{setGroup(g.Key)}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []log.Action{setGroup(g.Key)}))
 		Expect(retrieveLog(ctx, target.Key).Group).To(Equal(&g.Key))
 		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
 			HaveField("DispatchKey", "dk-move"),
@@ -449,7 +458,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]log.Action{setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]log.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrieveLog(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -462,7 +474,7 @@ var _ = Describe("Dispatch of a move", func() {
 	It("Should move the log out of its group", func(ctx SpecContext) {
 		inGroup(ctx)
 		Expect(moveAs(ctx, []log.Action{removeGroup}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []log.Action{removeGroup}))
 		Expect(retrieveLog(ctx, target.Key).Group).To(BeNil())
 	})
 	It("Should move the log into another project", func(ctx SpecContext) {
@@ -471,7 +483,7 @@ var _ = Describe("Dispatch of a move", func() {
 			[]log.Action{setProject(dest.Key)},
 			project.ResourceID(proj.Key),
 			dest.ResourceID(),
-		)).To(HaveField("Actions", BeEmpty()))
+		)).To(HaveField("Actions", []log.Action{setProject(dest.Key)}))
 		Expect(retrieveLog(ctx, target.Key).Project).To(Equal(&dest.Key))
 	})
 	It(
@@ -485,7 +497,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]log.Action{removeGroup}))
+			Expect(res.Actions).To(Equal([]log.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrieveLog(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

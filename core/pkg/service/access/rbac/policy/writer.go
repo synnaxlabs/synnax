@@ -63,12 +63,12 @@ func (w Writer) Create(ctx context.Context, p *Policy) error {
 }
 
 // Apply applies the actions to the policy with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns a validation error when an action is a create, is not a set of a whole
-// member, or leaves the policy invalid, or when the policy belongs to or moves to a
-// built-in role and w does not allow internal writes, and an error wrapping
-// query.ErrNotFound when no policy has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. Apply returns a validation error when an action
+// is a create, is not a set of a whole member, or leaves the policy invalid, or when
+// the policy belongs to or moves to a built-in role and w does not allow internal
+// writes, and an error wrapping query.ErrNotFound when no policy has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Policy](key)).
 		ChangeErr(func(ctx gorp.Context, p Policy) (Policy, error) {
@@ -92,10 +92,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // CreateMany creates the given policies. It returns an error wrapping

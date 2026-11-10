@@ -61,7 +61,7 @@ describe("label.Client.update", () => {
     let shown: string | undefined;
     const { labels, requests, cachedName } = await createClient(() => {
       shown = cachedName(A);
-      return {};
+      return { actions: [updateAction({ name: "Gamma" })] };
     });
     await labels.update({ key: A, name: "Gamma" });
     expect(requests).toEqual([
@@ -82,7 +82,11 @@ describe("label.Client.update", () => {
     let shown: Array<string | undefined> = [];
     const { labels, requests, cachedName } = await createClient(() => {
       shown = [cachedName(A), cachedName(B)];
-      return { responses: [{}, {}] };
+      return {
+        responses: ["Gamma", "Delta"].map((name) => ({
+          actions: [updateAction({ name })],
+        })),
+      };
     });
     await labels.update([
       { key: A, name: "Gamma" },

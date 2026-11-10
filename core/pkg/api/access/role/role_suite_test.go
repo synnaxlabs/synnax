@@ -45,7 +45,7 @@ var (
 	// create, del, and retrieve run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apirole.CreateRequest, apirole.CreateResponse]
 	del      freighter.UnaryHandler[apirole.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apirole.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apirole.DispatchRequest, apirole.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apirole.RetrieveRequest,
 		apirole.RetrieveResponse,

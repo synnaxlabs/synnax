@@ -70,7 +70,6 @@ type (
 	copyRequestTranslator      struct{}
 	copyResponseTranslator     struct{}
 	dispatchRequestTranslator  struct{}
-	dispatchResponseTranslator struct{}
 )
 
 var (
@@ -82,7 +81,6 @@ var (
 	_ grpc.Translator[task.CopyRequest, *CopyRequest]              = copyRequestTranslator{}
 	_ grpc.Translator[task.CopyResponse, *CopyResponse]            = copyResponseTranslator{}
 	_ grpc.Translator[task.DispatchRequest, *DispatchRequest]      = dispatchRequestTranslator{}
-	_ grpc.Translator[task.DispatchResponse, *emptypb.Empty]       = dispatchResponseTranslator{}
 )
 
 func (createRequestTranslator) Forward(
@@ -279,22 +277,6 @@ func (dispatchRequestTranslator) Backward(
 	}, nil
 }
 
-// Forward drops the actions that the Core computed, as a gRPC client holds no cached
-// task to apply them to.
-func (dispatchResponseTranslator) Forward(
-	context.Context,
-	task.DispatchResponse,
-) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
-}
-
-func (dispatchResponseTranslator) Backward(
-	context.Context,
-	*emptypb.Empty,
-) (task.DispatchResponse, error) {
-	return task.DispatchResponse{}, nil
-}
-
 func New(t *api.Transport) grpc.BindableTransport {
 	create := &createServer{
 		RequestTranslator:  createRequestTranslator{},
@@ -322,7 +304,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.TaskCopy = cpy
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
-		ResponseTranslator: dispatchResponseTranslator{},
+		ResponseTranslator: grpc.DiscardTranslator[task.DispatchResponse]{},
 		ServiceDesc:        &TaskDispatchService_ServiceDesc,
 	}
 	t.TaskDispatch = dispatch

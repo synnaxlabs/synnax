@@ -57,6 +57,21 @@ type Store interface {
 		key uuid.UUID,
 		cursors []patch.Cursor,
 	) (Record, bool, error)
+	// Update applies updates in order to the record stored under key, then prepares the
+	// result as Prepare does. The value of each update is the JSON form of an update of
+	// the record type: an object merges into the record, and an object with only a set
+	// member replaces it. The paths of its guards start inside the record. Update
+	// returns the record to write, and whether it differs from the result of the
+	// updates alone, such as by a filled default. It returns an error wrapping
+	// query.ErrNotFound when no record exists, patch.ErrStale when a guard does not
+	// hold or an update names a missing list entry, or validate.ErrValidation when an
+	// update or the result is not valid.
+	Update(
+		ctx context.Context,
+		snap gorp.Snapshot,
+		key uuid.UUID,
+		updates []patch.Update[msgpack.EncodedJSON],
+	) (Record, bool, error)
 	// Read returns the record stored under key, or an error wrapping
 	// query.ErrNotFound when no record exists.
 	Read(
@@ -114,8 +129,8 @@ func (r Record) Hash() string { return r.hash }
 func (r Record) Write(ctx context.Context, tx gorp.Tx) error { return r.write(ctx, tx) }
 
 // ServiceConfig is the configuration for opening a Service. E is the record type
-// the service stores.
-type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
+// the service stores, and U is the update type of E.
+type ServiceConfig[E gorp.Entry[uuid.UUID], U any] struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
@@ -128,6 +143,9 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 	// PatchEntry applies the path action at c, which is not done, to an entry.
 	// [REQUIRED]
 	PatchEntry func(e *E, c patch.Cursor) error
+	// ApplyUpdate applies u to an entry.
+	// [REQUIRED]
+	ApplyUpdate func(u U, e *E) error
 	// HashEntry writes the content of an entry to h.
 	// [REQUIRED]
 	HashEntry func(e *E, h *content.Hash)
@@ -168,11 +186,12 @@ type ServiceConfig[E gorp.Entry[uuid.UUID]] struct {
 }
 
 // Override implements xconfig.Config.
-func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
+func (c ServiceConfig[E, U]) Override(other ServiceConfig[E, U]) ServiceConfig[E, U] {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Type = override.String(c.Type, other.Type)
 	c.SetEntryKey = override.Nil(c.SetEntryKey, other.SetEntryKey)
 	c.PatchEntry = override.Nil(c.PatchEntry, other.PatchEntry)
+	c.ApplyUpdate = override.Nil(c.ApplyUpdate, other.ApplyUpdate)
 	c.HashEntry = override.Nil(c.HashEntry, other.HashEntry)
 	c.Migrations = override.Slice(c.Migrations, other.Migrations)
 	c.References = override.Slice(c.References, other.References)
@@ -188,21 +207,22 @@ func (c ServiceConfig[E]) Override(other ServiceConfig[E]) ServiceConfig[E] {
 }
 
 // Validate implements xconfig.Config.
-func (c ServiceConfig[E]) Validate() error {
+func (c ServiceConfig[E, U]) Validate() error {
 	v := validate.New("task.config")
 	v.NotNil("db", c.DB)
 	v.NotEmptyString("type", c.Type)
 	v.NotNil("set_entry_key", c.SetEntryKey)
 	v.NotNil("patch_entry", c.PatchEntry)
+	v.NotNil("apply_update", c.ApplyUpdate)
 	v.NotNil("hash_entry", c.HashEntry)
 	v.NotNil("ladder.decode", c.Ladder.Decode)
 	return v.Error()
 }
 
 // Service stores the configuration records of the task type it is opened with. E is
-// the record type, e.g. Service[ReadConfig].
-type Service[E gorp.Entry[uuid.UUID]] struct {
-	cfg   ServiceConfig[E]
+// the record type and U its update type, e.g. Service[ReadConfig, ReadConfigUpdate].
+type Service[E gorp.Entry[uuid.UUID], U any] struct {
+	cfg   ServiceConfig[E, U]
 	table *gorp.Table[uuid.UUID, E]
 	// onDetach is nil until OnDetach sets it.
 	onDetach func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error
@@ -210,15 +230,15 @@ type Service[E gorp.Entry[uuid.UUID]] struct {
 
 // OpenService opens a Service for one task type. The service must be closed by
 // calling Close.
-func OpenService[E gorp.Entry[uuid.UUID]](
+func OpenService[E gorp.Entry[uuid.UUID], U any](
 	ctx context.Context,
-	cfgs ...ServiceConfig[E],
-) (*Service[E], error) {
-	cfg, err := xconfig.New(ServiceConfig[E]{}, cfgs...)
+	cfgs ...ServiceConfig[E, U],
+) (*Service[E, U], error) {
+	cfg, err := xconfig.New(ServiceConfig[E, U]{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	s := &Service[E]{cfg: cfg}
+	s := &Service[E, U]{cfg: cfg}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, E]{
 		DB:   cfg.DB,
 		Name: TableName(cfg.Type),
@@ -270,14 +290,14 @@ func newTaskReference[E gorp.Entry[uuid.UUID]]() *gorp.KeyReference[uuid.UUID, E
 }
 
 // Type implements Store.
-func (s *Service[E]) Type() string { return s.cfg.Type }
+func (s *Service[E, U]) Type() string { return s.cfg.Type }
 
 // Close closes the service and releases the resources it holds. Close is not safe
 // to call concurrently with any other service methods.
-func (s *Service[E]) Close() error { return s.table.Close() }
+func (s *Service[E, U]) Close() error { return s.table.Close() }
 
 // Prepare implements Store.
-func (s *Service[E]) Prepare(
+func (s *Service[E, U]) Prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
@@ -299,7 +319,7 @@ func (s *Service[E]) Prepare(
 }
 
 // Edit implements Store.
-func (s *Service[E]) Edit(
+func (s *Service[E, U]) Edit(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
@@ -320,8 +340,62 @@ func (s *Service[E]) Edit(
 			return Record{}, false, err
 		}
 	}
-	edited, keyed := s.hash(&e), e.GorpKey() == key
-	rec, err := s.prepare(ctx, snap, key, &e)
+	return s.prepareEdited(ctx, snap, key, &e, filled)
+}
+
+// Update implements Store.
+func (s *Service[E, U]) Update(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+	updates []patch.Update[msgpack.EncodedJSON],
+) (Record, bool, error) {
+	e, err := s.retrieve(ctx, snap, key)
+	if err != nil {
+		return Record{}, false, err
+	}
+	for _, u := range updates {
+		if err = s.update(&e, u); err != nil {
+			return Record{}, false, err
+		}
+	}
+	return s.prepareEdited(ctx, snap, key, &e, false)
+}
+
+// update applies the update that u holds to e when the guards of u hold in e.
+func (s *Service[E, U]) update(e *E, u patch.Update[msgpack.EncodedJSON]) error {
+	if err := u.Check(*e); err != nil {
+		return err
+	}
+	if u.Value == nil {
+		return nil
+	}
+	b, err := json.Marshal(u.Value)
+	if err != nil {
+		return errors.Wrapf(
+			validate.ErrValidation, "encoding %s config update: %s", s.cfg.Type, err,
+		)
+	}
+	var change patch.Struct[U, E]
+	if err = json.Unmarshal(b, &change, json.RejectUnknownMembers(true)); err != nil {
+		return errors.Wrapf(
+			validate.ErrValidation, "decoding %s config update: %s", s.cfg.Type, err,
+		)
+	}
+	return change.ApplyTo(e, func(e *E, u U) error { return s.cfg.ApplyUpdate(u, e) })
+}
+
+// prepareEdited prepares e, the result of an edit of the record stored under key, as
+// prepare does. It reports a change when the record differs from e, or when filled.
+func (s *Service[E, U]) prepareEdited(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key uuid.UUID,
+	e *E,
+	filled bool,
+) (Record, bool, error) {
+	edited, keyed := s.hash(e), (*e).GorpKey() == key
+	rec, err := s.prepare(ctx, snap, key, e)
 	if err != nil {
 		return Record{}, false, err
 	}
@@ -329,7 +403,7 @@ func (s *Service[E]) Edit(
 }
 
 // prepare fills the defaults of e, gives it key, resolves, and validates it.
-func (s *Service[E]) prepare(
+func (s *Service[E, U]) prepare(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
@@ -358,18 +432,18 @@ func (s *Service[E]) prepare(
 	}, nil
 }
 
-func (s *Service[E]) hash(e *E) string {
+func (s *Service[E, U]) hash(e *E) string {
 	h := content.NewHash()
 	s.cfg.HashEntry(e, &h)
 	return h.Sum()
 }
 
-func (s *Service[E]) create(ctx context.Context, tx gorp.Tx, e *E) error {
+func (s *Service[E, U]) create(ctx context.Context, tx gorp.Tx, e *E) error {
 	return s.table.NewCreate().Entry(e).Exec(ctx, tx)
 }
 
 // Read implements Store.
-func (s *Service[E]) Read(
+func (s *Service[E, U]) Read(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
@@ -382,7 +456,7 @@ func (s *Service[E]) Read(
 }
 
 // Hash implements Store.
-func (s *Service[E]) Hash(
+func (s *Service[E, U]) Hash(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,
@@ -407,7 +481,7 @@ func encode[E any](e E) (msgpack.EncodedJSON, error) {
 }
 
 // Delete implements Store.
-func (s *Service[E]) Delete(
+func (s *Service[E, U]) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys ...uuid.UUID,
@@ -422,7 +496,7 @@ func (s *Service[E]) Delete(
 }
 
 // Normalize implements Store.
-func (s *Service[E]) Normalize(
+func (s *Service[E, U]) Normalize(
 	ctx context.Context,
 	tx gorp.Tx,
 	version imex.Version,
@@ -459,17 +533,17 @@ func (s *Service[E]) Normalize(
 }
 
 // Version implements Store.
-func (s *Service[E]) Version() imex.Version { return s.cfg.Ladder.Latest }
+func (s *Service[E, U]) Version() imex.Version { return s.cfg.Ladder.Latest }
 
 // OnDetach implements Store.
-func (s *Service[E]) OnDetach(
+func (s *Service[E, U]) OnDetach(
 	hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error,
 ) {
 	s.onDetach = hook
 }
 
 // Copy implements Store.
-func (s *Service[E]) Copy(
+func (s *Service[E, U]) Copy(
 	ctx context.Context,
 	tx gorp.Tx,
 	from, to uuid.UUID,
@@ -482,7 +556,7 @@ func (s *Service[E]) Copy(
 	return s.create(ctx, tx, &e)
 }
 
-func (s *Service[E]) retrieve(
+func (s *Service[E, U]) retrieve(
 	ctx context.Context,
 	snap gorp.Snapshot,
 	key uuid.UUID,

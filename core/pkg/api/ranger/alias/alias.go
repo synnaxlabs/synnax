@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -55,6 +56,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a alias and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[string, alias.Action]
+
 	alias *alias.Service
 }
 
@@ -64,7 +69,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		alias: cfg.Alias,
+		Dispatch: dispatch.New(cfg.Alias.NewWriter, alias.Writer.Apply),
+		alias:    cfg.Alias,
 	}, nil
 }
 
@@ -124,16 +130,8 @@ func (s *Service) Resolve(
 // Key.
 type DispatchRequest = actions.DispatchRequest[string, alias.Action]
 
-// Dispatch applies the action sequence to the alias in tx.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.alias.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[alias.Action]
 
 type DeleteRequest struct {
 	Channels []channel.Key `json:"channels" msgpack:"channels"`

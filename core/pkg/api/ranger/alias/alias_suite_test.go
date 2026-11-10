@@ -44,7 +44,7 @@ var (
 	// set, dispatch, del, resolve, list, and retrieve run their routes as the API
 	// layer binds them.
 	set      freighter.UnaryHandler[apialias.SetRequest, struct{}]
-	dispatch freighter.UnaryHandler[apialias.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apialias.DispatchRequest, apialias.DispatchResponse]
 	del      freighter.UnaryHandler[apialias.DeleteRequest, struct{}]
 	resolve  freighter.UnaryHandler[apialias.ResolveRequest, apialias.ResolveResponse]
 	list     freighter.UnaryHandler[apialias.ListRequest, apialias.ListResponse]

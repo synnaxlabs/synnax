@@ -236,7 +236,7 @@ var _ = Describe("Writer", func() {
 			p := panel.Panel{Name: "moved", Project: &proj.Key}
 			Expect(svc.NewWriter(tx).Create(ctx, &p)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, p.Key, setProject(other.Key))).
-				To(BeEmpty())
+				To(Equal([]panel.Action{setProject(other.Key)}))
 			Expect(retrieve(ctx, tx, p.Key).Project).To(HaveValue(Equal(other.Key)))
 		})
 

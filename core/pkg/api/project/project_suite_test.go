@@ -61,7 +61,7 @@ var (
 		apiproject.CreateResponse,
 	]
 	del          freighter.UnaryHandler[apiproject.DeleteRequest, struct{}]
-	dispatch     freighter.UnaryHandler[apiproject.DispatchRequest, struct{}]
+	dispatch     freighter.UnaryHandler[apiproject.DispatchRequest, apiproject.DispatchResponse]
 	importBundle freighter.UnaryHandler[
 		apiproject.ImportRequest,
 		apiproject.ImportResponse,

@@ -213,7 +213,7 @@ var _ = Describe("Writer", func() {
 			v := log.Log{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
-				To(BeEmpty())
+				To(Equal([]log.Action{setProject(dest.Key)}))
 			var res log.Log
 			Expect(svc.NewRetrieve().
 				Where(log.MatchKeys(v.Key)).

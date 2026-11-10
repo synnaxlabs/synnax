@@ -293,7 +293,7 @@ var _ = Describe("Device", func() {
 					Details: device.StatusDetails{Rack: d.Rack},
 				}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
-				Expect(w.Apply(ctx, d.Key, change(ctx, d)...)).To(Succeed())
+				MustSucceed(w.Apply(ctx, d.Key, change(ctx, d)...))
 				var updated device.Device
 				Expect(svc.NewRetrieve().
 					Where(device.MatchKeys(d.Key)).
@@ -509,14 +509,14 @@ var _ = Describe("Device", func() {
 				Parent:   chassisA,
 			}
 			Expect(w.Create(ctx, &module)).To(Succeed())
-			Expect(w.Apply(
+			MustSucceed(w.Apply(
 				ctx,
 				module.Key,
 				device.NewSetRackAction(device.SetRackPayload{
 					Rack:   module.Rack,
 					Parent: chassisB,
 				}),
-			)).To(Succeed())
+			))
 			Expect(svc.NewRetrieve().
 				Where(device.MatchParents(*chassisA)).
 				Exists(ctx, tx)).To(BeFalse())
@@ -539,11 +539,11 @@ var _ = Describe("Device", func() {
 					Parent:   chassis,
 				}
 				Expect(w.Create(ctx, &module)).To(Succeed())
-				Expect(w.Apply(
+				MustSucceed(w.Apply(
 					ctx,
 					module.Key,
 					device.NewSetRackAction(device.SetRackPayload{Rack: module.Rack}),
-				)).To(Succeed())
+				))
 				var res device.Device
 				Expect(svc.NewRetrieve().
 					Where(device.MatchKeys(module.Key)).
@@ -589,7 +589,7 @@ var _ = Describe("Device", func() {
 					Rack:   rackSvc.EmbeddedKey,
 					Parent: &module.Key,
 				}),
-			)).To(MatchError(fmt.Sprintf(
+			)).Error().To(MatchError(fmt.Sprintf(
 				"parent: device %s would form a cycle: validation error",
 				*chassis,
 			)))
@@ -670,14 +670,14 @@ var _ = Describe("Device", func() {
 			func(ctx SpecContext) {
 				g := createGroup(ctx, d.Rack)
 				d.Parent = createChassis(ctx, w, d.Rack)
-				Expect(w.Apply(
+				MustSucceed(w.Apply(
 					ctx,
 					d.Key,
 					device.NewSetRackAction(device.SetRackPayload{
 						Rack:   d.Rack,
 						Parent: d.Parent,
 					}),
-				)).To(Succeed())
+				))
 				Expect(w.SetGroup(ctx, &g, d.Key)).To(MatchError(fmt.Sprintf(
 					"group: a device held by device %s cannot sit in a group: "+
 						"validation error",

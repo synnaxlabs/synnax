@@ -257,6 +257,20 @@ var _ = Describe("Dispatch", func() {
 		}))
 		Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
 	})
+	It("Should rename the project by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		p := createProject(ctx, "Before")
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
+		actions := []project.Action{project.NewUpdateAction(project.UpdatePayload{
+			Value: project.Update{Name: new("After")},
+		})}
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apiproject.DispatchRequest{
+			Key:     p.Key,
+			Actions: actions,
+		}))
+		Expect(res.Actions).To(Equal(actions))
+		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("After"))
+	})
 })
 
 var _ = Describe("Delete", func() {

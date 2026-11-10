@@ -192,6 +192,7 @@ inline x::json::json RetrieveResponse::to_json() const {
 
 inline Update Update::parse(x::json::Parser parser) {
     return Update{
+        .name = parser.field<std::optional<Name>>("name"),
         .operations = parser.field<std::optional<::x::patch::ValueList<Operation>>>(
             "operations"
         ),
@@ -201,6 +202,7 @@ inline Update Update::parse(x::json::Parser parser) {
 
 inline x::json::json Update::to_json() const {
     x::json::json j = x::json::json::object();
+    if (this->name.has_value()) j["name"] = *this->name;
     if (this->operations.has_value()) j["operations"] = this->operations->to_json();
     if (this->expression.has_value()) j["expression"] = *this->expression;
     return j;

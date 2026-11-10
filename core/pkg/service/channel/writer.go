@@ -90,9 +90,10 @@ func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 
 // Apply applies the actions to the channel with the given key and attaches them to the
 // transaction of w. An edit of the expression or operations infers the data type again,
-// and Apply attaches and returns a set of a changed data type. A rename reaches storage
-// when the transaction commits. Apply returns an error wrapping validate.ErrValidation
-// for an invalid action or result, and query.ErrNotFound when no channel has the key.
+// and Apply attaches a set of a changed data type after acts. Apply returns every
+// action that it attaches. A new name reaches storage when the transaction commits.
+// Apply returns an error wrapping validate.ErrValidation for an invalid action or
+// result, and query.ErrNotFound when no channel has the key.
 func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var prev Channel
 	if err := w.svc.table.NewRetrieve().
@@ -144,8 +145,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, e
 	if next.DataType != prev.DataType {
 		computed = append(computed, dataTypeAction(next.DataType))
 	}
-	w.dispatcher.Attach(w.tx, key, slices.Concat(acts, computed)...)
-	return computed, nil
+	applied := slices.Concat(acts, computed)
+	w.dispatcher.Attach(w.tx, key, applied...)
+	return applied, nil
 }
 
 // dataTypeAction returns the action that sets the data type of a channel to dt.

@@ -508,6 +508,8 @@ func (u Action) Validate() error {
 
 // Update holds changes to the fields of the channel. An absent field does not change.
 type Update struct {
+	// Name is the human-readable channel name.
+	Name *Name `json:"name,omitzero" msgpack:"name,omitempty"`
 	// DataType is the data type of samples stored in this channel.
 	DataType *telem.DataType `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
 	// Operations contains aggregation operations applied to this channel's data.
@@ -535,6 +537,9 @@ type UpdatePayload patch.Update[Update]
 
 // ApplyTo applies u to x. An absent field of u leaves its field of x alone.
 func (u Update) ApplyTo(x *Channel) error {
+	if u.Name != nil {
+		x.Name = *u.Name
+	}
 	if u.DataType != nil {
 		x.DataType = *u.DataType
 	}

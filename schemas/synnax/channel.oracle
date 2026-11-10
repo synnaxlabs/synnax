@@ -109,6 +109,7 @@ Channel struct {
     name        Name                {
         @doc value    "is the human-readable channel name."
         @index sorted
+        @patch
         @search
     }
     leaseholder node.Key            {

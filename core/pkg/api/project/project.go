@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
@@ -62,6 +63,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a project and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[project.Key, project.Action]
+
 	internal *project.Service
 	bundle   *bundle.Service
 }
@@ -72,6 +77,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Project.NewWriter, project.Writer.Apply),
 		internal: cfg.Project,
 		bundle:   cfg.Bundle,
 	}, nil
@@ -102,17 +108,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[project.Key, project.Action]
 
-// Dispatch applies the action sequence to the target project atomically. Subscribers to
-// the project action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[project.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

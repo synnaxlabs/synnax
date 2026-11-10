@@ -247,7 +247,7 @@ var _ = Describe("Dispatch", func() {
 		u user.User,
 		r rack.Rack,
 		g group.Group,
-	) (struct{}, error) {
+	) (apirack.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
 			Key:         r.Key,
 			DispatchKey: "dk",
@@ -319,6 +319,29 @@ var _ = Describe("Dispatch rename", func() {
 		renamed := retrieveRack(ctx, r.Key)
 		Expect(renamed.Name).To(Equal("After"))
 		Expect(renamed.Integrations).To(Equal([]string{"ni"}))
+	})
+	It("Should rename the rack by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := rack.Rack{Name: "Before"}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.Rack.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
+		grant(
+			ctx,
+			access.ActionUpdate,
+			u.ResourceID(),
+			r.ResourceID(),
+			statusOf(ctx, r),
+		)
+		actions := []rack.Action{rack.NewUpdateAction(rack.UpdatePayload{
+			Value: rack.Update{Name: new("After")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apirack.DispatchRequest{Key: r.Key, Actions: actions},
+		))
+		Expect(res.Actions).To(Equal(actions))
+		Expect(retrieveRack(ctx, r.Key).Name).To(Equal("After"))
 	})
 	It("Should keep the embedded flag of the embedded rack", func(ctx SpecContext) {
 		u := createUser(ctx)
@@ -695,7 +718,7 @@ var _ = Describe("Dispatch group move", func() {
 		u user.User,
 		g group.Group,
 		r rack.Rack,
-	) (struct{}, error) {
+	) (apirack.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apirack.DispatchRequest{
 			Key: r.Key,
 			Actions: []rack.Action{rack.NewSetAction(rack.SetPayload{

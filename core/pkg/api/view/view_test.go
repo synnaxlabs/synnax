@@ -161,6 +161,20 @@ var _ = Describe("Dispatch", func() {
 		))
 		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
 	})
+	It("Should rename the view by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		v := createView(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, v.ResourceID())
+		acts := []view.Action{view.NewUpdateAction(view.UpdatePayload{
+			Value: view.Update{Variant: view.BaseUpdate{Name: new("After")}},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apiview.DispatchRequest{Key: v.GorpKey(), Actions: acts},
+		))
+		Expect(retrieveView(ctx, v.GorpKey()).Base().Name).To(Equal("After"))
+		Expect(res.Actions).To(Equal(acts))
+	})
 })
 
 var _ = Describe("Retrieve", func() {

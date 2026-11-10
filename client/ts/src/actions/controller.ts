@@ -112,8 +112,7 @@ export interface Transaction<Action> {
 /**
  * Sends a document's processed actions to the Core. Receives the controller-generated
  * dispatch key, held as pending before the call, so the broadcast echo is recognized as
- * own. Resolves to the actions the Core added to the dispatch, which its echo carries
- * after the sent actions.
+ * own. Resolves to the actions the Core applied, which its echo carries.
  */
 export type SendDispatch<Key, Action> = (
   key: Key,
@@ -560,8 +559,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         // A remake after a failed send can leave a batch with nothing to send.
         if (entry.actions.length > 0) {
           entry.epoch = this.epoch;
-          const added = await this.params.send(key, entry.actions, entry.dispatchKey);
-          this.accept(key, entry.dispatchKey, added);
+          const applied = await this.params.send(key, entry.actions, entry.dispatchKey);
+          this.accept(key, entry.dispatchKey, applied);
         }
         batch.members.forEach(({ result }) => result.resolve());
       } catch (e) {
@@ -703,12 +702,12 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     if (r.pending.length === 0) this.release(key);
   }
 
-  /** Marks a pending entry as applied by the Core, which added the given actions. */
-  private accept(key: Key, dispatchKey: string, added: Action[]): void {
+  /** Marks a pending entry as applied by the Core, which applied the given actions. */
+  private accept(key: Key, dispatchKey: string, applied: Action[]): void {
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.echo = [...p.actions, ...added];
+    p.echo = applied;
     // No echo arrives in epoch 0, which has no change stream. The echo may also have
     // been lost when the epoch changed during the send.
     if (this.epoch === 0 || p.epoch !== this.epoch)

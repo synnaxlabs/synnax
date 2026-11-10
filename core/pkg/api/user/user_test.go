@@ -739,6 +739,20 @@ var _ = Describe("Service", func() {
 			))
 			Expect(roleOf(ctx, u.Key)).To(Equal(engineer))
 		})
+		It("Should rename the user by an update", func(ctx SpecContext) {
+			u := createUser(ctx, "update-"+uuid.New().String())
+			actions := []user.Action{user.NewUpdateAction(user.UpdatePayload{
+				Value: user.Update{Name: new("Updated")},
+			})}
+			res := MustSucceed(dispatch(rootCtx(ctx), request(u.Key, actions...)))
+			Expect(res.Actions).To(Equal(actions))
+			var stored user.User
+			Expect(userSvc.NewRetrieve().
+				Where(user.MatchKeys(u.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			Expect(stored.Name).To(Equal("Updated"))
+		})
 	})
 
 	Describe("Delete", func() {

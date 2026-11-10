@@ -598,14 +598,16 @@ var _ = Describe("Writer in concurrent transactions", func() {
 				wg.Go(func() {
 					defer GinkgoRecover()
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx, true).
+						_, err := svc.NewWriter(tx, true).
 							Apply(ctx, p.Key, setRole(builtin.Key))
+						return err
 					})).To(Succeed())
 				})
 				wg.Go(func() {
 					userErr = db.WithTx(ctx, func(tx gorp.Tx) error {
-						return svc.NewWriter(tx, false).
+						_, err := svc.NewWriter(tx, false).
 							Apply(ctx, p.Key, setRole(custom.Key))
+						return err
 					})
 				})
 				wg.Wait()

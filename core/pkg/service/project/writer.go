@@ -60,11 +60,12 @@ func (w Writer) Create(ctx context.Context, p *Project) error {
 }
 
 // Apply applies the actions to the project with the given key and attaches them to the
-// transaction of w, so its commit broadcasts them with the dispatch key of w. Apply
-// returns an error wrapping validate.ErrValidation when an action is a create, the
-// result fails to decode or validate, or the new group cannot hold a project, and an
-// error wrapping query.ErrNotFound when no project has the key.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+// transaction of w, so its commit broadcasts them with the dispatch key of w. It
+// returns the actions that it attaches. Apply returns an error wrapping
+// validate.ErrValidation when an action is a create, the result fails to decode or
+// validate, or the new group cannot hold a project, and an error wrapping
+// query.ErrNotFound when no project has the key.
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Project](key)).
 		ChangeErr(func(_ gorp.Context, p Project) (Project, error) {
@@ -90,10 +91,10 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // SetGroup moves the projects with keys into g, or out of their group when g is nil.
@@ -101,7 +102,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 func (w Writer) SetGroup(ctx context.Context, g *group.Key, keys ...Key) error {
 	set := NewSetAction(SetPayload{Path: []string{"group"}, Value: g})
 	for _, k := range keys {
-		if err := w.Apply(ctx, k, set); err != nil {
+		if _, err := w.Apply(ctx, k, set); err != nil {
 			return err
 		}
 	}
@@ -126,11 +127,12 @@ func (w Writer) CreateMany(
 // returns query.ErrNotFound if no project with the key exists and a validation error if
 // name is empty.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	return w.Apply(
+	_, err := w.Apply(
 		ctx,
 		key,
 		NewSetAction(SetPayload{Path: []string{"name"}, Value: name}),
 	)
+	return err
 }
 
 func (w Writer) Delete(

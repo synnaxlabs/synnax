@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -54,6 +55,10 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the API for schematic symbols and the groups that hold them.
 type Service struct {
+	// Dispatch applies the actions of a request to a symbol and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[symbol.Key, symbol.Action]
+
 	internal *symbol.Service
 }
 
@@ -63,7 +68,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Symbol}, nil
+	return &Service{
+		Dispatch: dispatch.New(cfg.Symbol.NewWriter, symbol.Writer.Apply),
+		internal: cfg.Symbol,
+	}, nil
 }
 
 type (
@@ -97,17 +105,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[symbol.Key, symbol.Action]
 
-// Dispatch applies the action sequence to the target symbol atomically. Subscribers to
-// the symbol action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[symbol.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

@@ -258,7 +258,8 @@ var _ = Describe("Dispatch", func() {
 	}
 	apply := func(ctx context.Context, key string, acts ...kv.Action) error {
 		return write(ctx, func(w kv.Writer) error {
-			return w.Apply(ctx, key, acts...)
+			_, err := w.Apply(ctx, key, acts...)
+			return err
 		})
 	}
 	retrieve := func(ctx context.Context) []kv.Pair {

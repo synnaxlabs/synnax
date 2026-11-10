@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/kv"
@@ -54,6 +55,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a pair and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[string, kv.Action]
+
 	kv *kv.Service
 }
 
@@ -63,7 +68,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		kv: cfg.KV,
+		Dispatch: dispatch.New(cfg.KV.NewWriter, kv.Writer.Apply),
+		kv:       cfg.KV,
 	}, nil
 }
 
@@ -124,16 +130,8 @@ func (s *Service) Set(
 // Key.
 type DispatchRequest = actions.DispatchRequest[string, kv.Action]
 
-// Dispatch applies the action sequence to the pair in tx.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.kv.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[kv.Action]
 
 type DeleteRequest struct {
 	Keys  []string   `json:"keys"  msgpack:"keys"`

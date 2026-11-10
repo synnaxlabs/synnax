@@ -236,6 +236,8 @@ struct Channel {
 /// @brief Update holds changes to the fields of the channel. An absent field does not
 /// change.
 struct Update {
+    /// @brief name is the human-readable channel name.
+    std::optional<Name> name;
     /// @brief operations contains aggregation operations applied to this channel's
     /// data.
     std::optional<::x::patch::ValueList<Operation>> operations;

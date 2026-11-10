@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
@@ -77,6 +78,12 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the core authentication service for the Synnax API.
 type Service struct {
+	// Dispatch applies the actions of a request to a user and returns the applied
+	// actions. It returns access.ErrDenied when the subject cannot update the user,
+	// checked before the write reads the user, an error when a set username action
+	// targets the subject, and the errors of user.Writer.Apply.
+	Dispatch dispatch.Handler[user.Key, user.Action]
+
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *user.Service
@@ -90,12 +97,14 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
+	s := &Service{
 		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.User,
 		password: cfg.Password,
-	}, nil
+	}
+	s.Dispatch = s.checked(dispatch.New(cfg.User.NewWriter, user.Writer.Apply))
+	return s, nil
 }
 
 // NewUser is the create-request payload for a single user. It bundles the user-record
@@ -191,32 +200,35 @@ func checkOtherUser(ctx context.Context, key user.Key) error {
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[user.Key, user.Action]
 
-// Dispatch applies the action sequence to the target user atomically. It returns
-// access.ErrDenied when the subject cannot update the user, checked before the write
-// reads the user, an error when a set username action targets the subject, and the
-// errors of user.Writer.Apply.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	if err := s.enforceOnUsers(
-		ctx,
-		access.ActionUpdate,
-		[]user.Key{req.Key},
-	); err != nil {
-		return struct{}{}, err
-	}
-	if slices.ContainsFunc(req.Actions, func(a user.Action) bool {
-		return a.Type() == user.SetUsernameActionType
-	}) {
-		if err := checkOtherUser(ctx, req.Key); err != nil {
-			return struct{}{}, err
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[user.Action]
+
+// checked returns apply behind the checks that a user dispatch needs before the write
+// reads the user.
+func (s *Service) checked(
+	apply dispatch.Handler[user.Key, user.Action],
+) dispatch.Handler[user.Key, user.Action] {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		req DispatchRequest,
+	) (DispatchResponse, error) {
+		if err := s.enforceOnUsers(
+			ctx,
+			access.ActionUpdate,
+			[]user.Key{req.Key},
+		); err != nil {
+			return DispatchResponse{}, err
 		}
+		if slices.ContainsFunc(req.Actions, func(a user.Action) bool {
+			return a.Type() == user.SetUsernameActionType
+		}) {
+			if err := checkOtherUser(ctx, req.Key); err != nil {
+				return DispatchResponse{}, err
+			}
+		}
+		return apply(ctx, tx, req)
 	}
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
 }
 
 var _ bind.Named = RetrieveRequest{}

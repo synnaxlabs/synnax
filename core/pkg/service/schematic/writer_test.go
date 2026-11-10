@@ -162,7 +162,7 @@ var _ = Describe("Writer", func() {
 			v := schematic.Schematic{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
-				To(BeEmpty())
+				To(Equal([]schematic.Action{setProject(dest.Key)}))
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().
 				Where(schematic.MatchKeys(v.Key)).

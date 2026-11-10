@@ -49,7 +49,7 @@ type (
 	dispatchServer = grpc.UnaryServer[
 		rack.DispatchRequest,
 		*DispatchRequest,
-		struct{},
+		rack.DispatchResponse,
 		*emptypb.Empty,
 	]
 )
@@ -192,7 +192,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	t.RackDelete = del
 	dispatch := &dispatchServer{
 		RequestTranslator:  dispatchRequestTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: grpc.DiscardTranslator[rack.DispatchResponse]{},
 		ServiceDesc:        &RackDispatchService_ServiceDesc,
 	}
 	t.RackDispatch = dispatch

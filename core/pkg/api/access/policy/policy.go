@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacpolicy "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -51,7 +52,13 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service creates, retrieves, and deletes access policies.
-type Service struct{ internal *rbac.Service }
+type Service struct {
+	// Dispatch applies the actions of a request to a policy and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[rbacpolicy.Key, rbacpolicy.Action]
+
+	internal *rbac.Service
+}
 
 // NewService opens a Service. It returns an error if the configuration is invalid.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -59,7 +66,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.RBAC}, nil
+	return &Service{
+		Dispatch: dispatch.New(func(tx gorp.Tx) rbacpolicy.Writer {
+			return cfg.RBAC.Policy.NewWriter(tx, allowInternal)
+		}, rbacpolicy.Writer.Apply),
+		internal: cfg.RBAC,
+	}, nil
 }
 
 const allowInternal = false
@@ -92,17 +104,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[rbacpolicy.Key, rbacpolicy.Action]
 
-// Dispatch applies the action sequence to the target policy atomically. Subscribers to
-// the policy action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.Policy.NewWriter(tx, allowInternal).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[rbacpolicy.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

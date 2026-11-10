@@ -198,7 +198,7 @@ var _ = Describe("Writer", func() {
 			v := table.Table{Project: &proj.Key, Name: "moved"}
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
 			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
-				To(BeEmpty())
+				To(Equal([]table.Action{setProject(dest.Key)}))
 			var res table.Table
 			Expect(svc.NewRetrieve().
 				Where(table.MatchKeys(v.Key)).

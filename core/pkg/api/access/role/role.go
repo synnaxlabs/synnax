@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	rbacrole "github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -51,7 +52,13 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service creates, retrieves, deletes, and assigns roles.
-type Service struct{ internal *rbac.Service }
+type Service struct {
+	// Dispatch applies the actions of a request to a role and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[rbacrole.Key, rbacrole.Action]
+
+	internal *rbac.Service
+}
 
 // NewService opens a Service. It returns an error if the configuration is invalid.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -59,7 +66,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.RBAC}, nil
+	return &Service{
+		Dispatch: dispatch.New(func(tx gorp.Tx) rbacrole.Writer {
+			return cfg.RBAC.Role.NewWriter(tx, allowInternal)
+		}, rbacrole.Writer.Apply),
+		internal: cfg.RBAC,
+	}, nil
 }
 
 const allowInternal = false
@@ -94,17 +106,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[rbacrole.Key, rbacrole.Action]
 
-// Dispatch applies the action sequence to the target role atomically. Subscribers to
-// the role action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.Role.NewWriter(tx, allowInternal).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[rbacrole.Action]
 
 var _ bind.Named = RetrieveRequest{}
 
