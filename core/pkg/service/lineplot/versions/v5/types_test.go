@@ -39,9 +39,11 @@ var _ = Describe("Axes", func() {
 			Expect(axes.X1.Key).To(Equal(v5.AxisKeyX1))
 		},
 		Entry("JSON", func(in map[string]any, out *v5.Axes) error {
+			GinkgoHelper()
 			return json.Unmarshal(MustSucceed(json.Marshal(in)), out)
 		}),
 		Entry("msgpack", func(in map[string]any, out *v5.Axes) error {
+			GinkgoHelper()
 			return msgpack.Unmarshal(MustSucceed(msgpack.Marshal(in)), out)
 		}),
 	)
