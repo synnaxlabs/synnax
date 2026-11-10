@@ -31,19 +31,19 @@ var registerDataTypes = set.New(
 	telem.Float64T,
 )
 
-func validateRegisterValue(r RegisterValue) error {
+func validateRegisterValue(r RegisterValue, read bool) error {
 	v := validate.New("modbus.RegisterValue")
 	msg := "must be a numeric data type, not " + string(r.DataType)
-	if r.DataType == telem.StringT {
+	if read && r.DataType == telem.StringT {
 		msg += "; read a string with a register string channel"
 	}
 	v.Ternary("data_type", !registerDataTypes.Contains(r.DataType), msg)
 	return v.Error()
 }
 
-func validateRegisterValueAt(v *validate.Validator, i int, r RegisterValue) {
+func validateRegisterValueAt(v *validate.Validator, i int, r RegisterValue, read bool) {
 	v.Exec(func() error {
-		err := validateRegisterValue(r)
+		err := validateRegisterValue(r, read)
 		return validate.PathedError(err, "channels", strconv.Itoa(i))
 	})
 }
@@ -54,9 +54,9 @@ func validateReadConfig(c *ReadConfig) error {
 	for i, ch := range c.Channels {
 		switch variant := ch.Variant.(type) {
 		case HoldingRegisterReadChannel:
-			validateRegisterValueAt(v, i, variant.RegisterValue)
+			validateRegisterValueAt(v, i, variant.RegisterValue, true)
 		case InputRegisterReadChannel:
-			validateRegisterValueAt(v, i, variant.RegisterValue)
+			validateRegisterValueAt(v, i, variant.RegisterValue, true)
 		}
 	}
 	return v.Error()
@@ -67,7 +67,7 @@ func validateWriteConfig(c *WriteConfig) error {
 	v.Exec(c.Validate)
 	for i, ch := range c.Channels {
 		if variant, ok := ch.Variant.(HoldingRegisterWriteChannel); ok {
-			validateRegisterValueAt(v, i, variant.RegisterValue)
+			validateRegisterValueAt(v, i, variant.RegisterValue, false)
 		}
 	}
 	return v.Error()
