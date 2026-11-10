@@ -41,8 +41,8 @@ def send(req: urllib.request.Request) -> dict:
 
 class GitHub:
     """Read-only access to the repository's Actions API as the GitHub App app_id, signed
-    with its PEM private key. Safe for concurrent use. A request that GitHub rejects
-    raises, and the next call mints a new installation token.
+    with its PEM private key. Safe for concurrent use. After GitHub rejects the
+    installation token with a 401, the next call mints a new one.
 
     :param send: Sends a request and returns the decoded JSON response.
     :param clock: The current Unix time in seconds.
