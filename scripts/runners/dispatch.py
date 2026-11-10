@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.60,<0.61"]
 # ///
 
 """Dispatches each write to a runner's command channel to the matching script.
@@ -39,7 +39,6 @@ from common import (
     command_channels,
     connect,
     parameter_store,
-    patch_client,
     secret,
     shield,
 )
@@ -114,7 +113,6 @@ def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     add_connection_args(p)
     args = p.parse_args()
-    patch_client()
     store = parameter_store()
     client = connect(args, store=store)
     creator = Channels(client=client, enabled=args.create_channels)

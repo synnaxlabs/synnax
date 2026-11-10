@@ -236,7 +236,7 @@ var _ = Describe("HTTP", func() {
 					http.MethodPost,
 					path,
 					bytes.NewReader(
-						MustSucceed(msgpack.Codec.Encode(ctx, map[string]any{})),
+						MustSucceed(msgpack.Codec.Encode(map[string]any{})),
 					),
 				)
 				req.Header.Set(fiber.HeaderContentType, msgpack.Codec.ContentType())
