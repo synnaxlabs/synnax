@@ -24,6 +24,7 @@ import (
 	lsp "github.com/synnaxlabs/x/lsp"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
+	"go.uber.org/zap"
 )
 
 // codeActionSnapshot bundles the document state CodeAction needs after
@@ -65,7 +66,25 @@ func (s *Server) CodeAction(
 	var (
 		actions []protocol.CommandOrCodeAction
 		hoist   *protocol.CodeAction
+		modules []*symbol.Symbol
+		listed  bool
 	)
+	// Every diagnostic of a request shares one listing of the user modules.
+	listModules := func() []*symbol.Symbol {
+		if listed {
+			return modules
+		}
+		listed = true
+		r := symbols.ModuleResolver()
+		if r == nil {
+			return nil
+		}
+		var err error
+		if modules, err = r.Search(ctx, ""); err != nil {
+			s.cfg.L.Error("failed to search modules", zap.Error(err))
+		}
+		return modules
+	}
 	for _, diag := range params.Context.Diagnostics {
 		code, _ := diag.Code.(protocol.String)
 		switch string(code) {
@@ -91,11 +110,10 @@ func (s *Server) CodeAction(
 		// The handler's own filters (local resolution succeeds, no ambient
 		// match, already imported) reject non-candidates, so we don't need
 		// a separate code to gate it.
-		missing, err := missingImportQuickFixes(ctx, snap, diag)
-		if err != nil {
-			return nil, err
-		}
-		actions = append(actions, missing...)
+		actions = append(
+			actions,
+			missingImportQuickFixes(ctx, snap, diag, listModules)...,
+		)
 	}
 	if hoist != nil {
 		actions = append(actions, hoist)
@@ -514,13 +532,14 @@ func missingImportQuickFixes(
 	ctx context.Context,
 	snap codeActionSnapshot,
 	diag protocol.Diagnostic,
-) ([]protocol.CommandOrCodeAction, error) {
+	listModules func() []*symbol.Symbol,
+) []protocol.CommandOrCodeAction {
 	if snap.Symbols == nil {
-		return nil, nil
+		return nil
 	}
 	token := firstIdentifierInRange(snap.Tokens, diag.Range)
 	if token == nil {
-		return nil, nil
+		return nil
 	}
 	name := token.GetText()
 	pos := protocol.Position{
@@ -529,7 +548,7 @@ func missingImportQuickFixes(
 	}
 	scope := findScopeAt(snap.Symbols, snap.IsBlock, pos)
 	if scope == nil {
-		return nil, nil
+		return nil
 	}
 	if sym, err := scope.Resolve(
 		ctx,
@@ -537,17 +556,13 @@ func missingImportQuickFixes(
 		symbol.WithoutUsageTracking,
 	); err == nil &&
 		sym != nil {
-		return nil, nil
+		return nil
 	}
 	var paths []string
 	if scope.IsAmbientModule(name) {
 		paths = []string{name}
-	} else if modules := snap.Symbols.ModuleResolver(); modules != nil {
-		found, err := modules.Search(ctx, "")
-		if err != nil {
-			return nil, err
-		}
-		for _, m := range found {
+	} else {
+		for _, m := range listModules() {
 			if m.Name == name || strings.HasSuffix(m.Name, "."+name) {
 				paths = append(paths, m.Name)
 			}
@@ -569,7 +584,7 @@ func missingImportQuickFixes(
 			},
 		})
 	}
-	return actions, nil
+	return actions
 }
 
 // firstIdentifierInRange returns the first IDENTIFIER token whose start

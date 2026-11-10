@@ -10,6 +10,7 @@
 package lsp_test
 
 import (
+	"context"
 	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,7 +18,10 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
+	"github.com/synnaxlabs/x/errors"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -568,6 +572,61 @@ var _ = Describe("CodeAction", func() {
 						action := findActionByTitle(actions, title)
 						Expect(action).ToNot(BeNil())
 						Expect(action.IsPreferred).To(HaveValue(BeFalse()))
+					}
+				},
+			)
+
+			It("should list the modules once per request", func(ctx SpecContext) {
+				lists := 0
+				loader := text.NewLoader(text.LoaderConfig{
+					Paths: func(context.Context) ([]string, error) {
+						lists++
+						return []string{"lib.n", "lib.k"}, nil
+					},
+				})
+				server, uri, client = SetupTestServerWithClient(lsp.Config{
+					NewRoot: func() *symbol.Symbol {
+						return symbol.NewRoot(
+							nil,
+							stl.NewSymbols(),
+							symbol.WithModules(loader),
+						)
+					},
+				})
+				actions := actionsFor(
+					ctx,
+					"func g() i64 {\n    return n.f() + k.f()\n}\n",
+				)
+				Expect(findActionByTitle(actions, "Add import 'lib.n'")).ToNot(BeNil())
+				Expect(findActionByTitle(actions, "Add import 'lib.k'")).ToNot(BeNil())
+				Expect(lists).To(Equal(1))
+			})
+
+			It(
+				"should keep the other fixes when the module listing fails",
+				func(ctx SpecContext) {
+					loader := text.NewLoader(text.LoaderConfig{
+						Paths: func(context.Context) ([]string, error) {
+							return nil, errors.New("cat")
+						},
+					})
+					server, uri, client = SetupTestServerWithClient(lsp.Config{
+						NewRoot: func() *symbol.Symbol {
+							return symbol.NewRoot(
+								nil,
+								stl.NewSymbols(),
+								symbol.WithModules(loader),
+							)
+						},
+					})
+					actions := actionsFor(
+						ctx,
+						"func g() f64 {\n    return n.f() + math.sqrt(4.0)\n}\n",
+					)
+					Expect(findActionByTitle(actions, "Add import 'math'")).
+						ToNot(BeNil())
+					for _, a := range actions {
+						Expect(a.Title).ToNot(ContainSubstring("'n'"))
 					}
 				},
 			)

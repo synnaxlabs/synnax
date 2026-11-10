@@ -306,7 +306,7 @@ func (s *Service) newLSPRoot(
 			}),
 		)),
 		s.moduleSource(s.cfg.DB, readable),
-		s.modulePaths(s.cfg.DB, readable),
+		s.modulePaths(access.allows),
 	)
 }
 

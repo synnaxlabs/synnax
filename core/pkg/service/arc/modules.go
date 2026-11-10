@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 )
 
@@ -35,34 +36,41 @@ func (s *Service) moduleSource(
 }
 
 // modulePaths returns a loader function that lists the import path of each text
-// module that every filter matches.
+// module that readable allows. It reads readable outside the snapshot, since reading
+// the access can open a snapshot of its own.
 func (s *Service) modulePaths(
-	snap gorp.Snapshot,
-	filters ...Filter,
+	readable func(context.Context, resource.ID) (bool, error),
 ) func(context.Context) ([]string, error) {
 	return func(ctx context.Context) ([]string, error) {
-		var dirs []directory.Directory
-		if err := s.directories.NewRetrieve().
-			Entries(&dirs).
-			Exec(ctx, snap); err != nil {
+		var (
+			dirs []directory.Directory
+			arcs []Arc
+		)
+		if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+			if err := s.directories.NewRetrieve().
+				Entries(&dirs).
+				Exec(ctx, snap); err != nil {
+				return err
+			}
+			return s.NewRetrieve().Entries(&arcs).Exec(ctx, snap)
+		}); err != nil {
 			return nil, err
 		}
 		byKey := make(map[directory.Key]directory.Directory, len(dirs))
 		for _, d := range dirs {
 			byKey[d.Key] = d
 		}
-		var arcs []Arc
-		q := s.NewRetrieve()
-		for _, f := range filters {
-			q = q.Where(f)
-		}
-		if err := q.Entries(&arcs).Exec(ctx, snap); err != nil {
-			return nil, err
-		}
 		paths := make([]string, 0, len(arcs))
 		for _, a := range arcs {
 			if _, ok := a.Base().Source.Variant.(TextSource); !ok ||
 				a.Type() != TypeModule {
+				continue
+			}
+			ok, err := readable(ctx, a.ResourceID())
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
 				continue
 			}
 			segments := []string{a.Base().Name}
