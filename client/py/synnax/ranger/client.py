@@ -879,7 +879,7 @@ class Client:
         if color is None:
             self.dispatch(key, _remove("color"))
         else:
-            self.dispatch(key, _set(["color"], color_.Color(color).hex()))
+            self.dispatch(key, _set(["color"], color_.Color(color).model_dump()))
 
     def set_parent(self, key: Key, parent: Key | Payload | None) -> None:
         """Nests a range in a parent range, or makes it a top-level range when parent

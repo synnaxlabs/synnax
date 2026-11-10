@@ -340,13 +340,14 @@ class TestRangeClient:
         assert client.ranges.retrieve(key=rng.key).time_range == tr
 
     def test_set_color(self, client: sy.Synnax) -> None:
-        """Should set the color of a range that has no color."""
+        """Should set the exact color, alpha included, of a range with no color."""
         rng = client.ranges.create(
             name=random_name(),
             time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
         )
-        client.ranges.set_color(rng.key, "#00FF0080")
-        assert client.ranges.retrieve(key=rng.key).color == sy.Color("#00FF0080")
+        color = sy.Color(r=0, g=255, b=0, a=0.5)
+        client.ranges.set_color(rng.key, color)
+        assert client.ranges.retrieve(key=rng.key).color == color
 
     def test_clear_color(self, client: sy.Synnax) -> None:
         """Should clear the color of a range when the color is None."""
