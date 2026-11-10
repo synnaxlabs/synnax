@@ -30,7 +30,7 @@ var _ = Describe("Secret", func() {
 			Variant: v0.StoredSecret{Base: v0.Base{Key: key, Name: "Password"}},
 		}
 		file = v0.Secret{
-			Variant: v0.FileSecret{Base: v0.Base{Key: key, Name: "Key"}, Path: "/k"},
+			Variant: v0.FileSecret{Base: v0.Base{Key: key, Name: "Key"}, FileName: "k"},
 		}
 	})
 

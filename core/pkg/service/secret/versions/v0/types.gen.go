@@ -50,7 +50,7 @@ type Base struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the secret.
 	Name string `json:"name" msgpack:"name"`
-	// Updated is when the value or path of the secret last changed.
+	// Updated is when the value or file name of the secret last changed.
 	Updated telem.TimeStamp `json:"updated" msgpack:"updated"`
 	// Uses are the resources that use the secret and that the caller can read, filled
 	// only when a retrieve request asks for them.
@@ -87,11 +87,12 @@ func (s StoredSecret) Validate() error {
 	return v.Error()
 }
 
-// FileSecret is a secret whose value is a file on the computer that uses it.
+// FileSecret is a secret whose value is a file in the secrets folder that an admin sets
+// on the rack that uses it.
 type FileSecret struct {
 	Base
-	// Path is the path of the file on the computer that uses the secret.
-	Path string `json:"path" msgpack:"path"`
+	// FileName is the name of the file in the secrets folder of the rack.
+	FileName string `json:"file_name" msgpack:"file_name"`
 }
 
 func (FileSecret) isSecretVariant() {}
