@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/patch"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -424,25 +425,19 @@ var _ = Describe("Patch", func() {
 
 		It("Should leave the schema default for a removal", func() {
 			g := doc()
-			filled, err := partial(&g, patch.Remove{Key: "factor"})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeTrue())
+			Expect(MustSucceed(partial(&g, patch.Remove{Key: "factor"}))).To(BeTrue())
 			Expect(g.Factor).To(Equal(1.0))
 		})
 
 		It("Should leave the schema default for a null set", func() {
 			g := doc()
-			filled, err := partial(&g, patch.Set{Path: []string{"factor"}})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeTrue())
+			Expect(MustSucceed(partial(&g, patch.Set{Path: []string{"factor"}}))).To(BeTrue())
 			Expect(g.Factor).To(Equal(1.0))
 		})
 
 		It("Should keep an explicit zero", func() {
 			g := doc()
-			filled, err := partial(&g, patch.Set{Path: []string{"factor"}, Value: 0.0})
-			Expect(err).ToNot(HaveOccurred())
-			Expect(filled).To(BeFalse())
+			Expect(MustSucceed(partial(&g, patch.Set{Path: []string{"factor"}, Value: 0.0}))).To(BeFalse())
 			Expect(g.Factor).To(BeZero())
 		})
 
