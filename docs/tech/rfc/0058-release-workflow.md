@@ -46,10 +46,13 @@ carries `0.0.0`.
 template, and every `branches: [main, rc]` trigger are deleted. Pushes to `main` and
 `release/**` build and test only.
 
-A hotfix is fixed on `main` first, then cherry-picked by PR onto
-`release/<product>-X.Y`, cut from the product's latest stable tag. The release workflow
-runs from that branch and resolves its minor from the tags reachable from it. The branch
-is deleted afterwards.
+The branch sets the version of the Console, Core, and Driver. A release from `main` is
+always the next minor: when the newest stable tag is `X.Y.Z`, it is `X.(Y+1).0`, and its
+candidates are `X.(Y+1).0-rc.N`. A patch from `main` is not possible. Release branches
+exist only for patches: when train `X.Y` needs one, `release/<product>-X.Y` is cut from
+the `X.Y.0` tag, and the fix lands on `main` first, then is cherry-picked by PR onto the
+branch. A release from the branch is always the next patch on `X.Y`, or `X.Y.0` when the
+train has no tag.
 
 ### 2.1 Release workflow
 
@@ -61,7 +64,6 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
   PyPI packages at the next `py/v*` patch on the train, both on by default. A candidate
   run never publishes them. An npm publish on an older train takes the `train-X.Y`
   dist-tag, so `latest` never moves back.
-- **`bump`**: `patch` (default) or `minor`, applied to every selected product.
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
   this run releases, else the newest on the resolved minor (candidates included when
@@ -69,14 +71,13 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
 Each selected product runs four stages:
 
-1. **Resolve**: A composite action `.github/actions/resolve-version` takes the minor
-   from the highest stable product tag reachable from `HEAD`, then the patch from the
-   highest stable product tag on that minor anywhere in the repo, applies `bump`, and
-   enforces the train rule (§2.2). Candidates never set the base: `-rc.N` counts up from
-   the candidates already tagged for that version, and promoting one repeats the same
-   `bump`. The action also emits the previous stable product tag; a candidate uses the
-   same baseline, so its notes cover every change since the last stable. Reachability
-   picks the train; the repo-wide scan keeps a hotfix tag from being reissued.
+1. **Resolve**: A composite action `.github/actions/resolve-version` takes the version
+   from the branch (§2.0) and the product's stable tags anywhere in the repo, so a patch
+   tag on a release branch is never reissued. It enforces the train rule (§2.2).
+   Candidates never set the base: `-rc.N` counts up from the candidates already tagged
+   for that version, and a stable release from the same branch promotes it. The action
+   also emits the previous stable product tag; a candidate uses the same baseline, so
+   its notes cover every change since the last stable.
 2. **Verify**: The commit's required checks must have passed. The integration suite runs
    as a `workflow_call` job, once per run.
 3. **Build**: `build.synnax.yaml` with only that product enabled and `version` passed
@@ -114,11 +115,12 @@ each language releases alone. A language publishes on the Core's train, so every
 works with a released Core: the Core minor the run releases, else the minor of a
 `release/<product>-X.Y` branch, else the newest Core minor reachable from `HEAD`. A run
 that releases no Core fails when no Core is out on that train. The resolve stage takes
-the next patch on the train, or `X.Y.0` when the train has none, and ignores `bump`. The
-publish job waits for every product the run releases, then runs `stamp_versions.sh` to
-write the version into that language's manifests. It stops when the version's tag names
-another commit, or when the registry has the version without a tag, so one version never
-holds packages from two commits.
+the next patch on the train, or `X.Y.0` when the train has none, so unlike a binary
+product, a package patch can release from `main`. The publish job waits for every
+product the run releases, then runs `stamp_versions.sh` to write the version into that
+language's manifests. It stops when the version's tag names another commit, or when the
+registry has the version without a tag, so one version never holds packages from two
+commits.
 
 The Python job claims the version by pushing its tag at the run's commit, then
 publishes. A run at the same commit keeps the version, since the resolve stage keeps a
@@ -241,10 +243,10 @@ flag and workflow file.
   `workspace:*` pins to the catalog; add the Bazel define, the `0.0` compatibility rule
   in all three clients, and `console/src/flags.ts`.
 - **Phase 4: First releases.** One PR bumps every package manifest to 0.59, then one
-  `release.yaml` dispatch with `bump: minor` opens train 0.59. After the Console
-  release, one manual commit copies its `latest.json` into `release-spec.json`, so
-  installed 0.58 builds upgrade once and land on the new endpoint. The file stays on
-  `main` until 0.58 is out of support.
+  `release.yaml` dispatch from `main` opens train 0.59. After the Console release, one
+  manual commit copies its `latest.json` into `release-spec.json`, so installed 0.58
+  builds upgrade once and land on the new endpoint. The file stays on `main` until 0.58
+  is out of support.
 
 ## 4 Resolved decisions
 
@@ -255,8 +257,12 @@ flag and workflow file.
 3. **Three binary products, built once**: A single Core plus Driver release rejected; a
    Go-only change must not re-release the Driver or Console.
 4. **No approval gate**: Environment reviewers rejected; the dispatch is the approval.
-5. **`bump` choice**: release-please rejected because it writes version files; typed
-   versions rejected because they invite skipped numbers.
+5. **The branch sets the version**: `main` releases the next minor and a release branch
+   the next patch. A `bump` input rejected: a patch from `main` tagged next-minor code
+   on the old train once that train had moved to its release branch. release-please
+   rejected because it writes version files; typed versions rejected because they invite
+   skipped numbers. Desktop keeps a `bump`, since its version line is apart from the
+   train.
 6. **Updater endpoint on the docs site**: `releases/latest/download` is repo-wide and
    breaks under per-product tags; a rolling `console/latest` release abuses tags.
 7. **Request-time docs versions**: The site is already SSR; a deploy hook fixes a race

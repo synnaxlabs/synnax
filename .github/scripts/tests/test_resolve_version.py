@@ -37,33 +37,37 @@ class Repo:
         for name in names:
             self.git("tag", name)
 
+    def branch(self, name: str, start: str = "HEAD") -> None:
+        self.git("checkout", "-q", "-b", name, start)
+
+    def run(
+        self, product: str, prerelease: bool, ref: str, train: str, bump: str
+    ) -> subprocess.CompletedProcess[str]:
+        prerelease_arg = "true" if prerelease else "false"
+        return subprocess.run(
+            [str(SCRIPT), product, prerelease_arg, ref, train, bump],
+            cwd=self.path,
+            capture_output=True,
+            text=True,
+        )
+
     def resolve(
         self,
         product: str,
         *,
-        bump: str,
         prerelease: bool = False,
-        train: str = "",
         ref: str = "main",
+        train: str = "",
+        bump: str = "",
     ) -> dict[str, str]:
-        result = subprocess.run(
-            [str(SCRIPT), product, bump, "true" if prerelease else "false", train, ref],
-            cwd=self.path,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        result = self.run(product, prerelease, ref, train, bump)
+        assert result.returncode == 0, result.stderr
         return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
     def resolve_error(
-        self, product: str, *, bump: str, train: str = "", ref: str = "main"
+        self, product: str, *, ref: str = "main", train: str = "", bump: str = ""
     ) -> str:
-        result = subprocess.run(
-            [str(SCRIPT), product, bump, "false", train, ref],
-            cwd=self.path,
-            capture_output=True,
-            text=True,
-        )
+        result = self.run(product, False, ref, train, bump)
         assert result.returncode != 0
         return result.stderr
 
@@ -76,103 +80,127 @@ def repo(tmp_path: Path) -> Repo:
     return repo
 
 
-class TestBumps:
-    """Tests for patch and minor bumps from the reachable base."""
+class TestMain:
+    """Tests for the Console, Core, and Driver released from main."""
 
-    def test_patch_bump(self, repo: Repo) -> None:
-        out = repo.resolve("console", bump="patch")
+    def test_should_release_the_next_minor(self, repo: Repo) -> None:
+        out = repo.resolve("console")
+        assert out["version"] == "0.59.0"
+        assert out["tag"] == "console/v0.59.0"
+        assert out["minor"] == "0.59"
+        assert out["previous_tag"] == "console/v0.58.2"
+        assert out["latest"] == "true"
+
+    def test_should_open_the_next_train_after_one_ships(self, repo: Repo) -> None:
+        repo.tag("core/v0.59.0")
+        repo.commit("more")
+        assert repo.resolve("core")["version"] == "0.60.0"
+        assert repo.resolve("core", prerelease=True)["version"] == "0.60.0-rc.1"
+
+    def test_should_not_patch_a_train_tagged_on_main(self, repo: Repo) -> None:
+        repo.tag("core/v0.59.0")
+        repo.git("branch", "release/core-0.59")
+        repo.commit("0.60 work")
+        out = repo.resolve("core")
+        assert out["version"] == "0.60.0"
+        assert out["previous_tag"] == "core/v0.59.0"
+
+    def test_should_count_past_an_unreachable_patch(self, repo: Repo) -> None:
+        repo.branch("release/core-0.58", "core/v0.58.2")
+        repo.commit("hotfix")
+        repo.tag("core/v0.58.3")
+        repo.git("checkout", "-q", "main")
+        out = repo.resolve("core")
+        assert out["version"] == "0.59.0"
+        assert out["previous_tag"] == "core/v0.58.3"
+
+    def test_should_treat_any_other_branch_as_main(self, repo: Repo) -> None:
+        assert repo.resolve("driver", ref="sy-1-feature")["version"] == "0.59.0"
+
+    def test_should_reject_a_train(self, repo: Repo) -> None:
+        assert "takes no train or bump" in repo.resolve_error("core", train="0.58")
+
+    def test_should_reject_a_bump(self, repo: Repo) -> None:
+        assert "takes no train or bump" in repo.resolve_error("core", bump="patch")
+
+    def test_should_fail_without_a_stable_tag(self, tmp_path: Path) -> None:
+        repo = Repo(tmp_path)
+        repo.tag("core/v0.58.2")
+        assert "no stable console tag" in repo.resolve_error("console")
+
+
+class TestReleaseBranch:
+    """Tests for patches released from a release/<product>-X.Y branch."""
+
+    REF = "release/console-0.58"
+
+    def test_should_release_the_next_patch(self, repo: Repo) -> None:
+        repo.branch(self.REF, "console/v0.58.2")
+        repo.commit("hotfix")
+        out = repo.resolve("console", ref=self.REF)
         assert out["version"] == "0.58.3"
-        assert out["tag"] == "console/v0.58.3"
         assert out["minor"] == "0.58"
         assert out["previous_tag"] == "console/v0.58.2"
         assert out["latest"] == "true"
 
-    def test_minor_bump(self, repo: Repo) -> None:
-        out = repo.resolve("driver", bump="minor")
-        assert out["version"] == "0.59.0"
-        assert out["minor"] == "0.59"
-        assert out["previous_tag"] == "driver/v0.58.2"
-
-    def test_should_take_the_base_from_the_reachable_tag(self, repo: Repo) -> None:
-        repo.tag("console/v0.59.0")
-        repo.commit("more")
-        assert repo.resolve("console", bump="patch")["version"] == "0.59.1"
-
-    def test_should_ignore_candidates_when_picking_the_base(self, repo: Repo) -> None:
-        repo.tag("console/v0.59.0-rc.1", "console/v0.59.0-rc.2")
-        assert repo.resolve("console", bump="minor")["version"] == "0.59.0"
-
-
-class TestHotfixes:
-    """Tests for patches that live on release branches."""
-
-    def test_should_reject_a_patch_past_an_unreachable_hotfix(self, repo: Repo) -> None:
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+    def test_should_count_past_patches_on_the_branch(self, repo: Repo) -> None:
+        repo.branch(self.REF, "console/v0.58.2")
         repo.commit("hotfix")
         repo.tag("console/v0.58.3")
-        repo.git("checkout", "-q", "main")
-        assert "release/<product>-0.58" in repo.resolve_error("console", bump="patch")
-
-    def test_should_follow_an_unreachable_hotfix_into_the_next_train(
-        self, repo: Repo
-    ) -> None:
-        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
         repo.commit("hotfix")
-        repo.tag("core/v0.58.3")
-        repo.git("checkout", "-q", "main")
-        out = repo.resolve("core", bump="minor")
-        assert out["version"] == "0.59.0"
-        assert out["previous_tag"] == "core/v0.58.3"
+        assert repo.resolve("console", ref=self.REF)["version"] == "0.58.4"
 
-    def test_should_resolve_the_minor_from_the_branch(self, repo: Repo) -> None:
+    def test_should_not_be_latest_under_a_newer_train(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0", "console/v0.59.0")
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+        repo.branch(self.REF, "console/v0.58.2")
         repo.commit("hotfix")
-        out = repo.resolve("console", bump="patch", ref="release/console-0.58")
+        out = repo.resolve("console", ref=self.REF)
         assert out["version"] == "0.58.3"
         assert out["latest"] == "false"
 
-    def test_should_be_latest_without_a_newer_train(self, repo: Repo) -> None:
-        repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
+    def test_should_take_the_train_from_any_product_branch(self, repo: Repo) -> None:
+        repo.tag("core/v0.59.0", "driver/v0.59.0")
+        repo.branch("release/core-0.58", "core/v0.58.2")
         repo.commit("hotfix")
-        out = repo.resolve("console", bump="patch", ref="release/console-0.58")
-        assert out["latest"] == "true"
+        out = repo.resolve("driver", ref="release/core-0.58")
+        assert out["version"] == "0.58.3"
 
-    def test_should_open_the_train_of_a_new_release_branch(self, repo: Repo) -> None:
-        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
-        repo.commit("hotfix")
-        repo.tag("core/v0.58.3")
-        repo.git("checkout", "-q", "-b", "release/core-0.59", "main")
-        out = repo.resolve("core", bump="patch", ref="release/core-0.59")
+    def test_should_never_reuse_a_shipped_version(self, repo: Repo) -> None:
+        repo.branch(self.REF, "console/v0.58.2")
+        assert repo.resolve("console", ref=self.REF)["version"] == "0.58.3"
+        out = repo.resolve("console", ref=self.REF, prerelease=True)
+        assert out["version"] == "0.58.3-rc.1"
+
+    def test_should_count_up_branch_candidates(self, repo: Repo) -> None:
+        repo.branch(self.REF, "console/v0.58.2")
+        repo.tag("console/v0.58.3-rc.1")
+        out = repo.resolve("console", ref=self.REF, prerelease=True)
+        assert out["version"] == "0.58.3-rc.2"
+        assert out["previous_tag"] == "console/v0.58.2"
+
+    def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
+        repo.branch("release/core-0.59")
+        out = repo.resolve("core", ref="release/core-0.59")
         assert out["version"] == "0.59.0"
-        assert out["previous_tag"] == "core/v0.58.3"
+        assert out["previous_tag"] == "core/v0.58.2"
         assert out["latest"] == "true"
-
-    def test_should_open_the_branch_train_with_a_candidate(self, repo: Repo) -> None:
-        out = repo.resolve(
-            "console", bump="patch", prerelease=True, ref="release/core-0.59"
-        )
-        assert out["version"] == "0.59.0-rc.1"
 
 
 class TestCandidates:
-    """Tests for the pre-release channel."""
+    """Tests for the pre-release channel from main."""
 
     def test_first_candidate(self, repo: Repo) -> None:
-        assert (
-            repo.resolve("core", bump="minor", prerelease=True)["version"]
-            == "0.59.0-rc.1"
-        )
+        assert repo.resolve("core", prerelease=True)["version"] == "0.59.0-rc.1"
 
     def test_should_count_up_from_existing_candidates(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0-rc.1", "core/v0.59.0-rc.2")
-        out = repo.resolve("core", bump="minor", prerelease=True)
+        out = repo.resolve("core", prerelease=True)
         assert out["version"] == "0.59.0-rc.3"
         assert out["tag"] == "core/v0.59.0-rc.3"
 
-    def test_should_promote_with_the_same_bump(self, repo: Repo) -> None:
+    def test_should_promote_the_candidate_version(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0-rc.3")
-        out = repo.resolve("core", bump="minor")
+        out = repo.resolve("core")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "core/v0.58.2"
 
@@ -181,16 +209,16 @@ class TestTrainRule:
     """Tests for the one-minor-ahead cap."""
 
     def test_should_allow_one_minor_ahead_of_core(self, repo: Repo) -> None:
-        assert repo.resolve("console", bump="minor")["version"] == "0.59.0"
+        assert repo.resolve("console")["version"] == "0.59.0"
 
     def test_should_reject_two_minors_ahead_of_core(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0")
         repo.commit("more")
-        assert "train rule" in repo.resolve_error("console", bump="minor")
+        assert "train rule" in repo.resolve_error("console")
 
     def test_should_let_core_open_the_next_train(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0", "driver/v0.59.0")
-        assert repo.resolve("core", bump="minor")["version"] == "0.59.0"
+        assert repo.resolve("core")["version"] == "0.59.0"
 
 
 class TestDesktop:
@@ -220,6 +248,15 @@ class TestDesktop:
         assert out["previous_tag"] == "desktop/v1.2.0"
         assert repo.resolve("desktop", bump="major")["version"] == "2.0.0"
 
+    def test_should_patch_past_an_unreachable_desktop_tag(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.0.0")
+        repo.branch("release/desktop-1.0")
+        repo.commit("hotfix")
+        repo.tag("desktop/v1.0.1")
+        repo.git("checkout", "-q", "main")
+        repo.commit("more")
+        assert repo.resolve("desktop", bump="patch")["version"] == "1.0.2"
+
     def test_should_skip_the_train_rule(self, repo: Repo) -> None:
         repo.tag("desktop/v1.4.0")
         repo.commit("more")
@@ -231,23 +268,16 @@ class TestDesktop:
         assert out["version"] == "1.0.0-rc.2"
         assert out["previous_tag"] == ""
 
+    def test_should_reject_an_unknown_bump(self, repo: Repo) -> None:
+        repo.tag("desktop/v1.0.0")
+        assert "unknown bump" in repo.resolve_error("desktop", bump="huge")
+
 
 class TestErrors:
     """Tests for unusable inputs."""
 
-    def test_should_fail_without_a_reachable_tag(self, tmp_path: Path) -> None:
-        repo = Repo(tmp_path)
-        repo.tag("core/v0.58.2")
-        assert "no stable console tag" in repo.resolve_error("console", bump="patch")
-
-    def test_should_reject_an_unknown_bump(self, repo: Repo) -> None:
-        assert "unknown bump" in repo.resolve_error("core", bump="huge")
-
-    def test_should_reject_a_major_bump_on_the_train(self, repo: Repo) -> None:
-        assert "desktop only" in repo.resolve_error("core", bump="major")
-
     def test_should_reject_an_unknown_product(self, repo: Repo) -> None:
-        assert "unknown product" in repo.resolve_error("python", bump="patch")
+        assert "unknown product" in repo.resolve_error("python")
 
 
 LATEST = Path(__file__).resolve().parents[1] / "latest_version.sh"
@@ -299,55 +329,42 @@ class TestLatestVersion:
 class TestPackages:
     """Tests for the npm (ts) and PyPI (py) packages, which share the train."""
 
-    def test_should_bump_each_language_from_its_own_tag(self, repo: Repo) -> None:
+    def test_should_take_the_next_patch_on_a_train(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.4", "py/v0.58.2")
         repo.commit("more")
-        out = repo.resolve("ts", bump="patch")
+        out = repo.resolve("ts", train="0.58")
         assert out["version"] == "0.58.5"
         assert out["tag"] == "ts/v0.58.5"
         assert out["previous_tag"] == "ts/v0.58.4"
-        assert repo.resolve("py", bump="patch")["version"] == "0.58.3"
-
-    def test_should_require_a_language_tag(self, repo: Repo) -> None:
-        assert "no stable py tag" in repo.resolve_error("py", bump="patch")
-
-    def test_should_keep_the_train_rule(self, repo: Repo) -> None:
-        repo.tag("ts/v0.59.0")
-        repo.commit("more")
-        assert "train rule" in repo.resolve_error("ts", bump="minor")
-
-    def test_should_take_the_next_patch_on_a_train(self, repo: Repo) -> None:
-        repo.tag("ts/v0.58.4")
-        repo.commit("more")
-        out = repo.resolve("ts", bump="minor", train="0.58")
-        assert out["version"] == "0.58.5"
-        assert out["previous_tag"] == "ts/v0.58.4"
+        assert repo.resolve("py", train="0.58")["version"] == "0.58.3"
 
     def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.4")
-        out = repo.resolve("ts", bump="patch", train="0.59")
+        out = repo.resolve("ts", train="0.59")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "ts/v0.58.4"
 
     def test_should_count_unreachable_tags_on_a_train(self, repo: Repo) -> None:
-        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
+        repo.branch("release/core-0.58", "core/v0.58.2")
         repo.tag("py/v0.58.7")
         repo.git("checkout", "-q", "main")
         repo.commit("more")
-        assert repo.resolve("py", bump="patch", train="0.58")["version"] == "0.58.8"
+        assert repo.resolve("py", train="0.58")["version"] == "0.58.8"
 
-    def test_should_reject_a_malformed_train(self, repo: Repo) -> None:
-        assert "malformed train" in repo.resolve_error(
-            "ts", bump="patch", train="0.58.1"
-        )
+    @pytest.mark.parametrize("train", ["", "0.58.1"])
+    def test_should_reject_a_malformed_train(self, repo: Repo, train: str) -> None:
+        assert "malformed train" in repo.resolve_error("ts", train=train)
+
+    def test_should_reject_a_bump(self, repo: Repo) -> None:
+        assert "takes no bump" in repo.resolve_error("py", train="0.58", bump="minor")
 
     def test_should_keep_the_train_rule_on_a_train(self, repo: Repo) -> None:
-        assert "train rule" in repo.resolve_error("ts", bump="patch", train="0.60")
+        assert "train rule" in repo.resolve_error("ts", train="0.60")
 
     def test_should_keep_a_version_claimed_at_head(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.4")
         repo.commit("more")
         repo.tag("ts/v0.58.5")
-        out = repo.resolve("ts", bump="patch", train="0.58")
+        out = repo.resolve("ts", train="0.58")
         assert out["version"] == "0.58.5"
         assert out["previous_tag"] == "ts/v0.58.4"

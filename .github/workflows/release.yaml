@@ -10,10 +10,10 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2}{3}{4} {5}{6}', inputs.console && ' Console' || '',
+  ${{ format('Release{0}{1}{2}{3}{4}{5} from {6}', inputs.console && ' Console' || '',
   inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.typescript && '
-  TypeScript' || '', inputs.python && ' Python' || '', inputs.bump, inputs.prerelease &&
-  ' candidate' || '') }}
+  TypeScript' || '', inputs.python && ' Python' || '', inputs.prerelease && ' candidate'
+  || '', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -38,13 +38,6 @@ on:
         description: Publish the PyPI packages at the next py/v* patch on the train
         type: boolean
         default: true
-      bump:
-        description: Version bump for every selected product
-        type: choice
-        options:
-          - patch
-          - minor
-        default: patch
       prerelease:
         description: Tag release candidates (-rc.N)
         type: boolean
@@ -177,7 +170,6 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: console
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
           ref: ${{ github.ref_name }}
 
@@ -187,7 +179,6 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: driver
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
           ref: ${{ github.ref_name }}
 
@@ -197,7 +188,6 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: core
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
           ref: ${{ github.ref_name }}
 
@@ -239,7 +229,6 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: ts
-          bump: patch
           train: ${{ steps.train.outputs.minor }}
 
       - name: Resolve Python version
@@ -248,7 +237,6 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: py
-          bump: patch
           train: ${{ steps.train.outputs.minor }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the

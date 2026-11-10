@@ -11,113 +11,109 @@
 
 # Resolves the next version of a product from its Git tags and prints GitHub Actions
 # outputs (key=value lines).
-# Usage: resolve_version.sh <product> <bump> [prerelease] [train] [ref]
+# Usage: resolve_version.sh <product> <prerelease> [ref] [train] [bump]
 #
-# The minor comes from the highest stable product tag reachable from HEAD, the patch
-# from the highest stable tag on that minor anywhere in the repo, so a hotfix tag on a
-# release branch is never reissued. A patch fails when that tag is not reachable, since
-# the train has moved to its release branch. Candidates never set the base: a candidate
-# counts up from the candidates already tagged for the version, and promoting one
-# repeats the same bump. The train rule caps a product at one minor ahead of the Core's
-# latest stable. Desktop skips the train rule, takes a major bump, and bumps its first
-# release from 0.0.0. That first release must be a major bump, so it outranks the 1.0.0
-# candidates. latest is true when no stable tag of the product outranks the result.
-# previous_tag is the highest stable product tag below the result, reachable or not. A
-# train (X.Y) ignores the bump and resolves the next patch on that minor, or X.Y.0 when
-# none exists. A train's newest tag at HEAD resolves to itself. On the Console, Core,
-# and Driver, a release/<product>-X.Y ref (a branch name) sets the train to X.Y.
+# Console, Core, and Driver: a release/<product>-X.Y ref resolves the next patch on X.Y,
+# or X.Y.0 when the train has no tag. Any other ref resolves the minor after the
+# product's newest stable tag. Packages (ts, py): the next patch on the train, or X.Y.0.
+# The train's newest tag at HEAD resolves to itself, so a rerun finishes its publish.
+# Desktop: the bump applies to the highest Desktop tag reachable from HEAD, and a patch
+# counts from the highest tag on that minor. The first Desktop release must be a major
+# bump from 0.0.0, so it outranks the 1.0.0 candidates.
+#
+# A candidate counts up from the candidates already tagged for the version. The train
+# rule caps every product but Desktop at one minor ahead of the Core's newest stable.
+# latest is true when no stable tag of the product outranks the result. previous_tag is
+# the highest stable product tag below the result, reachable or not.
 
 set -euo pipefail
 
-USAGE="usage: resolve_version.sh <product> <bump> [prerelease] [train] [ref]"
+USAGE="usage: resolve_version.sh <product> <prerelease> [ref] [train] [bump]"
 PRODUCT=${1:?$USAGE}
-BUMP=${2:?$USAGE}
-PRERELEASE=${3:-false}
+PRERELEASE=${2:?$USAGE}
+REF=${3:-}
 TRAIN=${4:-}
-REF=${5:-}
-
-case "$PRODUCT" in
-    console | core | driver | desktop | ts | py) ;;
-    *)
-        echo "unknown product: $PRODUCT" >&2
-        exit 1
-        ;;
-esac
+BUMP=${5:-}
 
 # Prints the highest X.Y.Z among stable tags of a product on stdin.
 highest() {
     sed -nE "s#^$1/v([0-9]+\.[0-9]+\.[0-9]+)\$#\1#p" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1
 }
 
-BRANCH='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
+# Prints the next patch on train $1, or $1.0 when the train has no stable tag.
+next_patch() {
+    local current patch
+    current=$(git tag --list "$PRODUCT/v$1.*" | highest "$PRODUCT")
+    if [ -z "$current" ]; then
+        echo "$1.0"
+        return
+    fi
+    IFS=. read -r _ _ patch <<< "$current"
+    echo "$1.$((patch + 1))"
+}
+
 case "$PRODUCT" in
     console | core | driver)
-        if [ -z "$TRAIN" ] && [[ $REF =~ $BRANCH ]]; then TRAIN=${BASH_REMATCH[2]}; fi
+        if [ -n "$TRAIN$BUMP" ]; then
+            echo "$PRODUCT takes no train or bump; the ref sets its version" >&2
+            exit 1
+        fi
+        if [[ $REF =~ ^release/(console|core|driver)-([0-9]+\.[0-9]+)$ ]]; then
+            BASE=$REF
+            NEXT=$(next_patch "${BASH_REMATCH[2]}")
+        else
+            BASE=$(git tag --list "$PRODUCT/v*" | highest "$PRODUCT")
+            if [ -z "$BASE" ]; then
+                echo "no stable $PRODUCT tag exists" >&2
+                exit 1
+            fi
+            IFS=. read -r MAJOR MINOR _ <<< "$BASE"
+            NEXT="$MAJOR.$((MINOR + 1)).0"
+        fi
         ;;
-esac
-
-if [ -n "$TRAIN" ]; then
-    if ! [[ $TRAIN =~ ^[0-9]+\.[0-9]+$ ]]; then
-        echo "malformed train: $TRAIN" >&2
-        exit 1
-    fi
-    CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
-    BASE=${CURRENT:-none on $TRAIN}
-    NEXT="$TRAIN.0"
-    if [ -n "$CURRENT" ]; then
-        IFS=. read -r _ _ PATCH <<< "$CURRENT"
-        NEXT="$TRAIN.$((PATCH + 1))"
+    ts | py)
+        if ! [[ $TRAIN =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "malformed train: '$TRAIN' (expected X.Y)" >&2
+            exit 1
+        fi
+        if [ -n "$BUMP" ]; then
+            echo "$PRODUCT takes no bump; it releases the next patch on its train" >&2
+            exit 1
+        fi
+        BASE="train $TRAIN"
+        NEXT=$(next_patch "$TRAIN")
+        CURRENT=$(git tag --list "$PRODUCT/v$TRAIN.*" | highest "$PRODUCT")
         # A tag at HEAD claims its version for this commit, so a rerun finishes it.
-        CURRENT_COMMIT=$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")
-        if [ "$CURRENT_COMMIT" = "$(git rev-parse HEAD)" ]; then
+        if [ -n "$CURRENT" ] && [ "$(git rev-parse "$PRODUCT/v$CURRENT^{commit}")" \
+            = "$(git rev-parse HEAD)" ]; then
             NEXT=$CURRENT
         fi
-    fi
-else
-    BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
-    if [ -z "$BASE" ]; then
-        if [ "$PRODUCT" != desktop ]; then
-            echo "no stable $PRODUCT tag is reachable from HEAD" >&2
-            exit 1
-        fi
-        if [ "$BUMP" != major ]; then
-            echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
-            exit 1
-        fi
-        BASE=0.0.0
-    fi
-    IFS=. read -r MAJOR MINOR _ <<< "$BASE"
-
-    CURRENT=$(git tag --list "$PRODUCT/v$MAJOR.$MINOR.*" | highest "$PRODUCT")
-    IFS=. read -r _ _ PATCH <<< "${CURRENT:-$BASE}"
-
-    case "$BUMP" in
-        patch)
-            if [ -n "$CURRENT" ] \
-                && ! git merge-base --is-ancestor "$PRODUCT/v$CURRENT" HEAD; then
-                echo "$PRODUCT $CURRENT is not reachable from HEAD: patch" \
-                    "$MAJOR.$MINOR from release/<product>-$MAJOR.$MINOR," \
-                    "or bump minor" >&2
+        ;;
+    desktop)
+        BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")
+        if [ -z "$BASE" ]; then
+            if [ "$BUMP" != major ]; then
+                echo "no stable desktop tag exists, so bump must be major, not $BUMP" >&2
                 exit 1
             fi
-            NEXT="$MAJOR.$MINOR.$((PATCH + 1))"
-            ;;
-        minor)
-            NEXT="$MAJOR.$((MINOR + 1)).0"
-            ;;
-        major)
-            if [ "$PRODUCT" != desktop ]; then
-                echo "a major bump is for desktop only; $PRODUCT shares the train" >&2
+            BASE=0.0.0
+        fi
+        IFS=. read -r MAJOR MINOR _ <<< "$BASE"
+        case "$BUMP" in
+            patch) NEXT=$(next_patch "$MAJOR.$MINOR") ;;
+            minor) NEXT="$MAJOR.$((MINOR + 1)).0" ;;
+            major) NEXT="$((MAJOR + 1)).0.0" ;;
+            *)
+                echo "unknown bump: '$BUMP' (expected patch, minor, or major)" >&2
                 exit 1
-            fi
-            NEXT="$((MAJOR + 1)).0.0"
-            ;;
-        *)
-            echo "unknown bump: $BUMP (expected patch, minor, or major)" >&2
-            exit 1
-            ;;
-    esac
-fi
+                ;;
+        esac
+        ;;
+    *)
+        echo "unknown product: $PRODUCT" >&2
+        exit 1
+        ;;
+esac
 IFS=. read -r NEXT_MAJOR NEXT_MINOR _ <<< "$NEXT"
 
 CORE=""
@@ -156,7 +152,7 @@ HIGHEST=$(tail -1 <<< "$RANKED")
 LATEST=false
 if [ "$HIGHEST" = "$NEXT" ]; then LATEST=true; fi
 
-echo "$PRODUCT $BASE -> $VERSION (bump $BUMP${CORE:+, core $CORE})" >&2
+echo "$PRODUCT $BASE -> $VERSION${CORE:+ (core $CORE)}" >&2
 echo "version=$VERSION"
 echo "tag=$PRODUCT/v$VERSION"
 echo "minor=$NEXT_MAJOR.$NEXT_MINOR"
