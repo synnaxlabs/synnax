@@ -1051,6 +1051,22 @@ TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
     EXPECT_TRUE(this->master->written().empty());
 }
 
+/// @brief it should not check the settings of a slave that another program sets up
+/// against those of other readers.
+TEST_F(EngineTest, SharedSlaveSettingsDoNotConflict) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    const auto entries = std::vector{on_slave(IN_I16, 1)};
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 6))
+    );
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 0))
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
 /// @brief it should not write the settings of a reader that the running bus cannot map.
 TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
     const auto first = ASSERT_NIL_P(

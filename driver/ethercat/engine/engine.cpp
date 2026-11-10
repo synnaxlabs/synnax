@@ -622,9 +622,17 @@ Engine::~Engine() {
     this->stop_locked();
 }
 
+bool Engine::shared_locked(const uint16_t position) const {
+    const auto slave = std::ranges::find(this->slaves, position, [](const auto &s) {
+        return s.properties.position;
+    });
+    return slave != this->slaves.end() && slave->properties.shared();
+}
+
 x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
     for (const auto &input: this->inputs)
         for (const auto &[pos, params]: settings) {
+            if (this->shared_locked(pos)) continue;
             const auto held = input->settings.find(pos);
             if (held == input->settings.end()) continue;
             for (const auto &param: params)
@@ -680,10 +688,7 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     // A reader that the running bus cannot map must leave the slaves as they are.
     if (!started)
         for (const auto &[pos, params]: settings) {
-            const auto slave = std::ranges::find(this->slaves, pos, [](const auto &s) {
-                return s.properties.position;
-            });
-            if (slave != this->slaves.end() && slave->properties.shared()) continue;
+            if (this->shared_locked(pos)) continue;
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
         }
