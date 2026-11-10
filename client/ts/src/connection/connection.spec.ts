@@ -1092,6 +1092,33 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should count a downed incompatible Core from its first failure", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const send = vi.spyOn(unary, "send");
+      const client = createClient(unary, {
+        escalateAfter: 4,
+        tokenless: createCore060Unary(core),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      await expect.poll(() => send.mock.calls.length).toBeGreaterThan(8);
+      core.down = true;
+      const calls = send.mock.calls.length;
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "unreachable",
+      );
+      expect(send.mock.calls.length - calls).toBeGreaterThanOrEqual(4);
+      await client.close();
+    });
+
     it("should not check without auth when the Core is unreachable", async () => {
       const tokenless = mockUnary(() => TimeStamp.now());
       const client = createClient(failingUnary(), { escalateAfter: 2, tokenless });

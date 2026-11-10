@@ -461,6 +461,9 @@ export class Client implements Handle {
         attempt: this.attempts,
         info,
       });
+      // an incompatible Core answered, so its checks do not count toward escalation
+      const { variant, details } = this.current;
+      if (variant === "error" && details.reason === "incompatible") this.attempts = 0;
     }
   }
 
