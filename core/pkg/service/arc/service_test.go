@@ -605,6 +605,17 @@ var _ = Describe("Build", func() {
 		Expect(tsk.Config).To(HaveKeyWithValue("hash", programHash(ctx, a)))
 	})
 
+	It("Should hold a compile failure instead of returning it", func(ctx SpecContext) {
+		var compiles atomic.Int32
+		s := openService(ctx, counting(&compiles))
+		a := createAutomation(ctx, s)
+		Expect(dispatch(ctx, a.Base().Key, "", insert("func f() { return x }"))).
+			To(Succeed())
+		b := MustSucceed(s.Build(ctx, a.Base().Key))
+		deploy(ctx, s, a, b)
+		Expect(compiles.Load()).To(BeEquivalentTo(1))
+	})
+
 	It("Should hold no lock of the DB while a resync compiles", func(ctx SpecContext) {
 		var (
 			blocked atomic.Bool
