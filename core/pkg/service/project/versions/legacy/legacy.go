@@ -93,7 +93,7 @@ func Members(
 	files zip.Files,
 ) ([]Member, error) {
 	var slice layoutSlice
-	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+	if err := imex.Codec.Decode(layoutData, &slice); err != nil {
 		return nil, errors.Wrap(err, LayoutFileName)
 	}
 	members := make([]Member, 0, len(slice.Layouts))
@@ -102,12 +102,12 @@ func Members(
 		if !importableTypes.Contains(l.Type) {
 			continue
 		}
-		path, err := findComponent(ctx, files, key, l)
+		path, err := findComponent(files, key, l)
 		if err != nil {
 			return nil, err
 		}
 		var env imex.Envelope
-		if err := imex.Codec.Decode(ctx, files[path], &env); err != nil {
+		if err := imex.Codec.Decode(files[path], &env); err != nil {
 			return nil, errors.Wrap(err, path)
 		}
 		if env.Type == "" {
@@ -123,12 +123,7 @@ func Members(
 
 // findComponent matches a layout record to a file named after the layout or its key, or
 // one whose body carries the matching key or name.
-func findComponent(
-	ctx context.Context,
-	files zip.Files,
-	key string,
-	l layout,
-) (string, error) {
+func findComponent(files zip.Files, key string, l layout) (string, error) {
 	paths := slices.Sorted(maps.Keys(files))
 	for _, path := range paths {
 		base := path[strings.LastIndexByte(path, '/')+1:]
@@ -141,7 +136,7 @@ func findComponent(
 			continue
 		}
 		var body map[string]any
-		if err := imex.Codec.Decode(ctx, files[path], &body); err != nil {
+		if err := imex.Codec.Decode(files[path], &body); err != nil {
 			continue
 		}
 		if body["key"] == key || body["name"] == l.Name {
@@ -193,12 +188,12 @@ func CreatePanels(
 	refs map[string]resource.ID,
 ) error {
 	var t tiling
-	if err := imex.Codec.Decode(ctx, layoutData, &t); err != nil {
+	if err := imex.Codec.Decode(layoutData, &t); err != nil {
 		return nil
 	}
 	// The slice only names panels, so a failed decode falls back to window keys.
 	var slice layoutSlice
-	if err := imex.Codec.Decode(ctx, layoutData, &slice); err != nil {
+	if err := imex.Codec.Decode(layoutData, &slice); err != nil {
 		slice = layoutSlice{}
 	}
 	writer := svc.NewWriter(tx)

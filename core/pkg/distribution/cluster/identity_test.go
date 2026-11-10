@@ -104,7 +104,7 @@ var _ = Describe("Identity", func() {
 	DescribeTable(
 		"Should read the identity an older Core encoded",
 		func(ctx SpecContext, codec encoding.Codec) {
-			b := MustSucceed(codec.Encode(ctx, oldRecord{
+			b := MustSucceed(codec.Encode(oldRecord{
 				Nodes: map[node.Key]oldNode{
 					1: {
 						Address:   "localhost:9090",
