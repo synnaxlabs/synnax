@@ -103,6 +103,15 @@ func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
+	w.Bool(rc.StartupParameters != nil)
+	if rc.StartupParameters != nil {
+		w.Uint32(uint32(len(rc.StartupParameters)))
+		for i := range rc.StartupParameters {
+			if err := rc.StartupParameters[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -149,6 +158,101 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 				}
 			}
 		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			rc.StartupParameters = make([]SlaveStartupParameters, n)
+			for i := range rc.StartupParameters {
+				if err = rc.StartupParameters[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ssp SlaveStartupParameters) EncodeOrc(w *orc.Writer) error {
+	w.String(ssp.Device)
+	w.Bool(ssp.Parameters != nil)
+	if ssp.Parameters != nil {
+		w.Uint32(uint32(len(ssp.Parameters)))
+		for i := range ssp.Parameters {
+			if err := ssp.Parameters[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ssp *SlaveStartupParameters) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if ssp.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ssp.Parameters = make([]StartupParameter, n)
+			for i := range ssp.Parameters {
+				if err = ssp.Parameters[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (sp StartupParameter) EncodeOrc(w *orc.Writer) error {
+	w.Uint16(uint16(sp.Index))
+	w.Uint8(uint8(sp.SubIndex))
+	w.String(string(sp.DataType))
+	w.Float64(float64(sp.Value))
+	w.String(sp.Name)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (sp *StartupParameter) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sp.Index, err = r.Uint16(); err != nil {
+		return err
+	}
+	if sp.SubIndex, err = r.Uint8(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		sp.DataType = telem.DataType(rawV)
+	}
+	if sp.Value, err = r.Float64(); err != nil {
+		return err
+	}
+	if sp.Name, err = r.String(); err != nil {
+		return err
 	}
 	return nil
 }

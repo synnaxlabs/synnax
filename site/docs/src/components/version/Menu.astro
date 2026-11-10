@@ -24,14 +24,14 @@ const latest = version.status === "latest";
 const nameOf = (name: string, url: string): string => {
     if (name === NEXT) return "Next";
     if (url === ROOT && !latest) return "Latest";
-    return name;
+    return `v${name}`;
 };
+const current = version.release == null ? "Next" : `v${version.release}`;
 ---
 
 <details class="version-menu">
     <summary class="version-menu__trigger" aria-label="Docs version">
-        <Icon.Version className="version-menu__icon" />
-        <span>{nameOf(version.name, version.url)}</span>
+        <span>{current}</span>
         <Icon.Caret.Down className="version-menu__caret" />
     </summary>
     <ul class="version-menu__list">
@@ -95,12 +95,6 @@ const nameOf = (name: string, url: string): string => {
             &:focus-visible {
                 outline: 1px solid var(--pluto-primary-z);
                 outline-offset: var(--pluto-focus-ring-offset);
-            }
-
-            & :global(.version-menu__icon) {
-                width: 2.25rem;
-                height: 2.25rem;
-                color: var(--pluto-gray-l8);
             }
 
             & :global(.version-menu__caret) {

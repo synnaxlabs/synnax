@@ -22,6 +22,7 @@ import { Tree } from "@/platform/tree";
 import {
   expandTreeRow,
   findTreeRow,
+  findTreeRowIcon,
   itemName,
   openTreeRootContextMenu,
   openTreeRowContextMenu,
@@ -47,6 +48,13 @@ const createArc = async (name: string = uniqueName("arc")) =>
     name,
     type: "automation",
     source: { mode: "graph", graph: { nodes: [], edges: [] } },
+  });
+
+const createModule = async () =>
+  await client.arcs.create({
+    name: uniqueName("mod"),
+    type: "module",
+    source: { mode: "text" },
   });
 
 const createDirectory = async (parent: resource.ID) =>
@@ -95,7 +103,6 @@ describe("arc/Toolbar", () => {
     const dir = await createDirectory(arcsID);
     const arc = await createArc();
     await client.arcs.directories.move(
-      arcsID,
       clientArc.directory.resourceID(dir.key),
       clientArc.resourceID(arc.key),
     );
@@ -105,13 +112,12 @@ describe("arc/Toolbar", () => {
     expect(await findTreeRow(arc.name)).toBeTruthy();
   });
 
-  it("opens the explorer view from the explorer action", async () => {
-    const { store } = await renderToolbar();
-    await waitFor(() => getIconButton(document.body, "explore"));
-    fireEvent.click(getIconButton(document.body, "explore"));
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a view tab");
-    expect(tab.type).toBe(Arc.Explorer.TAB_TYPE);
+  it("draws a module with the module icon", async () => {
+    const module = await createModule();
+    const automation = await createArc();
+    await renderToolbar();
+    expect(await findTreeRowIcon(module.name, "module")).not.toBeNull();
+    expect(await findTreeRowIcon(automation.name, "arc")).not.toBeNull();
   });
 
   it("creates an arc through the create action's modal", async () => {
@@ -195,6 +201,40 @@ describe("arc/Toolbar", () => {
         expect(children.some((r) => r.name === name)).toBe(true);
       });
     });
+
+    it("creates a directory inside a directory from its menu", async () => {
+      const dir = await createDirectory(await retrieveRootDirectoryID(client));
+      await renderToolbar();
+      await openTreeRowContextMenu(dir.name);
+      await act(async () => {
+        fireEvent.click(await screen.findByText("New directory"));
+      });
+      const name = uniqueName("sub");
+      commitTextEdit(await awaitTextEditingElement(), name);
+      await waitFor(async () => {
+        const children = await client.arcs.directories.retrieve({
+          parents: [dir.key],
+        });
+        expect(children.some((r) => r.name === name)).toBe(true);
+      });
+    });
+
+    it("opens the create modal from Create Arc, listed above New directory", async () => {
+      const arc = await createArc();
+      await renderToolbar();
+      await findTreeRow(arc.name);
+      await openTreeRootContextMenu();
+      const createArcItem = await screen.findByText("Create Arc");
+      const newDirectoryItem = await screen.findByText("New directory");
+      expect(
+        createArcItem.compareDocumentPosition(newDirectoryItem) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      await act(async () => {
+        fireEvent.click(createArcItem);
+      });
+      expect(await screen.findByPlaceholderText("Arc name")).toBeTruthy();
+    });
   });
 });
 
@@ -206,7 +246,6 @@ describe("arc/Toolbar search", () => {
     const dir = await createDirectory(arcsID);
     const arc = await createArc(name);
     await client.arcs.directories.move(
-      arcsID,
       clientArc.directory.resourceID(dir.key),
       clientArc.resourceID(arc.key),
     );

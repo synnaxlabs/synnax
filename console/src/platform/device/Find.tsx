@@ -12,6 +12,7 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
+  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -112,12 +113,9 @@ const ScannerState = ({
             onClick={() =>
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
-                // Never write the status back: the Driver owns it.
-                await client.tasks.create({
-                  ...scanner.payload,
-                  config: { ...scanner.config, disabled: false },
-                  status: undefined,
-                });
+                const set = task.set({ path: ["config", "disabled"], value: false });
+                if (!(await client.tasks.dispatch(scanner.key, set)))
+                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
               }, "Failed to turn on scanning")
             }
           >
@@ -151,7 +149,6 @@ interface DeviceItemProps {
 
 const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
   <Pane.Item>
-    <PDevice.StatusIndicator status={d.status} />
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
@@ -177,6 +174,7 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
         Configure
       </Button.Button>
     )}
+    <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
   </Pane.Item>
 );
 

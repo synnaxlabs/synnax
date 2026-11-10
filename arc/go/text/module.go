@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
@@ -26,6 +27,8 @@ import (
 type LoaderConfig struct {
 	// Source returns the module text at path, or an error wrapping ErrModuleNotFound.
 	Source func(ctx context.Context, path string) (Text, error)
+	// Paths returns the import path of each module the root can read. May be nil.
+	Paths func(ctx context.Context) ([]string, error)
 	// Channels resolves channel names for each module's root. May be nil.
 	Channels symbol.Resolver
 	// Ambient returns the prelude symbols for each module's root. May be nil.
@@ -96,7 +99,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 	defer func() { l.stack = l.stack[:len(l.stack)-1] }()
 	parsed, diag := Parse(t, l.cfg.Config)
 	if diag != nil && !diag.Ok() {
-		return nil, errors.Newf("module %q does not compile", path)
+		return nil, compileError(path, diag)
 	}
 	var ambient []*symbol.Symbol
 	if l.cfg.Ambient != nil {
@@ -109,7 +112,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 		if slices.Contains(l.cycle, path) {
 			return nil, l.cycleError()
 		}
-		return nil, errors.Newf("module %q does not compile", path)
+		return nil, compileError(path, diag)
 	}
 	u.ir.Symbols.Kind, u.ir.Symbols.AST = symbol.KindModule, parsed.AST
 	return &u, nil
@@ -166,11 +169,40 @@ func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {
 	}
 }
 
+// compileError reports the first error of the module at path, with its position in
+// the module.
+func compileError(path string, diag *diagnostics.Diagnostics) error {
+	first := diag.Errors()[0]
+	return errors.Newf(
+		"module %q does not compile: %d:%d %s",
+		path,
+		first.Range.Start.Line+1,
+		first.Range.Start.Character,
+		first.Message,
+	)
+}
+
 func (l *Loader) cycleError() error {
 	return errors.Newf("import cycle: %s", strings.Join(l.cycle, " -> "))
 }
 
-// Search implements symbol.Resolver. Import paths are not searched.
-func (l *Loader) Search(context.Context, string) ([]*symbol.Symbol, error) {
-	return nil, nil
+// Search implements symbol.Resolver. It returns the import paths that start with term.
+func (l *Loader) Search(ctx context.Context, term string) ([]*symbol.Symbol, error) {
+	if l.cfg.Paths == nil {
+		return nil, nil
+	}
+	paths, err := l.cfg.Paths(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var modules []*symbol.Symbol
+	for _, path := range paths {
+		if strings.HasPrefix(path, term) {
+			modules = append(
+				modules,
+				&symbol.Symbol{Name: path, Kind: symbol.KindModule},
+			)
+		}
+	}
+	return modules, nil
 }

@@ -10,9 +10,16 @@
 # included in the file licenses/APL.txt.
 
 # Fails unless every package manifest shares one minor that is the Core's latest stable
-# minor or the next one. Usage: check_versions.sh [root], root defaulting to the repo.
+# minor or the next one. With --train X.Y, the shared minor must be X.Y and no tags are
+# read. Usage: check_versions.sh [--train X.Y] [root], root defaulting to the repo.
 
 set -euo pipefail
+
+TRAIN=""
+if [[ ${1:-} == --train ]]; then
+    TRAIN="${2:?usage: check_versions.sh [--train X.Y] [root]}"
+    shift 2
+fi
 
 SCRIPT_DIR="$(
     cd "$(dirname "${BASH_SOURCE[0]}")" > /dev/null 2>&1
@@ -88,7 +95,7 @@ check_match() {
 }
 
 main() {
-    get_allowed_mm
+    if [[ -z $TRAIN ]]; then get_allowed_mm; fi
 
     local ok=true
     local expected=""
@@ -134,7 +141,12 @@ main() {
         ok=false
     fi
 
-    if [[ $expected != "$CORE_MM" && $expected != "$NEXT_MM" ]]; then
+    if [[ -n $TRAIN ]]; then
+        if [[ $expected != "$TRAIN" ]]; then
+            echo "❌ packages are on ${expected}.x, not the release train ${TRAIN}.x" >&2
+            ok=false
+        fi
+    elif [[ $expected != "$CORE_MM" && $expected != "$NEXT_MM" ]]; then
         echo "❌ packages are on ${expected}.x, not ${CORE_MM}.x or ${NEXT_MM}.x" >&2
         ok=false
     fi

@@ -58,18 +58,8 @@ func (w Writer) create(ctx context.Context, u User) (User, error) {
 	}
 	if u.Key == uuid.Nil() {
 		u.Key = uuid.New()
-	} else if exists, err := w.svc.NewRetrieve().
-		Where(MatchKeys(u.Key)).
-		Exists(ctx, w.tx); err != nil {
-		return User{}, err
-	} else if exists {
-		return User{}, errors.Wrapf(
-			validate.ErrValidation,
-			"user %s already exists",
-			u.Key,
-		)
 	}
-	if err := w.table.NewCreate().Entry(&u).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewCreate().Exclusive().Entry(&u).Exec(ctx, w.tx); err != nil {
 		return User{}, err
 	}
 	w.dispatcher.Attach(w.tx, u.Key, NewCreateAction(CreatePayload{User: u}))

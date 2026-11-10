@@ -39,16 +39,18 @@ from synnax.signals.signals import Registry
 from synnax.state import Latest
 from synnax.telem import (
     CrudeSeries,
+    CrudeTimeStamp,
     DataType,
     MultiSeries,
     SampleValue,
     TimeRange,
+    TimeStamp,
 )
 from synnax.util import request_where, returns_one, sole
 from x import color as color_, filter
 from x.interop import ArrayOperators
 from x.lists import normalize
-from x.params import require_named_params
+from x.params import deprecate_positional, require_named_params
 from x.uuid import NIL
 
 # synnax.task imports this module through its range field.
@@ -259,6 +261,7 @@ class Range(Payload):
     _cached_tasks: TaskClient | None = PrivateAttr(None)
     _cached_label_client: label.Client | None = PrivateAttr(None)
 
+    @deprecate_positional("name", "time_range", "key", "color", "parent")
     def __init__(
         self,
         *,
@@ -814,6 +817,15 @@ class Client:
         :param name: The new name for the range.
         """
         self._writer.rename(key, name)
+
+    def set_end(self, key: Key, end: CrudeTimeStamp) -> None:
+        """Sets the end of the time range of a range.
+
+        :param key: The key of the range.
+        :param end: The new end of the time range.
+        :raises NotFoundError: If no range has the given key.
+        """
+        self._writer.set_end(key, TimeStamp(end))
 
     def search(
         self,

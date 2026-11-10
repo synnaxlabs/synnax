@@ -31,6 +31,7 @@ from freighter import Empty, UnaryClient
 from synnax import device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
+from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Command,
     Cursor,
@@ -47,6 +48,7 @@ from synnax.task.types_gen import (
 from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.util import request_where, returns_one, sole
 from x import filter
+from x.params import deprecate_positional
 from x.timing import Timer
 
 # synnax.arc imports synnax.task at load time.
@@ -61,9 +63,10 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _RenameRequest(BaseModel):
+class _DispatchRequest(BaseModel):
     key: Key
-    name: str
+    dispatch_key: str = ""
+    actions: list[actions_gen.Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -189,6 +192,7 @@ class Task:
         """
         return None
 
+    @deprecate_positional("args")
     def execute_command(
         self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
@@ -211,6 +215,7 @@ class Task:
         w.close()
         return cmd.key
 
+    @deprecate_positional("args", "timeout")
     def execute_command_sync(
         self,
         type_: str,
@@ -327,6 +332,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
+    @deprecate_positional("timeout")
     def start(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Starts the task and blocks until the driver sends the final status of the
         start.
@@ -341,6 +347,7 @@ class StarterStopperMixin:
         """
         _raise_if_failed(self._internal.execute_command_sync("start", timeout=timeout))
 
+    @deprecate_positional("timeout")
     def stop(self, *, timeout: CrudeTimeSpan = 5) -> None:
         """Stops the task and blocks until the driver sends the final status of the
         stop.
@@ -356,6 +363,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("stop", timeout=timeout)
 
+    @deprecate_positional("timeout")
     @contextmanager
     def run(self, *, timeout: CrudeTimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
@@ -475,6 +483,7 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
+    @deprecate_positional("rack")
     def maybe_assign_def_rack(self, pld: Payload, *, rack: rack_.Key = 0) -> Payload:
         if pld.rack != 0:
             return pld
@@ -489,11 +498,14 @@ class Client:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command. A task with no rack goes on the rack
         of the device that its config names, or on the embedded rack when it names no
-        device.
+        device. Configure creates a task that does not exist yet, and sets the name,
+        rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
+        :raises ValidationError: If the task exists and the config has a field that
+            its type does not declare, or the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
@@ -501,9 +513,18 @@ class Client:
         if pld.rack == 0 and isinstance(device, str) and device:
             pld.rack = self._device_client.retrieve(key=device).rack
         pld = self.maybe_assign_def_rack(pld)
-        req = _CreateRequest(tasks=[pld])
-        tasks = self._exec_create(req)
-        task.set_internal(self.sugar(tasks)[0])
+        if not self.retrieve(keys=[pld.key]):
+            created = self._exec_create(_CreateRequest(tasks=[pld]))
+            task.set_internal(self.sugar(created)[0])
+            return task
+        actions: list[actions_gen.Action] = [
+            actions_gen.set(actions_gen.SetPayload(path=["name"], value=pld.name)),
+            actions_gen.set(actions_gen.SetPayload(path=["rack"], value=pld.rack)),
+            actions_gen.set(actions_gen.SetPayload(path=["config"], value=pld.config)),
+        ]
+        req = _DispatchRequest(key=pld.key, actions=actions)
+        self._client.send("/task/dispatch", req, Empty)
+        task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
@@ -517,7 +538,9 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
+        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
+        req = _DispatchRequest(key=key, actions=[action])
+        self._client.send("/task/dispatch", req, Empty)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...

@@ -23,12 +23,16 @@ import (
 	rbactestutil "github.com/synnaxlabs/synnax/pkg/service/access/rbac/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -64,7 +68,7 @@ func execBatch(
 ) (batch.ExecResponse, error) {
 	GinkgoHelper()
 	var req batch.ExecRequest
-	Expect(json.Codec.Decode(ctx, []byte(body), &req)).To(Succeed())
+	Expect(json.Codec.Decode([]byte(body), &req)).To(Succeed())
 	return exec(AuthedCtx(ctx, u), req)
 }
 
@@ -97,8 +101,10 @@ var _ = Describe("Layer", func() {
 					"payload": {"key": %[1]q, "name": "Batched", "scope": "project"}
 				},
 				{
-					"endpoint": "/project/set-group",
-					"payload": {"keys": [%[2]q], "group": %[1]q}
+					"endpoint": "/project/dispatch",
+					"payload": {"key": %[2]q, "actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[1]q}}
+					]}
 				}
 			]}`, key, proj.Key)))
 			var stored project.Project
@@ -125,8 +131,10 @@ var _ = Describe("Layer", func() {
 					"payload": {"key": %[1]q, "name": "Denied", "scope": "project"}
 				},
 				{
-					"endpoint": "/project/set-group",
-					"payload": {"keys": [%[2]q], "group": %[1]q}
+					"endpoint": "/project/dispatch",
+					"payload": {"key": %[2]q, "actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[1]q}}
+					]}
 				}
 			]}`, key, proj.Key))).Error().To(SatisfyAll(
 				MatchError(access.ErrDenied),
@@ -166,8 +174,10 @@ var _ = Describe("Layer", func() {
 					"payload": {"parent": %[1]q, "directory": {"key": %[2]q, "name": "Batched"}}
 				},
 				{
-					"endpoint": "/arc/move",
-					"payload": {"from": %[1]q, "to": %[2]q, "ids": [{"type": "arc", "key": %[3]q}]}
+					"endpoint": "/arc/dispatch",
+					"payload": {"key": %[3]q, "actions": [
+						{"type": "set_directory", "set_directory": {"directory": %[2]q}}
+					]}
 				}
 			]}`, root.Key, key, a.Base().Key)))
 			var stored arc.Arc
@@ -192,8 +202,10 @@ var _ = Describe("Layer", func() {
 				"payload": {"key": %[1]q, "name": "Discarded", "scope": "project"}
 			},
 			{
-				"endpoint": "/project/set-group",
-				"payload": {"keys": [%[2]q], "group": %[3]q}
+				"endpoint": "/project/dispatch",
+				"payload": {"key": %[2]q, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[3]q}}
+				]}
 			}
 		]}`, key, proj.Key, missing))).Error().To(MatchError(
 			"requests.1.group: group " + missing.String() + " does not exist: " +
@@ -203,6 +215,144 @@ var _ = Describe("Layer", func() {
 			Where(group.MatchKeys(key)).
 			Entry(&group.Group{}).
 			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+	})
+
+	It("Should rename several channels in storage in one batch", func(ctx SpecContext) {
+		u := newUser(ctx, resource.TypeChannel)
+		keys := MustSucceed(CreateVirtual(ctx, db, svc.Channel, 2))
+		names := []string{UniqueChannelName(), UniqueChannelName()}
+		MustSucceed(execBatch(ctx, u, fmt.Sprintf(`{"requests": [
+			{"endpoint": "/channel/dispatch", "payload": {"key": %d, "actions": [
+				{"type": "rename", "rename": {"name": %q}}
+			]}},
+			{"endpoint": "/channel/dispatch", "payload": {"key": %d, "actions": [
+				{"type": "rename", "rename": {"name": %q}}
+			]}}
+		]}`, keys[0], names[0], keys[1], names[1])))
+		stored := MustSucceed(node.Storage.TS.RetrieveChannels(
+			ctx,
+			keys[0].StorageKey(),
+			keys[1].StorageKey(),
+		))
+		Expect(stored).To(HaveLen(2))
+		Expect(stored[0].Name).To(Equal(names[0]))
+		Expect(stored[1].Name).To(Equal(names[1]))
+	})
+
+	Describe("Dispatch entries", func() {
+		var (
+			proj                           project.Project
+			sym                            symbol.Symbol
+			rck                            rack.Rack
+			projGroup, symGroup, rackGroup group.Group
+		)
+		BeforeEach(func(ctx SpecContext) {
+			proj = project.Project{Name: "moved"}
+			sym = defaults.Fill(symbol.Symbol{
+				Name: "moved",
+				Data: symbol.Spec{
+					SVG:     "<svg></svg>",
+					Variant: "valve",
+					States:  []symbol.State{{Key: "default", Name: "default"}},
+				},
+			})
+			rck = rack.Rack{Name: "moved"}
+			projGroup = group.Group{Name: "Projects", Scope: resource.TypeProject}
+			symGroup = group.Group{Name: "Symbols", Scope: resource.TypeSchematicSymbol}
+			rackGroup = group.Group{Name: "Racks", Scope: resource.TypeDevice}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				gw := svc.Group.NewWriter(tx)
+				for _, g := range []*group.Group{&projGroup, &symGroup, &rackGroup} {
+					if err := gw.Create(ctx, g); err != nil {
+						return err
+					}
+				}
+				if err := svc.Project.NewWriter(tx).Create(ctx, &proj); err != nil {
+					return err
+				}
+				if err := svc.Schematic.Symbol.NewWriter(tx).
+					Create(ctx, &sym); err != nil {
+					return err
+				}
+				return svc.Rack.NewWriter(tx).Create(ctx, &rck)
+			})).To(Succeed())
+		})
+		// moveBody returns a batch that moves the project, symbol, and rack into their
+		// groups with a set of the group on each.
+		moveBody := func() string {
+			return fmt.Sprintf(`{"requests": [
+				{"endpoint": "/project/dispatch", "payload": {"key": %[1]q, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[2]q}}
+				]}},
+				{"endpoint": "/schematic/symbol/dispatch", "payload": {
+					"key": %[3]q,
+					"actions": [
+						{"type": "set", "set": {"path": ["group"], "value": %[4]q}}
+					]
+				}},
+				{"endpoint": "/rack/dispatch", "payload": {"key": %[5]d, "actions": [
+					{"type": "set", "set": {"path": ["group"], "value": %[6]q}}
+				]}}
+			]}`, proj.Key, projGroup.Key, sym.Key, symGroup.Key, rck.Key, rackGroup.Key)
+		}
+
+		It("Should move records of several types in one transaction", func(
+			ctx SpecContext,
+		) {
+			u := newUser(
+				ctx,
+				resource.TypeGroup,
+				resource.TypeProject,
+				resource.TypeSchematicSymbol,
+				resource.TypeRack,
+			)
+			MustSucceed(execBatch(ctx, u, moveBody()))
+			var (
+				storedProj project.Project
+				storedSym  symbol.Symbol
+				storedRack rack.Rack
+			)
+			Expect(svc.Project.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&storedProj).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedProj.Group).To(Equal(&projGroup.Key))
+			Expect(svc.Schematic.Symbol.NewRetrieve().
+				Where(symbol.MatchKeys(sym.Key)).
+				Entry(&storedSym).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedSym.Group).To(Equal(&symGroup.Key))
+			Expect(svc.Rack.NewRetrieve().
+				Where(rack.MatchKeys(rck.Key)).
+				Entry(&storedRack).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedRack.Group).To(Equal(&rackGroup.Key))
+		})
+
+		It("Should commit nothing when the subject cannot update one record", func(
+			ctx SpecContext,
+		) {
+			u := newUser(
+				ctx,
+				resource.TypeGroup,
+				resource.TypeProject,
+				resource.TypeSchematicSymbol,
+			)
+			Expect(execBatch(ctx, u, moveBody())).Error().To(SatisfyAll(
+				MatchError(access.ErrDenied),
+				MatchError(ContainSubstring(
+					"%s cannot update %s",
+					u.ResourceID(),
+					rck.ResourceID(),
+				)),
+			))
+			var storedProj project.Project
+			Expect(svc.Project.NewRetrieve().
+				Where(project.MatchKeys(proj.Key)).
+				Entry(&storedProj).
+				Exec(ctx, db)).To(Succeed())
+			Expect(storedProj.Group).To(BeNil())
+		})
 	})
 
 	It(
