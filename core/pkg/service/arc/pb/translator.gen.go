@@ -19,6 +19,8 @@ import (
 	programpb "github.com/synnaxlabs/arc/program/pb"
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -44,19 +46,25 @@ func BaseToPB(r arc.Base) (*Base, error) {
 }
 
 // BaseFromPB converts Base to Base.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func BaseFromPB(pb *Base) (arc.Base, error) {
 	var r arc.Base
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return arc.Base{}, err
 	}
-	r.Source, err = SourceFromPB(pb.Source)
-	if err != nil {
-		return arc.Base{}, err
+	if pb.Source != nil {
+		r.Source, err = SourceFromPB(pb.Source)
+		if err != nil {
+			return arc.Base{}, err
+		}
 	}
 	r.Name = pb.Name
 	if pb.Directory != nil {
@@ -66,6 +74,7 @@ func BaseFromPB(pb *Base) (arc.Base, error) {
 		}
 		r.Directory = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -88,6 +97,74 @@ func BasesFromPB(pbs []*Base) ([]arc.Base, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = BaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChangeToPB converts Change to Change.
+func ChangeToPB(r arc.Change) (*Change, error) {
+	typeVal, err := TypeToPB(r.Type)
+	if err != nil {
+		return nil, err
+	}
+	kindVal, err := ChangeKindToPB(r.Kind)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Change{
+		Path: r.Path,
+		Type: typeVal,
+		Kind: kindVal,
+	}
+	return pb, nil
+}
+
+// ChangeFromPB converts Change to Change.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+func ChangeFromPB(pb *Change) (arc.Change, error) {
+	var r arc.Change
+	if pb == nil {
+		return r, nil
+	}
+	defaults.Prefill(&r)
+	var err error
+	r.Type, err = TypeFromPB(pb.Type)
+	if err != nil {
+		return arc.Change{}, err
+	}
+	r.Kind, err = ChangeKindFromPB(pb.Kind)
+	if err != nil {
+		return arc.Change{}, err
+	}
+	r.Path = pb.Path
+	defaults.FillGroups(&r)
+	return r, nil
+}
+
+// ChangesToPB converts a slice of Change to Change.
+func ChangesToPB(rs []arc.Change) ([]*Change, error) {
+	result := make([]*Change, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ChangeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ChangesFromPB converts a slice of Change to Change.
+func ChangesFromPB(pbs []*Change) ([]arc.Change, error) {
+	result := make([]arc.Change, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ChangeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -311,16 +388,23 @@ func TextSourceToPB(r arc.TextSource) (*SourceTextPayload, error) {
 }
 
 // TextSourceFromPB converts SourceTextPayload to TextSource.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func TextSourceFromPB(pb *SourceTextPayload) (arc.TextSource, error) {
 	var r arc.TextSource
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Text, err = textpb.TextFromPB(pb.Text)
-	if err != nil {
-		return arc.TextSource{}, err
+	if pb.Text != nil {
+		r.Text, err = textpb.TextFromPB(pb.Text)
+		if err != nil {
+			return arc.TextSource{}, err
+		}
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -363,16 +447,23 @@ func GraphSourceToPB(r arc.GraphSource) (*SourceGraphPayload, error) {
 }
 
 // GraphSourceFromPB converts SourceGraphPayload to GraphSource.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func GraphSourceFromPB(pb *SourceGraphPayload) (arc.GraphSource, error) {
 	var r arc.GraphSource
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
-	if err != nil {
-		return arc.GraphSource{}, err
+	if pb.Graph != nil {
+		r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+		if err != nil {
+			return arc.GraphSource{}, err
+		}
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -412,6 +503,13 @@ func AutomationArcToPB(r arc.AutomationArc) (*ArcAutomationPayload, error) {
 			return nil, err
 		}
 	}
+	if r.Changes != nil {
+		vals, err := ChangesToPB(r.Changes)
+		if err != nil {
+			return nil, err
+		}
+		pb.Changes = &ChangeList{Values: vals}
+	}
 	return pb, nil
 }
 
@@ -427,6 +525,13 @@ func AutomationArcFromPB(pb *ArcAutomationPayload) (arc.AutomationArc, error) {
 			return arc.AutomationArc{}, err
 		}
 		r.Program = &val
+	}
+	if pb.Changes != nil {
+		vals, err := ChangesFromPB(pb.Changes.Values)
+		if err != nil {
+			return arc.AutomationArc{}, err
+		}
+		r.Changes = xpb.ListValues(vals)
 	}
 	return r, nil
 }
@@ -460,6 +565,13 @@ func AutomationArcsFromPB(pbs []*ArcAutomationPayload) ([]arc.AutomationArc, err
 // ModuleArcToPB converts ModuleArc to ArcModulePayload.
 func ModuleArcToPB(r arc.ModuleArc) (*ArcModulePayload, error) {
 	pb := &ArcModulePayload{}
+	if r.Status != nil {
+		var err error
+		pb.Status, err = statuspb.StatusToPB(*r.Status, xpb.NilToPBAny)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -468,6 +580,13 @@ func ModuleArcFromPB(pb *ArcModulePayload) (arc.ModuleArc, error) {
 	var r arc.ModuleArc
 	if pb == nil {
 		return r, nil
+	}
+	if pb.Status != nil {
+		val, err := statuspb.StatusFromPB(pb.Status, xpb.NilFromPBAny)
+		if err != nil {
+			return arc.ModuleArc{}, err
+		}
+		r.Status = &val
 	}
 	return r, nil
 }
@@ -620,9 +739,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return r, err
 		}
 		m := inner
-		m.Base, err = BaseFromPB(pb.Base)
-		if err != nil {
-			return r, err
+		if pb.Base != nil {
+			m.Base, err = BaseFromPB(pb.Base)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	case *Arc_Module:
@@ -631,9 +752,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return r, err
 		}
 		m := inner
-		m.Base, err = BaseFromPB(pb.Base)
-		if err != nil {
-			return r, err
+		if pb.Base != nil {
+			m.Base, err = BaseFromPB(pb.Base)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	}
@@ -664,6 +787,34 @@ func ArcsFromPB(pbs []*Arc) ([]arc.Arc, error) {
 		}
 	}
 	return result, nil
+}
+
+// ChangeKindToPB converts arc.ChangeKind to ChangeKind.
+func ChangeKindToPB(v arc.ChangeKind) (ChangeKind, error) {
+	switch v {
+	case arc.ChangeKindChanged:
+		return ChangeKind_CHANGE_KIND_CHANGED, nil
+	case arc.ChangeKindAdded:
+		return ChangeKind_CHANGE_KIND_ADDED, nil
+	case arc.ChangeKindRemoved:
+		return ChangeKind_CHANGE_KIND_REMOVED, nil
+	default:
+		return 0, errors.Newf("unrecognized arc.ChangeKind value: %v", v)
+	}
+}
+
+// ChangeKindFromPB converts ChangeKind to arc.ChangeKind.
+func ChangeKindFromPB(v ChangeKind) (arc.ChangeKind, error) {
+	switch v {
+	case ChangeKind_CHANGE_KIND_CHANGED:
+		return arc.ChangeKindChanged, nil
+	case ChangeKind_CHANGE_KIND_ADDED:
+		return arc.ChangeKindAdded, nil
+	case ChangeKind_CHANGE_KIND_REMOVED:
+		return arc.ChangeKindRemoved, nil
+	default:
+		return arc.ChangeKind(""), errors.Newf("unrecognized ChangeKind value: %v", v)
+	}
 }
 
 // ModeToPB converts arc.Mode to Mode.

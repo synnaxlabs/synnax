@@ -106,9 +106,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps<CIChannel>) => {
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
-      channel={value.channel}
-      namePath={path.name}
-      defaultName={device == null ? undefined : COUNTER_INPUT.name(value, device)}
+      name={{
+        channel: value.channel,
+        path: path.name,
+        defaultName: device == null ? undefined : COUNTER_INPUT.name(value, device),
+      }}
       skipped={skipped}
       model={device?.model}
     />

@@ -14,6 +14,7 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 	"uuid"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // TabKey uniquely identifies a tab within a panel.
@@ -374,6 +376,33 @@ func (p *Panel) ApplyDefaults() {
 		v0 := LeafNode{}
 		p.Root.Variant = v0
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Panel) SetDefaults() {
+	{
+		v0 := LeafNode{}
+		p.Root.Variant = v0
+	}
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Panel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Panel) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Panel
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

@@ -185,6 +185,58 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		Context("schema defaults", func() {
+			It(
+				"Should start a translated struct from its defaults and keep them for an "+
+					"omitted message",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string = "valve"
+					}
+
+					Source union on value_type {
+						boolean Spec
+					}
+
+					Config struct {
+						name   string
+						source Source = boolean
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToContain(
+							`"github.com/synnaxlabs/x/defaults"`,
+							"\tdefaults.Prefill(&r)\n",
+							"\tif pb.Source != nil {\n"+
+								"\t\tr.Source, err = SourceFromPB(pb.Source)\n",
+							"\tdefaults.FillGroups(&r)\n\treturn r, nil\n}",
+						)
+				},
+			)
+
+			It(
+				"Should not fill defaults for a struct that has none",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/schematic"
+					@pb
+
+					Spec struct {
+						type string
+					}
+				`
+					resp := MustGenerate(ctx, source, "schematic", loader, pbPlugin)
+					ExpectContent(resp, "translator.gen.go").
+						ToNotContain("defaults.Prefill", "x/defaults")
+				},
+			)
+		})
+
 		Context("union translation", func() {
 			It(
 				"Should generate oneof translators for a discriminated union",
