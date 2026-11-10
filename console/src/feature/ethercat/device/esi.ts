@@ -109,16 +109,22 @@ const decoderOf = (encoding: string): TextDecoder | null => {
   }
 };
 
+const BYTE_ORDER_MARKS = [
+  { bytes: [0xef, 0xbb, 0xbf], encoding: "utf-8" },
+  { bytes: [0xff, 0xfe], encoding: "utf-16le" },
+  { bytes: [0xfe, 0xff], encoding: "utf-16be" },
+];
+
 /**
- * @returns the text of an XML file, read as UTF-16 after a UTF-16 byte order mark, or
+ * @returns the text of an XML file, read in the encoding of its byte order mark, or
  * else in the encoding that its declaration names.
  * @throws {Error} if the declaration names an unknown encoding.
  */
 const decode = (file: Uint8Array): string => {
-  if (file[0] === 0xff && file[1] === 0xfe)
-    return new TextDecoder("utf-16le").decode(file);
-  if (file[0] === 0xfe && file[1] === 0xff)
-    return new TextDecoder("utf-16be").decode(file);
+  const mark = BYTE_ORDER_MARKS.find(({ bytes }) =>
+    bytes.every((b, i) => file[i] === b),
+  );
+  if (mark != null) return new TextDecoder(mark.encoding).decode(file);
   const head = new TextDecoder("windows-1252").decode(file.subarray(0, 256));
   const encoding = DECLARED_ENCODING.exec(head)?.[1] ?? "utf-8";
   const decoder = decoderOf(encoding);

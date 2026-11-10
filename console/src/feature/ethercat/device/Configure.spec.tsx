@@ -648,6 +648,28 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         );
       });
 
+      it("should read a UTF-8 file with a byte order mark over its declaration", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");
+        const text = `\uFEFF<?xml version="1.0" encoding="ISO-8859-1"?>${esiOf([
+          `<CoE>${command}</CoE>`,
+        ])}`;
+        importFile("marked.xml", new TextEncoder().encode(text));
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8050,
+              subIndex: 1,
+              dataType: "uint8",
+              value: 1,
+              name: "Offset in °C",
+            },
+          ]),
+        );
+      });
+
       it("should reject a file in an encoding that Synnax cannot read", async () => {
         await setup({ productCode: 0x67, revision: 1 });
         importFile("odd.xml", `<?xml version="1.0" encoding="EBCDIC-9"?>${esiOf([])}`);
