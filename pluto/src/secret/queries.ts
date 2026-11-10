@@ -61,7 +61,7 @@ export const { use: useMultiple } = Flux.createRetrieve<
 export const { useUpdate: useCreate } = Flux.createUpdate<secret.New, secret.Secret>({
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
-  update: async ({ client, data }) => await client.secrets.create(data),
+  update: async ({ client, data }) => await client.secrets.set(data),
 });
 
 export interface RenameParams extends Pick<secret.Secret, "key" | "name"> {}
@@ -69,11 +69,9 @@ export interface RenameParams extends Pick<secret.Secret, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.secrets.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.secrets.rename(key, name);
     return data;
   },
 });

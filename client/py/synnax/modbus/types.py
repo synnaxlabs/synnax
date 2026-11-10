@@ -19,6 +19,7 @@ from synnax.modbus.types_gen import (
     ReadChannel,
     ReadConfig,
     RegisterBit,
+    RegisterString,
     WriteChannel,
     WriteConfig,
 )
@@ -35,6 +36,8 @@ _READ_NAME_TYPES = {
     "discrete_input": "discrete_input",
     "holding_register": "holding_register_input",
     "input_register": "register_input",
+    "holding_register_string": "holding_register_input",
+    "input_register_string": "register_input",
     "holding_register_bit": "holding_register_bit_input",
     "input_register_bit": "register_bit_input",
 }
@@ -68,7 +71,8 @@ class ReadTask(
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: The input channels to acquire data from (ReadChannel variants:
         CoilReadChannel, DiscreteInputReadChannel, HoldingRegisterReadChannel,
-        InputRegisterReadChannel, HoldingRegisterBitReadChannel,
+        InputRegisterReadChannel, HoldingRegisterStringReadChannel,
+        InputRegisterStringReadChannel, HoldingRegisterBitReadChannel,
         InputRegisterBitReadChannel).
     """
 
@@ -108,8 +112,9 @@ class ReadTask(
 
         The key format follows Console's readMapKey convention:
         "{type}-{address}" for fixed-density channels, "{type}-{address}-{dataType}"
-        for register channels, and "{type}-{address}-{bit}" for register bit
-        channels, with underscores replaced by hyphens.
+        for register channels, "{type}-{address}-string" for string channels, and
+        "{type}-{address}-{bit}" for register bit channels, with underscores replaced
+        by hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
@@ -120,12 +125,17 @@ class ReadTask(
             key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
+            if isinstance(ch, RegisterString):
+                key += "-string"
             if isinstance(ch, RegisterBit):
                 key += f"-{ch.bit}"
             key = key.replace("_", "-")
             channels[key] = ch.channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class WriteTask(
@@ -187,7 +197,10 @@ class WriteTask(
                 key += f"-{ch.bit}"
             channels[key.replace("_", "-")] = ch.channel
         dev.properties = props
-        return device_client.create(dev)
+        device_client.dispatch(
+            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
+        )
+        return dev
 
 
 class Device(device.Device):

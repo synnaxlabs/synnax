@@ -9,7 +9,7 @@
 
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
-import { createTestClient, holdRequests } from "@/testutil/client";
+import { createTestClient, holdRequests, rejectRequests } from "@/testutil/client";
 
 describe("createTestClient", () => {
   it("should retry a request without writing to the console", async () => {
@@ -57,5 +57,19 @@ describe("holdRequests", () => {
     release();
     await expect(retrieving).resolves.toEqual([]);
     expect(reachedCore()).toBe(true);
+  });
+});
+
+describe("rejectRequests", () => {
+  it("should reject only the requests that match", async () => {
+    const client = createTestClient();
+    const spy = rejectRequests(
+      client,
+      (target) => target === "/range/retrieve",
+      new Error("boom"),
+    );
+    onTestFinished(() => spy.mockRestore());
+    await expect(client.ranges.retrieve({ searchTerm: "rng" })).rejects.toThrow("boom");
+    await expect(client.channels.retrieve(["no-such-channel"])).resolves.toEqual([]);
   });
 });

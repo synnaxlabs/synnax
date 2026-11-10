@@ -64,6 +64,9 @@ public:
     /// This method may be called even if stop() was called on the pipeline.
     virtual void stopped_with_err(const x::errors::Error &err) {}
 
+    /// @brief called on the pipeline thread each time the writer opens.
+    virtual void writer_opened() {}
+
     virtual ~Source() = default;
 };
 

@@ -16,6 +16,7 @@ import { type z } from "zod";
 
 import { HTTP } from "@/feature/http";
 import { createHTTPDevice } from "@/feature/http/testutil";
+import { Device } from "@/platform/device";
 import {
   awaitEditableForm,
   clickDeploy,
@@ -628,7 +629,7 @@ describe("Read", () => {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -668,7 +669,7 @@ describe("Read", () => {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -709,7 +710,7 @@ describe("Read", () => {
         "/second": { index: idxCh.key, channels: { "/temperature": secondCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const endpoint = (key: string, path: string) => ({
       ...http.readEndpointZ.parse({}),
       key,
@@ -765,7 +766,7 @@ describe("Read", () => {
         "/other": { index: idxCh.key, channels: { "/temperature": otherCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const draft = await createDraft(
       client,
       createReadConfig(dev.key, [
@@ -822,7 +823,7 @@ describe("Read", () => {
         "/data": { index: idxCh.key, channels: { "/temperature": dataCh.key } },
       },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),
@@ -897,7 +898,7 @@ describe("Read", () => {
       ...HTTP.Device.ZERO_PROPERTIES,
       read: { "/data": { index: 0, channels: { "/existing": dataCh.key } } },
     };
-    await client.devices.create(dev);
+    await Device.setProperties(client, dev);
     const config = createReadConfig(dev.key, [
       {
         ...http.readEndpointZ.parse({}),

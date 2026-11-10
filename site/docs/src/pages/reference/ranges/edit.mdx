@@ -141,18 +141,19 @@ See [create ranges in Arc](/reference/ranges/arc).
 
 <Note.Note variant="warning">
   An update from Python or TypeScript replaces the name, the time range, and the color.
-  Leave out the color and the range loses it. Labels are only added, and the parent
-  stays when you leave it out. If no range has the key, Synnax creates a new range with
-  that key.
+  Leave out the color and the range loses it. The parent stays when you leave it out. An
+  update does not change [labels](/reference/ranges/metadata#labels). If no range has
+  the key, Synnax creates a new range with that key.
 </Note.Note>
 
 <Divider.Divider x />
 
 ## Delete a range
 
-Deleting a range also deletes its child ranges. It does not delete the data of the
-channels in the range, and it does not delete its
-[snapshots](/reference/ranges/snapshots).
+Deleting a range also deletes its child ranges, its
+[snapshots](/reference/ranges/snapshots), its [metadata](/reference/ranges/metadata),
+its [aliases](/reference/ranges/aliases), and the schematics, line plots, logs, tables,
+and panels that it owns. It does not delete the data of the channels in the range.
 
 <Client.Tabs>
 
@@ -161,7 +162,7 @@ channels in the range, and it does not delete its
 Right-click the range in the ranges toolbar or the range explorer and select **Delete**,
 then confirm.
 
-<Image id="client/ranges/delete" />
+<Image id="client/ranges/delete/2d71fc2b921b/window" extension="webp" />
 
   </Fragment>
 

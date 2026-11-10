@@ -30,7 +30,8 @@ func notWhole(path string) OmegaMatcher {
 	return SatisfyAll(
 		MatchError(validate.ErrValidation),
 		MatchError(ContainSubstring(
-			path+": a policy takes only a set of its whole name, objects, or actions",
+			path+": a policy takes only a set of its whole name, objects, actions, "+
+				"or role",
 		)),
 	)
 }
@@ -132,8 +133,13 @@ var _ = Describe("Dispatch", func() {
 		},
 		Entry(
 			"a path outside the editable fields",
-			set("role", uuid.New().String()),
+			set("internal", true),
 			MatchError(validate.ErrValidation),
+		),
+		Entry(
+			"a role that does not exist",
+			set("role", uuid.New()),
+			MatchError(ContainSubstring("does not exist")),
 		),
 		Entry(
 			"an empty name",
@@ -183,6 +189,29 @@ var _ = Describe("Dispatch", func() {
 			notWhole("[actions]"),
 		),
 	)
+
+	It("Should move the policy to another role", func(ctx SpecContext) {
+		other := role.Role{Name: "other"}
+		createRole(ctx, &other)
+		rec := record()
+		act := set("role", other.Key)
+		Expect(dispatch(ctx, p.Key, act)).To(Succeed())
+		Expect(retrieve(ctx, p.Key).Role).To(Equal(other.Key))
+		Expect(rec.Snapshot()).To(HaveExactElements(HaveField(
+			"Actions",
+			Equal([]policy.Action{act}),
+		)))
+	})
+
+	It("Should refuse to move a policy to a built-in role", func(ctx SpecContext) {
+		internal := role.Role{Name: "internal", Internal: true}
+		createRole(ctx, &internal)
+		Expect(dispatch(ctx, p.Key, set("role", internal.Key))).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("cannot change the policies of built-in role")),
+		))
+		Expect(retrieve(ctx, p.Key)).To(Equal(p))
+	})
 
 	It("Should refuse to change a policy of a built-in role", func(ctx SpecContext) {
 		internal := role.Role{Name: "internal", Internal: true}

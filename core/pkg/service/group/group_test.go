@@ -132,28 +132,21 @@ var _ = Describe("Group", Ordered, func() {
 			))
 		})
 
-		It("Should keep the scope of an existing group", func(ctx SpecContext) {
-			g := create(ctx, "fixed scope", nil)
-			g.Scope = resource.TypeDevice
-			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-			Expect(g.Scope).To(Equal(resource.TypeChannel))
-			Expect(retrieve(ctx, g.Key).Scope).To(Equal(resource.TypeChannel))
-		})
-
-		It("Should keep the parent of an existing group", func(ctx SpecContext) {
+		It("Should refuse a group whose key exists", func(ctx SpecContext) {
 			parent := create(ctx, "parent", nil)
 			g := create(ctx, "child", &parent)
-			g.Parent = nil
-			g.Name = "renamed"
+			again := group.Group{
+				Key:   g.Key,
+				Name:  "refused",
+				Scope: resource.TypeDevice,
+			}
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-				return svc.NewWriter(tx).Create(ctx, &g)
-			})).To(Succeed())
-			Expect(g.Parent).To(Equal(new(parent.ResourceID())))
-			stored := retrieve(ctx, g.Key)
-			Expect(stored.Parent).To(Equal(new(parent.ResourceID())))
-			Expect(stored.Name).To(Equal("renamed"))
+				return svc.NewWriter(tx).Create(ctx, &again)
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("group %s already exists", g.Key)),
+			))
+			Expect(retrieve(ctx, g.Key)).To(Equal(g))
 		})
 
 		It("Should reject a group with an empty name", func(ctx SpecContext) {

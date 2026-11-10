@@ -69,7 +69,7 @@ protected:
         x::json::json properties{{"connection", conn_cfg.to_json()}};
 
         device = synnax::device::Device{
-            .key = "modbus_test_device",
+            .key = make_unique_channel_name("modbus_test_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = MAKE,
@@ -211,6 +211,20 @@ TEST(ModbusChannels, RegisterOverrideBeatsDevice) {
     EXPECT_TRUE(ch.words_swapped);
 }
 
+/// @brief it should read a string's characters from two per register, in the device's
+/// byte order when the channel has no override.
+TEST(ModbusChannels, StringInheritsDeviceByteOrder) {
+    auto parser = x::json::Parser(
+        x::json::json{{"type", "holding_register_string"}, {"length", 5}}
+    );
+    const auto cfg = ::synnax::modbus::HoldingRegisterStringReadChannel::parse(parser);
+    ASSERT_NIL(parser.error());
+    const channel::InputRegister ch(cfg, device::ConnectionConfig("h", 1, true, false));
+    EXPECT_EQ(ch.value_type, x::telem::STRING_T);
+    EXPECT_TRUE(ch.bytes_swapped);
+    EXPECT_EQ(ch.width(), 3);
+}
+
 /// @brief it should parse configuration with multiple channel types.
 TEST_F(ModbusReadTest, testMultiChannelConfig) {
     auto cfg = create_base_config();
@@ -318,7 +332,7 @@ TEST(ReadTask, testBasicReadTask) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "my_modbus_lover",
+        .key = make_unique_channel_name("my_modbus_lover"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -425,7 +439,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "modbus_reconnect_dev",
+        .key = make_unique_channel_name("modbus_reconnect_dev"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -618,7 +632,7 @@ void expect_pi_from_word_swapped_device(
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     auto dev = synnax::device::Device{
-        .key = "modbus_word_swapped_device",
+        .key = make_unique_channel_name("modbus_word_swapped_device"),
         .rack = rack.key,
         .location = "dev1",
         .make = "modbus",
@@ -1172,11 +1186,16 @@ TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     EXPECT_EQ(errors[0]["message"], "unsupported data type: timestamp");
 }
 
-/// @brief it should reject a string with no length, a string read into a channel that
-/// is not a string, and a bit past 15.
+/// @brief it should reject a string of no characters, a string read into a channel
+/// that is not a string, a bit past 15, and a register value of the string data type.
 TEST_F(ModbusReadTest, testStringAndBitRejected) {
     auto str = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("str"),
+        x::telem::STRING_T,
+        true
+    ));
+    auto value = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("value"),
         x::telem::STRING_T,
         true
     ));
@@ -1192,17 +1211,16 @@ TEST_F(ModbusReadTest, testStringAndBitRejected) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "input_register"},
+        {{"type", "input_register_string"},
          {"channel", str.key},
          {"address", 0},
-         {"data_type", "string"}}
+         {"length", 0}}
     );
     cfg["channels"].push_back(
-        {{"type", "input_register"},
+        {{"type", "input_register_string"},
          {"channel", num.key},
          {"address", 10},
-         {"data_type", "string"},
-         {"string_length", 4}}
+         {"length", 4}}
     );
     cfg["channels"].push_back(
         {{"type", "holding_register_bit"},
@@ -1210,17 +1228,25 @@ TEST_F(ModbusReadTest, testStringAndBitRejected) {
          {"address", 0},
          {"bit", 16}}
     );
+    cfg["channels"].push_back(
+        {{"type", "holding_register"},
+         {"channel", value.key},
+         {"address", 20},
+         {"data_type", "string"}}
+    );
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 3);
-    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    ASSERT_EQ(errors.size(), 4);
+    EXPECT_EQ(errors[0]["path"], "channels.0.length");
     EXPECT_EQ(errors[0]["message"], "must be from 1 to 250");
     EXPECT_EQ(errors[1]["path"], "channels.2.bit");
     EXPECT_EQ(errors[1]["message"], "must be from 0 to 15");
-    EXPECT_EQ(errors[2]["path"], "channels.1.channel");
-    EXPECT_EQ(errors[2]["message"], "a string must read into a string channel");
+    EXPECT_EQ(errors[2]["path"], "channels.3.data_type");
+    EXPECT_EQ(errors[2]["message"], "unsupported data type: string");
+    EXPECT_EQ(errors[3]["path"], "channels.1.channel");
+    EXPECT_EQ(errors[3]["message"], "a string must read into a string channel");
 }
 
 /// @brief it should read a string and the bits of a register into one frame.
@@ -1247,11 +1273,10 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "holding_register"},
+        {{"type", "holding_register_string"},
          {"channel", str.key},
          {"address", 0},
-         {"data_type", "string"},
-         {"string_length", 2}}
+         {"length", 2}}
     );
     cfg["channels"].push_back(
         {{"type", "holding_register_bit"},
@@ -1289,8 +1314,13 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
 
 /// @brief it should reject a register value wider than one request of the device.
 TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 1}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 1}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide"),
         x::telem::FLOAT32_T,
@@ -1313,8 +1343,13 @@ TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
 
 /// @brief it should reject a string wider than one request of the device.
 TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 2}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 2}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide_str"),
         x::telem::STRING_T,
@@ -1322,18 +1357,17 @@ TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
     ));
     auto cfg = create_base_config();
     cfg["channels"].push_back(
-        {{"type", "holding_register"},
+        {{"type", "holding_register_string"},
          {"channel", ch.key},
          {"address", 0},
-         {"data_type", "string"},
-         {"string_length", 5}}
+         {"length", 5}}
     );
     auto p = x::json::Parser(cfg);
     ReadTaskConfig task_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
     ASSERT_EQ(errors.size(), 1);
-    EXPECT_EQ(errors[0]["path"], "channels.0.string_length");
+    EXPECT_EQ(errors[0]["path"], "channels.0.length");
     EXPECT_EQ(
         errors[0]["message"],
         "needs 3 registers, but the device reads at most 2 per request"

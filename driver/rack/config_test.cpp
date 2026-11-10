@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 
@@ -260,6 +261,24 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.connection.api_key, key.token);
+}
+
+/// @brief it should replace the integrations and version of the rack it loads, and keep
+/// the other fields of the rack.
+TEST_F(RackConfigTest, LoadSetsRackIntegrationsAndVersion) {
+    const auto client = new_test_client();
+    auto rack = synnax::rack::Rack{.name = "stale rack", .integrations = {"stale"}};
+    ASSERT_NIL(client.racks.create(rack));
+    const auto key = ASSERT_NIL_P(
+        client.api_keys.create("test", {"rack", std::to_string(rack.key)})
+    );
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
+    const auto got = ASSERT_NIL_P(client.racks.retrieve(rack.key));
+    EXPECT_EQ(got.name, "stale rack");
+    EXPECT_EQ(got.version, SYNNAX_DRIVER_VERSION);
+    EXPECT_EQ(got.integrations, cfg.rack.integrations);
+    EXPECT_EQ(std::ranges::find(got.integrations, "stale"), got.integrations.end());
 }
 
 /// @brief it should refuse an API key that logs in as a user.
