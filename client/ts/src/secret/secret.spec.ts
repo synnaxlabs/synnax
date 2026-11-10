@@ -18,6 +18,7 @@ import {
   createTestClient,
   expectDeleted,
   expectLive,
+  holdResponses,
   spyOnSend,
   waitForStreamLive,
 } from "@/testutil";
@@ -218,6 +219,44 @@ describe("Secret", () => {
           value: "abc",
         });
         await expect.poll(() => usesOf(privateKey)).toEqual([]);
+      } finally {
+        off();
+      }
+    });
+
+    it("should drop the uses a list reads before a delete of the secret", async () => {
+      const client = createTestClient();
+      await waitForStreamLive(client.connection);
+      const c = await client.certificates.set({
+        name: "Overtaken key",
+        source: "stored",
+        pem: PEM,
+        privateKeyPem: PRIVATE_KEY,
+      });
+      assert(c.source === "stored" && c.privateKey != null);
+      const { privateKey } = c;
+      await client.secrets.retrieve(privateKey);
+      const { responded, release } = holdResponses(client, "/secret/retrieve");
+      const list = client.secrets.watch({ includeUses: true });
+      const off = list.onChange(() => {});
+      try {
+        const fetched = list.retrieve();
+        await responded;
+        await client.certificates.delete(c.key);
+        await vi.waitFor(() =>
+          expectDeleted(client.secrets.watch(privateKey).getCached()),
+        );
+        release();
+        await fetched;
+        await client.secrets.set({
+          key: privateKey,
+          name: "Overtaken key",
+          source: "stored",
+          value: "abc",
+        });
+        await expect
+          .poll(() => list.getCached()?.records.find((r) => r.key === privateKey)?.uses)
+          .toEqual([]);
       } finally {
         off();
       }
