@@ -85,8 +85,8 @@ const usePlacement: Tree.UsePlacement = (query) => {
       parent.type === "device" ? [parent.key] : [],
     ) ?? [],
   );
-  const chassisResult = Device.useResultMultiple(
-    chassisKeys.length === 0 ? null : { where: { key: { in: chassisKeys } } },
+  const chassisResult = Device.useResultAncestors(
+    chassisKeys.length === 0 ? null : { keys: chassisKeys },
   );
   const rackResult = Rack.useResultMultiple(asked ? {} : null);
   const groupResult = PGroup.useResultList(asked ? { scope: query.root.type } : null);

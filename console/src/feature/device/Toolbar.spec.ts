@@ -14,6 +14,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
+import { Group } from "@/feature/group";
 import { Rack } from "@/feature/rack";
 import { createTestDevice } from "@/platform/device/testutil";
 import {
@@ -25,6 +26,7 @@ import {
 import {
   assertDefined,
   createTestClientWithGrants,
+  getIconButton,
   renderHookWithConsole,
   uniqueName,
   uniqueToken,
@@ -50,7 +52,11 @@ describe("device/Toolbar", () => {
 const renderDeviceToolbar = async (): Promise<void> => {
   await renderToolbar(Device.TOOLBAR.content, {
     client,
-    items: { ...Rack.TREE_ITEMS, ...Device.TREE_ITEMS },
+    items: {
+      ...Rack.TREE_ITEMS,
+      ...Device.TREE_ITEMS,
+      ...Group.createTreeItems([Rack.GROUP_MEMBER, Device.GROUP_MEMBER]),
+    },
   });
   await screen.findByText("Devices");
 };
@@ -71,6 +77,16 @@ const createDevice = async (
   });
 };
 
+/** Expects each name to show one level below the name before it. */
+const expectNested = async (names: string[]): Promise<void> => {
+  const levels: number[] = [];
+  for (const name of names) {
+    const row = await findTreeRow(itemName(name));
+    levels.push(Number(row.getAttribute("aria-level")));
+  }
+  expect(levels.slice(1)).toEqual(levels.slice(0, -1).map((l) => l + 1));
+};
+
 describe("device/Toolbar search", () => {
   it("should find a device by name and show its rack", async () => {
     const tok = uniqueToken();
@@ -89,6 +105,16 @@ describe("device/Toolbar search", () => {
     await renderDeviceToolbar();
     searchTree(tok);
     expect(await findTreeRow(itemName(dev.name))).toBeTruthy();
+  });
+
+  it("should find a device by its make or model", async () => {
+    const tok = uniqueToken();
+    const byMake = await createDevice({ make: `${tok}_make` });
+    const byModel = await createDevice({ model: `${tok}_model` });
+    await renderDeviceToolbar();
+    searchTree(tok);
+    expect(await findTreeRow(itemName(byMake.name))).toBeTruthy();
+    expect(await findTreeRow(itemName(byModel.name))).toBeTruthy();
   });
 
   it("should show the chassis that holds a found module", async () => {
@@ -119,6 +145,49 @@ describe("device/Toolbar search", () => {
     await renderDeviceToolbar();
     searchTree(tok);
     expect((await findTreeRow(itemName(dev.name))).textContent).toContain(grp.name);
+  });
+
+  it("should show a module two chassis deep in its groups", async () => {
+    const tok = uniqueToken();
+    const top = await createDevice();
+    const mid = await createDevice({ rack: top.rack, parent: top.key });
+    const mod = await createDevice({
+      name: `${tok}_module`,
+      rack: top.rack,
+      parent: mid.key,
+    });
+    const rack = await client.racks.retrieve(top.rack);
+    await renderDeviceToolbar();
+    searchTree(tok);
+    expect((await findTreeRow(itemName(mod.name))).textContent).toContain(mid.name);
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    await expectNested([rack.name, top.name, mid.name, mod.name]);
+  });
+
+  it("should show a device in a group under a rack in a group", async () => {
+    const tok = uniqueToken();
+    const outer = await client.groups.create({
+      scope: "device",
+      name: uniqueName("out"),
+    });
+    const rack = await client.racks.create({
+      name: uniqueName("rack"),
+      group: outer.key,
+    });
+    const inner = await client.groups.create({
+      name: uniqueName("in"),
+      parent: rackClient.resourceID(rack.key),
+    });
+    const dev = await createDevice({
+      name: `${tok}_valve`,
+      rack: rack.key,
+      group: inner.key,
+    });
+    await renderDeviceToolbar();
+    searchTree(tok);
+    await findTreeRow(itemName(dev.name));
+    fireEvent.click(getIconButton(document.body, "tree-view"));
+    await expectNested([outer.name, rack.name, inner.name, dev.name]);
   });
 
   it("should find a rack by name", async () => {

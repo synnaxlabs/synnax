@@ -542,6 +542,46 @@ describe("queries", () => {
     });
   });
 
+  describe("useResultAncestors", () => {
+    it("should keep the devices and the devices above them live", async () => {
+      const rack = await client.racks.create({ name: "test" });
+      const create = async (name: string, parent?: device.Key) =>
+        await client.devices.create({
+          key: id.create(),
+          name,
+          rack: rack.key,
+          location: "test",
+          make: "test",
+          model: "test",
+          properties: {},
+          parent,
+        });
+      const top = await create("top");
+      const mid = await create("mid", top.key);
+      const leaf = await create("leaf", mid.key);
+      const keysOf = (devices?: device.Device[]): device.Key[] =>
+        (devices ?? []).map(({ key }) => key).sort();
+      const { result } = renderHook(
+        () => Device.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(keysOf(result.current.data)).toEqual(
+          [leaf.key, mid.key, top.key].sort(),
+        );
+      });
+      await act(async () => {
+        await client.devices.rename(top.key, "renamed");
+      });
+      await waitFor(() =>
+        expect(result.current.data).toContainEqual(
+          expect.objectContaining({ key: top.key, name: "renamed" }),
+        ),
+      );
+    });
+  });
+
   describe("result selectors", () => {
     const createDevice = async () => {
       const rack = await client.racks.create({ name: "test" });
