@@ -58,8 +58,8 @@ const checkResZ = z.object({
 
 /**
  * Runs a single connectivity check, measuring clock skew across the round trip.
- * The transport must carry the full middleware chain, auth included, so that a
- * response proves authentication.
+ * A response proves authentication only when the transport carries the auth
+ * middleware.
  * @throws {AuthError} if the cluster rejects the client's credentials.
  * @throws {Unreachable} if the cluster cannot be reached.
  */
