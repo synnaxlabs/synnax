@@ -12,7 +12,7 @@ description: Resolves the next version of a product from its Git tags
 
 inputs:
   product:
-    description: console, core, driver, desktop, or packages
+    description: console, core, driver, desktop, ts, or py
     required: true
   bump:
     description: patch, minor, or major (desktop only)

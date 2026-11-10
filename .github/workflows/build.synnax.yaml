@@ -771,7 +771,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.setup.outputs.VERSION }}
-        run: .github/scripts/stamp_versions.sh "$VERSION"
+        run: .github/scripts/stamp_versions.sh ts "$VERSION"
 
       - name: Build Console web assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''

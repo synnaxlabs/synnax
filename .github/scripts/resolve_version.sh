@@ -28,7 +28,7 @@ BUMP=${2:?usage: resolve_version.sh <product> <bump> [prerelease]}
 PRERELEASE=${3:-false}
 
 case "$PRODUCT" in
-    console | core | driver | desktop | packages) ;;
+    console | core | driver | desktop | ts | py) ;;
     *)
         echo "unknown product: $PRODUCT" >&2
         exit 1

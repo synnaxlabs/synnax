@@ -57,9 +57,10 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
 - **`console`, `driver`, `core`**: The products to release, all on by default. One
   dispatch ships a whole train; a hotfix ticks one product.
-- **`packages`**: Publish the Python and TypeScript packages at the next `packages/v*`
-  version, on by default. A candidate run never publishes them. An npm publish on an
-  older train takes the `train-X.Y` dist-tag, so `latest` never moves back.
+- **`typescript`, `python`**: Publish the npm packages at the next `ts/v*` version and
+  the PyPI packages at the next `py/v*` version, both on by default. A candidate run
+  never publishes them. An npm publish on an older train takes the `train-X.Y` dist-tag,
+  so `latest` never moves back.
 - **`bump`**: `patch` (default) or `minor`, applied to every selected product.
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
@@ -107,15 +108,17 @@ with that product alone, and a Core rerun's defaults pick up the others.
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
 
-With `packages` on, the resolve stage resolves `packages/vX.Y.Z` like a product, the
-publish jobs run `stamp_versions.sh` to write it into every manifest, and every Python
-and TypeScript package publishes at that version. The tag goes up after both registries
-take the packages, so a failed run leaves no tag; a rerun resolves the same version, and
-`pnpm publish -r` and `prune_published.py` skip what already went up. A merge publishes
-nothing. Both publish through OIDC trusted publishing with `id-token: write`, so no
-registry token lives in the repo's secrets. The registries trust `release.yaml` by name,
-so the publish jobs live in it, not in a called workflow. Packages have no candidate
-channel: a candidate run never publishes them.
+Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
+`py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
+each language releases alone. The resolve stage resolves the tag like a product, the
+publish job runs `stamp_versions.sh` to write it into that language's manifests, and
+every package of the language publishes at that version. The job tags after the registry
+takes the packages, so a failed run leaves no tag; a rerun resolves the same version,
+and `pnpm publish -r` and `prune_published.py` skip what already went up. A merge
+publishes nothing. Both publish through OIDC trusted publishing with `id-token: write`,
+so no registry token lives in the repo's secrets. The registries trust `release.yaml` by
+name, so the publish jobs live in it, not in a called workflow. Packages have no
+candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 
@@ -124,7 +127,7 @@ and the Core release fails unless the Console and Driver it embeds share its min
 Console and Driver open a train; the Core closes it. Every product and every package
 shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
 while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-The packages take the rule from `resolve-version`, like a product, and always release
+Each language publishes on the train of the code it ships and releases its packages
 together at one version. The C++ client and the C library are on no registry and ship
 with the Driver, so they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no
 manifest. The catalog pins internal deps as `workspace:^`, which pnpm rewrites to
@@ -242,12 +245,14 @@ flag and workflow file.
    without a deploy.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
-10. **Packages version from one lockstep tag**: Manifest versions rejected; a bump PR
-    merged 0.61.0 into every manifest and published it before any 0.61 Core existed, and
-    bump PRs are a second release decision outside the dispatch. Per-package tags
-    rejected because the cascade through internal ranges then needs a person or
-    Changesets. Lockstep republishes unchanged packages on each release, which is cheap
-    and keeps every internal range satisfiable.
+10. **Packages version from one lockstep tag per language**: Manifest versions rejected;
+    a bump PR merged 0.61.0 into every manifest and published it before any 0.61 Core
+    existed, and bump PRs are a second release decision outside the dispatch.
+    Per-package tags rejected because the cascade through internal ranges then needs a
+    person or Changesets. One tag for both languages rejected because a TypeScript fix
+    would publish a Python version with no changes. Lockstep inside a language
+    republishes unchanged packages, which is cheap and keeps every internal range
+    satisfiable.
 11. **One workflow, a checkbox per product**: `release.yaml` ships a minor with one
     click and a hotfix with one box ticked. A workflow per product plus a train over
     them was rejected as four files for one job; separate dispatches as three clicks in

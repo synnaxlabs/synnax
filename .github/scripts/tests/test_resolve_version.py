@@ -265,20 +265,21 @@ class TestLatestVersion:
 
 
 class TestPackages:
-    """Tests for the npm and PyPI packages, which share the train."""
+    """Tests for the npm (ts) and PyPI (py) packages, which share the train."""
 
-    def test_should_bump_from_the_reachable_packages_tag(self, repo: Repo) -> None:
-        repo.tag("packages/v0.58.4")
+    def test_should_bump_each_language_from_its_own_tag(self, repo: Repo) -> None:
+        repo.tag("ts/v0.58.4", "py/v0.58.2")
         repo.commit("more")
-        out = repo.resolve("packages", bump="patch")
+        out = repo.resolve("ts", bump="patch")
         assert out["version"] == "0.58.5"
-        assert out["tag"] == "packages/v0.58.5"
-        assert out["previous_tag"] == "packages/v0.58.4"
+        assert out["tag"] == "ts/v0.58.5"
+        assert out["previous_tag"] == "ts/v0.58.4"
+        assert repo.resolve("py", bump="patch")["version"] == "0.58.3"
 
-    def test_should_require_a_packages_tag(self, repo: Repo) -> None:
-        assert "no stable packages tag" in repo.resolve_error("packages", bump="patch")
+    def test_should_require_a_language_tag(self, repo: Repo) -> None:
+        assert "no stable py tag" in repo.resolve_error("py", bump="patch")
 
     def test_should_keep_the_train_rule(self, repo: Repo) -> None:
-        repo.tag("packages/v0.59.0")
+        repo.tag("ts/v0.59.0")
         repo.commit("more")
-        assert "train rule" in repo.resolve_error("packages", bump="minor")
+        assert "train rule" in repo.resolve_error("ts", bump="minor")
