@@ -536,9 +536,9 @@ jobs:
             echo "### Approve the npm packages"
             echo "Approve each \`@synnaxlabs\` $VERSION version in this order, in the"
             echo "Staged Packages tab on npmjs.com or with \`pnpm stage approve\`:"
-            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`. No later release on"
-            echo "this train stages until \`client\` is approved. To reject, reject every"
-            echo "package and delete the \`ts/v$VERSION\` tag."
+            echo "\`x\`, \`alamos\`, \`freighter\`, then \`client\`."
+            echo "No later release on this train stages until \`client\` is approved."
+            echo "To reject, reject every package and delete the \`ts/v$VERSION\` tag."
           } >> "$GITHUB_STEP_SUMMARY"
 
   publish-py:
