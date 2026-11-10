@@ -33,12 +33,16 @@ export interface PDOEntry extends z.infer<typeof pdoEntryZ> {}
 const hex = (value: number, width: number): string =>
   value.toString(16).toUpperCase().padStart(width, "0");
 
+/** @returns the value in hex with at least digits digits, such as 0x00FC. */
+export const formatHex = (value: number, digits: number): string =>
+  `0x${hex(value, digits)}`;
+
 /** @returns the address in CoE notation, such as 0x6010:01. */
 export const formatAddress = ({
   index,
   subIndex,
 }: Pick<PDOEntry, "index" | "subIndex">): string =>
-  `0x${hex(index, 4)}:${hex(subIndex, 2)}`;
+  `${formatHex(index, 4)}:${hex(subIndex, 2)}`;
 
 /** @returns the address of the entry followed by its PDO name when known. */
 export const formatEntry = (

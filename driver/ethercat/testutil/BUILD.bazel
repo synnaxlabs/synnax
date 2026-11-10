@@ -23,6 +23,16 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "stg",
+    hdrs = ["stg.h"],
+    visibility = ["//driver/ethercat:__subpackages__"],
+    deps = [
+        "//driver/ethercat/coe",
+        "//x/cpp/errors",
+    ],
+)
+
 cc_test(
     name = "master_test",
     srcs = ["master_test.cpp"],
