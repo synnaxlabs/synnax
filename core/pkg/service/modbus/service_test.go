@@ -194,15 +194,14 @@ var _ = Describe("Service", func() {
 				dataType string,
 				msg string,
 			) {
-				_, err := store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				Expect(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
 					"channels": []any{map[string]any{
 						"type":          channelType,
 						"key":           "chan-1",
 						"data_type":     dataType,
 						"string_length": 4,
 					}},
-				})
-				Expect(err).To(MatchError(
+				})).Error().To(MatchError(
 					ContainSubstring("channels.0.data_type: " + msg),
 				))
 			},
