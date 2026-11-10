@@ -294,8 +294,12 @@ func (w Writer) UpdateTask(
 // otherwise builds the Arc with key in w.tx.
 func (w Writer) current(ctx context.Context, b Build, key Key) (Build, error) {
 	if b.lookups != nil {
-		if same, err := b.lookups.Unchanged(ctx, w.tx); same || err != nil {
-			return b, err
+		same, err := b.lookups.Unchanged(ctx, w.tx)
+		if err != nil {
+			return Build{}, err
+		}
+		if same {
+			return b, nil
 		}
 	}
 	return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
