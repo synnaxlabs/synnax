@@ -12,8 +12,10 @@ import { type $ZodType } from "zod/v4/core";
 
 /** What a field of an update schema changes, and the schemas it holds. */
 export type Kind =
+  | { kind: "value" }
   | { kind: "change"; value: z.ZodType }
   | { kind: "struct"; update: z.ZodType; full: z.ZodType }
+  | { kind: "union"; update: z.ZodType }
   | { kind: "list"; entry: z.ZodType; update: z.ZodType }
   | { kind: "valueList"; entry: z.ZodType };
 
@@ -28,7 +30,14 @@ interface Marked {
 export const mark = <S extends z.ZodType>(schema: S, kind: Kind): S =>
   Object.defineProperty(schema, KIND, { value: kind, enumerable: false });
 
-const WRAPPERS = new Set(["optional", "default", "prefault", "nullable", "readonly"]);
+const WRAPPERS = new Set([
+  "optional",
+  "default",
+  "prefault",
+  "nullable",
+  "readonly",
+  "lazy",
+]);
 
 /**
  * @returns the kind of the field schema, looking through the wrappers that a generated
@@ -39,8 +48,13 @@ export const kindOf = (schema: $ZodType): Kind | undefined => {
   for (;;) {
     const kind = (schema as Marked)[KIND];
     if (kind != null) return kind;
-    const def = schema._zod.def as { type: string; innerType?: $ZodType };
-    if (!WRAPPERS.has(def.type) || def.innerType == null) return undefined;
-    schema = def.innerType;
+    const def = schema._zod.def as {
+      type: string;
+      innerType?: $ZodType;
+      getter?: () => $ZodType;
+    };
+    const inner = def.type === "lazy" ? def.getter?.() : def.innerType;
+    if (!WRAPPERS.has(def.type) || inner == null) return undefined;
+    schema = inner;
   }
 };
