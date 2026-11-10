@@ -243,7 +243,7 @@ rejects them from a client.
 
 ### 4.6 Core
 
-The operator types (`List`, `ValueList`, `Map`) are generic structs in
+The operator types (`List`, `ValueList`, `TypedMap`) are generic structs in
 `schemas/x/patch.oracle`, generated for each language as the filter types are. Oracle
 generates an `Apply` method on each record for its update type, built from the typed
 helpers in `x/go/patch`. It uses no reflection and no JSON round trip. Each service
