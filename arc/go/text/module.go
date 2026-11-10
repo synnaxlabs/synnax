@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
@@ -98,7 +99,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 	defer func() { l.stack = l.stack[:len(l.stack)-1] }()
 	parsed, diag := Parse(t, l.cfg.Config)
 	if diag != nil && !diag.Ok() {
-		return nil, errors.Newf("module %q does not compile", path)
+		return nil, compileError(path, diag)
 	}
 	var ambient []*symbol.Symbol
 	if l.cfg.Ambient != nil {
@@ -111,7 +112,7 @@ func (l *Loader) load(ctx context.Context, path string) (*unit, error) {
 		if slices.Contains(l.cycle, path) {
 			return nil, l.cycleError()
 		}
-		return nil, errors.Newf("module %q does not compile", path)
+		return nil, compileError(path, diag)
 	}
 	u.ir.Symbols.Kind, u.ir.Symbols.AST = symbol.KindModule, parsed.AST
 	return &u, nil
@@ -166,6 +167,19 @@ func link(i *ir.IR, units []*unit, shell *shellBuilder, bound set.Set[string]) {
 			}
 		}
 	}
+}
+
+// compileError reports the first error of the module at path, with its position in
+// the module.
+func compileError(path string, diag *diagnostics.Diagnostics) error {
+	first := diag.Errors()[0]
+	return errors.Newf(
+		"module %q does not compile: %d:%d %s",
+		path,
+		first.Range.Start.Line+1,
+		first.Range.Start.Character,
+		first.Message,
+	)
 }
 
 func (l *Loader) cycleError() error {
