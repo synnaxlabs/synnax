@@ -187,7 +187,7 @@ Reads a voltage.
 | ------------------------------------------ | ------- | ---------------------------------------------------------------------------------------- |
 | Port <small>`port`</small>                 | `AIN0`  | An `AIN` port.                                                                           |
 | Max voltage <small>`range`</small>         | `10`    | The input uses the smallest range of the device that covers this voltage. Not on the T4. |
-| Negative channel <small>`neg_chan`</small> | `199`   | Ground (199), or the pair of the port for a differential reading. On the T7 only.        |
+| Negative channel <small>`neg_chan`</small> | Ground  | Absent for ground, or the pair of the port for a differential reading. On the T7 only.   |
 | Scale <small>`scale`</small>               | None    | See [scale](#scale).                                                                     |
 
 </Channel.Type>
@@ -221,7 +221,7 @@ temperature.
 | Port <small>`port`</small>                           | `AIN0`                 | An `AIN` port.                                                                                |
 | Thermocouple type <small>`thermocouple_type`</small> | `K`                    | `B`, `E`, `J`, `K`, `N`, `R`, `S`, `T`, `C`.                                                  |
 | Temperature units <small>`units`</small>             | `K`                    | `C`, `F`, `K`.                                                                                |
-| Negative channel <small>`neg_chan`</small>           | `199`                  | Ground (199), or the pair of the port. On the T7 only.                                        |
+| Negative channel <small>`neg_chan`</small>           | Ground                 | Absent for ground, or the pair of the port. On the T7 only.                                   |
 | CJC source <small>`cjc_source`</small>               | `TEMPERATURE_DEVICE_K` | **Device** (**Terminal** on a T8), **Air** (not on a T8), or an `AIN` port with a CJC sensor. |
 | CJC slope <small>`cjc_slope`</small>                 | `1`                    | The CJC sensor scale, in kelvin per volt.                                                     |
 | CJC offset <small>`cjc_offset`</small>               | `0`                    | The CJC sensor offset, in kelvin.                                                             |

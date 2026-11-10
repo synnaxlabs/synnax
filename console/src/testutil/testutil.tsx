@@ -410,6 +410,7 @@ export const createStatusConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  if (client != null) disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper({
     ...args,
     client: null,
@@ -439,6 +440,7 @@ export const renderWithStatus = async (
   ui: ReactElement,
   { client, status, ...args }: CreateStatusConsoleWrapperParams,
 ): Promise<StatusHarness> => {
+  if (client != null) disableActEnvironment();
   const { wrapper, store } = await createConsoleWrapper({ ...args, client: null });
   const withStatus = (current?: connection.Status): ReactElement => (
     <Synnax.TestProvider client={client} status={current}>

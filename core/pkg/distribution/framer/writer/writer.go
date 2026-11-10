@@ -81,21 +81,26 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	}
 	select {
 	case res = <-w.responses.Outlet():
-		return res, w.close(res.Err)
-	case w.requests.Inlet() <- req:
-	}
-	if !sync {
-		return res, nil
-	}
-	for res = range w.responses.Outlet() {
 		if res.Err != nil {
-			return res, w.close(res.Err)
+			return Response{}, w.close(res.Err)
 		}
-		if res.Command == req.Command {
+	case w.requests.Inlet() <- req:
+		if !sync {
 			return res, nil
 		}
+		for res = range w.responses.Outlet() {
+			if res.Err != nil {
+				return Response{}, w.close(res.Err)
+			}
+			if res.Command == req.Command {
+				return res, nil
+			}
+		}
 	}
-	return res, w.close(nil)
+	if err := w.close(nil); err != nil {
+		return Response{}, err
+	}
+	return Response{}, errors.Wrap(ErrClosed, "writer exited without a response")
 }
 
 func (w *Writer) Close() error { return w.close(nil) }

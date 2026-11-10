@@ -220,6 +220,9 @@ public:
     /// Stores the most recent writer configuration passed to open_writer.
     synnax::framer::WriterConfig config;
 
+    /// When valid, open_writer blocks until it is ready.
+    std::shared_future<void> open_gate;
+
     /// Counts how many times open_writer has been called.
     /// Atomic with release semantics so that readers who observe the incremented
     /// value are guaranteed to see the config assignment that precedes it.
@@ -245,6 +248,7 @@ public:
 
     std::pair<std::unique_ptr<pipeline::Writer>, x::errors::Error>
     open_writer(const synnax::framer::WriterConfig &config) override {
+        if (this->open_gate.valid()) this->open_gate.wait();
         this->config = config;
         this->writer_opens.fetch_add(1, std::memory_order_release);
         auto err = this->open_errors.empty() ? x::errors::NIL

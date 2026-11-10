@@ -17,6 +17,7 @@ import remarkGfm from "remark-gfm";
 import stripMarkdown from "strip-markdown";
 
 import { listReleaseNotes, RELEASE_NOTES_DIR } from "./releaseNotes.ts";
+import { indexName, parse } from "./version.ts";
 
 const client = algoliasearch(
   process.env.DOCS_ALGOLIA_APP_ID ?? "",
@@ -76,8 +77,11 @@ const data = await Promise.all(
 
 console.log(`Indexing ${data.length} pages, skipping ${skipped.length} behind flags`);
 
-await client.clearObjects({ indexName: "docs_site" });
+// Each docs version has its own index, and a new version has none to clear yet.
+const index = indexName(parse(process.env.DOCS_VERSION));
+if (await client.indexExists({ indexName: index }))
+  await client.clearObjects({ indexName: index });
 
-const res = await client.saveObjects({ indexName: "docs_site", objects: data });
+const res = await client.saveObjects({ indexName: index, objects: data });
 
 console.log(`Successfully updated ${res.length} pages`);

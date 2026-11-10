@@ -276,10 +276,10 @@ server again, so a corrected endpoint or password takes effect without a restart
 | Console label | Python field           | Default                 | Notes                                                                           |
 | ------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
 | OPC UA server | `device`               |                         | The key of the server.                                                          |
-| Sampling mode | `array_mode`           | Scalar                  | See [read arrays](#read-arrays).                                                |
+| Sampling mode | `sampling`             | Scalar                  | `sy.opcua.ArraySampling(size=5)` reads arrays. See [read arrays](#read-arrays). |
 | Sample rate   | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
 | Stream rate   | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
-| Array size    | `array_size`           | 1                       | Values in each array node.                                                      |
+| Array size    | `sampling.size`        | 1                       | Values in each array node.                                                      |
 | NaN fill      | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
 | Data saving   | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
 | Auto start    | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |

@@ -1874,8 +1874,8 @@ TEST(VariableReassignmentTest, EmitsOncePerReEntryOfAnIncrementLoop) {
 TEST(VariableReassignmentTest, RoutesAliasWritesToTheReboundChannelAcrossStages) {
     Sequence h(
         R"(
-    l := %out_a%
     sequence main {
+        l := %out_a%
         stage s1 {
             u8(1) -> l
             %go2% => next
@@ -1906,8 +1906,8 @@ TEST(VariableReassignmentTest, RoutesAliasWritesToTheReboundChannelAcrossStages)
 TEST(VariableReassignmentTest, RoutesAliasReadsToTheReboundChannelAcrossStages) {
     Sequence h(
         R"(
-    r := %in_a%
     sequence main {
+        r := %in_a%
         stage s1 {
             r -> %out%
             %go2% => next
@@ -1946,8 +1946,8 @@ TEST(
 ) {
     Sequence h(
         R"(
-    r := %in_a%
     sequence main {
+        r := %in_a%
         stage s1 {
             r * 2 -> %out%
             %go2% => next
@@ -1973,38 +1973,6 @@ TEST(
 
     h.trigger("go2");
     h.trigger("go1");
-    h.push("in_b", x::telem::Series(std::uint8_t(30)));
-    out = h.flush();
-    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);
-}
-
-TEST(VariableReassignmentTest, RoutesATopLevelAliasExpressionReadAcrossAStageRebind) {
-    Sequence h(
-        R"(
-    r := %in_a%
-    r * 2 -> %out%
-    sequence main {
-        stage s1 {
-            %go2% => next
-        }
-        stage s2 {
-            r = %in_b%
-        }
-    }
-    %start_cmd% => main)",
-        {{"start_cmd", x::telem::UINT8_T},
-         {"in_a", x::telem::UINT8_T},
-         {"in_b", x::telem::UINT8_T},
-         {"out", x::telem::UINT8_T},
-         {"go2", x::telem::UINT8_T}}
-    );
-
-    h.trigger("start_cmd");
-    h.push("in_a", x::telem::Series(std::uint8_t(10)));
-    auto out = h.flush();
-    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 20);
-
-    h.trigger("go2");
     h.push("in_b", x::telem::Series(std::uint8_t(30)));
     out = h.flush();
     EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 60);

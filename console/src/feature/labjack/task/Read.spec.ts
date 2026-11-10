@@ -608,6 +608,61 @@ describe("Read ports", () => {
     );
   });
 
+  describe("negative channels", () => {
+    const savedNegChans = async (key: string) => {
+      const saved = await client.tasks.retrieve({
+        key,
+        schemas: LabJack.Task.READ_SCHEMAS,
+      });
+      return saved.config.channels.map((ch) =>
+        ch.type === "digital" ? null : ch.negChan,
+      );
+    };
+
+    it("should write the pair, then an absent negative channel for ground", async () => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2")],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN2"));
+      fireEvent.click(await findDialogTriggerByText("Ground"));
+      fireEvent.click(await screen.findByText("AIN3"));
+      await waitFor(async () => expect(await savedNegChans(draft.key)).toEqual([3]));
+      fireEvent.click(await findDialogTriggerByText("AIN3"));
+      fireEvent.click(await screen.findByText("Ground"));
+      await waitFor(async () =>
+        expect(await savedNegChans(draft.key)).toEqual([undefined]),
+      );
+    });
+
+    it("should show a stored negative channel that is not the pair as its own option", async () => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2", { negChan: 127 })],
+        LabJack.Device.T7_MODEL,
+      );
+      fireEvent.click(await findChannelListItem("AIN2"));
+      fireEvent.click(await findDialogTriggerByText("AIN127"));
+      fireEvent.click(await screen.findByText("AIN3"));
+      await waitFor(async () => expect(await savedNegChans(draft.key)).toEqual([3]));
+    });
+
+    it.each([
+      ["the pair of its new port", 3, 5],
+      ["an absent negative channel", undefined, undefined],
+    ])("should give a channel added on a port %s", async (_, negChan, expected) => {
+      const { draft } = await renderWith(
+        [createAnalogReadChannel("AIN2", { negChan })],
+        LabJack.Device.T7_MODEL,
+      );
+      await openPorts();
+      fireEvent.contextMenu(cell("AIN4", "Analog inputs"));
+      fireEvent.click(await screen.findByText("Add channel"));
+      await waitFor(async () =>
+        expect(await savedNegChans(draft.key)).toEqual([negChan, expected]),
+      );
+    });
+  });
+
   it("should keep the ports of each type on their own terminals on a T7", async () => {
     await renderWith(
       [createAnalogReadChannel("AIN4"), createDigitalReadChannel("DIO4")],
