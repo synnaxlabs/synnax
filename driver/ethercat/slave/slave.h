@@ -208,7 +208,8 @@ struct Config {
     /// Properties::catalog_op_mode gives, else the one that dc::select picks, and the
     /// IgH master sets up no DC sync.
     std::optional<dc::Choice> op_mode;
-    /// @brief CoE objects written to the slave before each move to SAFE-OP.
+    /// @brief CoE objects written to the slave before each move to SAFE-OP, unless
+    /// another program sets up the slave.
     std::vector<StartupParameter> startup_parameters;
 
     bool operator==(const Config &) const = default;
@@ -278,6 +279,13 @@ struct Properties {
         const auto &mode = this->settings->at("mode");
         if (!mode.contains("op_mode")) return std::nullopt;
         return dc::Choice::parse(x::json::Parser(mode.at("op_mode")));
+    }
+
+    /// @brief whether the card held, at the scan, a mode in which another program sets
+    /// it up.
+    [[nodiscard]] bool shared() const {
+        if (!this->settings || !this->settings->contains("mode")) return false;
+        return this->settings->at("mode").value("shared", false);
     }
 
     /// @brief parses slave properties from JSON.
