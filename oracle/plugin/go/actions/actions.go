@@ -307,8 +307,8 @@ func (p {{.Payload}}) CheckCoreOnly() error {
 {{- end}}
 {{- if .ChecksCoreOnly}}
 
-// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when a is an action that
-// only the Core dispatches, or when a changes a field that only the Core sets.
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when a is an action
+// that only the Core dispatches, or when a changes a field that only the Core sets.
 func (a Action) CheckCoreOnly() error {
 {{- if .ChecksPaths}}
 	var path []string
@@ -333,7 +333,10 @@ func (a Action) CheckCoreOnly() error {
 	}
 	switch path[0] {
 	case {{range $i, $f := .CoreFields}}{{if $i}}, {{end}}"{{$f}}"{{end}}:
-		return errors.Wrap(actions.ErrCoreOnly, path[0])
+		return errors.Mark(
+			errors.Wrapf(validate.ErrValidation, "%s is set by the Core", path[0]),
+			actions.ErrCoreOnly,
+		)
 	}
 {{- end}}
 	return nil

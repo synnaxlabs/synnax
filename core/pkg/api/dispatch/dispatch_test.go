@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -210,11 +211,10 @@ var _ = Describe("Core-only", func() {
 
 	DescribeTable(
 		"Should refuse a client action that only the Core dispatches",
-		func(ctx SpecContext, send func(SpecContext) error, field string) {
-			Expect(send(ctx)).To(SatisfyAll(
-				MatchError(actions.ErrCoreOnly),
-				MatchError(ContainSubstring(field)),
-			))
+		func(ctx SpecContext, send func(SpecContext) error, message string) {
+			err := send(ctx)
+			Expect(errors.Is(err, actions.ErrCoreOnly)).To(BeTrue())
+			Expect(err).To(MatchError(message))
 			var stored channel.Channel
 			Expect(svc.Channel.NewRetrieve().
 				Where(channel.MatchKeys(ch.Key())).
@@ -228,34 +228,34 @@ var _ = Describe("Core-only", func() {
 				ctx,
 				channel.NewCreateAction(channel.CreatePayload{Channel: ch}),
 			)
-		}, "only the Core dispatches the action"),
+		}, "only the Core dispatches the action: validation error"),
 		Entry("an update of the config hash of a task", func(ctx SpecContext) error {
 			return dispatchTask(ctx, task.NewUpdateAction(task.UpdatePayload{
 				Value: task.Update{ConfigHash: new("0123456789abcdef")},
 			}))
-		}, "config_hash"),
+		}, "config_hash is set by the Core: validation error"),
 		Entry("an update of the data type of a channel", func(ctx SpecContext) error {
 			return dispatchChannel(ctx, channel.NewUpdateAction(channel.UpdatePayload{
 				Value: channel.Update{DataType: new(telem.Float64T)},
 			}))
-		}, "data_type"),
+		}, "data_type is set by the Core: validation error"),
 		Entry("a set of the data type of a channel", func(ctx SpecContext) error {
 			return dispatchChannel(ctx, channel.NewSetAction(channel.SetPayload{
 				Path:  []string{"data_type"},
 				Value: telem.Float64T,
 			}))
-		}, "data_type"),
+		}, "data_type is set by the Core: validation error"),
 		Entry("a remove of the config hash of a task", func(ctx SpecContext) error {
 			return dispatchTask(ctx, task.NewRemoveAction(task.RemovePayload{
 				Key: "config_hash",
 			}))
-		}, "config_hash"),
+		}, "config_hash is set by the Core: validation error"),
 		Entry("a set of the root flag of a user", func(ctx SpecContext) error {
 			return dispatchUser(ctx, user.NewSetAction(user.SetPayload{
 				Path:  []string{"root_user"},
 				Value: true,
 			}))
-		}, "root_user"),
+		}, "root_user is set by the Core: validation error"),
 	)
 
 	It("Should let the Core write the config hash of a task", func(ctx SpecContext) {

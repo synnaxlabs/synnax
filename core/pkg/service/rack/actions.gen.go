@@ -43,8 +43,8 @@ func (p UpdatePayload) CheckCoreOnly() error {
 	return nil
 }
 
-// CheckCoreOnly returns an error wrapping actions.ErrCoreOnly when a is an action that
-// only the Core dispatches, or when a changes a field that only the Core sets.
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when a is an action
+// that only the Core dispatches, or when a changes a field that only the Core sets.
 func (a Action) CheckCoreOnly() error {
 	switch v := a.Variant.(type) {
 	case CreatePayload:
