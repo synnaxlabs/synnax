@@ -15,8 +15,8 @@ name: Test - HITL
 
 on:
   # The hardware is free for CI from 06:00 to 14:00 UTC. A run takes about 40 minutes,
-  # so attempts two hours apart do not overlap, and the last one leaves four hours. An
-  # attempt does nothing once a run on main passed its tests that day.
+  # and the last attempt leaves four hours. An attempt does nothing once a run on main
+  # passed its tests that day.
   schedule:
     - cron: "0 6 * * *" # after the nightly build frees the bots
     - cron: "0 8 * * *"
@@ -25,6 +25,11 @@ on:
 
 permissions:
   contents: read
+
+# One run at a time holds the hardware. A whole run waits, so the gate sees the last run.
+concurrency:
+  group: hitl
+  cancel-in-progress: false
 
 jobs:
   gate:
@@ -81,10 +86,6 @@ jobs:
     needs: build
     runs-on: [self-hosted, hitl]
     timeout-minutes: 90
-    # One run at a time holds the hardware.
-    concurrency:
-      group: hitl
-      cancel-in-progress: false
     outputs:
       holders: ${{ steps.hardware.outputs.holders }}
     # gh run download reads the build artifacts.
