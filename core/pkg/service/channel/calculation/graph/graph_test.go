@@ -1627,6 +1627,50 @@ var _ = Describe("Graph", func() {
 		)
 
 		It(
+			"Should not wait for the write lock on a report that changes nothing",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				reconciled := make(chan struct{}, 1)
+				DeferCleanup(g.Observe().OnChange(func(
+					_ context.Context,
+					r graph.Changes,
+				) {
+					if batchWrites(r, "rt_repeat") {
+						select {
+						case reconciled <- struct{}{}:
+						default:
+						}
+					}
+				}))
+				createDep(ctx, "rt_repeat_dep")
+				calc := channel.Channel{
+					Name: "rt_repeat", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_repeat_dep + 1",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				// A reconcile in flight holds the graph and waits for the write lock.
+				Eventually(reconciled).Should(Receive())
+				report := func() error {
+					return g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+						Name:    "rt_repeat",
+						Variant: status.VariantError,
+						Message: "Failed to run calculation",
+						Time:    telem.Now(),
+					})
+				}
+				Expect(report()).To(Succeed())
+				done := make(chan error, 1)
+				Expect(db.WithSnapshot(ctx, func(gorp.Snapshot) error {
+					go func() { done <- report() }()
+					Eventually(done).Should(Receive(BeNil()))
+					return nil
+				})).To(Succeed())
+			},
+		)
+
+		It(
 			"Should drop a report for a channel it holds as invalid",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)
