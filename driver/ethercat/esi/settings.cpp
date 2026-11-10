@@ -239,6 +239,7 @@ x::errors::Error read_channels(
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     const uint32_t vendor_id,
     const uint32_t product_code,
+    const uint32_t revision,
     const std::vector<dc::OpMode> &op_modes,
     const coe::Read &read
 ) {
@@ -246,8 +247,14 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         reinterpret_cast<const char *>(REGISTRY_SETTINGS)
     );
     const auto it = std::ranges::find_if(catalog, [&](const x::json::json &d) {
-        return d["vendor_id"].get<uint32_t>() == vendor_id &&
-               d["product_code"].get<uint32_t>() == product_code;
+        if (d["vendor_id"].get<uint32_t>() != vendor_id ||
+            d["product_code"].get<uint32_t>() != product_code)
+            return false;
+        if (!d.contains("revisions")) return true;
+        const auto masked = revision & d["revision_mask"].get<uint32_t>();
+        return std::ranges::any_of(d["revisions"], [masked](const auto &r) {
+            return r.template get<uint32_t>() == masked;
+        });
     });
     if (it == catalog.end()) return {std::nullopt, x::errors::NIL};
     x::json::json result{

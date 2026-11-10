@@ -132,6 +132,8 @@ export const sliceStateZ = z.object({
   selected: z.string().optional(),
   /** The ranges the session added. The built-ins are not among them. */
   ranges: z.array(stateZ).default([]),
+  /** Whether line plots no longer hold keys of the session's static ranges. */
+  staticKeysRewritten: z.boolean().default(false),
 });
 
 export const ZERO_SLICE_STATE = sliceStateZ.parse({});
@@ -178,6 +180,9 @@ export const { actions, reducer } = createSlice({
     clearSelected: (state) => {
       state.selected = undefined;
     },
+    markStaticKeysRewritten: (state) => {
+      state.staticKeysRewritten = true;
+    },
     // A persisted range is renamed on the Core, which is where its name lives.
     rename: (state, { payload: { key, name } }: PayloadAction<RenamePayload>) => {
       const r = state.ranges.find((r) => r.key === key);
@@ -186,6 +191,7 @@ export const { actions, reducer } = createSlice({
     },
   },
 });
-export const { add, clearSelected, remove, rename, select } = actions;
+export const { add, clearSelected, markStaticKeysRewritten, remove, rename, select } =
+  actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

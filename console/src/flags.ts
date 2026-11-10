@@ -15,12 +15,6 @@
  * not run yet leaves out Desktop builds. Each entry names its owner, its Linear
  * umbrella issue, and the release that removes it.
  */
-const INTEGRATION = import.meta.env.VITE_FLAGS_ENABLED === "true";
-
-export const FLAGS = {
-  // Owner: Nico Alba. Umbrella: SY-4845. Removed in 0.62, when Arc modules ship. Module
-  // code does not run yet, so Desktop builds leave it out.
-  arcModules: IS_DEV || INTEGRATION,
-} as const satisfies Record<string, boolean>;
+export const FLAGS = {} as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

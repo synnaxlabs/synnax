@@ -10,12 +10,11 @@
 The Core, Console, and Driver release on every push to `main` or `rc`, their versions
 are hand-edited files, and the Console updater polls a JSON file a bot force-pushes to
 `main`. This RFC moves to trunk-based development on `main`, one dispatched release
-workflow with a checkbox per binary product, Git tags as the only version source for
-those products, an updater manifest hosted on the GitHub release, and static feature
-flags. Python and TypeScript packages stay versioned in their manifests and publish from
-the same workflow. It supersedes RFC 0020 §2, §3, §4, §5, and §7, and retires the
-`rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor survives: every
-product and package shares one minor, and patches move independently.
+workflow with a checkbox per product, Git tags as the only version source, an updater
+manifest hosted on the GitHub release, and static feature flags. Python and TypeScript
+packages publish from the same workflow. It supersedes RFC 0020 §2, §3, §4, §5, and §7,
+and retires the `rc.md` checklist that RFC 0020 §6 links. From §4 only the shared minor
+survives: every product and package shares one minor, and patches move independently.
 
 ## 1 Motivation
 
@@ -38,8 +37,8 @@ Three binary products release by dispatch: Console, Core, Driver. The Python and
 TypeScript packages publish from the same dispatch. Compatible products and packages
 share a major.minor, the train, such as `0.59`. `main` is always releasable: unfinished
 work ships dark behind a flag. No binary publishes on push; a person dispatches every
-release. No file in Git carries a binary product version; the tag is the version. A
-package manifest carries its own version.
+release. No file in Git carries a version; the tag is the version, and every manifest
+carries `0.0.0`.
 
 ### 2.0 Branching
 
@@ -58,7 +57,8 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
 - **`console`, `driver`, `core`**: The products to release, all on by default. One
   dispatch ships a whole train; a hotfix ticks one product.
-- **`packages`**: Publish the Python and TypeScript packages, on by default. A candidate
+- **`typescript`, `python`**: Publish the npm packages at the next `ts/v*` patch and the
+  PyPI packages at the next `py/v*` patch on the train, both on by default. A candidate
   run never publishes them. An npm publish on an older train takes the `train-X.Y`
   dist-tag, so `latest` never moves back.
 - **`bump`**: `patch` (default) or `minor`, applied to every selected product.
@@ -108,14 +108,38 @@ with that product alone, and a Core rerun's defaults pick up the others.
 `deploy.synnax.yaml` is deleted; every binary release is a new version, so nothing is
 ever already published.
 
-`release.yaml` has a `packages` checkbox. With it on, the run publishes every Python and
-TypeScript package whose manifest version is not yet on the registry;
-`uv publish --check-url` and `pnpm publish -r` skip the rest, so a package that did not
-change is never republished. A merge publishes nothing. Both publish through OIDC
-trusted publishing with `id-token: write`, so no registry token lives in the repo's
-secrets. The registries trust `release.yaml` by name, so the publish jobs live in it,
-not in a called workflow. Packages have no candidate channel: a candidate run never
-publishes them.
+Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
+`py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
+each language releases alone. A language publishes on the Core's train, so every client
+works with a released Core: the Core minor the run releases, else the minor of a
+`release/<product>-X.Y` branch, else the newest Core minor reachable from `HEAD`. A run
+that releases no Core fails when no Core is out on that train. The resolve stage takes
+the next patch on the train, or `X.Y.0` when the train has none, and ignores `bump`. The
+publish job waits for every product the run releases, then runs `stamp_versions.sh` to
+write the version into that language's manifests. It stops when the version's tag names
+another commit, or when the registry has the version without a tag, so one version never
+holds packages from two commits.
+
+The Python job claims the version by pushing its tag at the run's commit, then
+publishes. A run at the same commit keeps the version, since the resolve stage keeps a
+tag that names `HEAD`, and finishes a partial publish, since PyPI skips what already
+went up.
+
+The npm trusted publishers allow staging only. The npm job stages every package in one
+`pnpm stage publish --batch` request, then pushes the tag. Nothing installs until a
+maintainer approves each package on npmjs.com with 2FA, in dependency order: `x`,
+`alamos`, `freighter`, then `client`. A staged version is hidden from the registry, so a
+run whose tag already names its commit skips the stage. While `client` waits for
+approval at the newest `ts/v*` version, overall or on the run's train, the job stages
+nothing, so approvals never move a dist-tag back. Three cases need a person. To reject a
+release, reject every staged package and delete its `ts/v*` tag. If a stage fails part
+way, reject what staged and rerun. If the tag push fails after a stage, push the tag at
+the run's commit by hand and rerun.
+
+A merge publishes nothing. Both publish through OIDC trusted publishing with
+`id-token: write`, so no registry token lives in the repo's secrets. The registries
+trust `release.yaml` by name, so the publish jobs live in it, not in a called workflow.
+Packages have no candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 
@@ -124,14 +148,11 @@ and the Core release fails unless the Console and Driver it embeds share its min
 Console and Driver open a train; the Core closes it. Every product and every package
 shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
 while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-`check_versions.sh` enforces the rule for the packages: every manifest shares one minor,
-and that minor is the Core's latest stable minor or the next one, read from the `core/`
-tags instead of the `VERSION` file. A split, with some manifests on each train, fails
-the check, so a package minor bump is one PR that moves every manifest to the new train.
-The C++ client is a package: its manifest is `client/cpp/version/VERSION`, bumped with
-the rest and separate from the Driver's version, so the client can release on its own.
-The catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at
-publish, so any patch mix inside a train resolves; `pluto/package.json` pins
+Each language publishes on the Core's train and releases its packages together at one
+version. The C++ client and the C library are on no registry and ship with the Driver,
+so they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The
+catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish,
+so any patch mix inside a train resolves; `pluto/package.json` pins
 `@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
 versions, and both move to the catalog.
 
@@ -150,12 +171,13 @@ in `client/ts/src/connection/status.ts`, `_versions_compatible` in
 `client/py/synnax/connection.py`, and `versions_compatible` in
 `client/cpp/connection/checker.cpp`, which the Driver ships) require an equal
 major.minor today and gain one rule: a `0.0` on either side is compatible. Any client
-then connects to a dev Core without a mismatch warning. The Driver's check carries the
-C++ client's manifest version, not the Driver's, so a dev Driver checks like a dev
-Python or TypeScript client: against the train the checkout is on.
+then connects to a dev Core without a mismatch warning. A release build of the Console
+runs `stamp_versions.sh`, which writes its version into the package manifests, so the
+Console's guard reports the Console's version. Each Desktop build stamps the version of
+the Core that it embeds.
 
-`bump_versions.sh` drops the `VERSION` and `tauri.conf.json` edits and bumps only the
-package manifests.
+`check_versions.sh` and `bump_versions.sh` are deleted. A dev build of a client runs at
+`0.0.0`, like a dev binary.
 
 ### 2.3 Updater manifest and docs site
 
@@ -244,15 +266,14 @@ flag and workflow file.
    without a deploy.
 9. **Cutover order**: Workflows first, then merge `rc`, then retarget and delete, so no
    PR pays a rebase and the first release ships a whole train.
-10. **Packages publish by dispatch from manifest versions**: Publish on merge rejected;
-    a version bump then shipped before anyone chose to release it. Tag-resolved lockstep
-    versions rejected for Python and TypeScript; they republished every package on every
-    patch and cost a product tag, a workflow, and version injection to replace a flow
-    that already works. Per-package tags rejected because the cascade through internal
-    ranges then needs a person or Changesets. The manifest version is the release
-    decision, the registry's skip of published versions is the change detection, and the
-    published `^X.Y.0` ranges lock the minor on 0.x, so any patch mix inside a train
-    resolves.
+10. **Packages version from one lockstep tag per language**: Manifest versions rejected;
+    a bump PR merged 0.61.0 into every manifest and published it before any 0.61 Core
+    existed, and bump PRs are a second release decision outside the dispatch.
+    Per-package tags rejected because the cascade through internal ranges then needs a
+    person or Changesets. One tag for both languages rejected because a TypeScript fix
+    would publish a Python version with no changes. Lockstep inside a language
+    republishes unchanged packages, which is cheap and keeps every internal range
+    satisfiable.
 11. **One workflow, a checkbox per product**: `release.yaml` ships a minor with one
     click and a hotfix with one box ticked. A workflow per product plus a train over
     them was rejected as four files for one job; separate dispatches as three clicks in
