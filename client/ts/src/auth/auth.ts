@@ -563,7 +563,7 @@ export class Client {
             this.authState = { authenticated: false };
             this.authenticating = undefined;
           }
-          const ended = new SessionEndedError(parsed.message);
+          const ended = new SessionEndedError(parsed.message, { cause: parsed });
           if (generation === this.generation) this.observer.onFailure?.(ended);
           throw ended;
         }

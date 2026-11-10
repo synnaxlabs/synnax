@@ -175,7 +175,7 @@ export const Login = (): ReactElement => {
                     message == null && CSS.M("ghost"),
                   )}
                 >
-                  <Text.Text level="p">{message ?? "\u00a0"}</Text.Text>
+                  <Text.Text level="small">{message ?? "\u00a0"}</Text.Text>
                 </Note.Note>
               </Flex.Box>
             </Flex.Box>
