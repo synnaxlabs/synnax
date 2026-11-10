@@ -9,9 +9,8 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Arc as PArc } from "@synnaxlabs/pluto";
+import { Access } from "@synnaxlabs/pluto";
 
-import { Explorer } from "@/feature/arc/explorer";
 import { Arc } from "@/platform/arc";
 import { Command } from "@/platform/command";
 
@@ -23,12 +22,4 @@ const CreateCommand = Command.create({
   useOnSelect: Arc.useCreate,
 });
 
-const OpenExplorerCommand = Command.create({
-  key: "open_arc_explorer",
-  name: "Open Arc explorer",
-  icon: <PArc.ExplorerIcon />,
-  useOnSelect: Explorer.useOpenTab,
-  useVisible: () => Access.useRetrieveGranted(arc.TYPE_RESOURCE_ID),
-});
-
-export const COMMANDS = [CreateCommand, OpenExplorerCommand];
+export const COMMANDS = [CreateCommand];
