@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, NotFoundError, query, status } from "@synnaxlabs/client";
+import { device, NotFoundError, query, type rack, status } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
@@ -17,7 +17,7 @@ import {
 import { caseconv, id, type record } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Device } from "@/device";
@@ -543,6 +543,72 @@ describe("queries", () => {
         device.set({ path: ["configured"], value: true }),
       );
       await waitFor(() => expect(result.current?.[0]?.configured).toBe(true));
+    });
+  });
+
+  describe("useResultAncestors", () => {
+    let rackKey: rack.Key;
+    beforeAll(async () => {
+      rackKey = (await client.racks.create({ name: "test" })).key;
+    });
+
+    const create = async (name: string, parent?: device.Key) =>
+      await client.devices.create({
+        key: id.create(),
+        name,
+        rack: rackKey,
+        location: "test",
+        make: "test",
+        model: "test",
+        properties: {},
+        parent,
+      });
+
+    it("should keep the devices and the devices above them live", async () => {
+      const top = await create("top");
+      const mid = await create("mid", top.key);
+      const leaf = await create("leaf", mid.key);
+      const keysOf = (devices?: device.Device[]): device.Key[] =>
+        (devices ?? []).map(({ key }) => key).sort();
+      const { result } = renderHook(
+        () => Device.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect(result.current.variant).toEqual("success");
+        expect(keysOf(result.current.data)).toEqual(
+          [leaf.key, mid.key, top.key].sort(),
+        );
+      });
+      await act(async () => {
+        await client.devices.rename(top.key, "renamed");
+      });
+      await waitFor(() =>
+        expect(result.current.data).toContainEqual(
+          expect.objectContaining({ key: top.key, name: "renamed" }),
+        ),
+      );
+    });
+
+    it("should fetch a device that joins the chain uncached", async () => {
+      const chassis = await create("chassis");
+      const leaf = await create("leaf", chassis.key);
+      const holder = await create("holder");
+      const reader = createTestClient();
+      const { result } = renderHook(
+        () => Device.useResultAncestors({ keys: [leaf.key] }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: reader }) },
+      );
+      await waitFor(() => expect(result.current.data).toHaveLength(2));
+      await client.devices.dispatch(
+        chassis.key,
+        device.setRack({ rack: rackKey, parent: holder.key }),
+      );
+      await waitFor(() =>
+        expect(result.current.data?.map(({ key }) => key).sort()).toEqual(
+          [leaf.key, chassis.key, holder.key].sort(),
+        ),
+      );
     });
   });
 

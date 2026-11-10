@@ -13,8 +13,18 @@ import {
   query as clientQuery,
   type query,
   resource,
+  type Synnax as SynnaxClient,
 } from "@synnaxlabs/client";
-import { deep, primitive, type record, uuid, verbs, zod } from "@synnaxlabs/x";
+import {
+  deep,
+  destructor,
+  primitive,
+  type record,
+  unique,
+  uuid,
+  verbs,
+  zod,
+} from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { type z } from "zod";
 
@@ -193,6 +203,59 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   name: PLURAL_RESOURCE_NAME,
   normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
   ...flux.listReads(({ client, query }) => client.devices.watch(query)),
+});
+
+export type RetrieveAncestorsQuery = { keys: device.Key[] };
+
+/** Adds the devices to found, and returns the keys above them that it lacks. */
+const collect = (
+  found: Map<device.Key, device.Device>,
+  devices: device.Device[],
+): device.Key[] => {
+  devices.forEach((d) => found.set(d.key, d));
+  return unique.unique(
+    devices.flatMap(({ parent }) =>
+      parent == null || found.has(parent) ? [] : [parent],
+    ),
+  );
+};
+
+const getCachedAncestry = (
+  client: SynnaxClient,
+  keys: device.Key[],
+): device.Device[] | undefined => {
+  const found = new Map<device.Key, device.Device>();
+  let next = keys;
+  while (next.length > 0) {
+    const devices = client.devices.watch(next).getCached();
+    if (!clientQuery.isLive(devices)) return undefined;
+    next = collect(found, devices);
+  }
+  return [...found.values()];
+};
+
+/**
+ * Retrieves the devices with the keys and every device that holds one of them. A
+ * change to one of them updates the answer.
+ */
+export const { useResult: useResultAncestors } = Flux.createRetrieve<
+  RetrieveAncestorsQuery,
+  device.Device[]
+>({
+  name: "device ancestors",
+  retrieve: async ({ client, query: { keys } }) => {
+    const found = new Map<device.Key, device.Device>();
+    let next = keys;
+    while (next.length > 0) next = collect(found, await client.devices.retrieve(next));
+    return [...found.values()];
+  },
+  onChange: ({ client, query: { keys } }, handler) => {
+    const notify = () => handler(getCachedAncestry(client, keys));
+    const offSet = client.devices.onSet(notify);
+    const offDelete = client.devices.onDelete(notify);
+    return () => destructor.unwind(offSet, offDelete);
+  },
+  getCached: ({ client, query: { keys } }) => getCachedAncestry(client, keys),
 });
 
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
