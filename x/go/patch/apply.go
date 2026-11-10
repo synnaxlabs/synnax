@@ -142,6 +142,7 @@ func ApplyOptionalStruct[U, T any](
 // dst with a new slice and never writes the old one. It returns an error wrapping
 // validate.ErrValidation when ops holds set beside another operator, ErrStale for a key
 // that is missing, and query.ErrUniqueViolation for a key that the list already holds.
+// A merge error starts with the key of its entry.
 func ApplyList[E any, K comparable, U any](
 	dst *[]E,
 	ops List[E, K, U],
@@ -188,7 +189,7 @@ func ApplyList[E any, K comparable, U any](
 			return err
 		}
 		if err = merge(&list[i], u); err != nil {
-			return err
+			return errors.Wrapf(err, "%v", updateKey(u))
 		}
 	}
 	list, err := appendUnique(list, ops.Insert, key)

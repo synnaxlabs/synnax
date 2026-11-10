@@ -292,7 +292,7 @@ var _ = Describe("Apply", func() {
 				"a failed merge",
 				ports{Update: []portUpdate{{Key: "a", Port: patch.Clear[int]()}}},
 				validate.ErrValidation,
-				"a required field cannot be cleared",
+				"a: a required field cannot be cleared",
 			),
 			Entry(
 				"an insert of an existing key",
