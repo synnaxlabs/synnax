@@ -15,7 +15,6 @@ import { type Element, type Root } from "hast";
 import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it, vi } from "vitest";
 
-import { type Release, Releases } from "@/util/releases";
 import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
@@ -32,10 +31,6 @@ const text = (node: Element): string =>
     .trim();
 
 const TRAINS = ["0.61", "0.60"];
-const RELEASES: Release[] = [
-  { tag_name: "core/v0.61.0", prerelease: false, draft: false },
-  { tag_name: "core/v0.60.1", prerelease: false, draft: false },
-];
 const PATH = "/reference/control/";
 
 // The layout reads its version from the build, so each render loads it anew.
@@ -47,12 +42,7 @@ const render = async (version: Version | null): Promise<Element[]> => {
     astroConfig: { site: ROOT },
   });
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
-  const releases = new Releases({
-    fetch: async () => new Response(JSON.stringify(RELEASES)),
-    train: version?.status === "next" ? undefined : version?.name,
-  });
   const html = await container.renderToString(Layout, {
-    locals: { releases },
     props: { frontmatter: { title: "Control" } },
     request: new Request(`https://docs.synnaxlabs.com${PATH}`),
   });
@@ -83,7 +73,7 @@ const feeds = (nodes: Element[]): unknown[] =>
 describe("Root", () => {
   describe.each([
     ["an unversioned build", null],
-    ["the newest train", resolve("0.61", TRAINS)],
+    ["the newest train", resolve("0.61", TRAINS, "0.61.0")],
   ])("on %s", (_, version) => {
     it("should let search engines index the pages", async () => {
       expect(robots(await render(version)).join()).not.toContain("noindex");
@@ -105,8 +95,12 @@ describe("Root", () => {
   });
 
   describe.each([
-    ["an earlier train", resolve("0.60", TRAINS), "These docs describe Synnax 0.60."],
-    ["next", resolve("next", TRAINS), "These docs describe unreleased work."],
+    [
+      "an earlier train",
+      resolve("0.60", TRAINS, "0.60.1"),
+      "These docs describe Synnax 0.60.",
+    ],
+    ["next", resolve("next", TRAINS, null), "These docs describe unreleased work."],
   ])("on %s", (_, version, notice) => {
     it("should keep search engines out", async () => {
       expect(robots(await render(version)).join()).toContain("noindex");

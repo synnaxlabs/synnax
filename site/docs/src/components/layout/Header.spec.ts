@@ -16,7 +16,6 @@ import { fromHtml } from "hast-util-from-html";
 import { describe, expect, it } from "vitest";
 
 import Header from "@/components/layout/Header.astro";
-import { type Release, Releases } from "@/util/releases";
 import { resolve, ROOT, type Version } from "@/util/version";
 
 const elements = (node: Root | Element): Element[] =>
@@ -32,22 +31,10 @@ const text = (node: Element): string =>
     .join("")
     .trim();
 
-const RELEASES: Release[] = [
-  { tag_name: "core/v0.61.0", prerelease: false, draft: false },
-  { tag_name: "core/v0.60.1", prerelease: false, draft: false },
-  { tag_name: "core/v0.60.0", prerelease: false, draft: false },
-  { tag_name: "core/v0.59.2", prerelease: false, draft: false },
-];
-
 const render = async (version: Version | null = null): Promise<Element[]> => {
   const container = await experimental_AstroContainer.create();
   container.addServerRenderer({ name: "@astrojs/react", renderer: reactRenderer });
-  const releases = new Releases({
-    fetch: async () => new Response(JSON.stringify(RELEASES)),
-    train: version?.status === "next" ? undefined : version?.name,
-  });
   const html = await container.renderToString(Header, {
-    locals: { releases },
     props: { version },
     request: new Request("https://docs.synnaxlabs.com/reference/"),
   });
@@ -78,7 +65,7 @@ describe("Header", () => {
   });
 
   it("should link each version at the current path", async () => {
-    const nodes = await render(resolve("0.59", ["0.60", "0.59"]));
+    const nodes = await render(resolve("0.59", ["0.60", "0.59"], "0.59.2"));
     const links = classed(nodes, "version-menu__list").flatMap(elements);
     expect(
       links
@@ -97,12 +84,12 @@ describe("Header", () => {
         .flatMap(elements)
         .filter(({ tagName }) => tagName === "a")
         .map((link) => text(elements(link)[0]));
-    expect(await labels(resolve("0.60", ["0.60", "0.59"]))).toEqual([
+    expect(await labels(resolve("0.60", ["0.60", "0.59"], "0.60.1"))).toEqual([
       "Next",
       "v0.60",
       "v0.59",
     ]);
-    expect(await labels(resolve("0.59", ["0.60", "0.59"]))).toEqual([
+    expect(await labels(resolve("0.59", ["0.60", "0.59"], "0.59.2"))).toEqual([
       "Next",
       "Latest",
       "v0.59",
@@ -112,16 +99,16 @@ describe("Header", () => {
   it("should name the newest release of the train on the trigger", async () => {
     const trigger = async (version: Version): Promise<string> =>
       text(classed(await render(version), "version-menu__trigger")[0]);
-    expect(await trigger(resolve("0.60", ["0.61", "0.60"]))).toBe("v0.60.1");
-    expect(await trigger(resolve("next", ["0.61", "0.60"]))).toBe("Next");
+    expect(await trigger(resolve("0.60", ["0.61", "0.60"], "0.60.1"))).toBe("v0.60.1");
+    expect(await trigger(resolve("next", ["0.61", "0.60"], null))).toBe("Next");
   });
 
   it("should send the pages no version owns to the root", async () => {
-    expect(hrefs(await render(resolve("next", ["0.60"])), "Blog")).toEqual([
+    expect(hrefs(await render(resolve("next", ["0.60"], null)), "Blog")).toEqual([
       `${ROOT}/blog/`,
       `${ROOT}/blog/`,
     ]);
-    expect(hrefs(await render(resolve("0.60", ["0.60"])), "Blog")).toEqual([
+    expect(hrefs(await render(resolve("0.60", ["0.60"], "0.60.1")), "Blog")).toEqual([
       "/blog/",
       "/blog/",
     ]);
