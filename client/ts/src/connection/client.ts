@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, type UnaryClient } from "@synnaxlabs/freighter";
+import { type Middleware, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
 import {
   breaker,
   ClockSkewCalculator,
@@ -37,7 +37,12 @@ import {
   reduce,
   type Status,
 } from "@/connection/status";
-import { AccessDeniedError, DisconnectedError, errorsMiddleware } from "@/errors";
+import {
+  AccessDeniedError,
+  AuthError,
+  DisconnectedError,
+  errorsMiddleware,
+} from "@/errors";
 import { license } from "@/license";
 import { Transport } from "@/transport";
 
@@ -53,8 +58,8 @@ const checkResZ = z.object({
 
 /**
  * Runs a single connectivity check, measuring clock skew across the round trip.
- * The transport must carry the full middleware chain, auth included, so that a
- * response proves authentication.
+ * A response proves authentication only when the transport carries the auth
+ * middleware.
  * @throws {AuthError} if the cluster rejects the client's credentials.
  * @throws {Unreachable} if the cluster cannot be reached.
  */
@@ -166,6 +171,12 @@ export interface ClientParams {
    * that a check response proves authentication.
    */
   unary: UnaryClient;
+  /**
+   * Check transport without auth. When a Core answers a check with an error, a check
+   * through it tells whether the Core is incompatible, since a login to such a Core
+   * can fail first.
+   */
+  tokenless?: UnaryClient;
   /** Cluster address, used in error messages. */
   address: string;
   /** Human-readable cluster name for status messages. */
@@ -206,6 +217,7 @@ export interface ClientParams {
  */
 export class Client implements Handle {
   private readonly unary: UnaryClient;
+  private readonly tokenless?: UnaryClient;
   private readonly address: string;
   private readonly config: Config;
   private readonly retry: breaker.Config;
@@ -227,6 +239,7 @@ export class Client implements Handle {
 
   constructor({
     unary,
+    tokenless,
     address,
     name,
     escalateAfter = DEFAULT_ESCALATE_AFTER,
@@ -239,6 +252,7 @@ export class Client implements Handle {
     onInternalError = console.error,
   }: ClientParams) {
     this.unary = unary;
+    this.tokenless = tokenless;
     this.address = address;
     this.config = {
       clientVersion: __VERSION__,
@@ -269,8 +283,8 @@ export class Client implements Handle {
   }
 
   /**
-   * Resets the retry backoff and checks immediately. Auth and incompatibility
-   * errors are not cleared: those rest until the user supplies something new.
+   * Resets the retry backoff and checks immediately. Auth errors are not cleared: those
+   * rest until the user supplies new credentials.
    */
   retryNow(): void {
     this.dispatch({ type: "retry.requested" });
@@ -438,12 +452,31 @@ export class Client implements Handle {
         });
     } catch (err) {
       if (generation !== this.generation || this.closed) return;
+      const info = await this.checkTokenless(err);
+      if (generation !== this.generation || this.closed) return;
       this.attempts += 1;
       this.dispatch({
         type: "check.failure",
         error: errors.fromUnknown(err),
         attempt: this.attempts,
+        info,
       });
+      // an incompatible Core answered, so its checks do not count toward escalation
+      const { variant, details } = this.current;
+      if (variant === "error" && details.reason === "incompatible") this.attempts = 0;
+    }
+  }
+
+  // A Core that answered with neither a network nor an auth error may be one whose
+  // responses this client cannot parse.
+  private async checkTokenless(err: unknown): Promise<Info | undefined> {
+    if (this.tokenless == null || Unreachable.matches(err) || AuthError.matches(err))
+      return undefined;
+    try {
+      return await sendCheck(this.tokenless);
+    } catch {
+      // the failed authenticated check already carries the error to report
+      return undefined;
     }
   }
 

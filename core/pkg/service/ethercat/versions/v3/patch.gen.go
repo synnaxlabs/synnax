@@ -31,6 +31,8 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
+	case "startup_parameters":
+		return patch.Value(&rc.StartupParameters, c.Next())
 	default:
 		return c.UnknownField()
 	}
@@ -46,6 +48,28 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
+	h.Len(len(rc.StartupParameters))
+	for i0 := range rc.StartupParameters {
+		rc.StartupParameters[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (ssp *SlaveStartupParameters) HashContent(h *content.Hash) {
+	h.String(ssp.Device)
+	h.Len(len(ssp.Parameters))
+	for i0 := range ssp.Parameters {
+		ssp.Parameters[i0].HashContent(h)
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (sp *StartupParameter) HashContent(h *content.Hash) {
+	h.Uint(uint64(sp.Index))
+	h.Uint(uint64(sp.SubIndex))
+	h.String(string(sp.DataType))
+	h.Float(sp.Value)
+	h.String(sp.Name)
 }
 
 // Patch applies the path action at c, which is not done, to the value.
