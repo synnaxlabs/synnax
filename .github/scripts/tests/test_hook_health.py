@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import http.client
 import io
 import json
 import urllib.parse
@@ -179,6 +180,8 @@ class TestHttp:
             HTTPError("https://x/a", 502, "Bad Gateway", Message(), None),
             URLError("connection reset"),
             TimeoutError(),
+            http.client.RemoteDisconnected("closed"),
+            ConnectionResetError(),
         ],
     )
     def test_should_retry_a_transient_failure(self, error: Exception) -> None:

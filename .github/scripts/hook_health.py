@@ -43,8 +43,8 @@ Fetch = Callable[[str], tuple[Any, str | None]]
 
 
 class Http:
-    """Sends authenticated GET requests to the GitHub API. Retries a server error or
-    a network failure up to ATTEMPTS times."""
+    """Sends authenticated GET requests to the GitHub API. Tries a request up to
+    ATTEMPTS times when it gets a server error or a network failure."""
 
     def __init__(
         self,
@@ -71,7 +71,7 @@ class Http:
             except urllib.error.HTTPError as e:
                 if e.code < 500:
                     raise
-            except (urllib.error.URLError, TimeoutError):
+            except OSError:
                 pass
             self.sleep(RETRY_SECONDS)
         return self.get(req)
