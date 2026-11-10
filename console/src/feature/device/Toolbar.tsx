@@ -71,7 +71,7 @@ export const TOOLBAR: Nav.Toolbar = {
   content: <Content />,
   tooltip: "Devices",
   initialSize: 300,
-  sizeBounds: { lower: 175, upper: 400 },
+  sizeBounds: { lower: 175, upper: 600 },
   trigger: ["D"],
   useVisible: () => Access.useRetrieveGranted(device.TYPE_RESOURCE_ID),
 };

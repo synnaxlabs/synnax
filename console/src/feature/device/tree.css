@@ -12,14 +12,26 @@
 .console-device-tree-item {
     .console-name-location {
         width: 0;
+        min-width: 0;
 
-        .console-name {
-            flex-shrink: 1;
+        /* Device names line up past logos of every width. */
+        .console-device-icon {
+            display: flex;
+            flex-shrink: 0;
+            justify-content: center;
+            width: 4rem;
         }
 
-        .console-location {
+        .console-name {
+            min-width: 0;
+        }
+
+        /* The location shrinks first, to its telling part, and then the name fades. */
+        .console-device-location {
+            flex: 0 1000 auto;
+            min-width: min(calc(var(--pluto-location-keep) * 1ch + 2rem), 55%);
             margin-left: auto;
-            flex-shrink: 10;
+            padding-left: 2rem;
         }
     }
 }

@@ -9,7 +9,7 @@
 
 import "@/feature/rack/tree.css";
 
-import { arc, device, group, rack, type resource, task } from "@synnaxlabs/client";
+import { arc, device, group, rack, type resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -20,15 +20,11 @@ import { type ReactElement } from "react";
 
 import { Arc } from "@/feature/arc";
 import { Device } from "@/feature/device";
-import { NI } from "@/feature/ni";
-import { OPCUA } from "@/feature/opcua";
 import { ContextMenu } from "@/platform/context-menu";
 import { Credential } from "@/platform/credential";
 import { CSS } from "@/platform/css";
 import { Group } from "@/platform/group";
 import { Tree } from "@/platform/tree";
-
-const NI_INTEGRATION_NAME = "ni";
 
 const CreateArcIcon = Icon.createComposite(Icon.Arc, {
   topRight: Icon.Add,
@@ -73,42 +69,22 @@ const useDelete = Tree.createUseDelete({
   convertKey: Number,
 });
 
-interface NIScannerItemProps {
+interface IntegrationItemsProps {
   rackKey: rack.Key;
 }
 
-const NIScannerItem = ({ rackKey }: NIScannerItemProps): ReactElement | null => {
+/** The menu items of each integration that the rack's Driver runs. */
+const IntegrationItems = ({ rackKey }: IntegrationItemsProps): ReactElement => {
   Rack.useEnsure({ key: rackKey });
-  const integrations = Rack.useIntegrations({ key: rackKey });
-  const toggleScanner = NI.Task.useToggleScanner(rackKey);
-  if (!integrations.includes(NI_INTEGRATION_NAME)) return null;
+  const keys = Rack.useIntegrations({ key: rackKey });
   return (
-    <Menu.Item itemKey="toggleNIScanner" onClick={toggleScanner}>
-      <Icon.Logo.NI />
-      Toggle NI device scanner
-    </Menu.Item>
-  );
-};
-
-interface OPCUADriverCertificateItemProps {
-  rackKey: rack.Key;
-}
-
-const OPCUADriverCertificateItem = ({
-  rackKey,
-}: OPCUADriverCertificateItemProps): ReactElement | null => {
-  Rack.useEnsure({ key: rackKey });
-  const integrations = Rack.useIntegrations({ key: rackKey });
-  const openCertificate = OPCUA.Device.useDriverCertificateModal();
-  if (!integrations.includes(OPCUA.Device.INTEGRATION)) return null;
-  return (
-    <Menu.Item
-      itemKey="showOPCUADriverCertificate"
-      onClick={() => void openCertificate({ rackKey })}
-    >
-      <Icon.Logo.OPCUA />
-      Show OPC UA Driver certificate
-    </Menu.Item>
+    <>
+      {Device.INTEGRATIONS.map(({ key, RackMenuItems }) =>
+        RackMenuItems != null && keys.includes(key) ? (
+          <RackMenuItems key={key} rackKey={rackKey} />
+        ) : null,
+      )}
+    </>
   );
 };
 
@@ -125,7 +101,6 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const hasUpdatePermission = Access.useUpdateGranted(resourceIDs);
   const hasArcCreatePermission = Access.useCreateGranted(arc.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(resourceIDs);
-  const hasTaskCreatePermission = Access.useCreateGranted(task.TYPE_RESOURCE_ID);
   const hasDeviceCreatePermission = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
@@ -166,8 +141,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
               Create Arc automation
             </Menu.Item>
           )}
-          {hasTaskCreatePermission && <NIScannerItem rackKey={rackKey} />}
-          <OPCUADriverCertificateItem rackKey={rackKey} />
+          <IntegrationItems rackKey={rackKey} />
           <Menu.Item
             itemKey="credentials"
             onClick={() =>
