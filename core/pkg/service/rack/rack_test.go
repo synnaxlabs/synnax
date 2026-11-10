@@ -1110,6 +1110,7 @@ var _ = Describe("Rack", Ordered, func() {
 				live := MustSucceed(retrieveStatusTx(ctx, stat, tx, r.Key))
 				live.Variant = status.VariantSuccess
 				live.Message = "Rack is connected"
+				live.Details = rack.StatusDetails{Running: true}
 				Expect(stat.NewWriter(tx).Set(ctx, &live)).To(Succeed())
 				expected := live
 				expected.Name = "connected rack"

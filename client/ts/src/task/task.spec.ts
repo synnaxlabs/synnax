@@ -1165,6 +1165,7 @@ describe("Task", async () => {
     key: number,
     variant: status.Variant,
     message: string,
+    running: boolean = variant === "success",
   ) => {
     await client.statuses.set({
       owner: rack.resourceID(key),
@@ -1172,7 +1173,7 @@ describe("Task", async () => {
       variant,
       message,
       time: TimeStamp.now(),
-      details: { running: variant === "success" },
+      details: { running },
     });
   };
 
@@ -1597,6 +1598,33 @@ describe("Task", async () => {
           variant: "warning",
           message: "no Driver here",
           details: { running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("sends a loading status for a rack whose running Driver warns", async () => {
+      const warned = await client.racks.create({ name: `warned-${id.create()}` });
+      const t = await warned.createTask({
+        name: `warned-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = statusKeyOf(task.resourceID(t.key));
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(warned.key, "warning", "Driver is degraded", true);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant !== "disabled")
+          seeWrite(event.value);
+      }, key);
+      try {
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          variant: "loading",
+          message: "Sending start command",
         });
       } finally {
         off();
