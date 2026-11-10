@@ -1082,23 +1082,22 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
     let states: Status<StatusData>[] = [];
     while (true) {
       const frame = await streamer.read();
-      // A frame can hold statuses for other tasks and racks, which have a different
-      // shape and fail to parse.
+      // A frame can hold statuses for other tasks and racks. Rack details parse as task
+      // details, so the owner tells a rack status apart.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
         const decoded = binary.JSON_CODEC.decodeString(str);
-        const res = statusZ(statusDataZ).safeParse(decoded);
-        if (!res.success) {
+        const rackRes = rackStatusZ.safeParse(decoded);
+        if (
+          rackRes.success &&
+          rackRes.data.owner != null &&
+          rackOwners.has(resource.idToString(rackRes.data.owner))
+        ) {
           // A down Driver never replies, so its rack's problem ends the wait.
-          const rackRes = rackStatusZ.safeParse(decoded);
-          if (
-            rackRes.success &&
-            rackRes.data.owner != null &&
-            rackOwners.has(resource.idToString(rackRes.data.owner)) &&
-            !isRackHealthy(rackRes.data)
-          )
-            throw status.toError(rackRes.data);
+          if (!isRackHealthy(rackRes.data)) throw status.toError(rackRes.data);
           continue;
         }
+        const res = statusZ(statusDataZ).safeParse(decoded);
+        if (!res.success) continue;
         const state = res.data;
         if (state.details.cmd == null || !cmdKeys.includes(state.details.cmd)) continue;
         // Any reply acknowledges its command. A loading reply is not the final one.
