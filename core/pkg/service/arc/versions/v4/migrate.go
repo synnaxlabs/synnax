@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
@@ -28,44 +29,44 @@ import (
 // raw, and either way the result carries a fresh document and no raw. Every Arc stored
 // before v4 is an automation.
 func MigrateArc(ctx context.Context, old v3.Arc) (Arc, error) {
-	a, _ := migrateArc(ctx, old)
-	return a, nil
-}
-
-// migrateArc is MigrateArc that also reports whether the text parsed. A text that does
-// not parse keeps its range() calls unchanged.
-func migrateArc(ctx context.Context, old v3.Arc) (Arc, bool) {
 	b := Base{Key: old.Key, Name: old.Name}
 	if old.Mode != v3.ModeText {
 		b.Source.Variant = GraphSource{Graph: old.Graph}
-		return Arc{Variant: AutomationArc{Base: b}}, true
+		return Arc{Variant: AutomationArc{Base: b}}, nil
 	}
 	t := old.Text
 	raw := t.Raw
 	if len(t.Doc.Inserts) > 0 {
 		raw = t.Materialize().Raw
 	}
-	parsed := true
 	if raw != "" {
-		var src string
-		src, parsed = CastRanges(ctx, SwapBrackets(raw))
-		t.Doc = text.Create(src)
+		t.Doc = text.Create(CastRanges(ctx, SwapBrackets(raw)))
 		t.Raw = ""
 	}
 	b.Source.Variant = TextSource{Text: t}
-	return Arc{Variant: AutomationArc{Base: b}}, parsed
+	return Arc{Variant: AutomationArc{Base: b}}, nil
 }
 
+// migrateStored is MigrateArc for the stored-data migration. It logs each text that
+// does not parse, since CastRanges leaves its range() calls unchanged.
 func migrateStored(
 	ctx context.Context,
 	old v3.Arc,
 	ins alamos.Instrumentation,
 ) (Arc, error) {
-	a, parsed := migrateArc(ctx, old)
-	if !parsed {
+	a, err := MigrateArc(ctx, old)
+	if err != nil {
+		return Arc{}, err
+	}
+	src, ok := a.Base().Source.Variant.(TextSource)
+	if !ok {
+		return a, nil
+	}
+	if _, diag := parser.Parse(src.Text.Materialize().Raw); diag != nil {
 		ins.L.Warn(
 			"left the range() calls of an Arc that does not parse unchanged",
 			zap.Stringer("arc", old.Key),
+			zap.Error(diag),
 		)
 	}
 	return a, nil

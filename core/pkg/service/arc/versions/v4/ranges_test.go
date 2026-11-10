@@ -36,7 +36,7 @@ var _ = Describe("CastRanges", func() {
 	DescribeTable("Should cast mixed typed arguments to the type 0.60 picked",
 		func(ctx SpecContext, old, want string) {
 			Expect(analyze(ctx, wrap(old)).Ok()).To(BeFalse())
-			got := MustBeOk(v4.CastRanges(ctx, wrap(old)))
+			got := v4.CastRanges(ctx, wrap(old))
 			Expect(got).To(Equal(wrap(want)))
 			diag := analyze(ctx, got)
 			Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -75,7 +75,7 @@ var _ = Describe("CastRanges", func() {
 
 	DescribeTable("Should keep a program with no mixed range() byte for byte",
 		func(ctx SpecContext, src string) {
-			Expect(MustBeOk(v4.CastRanges(ctx, wrap(src)))).To(Equal(wrap(src)))
+			Expect(v4.CastRanges(ctx, wrap(src))).To(Equal(wrap(src)))
 		},
 		Entry("untyped literals", "for i := range(0, 10, 2) {}"),
 		Entry("one typed argument and literals", "for i := range(0, n, 2) {}"),
