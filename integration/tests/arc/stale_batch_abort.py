@@ -43,9 +43,14 @@ sequence main {{
 """
 
 WINDOW = 400 * sy.TimeSpan.MILLISECOND
+# The sensor's first sample arrives this long before entry, so its index learns its
+# clock offset. The stale samples are stamped in this gap, after the first sample, so
+# their write does not overlap it.
+HISTORY_GAP = 1500 * sy.TimeSpan.MILLISECOND
+HISTORY_VALUE = 500.0
 STALE_SAMPLES = 50
-STALE_FROM = 6 * sy.TimeSpan.SECOND
-STALE_SPAN = 2 * sy.TimeSpan.SECOND
+STALE_AFTER_HISTORY = 100 * sy.TimeSpan.MILLISECOND
+STALE_SPAN = 1 * sy.TimeSpan.SECOND
 IN_STAGE_SAMPLES = 50
 IN_STAGE_FROM = 50 * sy.TimeSpan.MILLISECOND
 IN_STAGE_SPAN = 200 * sy.TimeSpan.MILLISECOND
@@ -57,9 +62,10 @@ class StaleBatchAbort(ArcCase):
     """A stage check must act only on samples taken inside the stage (SY-5456)
     and measure its hold in sample time (SY-5457).
 
-    One batch lands 500 ms after entry: 2 s of low samples from before entry,
-    then 200 ms from inside it. The 400 ms window must not close. A probe above
-    the threshold must then pass through."""
+    The sensor sends one sample before entry, so its index learns its clock offset
+    (SY-5771). One batch lands 500 ms after entry: 1 s of low samples from before
+    entry, then 200 ms from inside it. The 400 ms window must not close. A probe
+    above the threshold must then pass through."""
 
     arc_source = ""
     arc_name_prefix = "StaleBatchAbort"
@@ -87,7 +93,14 @@ class StaleBatchAbort(ArcCase):
 
     def verify_sequence_execution(self) -> None:
         self.wait_for_eq("sba_log", "arm")
-        t_go = sy.TimeStamp.now()
+        history = sy.TimeStamp.now()
+        with self.client.open_writer(
+            history,
+            [f"{self._sensor}_time", self._sensor],
+            enable_auto_commit=True,
+        ) as w:
+            w.write({f"{self._sensor}_time": history, self._sensor: HISTORY_VALUE})
+        sy.sleep(HISTORY_GAP)  # noqa: TID251 leaves room for the stale samples
         self.writer.write("sba_go", 1)
         self.wait_for_eq("sba_log", "run")
         t_after = sy.TimeStamp.now()
@@ -96,7 +109,7 @@ class StaleBatchAbort(ArcCase):
         # the batch lands after the window has passed on the wall clock.
         self.wait_for_eq("sba_ready", 1)
 
-        first = t_go - STALE_FROM
+        first = history + STALE_AFTER_HISTORY
         stale_step = STALE_SPAN / STALE_SAMPLES
         in_stage_step = IN_STAGE_SPAN / IN_STAGE_SAMPLES
         stamps = [first + stale_step * i for i in range(STALE_SAMPLES)]

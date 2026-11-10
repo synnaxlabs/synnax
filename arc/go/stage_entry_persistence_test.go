@@ -26,6 +26,8 @@ import (
 //
 // Timeline, with T the stamp at which the run stage enters:
 //
+//	T-250 ms         a sample taken 2 ms earlier arrives, so the sensor index learns
+//	                 its clock offset
 //	T-34 .. T-14 ms  samples below 300 are taken, during the previous stage
 //	T                run stage enters, check armed, step=700 written
 //	T+2              that batch is delivered and dropped
@@ -143,6 +145,12 @@ sequence main {
 		now *telem.TimeStamp,
 	) telem.TimeStamp {
 		GinkgoHelper()
+		h.IngestIndexed(
+			sensorIdxKey,
+			telem.NewSeriesV(base-2*telem.MillisecondTS),
+			sensorKey,
+			telem.NewSeriesV[float64](400),
+		)
 		vals, _ := stepWrites(cycle(ctx, h, now, base))
 		Expect(vals).To(Equal([]int64{600}))
 		out := cycle(ctx, h, now, base+telem.TimeStamp(startupWait))

@@ -39,6 +39,32 @@ type ProgramState struct {
 	lastStamps map[uint32]telem.TimeStamp
 	// writers counts the channels that wrote to each index this cycle. Flush reuses it.
 	writers map[uint32]int
+	// newest holds the newest stamp ingested on each index since the last Flush.
+	newest map[uint32]telem.TimeStamp
+	// offsets holds the clock offset learned for each index.
+	offsets map[uint32]clockOffset
+}
+
+// offsetWindow is how long an observed clock offset counts toward an estimate.
+const offsetWindow = telem.Second
+
+// clockOffset estimates how far the local clock runs ahead of the stamps on an index,
+// delivery delay included. It is the minimum offset seen over the last one to two
+// windows, so clock drift and jumps age out.
+type clockOffset struct {
+	curr, prev telem.TimeSpan
+	start      telem.TimeStamp
+}
+
+func (o *clockOffset) observe(now telem.TimeStamp, offset telem.TimeSpan) {
+	switch age := telem.TimeSpan(now - o.start); {
+	case age >= 2*offsetWindow:
+		o.curr, o.prev, o.start = offset, offset, now
+	case age >= offsetWindow:
+		o.prev, o.curr, o.start = o.curr, offset, now
+	default:
+		o.curr = min(o.curr, offset)
+	}
 }
 
 // NewProgramState creates a new ProgramState from channel digests.
@@ -51,6 +77,8 @@ func NewProgramState(digests []Digest) *ProgramState {
 		indexes:    make(map[uint32]uint32),
 		lastStamps: make(map[uint32]telem.TimeStamp),
 		writers:    make(map[uint32]int),
+		newest:     make(map[uint32]telem.TimeStamp),
+		offsets:    make(map[uint32]clockOffset),
 	}
 	for _, d := range digests {
 		ps.indexes[d.Key] = d.Index
@@ -64,8 +92,33 @@ func (ps *ProgramState) Ingest(fr telem.Frame[uint32]) {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		ps.reads[key] = ps.reads[key].Append(fr.RawSeriesAt(rawI))
+		s := fr.RawSeriesAt(rawI)
+		ps.reads[key] = ps.reads[key].Append(s)
+		if s.DataType == telem.TimestampT && s.Len() > 0 {
+			ps.newest[key] = max(ps.newest[key], s.ValueAt[telem.TimeStamp](-1))
+		}
 	}
+}
+
+// learnOffsets folds the stamps ingested since the last call into each index's clock
+// offset.
+func (ps *ProgramState) learnOffsets(now telem.TimeStamp) {
+	for idx, stamp := range ps.newest {
+		o := ps.offsets[idx]
+		o.observe(now, telem.TimeSpan(now-stamp))
+		ps.offsets[idx] = o
+	}
+	clear(ps.newest)
+}
+
+// entryStamp returns the stamp on the index of key that matches local time now, or
+// zero when the index has no learned clock offset.
+func (ps *ProgramState) entryStamp(key uint32, now telem.TimeStamp) telem.TimeStamp {
+	o, ok := ps.offsets[ps.indexes[key]]
+	if !ok {
+		return 0
+	}
+	return now.Add(-min(o.curr, o.prev))
 }
 
 // Flush extracts buffered channel writes into a frame and clears the write buffer. Only
@@ -76,11 +129,13 @@ func (ps *ProgramState) Ingest(fr telem.Frame[uint32]) {
 // index are stamped from now, and only when none of them supplied timestamps. Flush
 // returns the highest stamp it synthesized, so the caller's clock can resume above it,
 // and reports whether anything was flushed. The highest stamp is zero when nothing was
-// synthesized.
+// synthesized. Flush also learns each index's clock offset from the stamps ingested
+// since the last Flush, with now as their arrival time.
 func (ps *ProgramState) Flush(
 	fr telem.Frame[uint32],
 	now telem.TimeStamp,
 ) (telem.Frame[uint32], telem.TimeStamp, bool) {
+	ps.learnOffsets(now)
 	if len(ps.activeWriteKeys) == 0 {
 		return fr, 0, false
 	}

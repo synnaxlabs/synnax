@@ -193,9 +193,8 @@ type source struct {
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
 	channelIdx    int
 	highWaterMark telem.Alignment
-	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
-	// taken before the stage was entered and are dropped.
-	entryStamp telem.TimeStamp
+	// entered is the cycle stamp of the last Reset.
+	entered telem.TimeStamp
 }
 
 // tail returns the samples of s from index from to the end.
@@ -246,12 +245,13 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment and the entry
-// stamp to the current cycle, so a (re-)activated stage only responds to samples
-// taken and arriving after activation.
+// Reset advances the high water mark to the current channel alignment and records the
+// cycle as the entry time, so a (re-)activated stage only responds to samples arriving
+// after activation. When the channel's index has a learned clock offset, the stage
+// also drops samples stamped before entry on the sender's clock.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
-	s.entryStamp = ctx.Now
+	s.entered = ctx.Now
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
@@ -268,6 +268,7 @@ func (s *source) Next(ctx node.Context) {
 	if !ok {
 		return
 	}
+	entry := s.state.entryStamp(s.currKey, s.entered)
 	for _, ser := range data.Series {
 		ab := ser.AlignmentBounds()
 		if ab.Lower < s.highWaterMark {
@@ -299,7 +300,7 @@ func (s *source) Next(ctx node.Context) {
 				timeSeries.Alignment = ser.Alignment
 				timeSeries.TimeRange = ser.TimeRange
 			}
-			first := firstAtOrAfter(timeSeries, s.entryStamp)
+			first := firstAtOrAfter(timeSeries, entry)
 			if first == int(ser.Len()) {
 				s.highWaterMark = ab.Upper
 				continue

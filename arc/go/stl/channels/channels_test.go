@@ -10,6 +10,8 @@
 package channels_test
 
 import (
+	"context"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -433,6 +435,125 @@ var _ = Describe("Channel", func() {
 			factory = MustSucceed(channels.NewHost(ctx, nil, channelState, nil))
 		})
 
+		// learnOffset gives index a clock offset of arrival minus stamp.
+		learnOffset := func(index uint32, stamp, arrival telem.TimeStamp) {
+			s := telem.NewSeriesV(stamp)
+			s.Alignment = telem.NewAlignment(9, 0)
+			channelState.Ingest(telem.UnaryFrame(index, s))
+			channelState.Flush(telem.Frame[uint32]{}, arrival)
+		}
+
+		Describe("Stage entry", func() {
+			var (
+				nodeState *rnode.State
+				source    rnode.Node
+				emitted   int
+			)
+			BeforeEach(func() {
+				nodeState = progState.Node("source")
+				source = MustSucceed(factory.Create(rnode.Config{
+					Node: ir.Node{
+						Type: "on",
+						Inputs: types.Params{
+							{Name: "channel", Type: types.U32(), Value: uint32(10)},
+						},
+					},
+					State: nodeState,
+				}))
+				emitted = 0
+			})
+			enter := func(ctx context.Context, now telem.TimeStamp) {
+				source.Reset(rnode.Context{Context: ctx, Now: now})
+			}
+			deliver := func(ctx context.Context, seconds ...float64) {
+				stamps := make([]telem.TimeStamp, len(seconds))
+				values := make([]float32, len(seconds))
+				for i, sec := range seconds {
+					stamps[i] = telem.TimeStamp(sec * float64(telem.Second))
+					values[i] = float32(sec)
+				}
+				fr := telem.Frame[uint32]{}
+				fr = fr.Append(10, telem.NewSeries(values))
+				fr = fr.Append(11, telem.NewSeries(stamps))
+				channelState.Ingest(fr)
+				source.Next(rnode.Context{
+					Context:       ctx,
+					ReserveStamps: testutil.ReserveStamps(0),
+					MarkChanged:   func(int) { emitted++ },
+				})
+			}
+
+			It(
+				"Should keep samples taken after entry by a sender 3 s behind",
+				func(ctx SpecContext) {
+					learnOffset(11, 97*telem.SecondTS, 100*telem.SecondTS)
+					enter(ctx, 101*telem.SecondTS)
+					deliver(ctx, 98.5, 99)
+					Expect(
+						nodeState.Output(0).Unmarshal[float32](),
+					).To(Equal([]float32{98.5, 99}))
+				},
+			)
+
+			It(
+				"Should drop samples taken before entry by a sender 3 s ahead",
+				func(ctx SpecContext) {
+					learnOffset(11, 103*telem.SecondTS, 100*telem.SecondTS)
+					enter(ctx, 101*telem.SecondTS)
+					deliver(ctx, 103.5, 104.5)
+					Expect(
+						nodeState.Output(0).Unmarshal[float32](),
+					).To(Equal([]float32{104.5}))
+				},
+			)
+
+			It(
+				"Should drop a stale batch on a channel with history",
+				func(ctx SpecContext) {
+					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+					enter(ctx, 101*telem.SecondTS)
+					deliver(ctx, 100.2, 100.5)
+					Expect(emitted).To(BeZero())
+				},
+			)
+
+			It(
+				"Should keep the first batch on a channel with no history",
+				func(ctx SpecContext) {
+					enter(ctx, 101*telem.SecondTS)
+					deliver(ctx, 90, 91)
+					Expect(
+						nodeState.Output(0).Unmarshal[float32](),
+					).To(Equal([]float32{90, 91}))
+				},
+			)
+
+			It("Should forget an offset older than two windows", func(ctx SpecContext) {
+				learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+				learnOffset(11, 100*telem.SecondTS, 103*telem.SecondTS)
+				enter(ctx, 104*telem.SecondTS)
+				deliver(ctx, 101.5)
+				Expect(
+					nodeState.Output(0).Unmarshal[float32](),
+				).To(Equal([]float32{101.5}))
+			})
+
+			It(
+				"Should not let a delayed batch raise the offset",
+				func(ctx SpecContext) {
+					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+					learnOffset(
+						11,
+						97*telem.SecondTS,
+						100*telem.SecondTS+500*telem.MillisecondTS,
+					)
+					enter(ctx, 101*telem.SecondTS)
+					deliver(ctx, 100.5)
+					Expect(emitted).To(BeZero())
+				},
+			)
+		})
+
 		Describe("Data Reading", func() {
 			It("Should read channel data after ingestion", func(ctx SpecContext) {
 				source := MustSucceed(factory.Create(rnode.Config{
@@ -477,6 +598,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: progState.Node("source"),
 					}))
+					learnOffset(11, 50*telem.SecondTS, 50*telem.SecondTS)
 					source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
 					tr := telem.TimeRange{
 						Start: 100 * telem.SecondTS,
@@ -516,6 +638,7 @@ var _ = Describe("Channel", func() {
 						},
 						State: nodeState,
 					}))
+					learnOffset(11, 50*telem.SecondTS, 50*telem.SecondTS)
 					source.Reset(rnode.Context{Context: ctx, Now: 200 * telem.SecondTS})
 					fr1 := telem.Frame[uint32]{}
 					d1 := telem.NewSeriesV[float32](1.5, 2.5)
@@ -555,6 +678,7 @@ var _ = Describe("Channel", func() {
 					},
 					State: nodeState,
 				}))
+				learnOffset(13, 50*telem.SecondTS, 50*telem.SecondTS)
 				source.Reset(rnode.Context{Context: ctx, Now: 101 * telem.SecondTS})
 				fr := telem.Frame[uint32]{}
 				fr = fr.Append(12, telem.NewSeriesV("a", "b", "c"))

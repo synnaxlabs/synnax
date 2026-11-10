@@ -13,18 +13,21 @@ from tests.arc.arc import ArcCase
 from x import random_name
 
 START_CMD = "start_entry_samples_cmd"
-SEQUENCES = ["drop", "straddle", "milli", "nano", "counter"]
+SEQUENCES = ["drop", "straddle", "counter"]
 
 SECOND = sy.TimeSpan.SECOND
 MILLISECOND = sy.TimeSpan.MILLISECOND
-NANOSECOND = sy.TimeSpan.NANOSECOND
 # The value every sample taken before entry carries. Seeing it on pt_seen is a leak.
 BEFORE_ENTRY = -1.0
+# The time between each pt's first sample and stage entry. Samples taken before entry
+# are stamped in this gap, after the first sample, so their writes do not overlap it.
+HISTORY_GAP = 1 * SECOND
+# How long after the first sample the samples taken before entry start.
+STALE_AFTER_HISTORY = 100 * MILLISECOND
 # The counter sequence mirrors a field abort: 50 samples of persistence at 5 kHz on a
 # 300 psi low limit, armed on entering stage B.
 COUNTER_SAMPLES = 100
 COUNTER_PERIOD = 200 * sy.TimeSpan.MICROSECOND
-COUNTER_STALE_FROM = 34 * MILLISECOND
 COUNTER_IN_STAGE_FROM = 50 * MILLISECOND
 COUNTER_LAST = 333.0
 
@@ -107,10 +110,12 @@ sequence {p}_main {{
 
 
 class StageEntrySamples(ArcCase):
-    """A stage sees only samples taken after it was entered (SY-5456).
+    """A stage sees only samples taken after it was entered (SY-5456), once the
+    channel's index has learned its clock offset from earlier data (SY-5771).
 
     The test stamps every `pt` sample itself; samples taken before entry carry
-    BEFORE_ENTRY. `entered` carries the entry cycle stamp. A `probe` seen after a
+    BEFORE_ENTRY. Each `pt` first gets one sample on arrival, before its stage is
+    entered. `entered` carries the entry cycle stamp. A `probe` seen after a
     pre-entry sample proves the runtime already handled it, so a leak would show.
     """
 
@@ -119,6 +124,7 @@ class StageEntrySamples(ArcCase):
 
     def setup(self) -> None:
         self.tag = random_name()
+        self._history: dict[str, sy.TimeStamp] = {}
         self.arc_source = _counter_func(self.tag) + "".join(
             _counter_sequence(self.tag) if p == "counter" else _sequence(p, self.tag)
             for p in SEQUENCES
@@ -190,11 +196,23 @@ class StageEntrySamples(ArcCase):
         if self.read_tlm(self._ch(p, "pt_seen")) == BEFORE_ENTRY:
             self.fail(f"a sample taken before entry reached stage B of {p}_main")
 
-    def _verify_before_entry(self, p: str, before: list[sy.TimeSpan]) -> None:
-        """Deliver samples stamped `before` earlier than entry; none may reach B."""
-        self.log(f"[{p}] Samples stamped {before} before entry must never reach B")
-        entered = self._enter_b(p)
-        self._write_pt(p, [entered - b for b in before], [BEFORE_ENTRY] * len(before))
+    def _write_history(self, p: str) -> sy.TimeStamp:
+        """Write one pt sample stamped now, so its index learns its clock offset."""
+        now = sy.TimeStamp.now()
+        self._write_pt(p, [now], [BEFORE_ENTRY])
+        return now
+
+    def _stale(self, p: str, n: int, period: sy.TimeSpan) -> list[sy.TimeStamp]:
+        """Return n stamps taken before entry, after the first pt sample."""
+        first = self._history[p] + STALE_AFTER_HISTORY
+        return [first + period * i for i in range(n)]
+
+    def _verify_before_entry(self) -> None:
+        """Deliver samples taken before entry; none may reach B."""
+        p = "drop"
+        self.log(f"[{p}] Samples taken before entry must never reach B")
+        self._enter_b(p)
+        self._write_pt(p, self._stale(p, 3, 100 * MILLISECOND), [BEFORE_ENTRY] * 3)
         self._expect_not_leaked(p)
 
     def _verify_straddle(self) -> None:
@@ -203,8 +221,7 @@ class StageEntrySamples(ArcCase):
         self._write_pt(
             "straddle",
             [
-                entered - 5 * SECOND,
-                entered - 4 * SECOND,
+                *self._stale("straddle", 2, 100 * MILLISECOND),
                 entered + 2 * SECOND,
                 entered + 3 * SECOND,
             ],
@@ -225,8 +242,7 @@ class StageEntrySamples(ArcCase):
         p = "counter"
         self.log(f"[{p}] A stale batch must not trip a counter armed on entry")
         entered = self._enter_b(p)
-        first = entered - COUNTER_STALE_FROM
-        stale = [first + COUNTER_PERIOD * i for i in range(COUNTER_SAMPLES)]
+        stale = self._stale(p, COUNTER_SAMPLES, COUNTER_PERIOD)
         stale_values = [255.0 + 0.35 * i for i in range(COUNTER_SAMPLES - 1)] + [289.6]
         self._write_pt(p, stale, stale_values)
         in_stage = entered + COUNTER_IN_STAGE_FROM
@@ -250,8 +266,10 @@ class StageEntrySamples(ArcCase):
         self.wait_for_eq(self._ch(p, "pt_seen"), COUNTER_LAST)
 
     def verify_sequence_execution(self) -> None:
+        for p in SEQUENCES:
+            self.wait_for_eq(self._ch(p, "log"), "a")
+        self._history = {p: self._write_history(p) for p in SEQUENCES}
+        sy.sleep(HISTORY_GAP)  # noqa: TID251 leaves room for stale samples
         self._verify_counter()
-        self._verify_before_entry("drop", [6 * SECOND, 5 * SECOND, 4 * SECOND])
+        self._verify_before_entry()
         self._verify_straddle()
-        self._verify_before_entry("milli", [MILLISECOND])
-        self._verify_before_entry("nano", [10 * NANOSECOND])

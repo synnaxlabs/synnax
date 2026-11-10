@@ -9266,8 +9266,9 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
-	// A stage sees only samples taken after it was entered. A batch sampled before
-	// entry but delivered after it must not reach the stage.
+	// Once pt's index has learned its clock offset, a stage sees only samples taken
+	// after it was entered. A batch sampled before entry but delivered after it must
+	// not reach the stage.
 	Describe("Stage entry samples", func() {
 		const (
 			startCmd = 420
@@ -9300,6 +9301,16 @@ var _ = Describe("Sequence", func() {
 				channels.Digest{Key: ptSeen, DataType: telem.Float32T},
 			)
 		}
+		// learn delivers a pt sample with no delay, so pt's index learns a zero offset.
+		learn := func(h *runtimeHarness) {
+			h.IngestIndexed(
+				ptIdx,
+				telem.NewSeriesV(h.cycleNow),
+				pt,
+				telem.NewSeriesV[float32](0),
+			)
+			h.Flush()
+		}
 		seen := func(h *runtimeHarness) []float32 {
 			out, _ := h.Flush()
 			var got []float32
@@ -9314,6 +9325,7 @@ var _ = Describe("Sequence", func() {
 			defer h.Close(ctx)
 			trigger(h, ctx, startCmd)
 			pre := h.cycleNow
+			learn(h)
 			trigger(h, ctx, goCmd)
 			h.IngestIndexed(
 				ptIdx,
@@ -9338,6 +9350,7 @@ var _ = Describe("Sequence", func() {
 				defer h.Close(ctx)
 				trigger(h, ctx, startCmd)
 				pre := h.cycleNow
+				learn(h)
 				trigger(h, ctx, goCmd)
 				post := h.cycleNow
 				h.IngestIndexed(
