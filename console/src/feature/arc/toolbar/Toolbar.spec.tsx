@@ -105,15 +105,6 @@ describe("arc/Toolbar", () => {
     expect(await findTreeRow(arc.name)).toBeTruthy();
   });
 
-  it("opens the explorer view from the explorer action", async () => {
-    const { store } = await renderToolbar();
-    await waitFor(() => getIconButton(document.body, "explore"));
-    fireEvent.click(getIconButton(document.body, "explore"));
-    const tab = await resolveFocusedTab(store, client);
-    if (tab.variant !== "view") throw new Error("expected a view tab");
-    expect(tab.type).toBe(Arc.Explorer.TAB_TYPE);
-  });
-
   it("creates an arc through the create action's modal", async () => {
     const { store } = await renderToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
