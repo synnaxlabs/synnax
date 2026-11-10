@@ -43,6 +43,18 @@ func (p UpdatePayload) CheckCoreOnly() error {
 	return nil
 }
 
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when a is an action
+// that only the Core dispatches, or when a changes a field that only the Core sets.
+func (a Action) CheckCoreOnly() error {
+	switch v := a.Variant.(type) {
+	case CreatePayload:
+		return actions.ErrCoreOnly
+	case UpdatePayload:
+		return v.CheckCoreOnly()
+	}
+	return nil
+}
+
 // Reduce applies acts to state in order through the Handle method of each payload. It
 // returns the first error with the state reduced up to it. An Action with no Variant
 // returns union.ErrMissingPayload.

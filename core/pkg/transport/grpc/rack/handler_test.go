@@ -123,9 +123,9 @@ var _ = Describe("Dispatch", func() {
 		transport.RackDispatch.BindHandler(func(
 			_ context.Context,
 			req rack.DispatchRequest,
-		) (struct{}, error) {
+		) (rack.DispatchResponse, error) {
 			received = req
-			return struct{}{}, nil
+			return rack.DispatchResponse{Actions: req.Actions}, nil
 		})
 	})
 
@@ -164,7 +164,7 @@ var _ = Describe("Dispatch", func() {
 		translator := transport.RackDispatch.(*fgrpc.UnaryServer[
 			rack.DispatchRequest,
 			*grpcrack.DispatchRequest,
-			struct{},
+			rack.DispatchResponse,
 			*emptypb.Empty,
 		]).RequestTranslator.(fgrpc.Translator[
 			rack.DispatchRequest,

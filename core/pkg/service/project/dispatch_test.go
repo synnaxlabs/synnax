@@ -51,10 +51,10 @@ var _ = Describe("Dispatch", func() {
 		)
 	}
 	apply := func(ctx context.Context, acts ...project.Action) error {
-		return write(
-			ctx,
-			func(w project.Writer) error { return w.Apply(ctx, p.Key, acts...) },
-		)
+		return write(ctx, func(w project.Writer) error {
+			_, err := w.Apply(ctx, p.Key, acts...)
+			return err
+		})
 	}
 	record := func() *Recorder[project.Key, project.Action] {
 		rec := &Recorder[project.Key, project.Action]{}

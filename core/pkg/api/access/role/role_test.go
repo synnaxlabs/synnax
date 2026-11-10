@@ -226,4 +226,23 @@ var _ = Describe("Dispatch", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Name).To(Equal("renamed"))
 	})
+	It("Should rename the role by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := createRole(ctx)
+		grantOn(ctx, u.ResourceID(), access.ActionUpdate, r.ResourceID())
+		actions := []role.Action{role.NewUpdateAction(role.UpdatePayload{
+			Value: role.Update{Name: new("renamed")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apirole.DispatchRequest{Key: r.Key, Actions: actions},
+		))
+		Expect(res.Actions).To(Equal(actions))
+		var stored role.Role
+		Expect(svc.RBAC.Role.NewRetrieve().
+			Where(role.MatchKeys(r.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
+	})
 })

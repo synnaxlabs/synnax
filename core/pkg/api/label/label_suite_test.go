@@ -45,7 +45,7 @@ var (
 	// layer binds them.
 	create   freighter.UnaryHandler[apilabel.CreateRequest, apilabel.CreateResponse]
 	del      freighter.UnaryHandler[apilabel.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apilabel.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apilabel.DispatchRequest, apilabel.DispatchResponse]
 	add      freighter.UnaryHandler[apilabel.AddRequest, struct{}]
 	remove   freighter.UnaryHandler[apilabel.RemoveRequest, struct{}]
 	retrieve freighter.UnaryHandler[

@@ -132,7 +132,11 @@ var _ = Describe("Go Actions Plugin", func() {
 						"func NewSetValueAction(p SetValuePayload) Action",
 						"func NewIncrementAction(p IncrementPayload) Action",
 					).
-					ToNotContain("func ReduceAll", "pkg/service/actions")
+					ToNotContain(
+						"func ReduceAll",
+						"pkg/service/actions",
+						"CheckCoreOnly",
+					)
 			})
 
 			It(
@@ -169,8 +173,14 @@ var _ = Describe("Go Actions Plugin", func() {
 							"case MovePayload:",
 							"func NewCreateAction(p CreatePayload) Action",
 							"func NewSetAction(p SetPayload) Action",
+							"func (a Action) CheckCoreOnly() error {\n"+
+								"\tswitch a.Variant.(type) {\n"+
+								"\tcase CreatePayload:\n"+
+								"\t\treturn actions.ErrCoreOnly\n"+
+								"\t}\n"+
+								"\treturn nil\n}",
 						).
-						ToNotContain("func (SetPayload) Handle")
+						ToNotContain("func (SetPayload) Handle", `"slices"`)
 				},
 			)
 
@@ -181,7 +191,10 @@ var _ = Describe("Go Actions Plugin", func() {
 						@go output "x/go/patch"
 
 						Set struct { path string[] }
-						Remove struct { path string[] }
+						Remove struct {
+							path string[]
+							key  string
+						}
 						Insert struct { path string[] }
 						Move struct { path string[] }
 						Change struct<T> {
@@ -231,6 +244,35 @@ var _ = Describe("Go Actions Plugin", func() {
 								"\t\t\tactions.ErrCoreOnly,\n\t\t)\n\t}\n"+
 								"\treturn nil\n}",
 							"case UpdatePayload:\n\t\t\tstate, err = v.Handle(state)",
+							`"slices"`,
+							"func (a Action) CheckCoreOnly() error {\n"+
+								"\tvar path []string\n"+
+								"\tswitch v := a.Variant.(type) {\n"+
+								"\tcase CreatePayload:\n"+
+								"\t\treturn actions.ErrCoreOnly\n"+
+								"\tcase UpdatePayload:\n"+
+								"\t\treturn v.CheckCoreOnly()\n"+
+								"\tcase SetPayload:\n"+
+								"\t\tpath = v.Path\n"+
+								"\tcase RemovePayload:\n"+
+								"\t\tpath = slices.Concat(v.Path, []string{v.Key})\n"+
+								"\tcase InsertPayload:\n"+
+								"\t\tpath = v.Path\n"+
+								"\tcase MovePayload:\n"+
+								"\t\tpath = v.Path\n"+
+								"\t}\n"+
+								"\tif len(path) == 0 {\n"+
+								"\t\treturn nil\n"+
+								"\t}\n"+
+								"\tswitch path[0] {\n"+
+								"\tcase \"hash\", \"note\":\n"+
+								"\t\treturn errors.Mark(\n"+
+								"\t\t\terrors.Wrapf(validate.ErrValidation, "+
+								"\"%s is set by the Core\", path[0]),\n"+
+								"\t\t\tactions.ErrCoreOnly,\n"+
+								"\t\t)\n"+
+								"\t}\n"+
+								"\treturn nil\n}",
 						)
 				},
 			)

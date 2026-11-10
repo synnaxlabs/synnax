@@ -142,7 +142,10 @@ var _ = Describe("Dispatch", func() {
 			return svc.Alias.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "stored")
 		})).To(Succeed())
 	})
-	dispatchAs := func(ctx SpecContext, name string) (struct{}, error) {
+	dispatchAs := func(
+		ctx SpecContext,
+		name string,
+	) (apialias.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apialias.DispatchRequest{
 			Key: alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey(),
 			Actions: []alias.Action{alias.NewSetAction(
@@ -155,6 +158,18 @@ var _ = Describe("Dispatch", func() {
 		grant(ctx, u, access.ActionUpdate, aliasID())
 		MustSucceed(dispatchAs(ctx, "changed"))
 		Expect(retrieveAlias(ctx, r, ch)).To(Equal("changed"))
+	})
+	It("Should change the alias by an update", func(ctx SpecContext) {
+		grant(ctx, u, access.ActionUpdate, aliasID())
+		acts := []alias.Action{alias.NewUpdateAction(alias.UpdatePayload{
+			Value: alias.Update{Alias: new("changed")},
+		})}
+		res := MustSucceed(dispatch(AuthedCtx(ctx, u), apialias.DispatchRequest{
+			Key:     alias.Alias{Range: r.Key, Channel: ch.Key()}.GorpKey(),
+			Actions: acts,
+		}))
+		Expect(retrieveAlias(ctx, r, ch)).To(Equal("changed"))
+		Expect(res.Actions).To(Equal(acts))
 	})
 	It("Should refuse a change without update on the alias", func(ctx SpecContext) {
 		grant(ctx, u, access.ActionUpdate, r.ResourceID())

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -67,6 +68,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a device and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[device.Key, device.Action]
+
 	access *rbac.Service
 	device *device.Service
 	status *status.Service
@@ -78,9 +83,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		device: cfg.Device,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		Dispatch: dispatch.New(cfg.Device.NewWriter, device.Writer.Apply),
+		device:   cfg.Device,
+		status:   cfg.Status,
+		access:   cfg.RBAC,
 	}, nil
 }
 
@@ -162,17 +168,8 @@ func (s *Service) attachStatuses(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[device.Key, device.Action]
 
-// Dispatch applies the action sequence to the target device atomically. Subscribers to
-// the device action channel receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.device.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[device.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

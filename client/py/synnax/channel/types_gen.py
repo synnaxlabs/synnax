@@ -207,12 +207,14 @@ class Update(TypedDict, total=False):
     """Holds changes to the fields of the channel. An absent field does not change.
 
     Attributes:
+        name: Is the human-readable channel name.
         operations: Contains aggregation operations applied to this channel's data.
         expression: Is an Arc expression for calculated channels. If set, the channel is
             automatically configured as virtual.
         group: Is the group the channel sits in, if any.
     """
 
+    name: Name
     operations: patch.ValueListDict[Operation]
     expression: str
     group: patch.Change[group_.Key]

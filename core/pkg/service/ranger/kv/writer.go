@@ -43,8 +43,12 @@ func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 }
 
 // Apply applies acts to the pair with the given Gorp key and attaches them to the
-// transaction of w.
-func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
+// transaction of w. It returns the actions that it attaches.
+func (w Writer) Apply(
+	ctx context.Context,
+	key string,
+	acts ...Action,
+) ([]Action, error) {
 	if err := w.table.NewUpdate().
 		Where(gorp.MatchKeys[string, Pair](key)).
 		ChangeErr(func(_ gorp.Context, p Pair) (Pair, error) {
@@ -55,10 +59,10 @@ func (w Writer) Apply(ctx context.Context, key string, acts ...Action) error {
 			return next, nil
 		}).
 		Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	w.dispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return acts, nil
 }
 
 // Delete deletes a key-value pair from the specified range. Delete is

@@ -192,6 +192,20 @@ var _ = Describe("Directories", func() {
 			Expect(apply(ctx, d, set("name", name))).To(Succeed())
 			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(name))
 		})
+		It("Should rename a directory by an update", func(ctx SpecContext) {
+			d := newDirectory(ctx)
+			grantUpdateOn(ctx, author.ResourceID(), d.ResourceID())
+			name := uniqueName()
+			acts := []directory.Action{directory.NewUpdateAction(
+				directory.UpdatePayload{Value: directory.Update{Name: &name}},
+			)}
+			res := MustSucceed(dispatchDirectory(
+				AuthedCtx(ctx, author),
+				apiarc.DispatchDirectoryRequest{Key: d.Key, Actions: acts},
+			))
+			Expect(retrieveDirectory(ctx, d.Key).Name).To(Equal(name))
+			Expect(res.Actions).To(Equal(acts))
+		})
 		It("Should deny a caller without update access", func(ctx SpecContext) {
 			d := newDirectory(ctx)
 			Expect(apply(ctx, d, set("name", uniqueName()))).

@@ -52,7 +52,7 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the PagerDuty alert task type.
 type Service struct {
 	// Alert stores pagerduty_alert task configuration records.
-	Alert  *config.Service[TaskConfig]
+	Alert  *config.Service[TaskConfig, TaskConfigUpdate]
 	closer xio.MultiCloser
 }
 
@@ -68,7 +68,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Alert, err = config.OpenService(
-		ctx, config.ServiceConfig[TaskConfig]{
+		ctx, config.ServiceConfig[TaskConfig, TaskConfigUpdate]{
 			DB:              cfg.DB,
 			References:      taskConfigReferences(),
 			Instrumentation: cfg.Instrumentation,
@@ -79,6 +79,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:      []gorp.Migration{v1.StatusKeysMigration},
 			SetEntryKey:     (*TaskConfig).SetKey,
 			PatchEntry:      (*TaskConfig).Patch,
+			ApplyUpdate:     TaskConfigUpdate.ApplyTo,
 			HashEntry:       (*TaskConfig).HashContent,
 		},
 	); !ok(err, s.Alert) {

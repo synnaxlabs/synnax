@@ -45,7 +45,7 @@ var (
 	// create, del, and dispatch run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apigroup.CreateRequest, apigroup.CreateResponse]
 	del      freighter.UnaryHandler[apigroup.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apigroup.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apigroup.DispatchRequest, apigroup.DispatchResponse]
 	// retrieveGroups and retrieveAncestors run their routes as the API layer binds
 	// them.
 	retrieveGroups freighter.UnaryHandler[

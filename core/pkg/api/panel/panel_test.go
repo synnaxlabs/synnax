@@ -352,6 +352,19 @@ var _ = Describe("Service", func() {
 				Expect(got.Name).To(Equal("renamed"))
 			},
 		)
+
+		It("Should rename the panel by an update", func(ctx SpecContext) {
+			p := createPanel(ctx, "Before")
+			grant(ctx, author.ResourceID(), access.ActionUpdate, p.ResourceID())
+			acts := []panel.Action{panel.NewUpdateAction(panel.UpdatePayload{
+				Value: panel.Update{Name: new("After")},
+			})}
+			Expect(dispatch(
+				AuthedCtx(ctx, author),
+				apipanel.DispatchRequest{Key: p.Key, Actions: acts},
+			)).To(HaveField("Actions", acts))
+			Expect(retrievePanel(ctx, p.Key).Name).To(Equal("After"))
+		})
 	})
 
 	Describe("Delete", func() {
@@ -592,7 +605,7 @@ var _ = Describe("Dispatch of a move", func() {
 	}
 	It("Should move the panel into a group", func(ctx SpecContext) {
 		Expect(moveAs(ctx, []panel.Action{setGroup(g.Key)}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []panel.Action{setGroup(g.Key)}))
 		Expect(retrievePanel(ctx, target.Key).Group).To(Equal(&g.Key))
 		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
 			HaveField("DispatchKey", "dk-move"),
@@ -609,7 +622,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]panel.Action{setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]panel.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrievePanel(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -622,7 +638,7 @@ var _ = Describe("Dispatch of a move", func() {
 	It("Should move the panel out of its group", func(ctx SpecContext) {
 		inGroup(ctx)
 		Expect(moveAs(ctx, []panel.Action{removeGroup}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []panel.Action{removeGroup}))
 		Expect(retrievePanel(ctx, target.Key).Group).To(BeNil())
 	})
 	It("Should move the panel into another project", func(ctx SpecContext) {
@@ -631,7 +647,7 @@ var _ = Describe("Dispatch of a move", func() {
 			[]panel.Action{setProject(dest.Key)},
 			project.ResourceID(proj.Key),
 			dest.ResourceID(),
-		)).To(HaveField("Actions", BeEmpty()))
+		)).To(HaveField("Actions", []panel.Action{setProject(dest.Key)}))
 		Expect(retrievePanel(ctx, target.Key).Project).To(Equal(&dest.Key))
 	})
 	It(
@@ -645,7 +661,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]panel.Action{removeGroup}))
+			Expect(res.Actions).To(Equal([]panel.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrievePanel(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

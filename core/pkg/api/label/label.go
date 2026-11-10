@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
@@ -65,6 +66,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a label and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[label.Key, label.Action]
+
 	internal *label.Service
 	ranger   *ranger.Service
 	status   *status.Service
@@ -76,6 +81,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Label.NewWriter, label.Writer.Apply),
 		internal: cfg.Label,
 		ranger:   cfg.Ranger,
 		status:   cfg.Status,
@@ -118,17 +124,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
 
-// Dispatch applies the action sequence to the target label atomically. Subscribers to
-// the label action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[label.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

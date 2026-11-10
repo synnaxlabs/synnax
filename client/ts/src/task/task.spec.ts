@@ -7,11 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { HTTPClient } from "@synnaxlabs/freighter";
+import {
+  binary,
+  id,
+  patch,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+} from "@synnaxlabs/x";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
+import { auth } from "@/auth";
 import { channel } from "@/channel";
+import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -26,6 +38,8 @@ import {
   holdResponses,
   recordResponses,
   spyOnSend,
+  TEST_CORE_ADDRESS,
+  TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -723,6 +737,65 @@ describe("Task", async () => {
       const cached = await client.tasks.retrieve(t.key);
       expect(cached.type).toBe("pagerduty_alert");
       await client.tasks.settled(t.key);
+    });
+
+    // A client of its own sends the dispatch past the task cache, which checks guards
+    // before a send.
+    const unary = new HTTPClient(
+      new url.URL(TEST_CORE_ADDRESS).child("/api/v1/"),
+      new binary.JSONCodec(),
+    );
+    const login = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+    unary.use(errorsMiddleware, login.middleware());
+    afterAll(async () => await login.release());
+    const sendUpdate = async (key: task.Key, dispatchKey: string, a: task.Action) =>
+      await unary.send(
+        "/task/dispatch",
+        { key, dispatchKey, actions: [a] },
+        task.dispatchReqZ,
+        task.dispatchResZ,
+      );
+
+    it("should reply to a config update with the config hash and echo it", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-update-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const streamer = await client.openStreamer(task.ACTION_CHANNEL_NAME);
+      onTestFinished(() => streamer.close());
+      const dispatchKey = id.create();
+      const update = task.update({ value: { config: { routingKey: "cat" } } });
+      const { actions } = await sendUpdate(t.key, dispatchKey, update);
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.configHash).not.toBe(t.configHash);
+      expect(actions).toEqual([
+        update,
+        task.update({ value: { configHash: stored.configHash } }),
+      ]);
+      await expect
+        .poll(async () => {
+          const fr = await streamer.read();
+          return task.scopedActionZ.parse(fr.at(-1)[task.ACTION_CHANNEL_NAME]);
+        })
+        .toMatchObject({ key: t.key, dispatchKey, actions });
+    });
+
+    it("should reject an update whose guard does not hold as stale", async () => {
+      const t = await testRack.createTask({
+        name: `dispatch-stale-${id.create()}`,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const update = task.update({
+        value: { name: "renamed" },
+        guards: [{ path: ["name"], value: "other" }],
+      });
+      await expect(sendUpdate(t.key, id.create(), update)).rejects.toThrow(
+        patch.StaleError,
+      );
+      expect((await createTestClient().tasks.retrieve(t.key)).name).toBe(t.name);
     });
   });
 

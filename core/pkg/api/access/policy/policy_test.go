@@ -344,6 +344,24 @@ var _ = Describe("Dispatch", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Name).To(Equal("renamed"))
 	})
+	It("Should rename the policy by an update", func(ctx SpecContext) {
+		p := createPolicy(ctx, createRole(ctx).Key)
+		u := createEditor(ctx, access.ActionUpdate)
+		actions := []policy.Action{policy.NewUpdateAction(policy.UpdatePayload{
+			Value: policy.Update{Name: new("renamed")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apipolicy.DispatchRequest{Key: p.Key, Actions: actions},
+		))
+		Expect(res.Actions).To(Equal(actions))
+		var stored policy.Policy
+		Expect(svc.RBAC.Policy.NewRetrieve().
+			Where(policy.MatchKeys(p.Key)).
+			Entry(&stored).
+			Exec(ctx, db)).To(Succeed())
+		Expect(stored.Name).To(Equal("renamed"))
+	})
 
 	Describe("Role", func() {
 		move := func(p policy.Policy, to role.Key) apipolicy.DispatchRequest {

@@ -16,6 +16,8 @@ import "github.com/synnaxlabs/x/patch"
 // Patch applies the path action at c, which is not done, to the value.
 func (cv *Channel) Patch(c patch.Cursor) error {
 	switch c.Segment() {
+	case "name":
+		return patch.Value(&cv.Name, c.Next())
 	case "operations":
 		return patch.Value(&cv.Operations, c.Next())
 	case "expression":

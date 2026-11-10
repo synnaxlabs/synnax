@@ -541,13 +541,13 @@ describe("dispatchReqZ", () => {
 describe("dispatchResZ", () => {
   const schema = actions.dispatchResZ(z.object({ kind: z.string() }));
 
-  it("Should parse the actions the Core added", () => {
+  it("Should parse the actions the Core applied", () => {
     expect(schema.parse({ actions: [{ kind: "x" }] })).toEqual({
       actions: [{ kind: "x" }],
     });
   });
 
-  it("Should parse an empty body as no actions", () => {
-    expect(schema.parse({})).toEqual({ actions: [] });
+  it("Should refuse a body without actions", () => {
+    expect(schema.safeParse({}).success).toBe(false);
   });
 });

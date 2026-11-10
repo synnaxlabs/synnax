@@ -104,9 +104,9 @@ var _ = Describe("Dispatch", func() {
 		transport.DeviceDispatch.BindHandler(func(
 			_ context.Context,
 			req device.DispatchRequest,
-		) (struct{}, error) {
+		) (device.DispatchResponse, error) {
 			received = req
-			return struct{}{}, nil
+			return device.DispatchResponse{Actions: req.Actions}, nil
 		})
 	})
 
@@ -126,7 +126,7 @@ var _ = Describe("Dispatch", func() {
 			DispatchKey: "dk",
 			Actions: []svcdevice.Action{svcdevice.NewSetAction(svcdevice.SetPayload{
 				Path:  []string{"properties"},
-				Value: map[string]any{"port": 2.0},
+				Value: map[string]any{"port": int64(2)},
 			})},
 		}))
 	})
@@ -144,7 +144,7 @@ var _ = Describe("Dispatch", func() {
 		translator := transport.DeviceDispatch.(*fgrpc.UnaryServer[
 			device.DispatchRequest,
 			*grpcdevice.DispatchRequest,
-			struct{},
+			device.DispatchResponse,
 			*emptypb.Empty,
 		]).RequestTranslator.(fgrpc.Translator[
 			device.DispatchRequest,

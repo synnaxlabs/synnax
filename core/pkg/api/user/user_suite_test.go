@@ -47,7 +47,7 @@ var (
 	// The handlers below run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apiuser.CreateRequest, apiuser.CreateResponse]
 	del      freighter.UnaryHandler[apiuser.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apiuser.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apiuser.DispatchRequest, apiuser.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apiuser.RetrieveRequest,
 		apiuser.RetrieveResponse,

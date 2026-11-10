@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -58,6 +59,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a range and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[ranger.Key, ranger.Action]
+
 	internal *ranger.Service
 }
 
@@ -67,6 +72,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Ranger.NewWriter, ranger.Writer.Apply),
 		internal: cfg.Ranger,
 	}, nil
 }
@@ -103,17 +109,8 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[ranger.Key, ranger.Action]
 
-// Dispatch applies the action sequence to the target range atomically. Subscribers to
-// the range action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[ranger.Action]
 
 var _ bind.Named = RetrieveRequest{}
 

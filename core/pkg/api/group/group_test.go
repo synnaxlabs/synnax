@@ -215,7 +215,10 @@ var _ = Describe("Group", func() {
 		BeforeEach(func(ctx SpecContext) {
 			g = newGroup(ctx, resource.TypeChannel, nil)
 		})
-		renameAs := func(ctx SpecContext, u user.User) (struct{}, error) {
+		renameAs := func(
+			ctx SpecContext,
+			u user.User,
+		) (apigroup.DispatchResponse, error) {
 			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
 				Key: g.Key,
 				Actions: []group.Action{group.NewSetAction(group.SetPayload{
@@ -237,6 +240,19 @@ var _ = Describe("Group", func() {
 			MustSucceed(renameAs(ctx, u))
 			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
 		})
+
+		It("Should rename the group by an update", func(ctx SpecContext) {
+			u := newUser(ctx, grant(update, g.ResourceID()))
+			actions := []group.Action{group.NewUpdateAction(group.UpdatePayload{
+				Value: group.Update{Name: new("renamed")},
+			})}
+			res := MustSucceed(dispatch(
+				AuthedCtx(ctx, u),
+				apigroup.DispatchRequest{Key: g.Key, Actions: actions},
+			))
+			Expect(res.Actions).To(Equal(actions))
+			Expect(retrieve(ctx, g.Key).Name).To(Equal("renamed"))
+		})
 	})
 
 	Describe("Dispatch set parent", func() {
@@ -246,7 +262,10 @@ var _ = Describe("Group", func() {
 			dest = newGroup(ctx, resource.TypeChannel, nil)
 			moved = newGroup(ctx, resource.TypeChannel, &source)
 		})
-		setParentAs := func(ctx SpecContext, u user.User) (struct{}, error) {
+		setParentAs := func(
+			ctx SpecContext,
+			u user.User,
+		) (apigroup.DispatchResponse, error) {
 			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
 				Key: moved.Key,
 				Actions: []group.Action{group.NewSetParentAction(
@@ -314,7 +333,7 @@ var _ = Describe("Group", func() {
 				dest.ResourceID(),
 			}
 		}
-		move := func(ctx SpecContext, u user.User) (struct{}, error) {
+		move := func(ctx SpecContext, u user.User) (apigroup.DispatchResponse, error) {
 			return dispatch(AuthedCtx(ctx, u), apigroup.DispatchRequest{
 				Key: nested.Key,
 				Actions: []group.Action{group.NewSetParentAction(

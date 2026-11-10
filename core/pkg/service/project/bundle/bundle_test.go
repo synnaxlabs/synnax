@@ -786,13 +786,14 @@ var _ = Describe("Import", func() {
 		files, _ := MustSucceed2(svc.Export(ctx, db, src.Key, xjson.Codec))
 		// The import lands beside the original, where the name is taken.
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-			return arcSvc.NewWriter(tx).Apply(
+			_, err := arcSvc.NewWriter(tx).Apply(
 				ctx,
 				a.Base().Key,
 				arc.NewSetAction(
 					arc.SetPayload{Path: []string{"name"}, Value: "Startup Source"},
 				),
 			)
+			return err
 		})).To(Succeed())
 		tx = DeferClose(db.OpenTx())
 		proj := importProject(ctx, files)

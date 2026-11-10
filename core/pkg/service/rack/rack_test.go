@@ -1140,7 +1140,7 @@ var _ = Describe("Rack", Ordered, func() {
 					}
 				}))
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					return svc.NewWriter(tx).Apply(
+					_, err := svc.NewWriter(tx).Apply(
 						ctx,
 						r.Key,
 						rack.NewSetAction(rack.SetPayload{
@@ -1148,6 +1148,7 @@ var _ = Describe("Rack", Ordered, func() {
 							Value: []string{"ni"},
 						}),
 					)
+					return err
 				})).To(Succeed())
 				Consistently(
 					writes.Load,

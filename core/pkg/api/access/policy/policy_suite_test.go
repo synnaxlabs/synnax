@@ -48,7 +48,7 @@ var (
 	// create, del, and retrieve run their routes as the API layer binds them.
 	create   freighter.UnaryHandler[apipolicy.CreateRequest, apipolicy.CreateResponse]
 	del      freighter.UnaryHandler[apipolicy.DeleteRequest, struct{}]
-	dispatch freighter.UnaryHandler[apipolicy.DispatchRequest, struct{}]
+	dispatch freighter.UnaryHandler[apipolicy.DispatchRequest, apipolicy.DispatchResponse]
 	retrieve freighter.UnaryHandler[
 		apipolicy.RetrieveRequest,
 		apipolicy.RetrieveResponse,

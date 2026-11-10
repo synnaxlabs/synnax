@@ -177,28 +177,39 @@ var _ = Describe("Dispatch", func() {
 		u = newUser(ctx)
 		t = createTable(ctx, "Dispatched")
 	})
-	dispatchAs := func(ctx SpecContext) (apitable.DispatchResponse, error) {
+	dispatchAs := func(
+		ctx SpecContext,
+		acts ...table.Action,
+	) (apitable.DispatchResponse, error) {
 		return dispatch(AuthedCtx(ctx, u), apitable.DispatchRequest{
-			Key: t.Key,
-			Actions: []table.Action{
-				table.NewSetAction(
-					table.SetPayload{Path: []string{"name"}, Value: "Renamed"},
-				),
-			},
+			Key:     t.Key,
+			Actions: acts,
 		})
 	}
+	rename := table.NewSetAction(
+		table.SetPayload{Path: []string{"name"}, Value: "Renamed"},
+	)
 	It(
 		"Should refuse a dispatch without update on the table and write nothing",
 		func(ctx SpecContext) {
-			Expect(dispatchAs(ctx)).Error().
+			Expect(dispatchAs(ctx, rename)).Error().
 				To(denied(u, access.ActionUpdate, t.ResourceID()))
 			Expect(retrieveTable(ctx, t.Key).Name).To(Equal("Dispatched"))
 		},
 	)
 	It("Should apply the actions with update on the table", func(ctx SpecContext) {
 		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
-		MustSucceed(dispatchAs(ctx))
+		MustSucceed(dispatchAs(ctx, rename))
 		Expect(retrieveTable(ctx, t.Key).Name).To(Equal("Renamed"))
+	})
+	It("Should rename the table by an update", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), t.ResourceID())
+		update := table.NewUpdateAction(table.UpdatePayload{
+			Value: table.Update{Name: new("After")},
+		})
+		Expect(dispatchAs(ctx, update)).
+			To(HaveField("Actions", []table.Action{update}))
+		Expect(retrieveTable(ctx, t.Key).Name).To(Equal("After"))
 	})
 })
 
@@ -390,7 +401,7 @@ var _ = Describe("Dispatch of a move", func() {
 	}
 	It("Should move the table into a group", func(ctx SpecContext) {
 		Expect(moveAs(ctx, []table.Action{setGroup(g.Key)}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []table.Action{setGroup(g.Key)}))
 		Expect(retrieveTable(ctx, target.Key).Group).To(Equal(&g.Key))
 		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
 			HaveField("DispatchKey", "dk-move"),
@@ -407,7 +418,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]table.Action{setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]table.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrieveTable(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -420,7 +434,7 @@ var _ = Describe("Dispatch of a move", func() {
 	It("Should move the table out of its group", func(ctx SpecContext) {
 		inGroup(ctx)
 		Expect(moveAs(ctx, []table.Action{removeGroup}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []table.Action{removeGroup}))
 		Expect(retrieveTable(ctx, target.Key).Group).To(BeNil())
 	})
 	It("Should move the table into another project", func(ctx SpecContext) {
@@ -429,7 +443,7 @@ var _ = Describe("Dispatch of a move", func() {
 			[]table.Action{setProject(dest.Key)},
 			project.ResourceID(proj.Key),
 			dest.ResourceID(),
-		)).To(HaveField("Actions", BeEmpty()))
+		)).To(HaveField("Actions", []table.Action{setProject(dest.Key)}))
 		Expect(retrieveTable(ctx, target.Key).Project).To(Equal(&dest.Key))
 	})
 	It(
@@ -443,7 +457,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]table.Action{removeGroup}))
+			Expect(res.Actions).To(Equal([]table.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrieveTable(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

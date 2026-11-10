@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -94,6 +95,10 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the central service for all things Channel related.
 type Service struct {
+	// Dispatch applies the actions of a request to a channel and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[channel.Key, channel.Action]
+
 	db       *gorp.DB
 	access   *rbac.Service
 	internal *channel.Service
@@ -107,6 +112,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
+		Dispatch: dispatch.New(cfg.Channel.NewWriter, channel.Writer.Apply),
 		db:       cfg.DB,
 		access:   cfg.RBAC,
 		internal: cfg.Channel,
@@ -500,22 +506,5 @@ func (s *Service) Delete(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[channel.Key, channel.Action]
 
-// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
-// of the data type that an expression edit infers.
+// DispatchResponse carries the actions that the Core applied for a dispatch.
 type DispatchResponse = actions.DispatchResponse[channel.Action]
-
-// Dispatch applies the action sequence to the target channel atomically. Subscribers to
-// the channel action channel receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (DispatchResponse, error) {
-	computed, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{Actions: computed}, nil
-}

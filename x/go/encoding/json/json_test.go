@@ -71,6 +71,42 @@ var _ = Describe("Codec", func() {
 		Expect(json.Codec.DecodeStream(ctx, bytes.NewReader(b), &d2)).To(Succeed())
 		Expect(d2).To(Equal(toEncode{1}))
 	})
+	Describe("Numbers in an any", func() {
+		const body = `{
+			"big": 9007199254740993,
+			"max": 18446744073709551615,
+			"nested": {"values": [-9007199254740995, 1.5, 1e3]}
+		}`
+		It("Should decode an integer without losing digits", func(ctx SpecContext) {
+			var v map[string]any
+			Expect(json.Codec.Decode(ctx, []byte(body), &v)).To(Succeed())
+			Expect(v).To(Equal(map[string]any{
+				"big": int64(9007199254740993),
+				"max": uint64(18446744073709551615),
+				"nested": map[string]any{
+					"values": []any{int64(-9007199254740995), 1.5, 1000.0},
+				},
+			}))
+			Expect(json.Codec.Encode(ctx, v)).To(MatchJSON(`{
+				"big": 9007199254740993,
+				"max": 18446744073709551615,
+				"nested": {"values": [-9007199254740995, 1.5, 1000]}
+			}`))
+		})
+		It("Should decode a stream the same way", func(ctx SpecContext) {
+			var v map[string]any
+			Expect(json.Codec.DecodeStream(ctx, strings.NewReader(body), &v)).
+				To(Succeed())
+			Expect(v).To(HaveKeyWithValue("big", int64(9007199254740993)))
+		})
+		It("Should leave the numbers of a new codec as float64", func(
+			ctx SpecContext,
+		) {
+			var v map[string]any
+			Expect(json.NewCodec().Decode(ctx, []byte(body), &v)).To(Succeed())
+			Expect(v).To(HaveKeyWithValue("big", 9007199254740992.0))
+		})
+	})
 	It("Should decode one value and leave the rest of the stream", func(
 		ctx SpecContext,
 	) {

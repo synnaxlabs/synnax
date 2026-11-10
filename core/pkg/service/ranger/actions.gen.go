@@ -12,6 +12,8 @@
 package ranger
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/patch"
@@ -44,6 +46,37 @@ func (p UpdatePayload) CheckCoreOnly() error {
 	if p.Value.Labels != nil {
 		return errors.Mark(
 			errors.Wrap(validate.ErrValidation, "labels is set by the Core"),
+			actions.ErrCoreOnly,
+		)
+	}
+	return nil
+}
+
+// CheckCoreOnly returns an error marked with actions.ErrCoreOnly when a is an action
+// that only the Core dispatches, or when a changes a field that only the Core sets.
+func (a Action) CheckCoreOnly() error {
+	var path []string
+	switch v := a.Variant.(type) {
+	case CreatePayload:
+		return actions.ErrCoreOnly
+	case UpdatePayload:
+		return v.CheckCoreOnly()
+	case SetPayload:
+		path = v.Path
+	case RemovePayload:
+		path = slices.Concat(v.Path, []string{v.Key})
+	case InsertPayload:
+		path = v.Path
+	case MovePayload:
+		path = v.Path
+	}
+	if len(path) == 0 {
+		return nil
+	}
+	switch path[0] {
+	case "labels":
+		return errors.Mark(
+			errors.Wrapf(validate.ErrValidation, "%s is set by the Core", path[0]),
 			actions.ErrCoreOnly,
 		)
 	}

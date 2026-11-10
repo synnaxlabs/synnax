@@ -91,7 +91,9 @@ const setupStore = (
   const onError = (error: Error) => errors.push(error);
   const docs = new Table<string, Doc>({ onError, fetch: opts.fetch });
   const epochs = new observe.Observer<number>();
-  const send = vi.fn<SendDispatch<string, Action>>(opts.send ?? (async () => []));
+  const send = vi.fn<SendDispatch<string, Action>>(
+    opts.send ?? (async (_, actions) => actions),
+  );
   const controller = new Controller<string, Doc, Action>({
     store: docs,
     onError,
@@ -117,7 +119,7 @@ const set = (key: string, value: number): Action => ({ type: "set", key, value }
 interface HeldCall {
   actions: Action[];
   dispatchKey: string;
-  /** Resolves the send with the actions the Core added to the dispatch. */
+  /** Resolves the send as the Core does: the sent actions, then added. */
   resolve: (added?: Action[]) => void;
   reject: (error: Error) => void;
 }
@@ -130,7 +132,7 @@ const createHeldSend = () => {
       calls.push({
         actions,
         dispatchKey,
-        resolve: (added = []) => resolve(added),
+        resolve: (added = []) => resolve([...actions, ...added]),
         reject,
       }),
     );
@@ -601,9 +603,9 @@ describe("actions.Controller", () => {
     // A send that waits on the returned gate before its first call settles.
     const createGatedSend = () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<SendDispatch<string, Action>>(async (_, actions) => {
         if (send.mock.calls.length === 1) await gate.promise;
-        return [];
+        return actions;
       });
       return { gate, send };
     };
@@ -664,9 +666,9 @@ describe("actions.Controller", () => {
 
     // Fails the sends whose call numbers are listed, counting from 1.
     const createFailingSend = (...failing: number[]) => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<SendDispatch<string, Action>>(async (_, actions) => {
         if (failing.includes(send.mock.calls.length)) throw new Error("rejected");
-        return [];
+        return actions;
       });
       return send;
     };
@@ -780,10 +782,10 @@ describe("actions.Controller", () => {
 
     it("rolls back every dispatch in a failed batch, newest first", async () => {
       const gate = Promise.withResolvers<void>();
-      const send = vi.fn<SendDispatch<string, Action>>(async () => {
+      const send = vi.fn<SendDispatch<string, Action>>(async (_, actions) => {
         if (send.mock.calls.length === 1) {
           await gate.promise;
-          return [];
+          return actions;
         }
         throw new Error("rejected");
       });
@@ -801,14 +803,14 @@ describe("actions.Controller", () => {
     });
 
     it("sends undo and redo through the queue in program order", async () => {
-      const send = vi.fn<SendDispatch<string, Action>>(async () => []);
+      const send = vi.fn<SendDispatch<string, Action>>(async (_, actions) => actions);
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       await controller.dispatch("k", [set("a", 1)]);
       const gate = Promise.withResolvers<void>();
-      send.mockImplementationOnce(async () => {
+      send.mockImplementationOnce(async (_, actions) => {
         await gate.promise;
-        return [];
+        return actions;
       });
       const undone = controller.undo("k");
       const redone = controller.redo("k");
@@ -1511,7 +1513,7 @@ describe("actions.Controller", () => {
   describe("epochs", () => {
     it("settles accepted dispatches whose echoes the gap may have lost", async () => {
       const { docs, epochs, controller } = setupStore({
-        send: async () => [set("h", 9)],
+        send: async (_, actions) => [...actions, set("h", 9)],
       });
       prime(docs, "k", { a: 0 });
       await controller.dispatch("k", [set("a", 1)]);
@@ -1537,7 +1539,7 @@ describe("actions.Controller", () => {
 
     it("settles a dispatch on its send in epoch 0, which has no stream", async () => {
       const { docs, epochs, controller } = setupStore({
-        send: async () => [set("h", 9)],
+        send: async (_, actions) => [...actions, set("h", 9)],
       });
       epochs.notify(0);
       prime(docs, "k", { a: 0 });

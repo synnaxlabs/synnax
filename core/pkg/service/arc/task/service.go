@@ -53,7 +53,7 @@ func (c ServiceConfig) Validate() error {
 // Service owns the stored configuration records of the Arc task type.
 type Service struct {
 	// Config stores arc task configuration records.
-	Config  *config.Service[Config]
+	Config  *config.Service[Config, ConfigUpdate]
 	indexes indexes
 	closer  xio.MultiCloser
 }
@@ -70,7 +70,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.Config, err = config.OpenService(
-		ctx, config.ServiceConfig[Config]{
+		ctx, config.ServiceConfig[Config, ConfigUpdate]{
 			DB:                 cfg.DB,
 			Instrumentation:    cfg.Instrumentation,
 			Type:               Type,
@@ -81,6 +81,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Legacy:             &legacy.Config,
 			SetEntryKey:        (*Config).SetKey,
 			PatchEntry:         (*Config).Patch,
+			ApplyUpdate:        ConfigUpdate.ApplyTo,
 			HashEntry:          (*Config).HashContent,
 			ApplyEntryDefaults: (*Config).ApplyDefaults,
 			ValidateEntry:      (*Config).Validate,

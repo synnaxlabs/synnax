@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
@@ -51,6 +52,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a schematic and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[schematic.Key, schematic.Action]
+
 	internal *schematic.Service
 }
 
@@ -59,7 +64,10 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.Schematic}, nil
+	return &Service{
+		Dispatch: dispatch.New(cfg.Schematic.NewWriter, schematic.Writer.Apply),
+		internal: cfg.Schematic,
+	}, nil
 }
 
 type (
@@ -95,25 +103,8 @@ func (s *Service) Create(
 // broadcast frame so the originator can recognize its own echo race-safely.
 type DispatchRequest = actions.DispatchRequest[schematic.Key, schematic.Action]
 
-// DispatchResponse carries the actions that the Core added to a dispatch, such as a set
-// of the project that a move into a group of another project needs.
+// DispatchResponse carries the actions that the Core applied for a dispatch.
 type DispatchResponse = actions.DispatchResponse[schematic.Action]
-
-// Dispatch applies the action sequence to the target schematic atomically. Subscribers
-// to the schematic action signals receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (DispatchResponse, error) {
-	added, err := s.internal.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-	if err != nil {
-		return DispatchResponse{}, err
-	}
-	return DispatchResponse{Actions: added}, nil
-}
 
 var _ bind.Named = RetrieveRequest{}
 

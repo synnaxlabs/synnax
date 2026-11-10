@@ -22,7 +22,7 @@ import (
 
 // Apply applies a sequence of actions to the Arc with the given key and attaches them
 // to the transaction of w, so its commit carries them to the change channels with the
-// dispatch key of w.
+// dispatch key of w. It returns acts, without the sweep below.
 //
 // When the Arc's text has gone quiet, Apply also reclaims the space held by tombstoned
 // characters: it forgets the characters that were already dead before this apply and
@@ -35,7 +35,7 @@ import (
 //
 // Apply returns a validation error when a rename or a move leaves a name that the
 // directory of the Arc cannot hold.
-func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
+func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) ([]Action, error) {
 	var sweep []Action
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Arc](key)).
 		ChangeErr(func(_ gorp.Context, a Arc) (Arc, error) {
@@ -72,7 +72,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 			}
 			return a, nil
 		}).Exec(ctx, w.tx); err != nil {
-		return err
+		return nil, err
 	}
 	// The edit time moves before the lock releases, so a later transaction cannot sweep
 	// the characters that this one deletes.
@@ -87,7 +87,7 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 		w.dispatcher.WithDispatchKey("").Attach(w.tx, key, sweep...)
 	}
 	w.resyncs.Add(w.tx, key)
-	return nil
+	return acts, nil
 }
 
 // followCommit schedules a task resync for each Arc that c dispatched to, then drops

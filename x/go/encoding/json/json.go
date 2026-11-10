@@ -21,8 +21,35 @@ import (
 	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of http.FileCodec with compact encoding.
-var Codec = NewCodec()
+// Codec is a JSON implementation of http.FileCodec with compact encoding. It decodes a
+// JSON integer into an any as an int64, or as a uint64 above the int64 range, so the
+// integer keeps every digit, as the MessagePack codec does. It decodes any other JSON
+// number into an any as a float64.
+var Codec = NewCodec(exactIntegers)
+
+// exactIntegers decodes a JSON integer into an any as an int64 or a uint64.
+var exactIntegers = json.WithUnmarshalers(json.UnmarshalFromFunc(
+	func(dec *jsontext.Decoder, v *any) error {
+		if dec.PeekKind() != '0' {
+			return errors.ErrUnsupported
+		}
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		digits := tok.String()
+		if n, err := strconv.ParseInt(digits, 10, 64); err == nil {
+			*v = n
+			return nil
+		}
+		if n, err := strconv.ParseUint(digits, 10, 64); err == nil {
+			*v = n
+			return nil
+		}
+		*v, err = tok.Float()
+		return err
+	},
+))
 
 type codec struct {
 	trailingNewline bool

@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -79,6 +80,10 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a rack and returns the applied
+	// actions.
+	Dispatch dispatch.Handler[rack.Key, rack.Action]
+
 	access *rbac.Service
 	rack   *rack.Service
 	task   *task.Service
@@ -91,10 +96,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		rack:   cfg.Rack,
-		task:   cfg.Task,
-		status: cfg.Status,
-		access: cfg.RBAC,
+		Dispatch: dispatch.New(cfg.Rack.NewWriter, rack.Writer.Apply),
+		rack:     cfg.Rack,
+		task:     cfg.Task,
+		status:   cfg.Status,
+		access:   cfg.RBAC,
 	}, nil
 }
 
@@ -209,17 +215,8 @@ func (s *Service) Retrieve(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[rack.Key, rack.Action]
 
-// Dispatch applies the action sequence to the target rack atomically. Subscribers to
-// the rack action channel receive the sequence after the transaction commits.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (struct{}, error) {
-	return struct{}{}, s.rack.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-}
+// DispatchResponse carries the actions that the Core applied for a dispatch.
+type DispatchResponse = actions.DispatchResponse[rack.Action]
 
 type DeleteRequest struct {
 	Keys []rack.Key `json:"keys" msgpack:"keys"`

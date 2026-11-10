@@ -571,6 +571,29 @@ var _ = Describe("Service", func() {
 				},
 			)
 
+			It("Should rename the Arc by an update", func(ctx SpecContext) {
+				a := createArc(ctx, "before-update")
+				grantUpdateOn(ctx, author.ResourceID(), a.ResourceID())
+				acts := []arc.Action{arc.NewUpdateAction(arc.UpdatePayload{
+					Value: arc.Update{
+						Variant: arc.BaseUpdate{Name: new("after-update")},
+					},
+				})}
+				res := MustSucceed(dispatch(
+					AuthedCtx(ctx, author), apiarc.DispatchRequest{
+						Key:         a.Base().Key,
+						DispatchKey: "sess-1",
+						Actions:     acts,
+					},
+				))
+				var stored arc.Arc
+				Expect(arcSvc.NewRetrieve().
+					Where(arc.MatchKeys(a.Base().Key)).
+					Entry(&stored).Exec(ctx, db)).To(Succeed())
+				Expect(stored.Base().Name).To(Equal("after-update"))
+				Expect(res.Actions).To(Equal(acts))
+			})
+
 			It(
 				"Should bubble up query.ErrNotFound when the target Arc does not exist",
 				func(ctx SpecContext) {

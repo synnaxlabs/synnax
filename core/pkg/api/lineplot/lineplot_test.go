@@ -244,6 +244,15 @@ var _ = Describe("Dispatch", func() {
 			HaveField("Actions", []lineplot.Action{rename}),
 		)))
 	})
+	It("Should rename the line plot by an update", func(ctx SpecContext) {
+		grant(ctx, access.ActionUpdate, u.ResourceID(), lp.ResourceID())
+		update := lineplot.NewUpdateAction(lineplot.UpdatePayload{
+			Value: lineplot.Update{Name: new("After")},
+		})
+		Expect(dispatchAs(ctx, update)).
+			To(HaveField("Actions", []lineplot.Action{update}))
+		Expect(retrieveLinePlot(ctx, lp.Key).Name).To(Equal("After"))
+	})
 })
 
 // createGroup creates a group in the suite project.
@@ -442,7 +451,7 @@ var _ = Describe("Dispatch of a move", func() {
 	}
 	It("Should move the line plot into a group", func(ctx SpecContext) {
 		Expect(moveAs(ctx, []lineplot.Action{setGroup(g.Key)}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []lineplot.Action{setGroup(g.Key)}))
 		Expect(retrieveLinePlot(ctx, target.Key).Group).To(Equal(&g.Key))
 		Expect(rec.Snapshot()).To(HaveExactElements(SatisfyAll(
 			HaveField("DispatchKey", "dk-move"),
@@ -459,7 +468,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]lineplot.Action{setProject(dest.Key)}))
+			Expect(res.Actions).To(Equal([]lineplot.Action{
+				setGroup(destG.Key),
+				setProject(dest.Key),
+			}))
 			moved := retrieveLinePlot(ctx, target.Key)
 			Expect(moved.Group).To(Equal(&destG.Key))
 			Expect(moved.Project).To(Equal(&dest.Key))
@@ -472,7 +484,7 @@ var _ = Describe("Dispatch of a move", func() {
 	It("Should move the line plot out of its group", func(ctx SpecContext) {
 		inGroup(ctx)
 		Expect(moveAs(ctx, []lineplot.Action{removeGroup}, g.ResourceID())).
-			To(HaveField("Actions", BeEmpty()))
+			To(HaveField("Actions", []lineplot.Action{removeGroup}))
 		Expect(retrieveLinePlot(ctx, target.Key).Group).To(BeNil())
 	})
 	It("Should move the line plot into another project", func(ctx SpecContext) {
@@ -481,7 +493,7 @@ var _ = Describe("Dispatch of a move", func() {
 			[]lineplot.Action{setProject(dest.Key)},
 			project.ResourceID(proj.Key),
 			dest.ResourceID(),
-		)).To(HaveField("Actions", BeEmpty()))
+		)).To(HaveField("Actions", []lineplot.Action{setProject(dest.Key)}))
 		Expect(retrieveLinePlot(ctx, target.Key).Project).To(Equal(&dest.Key))
 	})
 	It(
@@ -495,7 +507,10 @@ var _ = Describe("Dispatch of a move", func() {
 				project.ResourceID(proj.Key),
 				dest.ResourceID(),
 			))
-			Expect(res.Actions).To(Equal([]lineplot.Action{removeGroup}))
+			Expect(res.Actions).To(Equal([]lineplot.Action{
+				setProject(dest.Key),
+				removeGroup,
+			}))
 			moved := retrieveLinePlot(ctx, target.Key)
 			Expect(moved.Group).To(BeNil())
 			Expect(moved.Project).To(Equal(&dest.Key))

@@ -129,6 +129,20 @@ var _ = Describe("Dispatch", func() {
 		))
 		Expect(retrieveLabel(ctx, l.Key).Name).To(Equal("Anomaly"))
 	})
+	It("Should rename the label by an update", func(ctx SpecContext) {
+		u := createUser(ctx)
+		l := createLabel(ctx)
+		grant(ctx, access.ActionUpdate, u.ResourceID(), l.ResourceID())
+		acts := []label.Action{label.NewUpdateAction(label.UpdatePayload{
+			Value: label.Update{Name: new("Anomaly")},
+		})}
+		res := MustSucceed(dispatch(
+			AuthedCtx(ctx, u),
+			apilabel.DispatchRequest{Key: l.Key, DispatchKey: "dk", Actions: acts},
+		))
+		Expect(retrieveLabel(ctx, l.Key).Name).To(Equal("Anomaly"))
+		Expect(res.Actions).To(Equal(acts))
+	})
 	It("Should reject the request when update is not granted", func(ctx SpecContext) {
 		u := createUser(ctx)
 		l := createLabel(ctx)

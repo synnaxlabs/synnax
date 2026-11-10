@@ -147,11 +147,11 @@ var _ = Describe("UpdateTask", func() {
 				),
 			)
 			firstHash := retrieveTask(ctx, first.Key).ConfigHash
-			Expect(w.Apply(
+			MustSucceed(w.Apply(
 				ctx,
 				a.Base().Key,
 				insertCharActions(crdt.New(2).Insert(0, "x"))...,
-			)).To(Succeed())
+			))
 			second := MustSucceed(
 				w.UpdateTask(
 					ctx,

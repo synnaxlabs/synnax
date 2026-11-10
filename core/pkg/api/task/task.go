@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/bind"
+	"github.com/synnaxlabs/synnax/pkg/api/dispatch"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
@@ -90,6 +91,11 @@ func (c ServiceConfig) Validate() error {
 }
 
 type Service struct {
+	// Dispatch applies the actions of a request to a task and returns the applied
+	// actions. The response holds no actions for a subject that cannot read the task,
+	// because they can carry its stored config.
+	Dispatch dispatch.Handler[task.Key, task.Action]
+
 	db          *gorp.DB
 	access      *rbac.Service
 	task        *task.Service
@@ -103,14 +109,16 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
+	s := &Service{
 		db:          cfg.DB,
 		task:        cfg.Task,
 		status:      cfg.Status,
 		access:      cfg.RBAC,
 		framer:      cfg.Framer,
 		stopTimeout: cfg.StopTimeout,
-	}, nil
+	}
+	s.Dispatch = s.readable(dispatch.New(cfg.Task.NewWriter, task.Writer.Apply))
+	return s, nil
 }
 
 type (
@@ -150,34 +158,33 @@ func (s *Service) Create(
 // recognizes its own echo.
 type DispatchRequest = actions.DispatchRequest[task.Key, task.Action]
 
-// DispatchResponse carries the actions the Core added to a dispatch: a set of the new
-// config hash, after a set of the stored config when storing changed it.
+// DispatchResponse carries the actions that the Core applied for a dispatch.
 type DispatchResponse = actions.DispatchResponse[task.Action]
 
-// Dispatch applies the action sequence to the target task in tx. Subscribers to the
-// task action signals receive the sequence after the transaction commits. The response
-// holds no actions for a subject that cannot read the task, because they can carry its
-// stored config.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	tx gorp.Tx,
-	req DispatchRequest,
-) (DispatchResponse, error) {
-	computed, err := s.task.NewWriter(tx).
-		WithDispatchKey(req.DispatchKey).
-		Apply(ctx, req.Key, req.Actions...)
-	if err != nil {
-		return DispatchResponse{}, err
+// readable returns apply with a response that holds no actions for a subject that
+// cannot read the task.
+func (s *Service) readable(
+	apply dispatch.Handler[task.Key, task.Action],
+) dispatch.Handler[task.Key, task.Action] {
+	return func(
+		ctx context.Context,
+		tx gorp.Tx,
+		req DispatchRequest,
+	) (DispatchResponse, error) {
+		res, err := apply(ctx, tx, req)
+		if err != nil {
+			return DispatchResponse{}, err
+		}
+		// Committed policies decide, as in bind.Write.
+		if err = s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
+			Subject: auth.GetSubject(ctx),
+			Action:  access.ActionRetrieve,
+			Objects: []resource.ID{task.ResourceID(req.Key)},
+		}); err != nil {
+			return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
+		}
+		return res, nil
 	}
-	// Committed policies decide, as in bind.Write.
-	if err = s.access.NewEnforcer(s.db).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []resource.ID{task.ResourceID(req.Key)},
-	}); err != nil {
-		return DispatchResponse{}, errors.Skip(err, access.ErrDenied)
-	}
-	return DispatchResponse{Actions: computed}, nil
 }
 
 var _ bind.Named = RetrieveRequest{}
