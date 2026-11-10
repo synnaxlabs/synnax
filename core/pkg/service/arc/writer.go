@@ -257,7 +257,7 @@ func (w Writer) writeTask(
 		tsk := task.Task{
 			Rack:   rackKey,
 			Name:   a.Name,
-			Type:   taskversions.TaskType,
+			Type:   taskversions.Type,
 			Config: encoded,
 		}
 		if err = tw.Create(ctx, &tsk); err != nil {

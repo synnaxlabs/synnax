@@ -127,7 +127,7 @@ func (g *aliasFileGenerator) GenerateFile(
 			continue
 		}
 		decls := buildAliasDecls(d, prefix, "", data)
-		if tt, ok := taskType(d.typ); ok && len(decls) > 0 {
+		if tt, ok := taskType(d.typ, ctx.OutputPath); ok && len(decls) > 0 {
 			decls[0].Consts = append(decls[0].Consts, aliasConst{
 				Name:   tt.Name,
 				Target: prefix + "." + tt.Name,

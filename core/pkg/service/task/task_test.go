@@ -842,7 +842,7 @@ var _ = Describe("Task", Ordered, func() {
 
 		It("Should reject a config that fails validation", func(ctx SpecContext) {
 			arcTask := &task.Task{
-				Type:   arctask.TaskType,
+				Type:   arctask.Type,
 				Rack:   testRack.Key,
 				Name:   "Arc",
 				Config: msgpack.EncodedJSON{"arc_key": testArc.String()},
@@ -939,7 +939,7 @@ var _ = Describe("Task", Ordered, func() {
 				ctx SpecContext,
 			) {
 				arcTask := &task.Task{
-					Type: arctask.TaskType,
+					Type: arctask.Type,
 					Rack: testRack.Key,
 					Name: "Arc",
 					Config: msgpack.EncodedJSON{

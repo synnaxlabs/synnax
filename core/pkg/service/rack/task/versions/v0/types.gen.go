@@ -19,6 +19,6 @@ type StatusConfig struct {
 }
 
 const (
-	// StatusTaskType is the task type of StatusConfig.
-	StatusTaskType = "rack_status"
+	// StatusType is the task type of StatusConfig.
+	StatusType = "rack_status"
 )

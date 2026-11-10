@@ -70,6 +70,6 @@ func (c Config) Validate() error {
 }
 
 const (
-	// TaskType is the task type of Config.
-	TaskType = "arc"
+	// Type is the task type of Config.
+	Type = "arc"
 )

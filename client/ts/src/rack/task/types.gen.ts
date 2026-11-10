@@ -26,10 +26,10 @@ export const statusConfigUpdateZ = z.object({
 });
 export interface StatusConfigUpdate extends z.infer<typeof statusConfigUpdateZ> {}
 
-/** STATUS_TASK_TYPE is the task type of StatusConfig. */
-export const STATUS_TASK_TYPE = "rack_status";
+/** STATUS_TYPE is the task type of StatusConfig. */
+export const STATUS_TYPE = "rack_status";
 
 /** CONFIG_SCHEMAS maps each task type to the schemas of its config. */
 export const CONFIG_SCHEMAS = {
-  [STATUS_TASK_TYPE]: { u: statusConfigUpdateZ, t: statusConfigZ },
+  [STATUS_TYPE]: { u: statusConfigUpdateZ, t: statusConfigZ },
 };

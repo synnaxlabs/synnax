@@ -128,7 +128,7 @@ func (f *factory) ConfigureTask(
 	t task.Task,
 	cmdKey string,
 ) (driver.Task, error) {
-	if t.Type != TaskType {
+	if t.Type != Type {
 		return nil, driver.ErrTaskNotHandled
 	}
 	var cfg Config

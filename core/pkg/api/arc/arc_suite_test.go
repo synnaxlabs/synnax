@@ -145,7 +145,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:       statusSvc,
 		ImEx:         imexSvc,
 		Configs:      configs,
-		ImExExcluded: []string{arctask.TaskType},
+		ImExExcluded: []string{arctask.Type},
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 		Channel: node.Channel,

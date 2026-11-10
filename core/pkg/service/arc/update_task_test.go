@@ -96,7 +96,7 @@ var _ = Describe("UpdateTask", func() {
 			)
 			Expect(tsk).ToNot(BeNil())
 			Expect(tsk.Rack).To(Equal(testRack.Key))
-			Expect(tsk.Type).To(Equal(arctask.TaskType))
+			Expect(tsk.Type).To(Equal(arctask.Type))
 			Expect(tsk.Name).To(Equal(a.Base().Name))
 			Expect(tsk.Config).To(HaveKeyWithValue("arc_key", a.Base().Key.String()))
 			Expect(tsk.Config).To(HaveKey("hash"))

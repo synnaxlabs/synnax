@@ -266,13 +266,13 @@ var _ = Describe("Writer", func() {
 			t := &task.Task{
 				Rack:   testRack.Key,
 				Name:   "child-task",
-				Type:   arctask.TaskType,
+				Type:   arctask.Type,
 				Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 			}
 			other := &task.Task{
 				Rack:   testRack.Key,
 				Name:   "other-arc-task",
-				Type:   arctask.TaskType,
+				Type:   arctask.Type,
 				Config: msgpack.EncodedJSON{"arc_key": b.Base().Key.String()},
 			}
 			Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
@@ -300,7 +300,7 @@ var _ = Describe("Writer", func() {
 				t := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task",
-					Type:   arctask.TaskType,
+					Type:   arctask.Type,
 					Config: msgpack.EncodedJSON{"arc_key": a.Base().Key.String()},
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t)).To(Succeed())
@@ -344,13 +344,13 @@ var _ = Describe("Writer", func() {
 				t1 := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task-1",
-					Type:   arctask.TaskType,
+					Type:   arctask.Type,
 					Config: cfg,
 				}
 				t2 := &task.Task{
 					Rack:   testRack.Key,
 					Name:   "child-task-2",
-					Type:   arctask.TaskType,
+					Type:   arctask.Type,
 					Config: cfg,
 				}
 				Expect(taskSvc.NewWriter(tx).Create(ctx, t1)).To(Succeed())

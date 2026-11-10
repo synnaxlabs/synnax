@@ -15,6 +15,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -589,7 +590,7 @@ func renderGoFile(
 			for _, a := range buildAliasDecls(d, predAlias, target, data) {
 				data.Decls = append(data.Decls, declData{Alias: &a})
 			}
-			if tt, ok := taskType(d.typ); ok {
+			if tt, ok := taskType(d.typ, outputPath); ok {
 				if pred.taskTyped.Contains(d.typ.QualifiedName) {
 					tt.Value = predAlias + "." + tt.Name
 				}
@@ -614,7 +615,7 @@ func renderGoFile(
 				return nil, nil, err
 			}
 			data.Decls = append(data.Decls, declData{Struct: &s})
-			if tt, ok := taskType(d.typ); ok {
+			if tt, ok := taskType(d.typ, outputPath); ok {
 				data.TaskTypes = append(data.TaskTypes, tt)
 			}
 		case declUnion:
@@ -1137,17 +1138,29 @@ type templateData struct {
 type taskTypeData struct{ Name, Value, Config string }
 
 // taskType returns the constant of the task type that @task type gives the config
-// struct t, with a literal value.
-func taskType(t resolution.Type) (taskTypeData, bool) {
-	value, name, ok := domain.TaskType(t)
+// struct t, with a literal value. outputPath is the package the constant goes in.
+func taskType(t resolution.Type, outputPath string) (taskTypeData, bool) {
+	value, name, ok := domain.TaskType(t, rootPackage(outputPath))
 	if !ok {
 		return taskTypeData{}, false
 	}
 	return taskTypeData{
-		Name:   casing.TypePascal(name) + "TaskType",
+		Name:   casing.TypePascal(name),
 		Value:  strconv.Quote(value),
 		Config: naming.GetGoName(t),
 	}, true
+}
+
+// rootPackage returns the name of the package at the root of the version layout that
+// outputPath is in, so each version package names a constant as the root does.
+func rootPackage(outputPath string) string {
+	if path.Base(path.Dir(outputPath)) == "versions" {
+		outputPath = path.Dir(outputPath)
+	}
+	if path.Base(outputPath) == "versions" {
+		outputPath = path.Dir(outputPath)
+	}
+	return path.Base(outputPath)
 }
 
 // importAlias returns the import alias for a cross-package reference,

@@ -113,6 +113,26 @@ var _ = Describe("Update types", func() {
 			)
 		})
 
+		It("Should drop the task word from a constant in a task package", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/arc/task"
+
+				Config struct {
+					key uuid
+
+					@patch
+					@task type "arc"
+				}
+			`, "arc_task", loader, types.New(types.DefaultOptions()))
+			ExpectContent(resp, "core/pkg/service/arc/task/types.gen.go").ToContain(
+				"\t// Type is the task type of Config.\n\tType = \"arc\"\n",
+			)
+		})
+
 		It("Should apply each field kind of a struct update", func(ctx SpecContext) {
 			content := generate(ctx, `
 				Point struct {

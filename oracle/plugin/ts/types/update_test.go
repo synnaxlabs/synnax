@@ -119,9 +119,9 @@ var _ = Describe("Update types", func() {
 	It("Should derive the input of a client from the update", func(ctx SpecContext) {
 		resp := MustGenerate(ctx, record, "plot", loader, typesPlugin)
 		ExpectContent(resp, "client/ts/src/plot/types.gen.ts").ToContain(
-			"export type UpdateInput<Config extends "+
-				"patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> = "+
-				"patch.StructSchemas<z.ZodType<record.Unknown>, "+
+			"export type UpdateInput<Config extends " +
+				"patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> = " +
+				"patch.StructSchemas<z.ZodType<record.Unknown>, " +
 				`z.ZodType<record.Unknown>>> = Omit<Update<Config>, "hash">;`,
 		)
 	})
@@ -148,6 +148,28 @@ var _ = Describe("Update types", func() {
 			"export const CONFIG_SCHEMAS = {\n"+
 				"  [ANALOG_READ_TASK_TYPE]: "+
 				"{ u: analogReadConfigUpdateZ, t: analogReadConfigZ },\n};",
+		)
+	})
+
+	It("Should drop the task word from a constant in a task namespace", func(
+		ctx SpecContext,
+	) {
+		resp := MustGenerate(ctx, `
+			import "schemas/x/patch"
+
+			@go output "core/pkg/service/rack/task"
+			@ts output "client/ts/src/rack/task"
+
+			StatusConfig struct {
+				key uuid
+
+				@patch
+				@task type "rack_status"
+			}
+		`, "rack_task", loader, typesPlugin)
+		ExpectContent(resp, "client/ts/src/rack/task/types.gen.ts").ToContain(
+			`export const STATUS_TYPE = "rack_status";`,
+			"  [STATUS_TYPE]: { u: statusConfigUpdateZ, t: statusConfigZ },",
 		)
 	})
 

@@ -77,7 +77,7 @@ func taskTyped(
 	typed := make(set.Set[string])
 	for name := range aliases {
 		if def, ok := surf[name]; ok {
-			if _, _, ok = domain.TaskType(def.Type); ok {
+			if _, _, ok = domain.TaskType(def.Type, ""); ok {
 				typed.Add(ns + "." + name)
 			}
 		}
