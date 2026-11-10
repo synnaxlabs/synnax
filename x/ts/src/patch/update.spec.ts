@@ -76,7 +76,7 @@ const docUpdateZ = z.strictObject({
   limits: patch.changeZ(patch.structZ({ u: limitsUpdateZ, t: limitsZ })).optional(),
   tags: patch.valueListZ(z.string()).optional(),
   cells: patch
-    .mapZ({
+    .typedMapZ({
       k: z.string(),
       v: vectorCellZ,
       u: z.strictObject({
@@ -267,7 +267,7 @@ describe("nest", () => {
       "The update schema holds no field speed",
     );
     expect(() => patch.nest(docUpdateZ, vectors.doc, ["name", "first"], 1)).toThrow(
-      "[name] holds no fields",
+      "name holds no fields",
     );
   });
 
@@ -724,7 +724,7 @@ describe("generated update shapes", () => {
         props: { slot: 2 },
       });
       expect(() => patch.nest(taskUpdateZ, task, ["props", "rack"], 2)).toThrow(
-        "[props] holds no fields",
+        "props holds no fields",
       );
     });
   });
@@ -742,9 +742,9 @@ const sheetZ = z.object({
 });
 type Sheet = z.infer<typeof sheetZ>;
 const sheetUpdateZ = z.object({
-  cells: patch.mapZ({ k: z.string(), v: cellZ, u: cellUpdateZ }).optional(),
-  widths: patch.mapZ({ k: z.string(), v: z.number(), u: z.number() }).optional(),
-  scales: patch.mapZ({ k: z.string(), v: scaleZ, u: scaleUpdateZ }).optional(),
+  cells: patch.typedMapZ({ k: z.string(), v: cellZ, u: cellUpdateZ }).optional(),
+  widths: patch.typedMapZ({ k: z.string(), v: z.number(), u: z.number() }).optional(),
+  scales: patch.typedMapZ({ k: z.string(), v: scaleZ, u: scaleUpdateZ }).optional(),
 });
 const sheetSchemas = { u: sheetUpdateZ, t: sheetZ };
 const sheetPayloadZ = patch.updateZ(sheetUpdateZ);
@@ -911,7 +911,7 @@ describe("typed maps", () => {
         widths: { update: { c1: 4 } },
       });
       expect(() => patch.nest(sheetUpdateZ, sheet, ["widths", "c1", "px"], 4)).toThrow(
-        "[widths, c1] holds no fields",
+        "widths.c1 holds no fields",
       );
     });
   });

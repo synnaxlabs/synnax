@@ -155,7 +155,7 @@ const omit = (value: record.Unknown, field: string): record.Unknown => {
   return rest;
 };
 
-const formatPath = (path: string[]): string => `[${path.join(", ")}]`;
+const formatPath = (path: string[]): string => path.join(".");
 
 const readAt = (doc: unknown, path: string[]): unknown =>
   path.reduce<unknown>((current, seg) => {

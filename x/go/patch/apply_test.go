@@ -527,12 +527,12 @@ var _ = Describe("Apply", func() {
 			Entry(
 				"another value",
 				patch.Guard{Path: []string{"config", "type"}, Value: "ao"},
-				"[config, type] is not ao",
+				"config.type is not ao",
 			),
 			Entry(
 				"a missing list entry",
 				patch.Guard{Path: []string{"config", "channels", "c9", "type"}},
-				"[config, channels, c9, type] is not ",
+				"config.channels.c9.type is not ",
 			),
 		)
 	})
