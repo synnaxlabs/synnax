@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-cursor-drag {
+.lyra-cursor-drag {
     touch-action: none;
     user-select: none;
 }

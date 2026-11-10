@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -68,31 +67,6 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	return i
 }
 
-// Read reads data for all domains that overlap with the two time ranges and accumulates
-// it into a single buffer.
-func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error) {
-	i := db.OpenIterator(IterRange(tr))
-	defer func() {
-		err = errors.Combine(err, i.Close())
-	}()
-	var data []byte
-	for i.SeekFirst(ctx); i.Valid(); i.Next() {
-		r, err := i.OpenReader(ctx)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, r.Size())
-		if _, err = r.ReadAt(chunk, 0); err != nil {
-			return nil, errors.Combine(err, r.Close())
-		}
-		data = append(data, chunk...)
-		if err := r.Close(); err != nil {
-			return nil, err
-		}
-	}
-	return data, nil
-}
-
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be
 // valid until a seeking call is made.
 func (i *Iterator) SetBounds(bounds telem.TimeRange) {
@@ -125,9 +99,7 @@ func (i *Iterator) SeekLE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchLE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchLE(ctx, stamp))
 }
 
 // SeekGE seeks to the domain whose TimeRange contain the provided timestamp. If no such
@@ -137,9 +109,7 @@ func (i *Iterator) SeekGE(ctx context.Context, stamp telem.TimeStamp) bool {
 	if i.closed {
 		return false
 	}
-	i.valid = true
-	i.position = i.db.idx.searchGE(ctx, stamp)
-	return i.reload()
+	return i.load(i.db.idx.searchGE(ctx, stamp))
 }
 
 // Next advances the iterator to the next domain. If the iterator has been exhausted,
@@ -148,14 +118,7 @@ func (i *Iterator) Next() bool {
 	if !i.valid {
 		return false
 	}
-	i.position++
-	ok := i.reload()
-	// If we've reached the end of the iterator, back up the position so that we
-	// remain at the location of the last domain.
-	if !ok {
-		i.position--
-	}
-	return ok
+	return i.load(i.db.idx.next(i.currPtr.End))
 }
 
 // Prev advances the iterator to the previous domain. If the iterator has been
@@ -164,13 +127,7 @@ func (i *Iterator) Prev() bool {
 	if !i.valid {
 		return false
 	}
-	// Check if the position is zero to avoid uint32 underflow.
-	if i.position == 0 {
-		i.valid = false
-		return i.valid
-	}
-	i.position--
-	return i.reload()
+	return i.load(i.db.idx.prev(i.currPtr.Start))
 }
 
 // Valid returns true if the iterator is currently pointing to a valid domain and has
@@ -207,18 +164,11 @@ func (i *Iterator) Close() error {
 	return nil
 }
 
-func (i *Iterator) reload() bool {
-	if i.position == -1 {
-		i.valid = false
-		return i.valid
+// load moves the iterator to ptr at position. An invalid load keeps the last domain.
+func (i *Iterator) load(position int, ptr pointer, ok bool) bool {
+	i.valid = ok && ptr.OverlapsWith(i.Bounds)
+	if i.valid {
+		i.position, i.currPtr = position, ptr
 	}
-	ptr, ok := i.db.idx.get(i.position)
-	if !ok || !ptr.OverlapsWith(i.Bounds) {
-		i.valid = false
-		// it's important that we return here, so we don't clear the current current
-		// value of the iterator.
-		return i.valid
-	}
-	i.currPtr = ptr
 	return i.valid
 }

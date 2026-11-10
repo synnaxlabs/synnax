@@ -81,6 +81,7 @@ export const Top = ({ secondary = false }: TopProps): ReactElement => {
         ) : (
           <>
             <Version.Badge />
+            {DESKTOP && <Embedded.ConnectButton />}
             <Docs.OpenButton />
             {DESKTOP ? <Embedded.Indicator /> : <Core.Badge />}
           </>

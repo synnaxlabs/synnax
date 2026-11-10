@@ -22,11 +22,16 @@ import (
 
 // ProvisionResult contains the keys of all provisioned built-in roles.
 type ProvisionResult struct {
-	OwnerKey    role.Key
+	// OwnerKey is the key of the Owner role.
+	OwnerKey role.Key
+	// EngineerKey is the key of the Engineer role.
 	EngineerKey role.Key
+	// OperatorKey is the key of the Operator role.
 	OperatorKey role.Key
-	HostKey     role.Key
-	ViewerKey   role.Key
+	// DriverKey is the key of the Driver role, which every rack holds.
+	DriverKey role.Key
+	// ViewerKey is the key of the Viewer role.
+	ViewerKey role.Key
 }
 
 // Provision creates or updates all built-in roles and their associated policies.
@@ -49,10 +54,10 @@ func Provision(
 		); err != nil {
 			return err
 		}
-		if result.HostKey, err = provisionRole(
+		if result.DriverKey, err = provisionRole(
 			ctx,
-			hostRole,
-			hostPolicies,
+			driverRole,
+			driverPolicies,
 			tx,
 			policySvc,
 			roleSvc,
@@ -96,45 +101,73 @@ func Provision(
 
 func provisionRole(
 	ctx context.Context,
-	rol role.Role,
+	desired role.Role,
 	policies []policy.Policy,
 	tx gorp.Tx,
 	policySvc *policy.Service,
 	roleSvc *role.Service,
 ) (role.Key, error) {
-	policyKeys := make([]policy.Key, 0, len(policies))
-	for i := range policies {
-		pol := &policies[i]
-		desiredObjects := pol.Objects
-		desiredActions := pol.Actions
-		if err := policySvc.NewRetrieve().
-			Where(policy.MatchNames(pol.Name)).
-			Entry(pol).
-			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
-			return uuid.Nil(), err
-		}
-		pol.Objects = desiredObjects
-		pol.Actions = desiredActions
-		if err := policySvc.NewWriter(tx, true).Create(ctx, pol); err != nil {
-			return uuid.Nil(), err
-		}
-		policyKeys = append(policyKeys, pol.Key)
-	}
-	if err := roleSvc.NewRetrieve().
-		Where(role.MatchNames(rol.Name)).
+	roles := roleSvc.NewWriter(tx, true)
+	var rol role.Role
+	err := roleSvc.NewRetrieve().
+		Where(role.MatchNames(storedNames(desired.Name)...)).
+		Where(role.MatchInternal(true)).
 		Entry(&rol).
-		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		rol = desired
+		err = roles.Create(ctx, &rol)
+	} else if err == nil && rol.Name != desired.Name {
+		err = roles.Apply(
+			ctx,
+			rol.Key,
+			role.NewSetAction(
+				role.SetPayload{Path: []string{"name"}, Value: desired.Name},
+			),
+			role.NewSetAction(role.SetPayload{
+				Path:  []string{"description"},
+				Value: desired.Description,
+			}),
+		)
+	}
+	if err != nil {
 		return uuid.Nil(), err
 	}
-	if rol.Key == uuid.Nil() {
-		w := roleSvc.NewWriter(tx, true)
-		if err := w.Create(ctx, &rol); err != nil {
+	writer := policySvc.NewWriter(tx, true)
+	for _, pol := range policies {
+		pol.Role = rol.Key
+		var stored policy.Policy
+		err = policySvc.NewRetrieve().
+			Where(policy.MatchNames(storedNames(pol.Name)...)).
+			Where(policy.MatchInternal(true)).
+			Where(policy.MatchRoles(rol.Key)).
+			Entry(&stored).
+			Exec(ctx, tx)
+		if errors.Is(err, query.ErrNotFound) {
+			err = writer.Create(ctx, &pol)
+		} else if err == nil {
+			err = writer.Apply(
+				ctx,
+				stored.Key,
+				setPolicy("name", pol.Name),
+				setPolicy("objects", pol.Objects),
+				setPolicy("actions", pol.Actions),
+			)
+		}
+		if err != nil {
 			return uuid.Nil(), err
 		}
-	}
-	if err := policySvc.NewWriter(tx, true).
-		SetOnRole(ctx, rol.Key, policyKeys...); err != nil {
-		return uuid.Nil(), err
 	}
 	return rol.Key, nil
+}
+
+func setPolicy(member string, value any) policy.Action {
+	return policy.NewSetAction(policy.SetPayload{Path: []string{member}, Value: value})
+}
+
+func storedNames(name string) []string {
+	if former, ok := formerNames[name]; ok {
+		return []string{name, former}
+	}
+	return []string{name}
 }

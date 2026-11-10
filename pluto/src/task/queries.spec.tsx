@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, ontology, rack, status, task } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, uuid } from "@synnaxlabs/x";
-import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { status, task } from "@synnaxlabs/client";
+import { createTestClient, holdRequests } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
+import { deep, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
-import { Errors } from "@/errors";
 import { Task } from "@/task";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -23,7 +23,6 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 const client = createTestClient();
 
 describe("queries", () => {
-  const abortController = new AbortController();
   let wrapper: React.FC<PropsWithChildren>;
 
   beforeEach(async () => {
@@ -31,282 +30,146 @@ describe("queries", () => {
   });
 
   describe("useList", () => {
-    it("should return a list of task keys", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const task1 = await rack.createTask({
-        name: "task1",
-        type: "pagerduty_alert",
-        config: {},
-      });
-      const task2 = await rack.createTask({
-        name: "task2",
-        type: "pagerduty_alert",
-        config: {},
-      });
+    const setStatus = async (key: task.Key) =>
+      await client.statuses.set(
+        status.create<task.StatusDetailsZodObject>({
+          owner: task.resourceID(key),
+          variant: "error",
+          message: "Task failed",
+          details: { running: false, cmd: "", configHash: "", rack: 0, data: {} },
+        }),
+      );
 
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.data.length).toBeGreaterThanOrEqual(2);
-      expect(result.current.data).toContain(task1.key);
-      expect(result.current.data).toContain(task2.key);
+    it("should render again only the item whose task status changed", async () => {
+      const rack = await client.racks.create({ name: "renderRack" });
+      const [a, b] = await Promise.all([
+        rack.createTask({ name: "a", type: "pagerduty_alert", config: {} }),
+        rack.createTask({ name: "b", type: "pagerduty_alert", config: {} }),
+      ]);
+      const renders = new Map<task.Key, number>();
+      const Item = ({ itemKey }: { itemKey: task.Key }): ReactElement => {
+        const t = List.useItem<task.Key, task.Task>(itemKey);
+        renders.set(itemKey, (renders.get(itemKey) ?? 0) + 1);
+        return <span>{`${t?.name} ${t?.status?.variant ?? "none"}`}</span>;
+      };
+      const renderItem = ({ key }: { key: task.Key }) => (
+        <Item key={key} itemKey={key} />
+      );
+      const Tasks = (): ReactElement => {
+        const { data, getItem, subscribe, more } = Task.useList({
+          query: { where: { rack: { eq: rack.key } } },
+        });
+        useEffect(more, [more]);
+        return (
+          <List.Frame data={data} getItem={getItem} subscribe={subscribe}>
+            <List.Scroll>
+              <List.Items<task.Key>>{renderItem}</List.Items>
+            </List.Scroll>
+          </List.Frame>
+        );
+      };
+      render(<Tasks />, { wrapper });
+      await screen.findByText(/^b /);
+      const rendersOfB = renders.get(b.key);
+      await setStatus(a.key);
+      await screen.findByText("a error");
+      expect(renders.get(b.key)).toBe(rendersOfB);
     });
 
-    it("should get individual tasks using getItem", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "testTask",
+    it("should read the shown records while a search has no answer", async () => {
+      const rack = await client.racks.create({ name: "searchRack" });
+      const t = await rack.createTask({
+        name: "shown",
         type: "pagerduty_alert",
         config: {},
       });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const retrievedTask = result.current.getItem(testTask.key);
-      expect(retrievedTask?.key).toEqual(testTask.key);
-      expect(retrievedTask?.name).toEqual("testTask");
+      await setStatus(t.key);
+      const { result } = renderHook(
+        () =>
+          Task.useList({
+            query: { where: { rack: { eq: rack.key } } },
+            searchDebounce: 0,
+          }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([t.key]));
+      const shown = result.current.getItem(t.key);
+      expect(shown?.status?.variant).toEqual("error");
+      holdRequests(client, "/task/retrieve");
+      act(() => result.current.search("shown"));
+      await waitFor(() => expect(result.current.variant).toEqual("loading"));
+      expect(result.current.data).toEqual([t.key]);
+      expect(result.current.getItem(t.key)).toBe(shown);
     });
 
-    it("should filter tasks by search term", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      await rack.createTask({
-        name: "ordinary",
-        type: "pagerduty_alert",
-        config: {},
-      });
-      await rack.createTask({
-        name: "special",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({ searchTerm: "special" });
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.data.length).toBeGreaterThanOrEqual(1);
-        expect(
-          result.current.data
-            .map((key: task.Key) => result.current.getItem(key)?.name)
-            .includes("special"),
-        ).toBe(true);
-      });
-    });
-
-    it("should handle pagination with limit and offset", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      for (let i = 0; i < 5; i++)
-        await rack.createTask({
-          name: `paginationTask${i}`,
+    it("should leave out internal tasks unless the query sets where.internal", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const [visible, internal] = await Promise.all([
+        rack.createTask({ name: "visible", type: "pagerduty_alert", config: {} }),
+        rack.createTask({
+          name: "internal",
           type: "pagerduty_alert",
           config: {},
-        });
-
-      const { result } = renderHook(() => Task.useList({ useCachedList: false }), {
-        wrapper,
-      });
+          internal: true,
+        }),
+      ]);
+      const { result } = renderHook(
+        () => ({
+          visible: Task.useList({ query: { where: { rack: { eq: rack.key } } } }),
+          internal: Task.useList({
+            query: { where: { rack: { eq: rack.key }, internal: { eq: true } } },
+          }),
+        }),
+        { wrapper },
+      );
       act(() => {
-        result.current.retrieve({ limit: 2, offset: 1 });
+        result.current.visible.more();
+        result.current.internal.more();
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toHaveLength(2);
-    });
-
-    it("should update the list when a task is created", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const newTask = await rack.createTask({
-        name: "newTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      await waitFor(() => expect(result.current.data).toContain(newTask.key));
-    });
-
-    it("should update the list when a task is updated", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "original",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.getItem(testTask.key)?.name).toEqual("original");
-
-      await client.tasks.create({
-        ...testTask.payload,
-        name: "updated",
-      });
-
       await waitFor(() => {
-        expect(result.current.getItem(testTask.key)?.name).toEqual("updated");
+        expect(result.current.visible.data).toEqual([visible.key]);
+        expect(result.current.internal.data).toEqual([internal.key]);
       });
     });
 
-    it("should remove task from list when deleted", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
-        name: "toDelete",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.data).toContain(testTask.key);
-
-      await client.tasks.delete([testTask.key]);
-
-      await waitFor(() => {
-        expect(result.current.data).not.toContain(testTask.key);
-      });
-    });
-
-    it("should update task status in the list", async () => {
-      const rack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await rack.createTask({
+    it("should update the status of a task in the list", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const t = await rack.createTask({
         name: "statusTask",
         type: "pagerduty_alert",
         config: {},
       });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: id.create(),
-        variant: "error",
-        message: "Task failed",
-        details: {
-          task: testTask.key,
-          running: false,
-          cmd: "",
-          configHash: "",
-          rack: 0,
-          data: {},
-        },
-      });
-
-      await act(async () => {
-        await client.statuses.set(taskStatus);
-      });
-
-      await waitFor(() => {
-        const taskInList = result.current.getItem(testTask.key);
-        expect(taskInList?.status?.variant).toEqual("error");
-        expect(taskInList?.status?.message).toEqual("Task failed");
-      });
+      const { result } = renderHook(
+        () => Task.useList({ query: { where: { rack: { eq: rack.key } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.data).toEqual([t.key]));
+      await setStatus(t.key);
+      await waitFor(() =>
+        expect(result.current.getItem(t.key)?.status?.variant).toEqual("error"),
+      );
     });
 
-    it("should update task status when a command is executed", async () => {
-      const testRack = await client.racks.create({
-        name: "testRack",
-      });
-      const testTask = await testRack.createTask({
-        name: "commandTask",
+    it("should read the status of a task outside the list", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const t = await rack.createTask({
+        name: "statusTask",
         type: "pagerduty_alert",
         config: {},
       });
-
-      const { result } = renderHook(() => Task.useList(), {
-        wrapper,
-      });
-      act(() => {
-        result.current.retrieve({});
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      // A rack with no Driver goes down within seconds of its creation, and a
-      // command on a down rack shows its warning rather than a wait for an answer.
-      await act(async () => {
-        await client.statuses.set(
-          status.create<typeof rack.statusDetailsZ>({
-            key: rack.statusKey(testRack.key),
-            variant: "success",
-            message: "Driver is running",
-            details: { rack: testRack.key },
-          }),
-        );
-      });
-
-      const command: task.Command = {
-        key: id.create(),
-        task: testTask.key,
-        type: "start",
-        configHash: "",
-        args: {},
-      };
-
-      await act(async () => {
-        const writer = await client.openWriter([task.COMMAND_CHANNEL_NAME]);
-        await writer.write(task.COMMAND_CHANNEL_NAME, [command]);
-        await writer.close();
-      });
-
-      await waitFor(() => {
-        const taskInList = result.current.getItem(testTask.key);
-        expect(taskInList?.status?.variant).toEqual("loading");
-        expect(taskInList?.status?.message).toEqual("Sending start command");
-        expect(taskInList?.status?.details.running).toBe(true);
-      });
+      await setStatus(t.key);
+      const missing = id.create();
+      const { result } = renderHook(
+        () => Task.useList({ query: { where: { name: { eq: missing } } } }),
+        { wrapper },
+      );
+      const callback = vi.fn();
+      const release = result.current.subscribe(callback, t.key);
+      await waitFor(() => expect(callback).toHaveBeenCalled());
+      expect(result.current.getItem(t.key)?.status?.variant).toEqual("error");
+      release();
     });
   });
 
@@ -345,11 +208,10 @@ describe("queries", () => {
       });
 
       const taskStatus: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "success",
         message: "Task running",
         details: {
-          task: testTask.key,
           running: true,
           cmd: "",
           configHash: "",
@@ -425,11 +287,10 @@ describe("queries", () => {
 
       const _errorStatusDetailsZ = task.statusDetailsZ(z.object({ error: z.string() }));
       const newStatus = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(testTask.key),
         variant: "error",
         message: "Task failed",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -531,6 +392,12 @@ describe("queries", () => {
   });
 
   describe("useCreateSnapshot", () => {
+    const createRange = async () =>
+      await client.ranges.create({
+        name: `snapshots-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+
     it("should create a snapshot of a single task", async () => {
       const rack = await client.racks.create({
         name: "snapshotRack",
@@ -541,17 +408,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: "rk-original" },
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -581,10 +445,7 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: { routingKey: "rk-2" },
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "multi_snapshot_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
@@ -594,7 +455,7 @@ describe("queries", () => {
             { key: task1.key, name: task1.name },
             { key: task2.key, name: task2.name },
           ],
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -604,7 +465,7 @@ describe("queries", () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
         const snapshots = await client.tasks.retrieve({
-          names: [firstSnapshotName, secondSnapshotName],
+          name: [firstSnapshotName, secondSnapshotName],
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
         const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
@@ -617,46 +478,42 @@ describe("queries", () => {
       });
     });
 
-    it("should add snapshots to parent ontology group", async () => {
-      const rack = await client.racks.create({
-        name: "ontologyRack",
-      });
-      const originalName = id.create();
+    it("should place each snapshot in the range", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
       const originalTask = await rack.createTask({
-        name: originalName,
+        name: id.create(),
         type: "pagerduty_alert",
         config: {},
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "ontology_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
-      const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(parentGroup.key),
-      });
-      expect(children.length).toBeGreaterThan(0);
-
-      const snapshotChild = children.find(
-        (c) => c.name === `${originalTask.name} (Snapshot)`,
-      );
-      expect(snapshotChild).toBeDefined();
+      const inRange = await client.tasks.retrieve({ ranges: [rng.key] });
+      expect(inRange.map(({ name }) => name)).toEqual([
+        `${originalTask.name} (Snapshot)`,
+      ]);
+      expect(inRange[0].range).toEqual(rng.key);
     });
 
     it("should preserve task configuration in snapshots", async () => {
       const rack = await client.racks.create({
         name: "configRack",
+      });
+      await client.statuses.set({
+        key: "st1",
+        name: "st1",
+        variant: "info",
+        message: "st1",
       });
       const complexConfig = {
         routingKey: "rk-preserved",
@@ -669,17 +526,14 @@ describe("queries", () => {
         type: "pagerduty_alert",
         config: complexConfig,
       });
-      const parentGroup = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: "config_parent",
-      });
+      const rng = await createRange();
 
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
         await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
-          parentID: group.ontologyID(parentGroup.key),
+          range: rng.key,
         });
       });
 
@@ -694,13 +548,52 @@ describe("queries", () => {
     });
   });
 
+  describe("useRange", () => {
+    const renderRange = async (key: task.Key) =>
+      await renderHookSuspended(
+        () => {
+          Task.useEnsure({ key });
+          return Task.useRange({ key });
+        },
+        { wrapper },
+      );
+
+    it("should return the range of a snapshot", async () => {
+      const rack = await client.racks.create({ name: "rangeRack" });
+      const original = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-range" },
+      });
+      const rng = await client.ranges.create({
+        name: `range-${id.create()}`,
+        timeRange: new TimeRange(TimeStamp.now(), TimeStamp.MAX),
+      });
+      const snapshot = await client.tasks.copy(original.key, "Snapshot", true, rng.key);
+      const { result } = await renderRange(snapshot.key);
+      await waitFor(() => expect(result.current).toEqual(rng.key));
+    });
+
+    it("should return nothing for a task in no range", async () => {
+      const rack = await client.racks.create({ name: "noRangeRack" });
+      const tsk = await rack.createTask({
+        name: id.create(),
+        type: "pagerduty_alert",
+        config: { routingKey: "rk-no-range" },
+      });
+      const { result } = await renderRange(tsk.key);
+      expect(result.current).toBeUndefined();
+    });
+  });
+
   describe("useMultiple", () => {
     it("should add a task on the rack created after the query resolves", async () => {
       const rack = await client.racks.create({ name: "testRack" });
       const type = "pagerduty_alert";
       const first = await rack.createTask({ name: "first", type, config: {} });
       const { result } = await renderHookSuspended(
-        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        () =>
+          Task.useMultiple({ where: { rack: { eq: rack.key }, type: { in: [type] } } }),
         { wrapper },
       );
       await waitFor(() =>
@@ -728,19 +621,14 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const list = Task.useList();
+          const list = Task.useList({ query: { where: { rack: { eq: rack.key } } } });
           const del = Task.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => {
-        expect(result.current.list.variant).toEqual("success");
-      });
-      expect(result.current.list.data).toContain(testTask.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toEqual([testTask.key]));
 
       await act(async () => {
         await result.current.del.updateAsync(testTask.key);
@@ -767,18 +655,14 @@ describe("queries", () => {
 
       const { result } = renderHook(
         () => {
-          const list = Task.useList();
+          const list = Task.useList({ query: { where: { rack: { eq: rack.key } } } });
           const del = Task.useDelete();
           return { list, del };
         },
         { wrapper },
       );
-      act(() => {
-        result.current.list.retrieve({});
-      });
-      await waitFor(() => expect(result.current.list.variant).toEqual("success"));
-      expect(result.current.list.data).toContain(task1.key);
-      expect(result.current.list.data).toContain(task2.key);
+      act(() => result.current.list.more());
+      await waitFor(() => expect(result.current.list.data).toHaveLength(2));
 
       await act(async () => {
         await result.current.del.updateAsync([task1.key, task2.key]);
@@ -790,385 +674,64 @@ describe("queries", () => {
     });
   });
 
-  describe("useForm", async () => {
+  describe("createForm", async () => {
     const testRack = await client.racks.create({ name: "testRack" });
-    it("should initialize a form with default values", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: "123",
-          name: "testTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("key").value).toEqual("123");
-      expect(result.current.form.get("name").value).toEqual("testTask");
-      expect(result.current.form.get("type").value).toEqual("pagerduty_alert");
-      expect(result.current.form.get("config").value).toEqual({});
-      expect(result.current.form.get("rack").value).toEqual(0);
-      expect(result.current.form.get("snapshot").value).toEqual(false);
-    });
+    const statusData = z.object({ errorCode: z.number().optional() });
+    const schemas = {
+      type: z.literal("pagerduty_alert"),
+      config: z.object({ routingKey: z.string() }),
+      statusData: statusData.nullish(),
+    };
+    const useForm = Task.createForm({ schemas });
+    const path = deep.path<z.infer<Task.FormSchema<typeof schemas>>>();
 
-    it("should honor an initial rack when creating a new task", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "testTask",
-          type: "pagerduty_alert",
-          config: {},
-          rack: testRack.key,
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("rack").value).toEqual(testRack.key);
-    });
-
-    it("should populate rack from the retrieved task", async () => {
-      const existing = await testRack.createTask({
-        name: "rackDeriveTask",
+    const createTask = async (): Promise<task.Task> =>
+      await testRack.createTask({
+        name: `form-${id.create()}`,
         type: "pagerduty_alert",
-        config: {},
+        config: { routingKey: "dog" },
       });
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "rackDeriveTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
+
+    const renderForm = async (key: task.Key) =>
+      await renderHookSuspended(() => useForm({ query: { key } }), { wrapper });
+
+    it("should show the cached task", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      expect(result.current.form.value()).toMatchObject({
+        key: t.key,
+        name: t.name,
+        rack: testRack.key,
+        type: "pagerduty_alert",
+        config: { routingKey: "dog" },
+        configHash: t.configHash,
+        snapshot: false,
       });
-      const { result } = renderHook(() => useForm({ query: { key: existing.key } }), {
-        wrapper,
-      });
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-      expect(result.current.form.get("rack").value).toEqual(testRack.key);
     });
 
-    it("should create a draft task when no rack is set", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "draftTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
+    it("should show the config hash of an edit once the Core applies it", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      act(() => result.current.form.set(path.config.routingKey, "cat"));
       await act(async () => {
-        result.current.save();
+        expect(await result.current.flush()).toBe(true);
+        await client.tasks.settled(t.key);
       });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const key = result.current.form.get<string>("key").value;
-      expect(key).not.toBeUndefined();
-      const created = await client.tasks.retrieve({ key });
-      expect(created.rack).toEqual(0);
-      expect(created.name).toEqual("draftTask");
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.config).toMatchObject({ routingKey: "cat" });
+      expect(stored.configHash).not.toBe(t.configHash);
+      expect(result.current.form.get(path.configHash).value).toBe(stored.configHash);
     });
 
-    it("should retrieve and populate form with existing task", async () => {
-      const testTask = await testRack.createTask({
-        name: "existingTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "rk-populate" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().nullish(),
-        },
-        initialValues: {
-          name: "",
-          type: "pagerduty_alert",
-          config: { routingKey: "" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("key").value).toEqual(testTask.key);
-        expect(result.current.form.get("name").value).toEqual("existingTask");
-        expect(result.current.form.get("config").value).toMatchObject({
-          routingKey: "rk-populate",
-        });
-      });
-    });
-
-    it("should save form changes when save is called", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskToUpdate",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskToUpdate",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "updatedTaskName");
-      });
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("updatedTaskName");
-      });
-
-      const updatedTask = await client.tasks.retrieve(testTask.key);
-      expect(updatedTask.name).toEqual("updatedTaskName");
-    });
-
-    it("should validate form fields according to schema", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({
-            port: z.number().min(1).max(65535),
-            host: z.string().min(1),
-          }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          name: "test",
-          type: "pagerduty_alert",
-          config: { port: 0, host: "" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("config.port", 70000);
-      });
-
-      await act(async () => {
-        const isValid = await result.current.form.validateAsync();
-        expect(isValid).toBe(false);
-      });
-
-      const portField = result.current.form.get("config.port");
-      expect(portField.status.variant).toBe("error");
-
-      act(() => {
-        result.current.form.set("config.port", 8080);
-        result.current.form.set("config.host", "localhost");
-      });
-
-      await act(async () => {
-        const isValid = await result.current.form.validateAsync();
-        expect(isValid).toBe(true);
-      });
-    });
-
-    it("should handle beforeSave callback", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskWithBeforeSave",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const beforeSave = vi.fn().mockResolvedValue(true);
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskWithBeforeSave",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            beforeSave,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "modifiedName");
-      });
-
-      act(() => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-      });
-
-      expect(beforeSave).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({ key: testTask.key }),
-        }),
-      );
-    });
-
-    it("should handle afterSave callback", async () => {
-      const testTask = await testRack.createTask({
-        name: "taskWithAfterSave",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const afterSave = vi.fn();
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "taskWithAfterSave",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            afterSave,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "savedName");
-      });
-
-      await act(async () => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("savedName");
-      });
-
-      expect(afterSave).toHaveBeenCalledWith(
-        expect.objectContaining({
-          query: expect.objectContaining({ key: testTask.key }),
-        }),
-      );
-    });
-
-    it("should update form when task status changes", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const statusData = z.object({ errorCode: z.number().optional() });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: statusData.nullish(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "statusTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const _errorStatusDetailsZ = task.statusDetailsZ(
-        z.object({ errorCode: z.number() }),
-      );
+    it("should show a status update without touching a field", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      const _errorStatusDetailsZ = task.statusDetailsZ(statusData);
       const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
+        owner: task.resourceID(t.key),
         variant: "error",
         message: "Task error",
         details: {
-          task: testTask.key,
           running: false,
           cmd: "",
           configHash: "",
@@ -1176,547 +739,55 @@ describe("queries", () => {
           data: { errorCode: 500 },
         },
       });
-
       await act(async () => {
         await client.statuses.set(taskStatus);
       });
-
       await waitFor(() => {
-        const status =
-          result.current.form.get<task.Status<typeof statusData>>("status").value;
-        expect(status?.variant).toEqual("error");
-        expect(status?.message).toEqual("Task error");
-        expect(status?.details.data?.errorCode).toEqual(500);
+        const s = result.current.form.get(path.status).value;
+        expect(s?.variant).toEqual("error");
+        expect(s?.message).toEqual("Task error");
+        expect(s?.details.data?.errorCode).toEqual(500);
       });
+      expect(result.current.form.get(path.status).touched).toBe(false);
     });
 
-    it("should handle field changes and mark form as touched", async () => {
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: "123",
-          name: "originalName",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: null }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.get("name").touched).toBe(false);
-
-      act(() => {
-        result.current.form.set("name", "modifiedName");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("name").value).toEqual("modifiedName");
-    });
-
-    it("should not mark form as touched after saving", async () => {
-      const testTask = await testRack.createTask({
-        name: "touchedAfterSaveTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "touchedAfterSaveTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-
-      act(() => {
-        result.current.form.set("name", "updatedName");
-        result.current.form.set("config.routingKey", "updated");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("config.routingKey").touched).toBe(true);
-
+    it("should show a name and config that another client sets", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      const remote = createTestClient();
+      await remote.tasks.retrieve(t.key);
       await act(async () => {
-        result.current.save();
+        await remote.tasks.dispatch(t.key, [
+          task.set({ path: ["name"], value: "written" }),
+          task.set({ path: ["config"], value: { routingKey: "remote" } }),
+        ]);
       });
-
       await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").value).toEqual("updatedName");
+        expect(result.current.form.get(path.name).value).toEqual("written");
+        expect(result.current.form.get(path.config.routingKey).value).toEqual("remote");
       });
-      expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
+      expect(result.current.form.get(path.name).touched).toBe(false);
     });
 
-    it("should not mark form as touched when status updates from server", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusTouchedTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const statusData = z.object({ errorCode: z.number().optional() });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: statusData.nullish(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "statusTouchedTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-      const _errorStatusDetailsZ = task.statusDetailsZ(
-        z.object({ errorCode: z.number() }),
-      );
-      const taskStatus: task.Status = status.create<typeof _errorStatusDetailsZ>({
-        key: task.statusKey(testTask.key),
-        variant: "error",
-        message: "Task error from server",
-        details: {
-          task: testTask.key,
-          running: false,
-          cmd: "",
-          configHash: "",
-          rack: 0,
-          data: { errorCode: 500 },
-        },
-      });
-
+    it("should keep a local edit over a rename from another client", async () => {
+      const t = await createTask();
+      const { result } = await renderForm(t.key);
+      // The edit sends once its coalesce window ends, which can come before the remote
+      // write on a slow machine. The hold keeps the Core from applying it first.
+      const { release } = holdRequests(client, "/task/dispatch");
+      act(() => result.current.form.set(path.config.routingKey, "local"));
       await act(async () => {
-        await client.statuses.set(taskStatus);
-      });
-
-      await waitFor(() => {
-        const statusField =
-          result.current.form.get<task.Status<typeof statusData>>("status").value;
-        expect(statusField?.variant).toEqual("error");
-      });
-      expect(result.current.form.get("status").touched).toBe(false);
-      expect(result.current.form.get("name").touched).toBe(false);
-    });
-
-    it("should not write the status back to the core on save", async () => {
-      const testTask = await testRack.createTask({
-        name: "statusClobberTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-      const stale = (
-        await client.tasks.retrieve({ key: testTask.key, includeStatus: true })
-      ).status;
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          rack: testRack.key,
-          name: "statusClobberTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-          status: stale,
-        },
-      });
-
-      // No query means no listener, so the form keeps the status it started with,
-      // the way a live form does while a newer status is still in flight to it.
-      const { result } = renderHook(() => useForm({ query: null }), { wrapper });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const reported: task.Status = status.create<task.StatusDetailsZodObject>({
-        key: task.statusKey(testTask.key),
-        variant: "success",
-        message: "Task started successfully",
-        details: {
-          task: testTask.key,
-          running: true,
-          cmd: "",
-          configHash: "",
-          rack: testRack.key,
-        },
-      });
-      await client.statuses.set(reported);
-
-      act(() => {
-        result.current.form.set("config.routingKey", "edited");
-      });
-      await act(async () => {
-        result.current.save();
-      });
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      const saved = await client.tasks.retrieve({
-        key: testTask.key,
-        includeStatus: true,
-      });
-      expect(saved.config).toMatchObject({ routingKey: "edited" });
-      expect(saved.status?.message).toEqual("Task started successfully");
-      expect(saved.status?.details.running).toBe(true);
-    });
-
-    it("should not mark form as touched when task metadata updates from server listener", async () => {
-      const testTask = await testRack.createTask({
-        name: "serverUpdateTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "original" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "serverUpdateTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "original" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
-      await act(async () => {
-        await client.tasks.create({
-          ...testTask.payload,
-          name: "serverUpdatedName",
-          config: { routingKey: "serverUpdated" },
-        });
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("serverUpdatedName");
-      });
-      expect(result.current.form.get("name").touched).toBe(false);
-      expect(result.current.form.get("config.routingKey").touched).toBe(false);
-    });
-
-    it("should not clobber local config edits when metadata updates from server", async () => {
-      const testTask = await testRack.createTask({
-        name: "lwwTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "original" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "lwwTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "original" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("config.routingKey", "localEdit");
-      });
-
-      await act(async () => {
-        await client.tasks.create({ ...testTask.payload, name: "lwwRenamed" });
-      });
-
-      await waitFor(() => {
-        expect(result.current.form.get("name").value).toEqual("lwwRenamed");
-      });
-      expect(result.current.form.get("config.routingKey").value).toEqual("localEdit");
-      expect(result.current.form.get("config.routingKey").touched).toBe(true);
-    });
-
-    it("should allow new changes after save to mark form as touched again", async () => {
-      const testTask = await testRack.createTask({
-        name: "reTouchedTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "reTouchedTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      act(() => {
-        result.current.form.set("name", "firstUpdate");
-      });
-      expect(result.current.form.get("name").touched).toBe(true);
-
-      await act(async () => {
-        result.current.save();
-      });
-
-      await waitFor(() => {
-        expect(result.current.variant).toEqual("success");
-        expect(result.current.form.get("name").touched).toBe(false);
-      });
-      act(() => {
-        result.current.form.set("name", "secondUpdate");
-      });
-
-      expect(result.current.form.get("name").touched).toBe(true);
-      expect(result.current.form.get("name").value).toEqual("secondUpdate");
-    });
-
-    it("should reset form to initial values", async () => {
-      const testTask = await testRack.createTask({
-        name: "resetTask",
-        type: "pagerduty_alert",
-        config: { routingKey: "initial" },
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({ routingKey: z.string() }),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "resetTask",
-          type: "pagerduty_alert",
-          config: { routingKey: "initial" },
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "changedName");
-        result.current.form.set("config.routingKey", "changed");
-      });
-
-      expect(result.current.form.get("name").value).toEqual("changedName");
-      expect(result.current.form.get("config.routingKey").value).toEqual("changed");
-
-      act(() => {
-        result.current.form.reset();
-      });
-
-      expect(result.current.form.get("name").value).toEqual("resetTask");
-      expect(result.current.form.get("config.routingKey").value).toEqual("initial");
-    });
-
-    it("should handle error states in form operations", async () => {
-      const missingKey = uuid.create();
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: missingKey,
-          name: "errorTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const Wrapper = wrapper;
-      const Display = (): ReactElement => {
-        useForm({ query: { key: missingKey } });
-        return <div />;
-      };
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary
-              loading={<div />}
-              FallbackComponent={({ error }) => (
-                <div data-testid="error">{error.message}</div>
-              )}
-            >
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-          { onCaughtError: () => {} },
-        );
+        await createTestClient().tasks.rename(t.key, "renamed");
       });
       await waitFor(() =>
-        expect(utils.queryByTestId("error")?.textContent).toEqual(
-          "Failed to retrieve task",
-        ),
+        expect(result.current.form.get(path.name).value).toEqual("renamed"),
       );
-    });
-
-    it("should handle autoSave functionality", async () => {
-      const testTask = await testRack.createTask({
-        name: "autoSaveTask",
-        type: "pagerduty_alert",
-        config: {},
-      });
-
-      const useForm = Task.createForm({
-        schemas: {
-          type: z.literal("pagerduty_alert"),
-          config: z.object({}),
-          statusData: z.any().optional(),
-        },
-        initialValues: {
-          key: testTask.key,
-          name: "autoSaveTask",
-          type: "pagerduty_alert",
-          config: {},
-        },
-      });
-
-      const { result } = renderHook(
-        () =>
-          useForm({
-            query: { key: testTask.key },
-            autoSave: true,
-          }),
-        { wrapper },
-      );
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      act(() => {
-        result.current.form.set("name", "autoSavedName");
-      });
-
-      await waitFor(
-        async () => {
-          const updatedTask = await client.tasks.retrieve(testTask.key);
-          expect(updatedTask.name).toEqual("autoSavedName");
-        },
-        { timeout: 3000 },
-      );
-    });
-
-    it("should handle complex config schemas with nested objects", async () => {
-      const complexConfig = {
-        routingKey: "rk-complex",
-        autoStart: true,
-        alerts: [{ key: "a1", status: "st1" }],
-      };
-
-      const testTask = await testRack.createTask({
-        name: "complexTask",
-        type: "pagerduty_alert",
-        config: complexConfig,
-      });
-
-      const type = z.literal("pagerduty_alert");
-      const config = z.object({
-        routingKey: z.string(),
-        autoStart: z.boolean(),
-        alerts: z.array(z.object({ key: z.string(), status: z.string() })),
-      });
-      const statusData = z.any().optional();
-      const schemas = {
-        type,
-        config,
-        statusData,
-      };
-
-      const useForm = Task.createForm({
-        schemas,
-        initialValues: {
-          key: testTask.key,
-          name: "complexTask",
-          type: "pagerduty_alert",
-          config: complexConfig,
-        },
-      });
-
-      const { result } = renderHook(() => useForm({ query: { key: testTask.key } }), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-
-      expect(result.current.form.get("config.routingKey").value).toEqual("rk-complex");
-      expect(result.current.form.get("config.alerts.0.key").value).toEqual("a1");
-
-      act(() => {
-        result.current.form.set("config.routingKey", "rk-9090");
-      });
-
-      act(() => {
-        result.current.save({ signal: abortController.signal });
-      });
-
-      await waitFor(
-        async () => {
-          const updatedTask = await client.tasks.retrieve<typeof schemas>({
-            key: testTask.key,
-            schemas,
-          });
-          expect(updatedTask.config.routingKey).toEqual("rk-9090");
-        },
-        { timeout: 3000 },
-      );
+      expect(result.current.form.get(path.config.routingKey).value).toEqual("local");
+      release();
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      const stored = await createTestClient().tasks.retrieve(t.key);
+      expect(stored.name).toEqual("renamed");
+      expect(stored.config).toMatchObject({ routingKey: "local" });
     });
   });
 
@@ -1748,7 +819,6 @@ describe("queries", () => {
           variant: "success",
           message: "Command executed successfully",
           details: {
-            task: t.key,
             running: true,
             cmd: "",
             configHash: "",

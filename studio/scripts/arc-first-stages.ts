@@ -58,7 +58,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.paste(PROGRAM);
     await session.hold(1200);
     await session.zoom(controls(page), 1.6);
-    await session.click(controls(page).locator("button:has(svg.pluto-icon--play)"));
+    await session.click(controls(page).locator("button:has(svg.lyra-icon--play)"));
     await session.waitFor(controls(page).getByText("Started task"));
     await session.hold(1000);
     session.endZoom();

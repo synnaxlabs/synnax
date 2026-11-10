@@ -10,6 +10,9 @@
 
 import NotFound from "@/components/layout/NotFound.astro";
 import Root from "@/layouts/Root.astro";
+
+// The page names the requested path and suggests similar pages.
+export const prerender = false;
 ---
 
 <Root

@@ -30,14 +30,14 @@ Shared task bases in `/driver/task/common/`: `sample_clock.h` (hardware/software
 ## Integrations
 
 - **LabJack** (`/driver/labjack/`) — LJM wrapper + device manager. ReadTask has two
-  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource`
-  (thermocouples, with CJC config). Transform chain for scaling.
+  modes: `StreamSource` (high-performance LJM streaming) and `UnarySource` (polled T7
+  thermocouples). The Driver converts thermocouples with `LJM_TCVoltsToTemp`.
 - **NI** (`/driver/ni/`) — DAQmx + NISysCfg wrappers. Analog/digital read/write +
   scanner. Scanner discovers CompactDAQ chassis/modules via link properties
   (`ConnectsToLinkName`/`ProvidesLinkName`) in a two-pass algorithm (collect devices +
   build link-name→chassis map, then resolve module parents; chassis sorted before
   modules). Error codes: `DEVICE_DISCONNECTED`, `REQUIRES_RESTART`,
-  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux RT.
+  `APPLICATION_TOO_SLOW`. Windows/Linux/NI Linux RT. **Excluded on macOS.**
 - **Modbus** (`/driver/modbus/`) — vendored libmodbus. `device::Device` (RAII around
   `modbus_t*`), `device::Manager` (connection pooling via weak_ptr cache), byte/word
   swap config. Readers: `RegisterReader` (holding/input registers), `BitReader`
@@ -55,19 +55,18 @@ for unrecognized types) and `configure_initial_tasks`; registered in
 
 ## Device hierarchy
 
-Device create API takes optional `parent` ontology ID (e.g. `"device:SERIAL"`),
-atomically creating the device + `ParentOf` relationship; defaults to the rack when
-absent (`core/pkg/service/device/writer.go`). The common scan task
-(`driver/common/scan_task.h`) tracks parent changes between cycles and re-creates the
-device when the parent changes. Console decides node expandability via make-based
-dispatch (`console/src/hardware/device/make.tsx`, e.g. NI `is_chassis`). Used today by
-NI (cDAQ chassis + modules).
+A device's optional `parent` field holds the key of the device that holds it (e.g. an NI
+chassis); with no parent the device sits directly on its rack
+(`core/pkg/service/legacy/device/writer.go`). The Core writes `parent` as sent, so the
+common scan task (`driver/common/scan_task.h`) keeps the stored parent of a device
+scanned with none, and updates the device when the parent changes. Console decides node
+expandability via make-based dispatch (`console/src/feature/device/make.tsx`, e.g. NI
+`is_chassis`). Used today by NI (cDAQ chassis + modules).
 
 ## Tests
 
-Many driver tests (rack, http, task suites) connect to a core at `localhost:9090`. Check
-for a running core and start one if missing per "Live-Core Tests" in
-`docs/claude/testing.md`. The user runs bazel test invocations.
+Many driver tests (rack, http, task suites) connect to a live Core. See "Live-Core
+tests" in `docs/claude/testing.md`. The user runs bazel test invocations.
 
 ## Gotchas
 

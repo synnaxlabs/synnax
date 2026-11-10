@@ -12,6 +12,7 @@ package arc_test
 import (
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // Behavioral coverage for sequence/stage execution. Each test compiles a
@@ -122,7 +124,7 @@ var _ = Describe("Sequence", func() {
 	// steps maps every native function without outputs to a call that runs it.
 	Describe("Native steps without outputs", func() {
 		steps := map[string]string{
-			"control.set_authority": "control.set_authority{value=200}",
+			"control.set_authority": "control.set_authority(value=200)",
 		}
 		names := slices.Sorted(maps.Keys(steps))
 
@@ -302,7 +304,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
 				sequence main {
 				    sequence pause {
-				        time.wait{100ms}
+				        time.wait(100ms)
 				    }
 				    "done" -> log
 				}
@@ -335,7 +337,7 @@ var _ = Describe("Sequence", func() {
 				    stage monitor {
 				        sequence {
 				            "ramp start" -> log
-				            time.wait{100ms}
+				            time.wait(100ms)
 				            "ramp done" -> log
 				        }
 				        trigger == 1 => next
@@ -408,11 +410,11 @@ var _ = Describe("Sequence", func() {
 				    }
 				    stage hold {
 				        "hold" -> log
-				        time.wait{100ms} -> 50 > 40 => next
+				        time.wait(100ms) -> 50 > 40 => next
 				    }
 				    stage {
 				        "inline" -> log
-				        time.wait{100ms} => pressurize
+				        time.wait(100ms) => pressurize
 				    }
 				}
 				1 => main`, resolver,
@@ -444,7 +446,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        "a" -> log
-				        time.interval{50ms} => next
+				        time.interval(50ms) => next
 				    }
 				    stage b {
 				        "b" -> log
@@ -560,11 +562,11 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
 				sequence main {
 				    sequence s1 {
-				        time.wait{100ms}
+				        time.wait(100ms)
 				        "tick" -> log
 				    }
 				    stage s2 {
-				        time.wait{100ms} => s1
+				        time.wait(100ms) => s1
 				    }
 				}
 				1 => main`, resolver,
@@ -596,7 +598,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence main {
-				    trigger -> select{} -> {
+				    trigger -> select() -> {
 				        true: sequence {
 				            "case" -> log
 				        }
@@ -625,7 +627,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence main {
-				    trigger -> select{} -> {
+				    trigger -> select() -> {
 				        true: stage {
 				            "case" -> log
 				        }
@@ -1166,7 +1168,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence main {
 				    1 -> valve_cmd
-				    wait{500ms}
+				    wait(500ms)
 				    0 -> valve_cmd
 				}
 				start_cmd => main`, resolver,
@@ -1225,9 +1227,9 @@ var _ = Describe("Sequence", func() {
 				    return "ox_alarm"
 				}
 				sequence main {
-				    make_key{}
-				    make_key{}
-				    make_key{}
+				    make_key()
+				    make_key()
+				    make_key()
 				    1 -> done
 				}
 				start_cmd => main`, resolver,
@@ -1326,7 +1328,7 @@ var _ = Describe("Sequence", func() {
 					"press_pt":      {types.F32(), 103},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bang{ sensor chan f32, set_point f32 } () u8 {
+				func bang( sensor chan f32, set_point f32 ) u8 {
 				    state u8 $= 0
 				    if sensor < set_point {
 				        state = 1
@@ -1337,7 +1339,7 @@ var _ = Describe("Sequence", func() {
 				}
 				sequence main {
 				    stage start {
-				        interval{200ms} -> bang{sensor=press_pt, set_point=50} -> press_vlv_cmd
+				        interval(200ms) -> bang(sensor=press_pt, set_point=50) -> press_vlv_cmd
 				        stop_cmd => yield
 				    }
 				    stage yield {
@@ -1390,7 +1392,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage on {
 				        1 -> toggle_cmd
-				        wait{500ms} => off
+				        wait(500ms) => off
 				    }
 				    stage off {
 				        0 -> toggle_cmd
@@ -2258,14 +2260,14 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				sequence {
-				    wait{2s}
+				    wait(2s)
 				    sequence {
 				        1 -> press_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        0 -> press_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        1 -> vent_vlv_cmd
-				        wait{250ms}
+				        wait(250ms)
 				        0 -> vent_vlv_cmd
 				    }
 				}`, resolver,
@@ -2349,10 +2351,10 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence {
 				    stage cat {
-				        wait{2s} => next
+				        wait(2s) => next
 				    }
 				    sequence puff {
-				        wait{2s}
+				        wait(2s)
 				        1 -> ox_mpv_cmd
 				    }
 				}`, resolver,
@@ -2416,7 +2418,7 @@ var _ = Describe("Sequence", func() {
 				sequence {
 				    stage cat {
 				        sequence {
-				            wait{1s} => after
+				            wait(1s) => after
 				        }
 				    }
 				    sequence after {
@@ -2458,7 +2460,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        sequence {
-				            wait{500ms} => b
+				            wait(500ms) => b
 				        }
 				    }
 				    stage b {
@@ -2564,7 +2566,7 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Inline routing case body lifetime", func() {
-		// mk builds `trigger -> select{} -> { true: <body> }` inside a stage,
+		// mk builds `trigger -> select() -> { true: <body> }` inside a stage,
 		// so <body> is entered once when trigger fires select's true output.
 		mk := func(ctx SpecContext, body string) *runtimeHarness {
 			GinkgoHelper()
@@ -2574,7 +2576,7 @@ var _ = Describe("Sequence", func() {
 				"cpu":       {types.F64(), 102},
 				"out":       {types.Bool(), 103},
 			})
-			prog := "\nsequence WU {\n stage watcher {\n trigger -> select{} -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
+			prog := "\nsequence WU {\n stage watcher {\n trigger -> select() -> {\n true: " + body + "\n }\n }\n}\nstart_cmd => WU"
 			return newRuntimeHarness(ctx, prog, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.BooleanT},
@@ -2660,11 +2662,11 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Routing table => transitions", func() {
-		// select{} routes flag to one of two sibling stages via `=>`.
+		// select() routes flag to one of two sibling stages via `=>`.
 		selectProg := `
 			sequence WU {
 			    stage router {
-			        flag -> select{} -> {
+			        flag -> select() -> {
 			            true: 1 => high_stage,
 			            false: 1 => low_stage
 			        }
@@ -2706,7 +2708,7 @@ var _ = Describe("Sequence", func() {
 
 		// A custom 3-output router jumps to one of three sibling stages.
 		routerProg := `
-			func route{} (v f64) (lo u8, mid u8, hi u8) {
+			func route() {v f64} (lo u8, mid u8, hi u8) {
 			    if v < 10.0 {
 			        lo = 1
 			    } else if v < 20.0 {
@@ -2717,7 +2719,7 @@ var _ = Describe("Sequence", func() {
 			}
 			sequence WU {
 			    stage router {
-			        signal -> route{} -> {
+			        signal -> route() -> {
 			            lo: 1 => lo_stage,
 			            mid: 1 => mid_stage,
 			            hi: 1 => hi_stage
@@ -2777,7 +2779,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				stage {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out },
 				        false: stage { 1 -> false_out }
 				    }
@@ -2810,7 +2812,7 @@ var _ = Describe("Sequence", func() {
 				start_cmd => main
 
 				stage main {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out }
 				    }
 				}`, resolver,
@@ -2846,7 +2848,7 @@ var _ = Describe("Sequence", func() {
 				})
 				h := newRuntimeHarness(ctx, `
 				stage {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: sequence {
 				            1 -> out_a
 				            2 -> out_b
@@ -2881,7 +2883,7 @@ var _ = Describe("Sequence", func() {
 				start_cmd => main
 
 				sequence main {
-				    flag -> select{} -> {
+				    flag -> select() -> {
 				        true: stage { 1 -> true_out }
 				    }
 				}`, resolver,
@@ -2915,7 +2917,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first_stage {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage {
 				                1 -> first_out,
 				                1 -> second_stage
@@ -2959,7 +2961,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage { 1 -> following_stage }
 				        }
 				    }
@@ -2998,7 +3000,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage first {
-				        flag -> select{} -> {
+				        flag -> select() -> {
 				            true: stage { 1 -> inline_out }
 				        }
 				    }
@@ -3039,9 +3041,9 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage { 1 -> inner_out }
 				                }
 				            }
@@ -3073,11 +3075,11 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage {
-				                        true -> select{} -> {
+				                        true -> select() -> {
 				                            true: stage { 1 -> innermost_out }
 				                        }
 				                    }
@@ -3111,13 +3113,13 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
-				                true -> select{} -> {
+				                true -> select() -> {
 				                    true: stage {
-				                        true -> select{} -> {
+				                        true -> select() -> {
 				                            true: stage {
-				                                true -> select{} -> {
+				                                true -> select() -> {
 				                                    true: stage { 1 -> innermost_out }
 				                                }
 				                            }
@@ -3495,7 +3497,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            true -> select{} -> {
+				            true -> select() -> {
 				                true: stage { 1 -> inner_out }
 				            }
 				        }
@@ -3526,7 +3528,7 @@ var _ = Describe("Sequence", func() {
 
 				sequence main {
 				    stage hold {
-				        true -> select{} -> {
+				        true -> select() -> {
 				            true: stage {
 				                1 -> stage { 1 -> inner_out }
 				            }
@@ -3559,7 +3561,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage hold {
 				        1 -> stage {
-				            true -> select{} -> {
+				            true -> select() -> {
 				                true: stage {
 				                    1 -> stage { 1 -> innermost_out }
 				                }
@@ -3882,7 +3884,7 @@ var _ = Describe("Sequence", func() {
 				func emit() {
 				    out = 7
 				}
-				interval{50ms} -> emit{}`, resolver,
+				interval(50ms) -> emit()`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 				)
 				defer h.Close(ctx)
@@ -3901,10 +3903,10 @@ var _ = Describe("Sequence", func() {
 					"out":    {types.F32(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
-				func dbl(v f32) f32 {
+				func dbl() {v f32} f32 {
 				    return v * 2
 				}
-				sensor -> dbl{} -> out`, resolver,
+				sensor -> dbl() -> out`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 					channels.Digest{Key: 101, DataType: telem.Float32T},
 				)
@@ -3977,7 +3979,7 @@ var _ = Describe("Sequence", func() {
 				    n = n + 1
 				    count = n
 				}
-				trigger -> bump{}`, resolver,
+				trigger -> bump()`, resolver,
 				channels.Digest{Key: 100, DataType: telem.Uint8T},
 				channels.Digest{Key: 101, DataType: telem.Uint8T},
 				channels.Digest{Key: 102, DataType: telem.Uint8T},
@@ -4015,15 +4017,15 @@ var _ = Describe("Sequence", func() {
 				    nested_2(sensor)
 				}
 
-				func nested_3(val f32) {
+				func nested_3() {val f32} {
 				    out = val
 				}
 
-				func nested_2(val f32) {
+				func nested_2() {val f32} {
 				    nested_3(val)
 				}
 
-				interval{20ms} -> nested_1{}`, resolver,
+				interval(20ms) -> nested_1()`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
 					channels.Digest{Key: 101, DataType: telem.Float32T},
 				)
@@ -4044,13 +4046,13 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 101},
 				})
 				h := newRuntimeHarness(ctx, `
-				func event_log{msg str} () {
+				func event_log(msg str) {
 				    log = msg
 				}
 
 				sequence main {
 				    stage a {
-				        event_log{"pressurizing"}
+				        event_log("pressurizing")
 				    }
 				}
 				start_cmd => main`, resolver,
@@ -4222,14 +4224,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				        go_b => b
 				    }
 				    stage b {
@@ -4283,14 +4285,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 102},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				    }
 				}
 				start_cmd => main`, resolver,
@@ -4323,14 +4325,14 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> count
+				        tick -> bump() -> count
 				        go_b => b
 				    }
 				    stage b {
@@ -4385,7 +4387,7 @@ var _ = Describe("Sequence", func() {
 					"sum_out":   {types.F32(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func accumulate(v u8) f32 {
+				func accumulate() {v u8} f32 {
 				    count u8 $= 0
 				    total f32 $= 0.0
 				    scale i64 $= 10
@@ -4395,7 +4397,7 @@ var _ = Describe("Sequence", func() {
 				}
 				sequence main {
 				    stage a {
-				        tick -> accumulate{} -> sum_out
+				        tick -> accumulate() -> sum_out
 				        go_b => b
 				    }
 				    stage b {
@@ -4450,14 +4452,14 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func trail(v u8) str {
+				func trail() {v u8} str {
 				    acc str $= "x"
 				    acc = acc + "x"
 				    return acc
 				}
 				sequence main {
 				    stage a {
-				        tick -> trail{} -> log
+				        tick -> trail() -> log
 				        go_b => b
 				    }
 				    stage b {
@@ -4513,21 +4515,21 @@ var _ = Describe("Sequence", func() {
 					"free_out":   {types.U8(), 105},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
 				}
 				sequence main {
 				    stage a {
-				        tick -> bump{} -> staged_out
+				        tick -> bump() -> staged_out
 				        go_b => b
 				    }
 				    stage b {
 				        go_a => a
 				    }
 				}
-				tick -> bump{} -> free_out
+				tick -> bump() -> free_out
 				start_cmd => main`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
@@ -4575,7 +4577,7 @@ var _ = Describe("Sequence", func() {
 					"count":     {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				func bump(v u8) u8 {
+				func bump() {v u8} u8 {
 				    n u8 $= 0
 				    n = n + 1
 				    return n
@@ -4584,7 +4586,7 @@ var _ = Describe("Sequence", func() {
 				    stage outer {
 				        sequence {
 				            stage inner1 {
-				                tick -> bump{} -> count
+				                tick -> bump() -> count
 				                go_inner2 => inner2
 				            }
 				            stage inner2 {
@@ -4636,7 +4638,7 @@ var _ = Describe("Sequence", func() {
 		// at 102ms. At 550ms a stale startTime (1ms) fires the wait, and a reset one
 		// (102ms) does not. A reset wait fires at 602ms.
 		It(
-			"wait{} countdown restarts when its stage is re-entered",
+			"wait() countdown restarts when its stage is re-entered",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -4649,7 +4651,7 @@ var _ = Describe("Sequence", func() {
 				sequence main {
 				    stage a {
 				        1 -> heartbeat
-				        wait{500ms} => done
+				        wait(500ms) => done
 				        abort_cmd => parked
 				    }
 				    stage parked {
@@ -4738,7 +4740,7 @@ var _ = Describe("Sequence", func() {
 		//   - lastFired = 10ms < 100ms, no fire.
 		// The assertion on the re-entry tick distinguishes the two cases.
 		It(
-			"interval{} cadence restarts when its stage is re-entered",
+			"interval() cadence restarts when its stage is re-entered",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
 					"start_cmd":  {types.U8(), 100},
@@ -4749,7 +4751,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
 				sequence main {
 				    stage a {
-				        interval{100ms} -> pulse
+				        interval(100ms) -> pulse
 				        abort_cmd => parked
 				    }
 				    stage parked {
@@ -5094,6 +5096,1303 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	Describe("Computed stateful initializers", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It(
+			"Reads a computed stateful's initial value in flow reads",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.U8(), 101},
+					"out2":      {types.U8(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        x -> out
+				        x * 2 -> out2
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(5)))
+				Expect(lastU8(out, 102)).To(Equal(uint8(10)))
+			},
+		)
+
+		It("Interpolates a computed stateful's initial value", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        `+`f"x: {x}"`+` -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("x: 5"))
+		})
+
+		It(
+			"Persists a written computed stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.U8(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        x = x + 1
+				        x -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(6)))
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(7)))
+			},
+		)
+
+		It(
+			"Reads a top-level computed variable in a stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				x := 2 + 3
+				sequence main {
+				    y i64 $= x + 1
+				    stage s1 {
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Keeps a computed stateful's first value across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"rd":        {types.U8(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+					"out":       {types.I64(), 104},
+				})
+				h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    start $= time.now()
+				    stage s1 {
+				        rd -> start + 0 -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 104, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, 10*telem.Millisecond)
+				beforeEntry := int64(h.cycleNow)
+				trigger(h, ctx, 100)
+				trigger(h, ctx, 101)
+				out, _ := h.Flush()
+				first := drainI64(out, 104)
+				Expect(first).To(HaveLen(1))
+				Expect(first[0]).To(BeNumerically(">", beforeEntry),
+					"the initializer runs on the first entry, not at program start")
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				trigger(h, ctx, 101)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 104)).To(Equal(first),
+					"re-entry must keep the first value")
+			},
+		)
+
+		It(
+			"Reads a variable declared before it in a stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    y $= x + 1
+				    stage s1 {
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Reads a sequence variable in a stage stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Keeps a written stage stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y = y + 1
+				        y -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 101)).To(Equal([]int64{6, 7}),
+					"the reader sees the initial value, then the write")
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 101)).To(Equal([]int64{8}),
+					"re-entry must keep the written value, not re-run the initializer")
+			},
+		)
+
+		It(
+			"Reads a sequence stateful in a stage stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x $= 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Reads a computed bool stateful's initial value in flow reads",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= 1 > 0
+				    stage s1 {
+				        x -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+			},
+		)
+
+		It(
+			"Persists a toggled computed bool stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= 1 < 0
+				    stage s1 {
+				        x = not(x)
+				        x -> out
+				        go2 => s2
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(lastBool(out, 101)).To(BeFalse())
+			},
+		)
+
+		// loop runs four timed passes so a 100ms stage re-enters the nested
+		// sequence three times.
+		loop := func(h *runtimeHarness, ctx SpecContext) {
+			GinkgoHelper()
+			step := func(now telem.TimeSpan) {
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+			}
+			step(0)
+			step(100 * telem.Millisecond)
+			step(200 * telem.Millisecond)
+			step(300 * telem.Millisecond)
+		}
+
+		It(
+			"Persists an assigned computed stateful across nested sequence re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        counter $= 2 + 3
+				        counter = counter + 1
+				        str(counter) => log
+				    }
+				    stage s2 {
+				        time.wait(100ms) => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				loop(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"6", "7", "8", "9"}))
+			},
+		)
+
+		It(
+			"Persists an assigned computed stamp across nested sequence re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        stamp $= time.now()
+				        stamp = stamp + 1
+				        f"{stamp}" => log
+				    }
+				    stage s2 {
+				        time.wait(100ms) => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				loop(h, ctx)
+				out, _ := h.Flush()
+				got := drainStrings(out, 101)
+				Expect(got).To(HaveLen(4))
+				first := MustSucceed(strconv.ParseInt(got[0], 10, 64))
+				Expect(first).To(BeNumerically(">", 0))
+				for i, s := range got {
+					Expect(s).To(Equal(strconv.FormatInt(first+int64(i), 10)),
+						"each entry must continue from the last assigned stamp")
+				}
+			},
+		)
+	})
+
+	Describe("Reactive locals through late declarations", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+		resolver := channelSymbols(map[string]channelDef{
+			"raw": {types.I64(), 100},
+			"out": {types.I64(), 102},
+		})
+		digests := []channels.Digest{
+			{Key: 100, DataType: telem.Int64T},
+			{Key: 102, DataType: telem.Int64T},
+		}
+
+		It(
+			"Follows a channel read through a later-declared function",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+				x := rd() + 1
+				x -> out
+				func rd() i64 {
+				    return raw * 2
+				}`, resolver, digests...)
+				defer h.Close(ctx)
+
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no new data, no new write")
+				h.Ingest(100, telem.NewSeriesV[int64](2))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{5}))
+			},
+		)
+
+		It(
+			"Derives a reactive local from another without an entry value",
+			func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, `
+				s := raw * 2
+				z := s + 1
+				z -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no write")
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+			},
+		)
+	})
+
+	Describe("Computed STL inputs", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+		resolver := channelSymbols(map[string]channelDef{
+			"raw": {types.I64(), 100},
+			"log": {types.String(), 101},
+			"out": {types.I64(), 102},
+		})
+		digests := []channels.Digest{
+			{Key: 100, DataType: telem.Int64T},
+			{Key: 101, DataType: telem.StringT},
+			{Key: 102, DataType: telem.Int64T},
+		}
+		// ingestEach feeds raw one value per cycle and returns everything out emits.
+		ingestEach := func(ctx SpecContext, h *runtimeHarness, values ...int64) []int64 {
+			GinkgoHelper()
+			var got []int64
+			for _, v := range values {
+				h.Ingest(100, telem.NewSeriesV[int64](v))
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				got = append(got, drainI64(out, 102)...)
+			}
+			return got
+		}
+		expectWaitOf20ms := func(ctx SpecContext, h *runtimeHarness) {
+			GinkgoHelper()
+			advance(h, ctx, telem.Millisecond)
+			advance(h, ctx, 12*telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 101)).To(BeEmpty(), "13 ms is short of 20 ms")
+			advance(h, ctx, 30*telem.Millisecond)
+			advance(h, ctx, 30*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(drainStrings(out, 101)).To(Equal([]string{"done"}))
+		}
+
+		It("Applies a computed count to a window average", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import math
+				raw -> math.avg(count=1 + 1) -> out`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(ingestEach(ctx, h, 2, 4, 6, 8)).To(Equal([]int64{2, 3, 6, 7}))
+		})
+
+		It("Applies a computed count to a window min", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import math
+				raw -> math.min(count=1 + 1) -> out`, resolver, digests...)
+			defer h.Close(ctx)
+			Expect(ingestEach(ctx, h, 5, 3, 4, 1)).To(Equal([]int64{5, 3, 4, 1}))
+		})
+
+		It("Waits for a computed duration", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=10ms + 10ms)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
+		It("Waits for a duration held in a computed variable", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				d := i64 ns(10ms * 2)
+				sequence main {
+				    sequence pause {
+				        time.wait(duration=d)
+				    }
+				    "done" -> log
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			expectWaitOf20ms(ctx, h)
+		})
+
+		It("Fires an interval at a computed period", func(ctx SpecContext) {
+			h := newRuntimeHarness(ctx, `
+				import time
+				stage main {
+				    x u8 := 3
+				    time.interval(period=10ms + 10ms) -> `+`f"v={x}"`+` -> log
+				}
+				1 -> main`, resolver, digests...)
+			defer h.Close(ctx)
+			for elapsed := telem.TimeSpan(0); elapsed <= 50*telem.Millisecond; elapsed += 5 * telem.Millisecond {
+				advance(h, ctx, elapsed)
+			}
+			out, _ := h.Flush()
+			Expect(countOf(out, 101, "v=3")).To(Equal(3), "fires at 0, 20, and 40 ms")
+		})
+	})
+
+	Describe("Computed initializers", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It("Computes a top-level variable at program start", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				start := time.now()
+				trig -> f"{start}" -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := strconv.FormatInt(int64(h.cycleNow), 10)
+			advance(h, ctx, telem.Millisecond)
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 102)).To(Equal([]string{startedAt}))
+		})
+
+		It("Reads a computed constant expression as a literal", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":    {types.U8(), 100},
+				"out_str": {types.String(), 101},
+				"out":     {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				x := 1 + 2
+				trig -> f"{x}" -> out_str
+				trig -> x * 2 -> out`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("3"))
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Computes a top-level variable from a bare call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func one() i64 {
+				    return 1
+				}
+				x := one()
+				trig -> x * 2 -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{2}))
+		})
+
+		It("Computes a top-level variable from a builtin call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				n := len("abc")
+				trig -> n * 2 -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Computes a sequence variable once per entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go1":       {types.U8(), 101},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    sequence s1 {
+				        k := time.now()
+				        k -> out
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 102)
+			Expect(first).To(HaveLen(1), "entry must fire the initializer once")
+			Expect(first[0]).To(BeNumerically(">", 0))
+			advance(h, ctx, 10*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(drainI64(out, 102)).To(BeEmpty(),
+				"idle cycles must not re-fire the initializer")
+			trigger(h, ctx, 101)
+			out, _ = h.Flush()
+			second := drainI64(out, 102)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]),
+				"re-entry must recompute the initializer")
+		})
+
+		It("Computes a stage variable once per entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    stage s1 {
+				        k := time.now()
+				        k -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 101)
+			Expect(first).To(HaveLen(1), "entry must fire the initializer once")
+			trigger(h, ctx, 102)
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			second := drainI64(out, 101)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]),
+				"re-entry must recompute the initializer")
+		})
+
+		It("Samples a computed variable in a later initializer", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    y := x + 1
+				    y -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{4}))
+		})
+
+		It("Lets a reassignment replace a computed initializer", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    x = 10
+				    x -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+		})
+
+		It(
+			"Copies a computed variable into a later declaration",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    y := x
+				    y -> out
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+			},
+		)
+	})
+
+	Describe("Computed call inputs", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It("Passes the trigger-time stamp to a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {n u8} i64 {
+				    return t
+				}
+				trig -> f(time.now()) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := int64(h.cycleNow)
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 102)
+			Expect(first).To(HaveLen(1))
+			Expect(first[0]).To(BeNumerically(">", startedAt),
+				"the input must be computed when the trigger fires, not at start")
+			trigger(h, ctx, 100)
+			out, _ = h.Flush()
+			second := drainI64(out, 102)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]))
+		})
+
+		It("Samples a computed variable in a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				x := 1 + 2
+				trig -> f(x * 2) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Passes a bare call result to a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func one() i64 {
+				    return 1
+				}
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				trig -> f(one()) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{1}))
+		})
+
+		It(
+			"Triggers an untriggered call from its computed input",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"count": {types.I64(), 100},
+					"out":   {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				func f(v i64) {} i64 {
+				    return v
+				}
+				f(count * 2) -> out`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Int64T},
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty(), "no sample yet, no call")
+				h.Ingest(100, telem.NewSeriesV[int64](5))
+				advance(h, ctx, telem.Millisecond)
+				h.Ingest(100, telem.NewSeriesV[int64](7))
+				advance(h, ctx, telem.Millisecond)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{10, 14}))
+			},
+		)
+
+		It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":  {types.U8(), 99},
+				"count": {types.I64(), 100},
+				"out":   {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				trig -> f(count * 2) -> out`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Int64T},
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[int64](5))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(BeEmpty(), "count alone must not fire f")
+			trigger(h, ctx, 99)
+			out, _ = h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+		})
+
+		It("Advances past a bare call with a computed input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {} i64 {
+				    return t
+				}
+				sequence main {
+				    f(time.now())
+				    7 -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{7}))
+		})
+
+		It("Passes a computed input to a routed call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag": {types.Bool(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {} i64 {
+				    return t
+				}
+				flag -> select() -> {
+				    true: f(time.now()) -> out
+				}`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := int64(h.cycleNow)
+			h.Ingest(100, telem.NewSeriesV(true))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			got := drainI64(out, 102)
+			Expect(got).To(HaveLen(1))
+			Expect(got[0]).To(BeNumerically(">", startedAt))
+		})
+
+		Describe("Reactive variable inputs", func() {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 99},
+				"raw":  {types.I64(), 100},
+				"out":  {types.I64(), 102},
+			})
+			digests := []channels.Digest{
+				{Key: 100, DataType: telem.Int64T},
+				{Key: 102, DataType: telem.Int64T},
+			}
+			const funcs = `
+				func f(v i64) {} i64 {
+				    return v
+				}
+				func g(a i64, b i64) {} i64 {
+				    return a + b
+				}
+				`
+			// sendRaw ingests each value into raw on its own cycle and returns what
+			// the program wrote to out.
+			sendRaw := func(h *runtimeHarness, ctx SpecContext, values ...int64) []int64 {
+				advance(h, ctx, telem.Millisecond)
+				for _, v := range values {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				return drainI64(out, 102)
+			}
+
+			DescribeTable(
+				"Fires an untriggered call on each raw sample",
+				func(ctx SpecContext, program string, expected []int64) {
+					h := newRuntimeHarness(ctx, funcs+program, resolver, digests...)
+					defer h.Close(ctx)
+					Expect(sendRaw(h, ctx, 5, 7)).To(Equal(expected))
+				},
+				Entry("an expression over a reactive variable", `
+				s := raw * 2
+				f(s + 1) -> out`, []int64{11, 15}),
+				Entry("a bare reactive variable", `
+				s := raw * 2
+				f(s) -> out`, []int64{10, 14}),
+				Entry("a reactive variable derived from another", `
+				s := raw * 2
+				u := s + 1
+				f(u) -> out`, []int64{11, 15}),
+				Entry("a named input", `
+				s := raw * 2
+				f(v=s + 1) -> out`, []int64{11, 15}),
+				Entry("one of several inputs", `
+				s := raw * 2
+				g(s, 1) -> out`, []int64{11, 15}),
+				Entry("an expression head", `
+				s := raw * 2
+				s + 1 -> out`, []int64{11, 15}),
+				Entry("an inline channel read", `
+				f(raw * 2 + 1) -> out`, []int64{11, 15}),
+				Entry("a later function that reads the channel", `
+				f(rd() + 1) -> out
+				func rd() i64 {
+				    return raw
+				}`, []int64{6, 8}),
+				Entry("a channel alias", `
+				a := raw
+				f(a * 2 + 1) -> out`, []int64{11, 15}),
+			)
+
+			It("Keeps a triggered call on its trigger alone", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				s := raw * 2
+				trig -> f(s + 1) -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				Expect(sendRaw(h, ctx, 5)).To(BeEmpty(), "raw alone must not fire f")
+				trigger(h, ctx, 99)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{11}))
+			})
+
+			It("Fires from a reactive variable in a stage", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				sequence main {
+				    stage run {
+				        s := raw * 2
+				        f(s + 1) -> out
+				    }
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 99)
+				Expect(sendRaw(h, ctx, 5, 7)).To(Equal([]int64{11, 15}))
+			})
+
+			It("Runs a call over a non-reactive variable once", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, funcs+`
+				k := 2
+				f(k + 1) -> out`, resolver, digests...)
+				defer h.Close(ctx)
+
+				Expect(sendRaw(h, ctx, 5, 7)).To(Equal([]int64{3}))
+			})
+		})
+
+		Describe("Bare calls in a stage", func() {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 99},
+				"raw":  {types.I64(), 100},
+				"out":  {types.I64(), 102},
+			})
+			digests := []channels.Digest{
+				{Key: 100, DataType: telem.Int64T},
+				{Key: 102, DataType: telem.Int64T},
+			}
+			const record = `
+				func record(v i64) {
+				    out = v
+				}
+				`
+			// startMain starts the main sequence, ingests each value into raw on its
+			// own cycle, and returns what the program wrote to out.
+			startMain := func(ctx SpecContext, program string, values ...int64) []int64 {
+				GinkgoHelper()
+				h := newRuntimeHarness(
+					ctx, record+program+"\ntrig => main", resolver, digests...,
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, 99)
+				for _, v := range values {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ := h.Flush()
+				return drainI64(out, 102)
+			}
+
+			DescribeTable(
+				"Fires a bare call on each raw sample",
+				func(ctx SpecContext, program string, expected []int64) {
+					Expect(startMain(ctx, program, 5, 7)).To(Equal(expected))
+				},
+				Entry("a computed channel input", `
+				sequence main {
+				    stage run {
+				        record(raw * 2)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a named input", `
+				sequence main {
+				    stage run {
+				        record(v=raw * 2)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a reactive variable declared in the stage", `
+				sequence main {
+				    stage run {
+				        s := raw * 2
+				        record(s)
+				    }
+				}`, []int64{10, 14}),
+				Entry("a reactive variable declared at the top level", `
+				s := raw * 2
+				sequence main {
+				    stage run {
+				        record(s + 1)
+				    }
+				}`, []int64{11, 15}),
+				Entry("a later function that reads the channel", `
+				sequence main {
+				    stage run {
+				        record(rd())
+				    }
+				}
+				func rd() i64 {
+				    return raw
+				}`, []int64{5, 7}),
+				Entry("a flow with an explicit trigger", `
+				sequence main {
+				    stage run {
+				        raw -> record(raw * 2)
+				    }
+				}`, []int64{10, 14}),
+			)
+
+			It("Runs a bare call with no reactive input once", func(ctx SpecContext) {
+				Expect(startMain(ctx, `
+				sequence main {
+				    stage run {
+				        record(2 + 1)
+				    }
+				}`, 5, 7)).To(Equal([]int64{3}))
+			})
+
+			DescribeTable(
+				"Waits in a sequence step for a raw sample after the step starts",
+				func(ctx SpecContext, program string, expected int64) {
+					h := newRuntimeHarness(
+						ctx, record+program+"\ntrig => main", resolver, digests...,
+					)
+					defer h.Close(ctx)
+					h.Ingest(100, telem.NewSeriesV[int64](3))
+					advance(h, ctx, telem.Millisecond)
+					trigger(h, ctx, 99)
+					out, _ := h.Flush()
+					Expect(drainI64(out, 102)).To(BeEmpty())
+					for _, v := range []int64{5, 7} {
+						h.Ingest(100, telem.NewSeriesV(v))
+						advance(h, ctx, telem.Millisecond)
+					}
+					out, _ = h.Flush()
+					Expect(drainI64(out, 102)).To(Equal([]int64{expected, 9}))
+				},
+				Entry("a computed channel input", `
+				sequence main {
+				    record(raw * 2)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a named input", `
+				sequence main {
+				    record(v=raw * 2)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a reactive variable declared in the sequence", `
+				sequence main {
+				    s := raw * 2
+				    record(s)
+				    9 -> out
+				}`, int64(10)),
+				Entry("a later function that reads the channel", `
+				sequence main {
+				    record(rd())
+				    9 -> out
+				}
+				func rd() i64 {
+				    return raw
+				}`, int64(5)),
+			)
+
+			It("Waits in a step until raw has a sample", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, record+`
+				sequence main {
+				    record(raw * 2)
+				    9 -> out
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+				trigger(h, ctx, 99)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(BeEmpty())
+				for _, v := range []int64{5, 7} {
+					h.Ingest(100, telem.NewSeriesV(v))
+					advance(h, ctx, telem.Millisecond)
+				}
+				out, _ = h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{10, 9}))
+			})
+
+			It("Runs a step with no channel input at once", func(ctx SpecContext) {
+				h := newRuntimeHarness(ctx, record+`
+				sequence main {
+				    record(2 + 1)
+				    9 -> out
+				}
+				trig => main`, resolver, digests...)
+				defer h.Close(ctx)
+				trigger(h, ctx, 99)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3, 9}))
+			})
+		})
+	})
+
 	Describe("Variable initialization on declaration", func() {
 		It("Initializes a variable declared in a sequence body", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
@@ -5221,7 +6520,7 @@ var _ = Describe("Sequence", func() {
 				        counter $= 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -5389,6 +6688,39 @@ var _ = Describe("Sequence", func() {
 	})
 
 	Describe("Variable reassignment", func() {
+		It("Writes through a top-level alias from a function", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"in":        {types.U8(), 101},
+				"out":       {types.U8(), 102},
+				"go2":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				a := out
+				func set_value() u8 {
+				    a = 7
+				    return 0
+				}
+				func copy_in() u8 {
+				    a = in
+				    return 0
+				}
+				start_cmd -> set_value()
+				go2 -> copy_in()`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(7)))
+
+			h.Ingest(101, telem.NewSeriesV[uint8](9))
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(9)))
+		})
+
 		It("Reflects a reassignment to an initialized variable", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"start_cmd": {types.U8(), 100},
@@ -6130,8 +7462,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				l := out_a
 				sequence main {
+				    l := out_a
 				    stage s1 {
 				        u8(1) -> l
 				        go2 => next
@@ -6170,8 +7502,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r -> out
 				        go2 => next
@@ -6218,8 +7550,8 @@ var _ = Describe("Sequence", func() {
 					"go1":       {types.U8(), 104},
 				})
 				h := newRuntimeHarness(ctx, `
-				r := in_a
 				sequence main {
+				    r := in_a
 				    stage s1 {
 				        r * 2 -> out
 				        go2 => next
@@ -6244,50 +7576,6 @@ var _ = Describe("Sequence", func() {
 
 				trigger(h, ctx, 103)
 				trigger(h, ctx, 104)
-				h.Ingest(102, telem.NewSeriesV[uint8](30))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ = h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(60)))
-			},
-		)
-
-		It(
-			"Routes a top-level alias expression read across a stage rebind",
-			func(ctx SpecContext) {
-				resolver := channelSymbols(map[string]channelDef{
-					"start_cmd": {types.U8(), 100},
-					"in_a":      {types.U8(), 101},
-					"in_b":      {types.U8(), 102},
-					"out":       {types.U8(), 105},
-					"go2":       {types.U8(), 103},
-				})
-				h := newRuntimeHarness(ctx, `
-				r := in_a
-				r * 2 -> out
-				sequence main {
-				    stage s1 {
-				        go2 => next
-				    }
-				    stage s2 {
-				        r = in_b
-				    }
-				}
-				start_cmd => main`, resolver,
-					channels.Digest{Key: 105, DataType: telem.Uint8T},
-				)
-				defer h.Close(ctx)
-
-				trigger(h, ctx, 100)
-				h.Ingest(101, telem.NewSeriesV[uint8](10))
-				for range 5 {
-					advance(h, ctx, telem.Millisecond)
-				}
-				out, _ := h.Flush()
-				Expect(lastU8(out, 105)).To(Equal(uint8(20)))
-
-				trigger(h, ctx, 103)
 				h.Ingest(102, telem.NewSeriesV[uint8](30))
 				for range 5 {
 					advance(h, ctx, telem.Millisecond)
@@ -6379,7 +7667,7 @@ var _ = Describe("Sequence", func() {
 				        counter := 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6410,7 +7698,7 @@ var _ = Describe("Sequence", func() {
 				        counter $= 0
 				        1 => counter + 1 => counter
 				        str(counter) => log
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6443,7 +7731,7 @@ var _ = Describe("Sequence", func() {
 				        str(counter) => log
 				    }
 				    stage s2 {
-				        time.wait{100ms} => s1
+				        time.wait(100ms) => s1
 				    }
 				}
 				1 => main`, resolver,
@@ -6475,7 +7763,7 @@ var _ = Describe("Sequence", func() {
 				        1 => counter_s + 1 => counter_s
 				        str(counter_c) => log_c
 				        str(counter_s) => log_s
-				        time.wait{100ms} => next
+				        time.wait(100ms) => next
 				    }
 				    stage s2 {
 				        1 => s1
@@ -6886,7 +8174,7 @@ var _ = Describe("Sequence", func() {
     stage main {
         x u8 := 3
         set_ch -> x
-        time.interval{50ms} -> `+`f"v={x}"`+` -> out
+        time.interval(50ms) -> `+`f"v={x}"`+` -> out
     }
     1 -> main`)
 			defer h.Close(ctx)
@@ -6907,14 +8195,14 @@ var _ = Describe("Sequence", func() {
 	// each fire; the node fires only on its own trigger.
 	Describe("Variable brace inputs", func() {
 		src := `
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         v str := "initial"
         stage s1 {
             tag_ch -> v
-            go_ch -> echo{tag=v} -> echo_out
+            go_ch -> echo(tag=v) -> echo_out
         }
     }
     start_cmd => main`
@@ -6986,14 +8274,14 @@ var _ = Describe("Sequence", func() {
 
 	Describe("Stateful variable brace inputs", func() {
 		src := `
-    func echo{tag str} (n u8) str {
+    func echo(tag str) {n u8} str {
         return tag
     }
     sequence main {
         stage s1 {
             acc str $= "initial"
             tag_ch -> acc
-            go_ch -> echo{tag=acc} -> echo_out
+            go_ch -> echo(tag=acc) -> echo_out
             hop_ch >= 1 => s2
         }
         stage s2 {
@@ -7131,12 +8419,12 @@ var _ = Describe("Sequence", func() {
 
 		It("reads the latest channel data at each fire", func(ctx SpecContext) {
 			run(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         stage s1 {
-            go_ch -> reader{channel=data_ch} -> reader_out
+            go_ch -> reader(channel=data_ch) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7144,13 +8432,13 @@ var _ = Describe("Sequence", func() {
 
 		It("reads the latest data through a channel alias", func(ctx SpecContext) {
 			run(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := data_ch
         stage s1 {
-            go_ch -> reader{channel=a} -> reader_out
+            go_ch -> reader(channel=a) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7171,12 +8459,12 @@ var _ = Describe("Sequence", func() {
 
 		It("writes each value to the channel", func(ctx SpecContext) {
 			runWrite(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         stage s1 {
-            data_ch -> writer{channel=sink_ch}
+            data_ch -> writer(channel=sink_ch)
         }
     }
     start_cmd => main`)
@@ -7184,13 +8472,13 @@ var _ = Describe("Sequence", func() {
 
 		It("writes each value through a channel alias", func(ctx SpecContext) {
 			runWrite(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := sink_ch
         stage s1 {
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
         }
     }
     start_cmd => main`)
@@ -7207,18 +8495,18 @@ var _ = Describe("Sequence", func() {
 					"hop_ch":    {types.U8(), 334},
 				})
 				h := newRuntimeHarness(ctx, `
-    func writer{channel chan f32} (value f32) {
+    func writer(channel chan f32) {value f32} {
         channel = value
     }
     sequence main {
         w := sink_a
         stage s1 {
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
             hop_ch >= 1 => s2
         }
         stage s2 {
             w = sink_b
-            data_ch -> writer{channel=w}
+            data_ch -> writer(channel=w)
         }
     }
     start_cmd => main`, resolver,
@@ -7250,14 +8538,14 @@ var _ = Describe("Sequence", func() {
 			"reads through the rebound channel, not the declared one",
 			func(ctx SpecContext) {
 				h := newH(ctx, `
-    func reader{channel chan f32} (n u8) f32 {
+    func reader(channel chan f32) {n u8} f32 {
         return channel
     }
     sequence main {
         a := data_ch
         stage s1 {
             a = data2_ch
-            go_ch -> reader{channel=a} -> reader_out
+            go_ch -> reader(channel=a) -> reader_out
         }
     }
     start_cmd => main`)
@@ -7286,8 +8574,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         rate := i64 ns(100ms)
         stage s1 {
-            interval{rate} -> tick_ch
-            wait{1s} -> sequence {
+            interval(rate) -> tick_ch
+            wait(1s) -> sequence {
                 rate = i64 ns(2s)
             }
         }
@@ -7338,10 +8626,10 @@ var _ = Describe("Sequence", func() {
     sequence main {
         hold := i64 ns(5s)
         stage s1 {
-            wait{300ms} -> sequence {
+            wait(300ms) -> sequence {
                 hold = i64 ns(1s)
             }
-            wait{duration=hold} -> done_ch
+            wait(duration=hold) -> done_ch
         }
     }
     start_cmd => main`, resolver,
@@ -7375,10 +8663,10 @@ var _ = Describe("Sequence", func() {
     sequence main {
         hold := i64 ns(500ms)
         stage s1 {
-            wait{200ms} -> sequence {
+            wait(200ms) -> sequence {
                 hold = i64 ns(3s)
             }
-            wait{duration=hold} -> done_ch
+            wait(duration=hold) -> done_ch
         }
     }
     start_cmd => main`, resolver,
@@ -7416,8 +8704,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         text := "hello"
         stage s1 {
-            interval{300ms} -> text -> log_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> text -> log_ch
+            wait(100ms) -> sequence {
                 text = "goodbye"
             }
         }
@@ -7460,8 +8748,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{300ms} -> k -> out_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> out_ch
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7497,9 +8785,9 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 := 5
         stage s1 {
-            interval{10s} -> k -> slow_out
+            interval(10s) -> k -> slow_out
             k -> live_out
-            wait{100ms} -> sequence {
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7541,8 +8829,8 @@ var _ = Describe("Sequence", func() {
     sequence main {
         k u8 $= 5
         stage s1 {
-            interval{300ms} -> k -> out_ch
-            wait{100ms} -> sequence {
+            interval(300ms) -> k -> out_ch
+            wait(100ms) -> sequence {
                 k = 9
             }
         }
@@ -7616,7 +8904,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
     v := src_ch - f32(1)
     v -> "tick" -> out_str
-    interval{50ms} -> beat_ch`, resolver,
+    interval(50ms) -> beat_ch`, resolver,
 					channels.Digest{Key: 362, DataType: telem.Float32T},
 					channels.Digest{Key: 363, DataType: telem.StringT},
 					channels.Digest{Key: 364, DataType: telem.Uint8T},
@@ -7735,13 +9023,13 @@ var _ = Describe("Sequence", func() {
 	// the loopback must not re-fire the chain.
 	Describe("Variable capture dispatch", func() {
 		src := `
-    func stamp{tag str} (n u8) str {
+    func stamp(tag str) {n u8} str {
         return tag
     }
     sequence main {
         fp str := ""
         stage s1 {
-            1 -> stamp{tag="parent"} -> fp
+            1 -> stamp(tag="parent") -> fp
             fp -> fp_out
         }
     }
@@ -7781,16 +9069,16 @@ var _ = Describe("Sequence", func() {
 					"out_str":   {types.String(), 405},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
-    func seen(v f32) str {
+    func seen() {v f32} str {
         return "seen"
     }
     sequence main {
         stage s1 {
-            event_log{"armed"}
-            data -> seen{} -> out_str
+            event_log("armed")
+            data -> seen() -> out_str
         }
     }
     start_cmd => main`, resolver,
@@ -7827,12 +9115,12 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 409},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
     sequence main {
         stage a {
-            event_log{"a"}
+            event_log("a")
             go_b => b
         }
         stage b {
@@ -7865,7 +9153,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `import time
     sequence main {
         stage s1 {
-            time.now{} -> ts_out
+            time.now() -> ts_out
         }
     }
     start_cmd => main`, resolver,
@@ -7903,13 +9191,13 @@ var _ = Describe("Sequence", func() {
 					"log":       {types.String(), 414},
 				})
 				h := newRuntimeHarness(ctx, `
-    func event_log{msg str} () {
+    func event_log(msg str) {
         log = msg
     }
     sequence main {
         stage s1 {
-            interval{50ms} -> tick_ch
-            event_log{"once"}
+            interval(50ms) -> tick_ch
+            event_log("once")
         }
     }
     start_cmd => main`, resolver,
@@ -7949,7 +9237,7 @@ var _ = Describe("Sequence", func() {
 				h := newRuntimeHarness(ctx, `
     sequence main {
         stage s1 {
-            wait{100ms} -> done_ch
+            wait(100ms) -> done_ch
         }
     }
     start_cmd => main`, resolver,
@@ -7974,6 +9262,99 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(out.Get(416).Series).To(BeEmpty(),
 					"a fired wait must stay quiet")
+			},
+		)
+	})
+
+	// A stage sees only samples taken after it was entered. A batch sampled before
+	// entry but delivered after it must not reach the stage.
+	Describe("Stage entry samples", func() {
+		const (
+			startCmd = 420
+			goCmd    = 421
+			ptIdx    = 422
+			pt       = 423
+			ptSeen   = 424
+		)
+		newH := func(ctx SpecContext) *runtimeHarness {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), startCmd},
+				"go_cmd":    {types.U8(), goCmd},
+				"pt":        {types.F32(), pt},
+				"pt_seen":   {types.F32(), ptSeen},
+			})
+			return newRuntimeHarness(ctx, `
+    sequence main {
+        stage a {
+            go_cmd == 1 => next
+        }
+        stage b {
+            pt -> pt_seen
+        }
+    }
+    start_cmd == 1 => main`, resolver,
+				channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: goCmd, DataType: telem.Uint8T},
+				channels.Digest{Key: ptIdx, DataType: telem.TimestampT},
+				channels.Digest{Key: pt, DataType: telem.Float32T, Index: ptIdx},
+				channels.Digest{Key: ptSeen, DataType: telem.Float32T},
+			)
+		}
+		seen := func(h *runtimeHarness) []float32 {
+			out, _ := h.Flush()
+			var got []float32
+			for _, s := range out.Get(ptSeen).Series {
+				got = append(got, s.Unmarshal[float32]()...)
+			}
+			return got
+		}
+
+		It("Should drop a batch taken entirely before entry", func(ctx SpecContext) {
+			h := newH(ctx)
+			defer h.Close(ctx)
+			trigger(h, ctx, startCmd)
+			pre := h.cycleNow
+			trigger(h, ctx, goCmd)
+			h.IngestIndexed(
+				ptIdx,
+				telem.NewSeriesV(
+					pre-36*telem.MillisecondTS,
+					pre-25*telem.MillisecondTS,
+					pre-14*telem.MillisecondTS,
+				),
+				pt,
+				telem.NewSeriesV[float32](289.6, 289.6, 289.6),
+			)
+			for range 5 {
+				advance(h, ctx, telem.Millisecond)
+			}
+			Expect(seen(h)).To(BeEmpty())
+		})
+
+		It(
+			"Should emit only the samples taken at or after entry from a straddling batch",
+			func(ctx SpecContext) {
+				h := newH(ctx)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				pre := h.cycleNow
+				trigger(h, ctx, goCmd)
+				post := h.cycleNow
+				h.IngestIndexed(
+					ptIdx,
+					telem.NewSeriesV(
+						pre-10*telem.MillisecondTS,
+						pre,
+						post,
+						post+telem.MillisecondTS,
+					),
+					pt,
+					telem.NewSeriesV[float32](1, 2, 3, 4),
+				)
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				Expect(seen(h)).To(Equal([]float32{3, 4}))
 			},
 		)
 	})

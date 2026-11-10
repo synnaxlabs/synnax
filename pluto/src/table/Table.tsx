@@ -10,7 +10,6 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
@@ -26,6 +25,7 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { AddCountControl } from "@/table/AddCountControl";
 import { table as aetherTable } from "@/table/aether";
 import { Cell } from "@/table/cells";

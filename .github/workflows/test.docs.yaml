@@ -11,11 +11,17 @@ name: Test - Docs
 
 on:
   workflow_call:
+    secrets:
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
 
 concurrency:
   group: docs-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   site:
@@ -26,14 +32,33 @@ jobs:
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      # Builds the workspace packages the site imports before the check.
+      # Builds the workspace packages the site imports before the check. Prerendered
+      # pages read the latest releases from the GitHub API, which rate limits
+      # unauthenticated requests.
       - name: Build
+        env:
+          DOCS_GITHUB_TOKEN: ${{ github.token }}
         run: pnpm build:docs
+
+      # The Console and Desktop updaters poll these feeds, so each must redirect per
+      # request. A prerendered feed builds without error as an HTML page.
+      - name: Check updater feeds
+        working-directory: site/docs/.vercel/output
+        run: |
+          # The quotes hold a jq program, which expands $src itself.
+          # shellcheck disable=SC2016
+          rendered='.routes | any(.src == $src and .dest == "_render")'
+          for feed in console/latest console/next desktop/latest desktop/next; do
+            src="^/releases/$feed\\.json\$"
+            jq -e --arg src "$src" "$rendered" config.json >/dev/null && continue
+            echo "::error::/releases/$feed.json is not rendered per request"
+            exit 1
+          done
 
       - name: Check site
         timeout-minutes: 15

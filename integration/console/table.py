@@ -14,7 +14,7 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 _DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 
@@ -22,28 +22,31 @@ _DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 class Table(ConsolePage):
     """Table page management interface"""
 
-    page_type = "Table"
+    page_type: PageType = "table"
     pluto_label: str = ".pluto-table"
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
-    def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
+    def set_cell_channel(
+        self, channel_name: str, *, row: int = 0, col: int = 0
+    ) -> None:
         """Set a cell to display a channel's telemetry value.
 
-        Args:
-            channel_name: Name of the channel to display
-            row: Row index (0-based)
-            col: Column index (0-based)
+        :param channel_name: Name of the channel to display
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
         """
         self._get_cell(row, col).click()
         self.set_toolbar_variant("Value")
@@ -54,12 +57,9 @@ class Table(ConsolePage):
     def get_cell_channel(self, row: int = 0, col: int = 0) -> str:
         """Get the channel name displayed in a cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The channel name or empty string if not set
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The channel name or empty string if not set
         """
         self._select_cell(row, col)
         self.page.get_by_role("tab", name="Telemetry", exact=True).click()
@@ -71,40 +71,31 @@ class Table(ConsolePage):
     def get_cell_text(self, row: int = 0, col: int = 0) -> str:
         """Get the text content of a text cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The text value of the cell
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The text value of the cell
         """
         self._select_cell(row, col)
         text_input = self.page.locator("text=Text").locator("..").locator("input").first
         return text_input.input_value().strip()
 
-    def has_text(self, text: str, row: int = 0, col: int = 0) -> bool:
+    def has_text(self, text: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a text cell contains the given text.
 
-        Args:
-            text: Text to check for
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            True if the cell text matches
+        :param text: Text to check for
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: True if the cell text matches
         """
         return self.get_cell_text(row, col) == text
 
-    def has_channel(self, channel_name: str, row: int = 0, col: int = 0) -> bool:
+    def has_channel(self, channel_name: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a channel is shown in a cell.
 
-        Args:
-            channel_name: Name of the channel to check
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            True if the channel is displayed in the cell
+        :param channel_name: Name of the channel to check
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: True if the channel is displayed in the cell
         """
         return channel_name in self.get_cell_channel(row, col)
 
@@ -120,22 +111,20 @@ class Table(ConsolePage):
         button.wait_for(state="visible", timeout=5000)
         button.click()
 
-    def delete_row(self, row: int, col: int = 0) -> None:
+    def delete_row(self, row: int, *, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based) of the cell to right-click
+        :param row: Row index (0-based)
+        :param col: Column index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
         self.ctx_menu.action(cell, f"Delete row {row + 1}")
 
-    def delete_column(self, col: int, row: int = 0) -> None:
+    def delete_column(self, col: int, *, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
 
-        Args:
-            col: Column index (0-based) of the column to delete
-            row: Row index (0-based) of the cell to right-click
+        :param col: Column index (0-based) of the column to delete
+        :param row: Row index (0-based) of the cell to right-click
         """
         cell = self._get_cell(row, col)
         letter = chr(ord("A") + col)
@@ -146,31 +135,27 @@ class Table(ConsolePage):
 
         The cell must already be set to "Value" variant with a channel configured.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-            threshold: Lowest value the band paints. It must exceed every existing
-                threshold, since a new band is added at the bottom of the list.
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :param threshold: Lowest value the band paints. It must exceed every existing
+            threshold, since a new band is added at the bottom of the list.
         """
         bands = self._open_redline_bands(row, col)
         self.page.locator(".pluto-redline-form").get_by_text(
             "Add band", exact=True
         ).click()
-        threshold_input = bands.locator(".pluto-list__item input").last
+        threshold_input = bands.locator(".lyra-list__item input").last
         threshold_input.fill(str(threshold))
         threshold_input.press("Enter")
 
     def get_redline_thresholds(self, row: int, col: int) -> list[str]:
         """Get the band thresholds of a value cell's redline, lowest first.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            The threshold of each band as shown in its input
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: The threshold of each band as shown in its input
         """
-        inputs = self._open_redline_bands(row, col).locator(".pluto-list__item input")
+        inputs = self._open_redline_bands(row, col).locator(".lyra-list__item input")
         return [inputs.nth(i).input_value() for i in range(inputs.count())]
 
     def _open_redline_bands(self, row: int, col: int) -> Locator:
@@ -190,12 +175,9 @@ class Table(ConsolePage):
     def _get_cell(self, row: int, col: int) -> Locator:
         """Get a locator for a specific cell in the table.
 
-        Args:
-            row: Row index (0-based)
-            col: Column index (0-based)
-
-        Returns:
-            Locator for the cell element
+        :param row: Row index (0-based)
+        :param col: Column index (0-based)
+        :returns: Locator for the cell element
         """
         cells = self.page.locator(".pluto-table__cell")
         cell_index = row * self.get_column_count() + col
@@ -206,14 +188,18 @@ class Table(ConsolePage):
         return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)
 
     def get_row_count(self) -> int:
-        """Get the number of data rows in the table (excludes the column resizer row)."""
+        """Get the number of data rows in the table (excludes the column resizer
+        row).
+        """
         self.page.locator(_DATA_ROW_SELECTOR).first.wait_for(
             state="visible", timeout=5000
         )
         return self.page.locator(_DATA_ROW_SELECTOR).count()
 
     def get_column_count(self) -> int:
-        """Get the number of data columns in the table (excludes the row resizer cell)."""
+        """Get the number of data columns in the table (excludes the row resizer
+        cell).
+        """
         data_row = self.page.locator(_DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
@@ -235,22 +221,24 @@ class Table(ConsolePage):
         self._get_indicator("y", row).click()
 
     def select_col_via_header(self, col: int) -> None:
-        """Click the column indicator (top header) to select every cell in the column."""
+        """Click the column indicator (top header) to select every cell in the
+        column.
+        """
         self._get_indicator("x", col).click()
 
-    def add_row_above(self, row: int, col: int = 0) -> None:
+    def add_row_above(self, row: int, *, col: int = 0) -> None:
         """Insert a row above the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row above")
 
-    def add_row_below(self, row: int, col: int = 0) -> None:
+    def add_row_below(self, row: int, *, col: int = 0) -> None:
         """Insert a row below the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row below")
 
-    def add_col_left(self, col: int, row: int = 0) -> None:
+    def add_col_left(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the left of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column left")
 
-    def add_col_right(self, col: int, row: int = 0) -> None:
+    def add_col_right(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the right of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column right")
 
@@ -334,7 +322,7 @@ class Table(ConsolePage):
             raise ValueError(f"Cell ({row}, {col}) has no key")
         return key
 
-    def wait_for_cell_key(self, row: int, col: int, key: str) -> None:
+    def wait_for_cell_key(self, row: int, col: int, *, key: str) -> None:
         """Wait until the cell with the given key sits at (row, col)."""
         expect(self._get_cell(row, col)).to_have_attribute("id", key)
 
@@ -360,7 +348,7 @@ class Table(ConsolePage):
         """Read the cell type from the toolbar header. "Mixed" when the selected
         cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        identity = self.page.locator(".console-table__variant > .pluto-text")
+        identity = self.page.locator(".console-table__variant > .lyra-text")
         return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
@@ -385,7 +373,7 @@ class Table(ConsolePage):
         position like "A1"), or 0 when no cell is selected.
         """
         self.layout.show_visualization_toolbar()
-        segments = self.page.locator(".pluto-breadcrumb__segment")
+        segments = self.page.locator(".lyra-breadcrumb__segment")
         if segments.count() < 2:
             return 0
         text = segments.nth(1).inner_text().strip()

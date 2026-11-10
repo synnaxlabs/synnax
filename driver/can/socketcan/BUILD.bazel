@@ -40,7 +40,7 @@ cc_test(
     }),
     deps = [
         ":socketcan",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ] + select({
         "@platforms//os:linux": ["//driver/can:contract"],

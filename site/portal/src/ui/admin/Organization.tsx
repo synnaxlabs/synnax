@@ -12,6 +12,7 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
 
@@ -24,12 +25,15 @@ import { type Team } from "@/server/member";
 import { ActivityTable } from "@/ui/admin/ActivityTable";
 import { IssueDialog } from "@/ui/admin/IssueDialog";
 import { LicenseTable } from "@/ui/admin/LicenseTable";
-import { post, reload } from "@/ui/api";
+import { navigate, post, reload } from "@/ui/api";
 import { Fact, Facts } from "@/ui/Facts";
-import { date, standing } from "@/ui/format";
+import { expiry, standing } from "@/ui/format";
 import { Members } from "@/ui/members";
 import { Modal } from "@/ui/modal";
 import { Empty, Page } from "@/ui/Page";
+import { useClock } from "@/ui/useClock";
+
+const path = deep.path<z.infer<typeof renameSchema>>();
 
 export type OrganizationTab = "licenses" | "members" | "activity";
 
@@ -62,6 +66,7 @@ export type OrganizationProps = { team: Team } & (
 
 /** Organization is one team's staff page: its licenses, members, and activity. */
 export const Organization = (props: OrganizationProps): ReactElement => {
+  const clock = useClock();
   const { team } = props;
   let action: ReactNode = null;
   if (props.tab === "licenses") action = <IssueDialog teams={[team]} />;
@@ -70,8 +75,13 @@ export const Organization = (props: OrganizationProps): ReactElement => {
     <Page
       title={team.name}
       parent={{ label: "Organizations", href: "/admin" }}
-      subtitle={`Added ${date(team.createdAt)}`}
-      actions={<RenameDialog team={team} />}
+      subtitle={`Added ${clock.date(team.createdAt)}`}
+      actions={
+        <>
+          <RenameDialog team={team} />
+          <DeleteDialog team={team} />
+        </>
+      }
     >
       <Flex.Box
         x
@@ -136,7 +146,7 @@ const Licenses = ({ licenses, now }: LicensesTab): ReactElement => {
         <Fact label="Machines" value={`${seats} of ${capacity} seats in use`} />
         <Fact
           label="Next expiry"
-          value={nextExpiry == null ? "None" : date(nextExpiry)}
+          value={nextExpiry == null ? "None" : expiry(nextExpiry)}
         />
       </Facts>
       <LicenseTable entries={licenses} now={now} />
@@ -178,7 +188,35 @@ const RenameContent = ({ team }: { team: Team }): ReactElement => {
         reload();
       }}
     >
-      <Form.TextField path="name" label="Name" inputProps={{ autoFocus: true }} />
+      <Form.TextField path={path.name} label="Name" inputProps={{ autoFocus: true }} />
     </Modal.Form>
   );
 };
+
+const DeleteDialog = ({ team }: { team: Team }): ReactElement => (
+  <Modal.Frame
+    name={`${team.name}.Delete`}
+    icon={<Icon.Delete />}
+    trigger={
+      <Dialog.Trigger variant="outlined" status="error" hideCaret>
+        <Icon.Delete />
+        Delete
+      </Dialog.Trigger>
+    }
+  >
+    <Modal.Confirm
+      question={`Delete "${team.name}"?`}
+      confirm="Delete"
+      delay={1500}
+      onConfirm={async () => {
+        await post(`/api/organizations/${team.key}/delete`);
+        navigate("/admin");
+      }}
+    >
+      This deletes the team from Clerk, so its members lose access. It also deletes the
+      team's licenses, their machines, its invitations, and its activity. You cannot
+      undo it. A Core checks its license offline, so a Core that already holds one of
+      these licenses keeps running as its terms allow.
+    </Modal.Confirm>
+  </Modal.Frame>
+);

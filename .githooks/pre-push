@@ -1,0 +1,4 @@
+#!/bin/sh
+
+command -v git-lfs > /dev/null 2>&1 || exit 0
+exec git lfs pre-push "$@"

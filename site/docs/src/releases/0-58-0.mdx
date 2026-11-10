@@ -7,6 +7,7 @@ import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -32,17 +33,17 @@ of smaller improvements across the Console.
 
 ### Schematic grouping
 
-Schematic symbols can now be grouped. Select the symbols and press `Ctrl + G`, or use
-the right-click menu. Clicking a member selects the whole group, and double-clicking
-edits a single symbol. Groups can be nested, locked to prevent edits, and ungrouped with
-`Ctrl + U`.
+Schematic symbols can now be grouped. Select the symbols and press <Keys
+trigger={["Control", "G"]} />, or use the right-click menu. Clicking a member selects
+the whole group, and double-clicking edits a single symbol. Groups can be nested, locked
+to prevent edits, and ungrouped with <Keys trigger={["Control", "U"]} />.
 
 <Divider.Divider x />
 
 ### Cut, copy, and paste
 
 Schematics and the Arc editor now support cut, copy, and paste from the right-click
-menu. `Ctrl + X` cuts the selection along with its connections.
+menu. <Keys trigger={["Control", "X"]} /> cuts the selection along with its connections.
 
 <Divider.Divider x />
 

@@ -7,15 +7,16 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Literal, TypedDict
+from typing import Literal, TypeVar
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
+    Properties,
     Symbol,
     box_bottom,
     box_center_x,
@@ -24,13 +25,10 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.control import Authority
+from x.spatial import AngularDirection, OuterLocation
 
-PropertyDict = dict[str, float | str | bool]
-
-
-class SchematicProperties(TypedDict):
-    control_authority: int
-    show_control_legend: bool
+_SymbolT = TypeVar("_SymbolT", bound=Symbol)
 
 
 SCHEMATIC_VERSION = 6
@@ -58,28 +56,27 @@ DistributionType = Literal[
     "vertical",
 ]
 
-RotationType = Literal[
-    "clockwise",
-    "counterclockwise",
-]
-
 
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    page_type = "Schematic"
+    page_type: PageType = "schematic"
     pluto_label: str = ".react-flow__pane"
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ):
-        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for
+        details).
+        """
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
     def select(self, symbols: list[Symbol]) -> None:
@@ -94,14 +91,11 @@ class Schematic(ConsolePage):
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Properties", exact=True).click()
 
-    def create_symbol(self, symbol: Symbol) -> Symbol:
+    def create_symbol(self, symbol: _SymbolT) -> _SymbolT:
         """Add a symbol to the schematic and configure it.
 
-        Args:
-            symbol: Symbol instance to add to the schematic
-
-        Returns:
-            The configured symbol instance
+        :param symbol: Symbol instance to add to the schematic
+        :returns: The configured symbol instance
 
         Example:
             valve = Valve(
@@ -122,11 +116,8 @@ class Schematic(ConsolePage):
         Use this to get a reference to a symbol that was already created
         (e.g., when opening a schematic as a different user).
 
-        Args:
-            symbol: Symbol instance with label set (not yet attached to schematic).
-
-        Returns:
-            The same symbol, now attached to the existing schematic node.
+        :param symbol: Symbol instance with label set (not yet attached to schematic).
+        :returns: The same symbol, now attached to the existing schematic node.
         """
         symbol.page = self.page
         symbol.layout = self.layout
@@ -142,9 +133,8 @@ class Schematic(ConsolePage):
     def get_control_legend_entries(self) -> list[str]:
         """Get list of writer names from the control legend.
 
-        Returns:
-            List of writer names currently shown in the legend.
-            Returns empty list if legend is not visible.
+        :returns: List of writer names currently shown in the legend. Returns empty list
+            if legend is not visible.
         """
         legend = self.page.locator(".pluto-legend")
         if legend.count() == 0 or not legend.is_visible():
@@ -157,21 +147,20 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         alignment: AlignmentType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
         Align multiple symbols using the schematic alignment controls.
 
-        Args:
-            symbols: List of symbols to align (must have at least 2 symbols)
-            alignment: The alignment type to apply
-            tolerance: Maximum allowed difference in pixels for assertion
-                - Default: 3.0 for edge alignments (left/right/top/bottom)
-                - Default: 15.0 for center alignments (horizontal/vertical)
-
-        Raises:
-            ValueError: If fewer than 2 symbols are provided
-            AssertionError: If symbols are not properly aligned within tolerance after alignment
+        :param symbols: List of symbols to align (must have at least 2 symbols)
+        :param alignment: The alignment type to apply
+        :param tolerance: Maximum allowed difference in pixels for assertion. Defaults
+            to 3.0 for edge alignments (left/right/top/bottom) and 15.0 for center
+            alignments (horizontal/vertical).
+        :raises ValueError: If fewer than 2 symbols are provided
+        :raises AssertionError: If symbols are not properly aligned within tolerance
+            after alignment
         """
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment")
@@ -203,19 +192,20 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         distribution: DistributionType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
         Distribute multiple symbols evenly using the schematic distribution controls.
 
-        Args:
-            symbols: List of symbols to distribute (must have at least 3 symbols)
-            distribution: The distribution type to apply ('horizontal' or 'vertical')
-            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0 for horizontal, 20.0 for vertical)
-
-        Raises:
-            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to distribute)
-            AssertionError: If symbols are not evenly distributed within tolerance after distribution
+        :param symbols: List of symbols to distribute (must have at least 3 symbols)
+        :param distribution: The distribution type to apply ('horizontal' or 'vertical')
+        :param tolerance: Maximum allowed difference in spacing for assertion (default:
+            3.0 for horizontal, 20.0 for vertical)
+        :raises ValueError: If fewer than 3 symbols are provided (otherwise, nothing to
+            distribute)
+        :raises AssertionError: If symbols are not evenly distributed within tolerance
+            after distribution
         """
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
@@ -239,19 +229,18 @@ class Schematic(ConsolePage):
     def rotate(
         self,
         symbols: list[Symbol],
-        direction: RotationType,
+        direction: AngularDirection,
+        *,
         group: bool = False,
     ) -> None:
         """
         Rotate multiple symbols using the schematic rotation controls.
 
-        Args:
-            symbols: List of symbols to rotate (must have at least 1 symbol)
-            direction: The rotation direction ('clockwise' or 'counterclockwise')
-            group: If True, rotate symbols around their group center. If False, rotate each individually.
-
-        Raises:
-            ValueError: If no symbols are provided
+        :param symbols: List of symbols to rotate (must have at least 1 symbol)
+        :param direction: The rotation direction ('clockwise' or 'counterclockwise')
+        :param group: If True, rotate symbols around their group center. If False,
+            rotate each individually.
+        :raises ValueError: If no symbols are provided
         """
         if len(symbols) < 1:
             raise ValueError("At least 1 symbol is required for rotation")
@@ -277,10 +266,11 @@ class Schematic(ConsolePage):
 
     def connect_symbols(
         self,
+        *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Connect two symbols by dragging from source handle to target handle."""
         source_x, source_y = self.find_symbol_handle(source_symbol, source_handle)
@@ -291,7 +281,9 @@ class Schematic(ConsolePage):
         self.page.mouse.move(target_x, target_y, steps=10)
         self.page.mouse.up()
 
-    def find_symbol_handle(self, symbol: Symbol, handle: str) -> tuple[float, float]:
+    def find_symbol_handle(
+        self, symbol: Symbol, handle: OuterLocation
+    ) -> tuple[float, float]:
         """Calculate the coordinates of a symbol's connection handle."""
         symbol_box = symbol.locator.bounding_box()
         if not symbol_box:
@@ -321,10 +313,11 @@ class Schematic(ConsolePage):
 
     def select_edge(
         self,
+        *,
         source_symbol: Symbol,
-        source_handle: str,
+        source_handle: OuterLocation,
         target_symbol: Symbol,
-        target_handle: str,
+        target_handle: OuterLocation,
     ) -> None:
         """Select the edge between two symbol handles by clicking its midpoint.
 
@@ -348,8 +341,7 @@ class Schematic(ConsolePage):
 
         An edge must be selected first (see select_edge).
 
-        Args:
-            variant: The display name of the edge variant (e.g. "Electric signal").
+        :param variant: The display name of the edge variant (e.g. "Electric signal").
         """
         self.layout.show_visualization_toolbar()
         self.page.get_by_text("Properties", exact=True).first.click()
@@ -366,7 +358,7 @@ class Schematic(ConsolePage):
 
         Symbols must be selected first (see select).
         """
-        return self.page.locator(".console-schematic__symbol .pluto-text").first
+        return self.page.locator(".console-schematic__symbol .lyra-text").first
 
     def change_symbol(self, name: str) -> None:
         """Change the selected symbols to the named symbol from the symbols tab.
@@ -399,6 +391,7 @@ class Schematic(ConsolePage):
 
     def set_properties(
         self,
+        *,
         control_authority: int | None = None,
         show_control_legend: bool | None = None,
     ) -> None:
@@ -409,7 +402,8 @@ class Schematic(ConsolePage):
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
                 raise ValueError(
-                    f"Control Authority must be between 0 and 255, got {control_authority}"
+                    "Control Authority must be between 0 and 255, got "
+                    f"{control_authority}"
                 )
             self.layout.fill_input_field("Control Authority", str(control_authority))
             self.page.keyboard.press("Enter")
@@ -496,17 +490,16 @@ class Schematic(ConsolePage):
             )
         sy.sleep(0.1)
 
-    def get_properties(self) -> SchematicProperties:
+    def get_properties(self) -> Properties:
         """Get the current properties of the schematic.
 
-        Returns:
-            Dict with control_authority and show_control_legend keys.
+        :returns: Dict with control_authority and show_control_legend keys.
         """
         self.layout.show_visualization_toolbar()
         self.notifications.close_all()
         self.page.get_by_text("Control", exact=True).first.dispatch_event("click")
 
-        control_authority = int(self.layout.get_input_field("Control Authority"))
+        control_authority = Authority(self.layout.get_input_field("Control Authority"))
 
         show_control_legend = self.layout.get_toggle("Show control state legend")
 
@@ -519,7 +512,15 @@ class Schematic(ConsolePage):
         """Get the number of symbol nodes on the schematic pane."""
         return self.page.locator(".react-flow__node").count()
 
-    @property
+    def wait_for_symbol_count(self, count: int) -> None:
+        """Wait until the schematic pane holds count symbol nodes.
+
+        :raises AssertionError: If the count differs after 5 seconds.
+        """
+        expect(self.page.locator(".react-flow__node")).to_have_count(
+            count, timeout=5000
+        )
+
     def control_legend_visible(self) -> bool:
         """Check if the control state legend is visible."""
         legend = self.page.locator(".pluto-legend")

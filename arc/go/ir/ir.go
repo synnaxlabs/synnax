@@ -86,7 +86,8 @@ func (i *IR) IsZero() bool {
 		len(i.Edges) == 0 &&
 		i.Root.IsZero() &&
 		i.Symbols == nil &&
-		i.TypeMap == nil
+		i.TypeMap == nil &&
+		i.FmtStrings == nil
 }
 
 // String returns the string representation of the IR.

@@ -11,6 +11,7 @@ package connectivity
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
@@ -24,10 +25,10 @@ import (
 
 // ServiceConfig is the configuration for the connectivity API service.
 type ServiceConfig struct {
-	// Cluster provides information about the cluster topology.
+	// Identity names the Core in responses.
 	//
 	// [REQUIRED]
-	Cluster cluster.Cluster
+	Identity cluster.Identity
 	// License holds the Core's license.
 	//
 	// [REQUIRED]
@@ -43,7 +44,11 @@ var (
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	c.Identity = override.If(
+		c.Identity,
+		other.Identity,
+		other.Identity != cluster.Identity{},
+	)
 	c.License = override.Nil(c.License, other.License)
 	return c
 }
@@ -51,14 +56,15 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.connectivity")
-	v.NotNil("cluster", c.Cluster)
+	v.Ternary("identity.key", c.Identity.Key == uuid.Nil(), "must be set")
+	v.NonZero("identity.host_key", c.Identity.HostKey)
 	v.NotNil("license", c.License)
 	return v.Error()
 }
 
 type Service struct {
-	cluster cluster.Cluster
-	license *license.Service
+	identity cluster.Identity
+	license  *license.Service
 }
 
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
@@ -67,8 +73,8 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		return nil, err
 	}
 	return &Service{
-		cluster: cfg.Cluster,
-		license: cfg.License,
+		identity: cfg.Identity,
+		license:  cfg.License,
 	}, nil
 }
 
@@ -81,9 +87,9 @@ type CheckResponse struct {
 
 func (s *Service) Check(context.Context, struct{}) (CheckResponse, error) {
 	return CheckResponse{
-		ClusterKey:  s.cluster.Key().String(),
+		ClusterKey:  s.identity.Key.String(),
 		NodeVersion: version.Get(),
-		NodeKey:     s.cluster.HostKey(),
+		NodeKey:     s.identity.HostKey,
 		NodeTime:    telem.Now(),
 		License:     s.license.Retrieve().State,
 	}, nil

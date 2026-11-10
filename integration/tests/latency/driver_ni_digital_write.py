@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 import synnax as sy
+from framework import resources
 from tests.latency.latency import Latency
 from x import get_cpu_cores, get_machine_info, get_memory_info
 
@@ -34,6 +35,10 @@ class DriverNIDigitalWrite(Latency):
     core and loop-back (python) timestamp.
     """
 
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.NI}
+
     def setup(self) -> None:
         if platform.system().lower() != "windows":
             self.skip("Windows DAQmx drivers required")
@@ -48,7 +53,7 @@ class DriverNIDigitalWrite(Latency):
 
         self.log("Searching for NI DO device: SYMod1")
         # Sim device must be set up in NI MAX
-        dev = client.devices.retrieve(location="SYMod1")
+        dev = client.devices.retrieve(location="SYMod1", one=True)
         self.log(f"Found NI DO device: {dev.location}")
 
         self.log("Creating Channels")
@@ -155,9 +160,9 @@ class DriverNIDigitalWrite(Latency):
         latencies_loop_ms = np.array(latencies_loop)
 
         # Get statistics
-        stats_core = self.calculate_stats(latencies_core_ms, "Driver Latency")
+        stats_core = self.calculate_stats(latencies_core_ms, name="Driver Latency")
         stats_loop = self.calculate_stats(
-            latencies_loop_ms, "Loop Latency (Python timestamp)"
+            latencies_loop_ms, name="Loop Latency (Python timestamp)"
         )
 
         # Create range for the latency benchmark
@@ -228,12 +233,17 @@ class DriverNIDigitalWrite(Latency):
             )
 
         self.plot_latencies(
-            latencies_core_ms, latencies_loop_ms, stats_core, stats_loop
+            latencies_core_ms=latencies_core_ms,
+            latencies_loop_ms=latencies_loop_ms,
+            stats_core=stats_core,
+            stats_loop=stats_loop,
         )
 
-        self.check_results(stats_core, stats_loop)
+        self.check_results(stats_driver=stats_core, stats_loop=stats_loop)
 
-    def calculate_stats(self, latencies_ms: np.ndarray, name: str) -> dict[str, float]:
+    def calculate_stats(
+        self, latencies_ms: np.ndarray, *, name: str
+    ) -> dict[str, float]:
         """Calculate and print statistics for a latency dataset"""
         mean = np.mean(latencies_ms)
         median = np.median(latencies_ms)
@@ -283,7 +293,7 @@ class DriverNIDigitalWrite(Latency):
         }
 
     def check_results(
-        self, stats_driver: dict[str, float], stats_loop: dict[str, float]
+        self, *, stats_driver: dict[str, float], stats_loop: dict[str, float]
     ) -> None:
         assert stats_driver["mean"] <= 5, "Driver mean latency is greater than 5 ms"
         assert stats_loop["mean"] <= 5, "Loop mean latency is greater than 5 ms"
@@ -315,6 +325,7 @@ class DriverNIDigitalWrite(Latency):
 
     def plot_latencies(
         self,
+        *,
         latencies_core_ms: np.ndarray,
         latencies_loop_ms: np.ndarray,
         stats_core: dict[str, float],

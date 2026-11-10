@@ -11,6 +11,3 @@ package v0
 
 // GorpKey implements gorp.Entry.
 func (t Table) GorpKey() Key { return t.Key }
-
-// SetOptions implements gorp.Entry.
-func (Table) SetOptions() []any { return nil }

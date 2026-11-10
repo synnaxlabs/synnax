@@ -60,16 +60,13 @@ const GROUPS: Group[] = [
                 values: { desktop: "Automatic", enterprise: "Your team" },
             },
             {
-                name: "Metadata backup before an update",
-                values: { desktop: "Automatic", enterprise: "Your team" },
-            },
-            {
                 name: "Updates",
                 values: {
                     desktop: "In the app, for all parts",
                     enterprise: "Console in the app, the rest by your team",
                 },
             },
+            { name: "Metadata backup before an update", values: BOTH },
         ],
     },
     {
@@ -99,13 +96,17 @@ const GROUPS: Group[] = [
             },
             { name: "Driver on the same computer", values: BOTH },
             { name: "EtherCAT, Modbus, OPC UA, and HTTP", values: BOTH },
+            { name: "MQTT and Kafka", values: BOTH },
             { name: "Devices and tasks", values: BOTH },
         ],
     },
     {
         name: "Automation",
         capabilities: [
-            { name: "Python and TypeScript clients", values: ENTERPRISE },
+            {
+                name: "Python and TypeScript clients",
+                values: { desktop: "On the same computer", enterprise: true },
+            },
             { name: "Arc automations", values: BOTH },
             { name: "Statuses and alarms", values: BOTH },
         ],
@@ -113,7 +114,14 @@ const GROUPS: Group[] = [
     {
         name: "Data and visualization",
         capabilities: [
-            { name: "Channels and calculated channels", values: BOTH },
+            {
+                name: "Channels",
+                values: {
+                    desktop: "Up to 50, not counting virtual and calculated channels",
+                    enterprise: "Set by your license",
+                },
+            },
+            { name: "Calculated channels", values: BOTH },
             { name: "Ranges", values: BOTH },
             { name: "Projects and visualizations", values: BOTH },
             { name: "Import and export", values: BOTH },
@@ -237,7 +245,7 @@ const GROUPS: Group[] = [
             padding-bottom: 2rem;
             white-space: normal;
 
-            & .pluto-icon {
+            & .lyra-icon {
                 display: block;
                 width: 3rem;
                 height: 3rem;
@@ -303,14 +311,14 @@ const GROUPS: Group[] = [
                 content: none;
             }
 
-            & .pluto-icon {
+            & .lyra-icon {
                 width: 2.25rem;
                 height: 2.25rem;
                 color: var(--pluto-gray-l8);
             }
         }
 
-        @media (max-width: 600px) {
+        @media (width <= 600px) {
             & .docs-compare__capability {
                 width: 34%;
             }

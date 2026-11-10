@@ -60,6 +60,7 @@ export const Provider = ({
 }: ProviderProps): ReactElement => (
   <Triggers.Provider {...triggers}>
     <Tooltip.Config {...tooltip}>
+      <Tooltip.Overflow />
       <Haul.Provider {...haul}>
         <CanDisableAether
           workerURL={workerURL ?? DefaultWorkerURL}

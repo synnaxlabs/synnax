@@ -27,8 +27,17 @@
         padding: 2rem;
         cursor: pointer;
         transition: none !important;
+
         &:hover {
             background: var(--pluto-gray-l2);
+        }
+    }
+
+    > .console-task-status--absent {
+        cursor: default;
+
+        &:hover {
+            background: none;
         }
     }
 
@@ -70,12 +79,12 @@
 
     .console-task-status__description {
         max-height: 150px;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden auto;
         white-space: pre-wrap;
-        word-break: break-word;
-        user-select: text !important;
-        -webkit-user-select: text !important;
+        word-break: normal;
+        overflow-wrap: anywhere;
+        -webkit-user-select: text;
+        user-select: text;
         padding: 1rem;
         background: var(--pluto-gray-l0);
         border-radius: var(--pluto-border-radius);
@@ -138,6 +147,7 @@
             border-right: none;
             border-bottom: var(--pluto-border);
             min-height: auto;
+
             &:hover {
                 background: var(--pluto-gray-l2);
             }
@@ -161,11 +171,13 @@
 
         .console-task-controls__actions {
             width: 100%;
+            align-self: flex-end;
         }
 
         .console-task-status__copy-button {
             font-size: 0;
             gap: 0;
+
             & svg {
                 font-size: 2rem;
             }
@@ -178,10 +190,6 @@
             border-right: none !important;
             border-bottom: var(--pluto-border);
             border-bottom-left-radius: 0 !important;
-        }
-
-        .console-task-controls__actions {
-            align-self: flex-end;
         }
     }
 }

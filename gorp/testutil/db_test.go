@@ -24,8 +24,6 @@ type entry struct {
 
 func (e entry) GorpKey() int32 { return e.ID }
 
-func (entry) SetOptions() []any { return nil }
-
 var _ = Describe("OpenGorpMsgpackDB", func() {
 	It(
 		"Should store entries that do not implement orc.SelfCodec",

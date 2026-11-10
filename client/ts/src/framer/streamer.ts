@@ -16,8 +16,8 @@ import {
 import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { paramsZ } from "@/channel/payload";
+import { channel } from "@/channel";
+import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
@@ -29,6 +29,7 @@ const reqZ = z.object({
   throttleRate: Rate.z.optional(),
   excludeGroups: z.uint32().array().optional(),
   keepAlive: TimeSpan.z.optional(),
+  ackRequested: z.boolean().optional(),
 });
 
 /**
@@ -41,6 +42,8 @@ const resZ = z.object({
   frame: frameZ,
   /** Marks an empty response the Core emits so a dead connection is detectable. */
   keepAlive: z.boolean().optional(),
+  /** Marks the empty response that answers a request with ackRequested set. */
+  ack: z.boolean().optional(),
 });
 
 /**
@@ -51,10 +54,13 @@ export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
-  channels: paramsZ,
+  channels: channel.paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.uint32().default(1),
-  /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
+  /**
+   * Optional throttle rate in Hz to limit the rate of frames sent to the client.
+   * Defaults to 0 (no throttling).
+   */
   throttleRate: Rate.z.default(new Rate(0)),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
@@ -67,11 +73,24 @@ const intermediateStreamerConfigZ = z.object({
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
-  paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
+  channel.paramsZ.transform((channels) =>
+    intermediateStreamerConfigZ.parse({ channels }),
+  ),
 );
 
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */
 export type StreamerConfig = z.input<typeof streamerConfigZ>;
+
+/** Options for {@link Streamer.update}. */
+export interface StreamerUpdateOptions {
+  /**
+   * Resolves the update only once the Core streams the new channels, so a write issued
+   * after it is delivered. Frames must be read concurrently, or the update never
+   * resolves. Cores that predate the ack never send one, so only set this against a
+   * Core that supports it.
+   */
+  waitForAck?: boolean;
+}
 
 /**
  * Streams frames of telemetry from a Synnax cluster in real time. Open one with the
@@ -83,14 +102,20 @@ export type StreamerConfig = z.input<typeof streamerConfigZ>;
 export interface Streamer extends AsyncIterator<Frame>, AsyncIterable<Frame> {
   /** The keys of the channels currently being streamed from. */
   keys: channel.Key[];
-  /** Replaces the list of channels being streamed from. */
-  update: (channels: channel.Params) => Promise<void>;
+  /**
+   * Replaces the list of channels being streamed from.
+   * @param options - Set waitForAck to resolve only once the Core streams the channels.
+   * @throws the error of the concurrent read when the stream fails before the ack, or
+   * EOF when the streamer closes first.
+   */
+  update: (channels: channel.Params, options?: StreamerUpdateOptions) => Promise<void>;
   /** Close the streamer and free all associated resources. */
   close: () => void;
   /**
    * Read the next frame of telemetry.
    * @throws {Unreachable} if keep-alives were flowing and the stream then stays silent
    * past the keep-alive deadline: the connection is presumed dead.
+   * @throws {UnexpectedError} if the Core sends an ack that answers no update.
    */
   read: () => Promise<Frame>;
 }
@@ -121,7 +146,7 @@ export const createStreamOpener =
       cfg.excludeGroups,
       cfg.keepAlive,
     );
-    stream.send({
+    await stream.send({
       keys: Array.from(adapter.keys),
       downsampleFactor: cfg.downsampleFactor,
       throttleRate: cfg.throttleRate,
@@ -161,6 +186,9 @@ class BaseStreamer implements Streamer {
   // Set once the Core proves keep-alive support by sending one, so the deadline never
   // arms against a Core that will not send them.
   private armed = false;
+  // Updates waiting on an ack, oldest first. The Core acks in request order.
+  private readonly pendingAcks: PromiseWithResolvers<void>[] = [];
+  private failure?: Error;
 
   constructor(
     stream: Stream<typeof reqZ, typeof resZ>,
@@ -196,9 +224,24 @@ class BaseStreamer implements Streamer {
 
   async read(): Promise<Frame> {
     while (true) {
-      const res = await this.receiveWithDeadline();
+      let res: z.infer<typeof resZ>;
+      try {
+        res = await this.receiveWithDeadline();
+      } catch (e) {
+        const err = errors.fromUnknown(e);
+        this.failure = err;
+        this.pendingAcks.splice(0).forEach(({ reject }) => reject(err));
+        throw err;
+      }
       if (res.keepAlive === true) {
         if (!this.deadline.isZero) this.armed = true;
+        continue;
+      }
+      if (res.ack === true) {
+        const ack = this.pendingAcks.shift();
+        if (ack == null)
+          throw new UnexpectedError("received an ack with no pending update");
+        ack.resolve();
         continue;
       }
       return this.adapter.adapt(new Frame(res.frame));
@@ -218,18 +261,37 @@ class BaseStreamer implements Streamer {
     );
   }
 
-  async update(channels: channel.Params): Promise<void> {
+  async update(
+    channels: channel.Params,
+    { waitForAck = false }: StreamerUpdateOptions = {},
+  ): Promise<void> {
     const hasChanged = await this.adapter.update(channels);
-    if (!hasChanged) return;
-    this.stream.send({
+    // A read that failed while the channels resolved left no reader for the ack.
+    if (this.failure != null) throw this.failure;
+    if (!hasChanged && !waitForAck) return;
+    this.adapter.advance();
+    const sent = this.stream.send({
       keys: Array.from(this.adapter.keys),
       downsampleFactor: this.downsampleFactor,
       throttleRate: this.throttleRate,
       excludeGroups: this.excludeGroups,
+      ackRequested: waitForAck,
     });
+    if (!waitForAck) return await sent;
+    // Queued before send can wait, so a read that fails meanwhile rejects it.
+    const ack = Promise.withResolvers<void>();
+    this.pendingAcks.push(ack);
+    const unsent = sent.catch((err: unknown) => {
+      const i = this.pendingAcks.indexOf(ack);
+      if (i !== -1) this.pendingAcks.splice(i, 1);
+      throw errors.fromUnknown(err);
+    });
+    await Promise.all([unsent, ack.promise]);
   }
 
   close(): void {
+    // Rejected updates stay queued, so the acks the Core already owes still find them.
+    this.pendingAcks.forEach(({ reject }) => reject(new EOF()));
     this.stream.closeSend();
   }
 

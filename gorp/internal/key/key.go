@@ -35,7 +35,7 @@ func Migrations(namespace string) []byte { return []byte(migrationPrefix + names
 // LegacyPrefix returns the key prefix that releases before v0.54 used for the table of
 // typeName: the type name encoded with msgpack.
 func LegacyPrefix(ctx context.Context, typeName string) ([]byte, error) {
-	return msgpack.Codec.Encode(ctx, typeName)
+	return msgpack.Codec.Encode(typeName)
 }
 
 // primitive is a primary key type that a Codec can encode.

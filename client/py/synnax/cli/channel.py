@@ -32,6 +32,7 @@ def name_table(
 def maybe_select(
     ctx: Context,
     channels: list[Channel],
+    *,
     param: str,
     **kwargs: Any,
 ) -> Channel | None:
@@ -88,8 +89,6 @@ def prompt_group_names(ctx: Context, options: list[str]) -> dict[str, list[str]]
     """
     )
     response = ctx.console.ask("channels")
-    if response is None:
-        return None
     return _group_names(ctx, options, response.split(","))
 
 
@@ -116,7 +115,7 @@ def _group_names(
             index = int(entry)
             if index < 0 or index >= len(options):
                 ctx.console.error(f"Invalid channel index: {index}[/]")
-                if not ctx.console.ask("Continue?", bool, default=True):
+                if not ctx.console.ask("Continue?", type_=bool, default=True):
                     return None
                 continue
             channels.append(options[index])
@@ -128,7 +127,7 @@ def _group_names(
             )
             if len(channels) == 0:
                 ctx.console.error(f"[red]No channels found matching {entry}[/]")
-                if not ctx.console.ask("Continue?", bool, default=True):
+                if not ctx.console.ask("Continue?", type_=bool, default=True):
                     return None
         grouped[entry] = channels
 

@@ -18,29 +18,55 @@ type Kind uint8
 //go:generate stringer -type=Kind
 
 const (
+	// KindInvalid marks a type that Arc cannot represent.
 	KindInvalid Kind = iota
+	// KindU8 is an unsigned 8-bit integer.
 	KindU8
+	// KindU16 is an unsigned 16-bit integer.
 	KindU16
+	// KindU32 is an unsigned 32-bit integer.
 	KindU32
+	// KindU64 is an unsigned 64-bit integer.
 	KindU64
+	// KindI8 is a signed 8-bit integer.
 	KindI8
+	// KindI16 is a signed 16-bit integer.
 	KindI16
+	// KindI32 is a signed 32-bit integer.
 	KindI32
+	// KindI64 is a signed 64-bit integer.
 	KindI64
+	// KindF32 is a 32-bit float.
 	KindF32
+	// KindF64 is a 64-bit float.
 	KindF64
+	// KindString is a text string.
 	KindString
+	// KindChan is a channel of the element type.
 	KindChan
+	// KindSeries is an array of the element type.
 	KindSeries
+	// KindVariable is a generic type parameter.
 	KindVariable
+	// KindNumericConstant constrains a type parameter to any numeric type.
 	KindNumericConstant
+	// KindIntegerConstant constrains a type parameter to an integer literal, which can
+	// resolve to any numeric type.
 	KindIntegerConstant
+	// KindFloatConstant constrains a type parameter to any floating-point type.
 	KindFloatConstant
+	// KindExactIntegerFloatConstant constrains a type parameter to a float literal that
+	// holds an exact integer, which can resolve to any numeric type.
 	KindExactIntegerFloatConstant
+	// KindFunction is a function type.
 	KindFunction
+	// KindSequence is a state machine.
 	KindSequence
+	// KindStage is a stage within a sequence.
 	KindStage
+	// KindVarRef is a reference to the variable of a node.
 	KindVarRef
+	// KindBool is a boolean.
 	KindBool
 )
 
@@ -50,9 +76,13 @@ type ChanDirection uint8
 //go:generate stringer -type=ChanDirection
 
 const (
+	// ChanDirectionNone has no direction set.
 	ChanDirectionNone ChanDirection = iota
+	// ChanDirectionRead reads from the channel.
 	ChanDirectionRead
+	// ChanDirectionWrite writes to the channel.
 	ChanDirectionWrite
+	// ChanDirectionReadWrite reads from and writes to the channel.
 	ChanDirectionReadWrite
 )
 

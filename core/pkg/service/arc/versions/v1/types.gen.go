@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc/program"
 	text "github.com/synnaxlabs/arc/text/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,7 +27,9 @@ type Key = v0.Key
 type Mode = v0.Mode
 
 const (
-	ModeText  Mode = v0.ModeText
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = v0.ModeText
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = v0.ModeGraph
 )
 

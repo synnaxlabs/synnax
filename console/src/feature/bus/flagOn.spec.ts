@@ -23,9 +23,9 @@ vi.mock("@/flags", () => ({ FLAGS: { icd: true, can: true } }));
 
 describe("bus integration flag on", () => {
   it("should register every bus selectable and command when on", () => {
-    expect(Task.SELECTABLES.map((s) => s.type)).toEqual(
-      expect.arrayContaining(BUS_TASK_TYPES),
-    );
+    expect(
+      Task.INTEGRATIONS.flatMap(({ selectables }) => selectables.map((s) => s.type)),
+    ).toEqual(expect.arrayContaining(BUS_TASK_TYPES));
     expect(Task.COMMANDS.map((c) => c.key)).toEqual(
       expect.arrayContaining(BUS_TASK_COMMANDS),
     );

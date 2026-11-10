@@ -48,6 +48,26 @@ describe("Theming", () => {
     expect(result.current.theme.colors.primary.z).toEqual(color.construct("#be9223"));
   });
 
+  it("should take each status text color from its own palette ramp", () => {
+    const { result } = renderTheming();
+    const expectFromRamps = () => {
+      const { colors } = result.current.theme;
+      const pairs = [
+        [colors.primaryText, colors.primary],
+        [colors.errorText, colors.error],
+        [colors.warningText, colors.warning],
+      ] as const;
+      for (const [text, ramp] of pairs)
+        expect(Object.values(ramp).map((step) => color.hex(step))).toContain(
+          color.hex(text),
+        );
+    };
+    expectFromRamps();
+    act(() => result.current.toggleTheme());
+    expect(result.current.theme.name).toBe("Synnax Light");
+    expectFromRamps();
+  });
+
   it("should switch to the variant a new theme prop pins", () => {
     let theme: Theming.ProviderProps["theme"] = { key: "synnaxDark" };
     const { result, rerender } = renderHook(() => Theming.useContext(), {

@@ -9,6 +9,43 @@
 
 import { type schematic, ValidationError } from "@synnaxlabs/client";
 import { color, id } from "@synnaxlabs/x";
+import DOMPurify from "dompurify";
+
+const SVG_NAMESPACE = "http://www.w3.org/2000/svg";
+const LINK_ATTRIBUTES = new Set(["href", "xlink:href"]);
+
+/**
+ * Parses svg into an inert element safe to mount in the document. It removes scripts,
+ * event handlers, foreignObject, and links to anything outside the markup.
+ * @returns the root svg element, or null when the markup is empty, malformed, or not
+ * rooted in an svg element.
+ */
+export const parseSVG = (svg: string): SVGSVGElement | null => {
+  if (svg.length === 0) return null;
+  const doc = new DOMParser().parseFromString(svg, "image/svg+xml");
+  const root = doc.documentElement;
+  if (
+    root.namespaceURI !== SVG_NAMESPACE ||
+    root.localName !== "svg" ||
+    doc.querySelector("parsererror") != null
+  )
+    return null;
+  // A fresh instance keeps the hook off the shared default one.
+  const purify = DOMPurify(window);
+  purify.addHook("uponSanitizeAttribute", (_, attr) => {
+    if (LINK_ATTRIBUTES.has(attr.attrName) && !attr.attrValue.trim().startsWith("#"))
+      attr.keepAttr = false;
+  });
+  purify.sanitize(root, {
+    IN_PLACE: true,
+    USE_PROFILES: { svg: true, svgFilters: true },
+    ADD_TAGS: ["use"],
+    // Region selectors match ids such as "body". Only HTML elements can clobber the
+    // document, and the SVG profile allows none.
+    SANITIZE_DOM: false,
+  });
+  return root as unknown as SVGSVGElement;
+};
 
 /// VISUAL_ELEMENTS are the SVG tags that carry paint (fill/stroke) and therefore
 /// participate in region extraction and color normalization.
@@ -232,13 +269,9 @@ const computedColorResolver: ColorResolver = (el) => {
 /// surface the failure to the user rather than storing an unusable symbol.
 export const normalizeSVG = (svgString: string): string => {
   if (svgString.trim().length === 0) throw new ValidationError("The file is empty.");
-  const doc = new DOMParser().parseFromString(svgString, "image/svg+xml");
-  const root = doc.documentElement;
-  // A malformed document surfaces either as a non-<svg> root (the whole document is
-  // replaced) or as an embedded <parsererror> node, depending on the browser.
-  if (root.tagName !== "svg" || doc.querySelector("parsererror") != null)
+  const svg = parseSVG(svgString);
+  if (svg == null)
     throw new ValidationError("The file does not contain a valid SVG image.");
-  const svg = root as unknown as SVGSVGElement;
   const host = document.createElement("div");
   host.setAttribute("aria-hidden", "true");
   host.style.cssText =

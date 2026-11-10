@@ -13,7 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/icd/types.gen.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/codec/bits.h"
 #include "driver/codec/errors.h"

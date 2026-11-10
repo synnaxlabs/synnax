@@ -19,19 +19,16 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Resolver", func() {
+var _ = Describe("Resolve", func() {
 	var (
-		resolver bus.Resolver
 		ic       icd.ICD
 		status   icd.Message
 		command  icd.Message
 		rpm      icd.BinaryField
 		temp     icd.BinaryField
 		throttle icd.BinaryField
-		task     uuid.UUID
 	)
 	BeforeEach(func(ctx SpecContext) {
-		resolver = bus.Resolver{Stamper: icd.Stamper{DB: db, Ontology: otg}}
 		rpm = binaryField("rpm", 0)
 		temp = binaryField("temp", 8)
 		throttle = binaryField("throttle", 0)
@@ -41,8 +38,7 @@ var _ = Describe("Resolver", func() {
 			Name:     "Engine",
 			Messages: []icd.Message{status, command},
 		}
-		task = uuid.New()
-		createICD(ctx, &ic, task)
+		createICD(ctx, &ic)
 	})
 
 	readConfig := func(messages ...bus.ReadMessage) bus.ReadConfig {
@@ -51,34 +47,6 @@ var _ = Describe("Resolver", func() {
 			Messages: messages,
 		}
 	}
-
-	Describe("Override", func() {
-		It("Should take each nil dependency from the other resolver", func() {
-			Expect(bus.Resolver{}.Override(resolver)).To(Equal(resolver))
-		})
-
-		It("Should keep a dependency that is already set", func() {
-			Expect(resolver.Override(bus.Resolver{})).To(Equal(resolver))
-		})
-	})
-
-	Describe("Validate", func() {
-		It("Should accept a resolver with every dependency", func() {
-			Expect(resolver.Validate()).To(Succeed())
-		})
-
-		It("Should reject a resolver missing the database", func() {
-			Expect(bus.Resolver{
-				Stamper: icd.Stamper{Ontology: otg},
-			}.Validate()).To(MatchError("stamper.db: must be non-nil"))
-		})
-
-		It("Should reject a resolver missing the ontology", func() {
-			Expect(bus.Resolver{
-				Stamper: icd.Stamper{DB: db},
-			}.Validate()).To(MatchError("stamper.ontology: must be non-nil"))
-		})
-	})
 
 	Describe("Read", func() {
 		It(
@@ -90,7 +58,7 @@ var _ = Describe("Resolver", func() {
 						{Field: temp.Key, Channel: 2},
 					},
 				})
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(Equal(MustSucceed(
 					icd.TaskHash(ic, []icd.MessageKey{status.Key}),
 				)))
@@ -103,7 +71,7 @@ var _ = Describe("Resolver", func() {
 				bus.ReadMessage{Message: status.Key},
 				bus.ReadMessage{Message: missing},
 			)
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(ContainSubstring(
+			Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(ContainSubstring(
 				"messages.1.message: message " + missing.String() +
 					" is not in the ICD: validation error",
 			)))
@@ -118,7 +86,7 @@ var _ = Describe("Resolver", func() {
 					{Field: other},
 				},
 			})
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(ContainSubstring(
+			Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(ContainSubstring(
 				"messages.0.fields.1.field: field " + other.String() +
 					" is not in message Status",
 			)))
@@ -130,7 +98,7 @@ var _ = Describe("Resolver", func() {
 				missing := uuid.New()
 				cfg := bus.ReadConfig{ICD: &missing}
 				Expect(
-					resolver.Read(ctx, tx, task, &cfg),
+					bus.ResolveRead(ctx, tx, &cfg),
 				).To(MatchError(ContainSubstring(
 					"icd: ICD " + missing.String() + " does not exist",
 				)))
@@ -141,7 +109,7 @@ var _ = Describe("Resolver", func() {
 			"Should accept a config with no ICD and no messages",
 			func(ctx SpecContext) {
 				cfg := bus.ReadConfig{ICDHash: "stale"}
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(BeEmpty())
 			},
 		)
@@ -153,7 +121,7 @@ var _ = Describe("Resolver", func() {
 					Messages: []bus.ReadMessage{{Message: status.Key}},
 				}
 				Expect(
-					resolver.Read(ctx, tx, task, &cfg),
+					bus.ResolveRead(ctx, tx, &cfg),
 				).To(MatchError(ContainSubstring(
 					"icd: select an ICD before choosing messages",
 				)))
@@ -178,8 +146,7 @@ var _ = Describe("Resolver", func() {
 				"Battery", 0x300, mode, volt, current, temp1, temp2, humid,
 			)
 			ic.Messages = append(ic.Messages, battery)
-			task = uuid.New()
-			createICD(ctx, &ic, task)
+			createICD(ctx, &ic)
 		})
 
 		It("Should accept a plain message on one index", func(ctx SpecContext) {
@@ -190,7 +157,7 @@ var _ = Describe("Resolver", func() {
 					{Field: temp.Key, Channel: 3, Index: 1},
 				},
 			})
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 		})
 
 		It(
@@ -207,7 +174,7 @@ var _ = Describe("Resolver", func() {
 						{Field: humid.Key, Channel: 9, Index: 10},
 					},
 				})
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 
@@ -222,7 +189,7 @@ var _ = Describe("Resolver", func() {
 						{Field: humid.Key, Channel: 9, Index: 7},
 					},
 				})
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(
 					"messages.0.fields.2.index: fields temp1 and humid share index " +
 						"7, but different multiplexor values select them: " +
 						"validation error",
@@ -240,7 +207,7 @@ var _ = Describe("Resolver", func() {
 						{Field: volt.Key, Channel: 3, Index: 1},
 					},
 				})
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(
 					"messages.0.fields.1.index: fields mode and volt share index " +
 						"1, but different multiplexor values select them: " +
 						"validation error",
@@ -259,7 +226,7 @@ var _ = Describe("Resolver", func() {
 					Fields:  []bus.ReadField{{Field: mode.Key, Channel: 3, Index: 1}},
 				},
 			)
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+			Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(
 				"messages.1.fields.0.index: index 1 already stamps message " +
 					"Status: validation error",
 			))
@@ -281,7 +248,7 @@ var _ = Describe("Resolver", func() {
 						},
 					},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 
@@ -300,7 +267,7 @@ var _ = Describe("Resolver", func() {
 					},
 				},
 			)
-			Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+			Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 		})
 	})
 
@@ -333,8 +300,7 @@ var _ = Describe("Resolver", func() {
 				labeled,
 				line,
 			)
-			task = uuid.New()
-			createICD(ctx, &ic, task)
+			createICD(ctx, &ic)
 		})
 
 		It(
@@ -344,7 +310,7 @@ var _ = Describe("Resolver", func() {
 					bus.ReadMessage{Message: status.Key},
 					bus.ReadMessage{Message: reading.Key},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(
 					"messages.1.message: message Reading has a reply with no " +
 						"identifier, so it cannot share the task with messages the " +
 						"device sends unprompted: validation error",
@@ -359,7 +325,7 @@ var _ = Describe("Resolver", func() {
 					bus.ReadMessage{Message: line.Key},
 					bus.ReadMessage{Message: status.Key},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(MatchError(
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(MatchError(
 					"messages.0.message: message Line has a reply with no " +
 						"identifier, so it cannot share the task with messages the " +
 						"device sends unprompted: validation error",
@@ -375,7 +341,7 @@ var _ = Describe("Resolver", func() {
 					bus.ReadMessage{Message: line.Key},
 					bus.ReadMessage{Message: labeled.Key},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 
@@ -386,7 +352,7 @@ var _ = Describe("Resolver", func() {
 					bus.ReadMessage{Message: status.Key},
 					bus.ReadMessage{Message: labeled.Key},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 
@@ -397,7 +363,7 @@ var _ = Describe("Resolver", func() {
 					bus.ReadMessage{Message: status.Key, Disabled: true},
 					bus.ReadMessage{Message: reading.Key},
 				)
-				Expect(resolver.Read(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 	})
@@ -415,7 +381,7 @@ var _ = Describe("Resolver", func() {
 						},
 					}},
 				}
-				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveWrite(ctx, tx, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(Equal(MustSucceed(
 					icd.TaskHash(ic, []icd.MessageKey{command.Key}),
 				)))
@@ -431,7 +397,7 @@ var _ = Describe("Resolver", func() {
 					Fields:  []bus.WriteField{{Field: missing}},
 				}},
 			}
-			Expect(resolver.Write(ctx, tx, task, &cfg)).To(MatchError(ContainSubstring(
+			Expect(bus.ResolveWrite(ctx, tx, &cfg)).To(MatchError(ContainSubstring(
 				"messages.0.fields.0.field: field " + missing.String() +
 					" is not in message Command",
 			)))
@@ -441,7 +407,7 @@ var _ = Describe("Resolver", func() {
 			"Should accept a config with no ICD and no messages",
 			func(ctx SpecContext) {
 				cfg := bus.WriteConfig{}
-				Expect(resolver.Write(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveWrite(ctx, tx, &cfg)).To(Succeed())
 				Expect(cfg.ICDHash).To(BeEmpty())
 			},
 		)
@@ -453,7 +419,7 @@ var _ = Describe("Resolver", func() {
 					Messages: []bus.WriteMessage{{Message: command.Key}},
 				}
 				Expect(
-					resolver.Write(ctx, tx, task, &cfg),
+					bus.ResolveWrite(ctx, tx, &cfg),
 				).To(MatchError(ContainSubstring(
 					"icd: select an ICD before choosing messages",
 				)))

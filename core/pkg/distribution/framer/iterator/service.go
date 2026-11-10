@@ -12,16 +12,11 @@ package iterator
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
-	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/signal"
@@ -76,15 +71,6 @@ func (cfg Config) Validate() error {
 // ServiceConfig is the configuration for opening the iterator Service, the main
 // entrypoint for using iterators.
 type ServiceConfig struct {
-	// HostResolver is used to resolve reachable addresses for nodes in a Synnax
-	// cluster.
-	//
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
-	// Transport is the network transport for moving telemetry frames across nodes.
-	//
-	// [REQUIRED]
-	Transport Transport
 	// TS is the underlying storage layer time-series database for reading frames.
 	//
 	// [REQUIRED]
@@ -100,8 +86,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	cfg.TS = override.Nil(cfg.TS, other.TS)
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
-	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
 }
@@ -110,18 +94,12 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.iterator")
 	v.NotNil("ts", cfg.TS)
-	v.NotNil("transport", cfg.Transport)
-	v.NotNil("resolver", cfg.HostResolver)
 	return v.Error()
 }
 
 // Service is the distribution layer entry point for using iterators within Synnax.
-// Iterators allow for reading chunks of historical data from channels distributed
-// across a multi-node cluster.
-type Service struct {
-	server *server
-	cfg    ServiceConfig
-}
+// Iterators allow for reading chunks of historical data from channels.
+type Service struct{ cfg ServiceConfig }
 
 // NewService opens a new iterator service using the provided configuration. If the
 // configuration is invalid, NewService returns a nil service and an error.
@@ -130,19 +108,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{cfg: cfg, server: newServer(cfg)}, nil
+	return &Service{cfg: cfg}, nil
 }
 
-const (
-	peerSenderAddr   address.Address = "peer_sender"
-	gatewayIterAddr  address.Address = "gateway_writer"
-	broadcasterAddr  address.Address = "broadcaster"
-	synchronizerAddr address.Address = "synchronizer"
-)
-
-// Open opens a new iterator for reading historical data from a Synnax cluster.
-// If the returned error is nil, the iterator must be closed after use. For
-// information on configuration parameters, see the IteratorConfig struct.
+// Open opens a new iterator for reading historical data from channels. If the returned
+// error is nil, the iterator must be closed after use. For information on configuration
+// parameters, see the IteratorConfig struct.
 //
 // The returned iterator uses a synchronous, method-based model. For a channel-based
 // iterator model, use NewStream.
@@ -162,85 +133,22 @@ func (s *Service) Open(ctx context.Context, cfg Config) (*Iterator, error) {
 		confluence.CancelOnFail(),
 		confluence.RecoverWithErrOnPanic(),
 	)
-	return &Iterator{requests: req, responses: res, shutdown: cancel, wg: sCtx}, nil
+	return &Iterator{pipeline: Pipeline{
+		Requests:  req,
+		Responses: res,
+		Shutdown:  cancel,
+		WaitGroup: sCtx,
+	}}, nil
 }
 
-// NewStream returns an iterator for reading historical data from a Synnax cluster. The
-// returned StreamIterator is a confluence.Segment that uses a channel-based interface,
-// where requests are sent through an input stream, and responses are received through
-// an output stream.
-func (s *Service) NewStream(ctx context.Context, cfg Config) (StreamIterator, error) {
+// NewStream returns an iterator for reading historical data from channels. The returned
+// StreamIterator is a confluence.Segment that uses a channel-based interface, where
+// requests are sent through an input stream, and responses are received through an
+// output stream.
+func (s *Service) NewStream(_ context.Context, cfg Config) (StreamIterator, error) {
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
 	cfg.Keys = cfg.Keys.Unique()
-	var (
-		hostID             = s.cfg.HostResolver.HostKey()
-		batch              = proxy.BatchFactory[channel.Key](hostID).Batch(cfg.Keys)
-		pipe               = plumber.New()
-		needPeerRouting    = len(batch.Peers) > 0
-		needGatewayRouting = len(batch.Gateway) > 0
-		receiverAddresses  []address.Address
-		routeInletTo       address.Address
-	)
-
-	if needPeerRouting {
-		routeInletTo = peerSenderAddr
-		sender, receivers, err := s.openManyPeers(
-			ctx,
-			cfg,
-			batch.Peers,
-			!needGatewayRouting,
-		)
-		if err != nil {
-			return nil, err
-		}
-		pipe.SetSink[Request](peerSenderAddr, sender)
-		receiverAddresses = make([]address.Address, len(receivers))
-		for i, c := range receivers {
-			addr := address.Newf("client_%v", i+1)
-			receiverAddresses[i] = addr
-			pipe.SetSource[Response](addr, c)
-		}
-	}
-
-	if needGatewayRouting {
-		routeInletTo = gatewayIterAddr
-		gatewayCfg := cfg
-		gatewayCfg.Keys = batch.Gateway
-		gatewayIter, err := s.newGateway(gatewayCfg, !needPeerRouting)
-		if err != nil {
-			return nil, err
-		}
-		pipe.SetSegment[Request, Response](gatewayIterAddr, gatewayIter)
-		receiverAddresses = append(receiverAddresses, gatewayIterAddr)
-	}
-
-	if needPeerRouting && needGatewayRouting {
-		routeInletTo = broadcasterAddr
-		pipe.SetSegment[Request, Request](broadcasterAddr, newBroadcaster())
-		plumber.MultiRouter[Request]{
-			SourceTargets: []address.Address{broadcasterAddr},
-			SinkTargets:   []address.Address{peerSenderAddr, gatewayIterAddr},
-			Stitch:        plumber.StitchWeave,
-			Capacity:      2,
-		}.MustRoute(pipe)
-	}
-
-	pipe.SetSegment[Response, Response](
-		synchronizerAddr,
-		newSynchronizer(len(cfg.Keys.UniqueLeaseholders()), s.cfg.Instrumentation),
-	)
-
-	plumber.MultiRouter[Response]{
-		SourceTargets: receiverAddresses,
-		SinkTargets:   []address.Address{synchronizerAddr},
-		Stitch:        plumber.StitchUnary,
-		Capacity:      len(receiverAddresses),
-	}.MustRoute(pipe)
-
-	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteOutletFrom(synchronizerAddr))
-	lo.Must0(seg.RouteInletTo(routeInletTo))
-	return seg, nil
+	return s.newStorage(cfg)
 }

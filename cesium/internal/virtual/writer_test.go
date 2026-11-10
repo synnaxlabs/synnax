@@ -10,13 +10,17 @@
 package virtual_test
 
 import (
+	"sync"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -25,7 +29,7 @@ import (
 var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func(ctx SpecContext) {
-		db = MustSucceed(virtual.Open(ctx, virtual.Config{
+		db = MustOpen(virtual.Open(ctx, virtual.Config{
 			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
@@ -35,9 +39,6 @@ var _ = Describe("Write", func() {
 			},
 			FS: fs.NewMem(),
 		}))
-	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
 	})
 	Describe("Control", func() {
 		Describe("ErrOnUnauthorizedOpen", func() {
@@ -91,6 +92,42 @@ var _ = Describe("Write", func() {
 					Expect(t.Occurred()).To(BeTrue())
 					t = MustSucceed(w2.Close())
 					Expect(t.Occurred()).To(BeTrue())
+				},
+			)
+
+			It(
+				"Should give concurrent writers with shared control distinct alignments",
+				func(ctx SpecContext) {
+					const writes = 10_000
+					writers := make([]*virtual.Writer, 2)
+					for i, key := range []string{"foo", "bar"} {
+						writers[i], _ = MustSucceed2(
+							db.OpenWriter(ctx, virtual.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: key},
+							}),
+						)
+					}
+					alignments := make([][]telem.Alignment, len(writers))
+					var wg sync.WaitGroup
+					for i, w := range writers {
+						wg.Go(func() {
+							defer GinkgoRecover()
+							for range writes {
+								alignments[i] = append(
+									alignments[i],
+									MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1))),
+								)
+							}
+						})
+					}
+					wg.Wait()
+					all := lo.Flatten(alignments)
+					Expect(lo.Uniq(all)).To(HaveLen(len(all)))
+					for _, w := range writers {
+						MustSucceed(w.Close())
+					}
 				},
 			)
 
@@ -154,7 +191,7 @@ var _ = Describe("Write", func() {
 					// Read, ReadAt, Write, and WriteAt against the underlying FS
 					// and asserting that nothing is written during the writer's
 					// session.
-					rec := fs.NewRecorder(fs.NewMem())
+					rec := NewRecorder(fs.NewMem())
 					virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -176,7 +213,7 @@ var _ = Describe("Write", func() {
 					MustSucceed(w.Close())
 					Expect(virtualDB.Close()).To(Succeed())
 
-					Expect(rec.Count(fs.MatchOp(fs.OpWrite, fs.OpWriteAt))).To(BeZero())
+					Expect(rec.Count(MatchOp(OpWrite, OpWriteAt))).To(BeZero())
 				},
 			)
 		})

@@ -83,7 +83,7 @@ cc_test(
     srcs = ["protocol_test.cpp"],
     deps = [
         ":protocol",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -95,7 +95,7 @@ cc_test(
     deps = [
         ":gs_usb",
         ":mock",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

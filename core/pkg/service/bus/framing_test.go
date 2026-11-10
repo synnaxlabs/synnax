@@ -10,8 +10,6 @@
 package bus_test
 
 import (
-	"uuid"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/bus"
@@ -70,17 +68,11 @@ var _ = Describe("Framing", func() {
 		), "max_length: must be 0 or at least 5 bytes"),
 	)
 
-	Describe("Resolver", func() {
-		var (
-			resolver bus.Resolver
-			ic       icd.ICD
-			task     uuid.UUID
-		)
+	Describe("Resolve", func() {
+		var ic icd.ICD
 		BeforeEach(func(ctx SpecContext) {
-			resolver = bus.Resolver{Stamper: icd.Stamper{DB: db, Ontology: otg}}
 			ic = icd.ICD{Name: "Bench"}
-			task = uuid.New()
-			createICD(ctx, &ic, task)
+			createICD(ctx, &ic)
 		})
 
 		It(
@@ -90,7 +82,7 @@ var _ = Describe("Framing", func() {
 					ICD:     &ic.Key,
 					Framing: syncFraming(func(*bus.SyncFraming) {}),
 				}
-				Expect(resolver.StreamRead(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveStreamRead(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 
@@ -101,7 +93,7 @@ var _ = Describe("Framing", func() {
 					ICD:     &ic.Key,
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.LengthSize = 3 }),
 				}
-				Expect(resolver.StreamRead(ctx, tx, task, &cfg)).
+				Expect(bus.ResolveStreamRead(ctx, tx, &cfg)).
 					To(MatchError("framing.length_size: must be 1, 2, or 4 bytes"))
 			},
 		)
@@ -113,7 +105,7 @@ var _ = Describe("Framing", func() {
 					ICD:     &ic.Key,
 					Framing: syncFraming(func(s *bus.SyncFraming) { s.Sync = "ZZ" }),
 				}
-				Expect(resolver.StreamWrite(ctx, tx, task, &cfg)).
+				Expect(bus.ResolveStreamWrite(ctx, tx, &cfg)).
 					To(MatchError("framing.sync: must be pairs of hex digits, such as AA55"))
 			},
 		)
@@ -125,7 +117,7 @@ var _ = Describe("Framing", func() {
 					ICD:     &ic.Key,
 					Framing: bus.Framing{Variant: bus.SlipFraming{}},
 				}
-				Expect(resolver.StreamWrite(ctx, tx, task, &cfg)).To(Succeed())
+				Expect(bus.ResolveStreamWrite(ctx, tx, &cfg)).To(Succeed())
 			},
 		)
 	})

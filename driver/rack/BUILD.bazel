@@ -23,27 +23,52 @@ cc_library(
         "args.cpp",
         "env.cpp",
         "factories.cpp",
+        "factories.h",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ],
+        "state.h",
+        "unavailable.h",
+        "//driver/version",
+    ] + select({
+        "@platforms//os:macos": [
+            "factories_darwin.cpp",
+            "state_unix.cpp",
+        ],
+        "@platforms//os:linux": [
+            "factories_linux.cpp",
+            "state_unix.cpp",
+        ],
+        "@platforms//os:windows": [
+            "factories_windows.cpp",
+            "state_windows.cpp",
+        ],
+    }),
     hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
     }),
+    linkopts = select({
+        "@platforms//os:windows": ["/DEFAULTLIB:advapi32.lib"],
+        "//conditions:default": [],
+    }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/auth",
+        "//client/cpp/connection",
         "//client/cpp/errors",
         "//driver/arc",
         "//driver/can:task",
         "//driver/can/backends",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
-        "//driver/labjack",
-        "//driver/ni",
+        "//driver/labjack:names",
+        "//driver/modbus:names",
+        "//driver/ni:names",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/serial:task",
@@ -51,6 +76,7 @@ cc_library(
         "//driver/tcp:task",
         "//driver/udp:task",
         "//x/cpp/args",
+        "//x/cpp/defer",
         "//x/cpp/env",
         "//x/cpp/kv",
         "//x/cpp/log",
@@ -63,18 +89,86 @@ cc_library(
     ] + select({
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
+    }) + select({
+        "@platforms//os:macos": ["//driver/labjack"],
+        "@platforms//os:linux": ["//driver/ni"],
+        "@platforms//os:windows": [
+            "//driver/labjack",
+            "//driver/ni",
+        ],
     }),
+)
+
+cc_test(
+    name = "factories_test",
+    srcs = [
+        "factories_test.cpp",
+        "//driver/version",
+    ],
+    deps = [
+        "//driver/labjack:names",
+        "//driver/ni:names",
+        "//driver/rack",
+        "//driver/task",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_darwin_test",
+    srcs = ["factories_darwin_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/ni:names",
+        "//driver/rack",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_linux_test",
+    srcs = ["factories_linux_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/labjack:names",
+        "//driver/rack",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "state_test",
+    srcs = [
+        "state_test.cpp",
+        "//driver/version",
+    ],
+    deps = [
+        "//driver/rack",
+        "//x/cpp/defer",
+        "//x/cpp/env",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(
     name = "rack_test",
     srcs = [
         "config_test.cpp",
+        "rack_test.cpp",
+        "//driver/version",
     ],
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/rack",
+        "//driver/rack/status",
         "@googletest//:gtest_main",
     ],
 )

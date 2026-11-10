@@ -9,3 +9,4 @@
 
 export * from "@/icd/client";
 export * from "@/icd/types.gen";
+export { type WhereInput } from "@/icd/where.gen";

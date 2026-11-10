@@ -12,6 +12,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/color/color.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::color {
 namespace {
@@ -23,25 +24,26 @@ void expect_css(
     std::uint8_t b,
     double a
 ) {
-    auto [c, err] = from_css(input);
-    ASSERT_FALSE(err) << input << ": " << err.message();
-    EXPECT_EQ(c.r, r) << input;
-    EXPECT_EQ(c.g, g) << input;
-    EXPECT_EQ(c.b, b) << input;
-    EXPECT_DOUBLE_EQ(c.a, a) << input;
+    SCOPED_TRACE(input);
+    const auto c = ASSERT_NIL_P(from_css(input));
+    EXPECT_EQ(c.r, r);
+    EXPECT_EQ(c.g, g);
+    EXPECT_EQ(c.b, b);
+    EXPECT_DOUBLE_EQ(c.a, a);
 }
 
 void expect_css_error(const std::string &input, const std::string &msg) {
+    SCOPED_TRACE(input);
     auto [c, err] = from_css(input);
-    ASSERT_TRUE(err) << input << ": expected error";
-    EXPECT_NE(err.message().find(msg), std::string::npos)
-        << input << ": got " << err.message();
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_NE(err.message().find(msg), std::string::npos) << err.message();
 }
 
 Color parse_json(const x::json::json &j) {
+    SCOPED_TRACE(j.dump());
     x::json::Parser parser(j);
     const auto c = Color::parse(parser);
-    EXPECT_FALSE(parser.error()) << j.dump() << ": " << parser.error().message();
+    EXPECT_NIL(parser.error());
     return c;
 }
 

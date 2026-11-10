@@ -10,12 +10,39 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any
+from typing import TypedDict
 
 from playwright.sync_api import FloatRect, Locator, Page
 
 import synnax as sy
 from console.layout import LayoutClient
+from x.control import Authority
+from x.notation import Notation
+
+
+class Properties(TypedDict, total=False):
+    """The values a schematic or one of its symbols shows in its Console forms. Forms
+    show channels by name, not by key."""
+
+    channel: str
+    state_channel: str
+    command_channel: str
+    activation_delay: float
+    show_control_chip: bool
+    mode: sy.schematic.ButtonMode
+    notation: Notation
+    precision: int
+    averaging_window: int
+    stale_color: str
+    stale_timeout: int
+    control_authority: Authority
+    show_control_legend: bool
+
+
+def option_text(value: float) -> str:
+    """Return the text of an option value, with no digits lost and no trailing ".0"."""
+    return repr(value).removesuffix(".0")
+
 
 """ Symbol Box helpers """
 
@@ -62,16 +89,15 @@ class Symbol(ABC):
     _symbol_type: str
     _symbol_group: str | None = None
 
-    def __init__(self, label: str, symbol_type: str, rotatable: bool = False):
+    def __init__(self, *, label: str, symbol_type: str, rotatable: bool = False):
         """Initialize a symbol with configuration parameters.
 
-        The symbol is not yet attached to a schematic. Call schematic.create_symbol(symbol)
-        to add it to the schematic.
+        The symbol is not yet attached to a schematic. Call
+        schematic.create_symbol(symbol) to add it to the schematic.
 
-        Args:
-            label: Display label for the symbol
-            symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
-            rotatable: Whether the symbol can be rotated (default: False)
+        :param label: Display label for the symbol
+        :param symbol_type: The type of symbol (e.g., "Valve", "Button", "Three way")
+        :param rotatable: Whether the symbol can be rotated (default: False)
         """
         if label.strip() == "":
             raise ValueError("Label cannot be empty")
@@ -86,8 +112,7 @@ class Symbol(ABC):
 
         This method adds the symbol to the schematic UI using the SymbolToolbar factory.
 
-        Args:
-            layout: LayoutClient for UI interactions (includes notifications)
+        :param layout: LayoutClient for UI interactions (includes notifications)
         """
         from console.schematic.symbol_toolbar import SymbolToolbar
 
@@ -96,7 +121,7 @@ class Symbol(ABC):
         self.notifications = layout.notifications
 
         toolbar = SymbolToolbar(self.layout)
-        self.symbol_id = toolbar.add_symbol(self._symbol_type, self._symbol_group)
+        self.symbol_id = toolbar.add_symbol(self._symbol_type, group=self._symbol_group)
         self.locator = self.page.get_by_test_id(self.symbol_id)
         self.set_label(self.label)
         self._apply_properties()
@@ -138,7 +163,9 @@ class Symbol(ABC):
         self.layout.click(self.locator)
 
     def meta_click(self) -> None:
-        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held down."""
+        """Click the symbol with the platform-appropriate modifier key (Cmd/Ctrl) held
+        down.
+        """
         self.layout.meta_click(self.locator)
 
     def set_label(self, label: str) -> None:
@@ -152,23 +179,6 @@ class Symbol(ABC):
         self.layout.fill_input_field("Label", label)
         self.label = label
 
-    @abstractmethod
-    def set_properties(
-        self,
-        channel_name: str | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
-        """
-        Set symbol properties. Must be implemented by all child classes.
-
-        Args:
-            channel_name: Optional channel name to set
-            **kwargs: Additional properties specific to each symbol type
-
-        Returns:
-            Dictionary of applied properties
-        """
-
     def channel_trigger(self, section: str) -> Locator:
         """The channel select in the form section with the given title."""
         return self.layout.form_section(section).locator(".pluto-channel__trigger")
@@ -176,13 +186,17 @@ class Symbol(ABC):
     def set_channel(self, *, section: str, channel_name: str) -> None:
         if channel_name is not None:
             self.layout.click(self.channel_trigger(section))
-            self.layout.select_from_dropdown(channel_name, "Search", exact=True)
+            self.layout.select_from_dropdown(
+                channel_name, placeholder="Search", exact=True
+            )
 
     def set_value(self, value: float) -> None:
         """Set the symbol's value if applicable. Default implementation does nothing."""
 
     def press(self) -> None:
-        """Press/activate the symbol if applicable. Default implementation does nothing."""
+        """Press/activate the symbol if applicable. Default implementation does
+        nothing.
+        """
 
     @contextmanager
     def hold(self) -> Iterator[None]:
@@ -196,7 +210,7 @@ class Symbol(ABC):
         finally:
             self.page.mouse.up()
 
-    def press_and_hold(self, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
+    def press_and_hold(self, *, delay: sy.TimeSpan = sy.TimeSpan.SECOND) -> None:
         """Press the symbol, hold for ``delay``, then release."""
         with self.hold():
             self.page.wait_for_timeout(int(delay.milliseconds))
@@ -220,8 +234,7 @@ class Symbol(ABC):
     def position(self) -> FloatRect:
         """Get the symbol's bounding box for alignment checks.
 
-        Raises:
-            RuntimeError: If the symbol's bounding box cannot be retrieved
+        :raises RuntimeError: If the symbol's bounding box cannot be retrieved
         """
         box = self.locator.bounding_box()
         if not box:
@@ -233,30 +246,30 @@ class Symbol(ABC):
     @property
     def colored(self) -> Locator:
         """The element that carries the symbol's `--pluto-symbol-color` style."""
-        return self.locator.locator(".pluto-symbol-colored").first
+        return self.locator.locator(".lyra-symbol-colored").first
 
     def delete(self) -> None:
         self.click()
         self.layout.press_delete()
 
     def toggle_absolute_control(self) -> None:
-        """Toggle absolute control authority for this symbol by clicking its control chip button."""
+        """Toggle absolute control authority for this symbol by clicking its control
+        chip button.
+        """
         # Locate the control chip button within this specific symbol's container
         control_chip = self.locator.locator(".pluto-control-chip").first
         self.layout.click(control_chip)
 
-    def get_properties(self, tab: str = "Symbols") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Symbols") -> Properties:
         """
         Get the current properties of the symbol.
 
         Base implementation opens the Properties panel and optionally selects a tab.
-        Subclasses should call super().get_properties(tab="TabName") to open the correct tab.
+        Subclasses should call super().get_properties(tab="TabName") to open the correct
+        tab.
 
-        Args:
-            tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
-
-        Returns:
-            Empty dict - subclasses should populate with actual properties
+        :param tab: Optional tab name to select (e.g., "Control", "Telemetry", "Style")
+        :returns: Empty dict - subclasses should populate with actual properties
         """
         self.click()
         self.open_properties_tab()

@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__scroll {
+.lyra-list__scroll {
     /* The virtualizer measures the items' offset against this box. */
     position: relative;
     user-select: none;
@@ -21,20 +21,20 @@
     contain: layout paint;
 
     /* Opt-in: a list sized by its container would lag behind every pane drag. */
-    &.pluto-list__scroll--animate-height {
+    &.lyra-list__scroll--animate-height {
         transition: height 0.1s ease;
     }
 
-    &:not(.pluto--direction-x) {
+    &:not(.lyra--direction-x) {
         padding: 1rem;
     }
 
-    &.pluto-list__scroll--empty {
+    &.lyra-list__scroll--empty {
         justify-content: center;
         align-items: center;
     }
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         &::-webkit-scrollbar {
             height: 3px;
         }
@@ -42,7 +42,8 @@
         &::-webkit-scrollbar-thumb:hover {
             background: var(--pluto-gray-l7);
         }
-        & > .pluto-list__virtualizer {
+
+        & > .lyra-list__virtualizer {
             display: flex;
             flex-direction: inherit;
             flex-wrap: inherit;

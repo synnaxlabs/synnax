@@ -17,9 +17,9 @@ import { Connection as PlatformConnection } from "@/platform/connection";
 import { CSS } from "@/platform/css";
 import { Island } from "@/platform/shell/Island";
 
-/* Rejected credentials and an unlicensed Core mean the Core answered, so the island
-   stays nominal and the surface behind it carries the error. */
-const ANSWERED: connection.Reason[] = ["auth", "unlicensed"];
+/* Rejected credentials, an unlicensed Core, and an incompatible Core mean the Core
+   answered, so the island stays nominal and the surface behind it carries the error. */
+const ANSWERED: connection.Reason[] = ["auth", "unlicensed", "incompatible"];
 
 const variantOf = (status?: connection.Status | null): connection.Status["variant"] => {
   if (status == null) return "loading";
@@ -71,10 +71,19 @@ export const Connection = ({ core }: ConnectionProps): ReactElement | null => {
         variant={variant}
         className={CSS.BE("shell", "connection-dot")}
       />
-      <Text.Text color={10} weight={500} overflow="ellipsis">
+      <Text.Text
+        color={10}
+        weight={500}
+        overflow="fade"
+        className={CSS.BE("shell", "connection-name")}
+      >
         {core.name}
       </Text.Text>
-      <Text.Text color={9} overflow="ellipsis">
+      <Text.Text
+        color={9}
+        overflow="fade"
+        className={CSS.BE("shell", "connection-address")}
+      >
         {core.host}:{core.port}
       </Text.Text>
       <Text.Text status={variant} className={CSS.BE("shell", "connection-status")}>

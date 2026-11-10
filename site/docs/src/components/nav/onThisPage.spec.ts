@@ -10,7 +10,7 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { start } from "@/components/nav/onThisPage";
-import { CHANGE_EVENT } from "@/components/tabs/sync";
+import { Tabs } from "@/components/tabs";
 
 // Mirrors the markup of the article and of Outline.astro.
 const PAGE = `
@@ -70,7 +70,7 @@ describe("on this page", () => {
         document.querySelectorAll<HTMLElement>('[role="tabpanel"]');
       python.hidden = true;
       typescript.hidden = false;
-      document.dispatchEvent(new CustomEvent(CHANGE_EVENT));
+      document.dispatchEvent(new CustomEvent(Tabs.CHANGE_EVENT));
       expect(shown()).toEqual(["create", "typescript", "delete"]);
     });
   });

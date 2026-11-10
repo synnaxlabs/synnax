@@ -15,12 +15,20 @@ import "schemas/x/versions/text/v0"
 Key = v0.Key
 
 FlexAlignment enum {
-    start   = "start"
-    center  = "center"
-    end     = "end"
-    stretch = "stretch"
+    start   = "start" {
+        @doc value "aligns content to the start."
+    }
+    center  = "center" {
+        @doc value "aligns content to the center."
+    }
+    end     = "end" {
+        @doc value "aligns content to the end."
+    }
+    stretch = "stretch" {
+        @doc value "stretches content to fill the available space."
+    }
 
-    @doc value "is a cross-axis flex alignment for laid-out content."
+    @doc value "is a flex alignment for laid-out content."
 }
 
 CellConfig union on variant {
@@ -32,7 +40,9 @@ CellConfig union on variant {
             @doc value "is the typography level of the cell text."
         }
         weight     float64 = 400 {
-            @doc value "is the font weight of the cell text."
+            @doc value    "is the font weight of the cell text."
+            @validate max 1000
+            @validate min 1
         }
         align      FlexAlignment = FlexAlignmentCenter {
             @doc value "is the alignment of the cell text along the row axis."
@@ -56,7 +66,8 @@ CellConfig union on variant {
             @doc value "is the channel whose value the cell displays."
         }
         rolling_average   int32 = 1 {
-            @doc value "is the sample window for rolling-average smoothing."
+            @doc value    "is the sample window for rolling-average smoothing."
+            @validate min 1
         }
         precision         int32?            {
             @doc value """
@@ -89,9 +100,10 @@ CellConfig union on variant {
             @doc value "is the unit suffix displayed after the value."
         }
         staleness_timeout float64 = 5 {
-            @doc value """
+            @doc value    """
                 is the duration in seconds after which the value is considered stale.
             """
+            @validate min 1
         }
         staleness_color   color.Color?      {
             @doc value """

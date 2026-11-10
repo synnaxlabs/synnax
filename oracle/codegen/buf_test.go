@@ -10,6 +10,7 @@
 package codegen_test
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -49,6 +50,35 @@ func fixture() string {
 	)).To(Succeed())
 	return root
 }
+
+var _ = Describe("FindPbGoFiles", func() {
+	It("Should find buf outputs and skip other files and directories", func() {
+		root := GinkgoT().TempDir()
+		write := func(rel string) {
+			GinkgoHelper()
+			full := filepath.Join(root, rel)
+			Expect(os.MkdirAll(filepath.Dir(full), 0o755)).To(Succeed())
+			Expect(os.WriteFile(full, []byte("package x\n"), 0o644)).To(Succeed())
+		}
+		write("x/a.pb.go")
+		write("x/a_grpc.pb.go")
+		write("x/a.go")
+		write("x/a.pb.ts")
+		write("vendor/v.pb.go")
+		write("node_modules/n.pb.go")
+		write(".oracle/o.pb.go")
+		Expect(codegen.FindPbGoFiles(root)).To(ConsistOf(
+			filepath.Join(root, "x/a.pb.go"),
+			filepath.Join(root, "x/a_grpc.pb.go"),
+		))
+	})
+
+	It("Should return an error for a missing directory", func() {
+		missing := filepath.Join(GinkgoT().TempDir(), "missing")
+		Expect(codegen.FindPbGoFiles(missing)).Error().
+			To(MatchError(fs.ErrNotExist))
+	})
+})
 
 var _ = Describe("RunBufGenerate", func() {
 	BeforeEach(func() {

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/x/breaker"
 	. "github.com/synnaxlabs/x/testutil"
 	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 var _ = Describe("Config", func() {
@@ -54,12 +55,16 @@ var _ = Describe("Config", func() {
 				c.Clock = nil
 				return c
 			}, "clock: must be non-nil"),
+			Entry("max interval below base", func(c breaker.Config) breaker.Config {
+				c.MaxInterval = c.BaseInterval / 2
+				return c
+			}, "max_interval: must be zero or at least"),
 		)
 	})
 
 	Describe("Override", func() {
 		It("Should take a field from the override when the base is zero", func() {
-			clock := &xtime.Fake{}
+			clock := &timetestutil.Clock{}
 			merged := breaker.Config{}.Override(breaker.Config{
 				BaseInterval: time.Minute,
 				Scale:        3,
@@ -87,7 +92,7 @@ var _ = Describe("Config", func() {
 var _ = Describe("Breaker", func() {
 	// advanceTo releases a single pending Wait by crossing interval. Stopping one tick
 	// short first pins the deadline to interval rather than to any earlier one.
-	advanceTo := func(clock *xtime.Fake, waited chan bool, interval time.Duration) {
+	advanceTo := func(clock *timetestutil.Clock, waited chan bool, interval time.Duration) {
 		GinkgoHelper()
 		Eventually(clock.Pending).Should(Equal(1))
 		clock.Advance(interval - time.Millisecond)
@@ -106,7 +111,7 @@ var _ = Describe("Breaker", func() {
 	It("Should stop waiting when the context is canceled", func(specCtx SpecContext) {
 		ctx, cancel := context.WithCancel(specCtx)
 		DeferCleanup(cancel)
-		clock := &xtime.Fake{}
+		clock := &timetestutil.Clock{}
 		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 			BaseInterval: time.Hour,
 			MaxRetries:   breaker.InfiniteRetries,
@@ -122,7 +127,7 @@ var _ = Describe("Breaker", func() {
 	})
 
 	It("Should scale the interval every time it waits", func(ctx SpecContext) {
-		clock := &xtime.Fake{}
+		clock := &timetestutil.Clock{}
 		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 			BaseInterval: 10 * time.Millisecond,
 			Scale:        2,
@@ -145,7 +150,7 @@ var _ = Describe("Breaker", func() {
 	})
 
 	It("Should stop allowing retries at the maximum", func(ctx SpecContext) {
-		clock := &xtime.Fake{}
+		clock := &timetestutil.Clock{}
 		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 			BaseInterval: 10 * time.Millisecond,
 			Scale:        1,
@@ -165,7 +170,7 @@ var _ = Describe("Breaker", func() {
 
 	Describe("Reset", func() {
 		It("Should return the breaker to the base interval", func(ctx SpecContext) {
-			clock := &xtime.Fake{}
+			clock := &timetestutil.Clock{}
 			b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
 				BaseInterval: 10 * time.Millisecond,
 				Scale:        2,
@@ -185,5 +190,27 @@ var _ = Describe("Breaker", func() {
 			b.Reset()
 			wait(10 * time.Millisecond)
 		})
+	})
+
+	It("Should stop scaling the interval at the max interval", func(ctx SpecContext) {
+		clock := &timetestutil.Clock{}
+		b := MustSucceed(breaker.NewBreaker(ctx, breaker.Config{
+			BaseInterval: 10 * time.Millisecond,
+			Scale:        10,
+			MaxInterval:  20 * time.Millisecond,
+			MaxRetries:   10,
+			Clock:        clock,
+		}))
+		waited := make(chan bool, 4)
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			for range 4 {
+				waited <- b.Wait()
+			}
+		})
+		for _, interval := range []time.Duration{10, 20, 20, 20} {
+			advanceTo(clock, waited, interval*time.Millisecond)
+		}
+		wg.Wait()
 	})
 })

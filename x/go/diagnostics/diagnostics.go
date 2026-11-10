@@ -16,8 +16,13 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/x/errors"
 	"go.lsp.dev/protocol"
 )
+
+// ErrReported marks an error whose cause already has a diagnostic. Add drops a
+// diagnostic built from it, so one mistake reports once.
+var ErrReported = errors.New("already reported")
 
 // Advance returns the position reached by walking off bytes of body from pos, resetting
 // the character on each newline. Positions are 0-indexed, matching protocol.Position.
@@ -60,6 +65,7 @@ type Diagnostic struct {
 	Severity protocol.DiagnosticSeverity             `json:"severity"`
 	Range    protocol.Range                          `json:"range"`
 	Notes    []protocol.DiagnosticRelatedInformation `json:"notes"`
+	cause    error
 }
 
 // SetRange sets the Range from an ANTLR parser rule context.
@@ -90,7 +96,11 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 // Error creates an error diagnostic from an existing error. If the error implements
 // HintProvider, the hint is automatically extracted and added as a note.
 func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
-	d := Diagnostic{Severity: protocol.DiagnosticSeverityError, Message: err.Error()}
+	d := Diagnostic{
+		Severity: protocol.DiagnosticSeverityError,
+		Message:  err.Error(),
+		cause:    err,
+	}
 	d.SetRange(ctx)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
@@ -123,26 +133,6 @@ func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnosti
 	return d
 }
 
-// Infof creates an info diagnostic with a formatted message.
-func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
-		Severity: protocol.DiagnosticSeverityInformation,
-		Message:  fmt.Sprintf(format, args...),
-	}
-	d.SetRange(ctx)
-	return d
-}
-
-// Hintf creates a hint diagnostic with a formatted message.
-func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
-		Severity: protocol.DiagnosticSeverityHint,
-		Message:  fmt.Sprintf(format, args...),
-	}
-	d.SetRange(ctx)
-	return d
-}
-
 // WithCode returns a copy of the diagnostic with the given error code.
 func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	d.Code = code
@@ -160,21 +150,6 @@ func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 func (d Diagnostic) WithNote(note string) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{Message: note})
-	}
-	return d
-}
-
-// WithNoteAt returns a copy of the diagnostic with an additional note at the given
-// position.
-func (d Diagnostic) WithNoteAt(note string, pos protocol.Position) Diagnostic {
-	if note != "" {
-		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{
-			Message: note,
-			Location: protocol.Location{Range: protocol.Range{
-				Start: pos,
-				End:   protocol.Position{Line: pos.Line, Character: pos.Character + 1},
-			}},
-		})
 	}
 	return d
 }
@@ -201,7 +176,24 @@ func (d Diagnostics) Empty() bool { return len(d) == 0 }
 // Error implements the error interface.
 func (d Diagnostics) Error() string { return d.String() }
 
+// Unwrap returns the errors that the diagnostics were created from, so that errors.Is
+// matches them.
+func (d Diagnostics) Unwrap() []error {
+	var causes []error
+	for _, diag := range d {
+		if diag.cause != nil {
+			causes = append(causes, diag.cause)
+		}
+	}
+	return causes
+}
+
+// Add appends diag unless its cause was already reported or an equal diagnostic sits
+// at the same position.
 func (d *Diagnostics) Add(diag Diagnostic) {
+	if errors.Is(diag.cause, ErrReported) {
+		return
+	}
 	for _, idx := range d.AtLocation(diag.Range.Start) {
 		existing := (*d)[idx]
 		if existing.Message == diag.Message {
@@ -242,17 +234,6 @@ func (d Diagnostics) Errors() []Diagnostic {
 		}
 	}
 	return errors
-}
-
-// Warnings returns only warning-level diagnostics.
-func (d Diagnostics) Warnings() []Diagnostic {
-	var warnings []Diagnostic
-	for _, diag := range d {
-		if diag.Severity == protocol.DiagnosticSeverityWarning {
-			warnings = append(warnings, diag)
-		}
-	}
-	return warnings
 }
 
 // String formats all diagnostics as a human-readable string with line:column severity:

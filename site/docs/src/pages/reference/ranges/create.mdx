@@ -106,9 +106,9 @@ const nextRange = await client.ranges.create({
 
   <Fragment slot="arc">
 
-An [Arc automation](/reference/control/arc/introduction) creates a range when a test
-starts and ends it when the test ends. The range starts when `ranges.create` runs, and
-ends when `ranges.end` runs:
+An [Arc automation](/reference/control/arc) creates a range when a test starts and ends
+it when the test ends. The range starts when `ranges.create` runs, and ends when
+`ranges.end` runs:
 
 ```arc channels="start_cmd, stop_cmd" bodies="test, idle, run, done"
 import ranges
@@ -119,11 +119,11 @@ sequence test {
         start_cmd == 1 => run
     }
     stage run {
-        ranges.create{name="Hotfire", color="#3bc454"} -> run_key
+        ranges.create(name="Hotfire", color="#3bc454") -> run_key
         stop_cmd == 1 => done
     }
     stage done {
-        ranges.end{key=run_key}
+        ranges.end(key=run_key)
         start_cmd == 1 => run
     }
 }
@@ -146,11 +146,10 @@ For child ranges, aborts, and limits, see [create ranges in Arc](/reference/rang
 
   <Fragment slot="console">
 
-Set the **Parent range** in the create dialog. You can also right-click a range in the
-ranges toolbar or the range explorer and select **Create child range**, or click
-
-<Icon.Add /> in the child ranges section of the [range
-overview](/reference/ranges/find#range-overview).
+Set the **Parent range** in the create dialog. You can also click <Icon.Add /> in the
+child ranges section of the [range overview](/reference/ranges/find#range-overview), or
+right-click a range in the ranges toolbar or the range explorer and select **Create
+child range**.
 
 <Video id="client/ranges/create-child" />
 
@@ -181,13 +180,13 @@ client.ranges.create(
 const childRange = await client.ranges.create({
   name: "My Child Range",
   timeRange: new TimeRange(start, end),
-  parent: parentRange,
+  parent: parentRange.key,
 });
 
 // Or create many children in one call
 await client.ranges.create([
-  { name: "Child A", timeRange: trA, parent: parentRange },
-  { name: "Child B", timeRange: trB, parent: parentRange },
+  { name: "Child A", timeRange: trA, parent: parentRange.key },
+  { name: "Child B", timeRange: trB, parent: parentRange.key },
 ]);
 ```
 
@@ -203,11 +202,11 @@ import ranges
 sequence test {
     run_key str $= ""
     stage run {
-        ranges.create{name="Press test", color="#3bc454"} -> run_key
+        ranges.create(name="Press test", color="#3bc454") -> run_key
         tank_pt > 300.0 => hold
     }
     stage hold {
-        ranges.create{name="Hold", parent=run_key, color="#8b5cf6"}
+        ranges.create(name="Hold", parent=run_key, color="#8b5cf6")
     }
 }
 

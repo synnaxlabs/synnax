@@ -18,7 +18,7 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
@@ -105,6 +105,12 @@ func (p *PollConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PollConfig) SetDefaults() {
+	p.Rate = 1
+	p.Timeout = 1000000000
+}
+
 // Checksum is the checksum that ends a sync and length frame.
 type Checksum string
 
@@ -126,16 +132,24 @@ func (c Checksum) IsValid() bool {
 	}
 }
 
+// FramingType is the "type" value that selects a variant of Framing.
 type FramingType string
 
 const (
+	// DelimiterFramingType ends each frame with a byte sequence.
 	DelimiterFramingType FramingType = "delimiter"
-	FixedFramingType     FramingType = "fixed"
-	SyncFramingType      FramingType = "sync"
-	CobsFramingType      FramingType = "cobs"
-	SlipFramingType      FramingType = "slip"
+	// FixedFramingType gives every frame the same number of bytes.
+	FixedFramingType FramingType = "fixed"
+	// SyncFramingType starts each frame with a sync sequence followed by a length
+	// field, and can end it with a checksum.
+	SyncFramingType FramingType = "sync"
+	// CobsFramingType delimits frames with consistent overhead byte stuffing.
+	CobsFramingType FramingType = "cobs"
+	// SlipFramingType delimits frames with the serial line internet protocol.
+	SlipFramingType FramingType = "slip"
 )
 
+// FramingVariant is implemented by every Framing variant.
 type FramingVariant interface {
 	isFramingVariant()
 }
@@ -147,6 +161,11 @@ type DelimiterFraming struct {
 }
 
 func (DelimiterFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DelimiterFraming) SetDefaults() {
+	d.Delimiter = "\n"
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DelimiterFraming) ApplyDefaults() {
@@ -170,6 +189,11 @@ type FixedFraming struct {
 }
 
 func (FixedFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (f *FixedFraming) SetDefaults() {
+	f.Length = 1
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (f *FixedFraming) ApplyDefaults() {
@@ -212,6 +236,14 @@ type SyncFraming struct {
 }
 
 func (SyncFraming) isFramingVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *SyncFraming) SetDefaults() {
+	s.LengthSize = 1
+	s.ByteOrder = icd.ByteOrderLittleEndian
+	s.Checksum = ChecksumNone
+	s.ChecksumByteOrder = icd.ByteOrderLittleEndian
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *SyncFraming) ApplyDefaults() {
@@ -306,44 +338,85 @@ func (u *Framing) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type FramingType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DelimiterFramingType:
-		var v DelimiterFraming
+		var v struct {
+			Type FramingType `json:"type"`
+			DelimiterFraming
+		}
+		v.DelimiterFraming.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DelimiterFraming
 	case FixedFramingType:
-		var v FixedFraming
+		var v struct {
+			Type FramingType `json:"type"`
+			FixedFraming
+		}
+		v.FixedFraming.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FixedFraming
 	case SyncFramingType:
-		var v SyncFraming
+		var v struct {
+			Type FramingType `json:"type"`
+			SyncFraming
+		}
+		v.SyncFraming.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SyncFraming
 	case CobsFramingType:
-		var v CobsFraming
+		var v struct {
+			Type FramingType `json:"type"`
+			CobsFraming
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CobsFraming
 	case SlipFramingType:
-		var v SlipFraming
+		var v struct {
+			Type FramingType `json:"type"`
+			SlipFraming
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SlipFraming
 	default:
-		return errors.Newf("Framing: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Framing: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Framing) Type() FramingType {
+	switch u.Variant.(type) {
+	case DelimiterFraming:
+		return DelimiterFramingType
+	case FixedFraming:
+		return FixedFramingType
+	case SyncFraming:
+		return SyncFramingType
+	case CobsFraming:
+		return CobsFramingType
+	case SlipFraming:
+		return SlipFramingType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -387,10 +460,22 @@ type StreamReadConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StreamReadConfig) ApplyDefaults() {
 	if s.Framing.Variant == nil {
-		s.Framing.Variant = DelimiterFraming{}
+		v0 := DelimiterFraming{}
+		v0.SetDefaults()
+		s.Framing.Variant = v0
 	}
 	s.PollConfig.ApplyDefaults()
 	s.Framing.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StreamReadConfig) SetDefaults() {
+	s.PollConfig.SetDefaults()
+	{
+		v0 := DelimiterFraming{}
+		v0.SetDefaults()
+		s.Framing.Variant = v0
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -411,9 +496,20 @@ type StreamWriteConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *StreamWriteConfig) ApplyDefaults() {
 	if s.Framing.Variant == nil {
-		s.Framing.Variant = DelimiterFraming{}
+		v0 := DelimiterFraming{}
+		v0.SetDefaults()
+		s.Framing.Variant = v0
 	}
 	s.Framing.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *StreamWriteConfig) SetDefaults() {
+	{
+		v0 := DelimiterFraming{}
+		v0.SetDefaults()
+		s.Framing.Variant = v0
+	}
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

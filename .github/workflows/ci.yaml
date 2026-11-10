@@ -23,6 +23,45 @@ on:
         required: false
         type: boolean
         default: false
+    secrets:
+      APPLE_CERTIFICATE:
+        required: false
+      APPLE_CERTIFICATE_PASSWORD:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_ID_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
+      AZURE_CLIENT_ID:
+        required: false
+      AZURE_CLIENT_SECRET:
+        required: false
+      AZURE_TENANT_ID:
+        required: false
+      CODECOV_TOKEN:
+        required: false
+      DOCKER_PASSWORD:
+        required: false
+      DOCKER_USERNAME:
+        required: false
+      KEYCHAIN_PASSWORD:
+        required: false
+      PAGERDUTY_API_KEY:
+        required: false
+      PAGERDUTY_ROUTING_KEY:
+        required: false
+      POSTHOG_CLI_API_KEY:
+        required: false
+      SYNNAX_LICENSE_TOKEN:
+        required: false
+      TAURI_KEY_PASSWORD:
+        required: false
+      TAURI_PRIVATE_KEY:
+        required: false
+      TURBO_TOKEN:
+        required: false
   workflow_dispatch:
     inputs:
       full:
@@ -45,20 +84,32 @@ concurrency:
     format('{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The test jobs pull the Core and Freighter images from GHCR.
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   # One output per key in .github/filters.yaml, true when the pull request or merge
-  # group touched one of its paths.
+  # group touched one of its paths. The ci output is a JSON list of the jobs that an
+  # edit to this file or the change map selects. spec_only is true when the change
+  # touches only unit tests.
   changes:
+    # paths-filter lists the changed files of a pull request through the API.
+    permissions:
+      contents: read
+      pull-requests: read
     runs-on: ubuntu-latest
     outputs:
+      actionlint: ${{ steps.filter.outputs.actionlint }}
       alamos_go: ${{ steps.filter.outputs.alamos_go }}
       alamos_py: ${{ steps.filter.outputs.alamos_py }}
       alamos_ts: ${{ steps.filter.outputs.alamos_ts }}
       arc_cpp: ${{ steps.filter.outputs.arc_cpp }}
       arc_go: ${{ steps.filter.outputs.arc_go }}
-      aspen: ${{ steps.filter.outputs.aspen }}
       buildifier: ${{ steps.filter.outputs.buildifier }}
       cesium: ${{ steps.filter.outputs.cesium }}
+      ci: ${{ steps.ci.outputs.jobs }}
       ci_scripts: ${{ steps.filter.outputs.ci_scripts }}
       client_cpp: ${{ steps.filter.outputs.client_cpp }}
       client_py: ${{ steps.filter.outputs.client_py }}
@@ -73,6 +124,8 @@ jobs:
       driver: ${{ steps.filter.outputs.driver }}
       driver_build: ${{ steps.filter.outputs.driver_build }}
       eslint_config: ${{ steps.filter.outputs.eslint_config }}
+      exports_go: ${{ steps.filter.outputs.exports_go }}
+      exports_py: ${{ steps.filter.outputs.exports_py }}
       foundation: ${{ steps.filter.outputs.foundation }}
       freighter_cpp: ${{ steps.filter.outputs.freighter_cpp }}
       freighter_go: ${{ steps.filter.outputs.freighter_go }}
@@ -93,8 +146,12 @@ jobs:
       protobuf: ${{ steps.filter.outputs.protobuf }}
       py_packages: ${{ steps.filter.outputs.py_packages }}
       scripts: ${{ steps.filter.outputs.scripts }}
+      runners: ${{ steps.filter.outputs.runners }}
       site_common: ${{ steps.filter.outputs.site_common }}
       soem: ${{ steps.filter.outputs.soem }}
+      spec_only: ${{ steps.spec.outputs.spec_only }}
+      stylelint: ${{ steps.filter.outputs.stylelint }}
+      stylelint_config: ${{ steps.filter.outputs.stylelint_config }}
       vite_plugin: ${{ steps.filter.outputs.vite_plugin }}
       www: ${{ steps.filter.outputs.www }}
       x_cpp: ${{ steps.filter.outputs.x_cpp }}
@@ -102,26 +159,66 @@ jobs:
       x_py: ${{ steps.filter.outputs.x_py }}
       x_ts: ${{ steps.filter.outputs.x_ts }}
     steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
           filters: .github/filters.yaml
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      # Compares against the same base as the filter.
+      - name: Find the jobs a CI edit selects
+        id: ci
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          jobs=$(uv run --locked --project .github/scripts \
+            python .github/scripts/changed_jobs.py "${PR_BASE:-$GROUP_BASE}")
+          echo "$jobs"
+          echo "jobs=$jobs" >> "$GITHUB_OUTPUT"
+
+      - name: Find whether the change touches only unit tests
+        id: spec
+        env:
+          GROUP_BASE: ${{ github.event.merge_group.base_sha }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          spec_only=$(uv run --locked --project .github/scripts \
+            python .github/scripts/spec_only.py "${PR_BASE:-$GROUP_BASE}")
+          echo "$spec_only"
+          echo "spec_only=$spec_only" >> "$GITHUB_OUTPUT"
+
+  actionlint:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.actionlint == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'actionlint')
+    uses: ./.github/workflows/lint.actionlint.yaml
+
   alamos-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: alamos-go
       directory: alamos/go
       macos: &full ${{ inputs.full == true }}
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   alamos-py:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: alamos-py
@@ -129,11 +226,28 @@ jobs:
       directory: alamos/py
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  alamos-py-lowest:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.alamos_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-py-lowest')
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: alamos/py
+      lowest: true
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   alamos-ts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.alamos_ts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.alamos_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'alamos-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: alamos-ts
@@ -141,16 +255,20 @@ jobs:
       macos: *full
       package: alamos
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   arc-cpp:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.arc_cpp == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.arc_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: arc/cpp
       macos: *full
@@ -158,11 +276,14 @@ jobs:
       targets: //arc/cpp/...
       test_flags: --spawn_strategy=local --jobs=1
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   arc-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.arc_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.arc_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'arc-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: arc-go
@@ -170,65 +291,68 @@ jobs:
       install_antlr4: true
       macos: *full
       windows: *full
-    secrets: inherit
-
-  aspen:
-    needs: changes
-    if: inputs.full || needs.changes.outputs.aspen == 'true'
-    uses: ./.github/workflows/test.go.yaml
-    with:
-      coverage_flag: aspen
-      directory: aspen
-      macos: *full
-      windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   buildifier:
     needs: changes
-    if: inputs.full || needs.changes.outputs.buildifier == 'true'
+    if:
+      inputs.full || needs.changes.outputs.buildifier == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'buildifier')
     uses: ./.github/workflows/lint.buildifier.yaml
-    secrets: inherit
 
   cesium:
     needs: changes
-    if: inputs.full || needs.changes.outputs.cesium == 'true'
+    if:
+      inputs.full || needs.changes.outputs.cesium == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'cesium')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: cesium
       directory: cesium
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   ci-scripts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.ci_scripts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.ci_scripts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'ci-scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: ci-scripts
+      coverage_module: .
       directory: .github/scripts
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-cpp:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_cpp == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.client_cpp == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: client/cpp client/clib
       macos: *full
       targets: //client/cpp/... //client/clib/...
       test_flags: --nocache_test_results
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-py:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_py == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -236,26 +360,49 @@ jobs:
       coverage_module: synnax
       directory: client/py
       type_check_dir: ./synnax ./examples ./tests
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  client-py-lowest:
+    needs: [changes, core-image]
+    if:
+      inputs.full || needs.changes.outputs.client_py == 'true' ||
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-py-lowest')
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      core_image: ${{ needs.core-image.outputs.image }}
+      directory: client/py
+      lowest: true
+      type_check_dir: ./synnax ./examples ./tests
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   client-ts:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.client_ts == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'client-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: client-ts
       directory: client/ts
       package: client
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   console:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.console == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'console')
     uses: ./.github/workflows/test.ts.yaml
     with:
       core_image: ${{ needs.core-image.outputs.image }}
@@ -263,15 +410,19 @@ jobs:
       directory: console
       package: console
       shards: 3
-      test_args: --no-file-parallelism
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   copyright:
     uses: ./.github/workflows/test.copyright.yaml
 
   core:
     needs: changes
-    if: inputs.full || needs.changes.outputs.core == 'true'
+    if:
+      inputs.full || needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'core')
     uses: ./.github/workflows/test.go.yaml
     with:
       cached: ${{ github.event_name == 'pull_request' }}
@@ -280,11 +431,14 @@ jobs:
       macos: *full
       shards: 3
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   core-image:
     needs: changes
-    if: inputs.full || needs.changes.outputs.core_image == 'true'
+    if:
+      inputs.full || needs.changes.outputs.core_image == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'core-image')
     permissions:
       contents: read
       packages: write
@@ -292,22 +446,29 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
-    secrets: inherit
 
   desktop-shell:
     needs: changes
-    if: inputs.full || needs.changes.outputs.console == 'true'
+    if:
+      inputs.full || needs.changes.outputs.console == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'desktop-shell')
     # macOS compiles the Tauri shell with no extra system packages.
     runs-on: macos-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
         with:
           cache-workspaces: console/src-tauri -> target
           cache-shared-key: ${{ runner.os }}-desktop-test
+          components: llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-llvm-cov
 
       - name: Create an empty frontend
         # The Tauri context embeds the frontend directory, so it must exist.
@@ -315,29 +476,51 @@ jobs:
 
       - name: Test
         working-directory: console/src-tauri
-        run: cargo test --features desktop
+        run: cargo llvm-cov --features desktop --lcov --output-path lcov.info
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        env:
+          CURL_HOME: ${{ github.workspace }}/.github/codecov
+        with:
+          disable_search: true
+          fail_ci_if_error: true
+          files: console/src-tauri/lcov.info
+          flags: desktop-shell
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   docs:
     needs: changes
-    if: inputs.full || needs.changes.outputs.docs == 'true'
+    if:
+      inputs.full || needs.changes.outputs.docs == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'docs')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       coverage_flag: docs
       directory: site/docs
       macos: *full
       package: docs
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   docs-site:
     needs: changes
-    if: inputs.full || needs.changes.outputs.docs == 'true'
+    if:
+      inputs.full || needs.changes.outputs.docs == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'docs-site')
     uses: ./.github/workflows/test.docs.yaml
-    secrets: inherit
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   drift:
     needs: changes
-    if: inputs.full || needs.changes.outputs.drift == 'true'
+    if:
+      inputs.full || needs.changes.outputs.drift == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'drift')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: drift
@@ -345,34 +528,41 @@ jobs:
       macos: *full
       package: drift
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   driver:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.driver == 'true' ||
-      needs.changes.outputs.core == 'true'
+      needs.changes.outputs.core == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'driver')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
       capabilities_required: true
-      clang_tidy: true
+      clang_tidy: ${{ inputs.full || needs.changes.outputs.driver == 'true' }}
       core_image: ${{ needs.core-image.outputs.image }}
       directories: driver
       macos: *full
       rust: true
-      targets: //driver/...
+      targets: //driver/... //vendor/open62541:patch_test
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       vcan: true
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   # The EtherCAT bus runs on its own thread, and a streamer can set its channels
   # while it reads, so their suites also run under TSan.
   driver-tsan:
     needs: [changes, core-image]
-    if: inputs.full || needs.changes.outputs.driver == 'true'
+    if:
+      inputs.full || needs.changes.outputs.driver == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'driver-tsan')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       apt_packages: libsystemd-dev
@@ -380,34 +570,119 @@ jobs:
       sanitizer: thread
       targets: //client/cpp/framer:framer_test //driver/ethercat/...
       test_tags: -hardware
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   eslint-config:
     needs: changes
-    if: inputs.full || needs.changes.outputs.eslint_config == 'true'
+    if:
+      inputs.full || needs.changes.outputs.eslint_config == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'eslint-config')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: eslint-config
       directory: configs/eslint
       package: eslint-config
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  exports-go:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.exports_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-go')
+    runs-on: ubuntu-latest
+    # The proxy drops streams at times, so a failed fetch falls back to the source.
+    env:
+      GOPROXY: https://proxy.golang.org|direct
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # The check compiles nothing, and the modules download faster than a cache
+      # restores.
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
+        with:
+          go-version-file: x/go/go.mod
+          cache: false
+
+      - name: Download the Go modules
+        run: |
+          .github/scripts/go_mod_download.sh alamos/go arc/go cesium core freighter/go \
+            freighter/integration gorp oracle x/go
+
+      - name: Build the check
+        working-directory: x/go
+        run: go build -o "$RUNNER_TEMP/exports" ./cmd/exports
+
+      - name: Check exported identifiers no other package uses
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: |
+          "$RUNNER_TEMP/exports" alamos/go arc/go cesium core freighter/go \
+            freighter/integration gorp oracle x/go
+
+  exports-py:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.exports_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'exports-py')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Check names that are public without need
+        # Report-only until the current findings are fixed.
+        continue-on-error: true
+        run: uv run --project scripts scripts/check_exports_py.py
 
   format:
     uses: ./.github/workflows/test.format.yaml
 
   foundation:
     needs: changes
-    if: inputs.full || needs.changes.outputs.foundation == 'true'
+    if:
+      inputs.full || needs.changes.outputs.foundation == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'foundation')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: foundation
       directory: site/foundation
       macos: *full
       package: foundation
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  foundation-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.foundation == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'foundation-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: foundation
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   freighter-cpp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_cpp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_cpp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
@@ -415,22 +690,28 @@ jobs:
       macos: *full
       targets: //freighter/cpp/...
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-go
       directory: freighter/go
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   freighter-image:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_image == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_image == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-image')
     permissions:
       contents: read
       packages: write
@@ -438,61 +719,91 @@ jobs:
     with:
       module: freighter/integration
       repository: ghcr.io/synnaxlabs/freighter-go-integration
-    secrets: inherit
 
   freighter-integration:
     needs: changes
-    if: inputs.full || needs.changes.outputs.freighter_integration == 'true'
+    if:
+      inputs.full || needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-integration')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: freighter-integration
       directory: freighter/integration
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   freighter-py:
     needs: [changes, freighter-image]
     if:
       inputs.full || needs.changes.outputs.freighter_py == 'true' ||
-      needs.changes.outputs.freighter_integration == 'true'
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: freighter-py
       coverage_module: freighter
       directory: freighter/py
       freighter_image: ${{ needs.freighter-image.outputs.image }}
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  freighter-py-lowest:
+    needs: [changes, freighter-image]
+    if:
+      inputs.full || needs.changes.outputs.freighter_py == 'true' ||
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-py-lowest')
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: freighter/py
+      freighter_image: ${{ needs.freighter-image.outputs.image }}
+      lowest: true
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   freighter-ts:
     needs: [changes, freighter-image]
     if:
       inputs.full || needs.changes.outputs.freighter_ts == 'true' ||
-      needs.changes.outputs.freighter_integration == 'true'
+      needs.changes.outputs.freighter_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'freighter-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: freighter-ts
       directory: freighter/ts
       freighter_image: ${{ needs.freighter-image.outputs.image }}
       package: freighter
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   gorp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.gorp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.gorp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'gorp')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: gorp
       directory: gorp
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # A merge group that changes only unit tests skips integration.
   integration:
     needs: changes
     if:
-      inputs.full || (github.event_name == 'merge_group' || inputs.integration) &&
-      needs.changes.outputs.integration == 'true'
+      inputs.full || (github.event_name == 'merge_group' &&
+      needs.changes.outputs.spec_only != 'true' || inputs.integration) &&
+      (needs.changes.outputs.integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'integration'))
     permissions:
       actions: read
       contents: write
@@ -500,15 +811,35 @@ jobs:
     uses: ./.github/workflows/test.integration.yaml
     with:
       ubuntu: *full
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   knip:
     needs: changes
-    if: inputs.full || needs.changes.outputs.knip == 'true'
+    if:
+      inputs.full || needs.changes.outputs.knip == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'knip')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -520,34 +851,48 @@ jobs:
       - name: Check unused code
         run: pnpm knip
 
-      - name: Check exports that only tests use
+      - name: Check exports that only their own module's specs use
         # Report-only until the current findings are fixed.
         continue-on-error: true
-        run: pnpm knip --production --include exports,types
+        run: python3 scripts/check_exports_ts.py
 
   lint-integration:
     needs: changes
-    if: inputs.full || needs.changes.outputs.lint_integration == 'true'
+    if:
+      inputs.full || needs.changes.outputs.lint_integration == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'lint-integration')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: integration
+      coverage_module: framework
       directory: integration
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   lyra:
     needs: changes
-    if: inputs.full || needs.changes.outputs.lyra == 'true'
+    if:
+      inputs.full || needs.changes.outputs.lyra == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'lyra')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       coverage_flag: lyra
       directory: lyra
       macos: *full
       package: lyra
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   oracle:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: oracle
@@ -555,17 +900,21 @@ jobs:
       install_antlr4: true
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   oracle-check:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle_check == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle_check == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle-check')
     uses: ./.github/workflows/check.oracle.yaml
-    secrets: inherit
 
   oracle-language:
     needs: changes
-    if: inputs.full || needs.changes.outputs.oracle_language == 'true'
+    if:
+      inputs.full || needs.changes.outputs.oracle_language == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'oracle-language')
     uses: ./.github/workflows/test.ts.yaml
     with:
       directory: oracle/lsp/extensions/vscode
@@ -573,25 +922,33 @@ jobs:
       macos: *full
       package: oracle-language
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   pluto:
     needs: [changes, core-image]
     if:
       inputs.full || needs.changes.outputs.pluto == 'true' || needs.changes.outputs.core
-      == 'true'
+      == 'true' || contains(fromJSON(needs.changes.outputs.ci), 'pluto')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      browsers: true
       core_image: ${{ needs.core-image.outputs.image }}
       coverage_flag: pluto
       directory: pluto
       package: pluto
-      test_args: --no-file-parallelism
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   portal:
     needs: changes
-    if: inputs.full || needs.changes.outputs.portal == 'true'
+    if:
+      inputs.full || needs.changes.outputs.portal == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'portal')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: portal
@@ -599,30 +956,71 @@ jobs:
       macos: *full
       package: portal
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  portal-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.portal == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'portal-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: portal
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   protobuf:
     needs: changes
-    if: inputs.full || needs.changes.outputs.protobuf == 'true'
+    if:
+      inputs.full || needs.changes.outputs.protobuf == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'protobuf')
     uses: ./.github/workflows/test.protobuf.yaml
-    secrets: inherit
 
   py-packages:
     needs: changes
-    if: inputs.full || needs.changes.outputs.py_packages == 'true'
+    if:
+      inputs.full || needs.changes.outputs.py_packages == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'py-packages')
     uses: ./.github/workflows/test.py.packages.yaml
 
   scripts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.scripts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.scripts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'scripts')
     uses: ./.github/workflows/test.py.yaml
     with:
+      coverage_flag: scripts
+      coverage_module: .
       directory: scripts
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  runners:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.runners == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'runners')
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      coverage_flag: runners
+      coverage_module: .
+      directory: scripts/runners
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   site-common:
     needs: changes
-    if: inputs.full || needs.changes.outputs.site_common == 'true'
+    if:
+      inputs.full || needs.changes.outputs.site_common == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'site-common')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: site-common
@@ -630,36 +1028,84 @@ jobs:
       macos: *full
       package: site-common
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   soem:
     needs: changes
-    if: inputs.full || needs.changes.outputs.soem == 'true'
+    if:
+      inputs.full || needs.changes.outputs.soem == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'soem')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       macos: true
       sanitizer: none
       targets: //vendor/soem:all
       ubuntu: false
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  stylelint:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.stylelint == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'stylelint')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Lint the styles of every package
+        # The rules read the code of every package, so a change to one can break the
+        # lint of another whose own job does not run.
+        run: >-
+          pnpm --filter "./lyra" --filter "./pluto" --filter "./console" --filter
+          "./site/*" exec stylelint "src/**/*.{css,astro}" --allow-empty-input
+
+  stylelint-config:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.stylelint_config == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'stylelint-config')
+    uses: ./.github/workflows/test.ts.yaml
+    with:
+      directory: configs/stylelint
+      package: stylelint-config
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   versions:
     uses: ./.github/workflows/test.updates.yaml
 
   vite-plugin:
     needs: changes
-    if: inputs.full || needs.changes.outputs.vite_plugin == 'true'
+    if:
+      inputs.full || needs.changes.outputs.vite_plugin == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'vite-plugin')
     uses: ./.github/workflows/test.ts.yaml
     with:
+      coverage_flag: vite-plugin
       directory: configs/vite
       macos: *full
       package: vite-plugin
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   www:
     needs: changes
-    if: inputs.full || needs.changes.outputs.www == 'true'
+    if:
+      inputs.full || needs.changes.outputs.www == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'www')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: www
@@ -667,11 +1113,29 @@ jobs:
       macos: *full
       package: www
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  www-site:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.www == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'www-site')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/build.site.yaml
+    with:
+      site: www
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   x-cpp:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_cpp == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_cpp == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-cpp')
     uses: ./.github/workflows/test.cpp.yaml
     with:
       clang_tidy: true
@@ -679,22 +1143,28 @@ jobs:
       macos: *full
       targets: //x/cpp/...
       windows: *full
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-go:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_go == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_go == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-go')
     uses: ./.github/workflows/test.go.yaml
     with:
       coverage_flag: x-go
       directory: x/go
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   x-py:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_py == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-py')
     uses: ./.github/workflows/test.py.yaml
     with:
       coverage_flag: x-py
@@ -702,11 +1172,28 @@ jobs:
       directory: x/py
       macos: *full
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+
+  x-py-lowest:
+    needs: changes
+    if:
+      inputs.full || needs.changes.outputs.x_py == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-py-lowest')
+    uses: ./.github/workflows/test.py.yaml
+    with:
+      directory: x/py
+      lowest: true
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   x-ts:
     needs: changes
-    if: inputs.full || needs.changes.outputs.x_ts == 'true'
+    if:
+      inputs.full || needs.changes.outputs.x_ts == 'true' ||
+      contains(fromJSON(needs.changes.outputs.ci), 'x-ts')
     uses: ./.github/workflows/test.ts.yaml
     with:
       coverage_flag: x-ts
@@ -714,7 +1201,10 @@ jobs:
       macos: *full
       package: x
       windows: *full
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # A merge group cancels its run on the first failed job. The cancel frees the runners
   # that the other jobs hold, and OK then fails at once, so the queue ejects the group.
@@ -757,18 +1247,20 @@ jobs:
     name: OK
     if: always()
     needs:
+      - actionlint
       - alamos-go
       - alamos-py
+      - alamos-py-lowest
       - alamos-ts
       - arc-cpp
       - arc-go
-      - aspen
       - buildifier
       - cesium
       - changes
       - ci-scripts
       - client-cpp
       - client-py
+      - client-py-lowest
       - client-ts
       - console
       - copyright
@@ -781,13 +1273,17 @@ jobs:
       - driver
       - driver-tsan
       - eslint-config
+      - exports-go
+      - exports-py
       - format
       - foundation
+      - foundation-site
       - freighter-cpp
       - freighter-go
       - freighter-image
       - freighter-integration
       - freighter-py
+      - freighter-py-lowest
       - freighter-ts
       - gorp
       - integration
@@ -799,17 +1295,23 @@ jobs:
       - oracle-language
       - pluto
       - portal
+      - portal-site
       - protobuf
       - py-packages
       - scripts
+      - runners
       - site-common
       - soem
+      - stylelint
+      - stylelint-config
       - versions
       - vite-plugin
       - www
+      - www-site
       - x-cpp
       - x-go
       - x-py
+      - x-py-lowest
       - x-ts
     runs-on: ubuntu-latest
     steps:
@@ -820,3 +1322,34 @@ jobs:
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$RESULTS"
           jq -e '[.[].result] | all(. == "success" or . == "skipped")' \
             <<< "$RESULTS" > /dev/null
+
+  # GitHub sends no event to the default branch for a failed run of a pull request.
+  shepherd:
+    name: Wake the shepherd
+    needs: ok
+    if:
+      ${{ failure() && github.event_name == 'pull_request' &&
+      github.event.pull_request.head.repo.full_name == github.repository && github.actor
+      != 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+    steps:
+      - name: Checkout the default branch scripts
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Start Agent - Shepherd
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+          REF: ${{ github.event.repository.default_branch }}
+        run: |
+          .github/scripts/gh_api.sh \
+            "repos/$GH_REPO/actions/workflows/agent.shepherd.yaml/dispatches" \
+            -X POST -f ref="$REF" -f "inputs[pr]=$PR"

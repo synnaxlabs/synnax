@@ -44,7 +44,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1500);
 
     await session.rightClick(ni, { text: true, zoom: false });
-    const menu = page.locator(".pluto-menu-context").first();
+    const menu = page.locator(".lyra-menu-context").first();
     await session.waitFor(menu);
     await session.zoom([ni, menu]);
     await session.hold(600);

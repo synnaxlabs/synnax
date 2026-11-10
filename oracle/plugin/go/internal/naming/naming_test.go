@@ -16,33 +16,6 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-var _ = Describe("IsScreamingCase", func() {
-	DescribeTable("should return true for all-uppercase identifiers",
-		func(input string) {
-			Expect(naming.IsScreamingCase(input)).To(BeTrue())
-		},
-		Entry("short acronym", "IR"),
-		Entry("common acronym", "HTTP"),
-		Entry("four letter acronym", "WASM"),
-		Entry("with underscores", "MY_CONST"),
-		Entry("single letter", "A"),
-	)
-
-	DescribeTable("should return false for non-screaming identifiers",
-		func(input string) {
-			Expect(naming.IsScreamingCase(input)).To(BeFalse())
-		},
-		Entry("pascal case", "UserName"),
-		Entry("snake case", "user_name"),
-		Entry("camel case", "userName"),
-		Entry("lowercase", "http"),
-		Entry("mixed with digits", "HTTP2"),
-		Entry("empty string", ""),
-		Entry("only underscores", "___"),
-		Entry("contains space", "MY CONST"),
-	)
-})
-
 var _ = Describe("ToPascalCase", func() {
 	DescribeTable("should convert snake_case to PascalCase",
 		func(input, expected string) {
@@ -60,11 +33,25 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym at start", "id", "ID"),
 		Entry("acronym prefix of a word", "identifier", "Identifier"),
 		Entry("acronym prefix mid-name", "bus_identifier", "BusIdentifier"),
-		Entry("plural acronym", "ids", "IDs"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
+		Entry("word starting with an acronym", "slave", "Slave"),
+		Entry("word containing an acronym", "ratio", "Ratio"),
+		Entry("plural acronym", "ids", "IDs"),
+		Entry("acronym with a digit suffix", "iso8601", "ISO8601"),
+		Entry("utf8 acronym", "utf8", "UTF8"),
 		Entry("icd acronym", "icd_hash", "ICDHash"),
-		Entry("screaming case passthrough", "WASM", "WASM"),
+	)
+
+	DescribeTable("should pass screaming-case identifiers through unchanged",
+		func(input string) {
+			Expect(naming.ToPascalCase(input)).To(Equal(input))
+		},
+		Entry("short acronym", "IR"),
+		Entry("common acronym", "HTTP"),
+		Entry("four letter acronym", "WASM"),
+		Entry("with underscores", "MY_CONST"),
+		Entry("single letter", "A"),
 	)
 })
 
@@ -132,6 +119,15 @@ var _ = Describe("DerivePackageAlias", func() {
 		Expect(
 			naming.DerivePackageAlias("arc/go/types/versions/v1", "v2"),
 		).To(Equal("types"))
+	})
+
+	It("should alias only the version packages under a legacy directory", func() {
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/legacy/device", "modbus"),
+		).To(Equal("device"))
+		Expect(
+			naming.DerivePackageAlias("core/pkg/service/task/legacy/v1", "task"),
+		).To(Equal("task"))
 	})
 })
 

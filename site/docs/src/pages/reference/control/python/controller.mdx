@@ -16,8 +16,9 @@ export const components = mdxOverrides;
 writers share a channel, see [control authority](/reference/control/authority).
 
 A channel argument is a channel name or key. All exception classes are in the `synnax`
-module. A method that writes raises a `ValidationError` when `write` is empty. A method
-that reads raises a `ValidationError` when `read` is empty.
+module, and each one derives from `sy.Error`. Catch `sy.Error` to catch all of them. A
+method that writes raises a `ValidationError` when `write` is empty. A method that reads
+raises a `ValidationError` when `read` is empty.
 
 <Divider.Divider x />
 
@@ -26,7 +27,9 @@ that reads raises a `ValidationError` when `read` is empty.
 ### `acquire`
 
 ```python
-client.control.acquire(name, read, write, write_authorities=255) -> Controller
+client.control.acquire(
+    name, *, read, write, write_authorities=255
+) -> Controller
 ```
 
 <Field.List>
@@ -82,10 +85,21 @@ ctrl.set(channel, value) -> None
 ctrl.set({channel: value, ...}) -> None
 ```
 
-| Parameter | Type                       | Description                                                |
-| --------- | -------------------------- | ---------------------------------------------------------- |
-| `channel` | `str`, `int`, or a `dict`  | One channel, or a dictionary of channels to values.        |
-| `value`   | A number, `bool`, or `str` | The value for one channel. Leave it out with a dictionary. |
+<Field.List>
+
+<Field.Item name="channel" type="str, int, or dict" required id="set-channel">
+
+One channel, or a dictionary of channels to values.
+
+</Field.Item>
+
+<Field.Item name="value" type="number, bool, or str" default="None" id="set-value">
+
+The value for one channel. Leave it out with a dictionary.
+
+</Field.Item>
+
+</Field.List>
 
 For each channel that has an index channel, `set` also writes the current time to the
 index. A dictionary sends every value in one write. Values are converted to the data
@@ -117,7 +131,7 @@ valid Python names, or match a controller member such as `state` or `set`.
 
 ```python
 ctrl.set_authority(authority) -> None
-ctrl.set_authority(channel, authority) -> None
+ctrl.set_authority(channel, *, authority) -> None
 ctrl.set_authority({channel: authority, ...}) -> None
 ```
 
@@ -182,10 +196,14 @@ no value yet are not in the dictionary.
 ## Wait for conditions
 
 A condition is a function that takes the controller and returns a `bool`, such as
-`lambda c: c["tank_pt"] > 300`. The controller calls it each time a frame arrives on a
-`read` channel, not at once. An exception that the condition raises, such as a
-`KeyError` from a channel with no value, stops the wait and is raised again. Do not call
-a wait method inside a condition: the controller deadlocks.
+`lambda c: c["tank_pt"] > 300`. `wait_until`, `wait_while`, and `wait_until_defined`
+call it once on the current state, then each time a frame arrives on a `read` channel. A
+value from before the call can satisfy the condition, and the wait then returns at once.
+
+An exception that the condition raises stops the wait and is raised again. A `KeyError`
+from the first check is different: it means that a channel has no value yet, so the wait
+continues and the next frame decides. Do not call a wait method inside a condition: the
+controller deadlocks.
 
 Each wait method raises a `ValueError` if `cond` is not callable. If the stream fails,
 the wait raises that error instead of waiting for the timeout. An unexpected stream
@@ -194,7 +212,7 @@ closure raises `UnexpectedError`.
 ### `wait_until`
 
 ```python
-ctrl.wait_until(cond, timeout=None) -> bool
+ctrl.wait_until(cond, *, timeout=None) -> bool
 ```
 
 <Field.List>
@@ -219,27 +237,28 @@ Returns `True` when `cond` returns true, or `False` when the timeout ends first.
 ### `wait_while`
 
 ```python
-ctrl.wait_while(cond, timeout=None) -> bool
+ctrl.wait_while(cond, *, timeout=None) -> bool
 ```
 
 Takes the same parameters as `wait_until`. Returns `True` when `cond` returns false, or
-`False` when the timeout ends first.
+`False` when the timeout ends first. If `cond` is false when the call starts, it returns
+`True` at once.
 
 ### `wait_until_defined`
 
 ```python
-ctrl.wait_until_defined(channels, timeout=None) -> bool
+ctrl.wait_until_defined(channels, *, timeout=None) -> bool
 ```
 
 Blocks until each channel in `channels` has a value. `channels` is one channel or a
-list. Returns `False` when the timeout ends first. A channel that is not in `read` never
-gets a value, so the call blocks until the timeout, or forever. Raises `NotFoundError`
-if a channel does not exist.
+list. A value that arrived before the call counts. Returns `False` when the timeout ends
+first. A channel that is not in `read` never gets a value, so the call blocks until the
+timeout, or forever. Raises `NotFoundError` if a channel does not exist.
 
 ### `remains_true_for`
 
 ```python
-ctrl.remains_true_for(cond, duration, percentage=1) -> bool
+ctrl.remains_true_for(cond, *, duration, percentage=1) -> bool
 ```
 
 <Field.List>
@@ -271,12 +290,13 @@ The fraction of frames, from 0 to 1, for which `cond` must return true.
 </Field.List>
 
 Blocks for up to `duration`. Returns `True` if `cond` returned true for at least
-`percentage` of the frames that arrived. Returns `False` if no frame arrived.
+`percentage` of the frames that arrived. Returns `False` if no frame arrived. It does
+not check the current state.
 
 ### `sleep`
 
 ```python
-ctrl.sleep(dur, precise=False) -> None
+ctrl.sleep(dur, *, precise=False) -> None
 ```
 
 Blocks for `dur`, a number of seconds or a `TimeSpan`. Set `precise=True` for
@@ -311,7 +331,7 @@ Returns a function and `True`. Call the function to run the commands in order: f
 command, it sleeps for `delay` with a precise sleep, then sets the value. `schedule`
 itself sends nothing.
 
-`ScheduledCommand(channel, value, delay)` is in `synnax.control`. Each `delay` counts
+`ScheduledCommand(*, channel, value, delay)` is in `synnax.control`. Each `delay` counts
 from the previous command. A number for `delay` is in seconds. A `TimeSpan` also works.
 
 <Divider.Divider x />

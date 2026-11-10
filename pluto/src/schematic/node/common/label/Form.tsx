@@ -11,45 +11,52 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type direction, type text } from "@synnaxlabs/x";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Direction } from "@/direction";
+import { type Config } from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
+const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
+  ...LABEL_INPUT_FIELD_PROPS,
+  area: true,
+};
 
 interface FormProps {
-  path: string;
+  path: deep.Path<Config>;
   omit?: string[];
+  /** Makes the label field a text area, so a user can enter newlines. */
+  multiline?: boolean;
 }
 
-export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
+export const Form = ({ path, omit = [], multiline }: FormProps): ReactElement => (
   <Flex.Box x align="stretch">
     <Base.TextField
-      path={`${path}.label`}
+      path={path.label}
       label="Label"
       padHelpText={false}
       grow
-      inputProps={LABEL_INPUT_FIELD_PROPS}
+      inputProps={multiline ? MULTILINE_INPUT_FIELD_PROPS : LABEL_INPUT_FIELD_PROPS}
     />
     <Base.NumericField
       visible={!omit.includes("maxInlineSize")}
-      path={`${path}.maxInlineSize`}
+      path={path.maxInlineSize}
       label="Wrap width"
       inputProps={{ endContent: "px", dragScale: { x: 1, y: 0.5 } }}
       padHelpText={false}
     />
-    <Base.Field<text.Level>
+    <Base.Field
       visible={!omit.includes("level")}
-      path={`${path}.level`}
+      path={path.level}
       label="Size"
       padHelpText={false}
     >
       {({ value, onChange }) => <Select.Text.Level value={value} onChange={onChange} />}
     </Base.Field>
-    <Base.Field<Flex.Alignment>
+    <Base.Field
       visible={!omit.includes("align")}
-      path={`${path}.align`}
+      path={path.align}
       label="Alignment"
       padHelpText={false}
     >
@@ -57,9 +64,9 @@ export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
         <Select.Flex.Alignment value={value} onChange={onChange} />
       )}
     </Base.Field>
-    <Base.Field<direction.Direction>
+    <Base.Field
       visible={!omit.includes("direction")}
-      path={`${path}.direction`}
+      path={path.direction}
       label="Direction"
       padHelpText={false}
     >

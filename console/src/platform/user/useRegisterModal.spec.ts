@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { user } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -20,7 +19,7 @@ describe("User.useRegisterModal", () => {
   it("should disable the Register button when no Core is connected", async () => {
     await openModal(User.useRegisterModal);
     await screen.findByText("Username");
-    expect(findButton("Register").className).toContain("pluto--disabled");
+    expect(findButton("Register").className).toContain("lyra--disabled");
   });
 
   it("should keep the modal open and surface errors when required fields are empty", async () => {
@@ -28,12 +27,10 @@ describe("User.useRegisterModal", () => {
     await openModal(User.useRegisterModal, { client });
     await screen.findByText("Username");
     await waitFor(() =>
-      expect(findButton("Register").className).not.toContain("pluto--disabled"),
+      expect(findButton("Register").className).not.toContain("lyra--disabled"),
     );
     fireEvent.click(findButton("Register"));
-    await waitFor(() =>
-      expect(screen.getByText("First name is required")).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
     expect(screen.getByText("Password is required")).toBeTruthy();
     expect(screen.getByText("Username")).toBeTruthy();
   });
@@ -46,11 +43,8 @@ describe("User.useRegisterModal", () => {
 
     await openModal(User.useRegisterModal, { client });
     await screen.findByText("Username");
-    fireEvent.change(screen.getByPlaceholderText("Richard"), {
-      target: { value: "Ada" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Feynman"), {
-      target: { value: "Lovelace" },
+    fireEvent.change(screen.getByPlaceholderText("Richard Feynman"), {
+      target: { value: "Ada Lovelace" },
     });
     fireEvent.change(screen.getByPlaceholderText("username"), {
       target: { value: username },
@@ -66,12 +60,7 @@ describe("User.useRegisterModal", () => {
     await waitFor(() => expect(screen.queryByText("Username")).toBeNull());
 
     const created = await client.users.retrieve({ username });
-    expect(created.firstName).toEqual("Ada");
-    expect(created.lastName).toEqual("Lovelace");
-    const parents = await client.ontology.parents.retrieve({
-      ids: user.ontologyID(created.key),
-      types: ["role"],
-    });
-    expect(parents.map((p) => p.id.key)).toContain(role.key);
+    expect(created.name).toEqual("Ada Lovelace");
+    expect(created.role).toEqual(role.key);
   });
 });

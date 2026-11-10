@@ -1,0 +1,49 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+interface Props {
+    /** The way the arrow points, and the way it moves when its button is hovered. */
+    direction: "right" | "down";
+}
+
+const PATHS: Record<Props["direction"], string> = {
+    right: "M3 8h10M9 4l4 4-4 4",
+    down: "M8 3v10M4 9l4 4 4-4",
+};
+
+const { direction } = Astro.props;
+---
+
+<svg class={`arrow arrow--${direction}`} viewBox="0 0 16 16" aria-hidden="true">
+    <path d={PATHS[direction]}></path>
+</svg>
+
+<style>
+    /* Sized to the label, with a stroke that matches a 550 weight. */
+    .arrow {
+        width: 1em;
+        height: 1em;
+        flex-shrink: 0;
+        fill: none;
+        stroke: currentcolor;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    :global(:is(a, button):hover) .arrow--right {
+        transform: translateX(2px);
+    }
+
+    :global(:is(a, button):hover) .arrow--down {
+        transform: translateY(2px);
+    }
+</style>

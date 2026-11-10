@@ -19,11 +19,10 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -39,10 +38,7 @@ var _ = Describe("Table", func() {
 	)
 	BeforeEach(func() {
 		kvs = memkv.New()
-		db = gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec))
-	})
-	AfterEach(func() {
-		Expect(db.Close()).To(Succeed())
+		db = DeferClose(gorp.Wrap(kvs, gorp.WithCodec(msgpack.Codec)))
 	})
 
 	Describe("OpenTable", func() {
@@ -216,9 +212,9 @@ var _ = Describe("Table", func() {
 
 			codec := msgpack.Codec
 			typeName := types.Name[entry]()
-			oldPrefix := MustSucceed(codec.Encode(ctx, typeName))
-			encodedValue := MustSucceed(codec.Encode(ctx, entry{ID: 99, Data: "old"}))
-			encodedKey := MustSucceed(codec.Encode(ctx, int32(99)))
+			oldPrefix := MustSucceed(codec.Encode(typeName))
+			encodedValue := MustSucceed(codec.Encode(entry{ID: 99, Data: "old"}))
+			encodedKey := MustSucceed(codec.Encode(int32(99)))
 			fullKey := make([]byte, len(oldPrefix)+len(encodedKey))
 			copy(fullKey, oldPrefix)
 			copy(fullKey[len(oldPrefix):], encodedKey)
@@ -333,9 +329,9 @@ var _ = Describe("Table", func() {
 			})
 		})
 
-		Describe("OpenNexter", func() {
+		Describe("Reader", func() {
 			It(
-				"Should iterate over entries using the custom codec",
+				"Should iterate over the table's entries using the custom codec",
 				func(ctx SpecContext) {
 					entries := []entry{
 						{ID: 70, Data: "seventy"},
@@ -344,7 +340,9 @@ var _ = Describe("Table", func() {
 					Expect(
 						table.NewCreate().Entries(&entries).Exec(ctx, db),
 					).To(Succeed())
-					seq, closer := MustSucceed2(table.OpenNexter(ctx))
+					seq, closer := MustSucceed2(
+						gorp.WrapReader[int32, entry](db).OpenNexter(ctx),
+					)
 					var result []entry
 					for e := range seq {
 						result = append(result, e)
@@ -360,7 +358,7 @@ var _ = Describe("Table", func() {
 				tx := db.OpenTx()
 				e := entry{ID: 80, Data: "observed"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, tx)).To(Succeed())
-				var changes []change.Change[int32, entry]
+				var changes []gorp.EntryChange[int32, entry]
 				table.Observe().
 					OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {
 						for ch := range r {
@@ -370,7 +368,7 @@ var _ = Describe("Table", func() {
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(changes).To(HaveLen(1))
 				Expect(changes[0].Value).To(Equal(e))
-				Expect(changes[0].Variant).To(Equal(change.VariantSet))
+				Expect(changes[0].Kind).To(Equal(gorp.ChangeCreate))
 			})
 		})
 	})

@@ -14,6 +14,7 @@ proto_library(
     name = "icd_proto",
     srcs = ["pb/icd.proto"],
     visibility = ["//visibility:public"],
+    deps = ["//x/go/filter:filter_proto"],
 )
 
 cpp_grpc_library(
@@ -21,6 +22,7 @@ cpp_grpc_library(
     output_mode = "NO_PREFIX",
     protos = [":icd_proto"],
     visibility = ["//visibility:public"],
+    deps = ["//x/go/filter:filter_grpc"],
 )
 
 filegroup(

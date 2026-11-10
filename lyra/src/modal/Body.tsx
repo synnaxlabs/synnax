@@ -16,8 +16,23 @@ import { Flex } from "@/flex";
 
 export interface BodyProps extends Flex.BoxProps {}
 
-/** Body is the scrolling middle of a modal, between its {@link Header} and
- * {@link Footer}. */
+/**
+ * Body is the scrolling middle of a modal, between its {@link Header} and
+ * {@link Footer}. Unless `gap`, `pack`, or `empty` spaces its children, it stacks them
+ * one field gap apart, and a field's help text draws inside that gap.
+ */
 export const Body = ({ className, ...rest }: BodyProps): ReactElement => (
-  <Flex.Box y grow className={CSS.cls(CSS.BE("modal", "body"), className)} {...rest} />
+  <Flex.Box
+    y
+    grow
+    className={CSS.cls(
+      CSS.BE("modal", "body"),
+      rest.gap == null &&
+        rest.pack !== true &&
+        rest.empty !== true &&
+        CSS.M("field-gap"),
+      className,
+    )}
+    {...rest}
+  />
 );

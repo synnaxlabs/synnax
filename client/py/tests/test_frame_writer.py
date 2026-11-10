@@ -9,14 +9,28 @@
 
 import asyncio
 from types import MappingProxyType
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
 import pytest
 
 import synnax as sy
+from freighter import EOF, WebsocketClient
+from freighter.mock import MockUnaryClient
+from synnax.channel.retrieve import Retriever
+from synnax.exceptions import create_registry
+from synnax.framer.adapter import WriteFrameAdapter
 from synnax.framer.frame import FramePayload
+from synnax.framer.writer import (
+    Writer,
+    WriterCommand,
+    WriterRequest,
+    WriterResponse,
+)
 from tests.channel import RetrieveCounter
+from x.codec import Codec
+from x.exceptions import ExceptionPayload
 from x.strings import random_name
 from x.telem import CrudeSeries, seconds_linspace
 
@@ -46,6 +60,25 @@ class TestWriter:
                 }
             )
             w.commit()
+
+    def test_write_without_start(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should start the index at its first timestamp when the writer has no start"""
+        idx_ch, data_ch = indexed_pair
+        with client.open_writer(channels=indexed_pair) as w:
+            w.write(
+                {idx_ch.key: seconds_linspace(1, count=3), data_ch.key: [1.0, 2.0, 3.0]}
+            )
+            w.commit()
+        frame = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert frame[idx_ch.key].to_numpy()[0] == 1 * sy.TimeSpan.SECOND
+        assert list(frame[data_ch.key]) == [1.0, 2.0, 3.0]
+
+    def test_open_writer_without_channels(self, client: sy.Synnax) -> None:
+        """Should fail to open a writer with no channels"""
+        with pytest.raises(sy.ValidationError, match="open_writer requires channels"):
+            client.open_writer()
 
     def test_write_by_name(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
@@ -176,7 +209,7 @@ class TestWriter:
         """Should let a single writer alternate between user-provided and auto-stamped
         index series across separate write calls."""
         idx_ch, data_ch = indexed_pair
-        user_stamps = seconds_linspace(200, 2)
+        user_stamps = seconds_linspace(200, count=2)
         before_auto = sy.TimeStamp.now()
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
@@ -207,7 +240,7 @@ class TestWriter:
         """Should leave user-provided index timestamps exactly as written when
         auto_index is enabled."""
         idx_ch, data_ch = indexed_pair
-        expected = seconds_linspace(200, 3)
+        expected = seconds_linspace(200, count=3)
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
             channels=[idx_ch.key, data_ch.key],
@@ -234,7 +267,7 @@ class TestWriter:
             1 * sy.TimeSpan.SECOND,
             MappingProxyType(
                 {
-                    idx_ch.name: seconds_linspace(1, 3),
+                    idx_ch.name: seconds_linspace(1, count=3),
                     data_ch.name: np.array([1.0, 2.0, 3.0]),
                 }
             ),
@@ -247,7 +280,7 @@ class TestWriter:
     ) -> None:
         """Should write a tuple of channels and a list of series."""
         idx_ch, data_ch = indexed_pair
-        series: list[CrudeSeries] = [seconds_linspace(1, 3), [1.0, 2.0, 3.0]]
+        series: list[CrudeSeries] = [seconds_linspace(1, count=3), [1.0, 2.0, 3.0]]
         client.write(1 * sy.TimeSpan.SECOND, (idx_ch.key, data_ch.key), series)
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert list(f) == [1.0, 2.0, 3.0]
@@ -262,7 +295,7 @@ class TestWriter:
             FramePayload(
                 keys=[idx_ch.key, data_ch.key],
                 series=[
-                    sy.Series(seconds_linspace(1, 3)),
+                    sy.Series(seconds_linspace(1, count=3)),
                     sy.Series(np.array([1.0, 2.0, 3.0])),
                 ],
             ),
@@ -280,10 +313,14 @@ class TestWriter:
         ) as w:
             data = np.random.rand(3).astype(np.float64)
             w.write(
-                pd.DataFrame({idx_ch.name: seconds_linspace(1, 3), data_ch.key: data})
+                pd.DataFrame(
+                    {idx_ch.name: seconds_linspace(1, count=3), data_ch.key: data}
+                )
             )
             w.write(
-                pd.DataFrame({idx_ch.key: seconds_linspace(4, 3), data_ch.name: data})
+                pd.DataFrame(
+                    {idx_ch.key: seconds_linspace(4, count=3), data_ch.name: data}
+                )
             )
 
         f = client.read(sy.TimeRange.MAX, data_ch.key)
@@ -305,7 +342,7 @@ class TestWriter:
             w.write(
                 pd.DataFrame(
                     {
-                        idx.name: seconds_linspace(1, len(samples)),
+                        idx.name: seconds_linspace(1, count=len(samples)),
                         bool_ch.name: samples,
                     }
                 )
@@ -334,20 +371,6 @@ class TestWriter:
             ...
 
         w1.close()
-
-    def test_write_err_first_timestamp_before_start(
-        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
-    ) -> None:
-        """Should raise a validation error when the first timestamp written to an index
-        channel is before the start time of the writer."""
-        time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
-            with client.open_writer(
-                start=sy.TimeStamp.now(),
-                channels=[time_ch.key, data_ch.key],
-            ) as w:
-                for i in range(100):
-                    w.write({time_ch.key: [i], data_ch.key: [i]})
 
     def test_write_out_of_order_timestamps(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
@@ -400,11 +423,55 @@ class TestWriter:
         ) as w:
             async with await client.open_async_streamer(indexed_pair) as s:
                 data = np.random.rand(5).astype(np.float64)
-                times = seconds_linspace(1, 5)
+                times = seconds_linspace(1, count=5)
                 w.write(pd.DataFrame({idx_ch.key: times, data_ch.key: data}))
                 with pytest.raises(TimeoutError):
                     async with asyncio.timeout(0.2):
                         await s.read()
+
+    def test_write_persist_behind_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fill a gap before the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        start = 10 * sy.TimeSpan.SECOND
+        with client.open_writer(start=start, channels=channels) as live:
+            live.write(
+                {idx_ch.key: seconds_linspace(10, count=2), data_ch.key: [10.0, 11.0]}
+            )
+            live.commit()
+            client.write(
+                1 * sy.TimeSpan.SECOND,
+                {idx_ch.key: seconds_linspace(1, count=2), data_ch.key: [1.0, 2.0]},
+            )
+            live.write({idx_ch.key: seconds_linspace(12, count=1), data_ch.key: [12.0]})
+            live.commit()
+        assert list(client.read(sy.TimeRange.MAX, data_ch.key)) == [
+            1.0,
+            2.0,
+            10.0,
+            11.0,
+            12.0,
+        ]
+
+    def test_write_persist_inside_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fail to open a persist writer in the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        with client.open_writer(start=10 * sy.TimeSpan.SECOND, channels=channels):
+            with pytest.raises(sy.UnauthorizedError, match="cannot access time range"):
+                client.open_writer(
+                    start=15 * sy.TimeSpan.SECOND,
+                    channels=channels,
+                    mode=sy.WriterMode.PERSIST,
+                )
 
     def test_write_persist_stream_regression(self, client: sy.Synnax) -> None:
         """Should work"""
@@ -458,6 +525,51 @@ class TestWriter:
         assert len(f2[data_2.key]) == 1
         assert len(f2[data_3.key]) == 1
 
+    def test_commit_result_reports_commit_without_control(
+        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
+    ) -> None:
+        start = sy.TimeSpan.SECOND * 1
+        idx_ch, data_ch = indexed_pair
+
+        def frame(second: int) -> pd.DataFrame:
+            return pd.DataFrame(
+                {
+                    idx_ch.key: [sy.TimeStamp(sy.TimeSpan.SECOND * second)],
+                    data_ch.key: np.random.rand(1).astype(np.float64),
+                }
+            )
+
+        with client.open_writer(
+            start=start,
+            channels=indexed_pair,
+            authorities=100,
+            enable_auto_commit=False,
+        ) as low:
+            low.write(frame(1))
+            # The acknowledged command orders the write before the next writer opens.
+            low.set_authority(100)
+            with client.open_writer(
+                start=start, channels=indexed_pair, authorities=200
+            ):
+                assert not low.commit_result().authorized
+            low.write(frame(2))
+            granted = low.commit_result()
+            assert granted.authorized
+            assert granted.end == 2 * sy.TimeSpan.SECOND.nanoseconds + 1
+
+    def test_commit_result_stream_ended_during_commit(self) -> None:
+        transport = _EndableTransport()
+        writer = _open_endable(transport)
+        transport.stream_.ended = True
+        with pytest.raises(EOF):
+            writer.commit_result()
+
+    def test_commit_result_writer_closed(self) -> None:
+        writer = _open_endable(_EndableTransport())
+        writer.close()
+        with pytest.raises(sy.WriterClosed):
+            writer.commit_result()
+
     def test_set_authority(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:
@@ -469,7 +581,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -480,7 +592,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -505,7 +617,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -516,7 +628,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -538,7 +650,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -549,7 +661,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -573,7 +685,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -584,7 +696,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -608,18 +720,18 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
             )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
-            w1.set_authority(data_ch.name, 255)
+            w1.set_authority(data_ch.name, authority=255)
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -641,19 +753,19 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
             )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
-            w1.set_authority(data_ch.name, 255)
-            w1.set_authority(idx_ch.name, 255)
+            w1.set_authority(data_ch.name, authority=255)
+            w1.set_authority(idx_ch.name, authority=255)
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -674,7 +786,7 @@ class TestWriter:
         with client.open_writer(start=start, channels=indexed_pair) as w:
             w.write(
                 {
-                    idx_ch.key: seconds_linspace(30, 10),
+                    idx_ch.key: seconds_linspace(30, count=10),
                     data_ch.key: np.random.rand(10).astype(np.float64),
                 }
             )
@@ -698,7 +810,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -709,7 +821,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -755,7 +867,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: ["hello", "world"],
                 }
             )
@@ -782,7 +894,7 @@ class TestWriter:
             samples: list[dict[str, str | int]] = [{"key": "value"}, {"num": 42}]
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: samples,
                 }
             )
@@ -815,7 +927,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 3),
+                    idx.key: seconds_linspace(1, count=3),
                     float_ch.key: np.array([1.1, 2.2, 3.3], dtype=np.float64),
                     str_ch.key: ["a", "b", "c"],
                 }
@@ -843,10 +955,57 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: ["line1\nline2", "no newline"],
                 }
             )
             w.commit()
         f = client.read(sy.TimeRange.MAX, data.key)
         assert list(f) == ["line1\nline2", "no newline"]
+
+
+class _EndableStream:
+    """A writer stream that a spec can end as the Core would."""
+
+    ended = False
+    send_closed = False
+
+    def send(self, req: WriterRequest) -> None: ...
+
+    def receive(self, timeout: float | None = None) -> WriterResponse:
+        if self.ended or self.send_closed:
+            raise EOF()
+        return WriterResponse(
+            command=WriterCommand.OPEN,
+            end=sy.TimeStamp(0),
+            err=ExceptionPayload(type=None, data=None),
+            authorized=True,
+        )
+
+    def received(self) -> bool:
+        return False
+
+    def close_send(self) -> None:
+        self.send_closed = True
+
+
+class _EndableTransport:
+    """A stream transport whose writer stream a spec can end."""
+
+    def __init__(self) -> None:
+        self.stream_ = _EndableStream()
+
+    def with_codec(self, codec: Codec) -> "_EndableTransport":
+        return self
+
+    def stream(self, target: str, req_t: Any, res_t: Any) -> _EndableStream:
+        return self.stream_
+
+
+def _open_endable(transport: _EndableTransport) -> Writer:
+    return Writer(
+        start=None,
+        client=cast(WebsocketClient, transport),
+        registry=create_registry(),
+        adapter=WriteFrameAdapter(retriever=Retriever(client=MockUnaryClient())),
+    )

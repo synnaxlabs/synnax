@@ -7,8 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type compare, type record, type state } from "@synnaxlabs/x";
-import Fuse from "fuse.js";
+import { type compare, type record, search } from "@synnaxlabs/x";
 import { useMemo, useState } from "react";
 
 import { type FrameProps, type GetItem } from "@/list/Frame";
@@ -19,14 +18,8 @@ export interface UseStaticDataReturn<
   E extends record.Keyed<K> | undefined = record.Keyed<K> | undefined,
 > extends Required<Pick<FrameProps<K, E>, "getItem">> {
   data: K[];
-  retrieve: state.Setter<RetrieveParams, Partial<RetrieveParams>>;
-}
-
-/** Query the caller passes to `retrieve` to narrow the data. */
-export interface RetrieveParams {
-  searchTerm?: string;
-  offset?: number;
-  limit?: number;
+  /** Narrows the data to the entries that match the term. An empty term ends it. */
+  search: (term: string) => void;
 }
 
 export interface UseStaticDataParams<
@@ -35,13 +28,19 @@ export interface UseStaticDataParams<
 > {
   data: readonly E[];
   /** Drops any item this rejects, before search and sort. */
-  filter?: (item: E, params: RetrieveParams) => boolean;
+  filter?: (item: E) => boolean;
   sort?: compare.Comparator<E>;
 }
 
+/** The text of each string or number field of entry, for the search index. */
+const texts = (entry: object): string[] =>
+  Object.values(entry)
+    .filter((v) => typeof v === "string" || typeof v === "number")
+    .map(String);
+
 /**
- * Backs a {@link Frame} with an in-memory array, adding fuzzy search over every field
- * of the entry.
+ * Backs a {@link Frame} with an in-memory array, adding a search over the text of every
+ * field of the entry.
  *
  * @example <List.Frame {...List.useStaticData({ data: MODES })}>
  */
@@ -53,19 +52,17 @@ export const useStaticData = <
   filter,
   sort,
 }: UseStaticDataParams<K, E>): UseStaticDataReturn<K, E> => {
-  const [params, setParams] = useState<RetrieveParams>({});
+  const [term, setTerm] = useState("");
   let filteredData = data;
-  if (filter != null) filteredData = filteredData.filter((d) => filter(d, {}));
+  if (filter != null) filteredData = filteredData.filter(filter);
   if (sort != null) filteredData = [...filteredData].sort(sort);
-  // The compiler reads fuse.search as a write to filteredData, so without this memo it
+  // The compiler reads index.search as a write to filteredData, so without this memo it
   // rebuilds the index and getItem on every search.
   // eslint-disable-next-line no-restricted-syntax
-  const fuse = useMemo(() => {
-    if (filteredData.length === 0) return null;
-    return new Fuse(filteredData, {
-      keys: Object.keys(filteredData[0]),
-      threshold: 0.3,
-    });
+  const index = useMemo(() => {
+    const index = new search.Index<K>();
+    for (const entry of filteredData) index.set(entry.key, ...texts(entry));
+    return index;
   }, [filteredData]);
   const getItem = ((key: K | K[]) => {
     if (Array.isArray(key)) {
@@ -74,13 +71,15 @@ export const useStaticData = <
     }
     return filteredData.find((d) => d.key === key);
   }) as GetItem<K, E>;
-  let processedData = filteredData;
-  if (params.searchTerm != null && params.searchTerm.length > 0 && fuse != null) {
-    const searchResults = fuse.search(params.searchTerm);
-    processedData = searchResults.map((result) => result.item);
-    if (sort != null) processedData = [...processedData].sort(sort);
+  let keys = filteredData.map((d) => d.key);
+  if (term.length > 0) {
+    const found = index.search(term);
+    // keys are in sort order already, so a sort wins over the match rank.
+    if (sort == null) keys = found;
+    else {
+      const foundSet = new Set(found);
+      keys = keys.filter((k) => foundSet.has(k));
+    }
   }
-  const keys = processedData.map((d) => d.key);
-  const res = { getItem, data: keys };
-  return { ...res, retrieve: setParams };
+  return { getItem, data: keys, search: setTerm };
 };

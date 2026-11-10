@@ -12,7 +12,6 @@ package bus
 import (
 	"context"
 	"encoding/hex"
-	"uuid"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/validate"
@@ -61,27 +60,27 @@ func CheckFraming(f Framing) error {
 	return v.Error()
 }
 
-// StreamRead resolves cfg as Read does, then checks its framing with CheckFraming.
-func (r Resolver) StreamRead(
+// ResolveStreamRead resolves cfg as ResolveRead does, then checks its framing with
+// CheckFraming.
+func ResolveStreamRead(
 	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
+	snap gorp.Snapshot,
 	cfg *StreamReadConfig,
 ) error {
-	if err := r.Read(ctx, tx, taskKey, &cfg.ReadConfig); err != nil {
+	if err := ResolveRead(ctx, snap, &cfg.ReadConfig); err != nil {
 		return err
 	}
 	return validate.PathedError(CheckFraming(cfg.Framing), "framing")
 }
 
-// StreamWrite resolves cfg as Write does, then checks its framing with CheckFraming.
-func (r Resolver) StreamWrite(
+// ResolveStreamWrite resolves cfg as ResolveWrite does, then checks its framing with
+// CheckFraming.
+func ResolveStreamWrite(
 	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
+	snap gorp.Snapshot,
 	cfg *StreamWriteConfig,
 ) error {
-	if err := r.Write(ctx, tx, taskKey, &cfg.WriteConfig); err != nil {
+	if err := ResolveWrite(ctx, snap, &cfg.WriteConfig); err != nil {
 		return err
 	}
 	return validate.PathedError(CheckFraming(cfg.Framing), "framing")

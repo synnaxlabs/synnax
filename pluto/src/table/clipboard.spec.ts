@@ -66,7 +66,8 @@ describe("table clipboard", () => {
     const proj = await client.projects.create({
       name: `clipboard_ws_${uuid.create()}`,
     });
-    return await client.tables.create(proj.key, {
+    return await client.tables.create({
+      project: proj.key,
       name: "clipboard_test",
       rows: [
         { size: 30, cells: ["a", "b", "c"] },

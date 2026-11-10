@@ -269,6 +269,63 @@ describe("tour", () => {
     expect(spotlight.classList).not.toContain("docs-tour--active");
   });
 
+  it("should clear the arrow offset of the side the card left", () => {
+    const stage = { width: 10000, height: 600 };
+    const measure = (el: HTMLElement, axis: "width" | "height"): number => {
+      if (el.matches("[data-card]")) return axis === "width" ? 300 : 200;
+      if (el.matches(".docs-tour__stage")) return stage[axis];
+      return 0;
+    };
+    const stubs = [
+      vi
+        .spyOn(HTMLElement.prototype, "offsetWidth", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          return measure(this, "width");
+        }),
+      vi
+        .spyOn(HTMLElement.prototype, "offsetHeight", "get")
+        .mockImplementation(function (this: HTMLElement) {
+          return measure(this, "height");
+        }),
+      vi.spyOn(Element.prototype, "clientWidth", "get").mockImplementation(function (
+        this: Element,
+      ) {
+        return measure(this as HTMLElement, "width");
+      }),
+      vi.spyOn(Element.prototype, "clientHeight", "get").mockImplementation(function (
+        this: Element,
+      ) {
+        return measure(this as HTMLElement, "height");
+      }),
+    ];
+    card().style.position = "absolute";
+    const arrow = get("[data-card-arrow]");
+    const sides = (): (string | undefined)[] => {
+      vi.advanceTimersToNextFrame();
+      return [arrow.dataset.side, arrow.style.top, arrow.style.left];
+    };
+    progress("search").click();
+    expect(sides()).toEqual([
+      expect.stringMatching(/^(left|right)$/),
+      expect.any(String),
+      "",
+    ]);
+    expect(arrow.style.top).not.toBe("");
+    // Too narrow for the card beside a part, so it moves above or below it.
+    Object.assign(stage, { width: 320, height: 20000 });
+    control("next").click();
+    expect(sides()).toEqual([
+      expect.stringMatching(/^(top|bottom)$/),
+      "",
+      expect.any(String),
+    ]);
+    expect(arrow.style.left).not.toBe("");
+    Object.assign(stage, { width: 10000, height: 600 });
+    control("back").click();
+    expect(sides()[2]).toBe("");
+    for (const stub of stubs) stub.mockRestore();
+  });
+
   it("should open the step that the URL hash links to", () => {
     const ranges = STEPS.find((s) => s.key === "range");
     window.location.hash = `#${ranges?.anchor}`;

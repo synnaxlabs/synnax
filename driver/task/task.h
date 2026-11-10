@@ -29,6 +29,7 @@
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
+#include "driver/task/status_cache.h"
 
 namespace driver::task {
 /// @brief interface for a task that can be executed by the driver. Tasks should be
@@ -57,7 +58,7 @@ public:
 /// easily update their state.
 class Context {
     std::mutex rack_name_mu;
-    std::string rack_name_;
+    std::string current_rack_name;
 
 public:
     /// @brief the client used to communicate with the Synnax server.
@@ -83,17 +84,26 @@ public:
     /// @brief returns the current name of the driver's rack. Safe for concurrent use.
     std::string rack_name() {
         std::lock_guard lock{this->rack_name_mu};
-        return this->rack_name_;
+        return this->current_rack_name;
     }
 
     /// @brief records a new name for the driver's rack. Safe for concurrent use.
     void set_rack_name(std::string name) {
         std::lock_guard lock{this->rack_name_mu};
-        this->rack_name_ = std::move(name);
+        this->current_rack_name = std::move(name);
     }
 
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
+
+    /// @brief sends the latest status of each task again, to repair statuses lost while
+    /// the Driver could not reach the Core.
+    /// @returns the first error of the writes. Call it again on error.
+    [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
+
+    /// @brief returns true when a status write failed, a re-send included, and no
+    /// re-send has started since.
+    [[nodiscard]] virtual bool statuses_stale() = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -111,42 +121,54 @@ public:
         statuses.push_back(status);
         mu.unlock();
     }
+
+    x::errors::Error resend_statuses() override { return x::errors::NIL; }
+
+    bool statuses_stale() override { return false; }
+
+    /// @brief returns a copy of the statuses, safe to read while tasks send more.
+    std::vector<synnax::task::Status> snapshot() {
+        std::lock_guard lock(this->mu);
+        return this->statuses;
+    }
 };
 
 class SynnaxContext final : public Context {
-    std::shared_ptr<bypass::Bus> bus_;
-    std::shared_ptr<control::States> control_states_;
-    synnax::rack::Key rack_key_;
+    std::shared_ptr<bypass::Bus> bypass_bus;
+    std::shared_ptr<control::States> states;
+    synnax::rack::Key rack;
+    std::shared_ptr<StatusCache> statuses;
 
 public:
-    explicit SynnaxContext(
+    SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
+        std::shared_ptr<StatusCache> statuses,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
         const synnax::rack::Key rack_key = 0
     ):
         Context(client),
-        bus_(bus),
-        control_states_(control_states),
-        rack_key_(rack_key) {}
+        bypass_bus(bus),
+        states(control_states),
+        rack(rack_key),
+        statuses(std::move(statuses)) {}
 
-    std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
+    std::shared_ptr<bypass::Bus> bus() override { return this->bypass_bus; }
 
-    std::shared_ptr<control::States> control_states() override {
-        return this->control_states_;
-    }
+    std::shared_ptr<control::States> control_states() override { return this->states; }
 
-    synnax::rack::Key rack_key() override { return this->rack_key_; }
+    synnax::rack::Key rack_key() override { return this->rack; }
 
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
-        status.details.rack = this->rack_key_;
-        if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
-                status
-            );
-            err)
+        status.details.rack = this->rack;
+        if (const auto err = this->statuses->set(status); err)
             LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
+
+    x::errors::Error resend_statuses() override { return this->statuses->resend(); }
+
+    bool statuses_stale() override { return this->statuses->stale(); }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
@@ -155,6 +177,9 @@ inline constexpr auto NO_COMMAND = "";
 
 class Factory {
 public:
+    /// @brief creates the tasks this factory runs on every rack, such as a scanner.
+    /// @returns each created task with its live instance, or with null when its
+    /// configure failed.
     virtual std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
     configure_initial_tasks(
         const std::shared_ptr<Context> &ctx,
@@ -276,11 +301,13 @@ public:
         const ManagerConfig &cfg = {}
     ):
         rack(std::move(rack)),
-        control_states_(std::make_shared<control::States>()),
+        control_states(std::make_shared<control::States>()),
+        statuses(std::make_shared<StatusCache>(client->statuses)),
         ctx(std::make_shared<SynnaxContext>(
             client,
+            this->statuses,
             std::make_shared<bypass::Bus>(),
-            this->control_states_,
+            this->control_states,
             this->rack.key
         )),
         factory(std::move(factory)),
@@ -302,7 +329,9 @@ private:
     /// @brief the rack this manager belongs to.
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
-    std::shared_ptr<control::States> control_states_;
+    std::shared_ptr<control::States> control_states;
+    /// @brief the latest status of each task on this Driver.
+    std::shared_ptr<StatusCache> statuses;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
@@ -422,9 +451,9 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key unless it is still relevant or claimed by a
-    /// worker. even_if_processing is for a worker's own entry. Callers must hold
-    /// mu.
+    /// @brief drops the entry for key and forgets its status, unless the entry is still
+    /// relevant or claimed by a worker. even_if_processing is for a worker's own entry.
+    /// Callers must hold mu.
     void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
@@ -438,5 +467,13 @@ private:
     void execute_op(const Op &op, const std::shared_ptr<Entry> &entry);
     /// @brief clears the deployed hash so the next start rebuilds.
     static void clear_deploy(const std::shared_ptr<Entry> &entry);
+    /// @brief answers a pinned start whose config changed after the sender saw it.
+    void refuse_pinned_start(
+        const synnax::task::Task &tsk,
+        const synnax::task::Command &cmd
+    );
+    /// @brief answers a command for a task with no live instance with an error, so its
+    /// sender does not wait out a timeout.
+    void refuse_command(const Op &op);
 };
 }

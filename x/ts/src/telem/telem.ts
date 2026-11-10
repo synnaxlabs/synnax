@@ -86,6 +86,9 @@ export class TimeStamp
 
   constructor(value?: CrudeTimeStamp, timeZone: TimeZone = "UTC") {
     if (value == null) super(TimeStamp.now().valueOf());
+    // Hot paths pass a bigint or a TimeStamp, so they skip the parsing checks.
+    else if (typeof value === "bigint" && timeZone === "UTC") super(value);
+    else if (value instanceof TimeStamp && timeZone === "UTC") super(value.valueOf());
     else if (value instanceof Date)
       super(BigInt(value.getTime()) * TimeStamp.MILLISECOND.valueOf());
     else if (typeof value === "string")
@@ -716,7 +719,9 @@ export class TimeStamp
     dateComponentsZ.transform((v) => new TimeStamp(v)),
   ]);
 
-  /** @returns a positive number when a is after b, negative when before, 0 when equal. */
+  /**
+   * @returns a positive number when a is after b, negative when before, 0 when equal.
+   */
   static sort(a: TimeStamp, b: TimeStamp): number {
     return Number(a.valueOf() - b.valueOf());
   }
@@ -729,6 +734,7 @@ export class TimeSpan
 {
   constructor(value: CrudeTimeSpan) {
     if (typeof value === "number") value = Math.trunc(value.valueOf());
+    else if (typeof value === "object" && value instanceof Rate) value = value.period;
     if (primitive.isCrudeValueExtension<bigint>(value)) value = value.value;
     super(BigInt(value.valueOf()));
   }
@@ -1385,12 +1391,10 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
 
   /** @returns True if the TimeRange is equal to the given TimeRange. */
   equals(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
-    if (delta.isZero)
-      return this.start.equals(other.start) && this.end.equals(other.end);
-    let startDist = this.start.sub(other.start).valueOf();
-    let endDist = this.end.sub(other.end).valueOf();
-    if (startDist < 0) startDist = -startDist;
-    if (endDist < 0) endDist = -endDist;
+    let startDist = this.start.valueOf() - other.start.valueOf();
+    let endDist = this.end.valueOf() - other.end.valueOf();
+    if (startDist < 0n) startDist = -startDist;
+    if (endDist < 0n) endDist = -endDist;
     return startDist <= delta.valueOf() && endDist <= delta.valueOf();
   }
 
@@ -1411,22 +1415,27 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
    * @returns True if the two TimeRanges share at least delta of time.
    */
   overlapsWith(other: TimeRange, delta: TimeSpan = TimeSpan.ZERO): boolean {
-    other = other.makeValid();
-    const rng = this.makeValid();
-
-    if (rng.equals(other)) return rng.span.greaterThanOrEqual(delta);
-
+    const a0 = this.start.valueOf();
+    const a1 = this.end.valueOf();
+    const b0 = other.start.valueOf();
+    const b1 = other.end.valueOf();
+    const aStart = a0 <= a1 ? a0 : a1;
+    const aEnd = a0 <= a1 ? a1 : a0;
+    const bStart = b0 <= b1 ? b0 : b1;
+    const bEnd = b0 <= b1 ? b1 : b0;
+    const min = delta.valueOf();
+    if (aStart === bStart && aEnd === bEnd) return aEnd - aStart >= min;
     // If the ranges touch at their boundaries, they do not overlap.
-    if (other.end.equals(rng.start) || rng.end.equals(other.start)) return false;
-
-    const startOverlap = TimeStamp.max(rng.start, other.start);
-    const endOverlap = TimeStamp.min(rng.end, other.end);
-
-    if (endOverlap.before(startOverlap)) return false;
-
-    const overlapDuration = new TimeSpan(endOverlap.sub(startOverlap));
-
-    return overlapDuration.greaterThanOrEqual(delta);
+    if (bEnd === aStart || aEnd === bStart) return false;
+    // The shared span stays within TimeStamp.MIN and TimeStamp.MAX.
+    let start = TimeStamp.MIN.valueOf();
+    if (aStart > start) start = aStart;
+    if (bStart > start) start = bStart;
+    let end = TimeStamp.MAX.valueOf();
+    if (aEnd < end) end = aEnd;
+    if (bEnd < end) end = bEnd;
+    if (end < start) return false;
+    return end - start >= min;
   }
 
   /**
@@ -1437,7 +1446,9 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
   contains(other: TimeRange | CrudeTimeStamp): boolean {
     if (other instanceof TimeRange)
       return this.contains(other.start) && this.contains(other.end);
-    return this.start.beforeEq(other) && this.end.after(other);
+    const ts =
+      other instanceof TimeStamp ? other.valueOf() : new TimeStamp(other).valueOf();
+    return this.start.valueOf() <= ts && ts < this.end.valueOf();
   }
 
   /**
@@ -1498,9 +1509,10 @@ export class TimeRange implements primitive.Stringer, primitive.Hashable {
     });
 
   /**
-   * Sorts two time ranges. The range with the earlier start time is considered less than
-   * the range with the later start time. If the start times are equal, the range with the
-   * earlier end time is considered less than the range with the later end time.
+   * Sorts two time ranges. The range with the earlier start time is considered less
+   * than the range with the later start time. If the start times are equal, the range
+   * with the earlier end time is considered less than the range with the later end
+   * time.
    *
    * @param a - The first time range.
    * @param b - The second time range.
@@ -1654,7 +1666,10 @@ export class DataType
     );
   }
 
-  /** @returns true if the data type can be cast to the other data type without loss of precision. */
+  /**
+   * @returns true if the data type can be cast to the other data type without loss of
+   * precision.
+   */
   canSafelyCastTo(other: DataType): boolean {
     if (this.equals(other)) return true;
     if (!this.isNumeric || !other.isNumeric) return false;
@@ -1676,7 +1691,10 @@ export class DataType
     return false;
   }
 
-  /** @returns true if the data type can be cast to the other data type, even if there is a loss of precision. */
+  /**
+   * @returns true if the data type can be cast to the other data type, even if there is
+   * a loss of precision.
+   */
   canCastTo(other: DataType): boolean {
     if (this.isNumeric && other.isNumeric) return true;
     return this.equals(other);
@@ -2088,6 +2106,25 @@ export interface StaticWindow extends z.infer<typeof staticWindowZ> {}
 export const windowZ = z.discriminatedUnion("variant", [dynamicWindowZ, staticWindowZ]);
 export type Window = DynamicWindow | StaticWindow;
 
+/** @returns a static window over the time range, with exact bounds. */
+export const staticWindow = ({ start, end }: TimeRange): StaticWindow => ({
+  variant: "static",
+  timeRange: { start: String(start.valueOf()), end: String(end.valueOf()) },
+});
+
+/** @returns a dynamic window of the span. */
+export const dynamicWindow = (span: CrudeTimeSpan): DynamicWindow => ({
+  variant: "dynamic",
+  timeSpan: Number(new TimeSpan(span).valueOf()),
+});
+
+/** @returns the time range the window covers when the time is now. */
+export const resolveWindow = (window: Window, now: TimeStamp): TimeRange => {
+  if (window.variant === "dynamic") return new TimeRange(now.sub(window.timeSpan), now);
+  const { start, end } = window.timeRange;
+  return new TimeRange(BigInt(start), BigInt(end));
+};
+
 export const typedArrayZ = z.union([
   z.instanceof(Uint8Array),
   z.instanceof(Uint16Array),
@@ -2102,6 +2139,9 @@ export const typedArrayZ = z.union([
 ]);
 
 export type TypedArray = z.infer<typeof typedArrayZ>;
+
+/** A typed array whose elements read as JS numbers. */
+export type NumberArray = Exclude<TypedArray, BigInt64Array | BigUint64Array>;
 
 type TypedArrayConstructor =
   | Uint8ArrayConstructor

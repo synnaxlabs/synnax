@@ -12,3 +12,4 @@ export * from "@/lineplot/actions.gen";
 export * from "@/lineplot/client";
 export * from "@/lineplot/line";
 export * from "@/lineplot/types.gen";
+export { type WhereInput } from "@/lineplot/where.gen";

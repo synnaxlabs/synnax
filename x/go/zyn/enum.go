@@ -28,9 +28,6 @@ type EnumZ struct {
 
 var _ Schema = (*EnumZ)(nil)
 
-// Optional marks the enum field as optional. Optional fields can be nil or omitted.
-func (e EnumZ) Optional() EnumZ { e.optional = true; return e }
-
 // Shape returns the base shape of the enum schema.
 func (e EnumZ) Shape() Shape { return e.baseZ }
 
@@ -71,15 +68,6 @@ func (e EnumZ) validateDestination(dest reflect.Value) error {
 		return nil
 	}
 	return NewInvalidDestinationTypeError("enum-compatible type", dest)
-}
-
-// Values adds the given values to the enum schema. The values must be of the same type.
-func (e EnumZ) Values(values ...any) EnumZ {
-	if e.values == nil {
-		e.values = make([]any, 0)
-	}
-	e.values = append(e.values, values...)
-	return e
 }
 
 // Dump converts the given data to an enum value according to the schema. It validates

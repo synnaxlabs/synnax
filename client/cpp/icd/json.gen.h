@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "client/cpp/icd/types.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -40,7 +41,7 @@ inline BaseField BaseField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BaseField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["scale"] = this->scale;
@@ -48,8 +49,8 @@ inline x::json::json BaseField::to_json() const {
     j["units"] = this->units;
     if (this->multiplexor.has_value()) j["multiplexor"] = this->multiplexor->to_json();
     j["multiplex_values"] = this->multiplex_values;
-    j["min"] = this->min;
-    j["max"] = this->max;
+    if (this->min.has_value()) j["min"] = *this->min;
+    if (this->max.has_value()) j["max"] = *this->max;
     return j;
 }
 
@@ -65,9 +66,8 @@ inline BinaryField BinaryField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BinaryField::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
     j["start_bit"] = this->start_bit;
     j["bit_length"] = this->bit_length;
     j["byte_order"] = this->byte_order;
@@ -87,12 +87,12 @@ inline Message Message::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Message::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["payload"] = ::synnax::icd::to_json(this->payload);
     if (this->period.has_value()) j["period"] = this->period->nanoseconds();
-    j["query"] = this->query;
+    if (this->query.has_value()) j["query"] = *this->query;
     return j;
 }
 
@@ -109,7 +109,7 @@ inline ICD ICD::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ICD::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["messages"] = x::json::to_array(this->messages);
@@ -125,9 +125,71 @@ inline Reference Reference::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Reference::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     if (this->icd.has_value()) j["icd"] = this->icd->to_json();
     j["icd_hash"] = this->icd_hash;
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    return j;
+}
+
+inline Cursor Cursor::parse(x::json::Parser parser) {
+    return Cursor{
+        .key = parser.field<Key>("key"),
+    };
+}
+
+inline x::json::json Cursor::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["key"] = this->key.to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .after = parser.field<std::optional<Cursor>>("after"),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j = x::json::json::object();
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    if (this->after.has_value()) j["after"] = this->after->to_json();
+    if (this->limit.has_value()) j["limit"] = *this->limit;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .icds = parser.field<std::vector<ICD>>("icds", std::vector<ICD>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j = x::json::json::object();
+    j["icds"] = x::json::to_array(this->icds);
     return j;
 }
 
@@ -143,12 +205,12 @@ inline CanIdentifier CanIdentifier::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CanIdentifier::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["id"] = this->id;
     j["extended"] = this->extended;
     j["fd"] = this->fd;
     j["bitrate_switched"] = this->bitrate_switched;
-    j["mask"] = this->mask;
+    if (this->mask.has_value()) j["mask"] = *this->mask;
     j["type"] = this->type;
     return j;
 }
@@ -162,7 +224,7 @@ inline FieldIdentifier FieldIdentifier::parse(x::json::Parser parser) {
 }
 
 inline x::json::json FieldIdentifier::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["field"] = this->field.to_json();
     j["value"] = this->value;
     j["type"] = this->type;
@@ -178,9 +240,8 @@ inline DelimitedTextField DelimitedTextField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json DelimitedTextField::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
     j["position"] = this->position;
     j["encoding"] = this->encoding;
     return j;
@@ -195,9 +256,8 @@ inline TaggedTextField TaggedTextField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json TaggedTextField::to_json() const {
-    x::json::json j;
-    for (const auto base = BaseField::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = BaseField::to_json(); parent.is_object()) j.update(parent);
     j["tag"] = this->tag;
     j["encoding"] = this->encoding;
     return j;
@@ -220,8 +280,8 @@ inline BinaryPayload BinaryPayload::parse(x::json::Parser parser) {
 }
 
 inline x::json::json BinaryPayload::to_json() const {
-    x::json::json j;
-    j["length"] = this->length;
+    x::json::json j = x::json::json::object();
+    if (this->length.has_value()) j["length"] = *this->length;
     if (this->identifier.has_value())
         j["identifier"] = ::synnax::icd::to_json(*this->identifier);
     j["fields"] = x::json::to_array(this->fields);
@@ -246,7 +306,7 @@ inline TextPayload TextPayload::parse(x::json::Parser parser) {
 }
 
 inline x::json::json TextPayload::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["delimiter"] = this->delimiter;
     j["prefix"] = this->prefix;
     {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type icd } from "@synnaxlabs/client";
+import { type icd, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -25,7 +25,7 @@ export interface TasksProps {
 /** Lists the tasks that use the ICD. Selecting one opens it. */
 export const Tasks = ({ icdKey }: TasksProps): ReactElement => {
   const { data, variant, status } = ICD.useTasksResult({ key: icdKey });
-  const open = Panel.useOpenResource();
+  const openTab = Panel.useOpenTab();
   let content: ReactElement;
   if (variant === "error")
     content = (
@@ -42,15 +42,17 @@ export const Tasks = ({ icdKey }: TasksProps): ReactElement => {
   else
     content = (
       <Flex.Box x wrap gap="small">
-        {data.map((resource) => (
+        {data.map(({ key, name }) => (
           <Button.Button
-            key={resource.key}
+            key={key}
             variant="text"
             size="small"
-            onClick={() => open(resource)}
+            onClick={() =>
+              openTab({ variant: "resource", resource: task.resourceID(key) })
+            }
           >
             <Icon.Task />
-            {resource.name}
+            {name}
           </Button.Button>
         ))}
       </Flex.Box>

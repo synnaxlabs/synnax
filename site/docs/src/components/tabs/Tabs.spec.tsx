@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Tabs } from "@/components/tabs/Tabs";
+import { Tabs } from "@/components/tabs";
 
 const TABS = [
   { tabKey: "python", name: "Python" },
@@ -29,19 +29,19 @@ const keys = (page: ReactElement): (string | undefined)[] => {
 
 describe("Tabs", () => {
   it("should show every tab in order by default", () => {
-    expect(keys(<Tabs tabs={TABS} />)).toEqual(["python", "typescript", "cpp"]);
+    expect(keys(<Tabs.Tabs tabs={TABS} />)).toEqual(["python", "typescript", "cpp"]);
   });
 
   it("should leave out excluded tabs", () => {
-    expect(keys(<Tabs tabs={TABS} exclude={["typescript"]} />)).toEqual([
+    expect(keys(<Tabs.Tabs tabs={TABS} exclude={["typescript"]} />)).toEqual([
       "python",
       "cpp",
     ]);
   });
 
   it("should show an optional tab only in a block that fills its slot", () => {
-    expect(keys(<Tabs tabs={TABS} />)).not.toContain("arc");
-    expect(keys(<Tabs tabs={TABS} arc={<p>Arc</p>} />)).toEqual([
+    expect(keys(<Tabs.Tabs tabs={TABS} />)).not.toContain("arc");
+    expect(keys(<Tabs.Tabs tabs={TABS} arc={<p>Arc</p>} />)).toEqual([
       "python",
       "typescript",
       "cpp",
@@ -50,7 +50,7 @@ describe("Tabs", () => {
   });
 
   it("should show priority tabs first and keep the order of the rest", () => {
-    expect(keys(<Tabs tabs={TABS} priority={["cpp"]} />)).toEqual([
+    expect(keys(<Tabs.Tabs tabs={TABS} priority={["cpp"]} />)).toEqual([
       "cpp",
       "python",
       "typescript",

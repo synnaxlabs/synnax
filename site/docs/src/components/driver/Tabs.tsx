@@ -9,19 +9,20 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { type Platform } from "@/components/platform/choice";
-import { INFO } from "@/components/platform/Platform";
-import { type FilterProps, type TabEntry, Tabs as Base } from "@/components/tabs/Tabs";
+import { Platform } from "@/components/platform";
+import { Tabs as Base } from "@/components/tabs";
 
-type Target = Exclude<Platform, "Docker"> | "ni-linux-rt";
+type Target = Exclude<Platform.Platform, "Docker"> | "ni-linux-rt";
 
-const TABS: TabEntry<Target>[] = [
+const TABS: Base.TabEntry<Target>[] = [
   { tabKey: "ni-linux-rt", name: "NI Linux Real-Time", icon: <Icon.Logo.NI /> },
-  ...INFO.flatMap(({ key, ...p }) => (key === "Docker" ? [] : [{ ...p, tabKey: key }])),
+  ...Platform.INFO.flatMap(({ key, ...p }) =>
+    key === "Docker" ? [] : [{ ...p, tabKey: key }],
+  ),
 ];
 
-export type TabsProps = FilterProps<Target>;
+export type TabsProps = Base.FilterProps<Target>;
 
 export const Tabs = (props: TabsProps) => (
-  <Base queryParamKey="platform" tabs={TABS} {...props} />
+  <Base.Tabs queryParamKey="platform" tabs={TABS} {...props} />
 );

@@ -61,6 +61,24 @@ var _ = Describe("Import Pass", func() {
 			},
 		)
 
+		It(
+			"Should resolve a module through the root's module resolver",
+			func(bCtx SpecContext) {
+				userModule := symbol.Symbol{Name: "lib.m", Kind: symbol.KindModule}
+				root := symbol.NewRoot(
+					nil,
+					nil,
+					symbol.WithModules(StaticResolver{userModule}),
+				)
+				prog := MustSucceed(parser.Parse(`import lib.m`))
+				ctx := context.NewRoot(bCtx, prog, root)
+				analyzer.AnalyzeProgram(ctx)
+				alias := ctx.Scope.FindChild("m")
+				Expect(alias).ToNot(BeNil())
+				Expect(alias.Target.Name).To(Equal("lib.m"))
+			},
+		)
+
 		It("Should diagnose a duplicate import", func(bCtx SpecContext) {
 			prog := MustSucceed(parser.Parse(`import ( time time )`))
 			ctx := context.NewRoot(bCtx, prog, root)

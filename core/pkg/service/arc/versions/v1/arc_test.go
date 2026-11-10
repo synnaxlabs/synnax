@@ -24,10 +24,4 @@ var _ = Describe("Arc", func() {
 			Expect(v1.Arc{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v1.Arc{}.SetOptions()).To(BeNil())
-		})
-	})
 })

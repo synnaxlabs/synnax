@@ -14,12 +14,14 @@ package v0
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for an ICD.
@@ -50,13 +52,17 @@ func (b ByteOrder) IsValid() bool {
 	}
 }
 
+// IdentifierType is the "type" value that selects a variant of Identifier.
 type IdentifierType string
 
 const (
-	CanIdentifierType   IdentifierType = "can"
+	// CanIdentifierType matches a CAN frame by arbitration identifier.
+	CanIdentifierType IdentifierType = "can"
+	// FieldIdentifierType matches a binary frame by the raw value of one of its fields.
 	FieldIdentifierType IdentifierType = "field"
 )
 
+// IdentifierVariant is implemented by every Identifier variant.
 type IdentifierVariant interface {
 	isIdentifierVariant()
 }
@@ -127,26 +133,49 @@ func (u *Identifier) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type IdentifierType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CanIdentifierType:
-		var v CanIdentifier
+		var v struct {
+			Type IdentifierType `json:"type"`
+			CanIdentifier
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CanIdentifier
 	case FieldIdentifierType:
-		var v FieldIdentifier
+		var v struct {
+			Type IdentifierType `json:"type"`
+			FieldIdentifier
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.FieldIdentifier
 	default:
-		return errors.Newf("Identifier: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Identifier: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Identifier) Type() IdentifierType {
+	switch u.Variant.(type) {
+	case CanIdentifier:
+		return CanIdentifierType
+	case FieldIdentifier:
+		return FieldIdentifierType
+	}
+	return ""
 }
 
 // BaseField carries the parts every message field shares.
@@ -180,6 +209,11 @@ func (b *BaseField) ApplyDefaults() {
 	if b.Scale == 0 {
 		b.Scale = 1
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BaseField) SetDefaults() {
+	b.Scale = 1
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
@@ -218,6 +252,32 @@ func (b *BinaryField) ApplyDefaults() {
 	b.BaseField.ApplyDefaults()
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (b *BinaryField) SetDefaults() {
+	b.BaseField.SetDefaults()
+	b.BitLength = 8
+	b.ByteOrder = ByteOrderLittleEndian
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (b *BinaryField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain BinaryField
+	if reflect.ValueOf(*b).IsZero() {
+		b.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(b))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (b *BinaryField) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain BinaryField
+	if reflect.ValueOf(*b).IsZero() {
+		b.SetDefaults()
+	}
+	return dec.Decode((*plain)(b))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (b BinaryField) Validate() error {
@@ -229,13 +289,17 @@ func (b BinaryField) Validate() error {
 	return v.Error()
 }
 
+// TextFieldType is the "encoding" value that selects a variant of TextField.
 type TextFieldType string
 
 const (
+	// DelimitedTextFieldType is a field read from one item of a delimited text line.
 	DelimitedTextFieldType TextFieldType = "delimited"
-	TaggedTextFieldType    TextFieldType = "tagged"
+	// TaggedTextFieldType is a field read from the text that follows a tag.
+	TaggedTextFieldType TextFieldType = "tagged"
 )
 
+// TextFieldVariant is implemented by every TextField variant.
 type TextFieldVariant interface {
 	isTextFieldVariant()
 }
@@ -248,6 +312,11 @@ type DelimitedTextField struct {
 }
 
 func (DelimitedTextField) isTextFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (d *DelimitedTextField) SetDefaults() {
+	d.BaseField.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (d *DelimitedTextField) ApplyDefaults() {
@@ -270,6 +339,11 @@ type TaggedTextField struct {
 }
 
 func (TaggedTextField) isTextFieldVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TaggedTextField) SetDefaults() {
+	t.BaseField.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TaggedTextField) ApplyDefaults() {
@@ -324,26 +398,52 @@ func (u *TextField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type TextFieldType `json:"encoding"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DelimitedTextFieldType:
-		var v DelimitedTextField
+		var v struct {
+			Type TextFieldType `json:"encoding"`
+			DelimitedTextField
+		}
+		v.DelimitedTextField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DelimitedTextField
 	case TaggedTextFieldType:
-		var v TaggedTextField
+		var v struct {
+			Type TextFieldType `json:"encoding"`
+			TaggedTextField
+		}
+		v.TaggedTextField.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TaggedTextField
 	default:
-		return errors.Newf("TextField: unknown encoding %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"TextField: unknown encoding %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Encoding returns the encoding of the active variant, or an empty encoding when there
+// is none.
+func (u TextField) Encoding() TextFieldType {
+	switch u.Variant.(type) {
+	case DelimitedTextField:
+		return DelimitedTextFieldType
+	case TaggedTextField:
+		return TaggedTextFieldType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -371,13 +471,42 @@ func (u TextField) Validate() error {
 	return nil
 }
 
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u TextField) Base() BaseField {
+	switch variant := u.Variant.(type) {
+	case DelimitedTextField:
+		return variant.BaseField
+	case TaggedTextField:
+		return variant.BaseField
+	}
+	return BaseField{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *TextField) SetBase(base BaseField) {
+	switch variant := u.Variant.(type) {
+	case DelimitedTextField:
+		variant.BaseField = base
+		u.Variant = variant
+	case TaggedTextField:
+		variant.BaseField = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("TextField: cannot set the base of variant %T", variant))
+	}
+}
+
+// PayloadType is the "format" value that selects a variant of Payload.
 type PayloadType string
 
 const (
+	// BinaryPayloadType is a payload of raw bytes.
 	BinaryPayloadType PayloadType = "binary"
-	TextPayloadType   PayloadType = "text"
+	// TextPayloadType is a payload of one text line.
+	TextPayloadType PayloadType = "text"
 )
 
+// PayloadVariant is implemented by every Payload variant.
 type PayloadVariant interface {
 	isPayloadVariant()
 }
@@ -424,6 +553,11 @@ type TextPayload struct {
 }
 
 func (TextPayload) isPayloadVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (t *TextPayload) SetDefaults() {
+	t.Delimiter = ","
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (t *TextPayload) ApplyDefaults() {
@@ -485,26 +619,51 @@ func (u *Payload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type PayloadType `json:"format"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case BinaryPayloadType:
-		var v BinaryPayload
+		var v struct {
+			Type PayloadType `json:"format"`
+			BinaryPayload
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.BinaryPayload
 	case TextPayloadType:
-		var v TextPayload
+		var v struct {
+			Type PayloadType `json:"format"`
+			TextPayload
+		}
+		v.TextPayload.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.TextPayload
 	default:
-		return errors.Newf("Payload: unknown format %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"Payload: unknown format %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Format returns the format of the active variant, or an empty format when there is
+// none.
+func (u Payload) Format() PayloadType {
+	switch u.Variant.(type) {
+	case BinaryPayload:
+		return BinaryPayloadType
+	case TextPayload:
+		return TextPayloadType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

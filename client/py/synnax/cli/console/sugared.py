@@ -31,7 +31,7 @@ class Sugared:
     prompt: Prompt
     print: Print
 
-    def __init__(self, prompt: Prompt, print: Print, enabled: bool = True):
+    def __init__(self, *, prompt: Prompt, print: Print, enabled: bool = True):
         self.prompt = prompt
         self.print = print
         self.enabled = enabled
@@ -60,10 +60,10 @@ class Sugared:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         password: bool = False,
-        *,
         default: None,
         arg: R | None = None,
         arg_name: str | None = None,
@@ -73,10 +73,10 @@ class Sugared:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         password: bool = False,
-        *,
         default: R,
         arg: R | None = None,
         arg_name: str | None = None,
@@ -86,10 +86,10 @@ class Sugared:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         password: bool = False,
-        *,
         arg: R | None = None,
         arg_name: str | None = None,
     ) -> R: ...
@@ -97,6 +97,7 @@ class Sugared:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         password: bool = False,
@@ -138,6 +139,7 @@ class Sugared:
     def select(
         self,
         rows: list[R] | list[dict[str, Any]],
+        *,
         type_: type[R] | None = None,
         columns: list[str] | None = None,
         key: str | None = None,
@@ -194,7 +196,7 @@ class Sugared:
         self.table(columns=_columns, rows=_rows)
         selected: int | None = self.ask(
             "Select an option #",
-            int,
+            type_=int,
             choices=list(range(len(rows))),
             default=default_idx,
         )
@@ -207,4 +209,4 @@ class Sugared:
             return default, default_idx
         if self.print is not None:
             self.print.error("You must make a selection.")
-        return self.select(rows, type_, columns, key, **kwargs)
+        return self.select(rows, type_=type_, columns=columns, key=key, **kwargs)

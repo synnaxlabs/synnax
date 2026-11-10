@@ -13,6 +13,8 @@ import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
+_STATUS_CLASS_PREFIX = "lyra--status-"
+
 _CHANNEL_LIST_SELECTOR = ".console-channel-list"
 
 
@@ -34,14 +36,22 @@ class TaskPage(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a TaskPage wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
+        self.first_row_unused = False
+
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        super()._initialize_from_project(tab_locator, page_id)
+        # Only a task the page just created has a first channel no test filled in.
+        self.first_row_unused = True
 
     def _pane(self) -> Locator | Page:
         return self.pane_locator if self.pane_locator is not None else self.page
@@ -51,10 +61,16 @@ class TaskPage(ConsolePage):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
+    def _set_setting(self, label: str, on: bool) -> None:
+        """Set a task-wide setting with its toggle in the controls footer."""
+        toggle = self._controls().get_by_role("button", name=label, exact=True)
+        if (toggle.get_attribute("aria-pressed") == "true") != on:
+            toggle.click()
+
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
-    def select_device(self, label: str, name: str) -> None:
+    def select_device(self, label: str, *, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""
         self.layout.click_btn(label)
         self.layout.select_from_dropdown(name)
@@ -63,11 +79,25 @@ class TaskPage(ConsolePage):
         """Append a channel row from the button under the channel list."""
         self._pane().get_by_role("button", name="Add channel", exact=True).click()
 
+    def next_channel_row(self) -> int:
+        """Return the index of the channel row to fill in next. On a new task, this is
+        the first channel the task starts with. Otherwise, a row is appended.
+        """
+        rows = self._channel_list().get_by_role("option")
+        if self.first_row_unused:
+            self.first_row_unused = False
+            rows.first.wait_for(state="visible", timeout=5000)
+            return 0
+        index = rows.count()
+        self.add_channel_row()
+        rows.nth(index).wait_for(state="visible", timeout=5000)
+        return index
+
     def name_input(self) -> Locator:
         """The task name input in the form header, which shows no visible label."""
         return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
-    def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
+    def deploy(self, *, expect: str | None = STARTED_MESSAGE) -> None:
         """Deploy the task from the controls bar.
 
         Play configures, saves, and starts the task.
@@ -77,7 +107,7 @@ class TaskPage(ConsolePage):
         """
         controls = self._controls()
         self.notifications.close_all()
-        play = controls.locator("button:has(.pluto-icon--play)")
+        play = controls.locator("button:has(.lyra-icon--play)")
         play.wait_for(state="visible", timeout=5000)
         play.click()
         if expect is not None:
@@ -86,13 +116,13 @@ class TaskPage(ConsolePage):
     def stop(self) -> None:
         """Stop the task from the controls bar and wait for the stopped message."""
         controls = self._controls()
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
         self.wait_for_status(self.STOPPED_MESSAGE)
 
-    def wait_for_status(self, substr: str, timeout: float = 30000) -> str:
+    def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:
         """Wait for the status bar to contain a substring.
 
         :param substr: The substring to wait for in the status message.
@@ -105,26 +135,27 @@ class TaskPage(ConsolePage):
         msg.wait_for(state="visible", timeout=timeout)
         return msg.inner_text().strip()
 
-    def wait_for_status_level(
+    def wait_for_status_variant(
         self,
-        levels: tuple[str, ...],
+        variants: tuple[sy.status.Variant, ...],
+        *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
-    ) -> dict[str, str]:
-        """Poll the status box until its level is one of ``levels``.
+    ) -> sy.Status:
+        """Poll the status box until its variant is one of ``variants``.
 
-        :param levels: Accepted status levels, e.g. ``("error", "warning")``.
+        :param variants: Accepted status variants, e.g. ``("error", "warning")``.
         :param timeout: Maximum time to wait.
         :returns: The matching status, as returned by ``status()``.
         """
         timer = sy.Timer()
         while True:
             status = self.status()
-            if status["level"] in levels:
+            if status.variant in variants:
                 return status
             if timer.elapsed() > timeout:
                 raise AssertionError(
-                    f"Task status level stayed '{status['level']}' "
-                    f"('{status['msg']}'), expected one of {levels}"
+                    f"Task status variant stayed '{status.variant}' "
+                    f"('{status.message}'), expected one of {variants}"
                 )
             sy.sleep(0.25)
 
@@ -136,50 +167,46 @@ class TaskPage(ConsolePage):
         :param label: Label of the field.
         """
         item = self.page.locator(f"text={label}").locator(
-            "xpath=ancestor::*[contains(@class, 'pluto-input__item')][1]"
+            "xpath=ancestor::*[contains(@class, 'lyra-input__item')][1]"
         )
-        help_text = item.locator(".pluto-input-help-text").first
+        help_text = item.locator(".lyra-input-help-text").first
         expect(help_text).not_to_have_text("", timeout=5000)
         return help_text.inner_text().strip()
 
-    def status(self) -> dict[str, str]:
-        """Get the current status information from the task status box.
+    def channel_list_help_text(self) -> str:
+        """Return the error shown under the channel list after a blocked deploy."""
+        help_text = self._channel_list().locator(".console-channel-list__status")
+        help_text.wait_for(state="visible", timeout=5000)
+        return help_text.inner_text().strip()
 
-        Returns:
-            Dictionary containing:
-                - msg: The status message (e.g., "Task has not been configured")
-                - level: The alert level (e.g., "disabled", "info", "success", "error")
-        """
+    def status(self) -> sy.Status:
+        """Return the variant and message in the task status box."""
         status_element = (
             self._controls().locator(".console-task-status__message-text").first
         )
-
-        # Parse status level from CSS class
-        class_attr = status_element.get_attribute("class") or ""
-        level = "unknown"
-        for cls in class_attr.split():
-            if cls.startswith("pluto--status-"):
-                level = cls.replace("pluto--status-", "")
-                break
-
-        msg = status_element.inner_text()
-
-        return {
-            "msg": msg,
-            "level": level,
-        }
+        classes = (status_element.get_attribute("class") or "").split()
+        variant = next(
+            (
+                cls.removeprefix(_STATUS_CLASS_PREFIX)
+                for cls in classes
+                if cls.startswith(_STATUS_CLASS_PREFIX)
+            ),
+            None,
+        )
+        return sy.Status.model_validate(
+            {"variant": variant, "message": status_element.inner_text()}
+        )
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button = self.page.locator(".lyra-icon--link").locator("..")
         link_button.click(timeout=5000)
         return self.layout.read_clipboard()
 
     def verify_config(self, expected_channels: list[str]) -> None:
         """Verify the task config page is visible and contains expected channels.
 
-        Args:
-            expected_channels: Channel identifiers expected in the channel list.
+        :param expected_channels: Channel identifiers expected in the channel list.
         """
         if self.pane_locator is None:
             raise RuntimeError("No pane locator available for config verification")
@@ -212,11 +239,11 @@ class TaskPage(ConsolePage):
             self.name_input().fill(task_name)
             layout.press_enter()
 
-        if data_saving is not None and data_saving != layout.get_toggle("Data saving"):
-            layout.click_checkbox("Data saving")
+        if data_saving is not None:
+            self._set_setting("Data saving", data_saving)
 
-        if auto_start is not None and auto_start != layout.get_toggle("Auto start"):
-            layout.click_checkbox("Auto start")
+        if auto_start is not None:
+            self._set_setting("Auto start", auto_start)
 
         if sample_rate is not None:
             layout.fill_input_field("Sample rate", str(sample_rate))

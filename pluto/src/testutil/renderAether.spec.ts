@@ -10,7 +10,7 @@
 import { theme } from "@synnaxlabs/lyra/theme";
 import { describe, expect, it } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";

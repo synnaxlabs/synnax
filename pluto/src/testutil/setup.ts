@@ -1,0 +1,65 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "zod/compile";
+
+import { ResizeObserver } from "@juggle/resize-observer";
+import { preloadTimeLanguage } from "@synnaxlabs/lyra/testutil";
+import { failOnConsoleOutput } from "@synnaxlabs/x/testutil";
+import { shortenKeepAlive } from "@synnaxlabs/x/testutil/keepAlive";
+import { configure } from "@testing-library/react";
+import { afterAll, beforeAll, vi } from "vitest";
+
+import { installTestWebSocket } from "@/testutil/websocket";
+
+shortenKeepAlive();
+
+// Live-Core round-trips share the single test Core with the rest of the suite, so allow
+// more than the 1s waitFor default.
+configure({ asyncUtilTimeout: 5000 });
+
+failOnConsoleOutput();
+
+class MockIntersectionObserver {
+  observe = vi.fn();
+  disconnect = vi.fn();
+  unobserve = vi.fn();
+}
+
+// Installed at module scope: an async describe body can open a socket at
+// collection time, before any beforeAll runs.
+installTestWebSocket();
+
+preloadTimeLanguage();
+
+beforeAll(() => {
+  vi.stubGlobal("ResizeObserver", ResizeObserver);
+  vi.stubGlobal("OffscreenCanvas", {});
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+  HTMLElement.prototype.setPointerCapture = () => {};
+  HTMLElement.prototype.releasePointerCapture = () => {};
+  HTMLElement.prototype.hasPointerCapture = () => false;
+  Element.prototype.scrollIntoView = () => {};
+  // jsdom does not implement matchMedia. Every query reports no match and never
+  // changes.
+  vi.stubGlobal("matchMedia", (media: string): MediaQueryList =>
+    Object.assign(new EventTarget(), {
+      media,
+      matches: false,
+      onchange: null,
+      addListener: () => {},
+      removeListener: () => {},
+    }),
+  );
+});
+
+afterAll(() => {
+  vi.clearAllMocks();
+  vi.unstubAllGlobals();
+});

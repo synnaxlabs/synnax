@@ -37,7 +37,7 @@ const Wrap = ({ children }: { children: ReactNode }): ReactElement => (
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
-  container.querySelector(`.pluto-grid__item.pluto--location-${loc}`);
+  container.querySelector(`.pluto-grid__item.lyra--location-${loc}`);
 
 const labelEl = (container: HTMLElement): HTMLElement | null =>
   container.querySelector(".pluto-symbol__label");
@@ -126,7 +126,7 @@ describe("Label.Label as GridItem", () => {
           <Label.Label config={cfg({ label: "X", direction: "y" })} />
         </Wrap>,
       );
-      expect(labelEl(container)?.className).toContain("pluto--direction-y");
+      expect(labelEl(container)?.className).toContain("lyra--direction-y");
     });
   });
 

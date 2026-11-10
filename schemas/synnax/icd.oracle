@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/icd"
@@ -264,16 +265,18 @@ ICD struct {
     @go imex
     @go marshal
     @go migrate
-    @ontology type "icd"
+    @resource type "icd"
     @retrieve
 }
 
 Reference struct {
     icd      Key?   {
-        @doc value """
+        @doc value     """
             is the key of the ICD the task reads its messages from. When absent the task
             uses no ICD yet.
         """
+        @ref kind      use
+        @ref on_delete restrict
     }
     icd_hash string = "" {
         @doc value """
@@ -287,4 +290,12 @@ Reference struct {
         ICD.
     """
     @go marshal
+}
+
+Where filter ICD {
+    key
+    name
+
+    @doc value         "is a filter that selects ICDs."
+    @go request_output "core/pkg/api/icd"
 }

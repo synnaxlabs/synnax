@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -197,7 +198,9 @@ func BenchmarkIteratorCalculatedCount(b *testing.B) {
 					Expression: "return count_sensor_0 + 1",
 				}
 			}
-			if err := env.channelWriter.CreateMany(env.ctx, &fillers); err != nil {
+			if err := env.node.DB.WithTx(env.ctx, func(tx gorp.Tx) error {
+				return env.channelSvc.NewWriter(tx).CreateMany(env.ctx, &fillers)
+			}); err != nil {
 				b.Fatalf("failed to create filler channels: %v", err)
 			}
 			b.Run("calc+index", func(b *testing.B) {

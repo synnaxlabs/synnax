@@ -15,6 +15,7 @@ vendor/soem/SOEM/**
 
 # IgH EtherCAT Master
 driver/ethercat/igh/ecrt.h
+core/pkg/service/mqtt/sparkplug/pb/**
 
 # DBC parser derived from go.einride.tech/can (MIT)
 core/pkg/service/icd/internal/dbc/def.go
@@ -37,3 +38,6 @@ site/www/src/components/sponsorships/*.svg
 
 # Module versions copied from the Bazel Central Registry
 vendor/registry/**
+
+# Arc programs the Console shows to users verbatim
+console/src/feature/project/*.arc

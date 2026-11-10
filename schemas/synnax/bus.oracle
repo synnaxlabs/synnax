@@ -23,10 +23,14 @@ ReadField struct {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
-        @doc value "is the channel the field's decoded values are written to."
+        @doc value     "is the channel the field's decoded values are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     index   channel.Key = 0 {
-        @doc value "is the index channel stamped with the time the field arrives."
+        @doc value     "is the index channel stamped with the time the field arrives."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "maps one decoded message field to a channel."
@@ -56,7 +60,9 @@ WriteField struct {
         @doc value "is the key of the field within its message."
     }
     channel channel.Key = 0 {
-        @doc value "is the command channel whose values are encoded into the field."
+        @doc value     "is the command channel whose values are encoded into the field."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  """
@@ -86,13 +92,17 @@ WriteMessage struct {
 
 ReadConfig struct extends task.PersistConfig, icd.Reference {
     device   device.Key = "" {
-        @doc value "is the key of the device the task reads from."
+        @doc value     "is the key of the device the task reads from."
+        @ref kind      use
+        @ref on_delete restrict
     }
     raw      channel.Key = 0 {
-        @doc value """
+        @doc value     """
             is the virtual bytes channel every received frame is written to, known or
             unknown. Zero when the task does not stream raw frames.
         """
+        @ref kind      use
+        @ref on_delete restrict
     }
     messages ReadMessage[] {
         @doc value "are the messages the task decodes."

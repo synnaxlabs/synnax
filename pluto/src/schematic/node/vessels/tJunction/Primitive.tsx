@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 export interface Props extends Primitive.DivProps, Primitive.SVGBasedProps {}
@@ -29,14 +29,14 @@ export const TJunction = ({
         location="left"
         orientation={orientation}
         left={3.8462}
-        top={22.3095}
+        top={21.4286}
         id="1"
       />
       <Handle.Handle
         location="right"
         orientation={orientation}
         left={96.1538}
-        top={22.3095}
+        top={21.4286}
         id="2"
       />
       <Handle.Handle

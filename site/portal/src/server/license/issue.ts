@@ -13,6 +13,7 @@ import { type Store } from "@/server/db/db";
 import {
   activation,
   type Edition,
+  type Event,
   event,
   type License,
   license,
@@ -22,7 +23,7 @@ import { badRequest, notFound } from "@/server/errors";
 import { requireEnterprise } from "@/server/license/activate";
 import { build } from "@/server/license/claims";
 import { DENIAL_MESSAGES, deny } from "@/server/license/deny";
-import { VERSION_PATTERN } from "@/server/license/limits";
+import { MAX_LABEL_LENGTH, VERSION_PATTERN } from "@/server/license/limits";
 import { sign, type Signer } from "@/server/license/sign";
 
 /** Terms are the fields staff set when issuing a license and may change later. */
@@ -60,9 +61,15 @@ export const readTerms = (body: Record<string, string>): Terms => {
   };
 };
 
+const requireLabel = (label: string): void => {
+  if (label === "") throw badRequest("Give the license a label");
+  if (label.length > MAX_LABEL_LENGTH)
+    throw badRequest(`The label must be at most ${MAX_LABEL_LENGTH} characters`);
+};
+
 /** validate checks the term rules a license must satisfy and throws a 400 if not. */
 export const validate = (args: Terms & { now: Date }): void => {
-  if (args.label === "") throw badRequest("Give the license a label");
+  requireLabel(args.label);
   if (!Number.isInteger(args.nodes) || args.nodes < 1)
     throw badRequest("Nodes must be a whole number of at least 1");
   if (!Number.isInteger(args.channels) || args.channels < 0)
@@ -198,6 +205,61 @@ export const amend = async (
   });
 };
 
+/**
+ * readLabel trims a posted license label.
+ * @throws {HTTPError} 400 when it is empty or over the length limit.
+ */
+export const readLabel = (raw: string | undefined): string => {
+  const label = (raw ?? "").trim();
+  requireLabel(label);
+  return label;
+};
+
+export interface RenameArgs {
+  licenseKey: string;
+  label: string;
+  actor: string;
+  now: Date;
+}
+
+/**
+ * rename changes a license's label, and works whatever state its terms are in. License
+ * keys do not carry the label, so machines holding a seat need no new one.
+ * @returns the event it recorded, or nothing when the label did not change.
+ * @throws {HTTPError} 400 for a Desktop license.
+ */
+export const rename = async (
+  store: Store,
+  { licenseKey, label, actor, now }: RenameArgs,
+): Promise<Event | undefined> =>
+  await store.transact(async (tx) => {
+    const [before] = await tx
+      .select()
+      .from(license)
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (before == null) throw notFound("License");
+    requireEnterprise(before);
+    if (before.label === label) return undefined;
+    const [after] = await tx
+      .update(license)
+      .set({ label })
+      .where(eq(license.key, licenseKey))
+      .returning();
+    const [recorded] = await tx
+      .insert(event)
+      .values({
+        at: now,
+        kind: "amend",
+        actor,
+        organization: after.organization,
+        license: after.key,
+        detail: changes(before, after),
+      })
+      .returning();
+    return recorded;
+  });
+
 export interface RevokeArgs {
   licenseKey: string;
   actor: string;
@@ -284,6 +346,25 @@ export const restore = async (
       detail: {},
     });
     return row;
+  });
+
+/**
+ * remove deletes a license with its seats and its history. A Core checks its license
+ * offline, so a Core that already holds it keeps running as its terms allow.
+ * @throws {HTTPError} 404 when the license does not exist.
+ */
+export const remove = async (store: Store, licenseKey: string): Promise<void> =>
+  await store.transact(async (tx) => {
+    // Holds the lock activate takes, so no machine takes a seat during the delete.
+    const [row] = await tx
+      .select({ key: license.key })
+      .from(license)
+      .where(eq(license.key, licenseKey))
+      .for("update");
+    if (row == null) throw notFound("License");
+    await tx.delete(event).where(eq(event.license, licenseKey));
+    await tx.delete(activation).where(eq(activation.license, licenseKey));
+    await tx.delete(license).where(eq(license.key, licenseKey));
   });
 
 export interface FloatingArgs {

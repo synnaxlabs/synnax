@@ -204,10 +204,16 @@ export const mean = (a: Crude): number => {
  * reordered, so {@link INVALID} entries act as the identity instead of widening the
  * result to infinity.
  */
-export const max = (bounds: Crude[]): Bounds => ({
-  lower: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
-  upper: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
-});
+export const max = (bounds: Crude[]): Bounds => {
+  let lower = Infinity;
+  let upper = -Infinity;
+  for (const b of bounds) {
+    const c = construct(b, { makeValid: false });
+    lower = Math.min(lower, c.lower);
+    upper = Math.max(upper, c.upper);
+  }
+  return { lower, upper };
+};
 
 /**
  * @returns bounds that have the minimum span of the given bounds i.e. the max of all
@@ -215,10 +221,16 @@ export const max = (bounds: Crude[]): Bounds => ({
  * may create invalid bounds if the highest lower bound is greater than the lowest upper
  * bound. Members are not reordered.
  */
-export const min = (bounds: Crude[]): Bounds => ({
-  lower: Math.max(...bounds.map((b) => construct(b, { makeValid: false }).lower)),
-  upper: Math.min(...bounds.map((b) => construct(b, { makeValid: false }).upper)),
-});
+export const min = (bounds: Crude[]): Bounds => {
+  let lower = -Infinity;
+  let upper = Infinity;
+  for (const b of bounds) {
+    const c = construct(b, { makeValid: false });
+    lower = Math.max(lower, c.lower);
+    upper = Math.min(upper, c.upper);
+  }
+  return { lower, upper };
+};
 
 /**
  * @returns an array of integers from the lower bound to the upper bound of the given

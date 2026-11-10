@@ -30,7 +30,7 @@ import (
 var _ = Describe("Dashed names keep -> intact", func() {
 	root := func() *symbol.Symbol {
 		r := symbol.NewRoot(nil, stl.NewSymbols())
-		syms := []arc.Symbol{
+		syms := []symbol.Symbol{
 			{
 				Name: "ox_pt_1",
 				Kind: symbol.KindChannel,
@@ -62,12 +62,12 @@ var _ = Describe("Dashed names keep -> intact", func() {
 		return r
 	}
 	It("resolves routing whether or not -> is spaced", func(ctx SpecContext) {
-		fn := "func calc(val f32) f32 { return val * 2 }\n"
+		fn := "func calc() {val f32} f32 { return val * 2 }\n"
 		opt := arc.WithAllowDashedNames(true)
 		MustSucceed(
 			arc.CompileText(
 				ctx,
-				arc.Text{Raw: fn + "ox_pt_1 -> calc{} -> ox_pt_doubled"},
+				arc.Text{Raw: fn + "ox_pt_1 -> calc() -> ox_pt_doubled"},
 				root(),
 				opt,
 			),
@@ -75,7 +75,7 @@ var _ = Describe("Dashed names keep -> intact", func() {
 		MustSucceed(
 			arc.CompileText(
 				ctx,
-				arc.Text{Raw: fn + "ox_pt_1->calc{}->ox_pt_doubled"},
+				arc.Text{Raw: fn + "ox_pt_1->calc()->ox_pt_doubled"},
 				root(),
 				opt,
 			),
@@ -83,10 +83,10 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	})
 
 	It("resolves channel names containing dashes", func(ctx SpecContext) {
-		fn := "func calc(val f32) f32 { return val * 2 }\n"
+		fn := "func calc() {val f32} f32 { return val * 2 }\n"
 		MustSucceed(arc.CompileText(
 			ctx,
-			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+			arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
 			root(),
 			arc.WithAllowDashedNames(true),
 		))
@@ -95,10 +95,10 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	It(
 		"keeps spaced subtraction working alongside dashed names",
 		func(ctx SpecContext) {
-			fn := "func calc(val f32) f32 { return val - 1.0 }\n"
+			fn := "func calc() {val f32} f32 { return val - 1.0 }\n"
 			MustSucceed(arc.CompileText(
 				ctx,
-				arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+				arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
 				root(),
 				arc.WithAllowDashedNames(true),
 			))
@@ -106,10 +106,10 @@ var _ = Describe("Dashed names keep -> intact", func() {
 	)
 
 	It("keeps subtract-assign working alongside dashed names", func(ctx SpecContext) {
-		fn := "func calc(val f32) f32 {\n\tx f32 := val\n\tx -= 1.0\n\treturn x\n}\n"
+		fn := "func calc() {val f32} f32 {\n\tx f32 := val\n\tx -= 1.0\n\treturn x\n}\n"
 		MustSucceed(arc.CompileText(
 			ctx,
-			arc.Text{Raw: fn + "ox-pt-1 -> calc{} -> ox-pt-doubled"},
+			arc.Text{Raw: fn + "ox-pt-1 -> calc() -> ox-pt-doubled"},
 			root(),
 			arc.WithAllowDashedNames(true),
 		))
@@ -117,7 +117,7 @@ var _ = Describe("Dashed names keep -> intact", func() {
 })
 
 var _ = Describe("Arc", func() {
-	compile := func(ctx SpecContext, code string, channels ...arc.Symbol) arc.Program {
+	compile := func(ctx SpecContext, code string, channels ...symbol.Symbol) arc.Program {
 		GinkgoHelper()
 		t := arc.Text{Raw: code}
 		Expect(t.Raw).ToNot(BeEmpty())
@@ -241,18 +241,18 @@ var _ = Describe("Arc", func() {
 
 	It("Should compile a basic calculated channel", func(ctx SpecContext) {
 		mod := compile(ctx,
-			`func calc(val f32) f32 {
+			`func calc() {val f32} f32 {
     return val * 2
 }
 
-ox_pt_1 -> calc{} -> ox_pt_doubled`,
-			arc.Symbol{
+ox_pt_1 -> calc() -> ox_pt_doubled`,
+			symbol.Symbol{
 				Name: "ox_pt_1",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   1,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "ox_pt_doubled",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -322,7 +322,7 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
         1 -> output
     }
 }`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "output",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
@@ -366,6 +366,26 @@ ox_pt_1 -> calc{} -> ox_pt_doubled`,
 		Expect(stratumKeys(init.Scope.Strata[1])).To(ContainElement(writeNode.Key))
 	})
 
+	It("Should compile a WASM-only call at the head of a flow", func(ctx SpecContext) {
+		mod := compile(ctx, `len(label) -> count`,
+			symbol.Symbol{
+				Name: "label",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   1,
+			},
+			symbol.Symbol{
+				Name: "count",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   2,
+			},
+		)
+		node := findNodeByType(mod.Nodes, "expression_0")
+		Expect(node.Outputs[0].Type).To(Equal(types.I64()))
+		Expect(mod.WASM).ToNot(BeEmpty())
+	})
+
 	It("Should compile a three stage sequence", func(ctx SpecContext) {
 		mod := compile(ctx, `
 start_seq_cmd => main
@@ -379,25 +399,25 @@ sequence main {
         0 -> press_vlv_cmd
     }
 }
-`, arc.Symbol{
+`, symbol.Symbol{
 			Name: "press_vlv_cmd",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.U8()),
 			ID:   1,
 		},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   4,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_pt",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   2,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -435,44 +455,44 @@ sequence main {
 		mod := compile(ctx, `
 		start_seq_cmd => main
 
-		func expr(in f32) bool {
+		func expr() {in f32} bool {
 		    return in > 2
 		}
 
-		func expr2(in f32) bool {
+		func expr2() {in f32} bool {
 		    return in < 0.3
 		}
 
 		sequence main {
 		    stage press {
 		        1 -> press_vlv_cmd
-		        press_pt -> expr{} => next
+		        press_pt -> expr() => next
 		    }
 		    stage vent {
 		        1 -> vent_vlv_cmd
 		        0 -> press_vlv_cmd
-		        press_pt -> expr2{} => press
+		        press_pt -> expr2() => press
 		    }
 		}`,
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   1,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "vent_vlv_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
 				ID:   4,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "press_pt",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.F32()),
 				ID:   2,
 			},
-			arc.Symbol{
+			symbol.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
 				Type: types.Chan(types.U8()),
@@ -509,7 +529,7 @@ sequence main {
 		mod := compile(ctx, `
 			sequence main {
 			    stage initial {
-			        wait{duration=5s} => next
+			        wait(duration=5s) => next
 			    }
 			    stage end {}
 			}`)
@@ -526,7 +546,7 @@ sequence main {
 			// "state::load_i64", not bare "state::load". This mirrors the exact program
 			// used in the C++
 			// NodeTest.StatefulVariablesAreIsolatedBetweenNodeInstances.
-			channels := []arc.Symbol{
+			channels := []symbol.Symbol{
 				{
 					Name: "trigger",
 					Kind: symbol.KindChannel,
@@ -548,13 +568,13 @@ sequence main {
 			}
 
 			mod := compile(ctx, `
-func counter(trigger i64) i64 {
+func counter() {trigger i64} i64 {
     count i64 $= 0
     count = count + 1
     return count
 }
-trigger -> counter{} -> output_a
-trigger -> counter{} -> output_b
+trigger -> counter() -> output_a
+trigger -> counter() -> output_b
 `, channels...)
 
 			Expect(mod.WASM).ToNot(BeEmpty())
@@ -580,33 +600,6 @@ trigger -> counter{} -> output_b
 	)
 
 	It(
-		"Should return a compile error when () is used instead of {} in a flow",
-		func(ctx SpecContext) {
-			root := symbol.NewRoot(nil, stl.NewSymbols())
-			some := symbol.Symbol{
-				Name: "some_ch",
-				Kind: symbol.KindChannel,
-				Type: types.Chan(types.I64()),
-				ID:   1,
-			}
-			root.Parent.AddChild(&some)
-			t := arc.Text{Raw: `
-some_ch -> check()
-
-func check() {
-    a := 1
-}
-`}
-			Expect(arc.CompileText(ctx, t, root)).Error().To(SatisfyAll(
-				MatchError(
-					ContainSubstring("functions in flow statements use {} not ()"),
-				),
-				MatchError(ContainSubstring("did you mean: check{}?")),
-			))
-		},
-	)
-
-	It(
 		"Should return a compile error when '=>' feeds a routing table",
 		func(ctx SpecContext) {
 			root := symbol.NewRoot(nil, stl.NewSymbols())
@@ -625,7 +618,7 @@ func check() {
 			root.Parent.AddChild(&flag)
 			root.Parent.AddChild(&vlvCmd)
 			t := arc.Text{Raw: `
-flag -> select{} => {
+flag -> select() => {
     true: true -> vlv_cmd,
     false: false -> vlv_cmd
 }
@@ -690,7 +683,7 @@ start_cmd => main
 
 sequence main {
     1 -> valve_cmd
-    wait{duration=2s}
+    wait(duration=2s)
     0 -> valve_cmd
 }
 `,
@@ -879,7 +872,7 @@ start_cmd => main
 
 sequence main {
     1 -> valve_cmd
-    wait{duration=2s}
+    wait(duration=2s)
     0 -> valve_cmd
 }
 `,
@@ -1083,7 +1076,7 @@ var _ = DescribeTable(
 	"non-positive timer span rejection",
 	func(ctx SpecContext, source, message string) {
 		root := symbol.NewRoot(nil, stl.NewSymbols())
-		out := arc.Symbol{
+		out := symbol.Symbol{
 			Name: "out",
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.U8()),
@@ -1096,22 +1089,22 @@ var _ = DescribeTable(
 	},
 	Entry(
 		"zero interval period",
-		"import time\n\ntime.interval{period=0ms} -> out",
+		"import time\n\ntime.interval(period=0ms) -> out",
 		"period must be positive, got 0s",
 	),
 	Entry(
 		"negative interval period",
-		"import time\n\ntime.interval{period=-1s} -> out",
+		"import time\n\ntime.interval(period=-1s) -> out",
 		"period must be positive, got",
 	),
 	Entry(
 		"zero interval period via bare alias",
-		`interval{period=0ms} -> out`,
+		`interval(period=0ms) -> out`,
 		"period must be positive, got 0s",
 	),
 	Entry(
 		"zero wait duration",
-		"import time\n\ntime.wait{duration=0ms} -> out",
+		"import time\n\ntime.wait(duration=0ms) -> out",
 		"duration must be positive, got 0s",
 	),
 )

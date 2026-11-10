@@ -12,6 +12,7 @@ package omit
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -35,6 +36,21 @@ func IsSkipped(typ resolution.Type, domainName string) bool {
 	return IsType(typ, domainName) || IsHand(typ, domainName)
 }
 
+// IsAbsent reports whether a struct does not exist in the domain's language: it omits
+// the language, or has no output there and lives outside a version file.
+func IsAbsent(typ resolution.Type, domainName string) bool {
+	if IsType(typ, domainName) {
+		return true
+	}
+	if domain, ok := typ.Domains[domainName]; ok {
+		if expr, ok := domain.Expressions.Find("output"); ok && len(expr.Values) > 0 {
+			return false
+		}
+	}
+	_, _, inVersionFile := paths.VersionFile(typ.FilePath)
+	return !inVersionFile
+}
+
 // IsField reports whether the field carries a field-level @<domainName> omit: it does
 // not exist in that language's generated type.
 func IsField(f resolution.Field, domainName string) bool {
@@ -46,9 +62,9 @@ func IsField(f resolution.Field, domainName string) bool {
 	return ok
 }
 
-// Fields returns a copy of table whose struct types and action payloads drop every
-// field that IsField reports for any of domainNames. A field inherits an omit from the
-// parent field it overrides. table is not modified.
+// Fields returns a copy of table whose struct types, action payloads, and filter lines
+// drop every field that IsField reports for any of domainNames. A field inherits an
+// omit from the parent field it overrides. table is not modified.
 func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 	omitted := func(f resolution.Field) bool {
 		return lo.ContainsBy(domainNames, func(d string) bool { return IsField(f, d) })
@@ -57,8 +73,17 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 		Imports: table.Imports,
 		Types:   make([]resolution.Type, len(table.Types)),
 	}
+	stripActions := func(actions []resolution.Action) []resolution.Action {
+		return lo.Map(actions, func(a resolution.Action, _ int) resolution.Action {
+			a.Fields = lo.Reject(a.Fields, func(f resolution.Field, _ int) bool {
+				return omitted(f)
+			})
+			return a
+		})
+	}
 	for i, typ := range table.Types {
-		if form, ok := typ.Form.(resolution.StructForm); ok {
+		switch form := typ.Form.(type) {
+		case resolution.StructForm:
 			dropped := make(set.Set[string])
 			for _, f := range resolution.UnifiedFields(typ, table) {
 				if omitted(f) {
@@ -68,14 +93,18 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 			form.Fields = lo.Reject(form.Fields, func(f resolution.Field, _ int) bool {
 				return dropped.Contains(f.Name)
 			})
-			actions := make([]resolution.Action, len(form.Actions))
-			for j, a := range form.Actions {
-				a.Fields = lo.Reject(a.Fields, func(f resolution.Field, _ int) bool {
-					return omitted(f)
-				})
-				actions[j] = a
+			form.Actions = stripActions(form.Actions)
+			typ.Form = form
+			if typ.Filter != nil {
+				filter := *typ.Filter
+				filter.Lines = lo.Reject(
+					filter.Lines,
+					func(l resolution.Field, _ int) bool { return dropped.Contains(l.Name) },
+				)
+				typ.Filter = &filter
 			}
-			form.Actions = actions
+		case resolution.UnionForm:
+			form.Actions = stripActions(form.Actions)
 			typ.Form = form
 		}
 		stripped.Types[i] = typ

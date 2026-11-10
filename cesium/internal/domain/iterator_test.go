@@ -10,6 +10,7 @@
 package domain_test
 
 import (
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -17,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
@@ -33,13 +35,10 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(domain.Open(domain.Config{
+				db = MustOpen(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
 				}))
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {
@@ -53,7 +52,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("SeekFirst + SeekLast", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -61,7 +60,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -152,7 +151,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("SeekGE + SeekLE", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -160,7 +159,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -168,7 +167,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -273,12 +272,54 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(i.SeekGE(ctx, 10*telem.SecondTS)).To(BeFalse())
 					Expect(i.SeekLE(ctx, 10*telem.SecondTS)).To(BeFalse())
 				})
+
+				It("Should move between domains while domains are written before them",
+					func(ctx SpecContext) {
+						first := (1000 * telem.SecondTS).SpanRange(telem.Second)
+						second := (2000 * telem.SecondTS).SpanRange(telem.Second)
+						for _, tr := range []telem.TimeRange{first, second} {
+							Expect(testutil.WriteDomain(ctx, db, tr, []byte{1})).
+								To(Succeed())
+						}
+						var finished atomic.Bool
+						written := make(chan error, 1)
+						go func() {
+							var err error
+							for s := 100; s < 1000 && err == nil; s++ {
+								err = testutil.WriteDomain(
+									ctx,
+									db,
+									(telem.TimeStamp(s) * telem.SecondTS).
+										SpanRange(telem.Second),
+									[]byte{1},
+								)
+							}
+							finished.Store(true)
+							written <- err
+						}()
+						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						DeferCleanup(func() {
+							Eventually(written).Should(Receive(BeNil()))
+							Expect(i.Close()).To(Succeed())
+						})
+						for !finished.Load() {
+							Expect(i.SeekGE(ctx, first.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(first))
+							Expect(i.Next()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(second))
+							Expect(i.SeekLE(ctx, second.Start)).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(second))
+							Expect(i.Prev()).To(BeTrue())
+							Expect(i.TimeRange()).To(Equal(first))
+						}
+					},
+				)
 			})
 
 			Describe("Exhaustion", func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -286,7 +327,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(60 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -294,7 +335,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -302,7 +343,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -377,7 +418,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			Describe("Reader", func() {
 				BeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(50 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -385,7 +426,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(60 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -406,8 +447,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						r := MustSucceed(i.OpenReader(ctx))
 						Expect(r.Size()).To(Equal(telem.Byte * 6))
 						b := make([]byte, 6)
-						n, err := r.ReadAt(b, 0)
-						Expect(err).To(Succeed())
+						n := MustSucceed(r.ReadAt(b, 0))
 						Expect(n).To(Equal(6))
 						Expect(b).To(Equal([]byte{1, 2, 3, 4, 5, 6}))
 						Expect(r.Close()).To(Succeed())
@@ -418,13 +458,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						).To(Equal((60 * telem.SecondTS).SpanRange(10 * telem.Second)))
 						r = MustSucceed(i.OpenReader(ctx))
 						b = make([]byte, 3)
-						n, err = r.ReadAt(b, 0)
+						n = MustSucceed(r.ReadAt(b, 0))
 						Expect(r.Size()).To(Equal(telem.Byte * 6))
-						Expect(err).To(Succeed())
 						Expect(n).To(Equal(3))
 						Expect(b).To(Equal([]byte{6, 7, 8}))
-						n, err = r.ReadAt(b, 3)
-						Expect(err).To(Succeed())
+						n = MustSucceed(r.ReadAt(b, 3))
 						Expect(n).To(Equal(3))
 						Expect(b).To(Equal([]byte{9, 10, 11}))
 						Expect(r.Close()).To(Succeed())
@@ -477,7 +515,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					"Should give an iterator that cannot be used when the db is closed",
 					func(ctx SpecContext) {
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(0 * telem.SecondTS).Range(10*telem.SecondTS),

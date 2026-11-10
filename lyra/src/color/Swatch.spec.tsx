@@ -275,6 +275,16 @@ describe("Swatch", () => {
     });
   });
 
+  describe("disabled", () => {
+    it("should not open the picker on a click", () => {
+      const c = render(<Color.Swatch value={RED} onChange={vi.fn()} disabled />, {
+        wrapper: Wrapper,
+      });
+      fireEvent.click(swatchOf(c));
+      expect(c.queryByLabelText("Hex")).toBeNull();
+    });
+  });
+
   describe("drop", () => {
     const renderPair = (target: ReactElement): HTMLElement[] => {
       const c = render(
@@ -301,6 +311,16 @@ describe("Swatch", () => {
     it("should not offer a swatch that cannot change as a drop target", () => {
       const [, target] = renderPair(<Color.Swatch value={`#${BLUE}`} />);
       expect(target.className).not.toContain(CSS.B("haul-drop-region"));
+    });
+
+    it("should not take a drop while disabled", () => {
+      const onChange = vi.fn();
+      const [, target] = renderPair(
+        <Color.Swatch value={`#${BLUE}`} onChange={onChange} disabled />,
+      );
+      expect(target.className).not.toContain(CSS.B("haul-drop-region"));
+      fireEvent.drop(target);
+      expect(onChange).not.toHaveBeenCalled();
     });
 
     it("should call onChange with the dropped color", () => {

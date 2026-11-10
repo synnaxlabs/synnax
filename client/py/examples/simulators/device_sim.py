@@ -15,6 +15,7 @@ import socket
 import sys
 from abc import abstractmethod
 from multiprocessing.process import BaseProcess
+from typing import override
 
 import synnax as sy
 from examples.simulators.simulator import Simulator
@@ -44,7 +45,7 @@ class DeviceSim(Simulator):
     device_name: str
     channel_names: tuple[str, ...] = ()
 
-    def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
+    def __init__(self, *, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(verbose=verbose)
         self.rate = rate
         self.process: BaseProcess | None = None
@@ -57,10 +58,12 @@ class DeviceSim(Simulator):
             return
         raise RuntimeError(f"Port {self.port} is already in use")
 
+    @override
     def start(self) -> None:
         """Start the device server in a subprocess.
 
-        Blocks until the server accepts TCP connections on its port.
+        Blocks until the server accepts TCP connections on its port. On failure, stops
+        the subprocess before raising.
 
         :raises RuntimeError: If the port is already in use, the process dies, or
             the timeout expires.
@@ -72,7 +75,11 @@ class DeviceSim(Simulator):
         self.process.start()
         self._running = True
         self.log(f"Server started with PID: {self.process.pid}")
-        self._wait_for_ready()
+        try:
+            self._wait_for_ready()
+        except BaseException:
+            self.stop()
+            raise
 
     def _wait_for_ready(self) -> None:
         """Poll until the server is accepting connections on its port."""
@@ -95,6 +102,7 @@ class DeviceSim(Simulator):
             f"Server not ready on {self.host}:{self.port} after {self.startup_timeout}"
         )
 
+    @override
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         """Terminate the server subprocess and wait until its port stops accepting
         connections.

@@ -22,50 +22,6 @@ var _ = Describe("Integer", func() {
 		s = set.Integer[int]{}
 	})
 
-	Describe("NewInteger", func() {
-		It("Should create a set from sorted contiguous input", func() {
-			s := set.NewInteger([]int{1, 2, 3, 4, 5})
-			Expect(s.Size()).To(Equal(5))
-			Expect(*s).To(HaveLen(1))
-		})
-
-		It("Should create a set from sorted non-contiguous input", func() {
-			s := set.NewInteger([]int{1, 2, 5, 6})
-			Expect(s.Size()).To(Equal(4))
-			Expect(*s).To(HaveLen(2))
-		})
-
-		It("Should create a set from unsorted input", func() {
-			s := set.NewInteger([]int{5, 1, 3, 2, 4})
-			Expect(s.Size()).To(Equal(5))
-			for i := 1; i <= 5; i++ {
-				Expect(s.Contains(i)).To(BeTrue())
-			}
-		})
-
-		It("Should handle empty input", func() {
-			s := set.NewInteger([]int{})
-			Expect(s.Size()).To(Equal(0))
-			Expect(*s).To(BeEmpty())
-		})
-
-		It("Should handle a single element", func() {
-			s := set.NewInteger([]int{42})
-			Expect(s.Size()).To(Equal(1))
-			Expect(s.Contains(42)).To(BeTrue())
-		})
-
-		It("Should deduplicate input", func() {
-			s := set.NewInteger([]int{1, 1, 2, 2, 3})
-			Expect(s.Size()).To(Equal(3))
-		})
-
-		It("Should handle nil input", func() {
-			s := set.NewInteger[int](nil)
-			Expect(s.Size()).To(Equal(0))
-		})
-	})
-
 	Describe("Insert", func() {
 		It("Should insert a single element into an empty set", func() {
 			s.Insert(42)
@@ -473,68 +429,6 @@ var _ = Describe("Integer", func() {
 		})
 	})
 
-	Describe("NumGreaterThan", func() {
-		It("Should return 0 when value exceeds all elements", func() {
-			s.Insert(1, 2, 3, 4, 5)
-			Expect(s.NumGreaterThan(5)).To(Equal(0))
-			Expect(s.NumGreaterThan(100)).To(Equal(0))
-		})
-
-		It("Should return the full size when value is less than all elements", func() {
-			s.Insert(5, 6, 7, 8, 9)
-			Expect(s.NumGreaterThan(4)).To(Equal(5))
-			Expect(s.NumGreaterThan(0)).To(Equal(5))
-		})
-
-		It("Should count correctly for a value in the middle of a range", func() {
-			s.Insert(0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-			Expect(s.NumGreaterThan(5)).To(Equal(4))
-		})
-
-		It("Should count correctly for a value at the start of a range", func() {
-			s.Insert(0, 1, 2, 3, 4)
-			Expect(s.NumGreaterThan(0)).To(Equal(4))
-		})
-
-		It("Should count correctly for the last element of a range", func() {
-			s.Insert(0, 1, 2, 3, 4)
-			Expect(s.NumGreaterThan(4)).To(Equal(0))
-		})
-
-		It("Should count correctly for a value in a gap between ranges", func() {
-			s.Insert(0, 1, 2)
-			s.Insert(8, 9, 10, 11)
-			Expect(s.NumGreaterThan(5)).To(Equal(4))
-		})
-
-		It("Should return 0 for an empty set", func() {
-			Expect(s.NumGreaterThan(0)).To(Equal(0))
-			Expect(s.NumGreaterThan(-100)).To(Equal(0))
-		})
-
-		It("Should handle negative numbers", func() {
-			s.Insert(-5, -4, -3, -2, -1)
-			Expect(s.NumGreaterThan(-3)).To(Equal(2))
-			Expect(s.NumGreaterThan(-6)).To(Equal(5))
-			Expect(s.NumGreaterThan(-1)).To(Equal(0))
-		})
-
-		It("Should count across multiple ranges", func() {
-			s.Insert(0, 1, 2)
-			s.Insert(5, 6, 7)
-			s.Insert(10, 11, 12)
-			Expect(s.NumGreaterThan(1)).To(Equal(7))
-			Expect(s.NumGreaterThan(6)).To(Equal(4))
-		})
-
-		It("Should handle a single-element set", func() {
-			s.Insert(5)
-			Expect(s.NumGreaterThan(5)).To(Equal(0))
-			Expect(s.NumGreaterThan(4)).To(Equal(1))
-			Expect(s.NumGreaterThan(6)).To(Equal(0))
-		})
-	})
-
 	Describe("Size", func() {
 		It("Should return 0 for an empty set", func() {
 			Expect(s.Size()).To(Equal(0))
@@ -586,52 +480,6 @@ var _ = Describe("Integer", func() {
 			Expect(s.Size()).To(Equal(3))
 			s.Remove(10, 20)
 			Expect(s.Size()).To(Equal(3))
-		})
-	})
-
-	Describe("Copy", func() {
-		It("Should create an independent copy with a single interval", func() {
-			s.Insert(1, 2, 3, 4, 5)
-			copied := s.Copy()
-			Expect(copied.Size()).To(Equal(5))
-			s.Remove(3)
-			Expect(copied.Size()).To(Equal(5))
-			Expect(copied.Contains(3)).To(BeTrue())
-		})
-
-		It("Should create an independent copy with multiple intervals", func() {
-			s.Insert(1, 2, 3)
-			s.Insert(10, 11, 12)
-			copied := s.Copy()
-			Expect(copied.Size()).To(Equal(6))
-			Expect(copied).To(HaveLen(2))
-			s.Remove(2)
-			Expect(copied.Size()).To(Equal(6))
-		})
-
-		It("Should handle copying an empty set", func() {
-			copied := s.Copy()
-			Expect(copied.Size()).To(Equal(0))
-		})
-
-		It("Should not be affected when the original is modified", func() {
-			s.Insert(1, 2, 3)
-			copied := s.Copy()
-			s.Insert(4, 5, 6)
-			s.Remove(1)
-			Expect(copied.Size()).To(Equal(3))
-			Expect(copied.Contains(1)).To(BeTrue())
-			Expect(copied.Contains(4)).To(BeFalse())
-		})
-
-		It("Should not affect the original when the copy is modified", func() {
-			s.Insert(1, 2, 3)
-			copied := s.Copy()
-			copied.Insert(4, 5, 6)
-			copied.Remove(1)
-			Expect(s.Size()).To(Equal(3))
-			Expect(s.Contains(1)).To(BeTrue())
-			Expect(s.Contains(4)).To(BeFalse())
 		})
 	})
 })

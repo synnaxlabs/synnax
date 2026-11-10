@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 from collections.abc import Iterator
 from pathlib import Path
+from typing import ClassVar
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
@@ -24,7 +25,7 @@ from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReade
 class CSVReader(ExtensionMatcher):
     """A RowReader implementation for CSV files."""
 
-    _extensions = ("csv",)
+    _extensions: ClassVar[tuple[str, ...]] = ("csv",)
 
     channel_keys: list[str] | None
     chunk_size: int
@@ -45,6 +46,7 @@ class CSVReader(ExtensionMatcher):
     def __init__(
         self,
         path: Path,
+        *,
         keys: list[str] | None = None,
         chunk_size: int | None = None,
     ):
@@ -122,7 +124,7 @@ class CSVReader(ExtensionMatcher):
         return convert_df(next(self._reader))
 
     def __iter__(self) -> Iterator[pd.DataFrame]:
-        return CSVReaderIterator(self._reader)
+        return _CSVReaderIterator(self._reader)
 
     @classmethod
     def type(cls) -> ReaderType:
@@ -133,7 +135,7 @@ class CSVReader(ExtensionMatcher):
 
     def nsamples(self) -> int:
         if not self._row_count:
-            self._row_count = estimate_row_count(self._path)
+            self._row_count = _estimate_row_count(self._path)
         return self._row_count * len(self.channels())
 
     @property
@@ -149,7 +151,7 @@ class CSVReader(ExtensionMatcher):
         self._cached_reader = None
 
 
-def estimate_row_count(path: Path) -> int:
+def _estimate_row_count(path: Path) -> int:
     """Estimates the number of rows in a CSV file."""
     with open(path) as f:
         f.readline()
@@ -163,7 +165,7 @@ def estimate_row_count(path: Path) -> int:
 class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
 
-    _extensions = ("csv",)
+    _extensions: ClassVar[tuple[str, ...]] = ("csv",)
 
     _path: Path
     _header: bool
@@ -194,13 +196,13 @@ class CSVWriter(ExtensionMatcher):
         pass
 
 
-class CSVReaderIterator:
+class _CSVReaderIterator:
     base: Iterator[pd.DataFrame]
 
     def __init__(self, base: Iterator[pd.DataFrame]):
         self.base = base
 
-    def __iter__(self) -> CSVReaderIterator:
+    def __iter__(self) -> _CSVReaderIterator:
         return self
 
     def __next__(self) -> pd.DataFrame:

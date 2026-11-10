@@ -7,15 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package writer exposes the Synnax cluster for framed writes as a monolithic data
-// space. It provides a Writer interface that automatically handles the distribution of
-// writes across the cluster. It also provides a StreamWriter interface that enables the
-// user to optimize the concurrency of writes by passing requests and receiving
-// responses through a channel (implementing the confluence.Segment interface).
-//
-// As Synnax is in its early stages, the writer package still has a number of issues,
-// the most relevant of which is a lack of proper distributed transaction support. This
-// means that commits that succeed on one node may fail on another. Caveat emptor.
+// Package writer writes frames to channels. It provides a Writer with a method-based
+// interface, and a StreamWriter that passes requests and responses through streams
+// (implementing the confluence.Segment interface).
 package writer
 
 import (
@@ -26,12 +20,8 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -89,11 +79,11 @@ type Config struct {
 	//
 	// [OPTIONAL]
 	Authorities []control.Authority
-	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys, the
-	// writer will fail to open.
+	// Start marks the start of the writer's control region. When Start is zero, the
+	// region starts at the time the writer opens. If telemetry occupying a non-zero
+	// Start already exists for the provided keys, the writer fails to open.
 	//
-	// [OPTIONAL] - Defaults to 0, or telem.Now() if AutoIndex is true.
+	// [OPTIONAL]
 	Start telem.TimeStamp
 	// AutoIndexPersistInterval is the interval at which commits to the index will be
 	// persisted. To persist every commit to guarantee minimal loss of data, set
@@ -106,12 +96,10 @@ type Config struct {
 	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode Mode
-	// AutoIndex causes each leaseholder to generate timestamps for any index channel
-	// local to it (and in the writer's Keys) whose series is omitted from a Write
-	// frame. The first sample in each Write call is stamped with telem.Now() on the
-	// leaseholder that owns the index; remaining samples in the same call are spaced
-	// 1ns apart. A per-leaseholder high-water mark guarantees strict monotonicity
-	// across Write calls for indexes owned by that leaseholder.
+	// AutoIndex causes the writer to generate timestamps for any index channel in its
+	// Keys whose series is omitted from a Write frame. The first sample in each Write
+	// call is stamped with telem.Now(); remaining samples in the same call are spaced
+	// 1ns apart. A high-water mark guarantees strict monotonicity across Write calls.
 	//
 	// When AutoIndex is true and the caller's Keys reference data channels whose index
 	// channels are not also in Keys, those index channels are implicitly added to the
@@ -120,29 +108,6 @@ type Config struct {
 	// [OPTIONAL] - Defaults to false.
 	AutoIndex *bool
 }
-
-func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
-	c.Authorities = make([]control.Authority, len(authorities))
-	c.Keys = make([]channel.Key, len(authorities))
-	for i, authority := range authorities {
-		c.Authorities[i] = authority.authority
-		c.Keys[i] = authority.key
-	}
-	return c
-}
-
-// keyAuthority is a temporary struct that lets us shard channel keys across multiple
-// nodes in the cluster. Most importantly, it implements proxy.Entry so that we can
-// correctly split by host.
-type keyAuthority struct {
-	key       channel.Key
-	authority control.Authority
-}
-
-var _ proxy.Entry = keyAuthority{}
-
-// Lease implements proxy.Entry.
-func (k keyAuthority) Lease() node.Key { return k.key.Lease() }
 
 var _ config.Config[Config] = Config{}
 
@@ -162,18 +127,25 @@ func DefaultConfig() Config {
 	}
 }
 
-// keyAuthorities returns a slice of keyAuthority structs that can be used to shard
-// channel keys across multiple nodes in the cluster. This method should only be called
-// after the config has been validated.
-func (c Config) keyAuthorities() []keyAuthority {
-	authorities := make([]keyAuthority, len(c.Keys))
+// splitFree returns a copy of c holding only the channels that have storage, each with
+// its own authority, and the keys of the free channels. It must only be called after c
+// has been validated.
+func (c Config) splitFree() (stored Config, free channel.Keys) {
+	stored = c
+	stored.Keys = make(channel.Keys, 0, len(c.Keys))
+	stored.Authorities = make([]control.Authority, 0, len(c.Keys))
 	for i, key := range c.Keys {
-		authorities[i] = keyAuthority{
-			key:       key,
-			authority: c.Authorities[i%len(c.Authorities)],
+		if key.Free() {
+			free = append(free, key)
+			continue
 		}
+		stored.Keys = append(stored.Keys, key)
+		stored.Authorities = append(
+			stored.Authorities,
+			c.Authorities[i%len(c.Authorities)],
+		)
 	}
-	return authorities
+	return stored, free
 }
 
 func (c Config) toStorage() ts.WriterConfig {
@@ -239,21 +211,11 @@ func (c Config) Override(other Config) Config {
 
 // ServiceConfig is the configuration for opening a Writer Service.
 type ServiceConfig struct {
-	// Transport is the network transport for sending and receiving writes from other
-	// nodes in the cluster.
-	//
-	// [REQUIRED]
-	Transport Transport
 	// FreeWrites is the write pipeline where samples from free channels should be
 	// written.
 	//
 	// [REQUIRED]
 	FreeWrites confluence.Inlet[relay.Response]
-	// HostResolver is used to resolve the host address for nodes in the cluster in
-	// order to route writes.
-	//
-	// [REQUIRED]
-	HostResolver cluster.HostResolver
 	// TS is the local time series store to write to.
 	//
 	// [REQUIRED]
@@ -269,18 +231,14 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate implements config.Config.
 func (cfg ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.writer")
-	v.NotNil("transport", cfg.Transport)
 	v.NotNil("free_writes", cfg.FreeWrites)
-	v.NotNil("host_resolver", cfg.HostResolver)
 	v.NotNil("ts", cfg.TS)
 	return v.Error()
 }
 
 // Override implements config.Config.
 func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	cfg.Transport = override.Nil(cfg.Transport, other.Transport)
 	cfg.FreeWrites = override.Nil(cfg.FreeWrites, other.FreeWrites)
-	cfg.HostResolver = override.Nil(cfg.HostResolver, other.HostResolver)
 	cfg.TS = override.Nil(cfg.TS, other.TS)
 	cfg.Instrumentation = override.Zero(cfg.Instrumentation, other.Instrumentation)
 	return cfg
@@ -292,16 +250,16 @@ func (cfg ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 type FreeIndexResolver interface {
 	// ResolveFreeIndexes returns the index channel key for each free channel in keys
 	// that has an index. Free frames are stamped with per-index alignments derived from
-	// this map. Any error is propagated to the caller opening the writer.
+	// this map, and a free channel it leaves out counts its own alignments. Any error
+	// is propagated to the caller opening the writer.
 	ResolveFreeIndexes(
 		context.Context, channel.Keys,
 	) (map[channel.Key]channel.Key, error)
 }
 
 // Service is the central service for the writer package, allowing the caller to open
-// Writers and StreamWriters for writing data to the cluster.
+// Writers and StreamWriters for writing data to channels.
 type Service struct {
-	server *server
 	// freeWriteAlignments tracks per-index alignment counters shared across all writers
 	// opened on this service, so concurrent free writers stamp distinct alignment
 	// domains.
@@ -317,16 +275,14 @@ type Service struct {
 // service layer registers its channel service here at startup.
 func (s *Service) SetFreeIndexResolver(r FreeIndexResolver) { s.resolver.Store(&r) }
 
-// NewService opens the writer service using the given configuration. Also binds a
-// server to the given transport for receiving writes from other nodes in the cluster.
+// NewService opens the writer service using the given configuration.
 func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		cfg:    cfg,
-		server: startServer(cfg),
+		cfg: cfg,
 		freeWriteAlignments: &freeWriteAlignments{
 			counters: make(map[channel.Key]*cesium.AlignmentCounter),
 		},
@@ -334,12 +290,11 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 const (
-	synchronizerAddr      = address.Address("synchronizer")
-	peerSenderAddr        = address.Address("peer_sender")
-	gatewayWriterAddr     = address.Address("gateway_writer")
-	freeWriterAddr        = address.Address("free_writer")
-	peerGatewaySwitchAddr = address.Address("peer_gateway_free_switch")
-	sequencerAddr         = address.Address("sequencer")
+	synchronizerAddr  = address.Address("synchronizer")
+	storageWriterAddr = address.Address("storage_writer")
+	freeWriterAddr    = address.Address("free_writer")
+	switchAddr        = address.Address("switch")
+	sequencerAddr     = address.Address("sequencer")
 )
 
 // Open a new writer using the given configuration. The provided context is used to
@@ -386,16 +341,12 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}
 
 	var (
-		hostKey = s.cfg.HostResolver.HostKey()
-		batch   = proxy.BatchFactory[keyAuthority](
-			hostKey,
-		).Batch(cfg.keyAuthorities())
+		stored, freeKeys  = cfg.splitFree()
+		hasStorage        = len(stored.Keys) > 0
+		hasFree           = len(freeKeys) > 0
 		pipe              = plumber.New()
 		receiverAddresses []address.Address
 		routeSequencerTo  address.Address
-		hasPeer           = len(batch.Peers) > 0
-		hasGateway        = len(batch.Gateway) > 0
-		hasFree           = len(batch.Free) > 0
 	)
 
 	// Resolve free channel indexes and alignments before any pipeline resources are
@@ -411,13 +362,10 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 				"cannot open a writer on free channels: no free index resolver configured",
 			)
 		}
-		freeKeys := lo.Map(batch.Free, func(ka keyAuthority, _ int) channel.Key {
-			return ka.key
-		})
 		if freeIndexes, err = (*rp).ResolveFreeIndexes(ctx, freeKeys); err != nil {
 			return nil, err
 		}
-		freeAlignments, err = s.freeWriteAlignments.reserve(freeIndexes)
+		freeAlignments, err = s.freeWriteAlignments.reserve(freeKeys, freeIndexes)
 		if err != nil {
 			return nil, err
 		}
@@ -425,50 +373,26 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 
 	pipe.SetSegment(sequencerAddr, &sequencer{})
 	pipe.SetSegment(synchronizerAddr, newSynchronizer(
-		len(batch.Peers)+lo.Ternary(hasGateway, 1, 0)+lo.Ternary(hasFree, 1, 0),
+		lo.Ternary(hasStorage, 1, 0)+lo.Ternary(hasFree, 1, 0),
 		s.cfg.Instrumentation,
 	))
 
-	switchTargets := make([]address.Address, 0, 3)
-	var peerSenders map[address.Address]freighter.StreamSenderCloser[Request]
-	if hasPeer {
-		routeSequencerTo = peerSenderAddr
-		switchTargets = append(switchTargets, peerSenderAddr)
-		sender, receivers, _receiverAddresses, senders, err := s.openManyPeers(
-			ctx,
-			cfg,
-			batch.Peers,
-		)
+	if hasStorage {
+		routeSequencerTo = storageWriterAddr
+		w, err := s.newStorage(ctx, stored)
 		if err != nil {
 			return nil, err
 		}
-		peerSenders = senders
-		pipe.SetSink(peerSenderAddr, sender)
-		receiverAddresses = _receiverAddresses
-		for i, receiver := range receivers {
-			pipe.SetSource(_receiverAddresses[i], receiver)
-		}
-	}
-
-	if hasGateway {
-		routeSequencerTo = gatewayWriterAddr
-		switchTargets = append(switchTargets, gatewayWriterAddr)
-		w, err := s.newGateway(ctx, cfg.setKeyAuthorities(batch.Gateway))
-		if err != nil {
-			// The peer streams already opened remote writers that hold control over
-			// their channels; close them so that control is released.
-			return nil, s.closePeerClients(peerSenders, err)
-		}
-		pipe.SetSegment(gatewayWriterAddr, w)
-		receiverAddresses = append(receiverAddresses, gatewayWriterAddr)
+		pipe.SetSegment(storageWriterAddr, w)
+		receiverAddresses = append(receiverAddresses, storageWriterAddr)
 	}
 
 	if hasFree {
 		routeSequencerTo = freeWriterAddr
-		switchTargets = append(switchTargets, freeWriterAddr)
 		w := s.newFree(
 			cfg.Mode,
 			*cfg.Sync,
+			freeKeys,
 			freeIndexes,
 			freeAlignments,
 			cfg.ControlSubject.Group,
@@ -477,17 +401,17 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		receiverAddresses = append(receiverAddresses, freeWriterAddr)
 	}
 
-	if len(switchTargets) > 1 {
-		routeSequencerTo = peerGatewaySwitchAddr
+	if hasStorage && hasFree {
+		routeSequencerTo = switchAddr
 		pipe.SetSegment(
-			peerGatewaySwitchAddr,
-			newPeerGatewayFreeSwitch(hostKey, hasPeer, hasGateway, hasFree),
+			switchAddr,
+			&confluence.BatchSwitch[Request, Request]{Switch: switchFree},
 		)
 		plumber.MultiRouter[Request]{
-			SourceTargets: []address.Address{peerGatewaySwitchAddr},
-			SinkTargets:   switchTargets,
+			SourceTargets: []address.Address{switchAddr},
+			SinkTargets:   receiverAddresses,
 			Stitch:        plumber.StitchWeave,
-			Capacity:      len(switchTargets) * 5,
+			Capacity:      len(receiverAddresses) * 5,
 		}.MustRoute(pipe)
 	}
 

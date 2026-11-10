@@ -11,11 +11,7 @@
 
 package v0
 
-import (
-	"uuid"
-
-	"github.com/synnaxlabs/x/validate"
-)
+import "uuid"
 
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = uuid.UUID
@@ -34,12 +30,4 @@ type User struct {
 	// RootUser is true if this is a root/admin user with full system access. Root users
 	// cannot be deleted.
 	RootUser bool `json:"root_user" msgpack:"root_user"`
-}
-
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (u User) Validate() error {
-	v := validate.New("User")
-	v.NotEmptyString("username", u.Username)
-	return v.Error()
 }

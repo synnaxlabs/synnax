@@ -47,7 +47,7 @@ cc_test(
     srcs = ["vendor_test.cpp"],
     deps = [
         ":vendor",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -89,7 +89,7 @@ cc_library(
     visibility = ["//driver/can:__subpackages__"],
     deps = [
         ":can",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest",
     ],
     alwayslink = True,
@@ -117,7 +117,7 @@ cc_test(
     deps = [
         ":can",
         "//driver/can/loopback",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -135,9 +135,9 @@ cc_test(
         "//driver/bus/testutil",
         "//driver/can/loopback",
         "//driver/can/slcan",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -154,7 +154,7 @@ cc_test(
         "//driver/bus/testutil",
         "//driver/bus/testutil:core",
         "//driver/can/loopback",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

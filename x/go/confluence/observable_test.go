@@ -19,7 +19,6 @@ import (
 	. "github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Observable", func() {
@@ -97,10 +96,7 @@ var _ = Describe("Observable", func() {
 		It(
 			"Should not deadlock when publisher shuts down with a full outlet buffer",
 			func() {
-				obsCtx, obsCancel := signal.Isolated()
-				defer obsCancel()
-				obs := observe.NewAsync[int](obsCtx, signal.WithRetryOnPanic(100))
-
+				obs := observe.New[int]()
 				outlet := NewStream[int](1)
 				pub := &ObservableTransformPublisher[int, int]{
 					Observable: obs,
@@ -117,8 +113,7 @@ var _ = Describe("Observable", func() {
 				Eventually(outlet.Outlet()).Should(Receive(Equal(1)))
 
 				obs.Notify(context.Background(), 2)
-				time.Sleep(50 * time.Millisecond)
-				obs.Notify(context.Background(), 3)
+				go obs.Notify(context.Background(), 3)
 
 				pubCancel()
 				Eventually(
@@ -127,37 +122,6 @@ var _ = Describe("Observable", func() {
 				).Should(MatchError(context.Canceled))
 			},
 		)
-
-		It("Should not leak goroutines when used with an async observer", func() {
-			sCtx, cancel := signal.Isolated()
-			defer cancel()
-			obs := observe.NewAsync[int](sCtx, signal.WithRetryOnPanic(100))
-
-			outlet := NewStream[int](10)
-			pub := &ObservableTransformPublisher[int, int]{
-				Observable: obs,
-				Transform: func(_ context.Context, v int) (int, bool, error) {
-					return v, true, nil
-				},
-			}
-			pub.OutTo(outlet)
-
-			pubCtx, pubCancel := signal.Isolated()
-			// Mid-test baseline: assert pub.Flow's goroutines are cleaned up by
-			// pubCancel below, ignoring obs's goroutines under sCtx.
-			ShouldNotLeakGoroutines()
-			pub.Flow(pubCtx, CloseOutputInletsOnExit())
-
-			obs.Notify(context.Background(), 42)
-			Eventually(outlet.Outlet()).Should(Receive(Equal(42)))
-
-			pubCancel()
-			Expect(pubCtx.Wait()).To(MatchError(context.Canceled))
-			Eventually(outlet.Outlet()).Should(BeClosed())
-
-			Expect(sCtx.Wait()).To(Succeed())
-			cancel()
-		})
 	})
 
 	Describe("ObservableSubscriber", func() {
@@ -200,68 +164,6 @@ var _ = Describe("Observable", func() {
 
 			inlet.Inlet() <- 1
 			Eventually(count.Load).Should(Equal(int64(2)))
-
-			cancel()
-			Expect(ctx.Wait()).To(MatchError(context.Canceled))
-		})
-	})
-
-	Describe("GeneratorTransformObservable", func() {
-		It("Should generate unique values for each observer", func() {
-			var callCount atomic.Int64
-			gto := NewGeneratorTransformObservable[int, int](
-				func(_ context.Context, v int) (func() int, bool, error) {
-					return func() int {
-						callCount.Add(1)
-						return v * 10
-					}, true, nil
-				},
-			)
-			inlet := NewStream[int](10)
-			gto.InFrom(inlet)
-
-			var received1, received2 atomic.Int64
-			gto.OnChange(func(_ context.Context, v int) {
-				received1.Store(int64(v))
-			})
-			gto.OnChange(func(_ context.Context, v int) {
-				received2.Store(int64(v))
-			})
-
-			ctx, cancel := signal.Isolated()
-			defer cancel()
-			gto.Flow(ctx)
-
-			inlet.Inlet() <- 3
-			Eventually(received1.Load).Should(Equal(int64(30)))
-			Eventually(received2.Load).Should(Equal(int64(30)))
-			Expect(callCount.Load()).To(Equal(int64(2)))
-
-			cancel()
-			Expect(ctx.Wait()).To(MatchError(context.Canceled))
-		})
-
-		It("Should not notify when generator returns false", func() {
-			gto := NewGeneratorTransformObservable[int, int](
-				func(_ context.Context, v int) (func() int, bool, error) {
-					return func() int { return v }, v > 0, nil
-				},
-			)
-			inlet := NewStream[int](10)
-			gto.InFrom(inlet)
-
-			var received atomic.Int64
-			gto.OnChange(func(_ context.Context, v int) {
-				received.Store(int64(v))
-			})
-
-			ctx, cancel := signal.Isolated()
-			defer cancel()
-			gto.Flow(ctx)
-
-			inlet.Inlet() <- -1
-			inlet.Inlet() <- 5
-			Eventually(received.Load).Should(Equal(int64(5)))
 
 			cancel()
 			Expect(ctx.Wait()).To(MatchError(context.Canceled))

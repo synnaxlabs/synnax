@@ -34,32 +34,13 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/compare"
-	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/lsp/doc"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 )
-
-// Argument is one call argument: a value expression bound to a param by Name,
-// or by position (Index) when Name is empty.
-type Argument struct {
-	// Index is the argument's position in the call's argument list.
-	Index int
-	// Name is the param this argument binds to, or empty if positional.
-	Name string
-	// Expr is the argument's value expression.
-	Expr parser.IExpressionContext
-	// AST is the argument's parser node, for diagnostic source locations.
-	AST antlr.ParserRuleContext
-}
-
-// ArgumentsHook runs optional symbol-specific argument validation, reporting any
-// findings to the analyzer's diagnostics sink.
-type ArgumentsHook func(diags *diagnostics.Diagnostics, args []Argument)
 
 // TriggerBinding declares what an upstream wire does to a symbol in flow context.
 type TriggerBinding struct {
@@ -126,7 +107,8 @@ const (
 	KindSequence
 	// KindStage represents a stage within a sequence.
 	KindStage
-	// KindConstant represents a pure literal value in a flow statement.
+	// KindConstant represents a pure literal value in a flow statement, or a module
+	// member whose DefaultValue is a fixed value, such as math.nan.
 	KindConstant
 	// KindLoop represents a loop scope (for break/continue validation).
 	KindLoop
@@ -141,7 +123,7 @@ const (
 	KindModule
 	// KindModuleAlias represents an import alias bound in a file's root. The
 	// Target field points at the underlying module symbol; member lookups on
-	// the alias indirect through Target.
+	// the alias indirect through Target. Target is nil when the import failed.
 	KindModuleAlias
 	// KindAmbient represents the prelude scope that sits as Parent of the
 	// program root. It holds STL bare globals (deprecated aliases,
@@ -172,6 +154,16 @@ func (s *Symbol) IsReactive() bool {
 // IsLiteral reports whether s is a value variable holding a literal, not a channel.
 func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
+}
+
+// IsComputed reports whether s is a flow-level value variable whose initializer
+// is neither a literal nor a channel, so its value exists only at runtime.
+func (s *Symbol) IsComputed() bool {
+	if !s.IsLiteral() || s.SourceID != nil || s.DefaultValue != nil {
+		return false
+	}
+	_, err := s.ClosestAncestorOfKind(KindFunction)
+	return errors.Is(err, query.ErrNotFound)
 }
 
 // Symbol is a named entity in an Arc program and, when it has Children, a
@@ -212,6 +204,11 @@ type Symbol struct {
 	// reference them, but remain visible to the compiler's resolve.Resolver
 	// which passes IncludeInternal to bypass the filter.
 	Internal bool
+	// Exported marks a declaration of a user-defined module that importers can see.
+	Exported bool
+	// UserDefined marks a module built from Arc source. Importers see only its
+	// Exported members.
+	UserDefined bool
 	// Reassigned marks a flow-level value variable written after declaration
 	// (`x = v` or `-> x`), which lowers to a variable node instead of a constant.
 	Reassigned bool
@@ -277,6 +274,31 @@ type Symbol struct {
 	// in the symbol tree (e.g., global channels). Consulted by Resolve
 	// when a name is not found among Children. Set on the root only via NewRoot.
 	globalResolver Resolver
+	// moduleResolver supplies the modules the ambient prelude does not hold.
+	moduleResolver Resolver
+}
+
+// RootOption configures a root built by NewRoot.
+type RootOption func(*Symbol)
+
+// WithModules resolves import paths missing from the ambient prelude through r.
+func WithModules(r Resolver) RootOption {
+	return func(root *Symbol) { root.moduleResolver = r }
+}
+
+// ErrModuleNotFound is returned by a module resolver when no module has the path.
+var ErrModuleNotFound = errors.New("module not found")
+
+// ModuleResolver returns the resolver installed by WithModules, nil if none.
+func (s *Symbol) ModuleResolver() Resolver { return s.Root().moduleResolver }
+
+// ResolveModule returns the module at path, or ErrModuleNotFound.
+func (s *Symbol) ResolveModule(ctx context.Context, path string) (*Symbol, error) {
+	r := s.Root().moduleResolver
+	if r == nil {
+		return nil, errors.Wrapf(ErrModuleNotFound, "%q", path)
+	}
+	return r.Resolve(ctx, path)
 }
 
 // NewRoot creates a user-program root attached to an empty ambient
@@ -291,7 +313,11 @@ type Symbol struct {
 // matters when a caller reuses the same slice across multiple roots:
 // without the copy, the second NewRoot call would re-parent symbols
 // away from the first root's ambient.
-func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
+func NewRoot(
+	dynamicResolver Resolver,
+	ambientGlobals []*Symbol,
+	opts ...RootOption,
+) *Symbol {
 	ambient := &Symbol{Kind: KindAmbient}
 	root := &Symbol{
 		Kind:           KindBlock,
@@ -302,6 +328,9 @@ func NewRoot(dynamicResolver Resolver, ambientGlobals []*Symbol) *Symbol {
 	for _, sym := range ambientGlobals {
 		clone := *sym
 		ambient.AddChild(&clone)
+	}
+	for _, opt := range opts {
+		opt(root)
 	}
 	return root
 }
@@ -372,6 +401,9 @@ const maxProgramLocalChannelKey = 1 << 20
 func (s *Symbol) Add(ctx context.Context, sym Symbol) (*Symbol, error) {
 	if sym.Name != "" && !sym.Internal {
 		existing, err := s.Resolve(ctx, sym.Name)
+		if err != nil && !isUndefined(err) {
+			return nil, err
+		}
 		if err == nil && existing.AST != nil {
 			tok := existing.AST.GetStart()
 			return nil, errors.Newf(
@@ -525,8 +557,8 @@ func (s *Symbol) Root() *Symbol {
 // an alias-prefixed form because the symbol tree itself has already
 // resolved aliases via Target indirection.
 func (s *Symbol) QualifiedName() string {
-	if s.Parent != nil && s.Parent.Kind == KindModule {
-		return s.Parent.Name + "." + s.Name
+	if p := s.Parent; p != nil && (p.Kind == KindModule || p.UserDefined) {
+		return p.Name + "." + s.Name
 	}
 	return s.Name
 }
@@ -564,13 +596,12 @@ func IncludeInternal(o *resolveOpts) { o.includeInternal = true }
 func WithoutUsageTracking(o *resolveOpts) { o.suppressUsage = true }
 
 // Resolve looks up a single name using lexical scoping rules: children →
-// global resolver → parent. The walk stops at a KindModule scope — inside
-// a module, lookup cannot escape outward. That seal is what gives module
-// members their member-only semantics. By default the walk also skips
+// global resolver → parent. A KindModule or KindModuleAlias searches only its own
+// children, so `math.foo` cannot find an unrelated `foo`. By default the walk skips
 // KindModule entries encountered along the way: bare module names are
 // not accessible from user code; modules are reached only through
 // KindModuleAlias children installed by `import`. Pass IncludeInternal
-// to disable both filters.
+// to disable the visibility filters.
 //
 // Resolve does not split dotted names. Member access (`math.abs`) is the
 // caller's job: resolve the head against the current scope, follow
@@ -588,6 +619,20 @@ func (s *Symbol) Resolve(
 		o(&opts)
 	}
 	return s.resolve(ctx, name, opts, s)
+}
+
+// ResolveMember resolves head, then tail as a member of head when tail is not empty.
+// options apply to head only, so a module member stays subject to export.
+func (s *Symbol) ResolveMember(
+	ctx context.Context,
+	head, tail string,
+	options ...ResolveOption,
+) (*Symbol, error) {
+	sym, err := s.Resolve(ctx, head, options...)
+	if err != nil || tail == "" {
+		return sym, err
+	}
+	return sym.Resolve(ctx, tail)
 }
 
 // resolve does the actual lexical walk. origin is the scope the caller
@@ -614,11 +659,42 @@ func (s *Symbol) resolve(
 	opts resolveOpts,
 	origin *Symbol,
 ) (*Symbol, error) {
-	if s.Kind == KindModuleAlias && s.Target != nil {
-		return s.Target.resolve(ctx, name, opts, origin)
+	if s.Kind == KindModuleAlias {
+		if s.Target == nil {
+			return nil, ErrImportFailed
+		}
+		return s.Target.resolveMember(ctx, name, opts)
 	}
+	if s.Kind == KindModule {
+		return s.resolveMember(ctx, name, opts)
+	}
+	return s.resolveLexical(ctx, name, opts, origin)
+}
+
+// resolveMember finds the member of module s that the caller may see.
+func (s *Symbol) resolveMember(
+	ctx context.Context,
+	name string,
+	opts resolveOpts,
+) (*Symbol, error) {
+	child := s.FindChild(name)
+	if child == nil || (!opts.includeInternal && child.Internal) {
+		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
+	}
+	if !opts.includeInternal && s.UserDefined && !child.Exported {
+		return nil, &NotExportedError{Name: name, Module: s.Name}
+	}
+	return child, nil
+}
+
+func (s *Symbol) resolveLexical(
+	ctx context.Context,
+	name string,
+	opts resolveOpts,
+	origin *Symbol,
+) (*Symbol, error) {
 	matches := func(child *Symbol) bool { return child.Name == name }
-	if id, err := strconv.ParseUint(name, 10, 32); err == nil {
+	if id, err := strconv.ParseUint(name, 10, 31); err == nil {
 		matches = func(child *Symbol) bool { return child.ID == int(id) }
 	}
 	if child := s.findChild(matches); child != nil {
@@ -630,17 +706,16 @@ func (s *Symbol) resolve(
 		}
 	}
 	if s.globalResolver != nil {
-		if sym, err := s.globalResolver.Resolve(ctx, name); err == nil {
-			if opts.includeInternal || !sym.Internal {
-				return sym, nil
-			}
+		sym, err := s.globalResolver.Resolve(ctx, name)
+		if err != nil && !isUndefined(err) {
+			return nil, err
+		}
+		if err == nil && (opts.includeInternal || !sym.Internal) {
+			return sym, nil
 		}
 	}
-	if s.Kind == KindModule {
-		return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: s}
-	}
 	if s.Parent != nil {
-		return s.Parent.resolve(ctx, name, opts, origin)
+		return s.Parent.resolveLexical(ctx, name, opts, origin)
 	}
 	return nil, &UndefinedSymbolError{ctx: ctx, Name: name, scope: origin}
 }

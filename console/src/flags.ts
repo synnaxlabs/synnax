@@ -8,19 +8,23 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Static build-time flags that hide unfinished work in production. Vite replaces
- * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
- * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
- * entry names its owner, its Linear umbrella issue, and the release that removes it:
- *
- * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
- * Umbrella: SY-1234. Removed in 0.60.`
+ * Static build-time flags that hide unfinished work in the Console build. Vite replaces
+ * the build constants statically, so dark code tree-shakes out of the Console build. A
+ * flag is on in dev and Desktop builds, and in a build that sets `VITE_FLAGS_ENABLED`
+ * to the exact string "true", such as the integration build. A flag for work that does
+ * not run yet leaves out Desktop builds. Each entry names its owner, its Linear
+ * umbrella issue, and the release that removes it.
  */
+const INTEGRATION = import.meta.env.VITE_FLAGS_ENABLED === "true";
+
 export const FLAGS = {
-  // Owner: Emiliano Bonilla. Umbrella: SY-4971. Removed in 0.60.
-  icd: IS_DEV || import.meta.env.VITE_FLAG_ICD === "true",
-  // Owner: Emiliano Bonilla. Umbrella: SY-4971. Removed in 0.60.
-  can: IS_DEV || import.meta.env.VITE_FLAG_CAN === "true",
+  // Owner: Nico Alba. Umbrella: SY-4845. Removed in 0.62, when Arc modules ship. Module
+  // code does not run yet, so Desktop builds leave it out.
+  arcModules: IS_DEV || INTEGRATION,
+  // Owner: Emiliano Bonilla. Umbrella: SY-4971. Removed in 0.62.
+  icd: IS_DEV || DESKTOP || INTEGRATION,
+  // Owner: Emiliano Bonilla. Umbrella: SY-4971. Removed in 0.62.
+  can: IS_DEV || DESKTOP || INTEGRATION,
 } as const satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;

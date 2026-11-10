@@ -12,7 +12,6 @@ import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { configureStore } from "@/configureStore";
-import { MockRuntime } from "@/mock";
 import {
   reducer,
   setWindowProps,
@@ -20,6 +19,7 @@ import {
   type StoreState,
   ZERO_SLICE_STATE,
 } from "@/state";
+import { MockRuntime, STORE_CHECKS } from "@/testutil";
 import {
   INITIAL_PRERENDER_WINDOW_STATE,
   INITIAL_WINDOW_STATE,
@@ -63,6 +63,7 @@ const configure = async (
     preloadedState: state,
     enablePrerender: false,
     defaultWindowProps,
+    middleware: (getDefault) => getDefault(STORE_CHECKS),
   });
 
 const restored = async (props: Partial<WindowState> = {}): Promise<WindowState> =>

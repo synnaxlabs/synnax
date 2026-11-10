@@ -13,8 +13,7 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// Mappings contains Protobuf-specific primitive type mappings.
-var Mappings = map[string]primitives.Mapping{
+var mappings = map[string]primitives.Mapping{
 	"uuid":    {TargetType: "string"},
 	"string":  {TargetType: "string"},
 	"bool":    {TargetType: "bool"},
@@ -42,5 +41,5 @@ var Mappings = map[string]primitives.Mapping{
 
 // Mapper returns a primitives.Mapper for Protocol Buffers code generation.
 func Mapper() primitives.Mapper {
-	return primitives.NewMapper(Mappings, "bytes")
+	return primitives.NewMapper(mappings, "bytes")
 }

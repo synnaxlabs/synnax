@@ -10,6 +10,9 @@
 package channel_test
 
 import (
+	"context"
+	"fmt"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/parser"
@@ -17,11 +20,36 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// failingResolver fails every lookup with context.Canceled.
+type failingResolver struct{}
+
+func (failingResolver) Resolve(context.Context, string) (*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
+func (failingResolver) Search(context.Context, string) ([]*symbol.Symbol, error) {
+	return nil, context.Canceled
+}
+
 var _ = Describe("Analyze", func() {
+	It("Should return the error of a failed read instead of diagnostics", func(
+		ctx SpecContext,
+	) {
+		a := channel.NewCalculationAnalyzer(failingResolver{})
+		res, err := a.Analyze(ctx, channel.Channel{
+			Name:       "calc",
+			Expression: "return sensor + 1",
+		})
+		Expect(err).To(BeIdenticalTo(context.Canceled))
+		Expect(res.Unresolved).To(BeEmpty())
+	})
+
 	Describe("Type Inference", func() {
 		It(
 			"Should infer the correct type for integer literal expressions",
@@ -273,6 +301,30 @@ var _ = Describe("Analyze", func() {
 		)
 
 		It(
+			"Should resolve a name to a stored channel before an unstored one",
+			func(ctx SpecContext) {
+				r := StaticResolver{
+					{
+						Name: "sensor",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.F64()),
+						ID:   10,
+					},
+				}
+				a := channel.NewCalculationAnalyzer(r)
+				MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "sensor",
+					Expression: "return 1",
+				}))
+				res := MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return sensor * 2.0",
+				}))
+				Expect(res.Deps).To(ConsistOf(channel.Key(10)))
+			},
+		)
+
+		It(
 			"Should still resolve by name when the channel has key 0",
 			func(ctx SpecContext) {
 				a := channel.NewCalculationAnalyzer(StaticResolver{})
@@ -310,7 +362,10 @@ var _ = Describe("Analyze", func() {
 					Expression: "return nonexistent + 1",
 				}
 				res, err := a.Analyze(ctx, ch)
-				Expect(err).To(MatchError(ContainSubstring("undefined symbol")))
+				Expect(err).To(And(
+					BeAssignableToTypeOf(&diagnostics.Diagnostics{}),
+					MatchError(ContainSubstring("undefined symbol")),
+				))
 				Expect(res.Unresolved).To(ConsistOf("nonexistent"))
 			},
 		)
@@ -406,4 +461,76 @@ var _ = Describe("Analyze", func() {
 			},
 		)
 	})
+	Describe("Dependency Removed During Analysis", func() {
+		DescribeTable(
+			"Should never report an analyzed channel without a data type",
+			func(ctx SpecContext, found int) {
+				r := &disappearingResolver{found: found}
+				a := channel.NewCalculationAnalyzer(r)
+				res, err := a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return 100 / base",
+				})
+				if err == nil {
+					Expect(res.ChanDataType).To(Equal(telem.Int64T))
+				}
+			},
+			disappearingEntries(),
+		)
+
+		It(
+			"Should resolve a dependency the same way throughout one analysis",
+			func(ctx SpecContext) {
+				r := &disappearingResolver{found: 1}
+				a := channel.NewCalculationAnalyzer(r)
+				res := MustSucceed(a.Analyze(ctx, channel.Channel{
+					Name:       "calc",
+					Expression: "return 100 / base",
+				}))
+				Expect(res.ChanDataType).To(Equal(telem.Int64T))
+				Expect(r.calls).To(Equal(1))
+			},
+		)
+	})
 })
+
+// disappearingResolver resolves "base" for its first found lookups, then reports it
+// missing, as a rename that commits during analysis would.
+type disappearingResolver struct {
+	found int
+	calls int
+}
+
+func (r *disappearingResolver) Resolve(
+	_ context.Context,
+	name string,
+) (*symbol.Symbol, error) {
+	if name != "base" {
+		return nil, query.ErrNotFound
+	}
+	r.calls++
+	if r.calls > r.found {
+		return nil, query.ErrNotFound
+	}
+	return &symbol.Symbol{
+		Name: "base",
+		Kind: symbol.KindChannel,
+		Type: types.Chan(types.I64()),
+		ID:   10,
+	}, nil
+}
+
+func (r *disappearingResolver) Search(
+	context.Context,
+	string,
+) ([]*symbol.Symbol, error) {
+	return nil, nil
+}
+
+func disappearingEntries() []TableEntry {
+	entries := make([]TableEntry, 0, 20)
+	for found := range 20 {
+		entries = append(entries, Entry(fmt.Sprintf("found %d times", found), found))
+	}
+	return entries
+}

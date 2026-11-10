@@ -8,16 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  type Aggregation,
-  array,
-  type DataType,
-  deep,
-  type destructor,
-  id,
-  type observe,
-  type TimeStamp,
-} from "@synnaxlabs/x";
+import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import {
@@ -27,6 +18,7 @@ import {
 } from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
 import {
+  type Result,
   type Sink,
   type Source,
   type Spec,
@@ -101,28 +93,8 @@ class Memoized<V> {
 }
 
 export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized<S> {
-  value(props?: ValueProps): V {
+  value(props?: ValueProps): Result<V> {
     return this.wrapped.value(props);
-  }
-
-  loading(): boolean {
-    return this.wrapped.loading?.() ?? false;
-  }
-
-  fetching(): boolean {
-    return this.wrapped.fetching?.() ?? false;
-  }
-
-  aggregation(): Aggregation | null {
-    return this.wrapped.aggregation?.() ?? null;
-  }
-
-  dataType(): DataType | null {
-    return this.wrapped.dataType?.() ?? null;
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.wrapped.sampleTime?.() ?? null;
   }
 
   cleanup(): void {

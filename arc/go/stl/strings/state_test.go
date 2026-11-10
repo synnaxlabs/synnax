@@ -161,6 +161,53 @@ var _ = Describe("ProgramState", func() {
 		)
 	})
 
+	Describe("Limits", func() {
+		It("Should hold one small string for each of 100,000 samples", func() {
+			for range 100_000 {
+				s.Create("ab")
+			}
+		})
+
+		It("Should count only the handle of a view", func() {
+			held := strings.Repeat("a", stlstrings.MaxBytes/2)
+			for range 100_000 {
+				s.CreateView(held)
+			}
+		})
+
+		It("Should panic with ErrLimit when views pass MaxBytes", func() {
+			Expect(func() {
+				for range stlstrings.MaxBytes/stlstrings.HandleBytes + 1 {
+					s.CreateView("a")
+				}
+			}).To(PanicWith(stlstrings.ErrLimit))
+		})
+
+		It(
+			"Should panic with ErrLimit when a loop grows a string past MaxBytes",
+			func() {
+				Expect(func() {
+					str := ""
+					for range 100_000 {
+						str += "x"
+						s.Create(str)
+					}
+				}).To(PanicWith(stlstrings.ErrLimit))
+			},
+		)
+
+		It("Should panic with ErrLimit past MaxBytes", func() {
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes-stlstrings.HandleBytes))
+			Expect(func() { s.Create("a") }).To(PanicWith(stlstrings.ErrLimit))
+		})
+
+		It("Should accept strings again after Clear", func() {
+			s.Create(strings.Repeat("a", stlstrings.MaxBytes-stlstrings.HandleBytes))
+			s.Clear()
+			Expect(s.Create("a")).To(Equal(uint32(1)))
+		})
+	})
+
 	Describe("Clear", func() {
 		It("Should remove transient strings", func() {
 			h := s.Create("ephemeral")
@@ -219,57 +266,6 @@ var _ = Describe("ProgramState", func() {
 			s.Clear()
 			h2 := s.CreateLiteral("second")
 			Expect(h2).To(Equal(uint32(1<<24 + 1)))
-		})
-	})
-
-	Describe("Reset", func() {
-		It("Should remove both transient and literal strings", func() {
-			th := s.Create("transient")
-			ch := s.CreateLiteral("literal")
-			s.Reset()
-			_, tok := s.Get(th)
-			_, cok := s.Get(ch)
-			Expect(tok).To(BeFalse())
-			Expect(cok).To(BeFalse())
-		})
-
-		It("Should reset literal counter so literal handles restart", func() {
-			h1 := s.CreateLiteral("first")
-			s.Reset()
-			h2 := s.CreateLiteral("second")
-			Expect(h2).To(Equal(h1))
-		})
-
-		It("Should reset transient counter", func() {
-			s.Create("a")
-			s.Create("b")
-			s.Reset()
-			h := s.Create("c")
-			Expect(h).To(Equal(uint32(1)))
-		})
-
-		It("Should allow full reuse after reset", func() {
-			s.Create("a")
-			s.CreateLiteral("b")
-			s.Reset()
-			th := s.Create("c")
-			ch := s.CreateLiteral("d")
-			Expect(MustBeOk(s.Get(th))).To(Equal("c"))
-			Expect(MustBeOk(s.Get(ch))).To(Equal("d"))
-		})
-
-		It("Should be safe to call on empty state", func() {
-			Expect(func() { s.Reset() }).ToNot(Panic())
-		})
-
-		It("Should be safe to call multiple times", func() {
-			s.Create("a")
-			s.CreateLiteral("b")
-			s.Reset()
-			s.Reset()
-			s.Reset()
-			h := s.Create("c")
-			Expect(h).To(Equal(uint32(1)))
 		})
 	})
 

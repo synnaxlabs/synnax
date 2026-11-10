@@ -99,6 +99,10 @@ func (r *renderer) linef(format string, args ...any) {
 }
 
 func (r *renderer) renderType(t resolution.Type) {
+	if t.Filter != nil {
+		r.renderFilter(t, *t.Filter)
+		return
+	}
 	switch f := t.Form.(type) {
 	case resolution.StructForm:
 		r.renderStruct(t, f)
@@ -148,16 +152,61 @@ func (r *renderer) renderStruct(t resolution.Type, f resolution.StructForm) {
 	for _, field := range f.Fields {
 		r.renderField(t.Name, "", field)
 	}
-	if r.opts.ExtraBodyBlocks != nil {
-		for _, block := range r.opts.ExtraBodyBlocks(t.Name) {
-			r.line("")
-			// Blocks splice verbatim; the caller's formatter pass re-indents.
-			for line := range strings.SplitSeq(block, "\n") {
-				r.line(strings.TrimRight(line, " \t"))
-			}
+	r.renderExtraBodyBlocks(t.Name)
+	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
+	r.indent--
+	r.line("}")
+}
+
+// renderExtraBodyBlocks splices the live-owned blocks of typeName into its body.
+func (r *renderer) renderExtraBodyBlocks(typeName string) {
+	if r.opts.ExtraBodyBlocks == nil {
+		return
+	}
+	for _, block := range r.opts.ExtraBodyBlocks(typeName) {
+		r.line("")
+		// Blocks splice verbatim; the caller's formatter pass re-indents.
+		for line := range strings.SplitSeq(block, "\n") {
+			r.line(strings.TrimRight(line, " \t"))
 		}
 	}
+}
+
+// renderFilter renders a filter definition from its lines, not from the struct it
+// expands into.
+func (r *renderer) renderFilter(t resolution.Type, f resolution.Filter) {
+	// Analysis fills in the defaulted type arguments of a generic target, but the
+	// grammar takes only a plain reference.
+	target := resolution.TypeRef{Name: f.Target.Name}
+	r.line(t.Name + " filter " + r.ref(target) + " {")
+	r.indent++
+	for _, l := range f.Lines {
+		head := l.Name
+		if l.HasType() {
+			head += " " + r.ref(l.Type)
+		}
+		r.renderMember(head, append(
+			r.keptExpressions(l.Domains),
+			r.extraFieldLines(t.Name, l.Name)...,
+		))
+	}
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
+	r.indent--
+	r.line("}")
+}
+
+// renderMember renders a member's head line, with a domain body when exprs is not
+// empty.
+func (r *renderer) renderMember(head string, exprs []string) {
+	if len(exprs) == 0 {
+		r.line(head)
+		return
+	}
+	r.line(head + " {")
+	r.indent++
+	for _, e := range exprs {
+		r.line(e)
+	}
 	r.indent--
 	r.line("}")
 }
@@ -180,21 +229,10 @@ func (r *renderer) renderField(typeName, keyPrefix string, f resolution.Field) {
 	if f.Default != nil {
 		head += " = " + r.value(*f.Default)
 	}
-	exprs := append(
+	r.renderMember(head, append(
 		r.keptExpressions(f.Domains),
 		r.extraFieldLines(typeName, keyPrefix+f.Name)...,
-	)
-	if len(exprs) == 0 {
-		r.line(head)
-		return
-	}
-	r.line(head + " {")
-	r.indent++
-	for _, e := range exprs {
-		r.line(e)
-	}
-	r.indent--
-	r.line("}")
+	))
 }
 
 func (r *renderer) renderEnum(t resolution.Type, f resolution.EnumForm) {
@@ -250,6 +288,7 @@ func (r *renderer) renderUnion(t resolution.Type, f resolution.UnionForm) {
 	for _, v := range variants {
 		r.renderVariant(t.Name, v)
 	}
+	r.renderExtraBodyBlocks(t.Name)
 	r.renderDomains(t.Domains, r.extraTypeLines(t.Name))
 	r.indent--
 	r.line("}")

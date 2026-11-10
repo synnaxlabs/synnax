@@ -7,25 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
 import random
 import re
 import tempfile
-from typing import Any, TypeVar
+from typing import TypeVar
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 import synnax as sy
 from console.base import ResourceClient
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage, PageType
+from console.page import ConsolePage, PageType, page_label
 from console.plot import Plot
 from console.project import ProjectClient
-from framework.run_dir import resolve_results_path
-from framework.utils import resolve_channel_placeholders
+from framework.utils import read_json_object, resolve_channel_placeholders
 
 T = TypeVar("T", bound=ConsolePage)
 
@@ -36,6 +34,7 @@ class PagesClient(ResourceClient):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         project: ProjectClient,
@@ -52,7 +51,12 @@ class PagesClient(ResourceClient):
         :returns: Instance of ``page_class`` wrapping the created UI page.
         """
         pane, tab, actual_name = self.create_by_type(page_class.page_type, name)
-        page = page_class(self.layout, self.client, actual_name, pane_locator=pane)
+        page = page_class(
+            layout=self.layout,
+            client=self.client,
+            page_name=actual_name,
+            pane_locator=pane,
+        )
         page._initialize_from_project(tab, actual_name)
         return page
 
@@ -64,7 +68,9 @@ class PagesClient(ResourceClient):
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
         self.open_by_name(name)
-        return page_class.from_open_page(self.layout, self.client, name)
+        return page_class.from_open_page(
+            layout=self.layout, client=self.client, name=name
+        )
 
     def open_by_name(self, name: str) -> None:
         """Open a page by double-clicking it in the project resources toolbar,
@@ -83,19 +89,14 @@ class PagesClient(ResourceClient):
         :param name: Name of the page to drag.
         :returns: Instance of ``page_class`` wrapping the opened page.
         """
-        for attempt in range(2):
-            self.layout.show_resource_toolbar("Projects")
-            page_item = self._find(name)
-            mosaic = self.layout.page.locator(".console-mosaic").first
-            page_item.drag_to(mosaic)
-            self.layout.close_left_toolbar()
-            try:
-                self.layout.wait_for_tab(name)
-                break
-            except PlaywrightTimeoutError:
-                if attempt == 1:
-                    raise
-        return page_class.from_open_page(self.layout, self.client, name)
+        self.layout.show_resource_toolbar("Projects")
+        page_item = self._find(name)
+        self.layout.drag(page_item, self.layout.page.locator(".console-mosaic").first)
+        self.layout.close_left_toolbar()
+        self.layout.wait_for_tab(name)
+        return page_class.from_open_page(
+            layout=self.layout, client=self.client, name=name
+        )
 
     def bind_open(self, page_class: type[T], name: str) -> T:
         """Bind a wrapper to a tab that is already open, without opening one.
@@ -112,7 +113,12 @@ class PagesClient(ResourceClient):
         self.layout.focus(name)
         pane = self.layout.page.locator(page_class.pluto_label)
         pane.first.wait_for(state="visible", timeout=5000)
-        return page_class(self.layout, self.client, name, pane_locator=pane.first)
+        return page_class(
+            layout=self.layout,
+            client=self.client,
+            page_name=name,
+            pane_locator=pane.first,
+        )
 
     def open_from_search(self, page_class: type[T], name: str) -> T:
         """Open an existing page by searching its name in the command palette.
@@ -134,10 +140,15 @@ class PagesClient(ResourceClient):
         actual_name = active_tab.inner_text().strip()
 
         return page_class(
-            self.layout, self.client, actual_name, pane_locator=pane.first
+            layout=self.layout,
+            client=self.client,
+            page_name=actual_name,
+            pane_locator=pane.first,
         )
 
-    def open_plot_from_click(self, channel_name: str, channels: ChannelClient) -> Plot:
+    def open_plot_from_click(
+        self, channel_name: str, *, channels: ChannelClient
+    ) -> Plot:
         """Open a plot by double-clicking a channel in the channels sidebar.
 
         :param channel_name: Name of the channel to double-click.
@@ -164,7 +175,9 @@ class PagesClient(ResourceClient):
             last_tab = tabs.nth(tab_count - 1)
             actual_tab_name = last_tab.inner_text().strip()
 
-        plot = Plot.from_open_page(self.layout, self.client, actual_tab_name)
+        plot = Plot.from_open_page(
+            layout=self.layout, client=self.client, name=actual_tab_name
+        )
 
         channels.hide_channels()
         return plot
@@ -191,7 +204,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
         add_btn = self.layout.page.locator(
-            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.pluto-icon--add)"
+            f"{LayoutClient.TAB_STRIP_SELECTOR} button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.dispatch_event("click")
@@ -203,7 +216,9 @@ class PagesClient(ResourceClient):
         except PlaywrightTimeoutError:
             add_btn.dispatch_event("click")
             layout_selector.wait_for(state="visible", timeout=15000)
-        type_btn = self.layout.page.get_by_role("button", name=page_type).first
+        type_btn = self.layout.page.get_by_role(
+            "button", name=page_label(page_type)
+        ).first
         type_btn.wait_for(state="visible", timeout=5000)
         type_btn.click()
 
@@ -218,7 +233,7 @@ class PagesClient(ResourceClient):
         """
         self.layout.close_left_toolbar()
 
-        self.layout.command_palette(f"Create {page_type}")
+        self.layout.command_palette(f"Create {page_label(page_type)}")
         return self._handle_new_page(page_type, name)
 
     def _handle_new_page(
@@ -229,10 +244,10 @@ class PagesClient(ResourceClient):
         :returns: Tuple of (pane_locator, tab_locator, page_id).
         """
         modal_was_open = self.layout.is_modal_open()
-        tab_name: str = page_type
+        tab_name = page_label(page_type)
 
         if modal_was_open:
-            tab_name = name if name is not None else page_type
+            tab_name = name if name is not None else tab_name
             name_input = self.layout.page.get_by_role("textbox", name="Name")
             name_input.fill(tab_name)
             name_input.press("ControlOrMeta+Enter")
@@ -247,10 +262,10 @@ class PagesClient(ResourceClient):
             page_tab = self.layout.get_tab(name)
 
         pluto_labels = {
-            "Log": ".pluto-log",
-            "Line plot": ".pluto-line-plot",
-            "Schematic": ".pluto-schematic",
-            "Table": ".pluto-table",
+            "log": "role=log",
+            "lineplot": ".pluto-line-plot",
+            "schematic": ".pluto-schematic",
+            "table": ".pluto-table",
         }
         pluto_label = pluto_labels.get(page_type, "")
         if pluto_label:
@@ -401,7 +416,7 @@ class PagesClient(ResourceClient):
         self.wait_for_removed(name)
         self.layout.close_left_toolbar()
 
-    def delete_group(self, name: str, child_names: list[str] | None = None) -> None:
+    def delete_group(self, name: str, *, child_names: list[str] | None = None) -> None:
         """Delete a group via context menu.
 
         :param name: Name of the group to delete.
@@ -524,7 +539,7 @@ class PagesClient(ResourceClient):
         self.tree.move_to_group(self.get(item_name), group_name)
         self.layout.close_left_toolbar()
 
-    def export(self, name: str) -> dict[str, Any]:
+    def export(self, name: str) -> dict[str, JsonValue]:
         """Export a page via context menu.
 
         The file is saved to the tests/results directory.
@@ -539,15 +554,13 @@ class PagesClient(ResourceClient):
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
         self.layout.close_left_toolbar()
 
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
-    def import_file(self, json_path: str, name: str) -> None:
+    def import_file(self, json_path: str, *, name: str) -> None:
         """Import a component via the "Import components" command palette flow.
 
         The import pipeline derives the tab name from the chosen filename (via
@@ -575,7 +588,7 @@ class PagesClient(ResourceClient):
                 )
             self.layout.close_left_toolbar()
 
-    def import_file_expect_error(self, json_path: str, error_text: str) -> None:
+    def import_file_expect_error(self, json_path: str, *, error_text: str) -> None:
         """Import a file the Core must reject, and assert the error surfaces.
 
         The import pipeline reports a per-file failure as a "Failed to import"
@@ -596,7 +609,7 @@ class PagesClient(ResourceClient):
             )
         self.notifications.close_all()
 
-    def snapshot_to_active_range(self, names: list[str], range_name: str) -> None:
+    def snapshot_to_active_range(self, names: list[str], *, range_name: str) -> None:
         """Snapshot multiple pages to the active range via context menu.
 
         :param names: List of page names to snapshot.
@@ -605,38 +618,38 @@ class PagesClient(ResourceClient):
         if not names:
             return
         self.expand_active()
-        last = self.layout.ctrl_select_items(names, self.get)
+        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
         self.ctx_menu.action(last, f"Snapshot to {range_name}")
         self.layout.close_left_toolbar()
 
-    def copy(self, name: str, new_name: str) -> None:
-        """Make a copy of a page via context menu.
+    def duplicate(self, name: str, new_name: str) -> None:
+        """Duplicate a page via context menu.
 
-        :param name: Name of the page to copy.
-        :param new_name: Name for the new copy.
+        :param name: Name of the page to duplicate.
+        :param new_name: Name for the duplicate.
         """
         self.expand_active()
         page_item = self.get(name)
         page_item.wait_for(state="visible", timeout=5000)
-        self.ctx_menu.action(page_item, "Copy")
+        self.ctx_menu.action(page_item, "Duplicate")
 
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
         self.get(new_name).wait_for(state="visible", timeout=5000)
         self.layout.close_left_toolbar()
 
-    def copy_many(self, names: list[str]) -> None:
-        """Copy multiple pages via context menu.
+    def duplicate_many(self, names: list[str]) -> None:
+        """Duplicate multiple pages via context menu.
 
-        Each copy gets a " (copy)" suffix automatically.
+        Each duplicate gets a " (copy)" suffix automatically.
 
-        :param names: List of page names to copy.
+        :param names: List of page names to duplicate.
         """
         if not names:
             return
         self.expand_active()
-        last = self.layout.ctrl_select_items(names, self.get)
-        self.ctx_menu.action(last, "Copy")
+        last = self.layout.ctrl_select_items(names, get_item_fn=self.get)
+        self.ctx_menu.action(last, "Duplicate")
         for name in names:
             copy_name = f"{name} (copy)"
             self.get(copy_name).wait_for(state="visible", timeout=5000)

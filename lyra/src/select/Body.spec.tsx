@@ -87,7 +87,7 @@ describe("Select.Single dialog body", () => {
         </Select.Single>,
       );
     const heightOf = (c: RenderResult) =>
-      c.baseElement.querySelector<HTMLElement>(".pluto-list__scroll")?.style.height;
+      c.baseElement.querySelector<HTMLElement>(".lyra-list__scroll")?.style.height;
 
     it("should size the list from the rows that fit the dialog", () => {
       // 220px of room at 40px a row leaves 5 whole rows.
@@ -105,8 +105,8 @@ describe("Select.Single dialog body", () => {
 
     it("should animate the height so the dialog grows smoothly", () => {
       const c = renderDialog(["a", "b"], 40);
-      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
-        "pluto-list__scroll--animate-height",
+      expect(c.baseElement.querySelector(".lyra-list__scroll")?.className).toContain(
+        "lyra-list__scroll--animate-height",
       );
     });
   });
@@ -132,27 +132,27 @@ describe("Select.Single dialog body", () => {
 
     it("should keep the footer outside the scrolling list", () => {
       const c = renderDialog(<button type="button">Create</button>);
-      const items = c.baseElement.querySelector(".pluto-list__scroll");
+      const items = c.baseElement.querySelector(".lyra-list__scroll");
       expect(items).not.toBeNull();
       expect(items?.contains(c.getByText("Create"))).toBe(false);
     });
 
     it("should move the border onto the wrapper so the footer sits inside it", () => {
       const c = renderDialog(<button type="button">Create</button>);
-      const body = c.baseElement.querySelector(".pluto-select__body");
+      const body = c.baseElement.querySelector(".lyra-select__body");
       expect(body).not.toBeNull();
       expect(body?.contains(c.getByText("Create"))).toBe(true);
-      expect(body?.className).toContain("pluto--bordered");
+      expect(body?.className).toContain("lyra--bordered");
       expect(
-        c.baseElement.querySelector(".pluto-list__scroll")?.className,
-      ).not.toContain("pluto--bordered");
+        c.baseElement.querySelector(".lyra-list__scroll")?.className,
+      ).not.toContain("lyra--bordered");
     });
 
     it("should leave the border on the list when there is no footer", () => {
       const c = renderDialog();
-      expect(c.baseElement.querySelector(".pluto-select__body")).toBeNull();
-      expect(c.baseElement.querySelector(".pluto-list__scroll")?.className).toContain(
-        "pluto--bordered",
+      expect(c.baseElement.querySelector(".lyra-select__body")).toBeNull();
+      expect(c.baseElement.querySelector(".lyra-list__scroll")?.className).toContain(
+        "lyra--bordered",
       );
     });
   });

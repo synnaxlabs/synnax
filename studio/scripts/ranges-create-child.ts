@@ -36,7 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.openToolbar(session, "range");
   await capture.resizeToolbar(session, 400);
   await page.getByText("Open range explorer", { exact: true }).first().click();
-  const explorer = page.locator(".console-range-explorer").first();
+  const explorer = page.locator(".console-range__explorer-list").first();
   await session.waitFor(explorer);
   const parent = page
     .locator(".console-range__list-item")
@@ -69,9 +69,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     text: true,
   });
   const item = page
-    .locator(".pluto-dialog__dialog")
+    .locator(".lyra-dialog__dialog")
     .filter({ has: page.getByPlaceholder("Search labels...") })
-    .locator(".pluto-list__item")
+    .locator(".lyra-list__item")
     .filter({ has: page.getByText("Nominal", { exact: true }) })
     .first();
   await session.waitFor(item);

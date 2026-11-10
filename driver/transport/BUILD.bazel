@@ -31,7 +31,7 @@ cc_test(
     srcs = ["transport_test.cpp"],
     deps = [
         ":transport",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",
     ],

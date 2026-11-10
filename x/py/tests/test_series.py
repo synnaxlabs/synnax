@@ -10,13 +10,15 @@
 import operator
 import uuid
 from collections.abc import Callable
-from typing import Any
+from datetime import timedelta, timezone
+from typing import Any, Literal, assert_type
 
 import numpy as np
+import numpy.typing as npt
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
+from pydantic import BaseModel, JsonValue, TypeAdapter, ValidationError
 
 from x import telem
 from x.interop import ArrayOperators
@@ -154,7 +156,9 @@ class TestSeries:
         assert list(as_float64) == [1.0, 0.0, 1.0, 1.0]
 
     def test_numeric_to_bool_cast_normalizes_nonzero(self) -> None:
-        """Casting a numeric series to BOOLEAN via to_numpy should normalize nonzero values"""
+        """Casting a numeric series to BOOLEAN via to_numpy should normalize nonzero
+        values
+        """
         s = telem.Series([0, 1, 42, -3, 0], data_type=telem.DataType.INT32)
         as_bool = s.to_numpy(dtype=np.dtype(np.bool_))
         assert list(as_bool) == [False, True, True, True, False]
@@ -382,6 +386,54 @@ class TestSeries:
         """Should infer a timestamp series from a single TimeStamp"""
         assert telem.Series(telem.TimeStamp(5)).data_type == telem.DataType.TIMESTAMP
 
+    def test_construction_from_np_strings(self) -> None:
+        """Should build a string series from a NumPy string array"""
+        s = telem.Series(np.array(["a", "bc", ""]))
+        assert s.data_type == telem.DataType.STRING
+        assert list(s) == ["a", "bc", ""]
+
+    @pytest.mark.parametrize(
+        "crude",
+        [
+            np.array([1, 2], dtype="datetime64[s]"),
+            pd.Series(np.array([1, 2], dtype="datetime64[s]")),
+            [np.datetime64(1, "s"), np.datetime64(2, "s")],
+        ],
+    )
+    def test_construction_from_datetime64_unit(self, crude: telem.CrudeSeries) -> None:
+        """Should convert datetime64 samples of any unit to nanoseconds"""
+        s = telem.Series(crude)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    @pytest.mark.parametrize("data_type", [None, telem.DataType.TIMESTAMP])
+    def test_construction_from_tz_aware_pd_series(
+        self, data_type: telem.DataType | None
+    ) -> None:
+        """Should convert a time zone aware pandas series to UTC nanoseconds"""
+        times = pd.to_datetime([1, 2], unit="s", utc=True).tz_convert(
+            timezone(timedelta(hours=-5))
+        )
+        s = telem.Series(pd.Series(times), data_type=data_type)
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert list(s) == [telem.TimeStamp(10**9), telem.TimeStamp(2 * 10**9)]
+
+    def test_construction_from_datetime64_out_of_range(self) -> None:
+        """Should reject a datetime64 that does not fit in nanoseconds"""
+        with pytest.raises(OverflowError):
+            telem.Series(np.array(["3000-01-01"], dtype="datetime64[s]"))
+
+    def test_construction_from_datetime64_list(self) -> None:
+        """Should build a timestamp series from a list of datetime64"""
+        s = telem.Series([np.datetime64(1, "s")])
+        assert s[0] == telem.TimeStamp(10**9)
+
+    def test_construction_from_datetime64_scalar(self) -> None:
+        """Should build a timestamp series from one datetime64"""
+        s = telem.Series(np.datetime64(1, "ms"))
+        assert s.data_type == telem.DataType.TIMESTAMP
+        assert s[0] == telem.TimeStamp(10**6)
+
     def test_uuid_list_rejects_non_uuid(self) -> None:
         """Should reject a value that is not a UUID instead of dropping it"""
         values: list[Any] = [uuid.uuid4(), "not-a-uuid"]
@@ -459,6 +511,8 @@ class TestVariableLengthSeries:
         assert s[-1] == "c"
         assert s[-2] == "b"
         assert s[-3] == "a"
+        with pytest.raises(IndexError):
+            s[-4]
 
     def test_string_index_out_of_bounds(self) -> None:
         """Should raise IndexError for out-of-bounds access"""
@@ -553,12 +607,112 @@ class TestVariableLengthSeries:
         encoded = json.dumps({"a": 1}).encode("utf-8")
         assert s.size == 4 + len(encoded)
 
+    def test_bytes_from_list(self) -> None:
+        """Should build a bytes series from a list of bytes"""
+        values = [b"ab", b"", b"\x00\xff"]
+        s = telem.Series(values)
+        assert s.data_type == telem.DataType.BYTES
+        assert len(s) == 3
+        assert s[0] == b"ab"
+        assert s[-1] == b"\x00\xff"
+        assert list(s) == values
+
+    def test_bytes_rejects_non_bytes(self) -> None:
+        """Should reject a sample that is not bytes in a bytes series"""
+        with pytest.raises(TypeError, match="accepts only bytes"):
+            telem.Series(["a"], data_type=telem.DataType.BYTES)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesSlice:
+    @pytest.mark.parametrize(
+        "values",
+        [
+            [1.0, 2.0, 3.0, 4.0],
+            ["a", "bc", "", "def"],
+            [b"a", b"bc", b"", b"def"],
+            [{"a": 1}, {"b": 2}, {}, {"c": [3]}],
+            [uuid.UUID(int=i) for i in range(4)],
+        ],
+    )
+    @pytest.mark.parametrize(
+        "index",
+        [
+            slice(None),
+            slice(1, 3),
+            slice(-2, None),
+            slice(None, -1),
+            slice(3, 1),
+            slice(10, 20),
+            slice(None, None, 2),
+            slice(1, None, 3),
+            slice(1, 3, 2),
+            slice(3, 1, 2),
+        ],
+    )
+    def test_slice_matches_list(self, values: list[Any], index: slice) -> None:
+        """Should hold the samples that the same slice of a list holds"""
+        s = telem.Series(values)
+        sliced = s[index]
+        assert isinstance(sliced, telem.Series)
+        assert sliced.data_type == s.data_type
+        assert list(sliced) == values[index]
+        assert len(sliced) == len(values[index])
+
+    def test_slice_offsets_alignment(self) -> None:
+        """Should offset the alignment by the start times the alignment multiple"""
+        tr = telem.TimeRange(0, 10)
+        s = telem.Series(
+            ["a", "b", "c"], time_range=tr, alignment=(1, 10), alignment_multiple=2
+        )
+        sliced = s[1:]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 2
+        assert sliced.time_range == tr
+
+    @pytest.mark.parametrize("values", [[1, 2, 3, 4, 5, 6, 7], list("abcdefg")])
+    def test_slice_step_scales_alignment_multiple(self, values: list[Any]) -> None:
+        """Should multiply the alignment multiple by the step"""
+        s = telem.Series(values, alignment=(1, 10), alignment_multiple=2)
+        sliced = s[1::3]
+        assert list(sliced) == values[1::3]
+        assert sliced.alignment == telem.Alignment(1, 12)
+        assert sliced.alignment_multiple == 6
+        assert sliced.alignment_bounds.upper == int(telem.Alignment(1, 12)) + 2 * 6
+
+    def test_slice_step_survives_payload_round_trip(self) -> None:
+        """Should keep the alignment multiple of a stepped slice in a payload"""
+        adapter = TypeAdapter(telem.Series)
+        sliced = telem.Series([1.0, 2.0, 3.0, 4.0], alignment_multiple=2)[::2]
+        decoded = adapter.validate_python(adapter.dump_python(sliced))
+        assert list(decoded) == [1.0, 3.0]
+        assert decoded.alignment_multiple == 4
+
+    @pytest.mark.parametrize(
+        "data_type",
+        [telem.DataType.FLOAT64, telem.DataType.UUID, telem.DataType.STRING],
+    )
+    def test_slice_empty_series(self, data_type: telem.DataType) -> None:
+        """Should slice an empty series into another empty series"""
+        s = telem.Series(b"", data_type=data_type)
+        assert len(s[:]) == 0
+        assert len(s[::2][1:]) == 0
+
+    @pytest.mark.parametrize("step", [-1, -2])
+    def test_slice_rejects_negative_step(self, step: int) -> None:
+        """Should reject a negative slice step"""
+        with pytest.raises(ValueError, match="increasing alignments"):
+            telem.Series([1, 2, 3])[::step]
+
 
 @pytest.mark.telem
 @pytest.mark.series
 class TestMultiSeries:
     def test_construction_from_multiple_series(self) -> None:
-        """Should correctly construct a telem.MultiSeries from multiple telem.Series :)"""
+        """Should correctly construct a telem.MultiSeries from multiple
+        telem.Series :)
+        """
         s1 = telem.Series([1, 2, 3], data_type=telem.DataType.INT8)
         s2 = telem.Series([4, 5, 6], data_type=telem.DataType.INT8)
         s = telem.MultiSeries([s1, s2])
@@ -775,6 +929,29 @@ class TestSampleConversion:
             telem.to_int(value)
 
 
+_SERIES: TypeAdapter[telem.Series] = TypeAdapter(telem.Series)
+
+
+class _TypedHolder(BaseModel):
+    series: telem.Series[np.float64]
+
+
+class _UnionHolder(BaseModel):
+    series: telem.Series[np.float32 | np.float64]
+
+
+class _JsonHolder(BaseModel):
+    series: telem.Series[JsonValue]
+
+
+class _NumberHolder(BaseModel):
+    series: telem.Series[np.number]
+
+
+class _Holder(BaseModel):
+    series: telem.Series
+
+
 def _series() -> telem.Series:
     return telem.Series(np.array([1, 2, 3], dtype=np.int64))
 
@@ -873,11 +1050,239 @@ class TestArrayOperators:
 @pytest.mark.series
 class TestSeriesModel:
     def test_round_trip(self) -> None:
-        """Should validate and serialize with the operator mixin in place"""
-        s = _series()
-        restored = telem.Series.model_validate(s.model_dump())
+        """Should validate a Series from its serialized form"""
+        s = telem.Series(
+            [1, 2, 3],
+            time_range=telem.TimeRange(1, 4),
+            alignment=7,
+            alignment_multiple=2,
+        )
+        restored = _SERIES.validate_python(_SERIES.dump_python(s))
         assert restored.data == s.data
-        assert np.array_equal(restored, s)
+        assert restored.data_type == s.data_type
+        assert restored.time_range == s.time_range
+        assert restored.alignment == s.alignment
+        assert restored.alignment_multiple == 2
+
+    def test_json_round_trip(self) -> None:
+        """Should round-trip a Series through JSON"""
+        s = telem.Series(["a", "b"])
+        restored = _SERIES.validate_json(_SERIES.dump_json(s))
+        assert list(restored) == ["a", "b"]
+
+    def test_instance(self) -> None:
+        """Should accept a Series instance as is"""
+        s = _series()
+        assert _SERIES.validate_python(s) is s
+
+    def test_model_field(self) -> None:
+        """Should validate a Series field of a model from a dict"""
+        m = _Holder.model_validate(
+            {"series": {"data_type": "float32", "data": telem.Series([1.5]).data}}
+        )
+        assert m.series.data_type == telem.DataType.FLOAT32
+
+    def test_typed_field(self) -> None:
+        """Should accept a typed field whose samples match"""
+        m = _TypedHolder.model_validate(
+            {"series": {"data_type": "float64", "data": telem.Series([1.5]).data}}
+        )
+        assert_type(m.series[0], np.float64)
+        assert _TypedHolder(series=telem.Series([2.5]).as_(np.float64)).series[0] == 2.5
+
+    @pytest.mark.parametrize(
+        "series",
+        [telem.Series(["text"]), {"data_type": "string", "data": b""}],
+        ids=["instance", "payload"],
+    )
+    def test_typed_field_mismatch(self, series: object) -> None:
+        """Should reject a typed field whose samples do not match"""
+        with pytest.raises(ValidationError, match="does not hold samples"):
+            _TypedHolder.model_validate({"series": series})
+
+    @pytest.mark.parametrize(
+        ("model", "series", "valid"),
+        [
+            (_UnionHolder, telem.Series([1.5]), True),
+            (_UnionHolder, telem.Series([1]), False),
+            (_JsonHolder, telem.Series([{"a": 1}]), True),
+            (_JsonHolder, telem.Series(["a"]), True),
+            (_JsonHolder, telem.Series([uuid.UUID(int=1)]), False),
+            (_NumberHolder, telem.Series([1], data_type=telem.DataType.INT32), True),
+        ],
+        ids=[
+            "union",
+            "union-mismatch",
+            "json",
+            "json-string",
+            "json-mismatch",
+            "superclass",
+        ],
+    )
+    def test_annotated_field(
+        self, model: type[BaseModel], series: telem.Series, valid: bool
+    ) -> None:
+        """Should check a field annotated with a union, JsonValue, or superclass"""
+        if valid:
+            model.model_validate({"series": series})
+        else:
+            with pytest.raises(ValidationError, match="does not hold samples"):
+                model.model_validate({"series": series})
+
+    def test_unsupported_annotation(self) -> None:
+        """Should reject a field annotation that is not a sample type"""
+        with pytest.raises(TypeError, match="cannot validate samples"):
+
+            class _LiteralHolder(BaseModel):
+                series: telem.Series[Literal["a"]]
+
+    def test_iter(self) -> None:
+        """Should iterate over samples, not model fields"""
+        assert list(_series()) == [1, 2, 3]
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesNarrowing:
+    def test_numeric(self) -> None:
+        """Should narrow a numeric series to its numpy scalar type"""
+        s = telem.Series([1.5, 2.5]).as_(np.float64)
+        assert_type(s, telem.Series[np.float64])
+        assert_type(s[0], np.float64)
+        assert_type(list(s), list[np.float64])
+        assert_type(s.to_numpy(), npt.NDArray[np.float64])
+        assert s[0] == 1.5
+        assert isinstance(s[1], np.float64)
+
+    def test_superclass(self) -> None:
+        """Should narrow to a superclass of the sample type"""
+        s = telem.Series([1.5]).as_(float)
+        assert isinstance(s[0], np.float64)
+
+    def test_same_series(self) -> None:
+        """Should return the same series"""
+        s = telem.Series([1, 2], data_type=telem.DataType.INT32)
+        assert s.as_(np.int32) is s
+
+    @pytest.mark.parametrize(
+        ("series", "sample_type", "expected"),
+        [
+            (telem.Series([True]), np.bool_, np.True_),
+            (telem.Series(["a"]), str, "a"),
+            (telem.Series([uuid.UUID(int=1)]), uuid.UUID, uuid.UUID(int=1)),
+            (telem.Series([telem.TimeStamp(5)]), telem.TimeStamp, telem.TimeStamp(5)),
+            (
+                telem.Series(b"\x01\x00\x00\x00x", data_type=telem.DataType.BYTES),
+                bytes,
+                b"x",
+            ),
+        ],
+        ids=["bool", "string", "uuid", "timestamp", "bytes"],
+    )
+    def test_sample_types(
+        self,
+        series: telem.Series,
+        sample_type: type[telem.SampleValue],
+        expected: object,
+    ) -> None:
+        """Should narrow each data type to the type of its samples"""
+        narrowed = series.as_(sample_type)
+        assert narrowed[0] == expected
+        assert isinstance(narrowed[0], sample_type)
+
+    def test_timestamp_type(self) -> None:
+        """Should type the samples of a timestamp series as TimeStamps"""
+        s = telem.Series([telem.TimeStamp(5)]).as_(telem.TimeStamp)
+        assert_type(s[0], telem.TimeStamp)
+
+    @pytest.mark.parametrize(
+        ("series", "sample_type"),
+        [
+            (telem.Series([1.5]), np.float32),
+            (telem.Series([1]), float),
+            (telem.Series([telem.TimeStamp(5)]), np.int64),
+            (telem.Series([{"a": 1}]), dict),
+            (telem.Series(b"", data_type=telem.DataType.UNKNOWN), np.float64),
+        ],
+        ids=["float-width", "python-float", "timestamp-int", "json", "unknown"],
+    )
+    def test_mismatch(
+        self, series: telem.Series, sample_type: type[telem.SampleValue]
+    ) -> None:
+        """Should raise a TypeError when the data type does not match"""
+        with pytest.raises(TypeError, match="does not hold samples"):
+            series.as_(sample_type)
+
+    def test_multi_series(self) -> None:
+        """Should narrow every series of a MultiSeries"""
+        ms = telem.MultiSeries([telem.Series(["a"]), telem.Series(["b"])]).as_(str)
+        assert_type(ms, telem.MultiSeries[str])
+        assert_type(ms[0], str)
+        assert list(ms) == ["a", "b"]
+
+    def test_multi_series_empty(self) -> None:
+        """Should narrow an empty MultiSeries to any sample type"""
+        assert len(telem.MultiSeries([]).as_(str)) == 0
+
+    def test_multi_series_mismatch(self) -> None:
+        """Should raise a TypeError when the data type does not match"""
+        with pytest.raises(TypeError, match="does not hold samples"):
+            telem.MultiSeries([telem.Series([1])]).as_(str)
+
+    def test_default(self) -> None:
+        """Should type an unnarrowed series with the SampleValue union"""
+        s = telem.Series([1])
+        assert_type(s, telem.Series[telem.SampleValue])
+        assert_type(s[0], telem.SampleValue)
+
+
+@pytest.mark.telem
+@pytest.mark.series
+class TestSeriesSamples:
+    def test_timestamp(self) -> None:
+        """Should return TimeStamps from a timestamp series"""
+        s = telem.Series([telem.TimeStamp(1), telem.TimeStamp(2)])
+        assert isinstance(s[-1], telem.TimeStamp)
+        assert s[-1] == 2
+        assert all(isinstance(v, telem.TimeStamp) for v in s)
+
+    def test_json_any_value(self) -> None:
+        """Should return any JSON value from a JSON series"""
+        data = b"".join(
+            len(p).to_bytes(4, "little") + p for p in [b"[1, 2]", b"null", b"3"]
+        )
+        s = telem.Series(data, data_type=telem.DataType.JSON)
+        assert list(s) == [[1, 2], None, 3]
+
+    def test_bytes(self) -> None:
+        """Should index and iterate a bytes series"""
+        s = telem.Series(
+            b"\x01\x00\x00\x00a\x02\x00\x00\x00bc", data_type=telem.DataType.BYTES
+        )
+        assert s[-1] == b"bc"
+        assert list(s) == [b"a", b"bc"]
+
+    def test_uuid_negative_index(self) -> None:
+        """Should index a UUID series from the end"""
+        s = telem.Series([uuid.UUID(int=1), uuid.UUID(int=2)])
+        assert s[-1] == uuid.UUID(int=2)
+
+    @pytest.mark.parametrize("index", [2, -3], ids=["past-end", "before-start"])
+    def test_uuid_index_out_of_bounds(self, index: int) -> None:
+        """Should raise an IndexError for an index outside a UUID series"""
+        s = telem.Series([uuid.UUID(int=1), uuid.UUID(int=2)])
+        with pytest.raises(IndexError):
+            s[index]
+
+    def test_unknown(self) -> None:
+        """Should raise a ValueError when reading a series of unknown data type"""
+        s = telem.Series(b"", data_type=telem.DataType.UNKNOWN)
+        with pytest.raises(ValueError, match="unknown data type"):
+            s[0]
+
+    def test_repr(self) -> None:
+        """Should name the data type and length in the representation"""
+        assert "len=3" in repr(_series())
 
 
 _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)

@@ -49,7 +49,7 @@ cc_test(
     deps = [
         ":canlib",
         ":mock",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

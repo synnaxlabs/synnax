@@ -105,25 +105,6 @@ func (db *DB) HasDataFor(ctx context.Context, tr telem.TimeRange) (bool, error) 
 	return hasData, db.wrapError(err)
 }
 
-// Read reads a Time Range of data at the unary level.
-func (db *DB) Read(
-	ctx context.Context,
-	tr telem.TimeRange,
-) (frame channel.Frame, err error) {
-	var iter *Iterator
-	if iter, err = db.OpenIterator(IterRange(tr)); err != nil {
-		return frame, err
-	}
-	defer func() { err = errors.Combine(err, iter.Close()) }()
-	if !iter.SeekFirst(ctx) {
-		return frame, err
-	}
-	for iter.Next(ctx, telem.TimeSpanMax) {
-		frame = frame.Extend(iter.Value())
-	}
-	return frame, err
-}
-
 // Size returns the total size of all data stored in the database.
 func (db *DB) Size() telem.Size { return db.domain.Size() }
 

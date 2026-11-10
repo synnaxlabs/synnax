@@ -9,7 +9,6 @@
 
 import "@/arc/graph/node/Base.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -17,6 +16,7 @@ import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type FC } from "react";
 
 import { Handle } from "@/arc/graph/handle";
+import { CSS } from "@/css";
 
 export interface HandleSpec {
   key: string;

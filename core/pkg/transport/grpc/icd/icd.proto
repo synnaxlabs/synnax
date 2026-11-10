@@ -11,6 +11,7 @@ syntax = "proto3";
 
 package grpc.icd;
 
+import "core/pkg/api/icd/pb/icd.proto";
 import "core/pkg/service/icd/pb/icd.proto";
 import "google/protobuf/empty.proto";
 
@@ -21,7 +22,7 @@ service ICDCreateService {
 }
 
 service ICDRetrieveService {
-  rpc Exec(RetrieveRequest) returns (RetrieveResponse);
+  rpc Exec(RetrieveRequest) returns (api.icd.pb.RetrieveResponse);
 }
 
 service ICDDeleteService {
@@ -37,14 +38,7 @@ message CreateResponse {
 }
 
 message RetrieveRequest {
-  repeated string keys = 1;
-  string search_term = 2;
-  int32 limit = 3;
-  int32 offset = 4;
-}
-
-message RetrieveResponse {
-  repeated service.icd.pb.ICD icds = 1;
+  api.icd.pb.RetrieveRequest request = 1;
 }
 
 message DeleteRequest {

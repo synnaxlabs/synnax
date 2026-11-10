@@ -1,0 +1,47 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_proto_grpc_cpp//:defs.bzl", "cpp_grpc_library")
+
+proto_library(
+    name = "service_proto",
+    srcs = ["service.proto"],
+    visibility = ["//visibility:public"],
+)
+
+cpp_grpc_library(
+    name = "service_grpc",
+    output_mode = "NO_PREFIX",
+    protos = [":service_proto"],
+    visibility = ["//visibility:public"],
+)
+
+exports_files(
+    [
+        "test_ca_cert.pem",
+        "test_cert.pem",
+        "test_key.pem",
+        "test_leaf_cert.pem",
+        "test_leaf_key.pem",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "server",
+    srcs = [],
+    hdrs = ["server.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//freighter/cpp/grpc",
+        "//freighter/cpp/grpc/testutil:service_grpc",
+    ],
+)

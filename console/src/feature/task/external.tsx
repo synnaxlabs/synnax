@@ -13,8 +13,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -36,7 +38,6 @@ export * from "@/feature/task/search";
 export * from "@/feature/task/Selector";
 export * from "@/feature/task/tab";
 export * from "@/feature/task/Toolbar";
-export * from "@/feature/task/tree";
 export * from "@/feature/task/types";
 export * from "@/platform/task/external";
 
@@ -45,8 +46,10 @@ export const REGISTRY: Task.Registry = { getIcon, parseType };
 export const COMMANDS: Command.Command[] = [
   ...EtherCAT.Task.COMMANDS,
   ...HTTP.Task.COMMANDS,
+  ...Kafka.Task.COMMANDS,
   ...LabJack.Task.COMMANDS,
   ...Modbus.Task.COMMANDS,
+  ...MQTT.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPCUA.Task.COMMANDS,
   ...PagerDuty.Task.COMMANDS,
@@ -62,7 +65,7 @@ export const COMMANDS: Command.Command[] = [
 
 export const TABS: Panel.Tabs = {
   [SELECTOR_TAB_TYPE]: Selector,
-  [task.TYPE_ONTOLOGY_ID.type]: TAB,
+  [task.TYPE_RESOURCE_ID.type]: TAB,
 };
 
 export const SNAPSHOT_SERVICES: Range.SnapshotServices = {

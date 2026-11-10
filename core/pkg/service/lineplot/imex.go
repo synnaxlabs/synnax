@@ -15,12 +15,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
+
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeLineplot }
 
 // Match reports whether body is a legacy Console line plot state, which persists the
 // plot body inline under axes and channels. The markers are frozen historical file
@@ -32,24 +35,35 @@ func (*Service) Match(body map[string]any) bool {
 }
 
 // Import decodes env into a LinePlot created under opts.Parent, which must be a
-// project. The key on the wire is discarded so every import mints a new resource. An
-// unknown envelope version is a path-scoped validation error.
+// project. A group must be in the parent project. The key on the wire is discarded so
+// every import mints a new resource. The plot drops each channel the Core does not
+// hold. An unknown envelope version is a path-scoped validation error.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	opts imex.ImportOptions,
-) (ontology.ID, error) {
-	proj, err := project.KeyFromOntologyID(opts.Parent)
+) (resource.ID, error) {
+	proj, err := project.KeyFromResourceID(opts.Parent)
 	if err != nil {
-		return ontology.ID{}, validate.PathedError(err, "parent")
+		return resource.ID{}, validate.PathedError(err, "parent")
+	}
+	if err = project.ValidateGroup(
+		ctx, tx, proj, opts.Group, resource.TypeLineplot,
+	); err != nil {
+		return resource.ID{}, err
 	}
 	lp, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	if err = s.NewWriter(tx).Create(ctx, proj, &lp); err != nil {
-		return ontology.ID{}, err
+	lp.Group, lp.Project, lp.Range = nil, nil, nil
+	if _, err = s.table.DropDangling(ctx, tx, &lp); err != nil {
+		return resource.ID{}, err
 	}
-	return OntologyID(lp.Key), nil
+	lp.Group, lp.Project = opts.Group, &proj
+	if err = s.NewWriter(tx).Create(ctx, &lp); err != nil {
+		return resource.ID{}, err
+	}
+	return ResourceID(lp.Key), nil
 }

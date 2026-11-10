@@ -38,7 +38,7 @@ jobs:
       prompt: ${{ steps.prompt.outputs.prompt }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
 
@@ -74,7 +74,13 @@ jobs:
       output: report
       setup: integration/qa/up.sh
       timeout-minutes: 120
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   slack:
     name: Post to Slack
@@ -84,7 +90,7 @@ jobs:
     permissions:
       issues: read
     env:
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_CONSOLE_QA_WEBHOOK_URL }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_NIGHTLY_WEBHOOK_URL }}
     steps:
       - name: Post the issue link
         if: env.SLACK_WEBHOOK_URL != ''

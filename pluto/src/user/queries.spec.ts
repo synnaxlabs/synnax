@@ -7,33 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { type access } from "@synnaxlabs/client";
+import {
+  createEmptyRole,
+  createTestClient,
+  TEST_CREDENTIALS,
+} from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import {
-  afterEach,
-  assert,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { afterEach, assert, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
 import { User } from "@/user";
 
+const path = User.formPath;
+
 describe("User queries", () => {
   let controller: AbortController;
   const client = createTestClient();
   let wrapper: FC<PropsWithChildren>;
+  let role: access.role.Role;
 
   beforeAll(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
+    role = await createEmptyRole(client);
   });
 
   beforeEach(() => {
@@ -48,9 +47,9 @@ describe("User queries", () => {
     it("should delete a single user", async () => {
       const testUser = await client.users.create({
         username: `test-user-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
@@ -69,15 +68,15 @@ describe("User queries", () => {
     it("should delete multiple users", async () => {
       const user1 = await client.users.create({
         username: `user1-${Date.now()}`,
-        firstName: "User",
-        lastName: "One",
+        name: "User One",
         password: "password123",
+        role: role.key,
       });
       const user2 = await client.users.create({
         username: `user2-${Date.now()}`,
-        firstName: "User",
-        lastName: "Two",
+        name: "User Two",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = renderHook(() => User.useDelete(), { wrapper });
@@ -96,22 +95,18 @@ describe("User queries", () => {
   });
 
   describe("useRename", () => {
-    it("should change a user's username", async () => {
+    it("should change a user's name", async () => {
       const testUser = await client.users.create({
         username: `original-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
+        role: role.key,
       });
 
-      const newUsername = `renamed-${Date.now()}`;
       const { result } = renderHook(() => User.useRename(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({
-          key: testUser.key,
-          username: newUsername,
-        });
+        await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
 
       await waitFor(() => {
@@ -119,39 +114,23 @@ describe("User queries", () => {
       });
 
       const retrieved = await client.users.retrieve(testUser.key);
-      expect(retrieved.username).toBe(newUsername);
+      expect(retrieved.name).toBe("Renamed User");
     });
 
-    it("should apply the rename optimistically", async () => {
+    it("should hold the new name in the cache once the rename resolves", async () => {
       const testUser = await client.users.create({
         username: `original-${id.create()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
+        role: role.key,
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => User.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => User.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({
-          key: testUser.key,
-          username: `renamed-${id.create()}`,
-        });
+        await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe("useGroupID", () => {
-    it("should retrieve the Users group ID", async () => {
-      const { result } = await renderHookSuspended(() => User.useGroupID({}), {
-        wrapper,
+      expect(client.users.watch(testUser.key).getCached()).toMatchObject({
+        name: "Renamed User",
       });
-
-      await waitFor(() => expect(result.current).not.toBeNull());
-      const res = await client.ontology.retrieve(result.current as ontology.ID);
-      expect(res.name).toBe("Users");
     });
   });
 
@@ -159,9 +138,9 @@ describe("User queries", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
-        firstName: "Retrieve",
-        lastName: "Test",
+        name: "Retrieve Test",
         password: "password123",
+        role: role.key,
       });
 
       const { result } = await renderHookSuspended(
@@ -176,9 +155,7 @@ describe("User queries", () => {
       });
 
       expect(result.current?.key).toEqual(testUser.key);
-      expect(result.current?.username).toEqual(testUser.username);
-      expect(result.current?.firstName).toEqual(testUser.firstName);
-      expect(result.current?.lastName).toEqual(testUser.lastName);
+      expect(result.current?.name).toEqual(testUser.name);
     });
 
     it("should retrieve the current authenticated user when no key provided", async () => {
@@ -191,19 +168,21 @@ describe("User queries", () => {
       });
 
       expect(result.current).not.toBeNull();
-      const { username } = TEST_CLIENT_PARAMS;
+      const { username } = TEST_CREDENTIALS;
       const signedIn = await client.users.retrieve({ username });
       expect(result.current?.key).toEqual(signedIn.key);
-      expect(result.current?.username).toEqual(username);
     });
 
     it("should update the current user on a rename from another client", async () => {
       const username = id.create();
-      const u = await client.users.create({ username, password: "test" });
       const roles = await client.access.roles.retrieve({});
       const viewer = roles.find((r) => r.name === "Viewer");
       assert(viewer != null);
-      await client.access.roles.assign({ user: u.key, role: viewer.key });
+      const u = await client.users.create({
+        username,
+        password: "test",
+        role: viewer.key,
+      });
       const userClient = createTestClient({ username, password: "test" });
       const { result } = renderHook(() => User.useResult({}), {
         wrapper: createSynnaxWrapper({ client: userClient }),
@@ -211,16 +190,16 @@ describe("User queries", () => {
       // Changes made while the stream is still opening are lost, so open it first.
       await userClient.connect();
       await waitFor(() => expect(result.current.data?.key).toEqual(u.key));
-      await client.users.rename(u.key, "Abigail", "Adams");
-      await waitFor(() => expect(result.current.data?.firstName).toEqual("Abigail"));
+      await client.users.rename(u.key, "Abigail Adams");
+      await waitFor(() => expect(result.current.data?.name).toEqual("Abigail Adams"));
     });
 
     it("should cache retrieved users", async () => {
       const testUser = await client.users.create({
         username: `cached-user-${Date.now()}`,
-        firstName: "Cached",
-        lastName: "User",
+        name: "Cached User",
         password: "password123",
+        role: role.key,
       });
 
       const { result: result1 } = await renderHookSuspended(
@@ -250,8 +229,7 @@ describe("User queries", () => {
         const formData = result.current.form.value();
         expect(formData.key).toBeUndefined();
         expect(formData.username).toBe("");
-        expect(formData.firstName).toBe("");
-        expect(formData.lastName).toBe("");
+        expect(formData.name).toBe("");
         expect(formData.password).toBe("");
       });
 
@@ -262,20 +240,22 @@ describe("User queries", () => {
 
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
-        const timestamp = Date.now();
+        const username = `test-form-${id.create()}`;
         act(() => {
-          result.current.form.set("username", `test-form-${timestamp}`);
-          result.current.form.set("firstName", "Form");
-          result.current.form.set("lastName", "Test");
-          result.current.form.set("password", "password123");
+          result.current.form.set(path.username, username);
+          result.current.form.set(path.name, "Form Test");
+          result.current.form.set(path.password, "password123");
+          result.current.form.set(path.role, role.key);
         });
 
         await act(async () => {
           result.current.save();
         });
 
-        await waitFor(() => {
-          expect(result.current.variant).toBe("success");
+        await waitFor(async () => {
+          const created = await client.users.retrieve({ username });
+          expect(created.name).toEqual("Form Test");
+          expect(created.role).toEqual(role.key);
         });
       });
 
@@ -290,15 +270,16 @@ describe("User queries", () => {
           result.current.save();
         });
 
-        const usernameField = result.current.form.get("username");
-        const passwordField = result.current.form.get("password");
-        const firstNameField = result.current.form.get("firstName");
-        const lastNameField = result.current.form.get("lastName");
+        const usernameField = result.current.form.get(path.username);
+        const passwordField = result.current.form.get(path.password);
+        const nameField = result.current.form.get(path.name);
+
+        const roleField = result.current.form.get(path.role);
 
         expect(usernameField.status.variant).toBe("error");
         expect(passwordField.status.variant).toBe("error");
-        expect(firstNameField.status.variant).toBe("error");
-        expect(lastNameField.status.variant).toBe("error");
+        expect(nameField.status.variant).toBe("error");
+        expect(roleField.status.variant).toBe("error");
       });
     });
 
@@ -311,13 +292,13 @@ describe("User queries", () => {
         await waitFor(() => expect(result.current.variant).toBe("success"));
 
         act(() => {
-          result.current.form.set("username", "");
+          result.current.form.set(path.username, "");
         });
 
-        const isValid = result.current.form.validate("username");
+        const isValid = result.current.form.validate(path.username);
         expect(isValid).toBe(false);
 
-        const usernameField = result.current.form.get("username");
+        const usernameField = result.current.form.get(path.username);
         expect(usernameField.status.variant).toBe("error");
         expect(usernameField.status.message).toContain("username is required");
       });
@@ -332,10 +313,10 @@ describe("User queries", () => {
         const isValid = result.current.form.validate();
         expect(isValid).toBe(false);
 
-        expect(result.current.form.get("username").status.variant).toBe("error");
-        expect(result.current.form.get("password").status.variant).toBe("error");
-        expect(result.current.form.get("firstName").status.variant).toBe("error");
-        expect(result.current.form.get("lastName").status.variant).toBe("error");
+        expect(result.current.form.get(path.username).status.variant).toBe("error");
+        expect(result.current.form.get(path.password).status.variant).toBe("error");
+        expect(result.current.form.get(path.name).status.variant).toBe("error");
+        expect(result.current.form.get(path.role).status.variant).toBe("error");
       });
     });
   });

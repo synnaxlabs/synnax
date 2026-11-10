@@ -12,7 +12,7 @@
 from console.case import ConsoleCase
 from x import random_name
 
-BUILTIN_ROLES = ["Owner", "Engineer", "Host", "Operator", "Viewer"]
+BUILTIN_ROLES = ["Owner", "Engineer", "Driver", "Operator", "Viewer"]
 PASSWORD = "testpassword123"
 
 
@@ -21,6 +21,7 @@ class UserRegister(ConsoleCase):
 
     def run(self) -> None:
         self.username = ""
+        self.name = ""
         self.test_builtin_roles_visible()
         self.test_builtin_roles_not_deletable()
         self.test_register_user()
@@ -52,6 +53,7 @@ class UserRegister(ConsoleCase):
     def test_register_user(self) -> None:
         """Register a new user and verify it appears under the assigned role."""
         self.username = f"testuser_{random_name()}"
+        self.name = self.username
         role_name = "Operator"
 
         self.log(f"Registering user: {self.username}")
@@ -59,19 +61,12 @@ class UserRegister(ConsoleCase):
         self.console.access.register_user(
             username=self.username,
             password=PASSWORD,
-            first_name="Test",
-            last_name="User",
             role_name=role_name,
         )
 
         self.log("User registered, verifying in UI...")
         self.console.access.expand_role(role_name)
-
-        users = self.console.access.list_users_under_role(role_name)
-        self.log(f"Users found: {users}")
-        assert self.username in users, (
-            f"User {self.username} not found under {role_name}. Found: {users}"
-        )
+        self.console.access.wait_for_user_role(self.username, role_name=role_name)
 
     def test_change_role(self) -> None:
         """Change a user's role and verify they move between roles."""
@@ -82,13 +77,14 @@ class UserRegister(ConsoleCase):
         )
 
         self.console.access.expand_role("Engineer")
-        engineer_users = self.console.access.list_users_under_role("Engineer")
-        assert self.username in engineer_users, (
-            f"User {self.username} not found under Engineer. Found: {engineer_users}"
+        self.console.access.wait_for_user_role(
+            self.username, role_name="Engineer", previous_role="Operator"
         )
 
     def test_role_change_affects_permissions(self) -> None:
-        """Log in as the user (now Engineer) and verify they gained Engineer permissions."""
+        """Log in as the user (now Engineer) and verify they gained Engineer
+        permissions.
+        """
         self.log("Logging in as changed user to verify permissions")
         self.console.access.logout()
         self.console.access.login(username=self.username, password=PASSWORD)
@@ -104,26 +100,23 @@ class UserRegister(ConsoleCase):
 
     def test_rename_user(self) -> None:
         """Rename a user via the Resources Toolbar context menu."""
-        new_username = f"renamed_{random_name()}"
-        self.log(f"Renaming user: {self.username} -> {new_username}")
+        new_name = f"renamed_{random_name()}"
+        self.log(f"Renaming user: {self.name} -> {new_name}")
 
-        self.console.access.rename_user(
-            username=self.username, new_username=new_username
-        )
+        self.console.access.rename_user(name=self.name, new_name=new_name)
 
-        item = self.console.access._find_user_item(new_username)
-        assert item is not None, f"Renamed user {new_username} not found in tree"
+        item = self.console.access._find_user_item(new_name)
+        assert item is not None, f"Renamed user {new_name} not found in tree"
 
-        self.username = new_username
+        self.name = new_name
 
     def test_change_username_and_login(self) -> None:
         """Change a user's username, then log in with the new username."""
         new_username = f"logintest_{random_name()}"
         self.log(f"Changing username: {self.username} -> {new_username}")
 
-        self.console.access.rename_user(
-            username=self.username, new_username=new_username
-        )
+        user = self.client.users.retrieve(username=self.username)
+        self.client.users.change_username(user.key, new_username)
         self.username = new_username
 
         self.log("Logging out and logging in with new username")
@@ -142,8 +135,6 @@ class UserRegister(ConsoleCase):
         self.console.access.register_user(
             username=username,
             password=PASSWORD,
-            first_name="Delete",
-            last_name="Me",
             role_name="Operator",
         )
 
@@ -161,15 +152,13 @@ class UserRegister(ConsoleCase):
             self.console.access.register_user(
                 username=username,
                 password=PASSWORD,
-                first_name="Multi",
-                last_name="Delete",
                 role_name="Operator",
             )
 
         self.console.access.expand_role("Operator")
 
         for username in usernames:
-            self.console.access.ensure_user_visible(username, "Operator")
+            self.console.access.ensure_user_visible(username, role_name="Operator")
 
         self.log(f"Deleting users: {usernames}")
         self.console.access.delete_users(usernames)

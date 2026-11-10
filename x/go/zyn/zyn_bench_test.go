@@ -10,8 +10,6 @@
 package zyn_test
 
 import (
-	"fmt"
-	"strconv"
 	"testing"
 	"uuid"
 
@@ -148,7 +146,9 @@ func BenchmarkStringParse(b *testing.B) {
 	var dest string
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse("temperature_sensor_01", &dest)
+		if err := schema.Parse("temperature_sensor_01", &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -156,7 +156,9 @@ func BenchmarkStringDump(b *testing.B) {
 	schema := zyn.String()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump("temperature_sensor_01")
+		if _, err := schema.Dump("temperature_sensor_01"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -166,7 +168,9 @@ func BenchmarkUUIDParse(b *testing.B) {
 	var dest uuid.UUID
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse(id, &dest)
+		if err := schema.Parse(id, &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -175,7 +179,9 @@ func BenchmarkUUIDDump(b *testing.B) {
 	id := uuid.New()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump(id)
+		if _, err := schema.Dump(id); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -185,7 +191,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest float64
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(42.5, &dest)
+			if err := schema.Parse(42.5, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("uint32_coerce", func(b *testing.B) {
@@ -193,7 +201,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest uint32
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(uint32(42), &dest)
+			if err := schema.Parse(uint32(42), &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("int64_coerce", func(b *testing.B) {
@@ -201,7 +211,9 @@ func BenchmarkNumberParse(b *testing.B) {
 		var dest int64
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = schema.Parse(int64(1700000000), &dest)
+			if err := schema.Parse(int64(1700000000), &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -211,14 +223,18 @@ func BenchmarkNumberDump(b *testing.B) {
 		schema := zyn.Uint32().Coerce()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = schema.Dump(uint32(42))
+			if _, err := schema.Dump(uint32(42)); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("int64", func(b *testing.B) {
 		schema := zyn.Int64().Coerce()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = schema.Dump(int64(1700000000))
+			if _, err := schema.Dump(int64(1700000000)); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -228,7 +244,9 @@ func BenchmarkBoolParse(b *testing.B) {
 	var dest bool
 	b.ReportAllocs()
 	for b.Loop() {
-		_ = schema.Parse(true, &dest)
+		if err := schema.Parse(true, &dest); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -236,7 +254,9 @@ func BenchmarkBoolDump(b *testing.B) {
 	schema := zyn.Bool()
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = schema.Dump(true)
+		if _, err := schema.Dump(true); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -247,35 +267,45 @@ func BenchmarkObjectDump(b *testing.B) {
 		data := workspacePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = workspaceSchema.Dump(data)
+			if _, err := workspaceSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("user_5f", func(b *testing.B) {
 		data := userPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = userSchema.Dump(data)
+			if _, err := userSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("device_7f", func(b *testing.B) {
 		data := devicePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = deviceSchema.Dump(data)
+			if _, err := deviceSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = channelSchema.Dump(data)
+			if _, err := channelSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("range_4f_nested", func(b *testing.B) {
 		data := rangePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = rangeSchema.Dump(data)
+			if _, err := rangeSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -308,7 +338,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest Workspace
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = workspaceSchema.Parse(data, &dest)
+			if err := workspaceSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("user_5f", func(b *testing.B) {
@@ -316,7 +348,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest User
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = userSchema.Parse(data, &dest)
+			if err := userSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
@@ -324,7 +358,9 @@ func BenchmarkObjectParse(b *testing.B) {
 		var dest Channel
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = channelSchema.Parse(data, &dest)
+			if err := channelSchema.Parse(data, &dest); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }
@@ -334,113 +370,18 @@ func BenchmarkObjectValidate(b *testing.B) {
 		data := workspacePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = workspaceSchema.Validate(data)
+			if err := workspaceSchema.Validate(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("channel_9f", func(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = channelSchema.Validate(data)
-		}
-	})
-}
-
-// --- Array benchmarks (realistic sizes) ---
-
-func BenchmarkArrayParse(b *testing.B) {
-	schema := zyn.Array(zyn.String())
-	for _, size := range []int{1, 10, 100, 1000} {
-		b.Run(fmt.Sprintf("strings_%d", size), func(b *testing.B) {
-			data := make([]any, size)
-			for i := range data {
-				data[i] = fmt.Sprintf("item-%d", i)
+			if err := channelSchema.Validate(data); err != nil {
+				b.Fatal(err)
 			}
-			dest := make([]string, 0)
-			b.ReportAllocs()
-			for b.Loop() {
-				_ = schema.Parse(data, &dest)
-			}
-		})
-	}
-}
-
-func BenchmarkArrayOfChannelsDump(b *testing.B) {
-	schema := zyn.Array(channelSchema)
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make([]any, size)
-			for i := range data {
-				data[i] = channelPayload()
-			}
-			b.ReportAllocs()
-			for b.Loop() {
-				_, _ = schema.Dump(data)
-			}
-		})
-	}
-}
-
-// --- Map benchmarks ---
-
-func BenchmarkMapParse(b *testing.B) {
-	schema := zyn.Map(zyn.String(), zyn.String())
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make(map[string]any, size)
-			for i := range size {
-				data[strconv.Itoa(i)] = fmt.Sprintf("value-%d", i)
-			}
-			var dest map[string]string
-			b.ReportAllocs()
-			for b.Loop() {
-				_ = schema.Parse(data, &dest)
-			}
-		})
-	}
-}
-
-func BenchmarkMapDump(b *testing.B) {
-	schema := zyn.Map(zyn.String(), zyn.String())
-	for _, size := range []int{1, 10, 100} {
-		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
-			data := make(map[string]string, size)
-			for i := range size {
-				data[strconv.Itoa(i)] = fmt.Sprintf("value-%d", i)
-			}
-			b.ReportAllocs()
-			for b.Loop() {
-				_, _ = schema.Dump(data)
-			}
-		})
-	}
-}
-
-// --- Union vs DiscriminatedUnion ---
-
-func BenchmarkUnionVsDiscriminated(b *testing.B) {
-	readSchema := zyn.Object(map[string]zyn.Schema{
-		"type":        zyn.Literal("read"),
-		"sample_rate": zyn.Number(),
-	})
-	writeSchema := zyn.Object(map[string]zyn.Schema{
-		"type":     zyn.Literal("write"),
-		"endpoint": zyn.String(),
-	})
-	union := zyn.Union(readSchema, writeSchema)
-	discriminated := zyn.DiscriminatedUnion("type", readSchema, writeSchema)
-	data := map[string]any{"type": "write", "endpoint": "opc.tcp://localhost"}
-
-	b.Run("union_validate", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_ = union.Validate(data)
-		}
-	})
-	b.Run("discriminated_validate", func(b *testing.B) {
-		b.ReportAllocs()
-		for b.Loop() {
-			_ = discriminated.Validate(data)
 		}
 	})
 }
@@ -452,14 +393,18 @@ func BenchmarkNewResourceSimulation(b *testing.B) {
 		data := channelPayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = channelSchema.Dump(data)
+			if _, err := channelSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 	b.Run("range_nested", func(b *testing.B) {
 		data := rangePayload()
 		b.ReportAllocs()
 		for b.Loop() {
-			_, _ = rangeSchema.Dump(data)
+			if _, err := rangeSchema.Dump(data); err != nil {
+				b.Fatal(err)
+			}
 		}
 	})
 }

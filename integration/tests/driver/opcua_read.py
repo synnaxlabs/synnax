@@ -7,11 +7,24 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.opcua import OPCUATLSAuthSim, OPCUATLSSim
+import ssl
+
+from examples.opcua import (
+    OPCUATLSAuthSim,
+    OPCUATLSDriverCertificateSim,
+    OPCUATLSSim,
+    read_server_certificate,
+)
 
 import synnax as sy
-from tests.driver.opcua_task import OPCUAReadTaskCase
+from tests.driver.opcua_task import (
+    OPCUAReadTaskCase,
+    OPCUASecuredReadTaskCase,
+    pinned_certificate,
+)
 from tests.driver.task import create_channel, create_index
+
+PIN_TIMEOUT = 15 * sy.TimeSpan.SECOND
 
 
 class OPCUAReadFloat(OPCUAReadTaskCase):
@@ -58,7 +71,7 @@ class OPCUAReadBool(OPCUAReadTaskCase):
 
 class OPCUAReadArray(OPCUAReadTaskCase):
     task_name = "OPCUA Read Array"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -82,7 +95,7 @@ class OPCUAReadTimestamp(OPCUAReadTaskCase):
     """Test reading server timestamps as the task index (is_index)."""
 
     task_name = "OPCUA Read Timestamp"
-    array_mode = True
+    sampling: sy.opcua.Sampling = sy.opcua.ArraySampling(size=5)
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -147,7 +160,7 @@ class OPCUAReadMixed(OPCUAReadTaskCase):
         ]
 
 
-class OPCUATLSReadFloat(OPCUAReadTaskCase):
+class OPCUATLSReadFloat(OPCUASecuredReadTaskCase):
     task_name = "OPCUA TLS Read Float"
     sim_classes = [OPCUATLSSim]
 
@@ -169,30 +182,51 @@ class OPCUATLSReadFloat(OPCUAReadTaskCase):
         ]
 
 
-class OPCUATLSReadArray(OPCUAReadTaskCase):
-    task_name = "OPCUA TLS Read Array"
-    sim_classes = [OPCUATLSSim]
-    array_mode = True
+class OPCUATLSDriverCertificateReadFloat(OPCUASecuredReadTaskCase):
+    """Reads over TLS with the certificate the Driver generates for itself, from a
+    device that trusts no server certificate yet."""
+
+    task_name = "OPCUA TLS Driver Certificate Read Float"
+    sim_classes = [OPCUATLSDriverCertificateSim]
+
+    def run(self) -> None:
+        super().run()
+        self.test_pins_server_certificate()
+
+    def test_pins_server_certificate(self) -> None:
+        """The Driver saves the certificate that the server presented to the device."""
+        self.log("Testing: Pin the server certificate")
+        pinned = sy.poll(
+            lambda: pinned_certificate(
+                self.client.devices.retrieve(name=self.device_name)
+            ),
+            timeout=PIN_TIMEOUT,
+            interval=0.5,
+        )
+        if pinned is None:
+            self.fail("The Driver did not pin the server certificate")
+        expected = ssl.PEM_cert_to_DER_cert(read_server_certificate())
+        assert pinned == expected, "The Driver pinned another server certificate"
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
-        idx = create_index(client, "opcua_encrypted_array_index")
+        idx = create_index(client, "opcua_driver_certificate_float_index")
         return [
             sy.opcua.ReadChannel(
                 channel=create_channel(
                     client,
-                    name=f"encrypted_my_array_{i}",
+                    name=f"driver_certificate_my_float_{i}",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                node_id=f"NS=2;I={2 + i}",
+                node_id=f"NS=2;I={8 + i}",
                 data_type=sy.DataType.FLOAT32,
             )
             for i in range(2)
         ]
 
 
-class OPCUATLSAuthReadFloat(OPCUAReadTaskCase):
+class OPCUATLSAuthReadFloat(OPCUASecuredReadTaskCase):
     task_name = "OPCUA TLS Auth Read Float"
     sim_classes = [OPCUATLSAuthSim]
 

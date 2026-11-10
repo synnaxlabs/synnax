@@ -11,6 +11,9 @@ package errors
 
 import (
 	stderrors "errors"
+	"fmt"
+	"reflect"
+	"sync"
 
 	"github.com/cockroachdb/errors"
 )
@@ -28,6 +31,10 @@ const (
 	// the errors package, and is used mostly for Go-to-Go communication.
 	TypeRoach = "roach"
 )
+
+// ErrUnsupported is the errors.ErrUnsupported value of the standard library, so Is
+// matches it against either name.
+var ErrUnsupported = stderrors.ErrUnsupported
 
 // Is determines whether one of the causes of the given error or any of its causes is
 // equivalent to some reference error.
@@ -60,6 +67,11 @@ func IsAny(err error, refs ...error) bool {
 // Wrap wraps an error with a message prefix. A stack trace is retained
 func Wrap(err error, msg string) error { return errors.Wrap(err, msg) }
 
+// Mark returns err marked so that Is matches it against reference, with the message of
+// err unchanged. Is still matches err against its own causes. Mark returns nil for a
+// nil err.
+func Mark(err, reference error) error { return errors.Mark(err, reference) }
+
 // Wrapf wraps an error with a formatted message prefix. A stack trace is also retained.
 // If the format is empty, no prefix is added, but the extra arguments are still
 // processed for reportable strings
@@ -68,10 +80,92 @@ func Wrapf(err error, format string, args ...any) error {
 }
 
 // Join returns an error that wraps the given errors. Any nil error values are
-// discarded. Join returns nil if errs contains no non-nil values. The error formats as
-// the concatenation of the strings obtained by calling the Error method of each element
-// of errs, with a newline between each string. A stack trace is also retained.
-func Join(errs ...error) error { return errors.Join(errs...) }
+// discarded. Join returns nil if errs contains no non-nil values, and the error itself
+// if errs contains exactly one. The members of a joined argument are spliced into the
+// result, so err = Join(err, next) in a loop stays flat. The error formats as the
+// concatenation of the strings obtained by calling the Error method of each member,
+// with a newline between each string. A stack trace is also retained.
+func Join(errs ...error) error {
+	var sole error
+	count := 0
+	for _, err := range errs {
+		if err != nil {
+			sole = err
+			count++
+		}
+	}
+	if count <= 1 {
+		return sole
+	}
+	members := make([]error, 0, count)
+	for _, err := range errs {
+		if err != nil {
+			members = append(members, unwrapJoin(err)...)
+		}
+	}
+	return WithStackDepth(&joinError{members: members}, 1)
+}
+
+// joinError caches its message. A cockroachdb wrapper formats its cause through a
+// formatter that also visits every member, so without the cache a join under a wrapper
+// under a join costs 2^depth to format.
+type joinError struct {
+	members []error
+	once    sync.Once
+	message string
+}
+
+func (e *joinError) Error() string {
+	e.once.Do(func() { e.message = fmt.Sprint(joinText(e.members)) })
+	return e.message
+}
+
+func (e *joinError) Unwrap() []error { return e.members }
+
+// SafeFormatError returns nil so that the formatter elides the members it visited.
+func (e *joinError) SafeFormatError(p errors.Printer) error {
+	p.Print(e.Error())
+	return nil
+}
+
+// joinText renders the message of a joinError through the formatter, which recovers a
+// panic in a member. It hides its members from the formatter, so it visits each once.
+type joinText []error
+
+func (t joinText) Error() string { return fmt.Sprint(t) }
+
+func (t joinText) Format(s fmt.State, verb rune) { errors.FormatError(t, s, verb) }
+
+func (t joinText) SafeFormatError(p errors.Printer) error {
+	for i, member := range t {
+		if i > 0 {
+			p.Print("\n")
+		}
+		p.Print(member)
+	}
+	return nil
+}
+
+var (
+	stackType      = reflect.TypeOf(errors.WithStack(errors.New("")))
+	stdlibJoinType = reflect.TypeOf(stderrors.Join(errors.New("")))
+)
+
+// unwrapJoin returns the members of err if err is a bare join, or err alone if it is
+// not. Any other multi-cause error stays one member, so its message and type remain.
+func unwrapJoin(err error) []error {
+	bare := err
+	if reflect.TypeOf(err) == stackType {
+		bare = errors.UnwrapOnce(err)
+	}
+	if join, ok := bare.(*joinError); ok {
+		return join.members
+	}
+	if reflect.TypeOf(bare) == stdlibJoinType {
+		return bare.(multiCause).Unwrap()
+	}
+	return []error{err}
+}
 
 // multiCause is implemented by errors that carry more than one cause, such as the
 // result of Join. It mirrors the structural convention the standard library uses for

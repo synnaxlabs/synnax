@@ -11,102 +11,125 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/http/versions/v4"
 
 // Method is the HTTP method used when requesting an endpoint.
-type Method = v3.Method
+type Method = v4.Method
 
 const (
-	MethodGet     Method = v3.MethodGet
-	MethodHead    Method = v3.MethodHead
-	MethodPost    Method = v3.MethodPost
-	MethodPut     Method = v3.MethodPut
-	MethodDelete  Method = v3.MethodDelete
-	MethodPatch   Method = v3.MethodPatch
-	MethodOptions Method = v3.MethodOptions
-	MethodTrace   Method = v3.MethodTrace
-	MethodConnect Method = v3.MethodConnect
+	// MethodGet reads a resource.
+	MethodGet Method = v4.MethodGet
+	// MethodHead reads the headers of a resource, with no body.
+	MethodHead Method = v4.MethodHead
+	// MethodPost submits data to a resource.
+	MethodPost Method = v4.MethodPost
+	// MethodPut replaces a resource.
+	MethodPut Method = v4.MethodPut
+	// MethodDelete removes a resource.
+	MethodDelete Method = v4.MethodDelete
+	// MethodPatch changes part of a resource.
+	MethodPatch Method = v4.MethodPatch
+	// MethodOptions asks which communication options a resource supports.
+	MethodOptions Method = v4.MethodOptions
+	// MethodTrace asks the server to echo the request it receives.
+	MethodTrace Method = v4.MethodTrace
+	// MethodConnect opens a tunnel to the server.
+	MethodConnect Method = v4.MethodConnect
 )
 
 // TimeFormat is the encoding of a timestamp value within a JSON body.
-type TimeFormat = v3.TimeFormat
+type TimeFormat = v4.TimeFormat
 
 const (
-	TimeFormatISO8601 TimeFormat = v3.TimeFormatISO8601
-	TimeFormatUnixSec TimeFormat = v3.TimeFormatUnixSec
-	TimeFormatUnixMs  TimeFormat = v3.TimeFormatUnixMs
-	TimeFormatUnixUs  TimeFormat = v3.TimeFormatUnixUs
-	TimeFormatUnixNs  TimeFormat = v3.TimeFormatUnixNs
+	// TimeFormatISO8601 is an ISO 8601 string.
+	TimeFormatISO8601 TimeFormat = v4.TimeFormatISO8601
+	// TimeFormatUnixSec is a count of seconds since the Unix epoch.
+	TimeFormatUnixSec TimeFormat = v4.TimeFormatUnixSec
+	// TimeFormatUnixMs is a count of milliseconds since the Unix epoch.
+	TimeFormatUnixMs TimeFormat = v4.TimeFormatUnixMs
+	// TimeFormatUnixUs is a count of microseconds since the Unix epoch.
+	TimeFormatUnixUs TimeFormat = v4.TimeFormatUnixUs
+	// TimeFormatUnixNs is a count of nanoseconds since the Unix epoch.
+	TimeFormatUnixNs TimeFormat = v4.TimeFormatUnixNs
 )
 
 // Header is a single HTTP header sent with a request.
-type Header = v3.Header
+type Header = v4.Header
 
 // QueryParam is a single URL query parameter sent with a request.
-type QueryParam = v3.QueryParam
+type QueryParam = v4.QueryParam
 
 // EnumEntry maps a string label in a JSON body to a numeric channel value for
 // enum-style parsing (e.g. "ON" -> 1, "OFF" -> 0).
-type EnumEntry = v3.EnumEntry
+type EnumEntry = v4.EnumEntry
 
 // ReadField is a single value extracted from an endpoint's JSON response.
-type ReadField = v3.ReadField
+type ReadField = v4.ReadField
 
 // ReadEndpoint is a single HTTP endpoint polled by a read task.
-type ReadEndpoint = v3.ReadEndpoint
+type ReadEndpoint = v4.ReadEndpoint
 
 // ReadConfig configures an HTTP read task, which polls one or more endpoints on an HTTP
 // server device and writes extracted JSON values to Synnax channels.
-type ReadConfig = v3.ReadConfig
+type ReadConfig = v4.ReadConfig
 
 // JSONType is the JSON type a channel value is serialized as in a request body.
-type JSONType = v3.JSONType
+type JSONType = v4.JSONType
 
 const (
-	JSONTypeNumber  JSONType = v3.JSONTypeNumber
-	JSONTypeString  JSONType = v3.JSONTypeString
-	JSONTypeBoolean JSONType = v3.JSONTypeBoolean
+	// JSONTypeNumber writes the value as a JSON number.
+	JSONTypeNumber JSONType = v4.JSONTypeNumber
+	// JSONTypeString writes the value as a JSON string.
+	JSONTypeString JSONType = v4.JSONTypeString
+	// JSONTypeBoolean writes the value as a JSON boolean.
+	JSONTypeBoolean JSONType = v4.JSONTypeBoolean
 )
 
 // GeneratorType is the kind of value produced for a generated write field.
-type GeneratorType = v3.GeneratorType
+type GeneratorType = v4.GeneratorType
 
 const (
-	GeneratorTypeUUID      GeneratorType = v3.GeneratorTypeUUID
-	GeneratorTypeTimestamp GeneratorType = v3.GeneratorTypeTimestamp
+	// GeneratorTypeUUID produces a new UUID for each request.
+	GeneratorTypeUUID GeneratorType = v4.GeneratorTypeUUID
+	// GeneratorTypeTimestamp produces the time of the request.
+	GeneratorTypeTimestamp GeneratorType = v4.GeneratorTypeTimestamp
 )
 
 // ChannelField is the command channel value placed into a write endpoint's body.
-type ChannelField = v3.ChannelField
+type ChannelField = v4.ChannelField
 
 // BaseWriteField carries the fields every write body field shares.
-type BaseWriteField = v3.BaseWriteField
+type BaseWriteField = v4.BaseWriteField
 
 // WriteField is an additional body field on a write endpoint. The type field selects
 // whether the value is fixed or generated per request.
-type WriteField = v3.WriteField
-type WriteFieldVariant = v3.WriteFieldVariant
-type WriteFieldType = v3.WriteFieldType
+type WriteField = v4.WriteField
+
+// WriteFieldVariant is implemented by every WriteField variant.
+type WriteFieldVariant = v4.WriteFieldVariant
+
+// WriteFieldType is the "type" value that selects a variant of WriteField.
+type WriteFieldType = v4.WriteFieldType
 
 const (
 	// StaticWriteFieldType places a fixed value in the request body.
-	StaticWriteFieldType WriteFieldType = v3.StaticWriteFieldType
+	StaticWriteFieldType WriteFieldType = v4.StaticWriteFieldType
 	// GeneratedWriteFieldType places a freshly generated UUID or timestamp in the body.
-	GeneratedWriteFieldType WriteFieldType = v3.GeneratedWriteFieldType
+	GeneratedWriteFieldType WriteFieldType = v4.GeneratedWriteFieldType
 )
 
 // StaticWriteField places a fixed value in the request body.
-type StaticWriteField = v3.StaticWriteField
+type StaticWriteField = v4.StaticWriteField
 
 // GeneratedWriteField places a freshly generated UUID or timestamp in the body.
-type GeneratedWriteField = v3.GeneratedWriteField
+type GeneratedWriteField = v4.GeneratedWriteField
 
 // WriteEndpoint is a single HTTP endpoint written to by a write task.
-type WriteEndpoint = v3.WriteEndpoint
+type WriteEndpoint = v4.WriteEndpoint
 
 // WriteConfig configures an HTTP write task, which sends an HTTP request whenever a
 // value is written to an endpoint's command channel.
-type WriteConfig = v3.WriteConfig
+type WriteConfig = v4.WriteConfig
 
 // ScanConfig configures an HTTP scan task.
-type ScanConfig = v3.ScanConfig
+type ScanConfig = v4.ScanConfig

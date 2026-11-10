@@ -7,47 +7,36 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import json
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "dispatch_agent_task.sh"
-
-FAKE_GH = """#!/bin/bash
-printf '%s\\x1f' "$@" >> "$GH_CALLS"
-printf '\\x1e' >> "$GH_CALLS"
-if [ "$1" = run ]; then
-    while [ "$1" != --jq ]; do shift; done
-    jq -r "$2" <<< "$GH_RUNS"
-fi
-"""
 
 
 class FakeGitHub:
     """Runs `dispatch_agent_task.sh` with fake `gh` and `sleep` binaries."""
 
     def __init__(self, path: Path) -> None:
-        bin_dir = path / "bin"
-        bin_dir.mkdir()
-        (bin_dir / "gh").write_text(FAKE_GH)
-        (bin_dir / "sleep").write_text("#!/bin/bash\n")
-        for f in bin_dir.iterdir():
-            f.chmod(0o755)
-        self.calls = path / "calls"
-        self.calls.touch()
+        self.gh = FakeGH(path)
+        self.gh.serve("api */dispatches")
+        self.gh.serve("run list", [])
+        sleep = self.gh.bin_dir / "sleep"
+        sleep.write_text("#!/bin/bash\n")
+        sleep.chmod(0o755)
         self.env = {
             **os.environ,
-            "PATH": f"{bin_dir}:{os.environ['PATH']}",
-            "GH_CALLS": str(self.calls),
-            "GH_RUNS": "[]",
+            "PATH": f"{self.gh.bin_dir}:{os.environ['PATH']}",
         }
 
     def runs(self, *runs: tuple[str, str, str]) -> None:
-        self.env["GH_RUNS"] = json.dumps(
-            [{"displayTitle": t, "createdAt": c, "url": u} for t, c, u in runs]
+        self.gh.serve(
+            "run list",
+            [{"displayTitle": t, "createdAt": c, "url": u} for t, c, u in runs],
         )
 
     def run(self, *args: str) -> subprocess.CompletedProcess[str]:
@@ -55,11 +44,47 @@ class FakeGitHub:
             ["bash", str(SCRIPT), *args], env=self.env, capture_output=True, text=True
         )
 
-    def gh_calls(self) -> list[list[str]]:
-        calls = self.calls.read_text().split("\x1e")[:-1]
-        return [call.split("\x1f")[:-1] for call in calls]
-
 
 @pytest.fixture
 def fake_github(tmp_path: Path) -> FakeGitHub:
     return FakeGitHub(tmp_path)
+
+
+class CopyrightRepo:
+    """A Git repository with the copyright scripts and the license template."""
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        root = Path(__file__).resolve().parents[2]
+        for f in [
+            "scripts/check_copyrights.sh",
+            "scripts/update_copyrights.sh",
+            "scripts/common/copyright.sh",
+            "licenses/headers/template.txt",
+        ]:
+            (path / f).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy(root / f, path / f)
+        self.year = int(self.run("date", "+%Y").stdout)
+        self.run("git", "init", "-q")
+
+    def run(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            args, cwd=self.path, capture_output=True, text=True, check=False
+        )
+
+    def write(self, name: str, year: int, body: str = "package x\n") -> None:
+        """Writes name with a canonical Go header for year, then body."""
+        template = (self.path / "licenses/headers/template.txt").read_text()
+        header = "\n".join(
+            f"// {line}" if line else "//" for line in template.rstrip("\n").split("\n")
+        ).replace("{{YEAR}}", str(year))
+        (self.path / name).write_text(f"{header}\n\n{body}")
+        self.run("git", "add", name)
+
+    def year_of(self, name: str) -> int:
+        return int((self.path / name).read_text().split()[2])
+
+
+@pytest.fixture
+def copyright_repo(tmp_path: Path) -> CopyrightRepo:
+    return CopyrightRepo(tmp_path)

@@ -38,8 +38,9 @@ message LoginResponse {
 }
 
 message User {
+  reserved 2;
+  reserved "username";
   string key = 1;
-  string username = 2;
 }
 
 service AuthSessionCreateService {
@@ -47,7 +48,7 @@ service AuthSessionCreateService {
 }
 
 service AuthSessionRenewService {
-  rpc Exec(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Exec(google.protobuf.Empty) returns (SessionRenewResponse);
 }
 
 service AuthSessionRetrieveService {
@@ -58,11 +59,24 @@ service AuthSessionDeleteService {
   rpc Exec(SessionDeleteRequest) returns (google.protobuf.Empty);
 }
 
+service AuthKeyCreateService {
+  rpc Exec(KeyCreateRequest) returns (KeyCreateResponse);
+}
+
+service AuthKeyRetrieveService {
+  rpc Exec(KeyRetrieveRequest) returns (KeyRetrieveResponse);
+}
+
+service AuthKeyDeleteService {
+  rpc Exec(KeyDeleteRequest) returns (google.protobuf.Empty);
+}
+
 // Proof is what a subject presents to log in. The method selects which fields apply.
 message Proof {
   string method = 1;
   string username = 2;
   string password = 3;
+  string key = 4;
 }
 
 // Subject names the user or rack a session belongs to.
@@ -89,6 +103,11 @@ message SessionCreateResponse {
   reserved 4;
 }
 
+message SessionRenewResponse {
+  Session session = 1;
+  optional User user = 2;
+}
+
 message SessionRetrieveRequest {
   repeated Subject subjects = 1;
 }
@@ -98,5 +117,34 @@ message SessionRetrieveResponse {
 }
 
 message SessionDeleteRequest {
+  repeated string keys = 1;
+}
+
+message APIKey {
+  string key = 1;
+  Subject subject = 2;
+  string name = 3;
+  int64 created = 4;
+}
+
+message KeyCreateRequest {
+  Subject subject = 1;
+  string name = 2;
+}
+
+message KeyCreateResponse {
+  string token = 1;
+  APIKey key = 2;
+}
+
+message KeyRetrieveRequest {
+  repeated Subject subjects = 1;
+}
+
+message KeyRetrieveResponse {
+  repeated APIKey keys = 1;
+}
+
+message KeyDeleteRequest {
   repeated string keys = 1;
 }

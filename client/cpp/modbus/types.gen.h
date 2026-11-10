@@ -29,14 +29,16 @@ struct RegisterValue;
 struct BaseReadChannel;
 struct BaseWriteChannel;
 struct ScanConfig;
-struct ReadConfig;
+struct RegisterBit;
+struct RegisterString;
 struct WriteConfig;
+struct ReadConfig;
 
 /// @brief RegisterValue interprets one or more 16-bit registers as a single typed
 /// value.
 struct RegisterValue {
     /// @brief data_type is the data type the register contents are interpreted as.
-    ::x::telem::DataType data_type = ::x::telem::DataType("uint8");
+    ::x::telem::DataType data_type = ::x::telem::DataType("uint16");
     /// @brief bytes_swapped is true when the byte order within each 16-bit word is
     /// swapped. When absent, the device's byte order applies.
     std::optional<bool> bytes_swapped;
@@ -89,6 +91,71 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief RegisterBit addresses one bit of a 16-bit register.
+struct RegisterBit {
+    /// @brief bit is the bit index, from 0 (least significant) to 15.
+    std::uint8_t bit = 0;
+
+    static RegisterBit parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief RegisterString interprets consecutive 16-bit registers as a fixed-length
+/// string.
+struct RegisterString {
+    /// @brief length is the number of characters, two to each register.
+    std::uint16_t length = 0;
+    /// @brief bytes_swapped is true when the two characters of each register are
+    /// swapped. When absent, the device's byte order applies.
+    std::optional<bool> bytes_swapped;
+
+    static RegisterString parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CoilWriteChannel writes a single bit to a coil.
+struct CoilWriteChannel : public BaseWriteChannel {
+    std::string type = "coil";
+
+    static CoilWriteChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterWriteChannel writes a typed value to one or more holding
+/// registers.
+struct HoldingRegisterWriteChannel : public BaseWriteChannel, public RegisterValue {
+    std::string type = "holding_register";
+
+    static HoldingRegisterWriteChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterBitWriteChannel writes one bit of a holding register.
+struct HoldingRegisterBitWriteChannel : public BaseWriteChannel, public RegisterBit {
+    std::string type = "holding_register_bit";
+
+    static HoldingRegisterBitWriteChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannel is a single Modbus write channel. The type field selects the
+/// register space the channel writes to and the fields that accompany it.
+using WriteChannel = std::variant<
+    CoilWriteChannel,
+    HoldingRegisterWriteChannel,
+    HoldingRegisterBitWriteChannel>;
+
+WriteChannel parse_write_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseWriteChannel &base(const WriteChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseWriteChannel & { return v; },
+        value
+    );
+}
+
 /// @brief CoilReadChannel reads a single bit from a coil.
 struct CoilReadChannel : public BaseReadChannel {
     std::string type = "coil";
@@ -109,8 +176,6 @@ struct DiscreteInputReadChannel : public BaseReadChannel {
 /// registers.
 struct HoldingRegisterReadChannel : public BaseReadChannel, public RegisterValue {
     std::string type = "holding_register";
-    /// @brief string_length is the length, in characters, when data_type is a string.
-    std::int32_t string_length = 0;
 
     static HoldingRegisterReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -120,10 +185,43 @@ struct HoldingRegisterReadChannel : public BaseReadChannel, public RegisterValue
 /// registers.
 struct InputRegisterReadChannel : public BaseReadChannel, public RegisterValue {
     std::string type = "input_register";
-    /// @brief string_length is the length, in characters, when data_type is a string.
-    std::int32_t string_length = 0;
 
     static InputRegisterReadChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterStringReadChannel reads a string from consecutive holding
+/// registers.
+struct HoldingRegisterStringReadChannel : public BaseReadChannel,
+                                          public RegisterString {
+    std::string type = "holding_register_string";
+
+    static HoldingRegisterStringReadChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterStringReadChannel reads a string from consecutive input
+/// registers.
+struct InputRegisterStringReadChannel : public BaseReadChannel, public RegisterString {
+    std::string type = "input_register_string";
+
+    static InputRegisterStringReadChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief HoldingRegisterBitReadChannel reads one bit of a holding register.
+struct HoldingRegisterBitReadChannel : public BaseReadChannel, public RegisterBit {
+    std::string type = "holding_register_bit";
+
+    static HoldingRegisterBitReadChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief InputRegisterBitReadChannel reads one bit of an input register.
+struct InputRegisterBitReadChannel : public BaseReadChannel, public RegisterBit {
+    std::string type = "input_register_bit";
+
+    static InputRegisterBitReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -133,34 +231,31 @@ using ReadChannel = std::variant<
     CoilReadChannel,
     DiscreteInputReadChannel,
     HoldingRegisterReadChannel,
-    InputRegisterReadChannel>;
+    InputRegisterReadChannel,
+    HoldingRegisterStringReadChannel,
+    InputRegisterStringReadChannel,
+    HoldingRegisterBitReadChannel,
+    InputRegisterBitReadChannel>;
 
 ReadChannel parse_read_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const ReadChannel &value);
 
-/// @brief CoilWriteChannel writes a single bit to a coil.
-struct CoilWriteChannel : public BaseWriteChannel {
-    std::string type = "coil";
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseReadChannel &base(const ReadChannel &value) {
+    return std::visit(
+        [](const auto &v) -> const BaseReadChannel & { return v; },
+        value
+    );
+}
 
-    static CoilWriteChannel parse(x::json::Parser parser);
+/// @brief WriteConfig configures a Modbus write task.
+struct WriteConfig : public ::synnax::task::WriteConfig {
+    /// @brief channels are the channels the task drives.
+    std::vector<WriteChannel> channels;
+
+    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
-
-/// @brief HoldingRegisterWriteChannel writes a typed value to one or more holding
-/// registers.
-struct HoldingRegisterWriteChannel : public BaseWriteChannel, public RegisterValue {
-    std::string type = "holding_register";
-
-    static HoldingRegisterWriteChannel parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteChannel is a single Modbus write channel. The type field selects the
-/// register space the channel writes to and the fields that accompany it.
-using WriteChannel = std::variant<CoilWriteChannel, HoldingRegisterWriteChannel>;
-
-WriteChannel parse_write_channel(x::json::Parser parser);
-[[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
 /// @brief ReadConfig configures a Modbus read task.
 struct ReadConfig : public ::synnax::task::ReadConfig {
@@ -170,15 +265,6 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     std::vector<ReadChannel> channels;
 
     static ReadConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief WriteConfig configures a Modbus write task.
-struct WriteConfig : public ::synnax::task::WriteConfig {
-    /// @brief channels are the channels the task drives.
-    std::vector<WriteChannel> channels;
-
-    static WriteConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 }

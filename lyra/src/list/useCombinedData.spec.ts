@@ -150,32 +150,43 @@ describe("useCombinedData", () => {
   });
 
   describe("subscribe", () => {
-    it("should subscribe to both sources and return combined unsubscribe", () => {
+    it("should subscribe only the source that lists the key", () => {
       const callback = vi.fn();
       const firstUnsub = vi.fn();
       const secondUnsub = vi.fn();
-
       const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
         data: ["1"],
         subscribe: vi.fn(() => firstUnsub),
       };
-
       const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
         data: ["2"],
         subscribe: vi.fn(() => secondUnsub),
       };
-
       const { result } = renderHook(() => useCombinedData({ first, second }));
-
-      const unsubscribe = result.current.subscribe?.(callback, "1");
-
+      result.current.subscribe?.(callback, "1")();
       expect(first.subscribe).toHaveBeenCalledWith(callback, "1");
-      expect(second.subscribe).toHaveBeenCalledWith(callback, "1");
-
-      unsubscribe?.();
-
       expect(firstUnsub).toHaveBeenCalled();
+      result.current.subscribe?.(callback, "2")();
+      expect(second.subscribe).toHaveBeenCalledWith(callback, "2");
       expect(secondUnsub).toHaveBeenCalled();
+      expect(first.subscribe).toHaveBeenCalledTimes(1);
+      expect(second.subscribe).toHaveBeenCalledTimes(1);
+    });
+
+    it("should subscribe the second source to a key neither lists", () => {
+      const first: Pick<FrameProps<string>, "data" | "subscribe"> = {
+        data: ["1"],
+        subscribe: vi.fn(() => () => {}),
+      };
+      const second: Pick<FrameProps<string>, "data" | "subscribe"> = {
+        data: [],
+        subscribe: vi.fn(() => () => {}),
+      };
+      const { result } = renderHook(() => useCombinedData({ first, second }));
+      const callback = vi.fn();
+      result.current.subscribe?.(callback, "3");
+      expect(second.subscribe).toHaveBeenCalledWith(callback, "3");
+      expect(first.subscribe).not.toHaveBeenCalled();
     });
 
     it("should handle partial subscribe functions", () => {

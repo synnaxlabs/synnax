@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
 import random
-from typing import cast
+from typing import Unpack
 from urllib.request import urlopen
 from uuid import uuid4
 
@@ -19,28 +18,23 @@ from playwright.sync_api import (
     BrowserType,
     Page,
     Playwright,
+    TimeoutError as PlaywrightTimeoutError,
     sync_playwright,
 )
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.console import Console
-from framework.models import DEFAULT_CONNECTION, STATUS, SynnaxConnection
-from framework.run_dir import resolve_results_path
-from framework.test_case import TestCase
+from framework import resources
+from framework.models import STATUS
+from framework.test_case import Config, TestCase, param
 
 
 class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
 
-    Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False).
-      Set by the ``--headed`` flag.
-    - PLAYWRIGHT_CONSOLE_SLOW_MO: Delay between Playwright actions in ms (default: 0).
-      Set by the ``--slow-mo MS`` flag.
-
-    Per-case ``headed`` and ``slow_mo`` parameters override the environment.
+    Per-case ``headed`` and ``slow_mo`` parameters override the ``--headed`` and
+    ``--slow-mo`` conductor options.
     """
 
     playwright: Playwright | None
@@ -52,24 +46,24 @@ class ConsoleCase(TestCase):
     default_nav_timeout: int
     console: Console
 
-    def __init__(
-        self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        *,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        return super().resources() | {resources.BROWSER}
+
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
 
     def execute(self) -> None:
         # Teardown errors are logged, not raised, so a subclass cleanup that raises
-        # before super().teardown() would otherwise leave the driver running.
+        # before super().teardown() would otherwise lose the trace and leave the driver
+        # running.
         try:
             super().execute()
         finally:
+            self._stop_tracing()
             self._close_browser()
 
     def setup(self) -> None:
@@ -79,17 +73,15 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
-        headed = self.params.get("headed", env_headed)
-        env_slow_mo = int(os.environ.get("PLAYWRIGHT_CONSOLE_SLOW_MO", "0"))
-        slow_mo = self.params.get("slow_mo", env_slow_mo)
-        default_timeout = self.params.get("default_timeout", 15000)  # 15s
-        default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
+        headed = param(self.params, "headed", self.options.headed)
+        slow_mo = param(self.params, "slow_mo", self.options.slow_mo)
+        default_timeout = param(self.params, "default_timeout", 15000)  # 15s
+        default_nav_timeout = param(self.params, "default_nav_timeout", 15000)  # 15s
 
         # Open page
         self.log(f"Opening browser in {'headed' if headed else 'headless'} mode")
         self.playwright = sync_playwright().start()
-        browser_engine = self.determine_browser()
+        browser_engine = self.determine_browser(self.playwright)
         # Playwright cannot drive the File System Access save picker, so remove the
         # local pickers; exports then fall back to plain downloads, which
         # expect_download captures. Inputs (expect_file_chooser) are unaffected.
@@ -121,21 +113,29 @@ class ConsoleCase(TestCase):
         self.page.set_default_timeout(default_timeout)  # 1s
         self.page.set_default_navigation_timeout(default_nav_timeout)  # 1s
 
-    def _goto_console(self, query: str = "") -> None:
+    def _goto_console(
+        self, query: str = "", host: str | None = None, port: int | None = None
+    ) -> None:
         """Navigate to the Console, falling back to the dev server when the
         Core lacks an embedded Console. ``query`` is appended verbatim (e.g.
-        ``"?select-core"``)."""
-        host = self.synnax_connection.server_address
-        port = self.synnax_connection.port
+        ``"?select-core"``). ``host`` and ``port`` default to the Core's."""
+        host = host or self.synnax_connection.server_address
+        port = port or self.synnax_connection.port
 
         # A plain request finds the Console's port without a page load in the browser.
         with urlopen(f"http://{host}:{port}/", timeout=5) as res:
             if b"core built without embedded console" in res.read().lower():
+                # The dev Console connects to the Core whose port this key holds.
+                self.page.add_init_script(
+                    f"localStorage.setItem('synnax-dev-connection-port', '{port}')"
+                )
                 port = 5173
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
-        self.console = Console(self.page, self.client)
+        self.console = Console(
+            page=self.page, client=self.client, results_dir=self.results_dir
+        )
 
     def _login(self) -> None:
         username = self.synnax_connection.username
@@ -178,10 +178,6 @@ class ConsoleCase(TestCase):
         self.console.notifications.close_connection()
 
     def teardown(self) -> None:
-        # Stop and persist the trace before cleanup; cleanup may mutate page state
-        # in ways that mask the failure we want to capture.
-        self._stop_tracing()
-
         if self._cleanup_pages:
             try:
                 self.console.pages.delete_many(self._cleanup_pages)
@@ -207,7 +203,7 @@ class ConsoleCase(TestCase):
         failed_states = (STATUS.FAILED, STATUS.TIMEOUT, STATUS.KILLED)
         try:
             if self._status in failed_states:
-                trace_path = resolve_results_path("trace.zip")
+                trace_path = str(self.results_dir / "trace.zip")
                 self.context.tracing.stop(path=trace_path)
                 self.log(f"Trace saved: {trace_path}")
             else:
@@ -217,7 +213,7 @@ class ConsoleCase(TestCase):
             # debugging aid, not a correctness requirement.
             self.log(f"Failed to stop trace: {e}")
 
-    def determine_browser(self) -> BrowserType:
+    def determine_browser(self, playwright: Playwright) -> BrowserType:
         """
         Provide random coverage for all browsers.
         """
@@ -225,8 +221,7 @@ class ConsoleCase(TestCase):
         # SY-2928
         # Firefox failing in CI only
         # Webkit failing on Win in CI
-        browsers = ["chromium"]
+        browsers = [playwright.chromium]
         selected = random.choice(browsers)
-        self.log(f"Randomly selected browser: {selected}")
-        browser_attr = getattr(self.playwright, selected)
-        return cast(BrowserType, browser_attr)
+        self.log(f"Randomly selected browser: {selected.name}")
+        return selected

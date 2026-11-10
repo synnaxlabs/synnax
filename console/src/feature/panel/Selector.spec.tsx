@@ -31,7 +31,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
-import { findModalButton } from "@/platform/tree/menuTestutil";
+import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   countEditableText,
@@ -68,7 +68,7 @@ const createProjectPanel = async (
     key,
     ...rest,
     name: uniqueName(name),
-    parent: project.ontologyID(projectKey),
+    project: projectKey,
     root: { variant: "leaf", tabs: [tab] },
   });
 
@@ -509,11 +509,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
@@ -565,7 +565,7 @@ describe("Panel.Selector", () => {
       });
       const pan = await createProjectPanel(projectKey);
       await renderStrip([pan], projectKey);
-      expect(pillIcon(pan).classList).toContain("pluto-icon--panel");
+      expect(pillIcon(pan).classList).toContain("lyra-icon--panel");
     });
 
     it("should draw the picked icon on the pill and close the picker", async () => {
@@ -574,7 +574,7 @@ describe("Panel.Selector", () => {
         fireEvent.click(screen.getByLabelText("Valve"));
       });
       await waitFor(() =>
-        expect(pillIcon(pan).classList).toContain("pluto-icon--valve"),
+        expect(pillIcon(pan).classList).toContain("lyra-icon--valve"),
       );
       expect(picker()).toBeNull();
     });
@@ -617,7 +617,7 @@ describe("Panel.Selector", () => {
         fireEvent.click(screen.getByLabelText("Default"));
       });
       await waitFor(() =>
-        expect(pillIcon(pan).classList).toContain("pluto-icon--panel"),
+        expect(pillIcon(pan).classList).toContain("lyra-icon--panel"),
       );
       expect(picker()).toBeNull();
       const stored = await client.panels.retrieve({ key: pan.key });
@@ -664,11 +664,11 @@ describe("Panel.Selector", () => {
       const viewer = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          panel.TYPE_ONTOLOGY_ID,
-          project.TYPE_ONTOLOGY_ID,
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          panel.TYPE_RESOURCE_ID,
+          project.TYPE_RESOURCE_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });

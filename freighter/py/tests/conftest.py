@@ -9,16 +9,9 @@
 
 import pytest
 
-from alamos import Instrumentation
-from alamos.dev import instrumentation as dev_instrumentation
 from freighter import URL
 
 
 @pytest.fixture
 def endpoint() -> URL:
-    return URL("localhost", 8080)
-
-
-@pytest.fixture(scope="session")
-def instrumentation() -> Instrumentation:
-    return dev_instrumentation()
+    return URL(host="localhost", port=8080)

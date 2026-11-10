@@ -15,7 +15,7 @@ import synnax as sy
 class Simulator(ABC):
     """Base class for all simulators."""
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, *, verbose: bool = False):
         self.verbose = verbose
         self._running = False
 

@@ -35,7 +35,7 @@ inline Document Document::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Document::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["inserts"] = x::json::to_array(this->inserts);
     j["deletes"] = x::json::to_array(this->deletes);
     return j;
@@ -43,13 +43,13 @@ inline x::json::json Document::to_json() const {
 
 inline Text Text::parse(x::json::Parser parser) {
     return Text{
-        .doc = parser.field<Document>("doc"),
+        .doc = parser.field<Document>("doc", Document{}),
         .raw = parser.field<std::string>("raw", ""),
     };
 }
 
 inline x::json::json Text::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["doc"] = this->doc.to_json();
     j["raw"] = this->raw;
     return j;

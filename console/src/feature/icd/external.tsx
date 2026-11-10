@@ -35,7 +35,7 @@ const TAB: Panel.Tab = {
   ),
   restore: async ({ client, resource }) => {
     await client.icds.create(
-      query.requireCorpse(client.icds.getCached({ key: resource.key })),
+      query.requireCorpse(client.icds.watch({ key: resource.key }).getCached()),
     );
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
@@ -43,5 +43,5 @@ const TAB: Panel.Tab = {
 };
 
 export const TABS: Panel.Tabs = {
-  [icd.TYPE_ONTOLOGY_ID.type]: TAB,
+  [icd.TYPE_RESOURCE_ID.type]: TAB,
 };

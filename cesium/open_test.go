@@ -191,3 +191,88 @@ var _ = Describe("Open", func() {
 		})
 	}
 })
+
+var _ = Describe("Open after a crash", func() {
+	for fsName, openFS := range FileSystems {
+		Context("FS: "+fsName, func() {
+			It(
+				"Should truncate data that its index has no timestamps for",
+				func(ctx SpecContext) {
+					fs := openFS()
+					db := mustOpenDBOnFS(ctx, fs)
+					idx, data := GenerateChannelKey(), GenerateChannelKey()
+					keys := []cesium.ChannelKey{idx, data}
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     "time",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     "data",
+							DataType: telem.Int64T,
+							Index:    idx,
+						},
+					)).To(Succeed())
+					Expect(db.Write(ctx, 1*telem.SecondTS, telem.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(1, 2),
+							telem.NewSeriesV[int64](1, 2),
+						},
+					))).To(Succeed())
+					w := DeferClose(MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels:                 keys,
+						Start:                    10 * telem.SecondTS,
+						Mode:                     cesium.WriterModePersistStream,
+						Sync:                     new(true),
+						AutoIndexPersistInterval: telem.Hour,
+					})))
+					MustSucceed(w.Write(telem.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(10, 11, 12),
+							telem.NewSeriesV[int64](10, 11, 12),
+						},
+					)))
+					By("Saving the domain of both channels")
+					Expect(db.DeleteTimeRange(
+						ctx,
+						keys,
+						(1 * telem.SecondTS).Range(2*telem.SecondTS),
+					)).To(Succeed())
+					MustSucceed(w.Write(telem.MultiFrame(
+						keys,
+						[]telem.Series{
+							telem.NewSeriesSecondsTSV(13, 14, 15),
+							telem.NewSeriesV[int64](13, 14, 15),
+						},
+					)))
+					By("Saving the domain of only the data channel")
+					Expect(db.DeleteTimeRange(
+						ctx,
+						[]cesium.ChannelKey{data},
+						(2 * telem.SecondTS).Range(3*telem.SecondTS),
+					)).To(Succeed())
+					By("Opening the files that a crash leaves")
+					crashed := mustOpenDBOnFS(ctx, fs)
+					f := MustSucceed(crashed.Read(
+						ctx,
+						(10 * telem.SecondTS).Range(16*telem.SecondTS),
+						data,
+					))
+					Expect(f.Count()).To(Equal(1))
+					Expect(f.SeriesAt(0).TimeRange).To(Equal(
+						(10 * telem.SecondTS).Range(12*telem.SecondTS + 1),
+					))
+					Expect(f.SeriesAt(0)).To(
+						telem.MatchSeriesData(telem.NewSeriesV[int64](10, 11, 12)),
+					)
+				},
+			)
+		})
+	}
+})

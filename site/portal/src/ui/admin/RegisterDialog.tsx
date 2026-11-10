@@ -11,12 +11,15 @@ import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { navigate, post } from "@/ui/api";
 import { Modal } from "@/ui/modal";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({
   name: z
@@ -55,12 +58,12 @@ const Content = (): ReactElement => {
       }}
     >
       <Form.TextField
-        path="name"
+        path={path.name}
         label="Name"
         inputProps={{ autoFocus: true, placeholder: "Acme Rockets" }}
       />
-      <Form.Field<string>
-        path="email"
+      <Form.Field
+        path={path.email}
         label="Admin email"
         helpText="They get a link to join, then invite the rest of the team."
       >

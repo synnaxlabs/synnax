@@ -9,7 +9,7 @@
 
 import { type channel, DataType, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id } from "@synnaxlabs/x";
+import { deep, id } from "@synnaxlabs/x";
 import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -17,6 +17,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
+
+const path = deep.path<schematic.SelectNodeConfig>();
 
 const client = createTestClient();
 
@@ -42,8 +44,8 @@ describe("SelectForm", () => {
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
     await waitFor(() => {
-      expect(value("commandChannel")).toBe(0);
-      expect(value("disabled")).toBe(true);
+      expect(value(path.commandChannel)).toBe(0);
+      expect(value(path.disabled)).toBe(true);
     });
   });
 });

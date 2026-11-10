@@ -59,7 +59,7 @@ cc_test(
     deps = [
         ":mock",
         ":nixnet",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -11,13 +11,15 @@ package panel
 
 import (
 	"context"
-	"io"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/panel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -30,9 +32,8 @@ import (
 // ServiceConfig is the configuration for creating a Service.
 type ServiceConfig struct {
 	alamos.Instrumentation
-	Signals  *signals.Provider
-	DB       *gorp.DB
-	Ontology *ontology.Ontology
+	Signals *signals.Provider
+	DB      *gorp.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -41,7 +42,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -50,7 +50,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("panel")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 
@@ -79,30 +78,31 @@ func OpenService(
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Panel]{
 		DB:              cfg.DB,
+		Name:            tableName,
 		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	// Broadcast action vectors on sy_panel_set; the gorp delete publisher's Set
-	// is disabled because action frames carry the mutation payload, but it still
-	// emits deletes so clients prune cached panels.
-	var sig io.Closer
-	if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-		Provider: cfg.Signals,
-		State:    s.state,
-		Name:     "panel",
-	}); !ok(err, sig) {
+	// sy_panel_set carries action batches, so the table publishes its deletes only.
+	if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+		Name:     "sy_panel_set",
+		Actions:  s.state,
+		Resource: ResourceID,
+		Table:    tableName,
+	}); !ok(err, nil) {
 		return nil, err
 	}
-	deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-	deleteCfg.DisableSet = true
-	if sig, err = cfg.Signals.PublishFromGorp(ctx, deleteCfg); !ok(err, sig) {
+	if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Panel]{
+		Changes:     s.table.Changes,
+		Resource:    ResourceID,
+		SetDisabled: new(true),
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -110,42 +110,24 @@ func OpenService(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-// OnAction subscribes the given handler to the action stream emitted by Dispatch. The
-// handler runs synchronously inside Dispatch after the underlying transaction commits.
-// The returned Disconnect removes the handler.
+// CompositionMigrations returns the panel migrations that read other services' staged
+// data. Run them once every service table is open.
+func (s *Service) CompositionMigrations() []gorp.Migration {
+	return versions.CompositionMigrations(s.table)
+}
+
+// OnAction calls handler with each action batch that a transaction attaches, after the
+// transaction commits. handler runs as a reader of gorp.DB.Observe does, so it must not
+// commit on its own goroutine. The returned Disconnect removes the handler.
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
-}
-
-// Dispatch applies a sequence of actions atomically to the panel with the given key.
-// Dispatches for the same panel run one at a time, each in its own transaction
-// committed before the actions are notified, so two concurrent dispatches can never
-// overwrite each other's edits. dispatchKey is a client-generated identifier carried
-// verbatim onto the broadcast so the originating client can recognize its own echo.
-func (s *Service) Dispatch(
-	ctx context.Context,
-	key Key,
-	dispatchKey string,
-	acts []Action,
-) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Panel](key)).
-			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
-				reduced, err := Reduce(p, acts...)
-				if err != nil {
-					return reduced, err
-				}
-				return reduced, validateTree(reduced.Root)
-			}).Exec(ctx, tx)
-	})
+	return s.state.OnChange(handler)
 }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{
-		tx:         gorp.OverrideTx(s.cfg.DB, tx),
-		otg:        s.cfg.Ontology.NewWriter(tx),
+		tx:         tx,
 		table:      s.table,
 		dispatcher: s.state.Dispatcher(),
 	}
@@ -154,7 +136,30 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
 		indexes: s.indexes,
-		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 	}
+}
+
+// MoveGroups moves the panels in groups into the project top, in tx, after those groups
+// move under top. It returns a validation error when one of the groups holds a panel
+// and top is not a project.
+func (s *Service) MoveGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	groups []group.Key,
+	top *resource.ID,
+) error {
+	var moved []Panel
+	if err := s.NewRetrieve().
+		Where(MatchGroups(groups...)).
+		Entries(&moved).
+		Exec(ctx, tx); err != nil || len(moved) == 0 {
+		return err
+	}
+	p, err := project.TopParentProject(top, resource.TypePanel)
+	if err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(e Panel, _ int) Key { return e.Key })
+	return s.NewWriter(tx).setProject(ctx, *p, keys...)
 }

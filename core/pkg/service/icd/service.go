@@ -11,13 +11,11 @@ package icd
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/library"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -30,14 +28,10 @@ import (
 
 // ServiceConfig is the configuration for opening an ICD Service.
 type ServiceConfig struct {
-	// DB is the database the service stores ICDs in.
+	// Table stores the ICDs.
 	//
 	// [REQUIRED]
-	DB *gorp.DB
-	// Ontology defines ICDs as resources and finds the tasks that use them.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
+	Table *Table
 	// Task rewrites the tasks that use an ICD when the messages they use change.
 	//
 	// [REQUIRED]
@@ -62,8 +56,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
-	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Table = override.Nil(c.Table, other.Table)
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Uses = override.Nil(c.Uses, other.Uses)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
@@ -74,8 +67,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Validate implements config.Config.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("icd")
-	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
+	v.NotNil("table", c.Table)
 	v.NotNil("task", c.Task)
 	v.NotNil("uses", c.Uses)
 	v.NotNil("imex", c.ImEx)
@@ -84,41 +76,31 @@ func (c ServiceConfig) Validate() error {
 
 // Service creates, retrieves, and deletes ICDs.
 type Service struct {
-	cfg     ServiceConfig
-	table   *gorp.Table[Key, ICD]
-	indexes indexes
-	closer  xio.MultiCloser
+	cfg    ServiceConfig
+	table  *Table
+	closer xio.MultiCloser
 }
 
 // OpenService opens a Service with the provided configuration. The service must be
 // closed by calling Close.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{indexes: newIndexes()}
+	s = &Service{}
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
+	s.table = s.cfg.Table
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, ICD]{
-		DB:              s.cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
-		Instrumentation: s.cfg.Instrumentation,
-	}); !ok(err, s.table) {
-		return nil, err
-	}
-	s.cfg.Ontology.RegisterService(s)
 	if err = s.cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
 	if s.cfg.Signals == nil {
 		return s, nil
 	}
-	var sig io.Closer
-	if sig, err = s.cfg.Signals.PublishFromGorp(
-		ctx,
-		signals.GorpPublisherConfigUUID(s.table.Observe()),
-	); !ok(err, sig) {
+	if err = s.cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, ICD]{
+		Changes:  s.table.table.Changes,
+		Resource: ResourceID,
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -128,25 +110,27 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // concurrently with any other service method.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a Writer that executes against tx, or directly against the database
-// when tx is nil.
+// NewWriter opens a Writer that executes against tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
-	return Writer{
-		tx:        tx,
-		otg:       s.cfg.Ontology,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		table:     s.table,
-		tasks:     s.cfg.Task,
-		uses:      s.cfg.Uses,
-	}
+	return Writer{reader: s.reader(tx), tx: tx}
+}
+
+// Check returns every problem that would stop Writer.Create from storing ic, read
+// through snap, without storing it: each problem the package-level Check finds, and
+// each message or field that a task uses and ic lacks.
+func (s *Service) Check(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	ic ICD,
+) (library.Problems, error) {
+	return s.reader(snap).check(ctx, ic)
+}
+
+func (s *Service) reader(snap gorp.Snapshot) reader {
+	return reader{snap: snap, table: s.table, tasks: s.cfg.Task, uses: s.cfg.Uses}
 }
 
 // NewRetrieve opens a query for ICDs.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
-	}
+	return Retrieve{gorp: s.table.table.NewRetrieve(), indexes: s.table.indexes}
 }

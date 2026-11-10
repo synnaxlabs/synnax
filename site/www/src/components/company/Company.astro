@@ -147,7 +147,7 @@ import logoYC from "@/components/company/yc.svg";
             font-weight: 400;
         }
 
-        @media (max-width: 600px) {
+        @media (width <= 600px) {
             padding: 20rem 5rem;
         }
     }
@@ -194,9 +194,7 @@ import logoYC from "@/components/company/yc.svg";
     .company-profile {
         max-width: 340px;
         min-width: 280px;
-        flex-basis: 280px;
-        flex-shrink: 1;
-        flex-grow: 1;
+        flex: 1 1 280px;
 
         & img {
             border-radius: 1rem;
@@ -209,7 +207,7 @@ import logoYC from "@/components/company/yc.svg";
         color: var(--pluto-gray-l8) !important;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .company-credibility {
             flex-direction: column;
             gap: 3rem;

@@ -33,7 +33,7 @@ All samples in a series have one data type, such as `float32` or `timestamp`.
 import numpy as np
 import synnax as sy
 
-# The first value sets the data type: float64.
+# Floats make a float64 series.
 series = sy.Series([20.0, 20.5, 21.0])
 
 # Set the data type yourself.
@@ -42,14 +42,19 @@ series = sy.Series([20.0, 20.5, 21.0], data_type=sy.DataType.FLOAT32)
 # A NumPy array keeps its dtype: int16.
 series = sy.Series(np.array([1, 2, 3], dtype=np.int16))
 
-# Strings make a string series, and dictionaries make a json series.
+# Strings make a string series, dictionaries make a json series, and bytes make a
+# bytes series.
 series = sy.Series(["open", "closed"])
 series = sy.Series([{"valve": "open"}, {"valve": "closed"}])
+series = sy.Series([b"\x01\x02", b"\x03"])
 ```
 
-The first value of a list sets the data type. `sy.Series([20, 20.5])` is an `int64`
-series that holds `[20, 20]`. Write `20.0`, or set `data_type`. A list that starts with
-a number and holds a string raises a `ValueError`.
+A list of numbers gets one data type that holds every value exactly.
+`sy.Series([20, 20.5])` is a `float64` series that holds `[20.0, 20.5]`. When no data
+type holds every value exactly, such as for `[2**53 + 1, 0.5]`, or when a list mixes
+booleans or strings with numbers, the client raises a `TypeError`: set `data_type`. A
+NumPy array of strings makes a `string` series, and an array of `datetime64` values
+makes a `timestamp` series.
 
   </Fragment>
 
@@ -128,7 +133,10 @@ import synnax as sy
 series = sy.Series([20.0, 20.5, 21.0])
 print(series[0])  # 20.0
 print(series[-1])  # 21.0
+print(series[1:].to_numpy())  # [20.5 21. ]
 ```
+
+A slice returns a new `Series`.
 
   </Fragment>
 
@@ -261,8 +269,22 @@ print(len(pressure.series))  # 2
 df = frame.to_df()
 ```
 
+`to_df` gives one column for each channel. When the frame holds the index channel of
+each channel, as a frame that you read from a list of channels does, the `DataFrame`
+index is the UTC timestamps of the samples, and the index channels are not columns. The
+index has the name of the index channel, or `time` when the frame holds more than one
+index channel. Channels with different index channels are joined on time, and a cell is
+empty when a channel has no sample at that time. Integer columns with empty cells use
+pandas nullable types, such as `Int64`, to keep large values exact. A `min_max` read is
+not indexed by time, because its samples do not keep their times. In other frames, the
+index is the sample number, and all channels must have the same number of samples.
+`frame[mask]` selects the rows of `to_df` where a boolean mask is true. The mask has one
+value for each row.
+
 When the frame has no series for the channel, `frame["name"]` returns an empty
-`MultiSeries`.
+`MultiSeries`, and `frame.get("name")` returns `None` or the default that you give. A
+frame that you read by key also finds a channel by its name. When two channels in the
+frame have the same name, `frame["name"]` raises a `MultipleFoundError`.
 
   </Fragment>
 
@@ -293,8 +315,18 @@ console.log(frame.at(1)); // { tank_pressure: 20.5, tank_temperature: 290.2 }
 
 ## Typed samples in TypeScript
 
-`at` returns a `TelemValue`: a number, bigint, string, boolean, or `TimeStamp`. When you
-know the type of a series, `as` returns a `Series` of that type:
+The type of value that `at` returns depends on the data type of the series:
+
+| Data type                               | `at` returns                               |
+| --------------------------------------- | ------------------------------------------ |
+| Floats, and integers of 32 bits or less | A `number`.                                |
+| `int64`, `uint64`, and `timestamp`      | A `bigint`. A timestamp is in nanoseconds. |
+| `boolean`                               | A `boolean`.                               |
+| `string` and `uuid`                     | A `string`.                                |
+| `json`                                  | An object. Its keys change to `camelCase`. |
+
+To make a timestamp sample a `TimeStamp`, pass it to `new TimeStamp`. When you know the
+type of a series, `as` returns a `Series` of that type:
 
 ```typescript
 const series = new Series([20.0, 20.5, 21.0]);

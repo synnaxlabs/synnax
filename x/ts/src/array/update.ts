@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { narrow } from "@/narrow";
 import { type record } from "@/record";
+
+/** Whether the value is a list of plain objects that each have a string key. */
+export const isKeyed = (value: unknown): value is record.Keyed<string>[] =>
+  Array.isArray(value) &&
+  value.every((v) => narrow.isPlainObject(v) && typeof v.key === "string");
 
 export const upsert = <V>(prev: V[] | null | undefined, changes: V | V[]): V[] => {
   if (Array.isArray(changes))

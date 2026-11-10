@@ -17,10 +17,10 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// OffsetResolver is a function that resolves the offset of a sample within a domain.
+// offsetResolver is a function that resolves the offset of a sample within a domain.
 // See the DB.Delete function for more details on the values this function should
 // return.
-type OffsetResolver = func(
+type offsetResolver = func(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
 	ts telem.TimeStamp,
@@ -55,8 +55,8 @@ type OffsetResolver = func(
 func (db *DB) Delete(
 	ctx context.Context,
 	tr telem.TimeRange,
-	calculateStartOffset OffsetResolver,
-	calculateEndOffset OffsetResolver,
+	calculateStartOffset offsetResolver,
+	calculateEndOffset offsetResolver,
 ) (err error) {
 	ctx, span := db.cfg.T.Bench(ctx, "Delete")
 	defer span.End()
@@ -210,9 +210,10 @@ func (db *DB) Delete(
 		)
 	}
 
-	persist := db.idx.indexPersist.prepare(startDomain)
+	write := db.idx.indexPersist.prepare(startDomain)
+	db.idx.notifyHistoryChange(ctx, tr)
 	// We choose to keep the mutex locked while persisting to index.
-	return span.Error(persist())
+	return span.Error(write.run())
 }
 
 // GarbageCollect rewrites files that have accumulated enough tombstones to warrant
@@ -258,12 +259,12 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 	}
 
 	var collected bool
-	for fileKey := uint16(1); fileKey <= uint16(db.fc.counter.Value()); fileKey++ {
-		s, err := db.cfg.FS.Stat(fileKeyToName(fileKey))
+	for fileKey := 1; fileKey <= int(db.fc.counter.Value()); fileKey++ {
+		s, err := db.cfg.FS.Stat(fileKeyToName(uint16(fileKey)))
 		if err != nil {
 			return span.Error(err)
 		}
-		fileCollected, err := db.garbageCollectFile(fileKey, s.Size())
+		fileCollected, err := db.garbageCollectFile(uint16(fileKey), s.Size())
 		if err != nil {
 			return span.Error(err)
 		}
@@ -277,11 +278,11 @@ func (db *DB) GarbageCollect(ctx context.Context) error {
 
 	db.idx.mu.Lock()
 	defer db.idx.mu.Unlock()
-	persist := db.idx.indexPersist.prepare(0)
+	write := db.idx.indexPersist.prepare(0)
 	// We choose to keep the mutex locked while persisting pointers: the time sacrifice
 	// should not be substantial, and this ensures that the order of index persists are
 	// in order of garbage collect so that the index does reflect the correct indexes.
-	return persist()
+	return write.run()
 }
 
 // garbageCollectFile rewrites key's file to drop its tombstones, reporting whether it
@@ -400,6 +401,12 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 	if err := func() error {
 		db.idx.mu.Lock()
 		defer db.idx.mu.Unlock()
+		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
+			return err
+		}
+		if err := db.cfg.FS.Rename(copyName, name); err != nil {
+			return err
+		}
 		for i, ptr := range db.idx.mu.pointers {
 			if ptr.fileKey == key {
 				if deltaOffset, ok := resolvePointerOffset(
@@ -407,14 +414,11 @@ func (db *DB) garbageCollectFile(key uint16, size int64) (bool, error) {
 					offsetDeltaMap,
 				); ok {
 					db.idx.mu.pointers[i].offset = ptr.offset - deltaOffset
+					db.idx.persistHead = min(db.idx.persistHead, i)
 				}
 			}
 		}
-
-		if err := db.cfg.FS.Rename(name, name+"_temp"); err != nil {
-			return err
-		}
-		return db.cfg.FS.Rename(copyName, name)
+		return nil
 	}(); err != nil {
 		return false, err
 	}

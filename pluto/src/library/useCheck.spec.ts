@@ -10,6 +10,7 @@
 import { icd, type library, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -18,6 +19,8 @@ import { Library } from "@/library";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+const path = deep.path<icd.ICD>();
 
 type Check = (client: Client, value: icd.ICD) => Promise<library.Problem[]>;
 
@@ -32,7 +35,7 @@ const useChecked = (values: icd.ICD, check: Check) => {
 describe("Library.useCheck", () => {
   let wrapper: FC<PropsWithChildren>;
   let values: icd.ICD;
-  let mode: string;
+  let mode: deep.Path<string>;
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
     values = icd.icdZ.parse({
@@ -42,7 +45,7 @@ describe("Library.useCheck", () => {
         { name: "Gear", payload: { format: "binary" } },
       ],
     });
-    mode = `messages.${values.messages[1].key}.name`;
+    mode = path.messages[values.messages[1].key].name;
   });
 
   it("should put each problem on the form path it names", async () => {

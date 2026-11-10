@@ -58,6 +58,102 @@ var _ = Describe("MigrateRegisterValue", func() {
 	)
 })
 
+var _ = Describe("MigrateReadChannel", func() {
+	readBase := v1.BaseReadChannel{Key: "ch", Name: "ch", Channel: 7, Address: 12}
+	DescribeTable(
+		"Should lift each v1 variant to the same v2 variant",
+		func(ctx SpecContext, old v1.ReadChannel, expected v2.ReadChannel) {
+			Expect(v2.MigrateReadChannel(ctx, old)).To(Equal(expected))
+		},
+		Entry("no variant", v1.ReadChannel{}, v2.ReadChannel{}),
+		Entry(
+			"coil",
+			v1.ReadChannel{Variant: v1.CoilReadChannel{BaseReadChannel: readBase}},
+			v2.ReadChannel{Variant: v2.CoilReadChannel{BaseReadChannel: readBase}},
+		),
+		Entry(
+			"discrete input",
+			v1.ReadChannel{
+				Variant: v1.DiscreteInputReadChannel{BaseReadChannel: readBase},
+			},
+			v2.ReadChannel{
+				Variant: v2.DiscreteInputReadChannel{BaseReadChannel: readBase},
+			},
+		),
+		Entry(
+			"holding register",
+			v1.ReadChannel{Variant: v1.HoldingRegisterReadChannel{
+				BaseReadChannel: readBase,
+				RegisterValue: v1.RegisterValue{
+					DataType:     "string",
+					BytesSwapped: true,
+				},
+				StringLength: 4,
+			}},
+			v2.ReadChannel{Variant: v2.HoldingRegisterReadChannel{
+				BaseReadChannel: readBase,
+				RegisterValue: v2.RegisterValue{
+					DataType:     "string",
+					BytesSwapped: new(true),
+				},
+				StringLength: 4,
+			}},
+		),
+		Entry(
+			"input register",
+			v1.ReadChannel{Variant: v1.InputRegisterReadChannel{
+				BaseReadChannel: readBase,
+				RegisterValue: v1.RegisterValue{
+					DataType:     "int32",
+					WordsSwapped: true,
+				},
+			}},
+			v2.ReadChannel{Variant: v2.InputRegisterReadChannel{
+				BaseReadChannel: readBase,
+				RegisterValue: v2.RegisterValue{
+					DataType:     "int32",
+					WordsSwapped: new(true),
+				},
+			}},
+		),
+	)
+})
+
+var _ = Describe("MigrateWriteChannel", func() {
+	writeBase := v1.BaseWriteChannel{Key: "ch", Name: "ch", Channel: 7, Address: 12}
+	DescribeTable(
+		"Should lift each v1 variant to the same v2 variant",
+		func(ctx SpecContext, old v1.WriteChannel, expected v2.WriteChannel) {
+			Expect(v2.MigrateWriteChannel(ctx, old)).To(Equal(expected))
+		},
+		Entry("no variant", v1.WriteChannel{}, v2.WriteChannel{}),
+		Entry(
+			"coil",
+			v1.WriteChannel{Variant: v1.CoilWriteChannel{BaseWriteChannel: writeBase}},
+			v2.WriteChannel{Variant: v2.CoilWriteChannel{BaseWriteChannel: writeBase}},
+		),
+		Entry(
+			"holding register",
+			v1.WriteChannel{Variant: v1.HoldingRegisterWriteChannel{
+				BaseWriteChannel: writeBase,
+				RegisterValue: v1.RegisterValue{
+					DataType:     "float64",
+					BytesSwapped: true,
+					WordsSwapped: true,
+				},
+			}},
+			v2.WriteChannel{Variant: v2.HoldingRegisterWriteChannel{
+				BaseWriteChannel: writeBase,
+				RegisterValue: v2.RegisterValue{
+					DataType:     "float64",
+					BytesSwapped: new(true),
+					WordsSwapped: new(true),
+				},
+			}},
+		),
+	)
+})
+
 var _ = Describe("MigrateReadConfig", func() {
 	It("Should keep a stored true as an override and drop a stored false",
 		func(ctx SpecContext) {

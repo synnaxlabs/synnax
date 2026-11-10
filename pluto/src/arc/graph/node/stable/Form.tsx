@@ -9,16 +9,12 @@
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { TimeSpan } from "@synnaxlabs/x";
+import { deep } from "@synnaxlabs/x";
+
+const path = deep.path<{ duration: number }>();
 
 export const Form = () => (
-  <Base.Field<number> path="duration">
-    {({ value, onChange }) => (
-      <Input.Numeric
-        value={new TimeSpan(value).seconds}
-        onChange={(v) => onChange(TimeSpan.seconds(v).nanoseconds)}
-        endContent="s"
-      />
-    )}
+  <Base.Field path={path.duration}>
+    {(p) => <Input.TimeSpan inline {...p} />}
   </Base.Field>
 );

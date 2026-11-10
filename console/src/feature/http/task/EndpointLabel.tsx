@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type http } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { type deep } from "@synnaxlabs/x";
 
-import { type ReadMethod, type WriteMethod } from "@/feature/http/task/types";
 import { Task } from "@/platform/task";
 
 export interface EndpointLabelProps {
-  epKey: string;
+  /** The endpoint's form path. */
+  path: deep.Path<{ method: http.Method; path: string }>;
 }
 
 // The API-docs convention: each method gets its own hue.
-const METHOD_COLORS: Record<ReadMethod | WriteMethod, string> = {
+const METHOD_COLORS: Partial<Record<http.Method, string>> = {
   GET: "var(--pluto-secondary-z)",
   POST: "var(--pluto-warning-z)",
   PUT: "var(--pluto-primary-z)",
@@ -25,10 +27,9 @@ const METHOD_COLORS: Record<ReadMethod | WriteMethod, string> = {
 };
 
 /** Names an endpoint by its method and path; an empty path reads as a new endpoint. */
-export const EndpointLabel = ({ epKey }: EndpointLabelProps) => {
-  const path = `config.endpoints.${epKey}`;
-  const method = PForm.useFieldValue<ReadMethod | WriteMethod>(`${path}.method`);
-  const epPath = PForm.useFieldValue<string>(`${path}.path`);
+export const EndpointLabel = ({ path }: EndpointLabelProps) => {
+  const method = PForm.useFieldValue(path.method);
+  const epPath = PForm.useFieldValue(path.path);
   return (
     <Task.Views.ItemLabel
       kind={method}

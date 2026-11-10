@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/synnax/pkg/service/imex/testutil"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -35,30 +35,22 @@ var _ = Describe("ImEx", func() {
 				canMessage("Status", 0x100, binaryField("rpm", 0, 16)),
 			},
 		}
-		Expect(svc.NewWriter(nil).Create(ctx, &ic)).To(Succeed())
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, ic.Key)).To(Succeed())
-		})
-		env := MustSucceed(svc.Export(ctx, icd.OntologyID(ic.Key)))
+		Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
+		env := MustSucceed(svc.Export(ctx, tx, icd.ResourceID(ic.Key)))
 		Expect(env.Version).To(Equal(versions.Latest))
 		Expect(env.Type).To(Equal("icd"))
 		Expect(env.Name).To(Equal("Exported"))
 		id := MustSucceed(
-			imexSvc.Import(ctx, db, WireRoundTrip(env), imex.ImportOptions{
-				Parent: ontology.RootID,
-			}),
+			imexSvc.Import(ctx, tx, WireRoundTrip(env), imex.ImportOptions{}),
 		)
-		Expect(id.Type).To(Equal(ontology.ResourceTypeICD))
+		Expect(id.Type).To(Equal(resource.TypeICD))
 		key := MustSucceed(uuid.Parse(id.Key))
-		DeferCleanup(func(ctx SpecContext) {
-			Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
-		})
 		Expect(key).ToNot(Equal(ic.Key))
 		var res icd.ICD
 		Expect(svc.NewRetrieve().
 			Where(icd.MatchKeys(key)).
 			Entry(&res).
-			Exec(ctx, nil)).To(Succeed())
+			Exec(ctx, tx)).To(Succeed())
 		Expect(res.Name).To(Equal("Exported"))
 		Expect(res.Hash).To(Equal(ic.Hash))
 	})
@@ -66,7 +58,7 @@ var _ = Describe("ImEx", func() {
 	It(
 		"Should return not found when exporting a missing ICD",
 		func(ctx SpecContext) {
-			Expect(svc.Export(ctx, icd.OntologyID(uuid.New()))).
+			Expect(svc.Export(ctx, tx, icd.ResourceID(uuid.New()))).
 				Error().To(MatchError(query.ErrNotFound))
 		},
 	)

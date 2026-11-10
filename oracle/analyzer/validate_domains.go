@@ -12,8 +12,11 @@ package analyzer
 import (
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/key"
 	"github.com/synnaxlabs/oracle/domain/omit"
+	"github.com/synnaxlabs/oracle/domain/validation"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 )
@@ -29,7 +32,9 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //  1. A type that generates in a language must not reference a type omitted in
 //     that language (@lang omit means the type does not exist there). Fields
 //     with their own @lang omit or @lang type override escape the check, as do
-//     references to @lang hand types, which exist hand-written.
+//     references to @lang hand types, which exist hand-written. Nor may it
+//     reference a type with no output in that language. A struct may extend a
+//     parent absent from the language; it then declares the inherited fields.
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
@@ -72,6 +77,20 @@ func validateOmitRefs(
 						lang,
 					)
 					diag.Report(t.Namespace+".oracle", d)
+					return
+				}
+				if !hasOutput(resolved, lang, table) {
+					d := diagnostics.Errorf(
+						nil,
+						"%s generates for %s but %s references %s, which has no %s "+
+							"output",
+						t.QualifiedName,
+						lang,
+						context,
+						resolved.QualifiedName,
+						lang,
+					)
+					diag.Report(t.Namespace+".oracle", d)
 				}
 			}
 			visit(ref)
@@ -81,11 +100,25 @@ func validateOmitRefs(
 			if form.BorrowsEnum() {
 				check(form.Enum, "its discriminator enum")
 			}
+		case resolution.AliasForm:
+			check(form.Target, "its alias target")
+		case resolution.DistinctForm:
+			check(form.Base, "its base type")
 		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				check(ext, "its extends clause")
+			// A struct with a parent absent from lang declares its inherited fields
+			// itself, so only those fields must exist there.
+			fields := form.Fields
+			if slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+				parent, ok := ref.Resolve(table)
+				return ok && omit.IsAbsent(parent, lang)
+			}) {
+				fields = resolution.UnifiedFields(t, table)
+			} else {
+				for _, ext := range form.Extends {
+					check(ext, "its extends clause")
+				}
 			}
-			for _, f := range form.Fields {
+			for _, f := range fields {
 				if fieldEscapesLang(f, lang) {
 					continue
 				}
@@ -168,12 +201,29 @@ func validateImex(c *analysisCtx, types []resolution.Type) {
 	}
 }
 
+// validateKeyTypes errors on a type-level @key outside a distinct type. Filters read
+// the mark through aliases to the distinct type, so it means nothing elsewhere.
+func validateKeyTypes(c *analysisCtx, types []resolution.Type) {
+	for _, t := range types {
+		if _, ok := t.Domains["key"]; !ok {
+			continue
+		}
+		if _, ok := t.Form.(resolution.DistinctForm); ok {
+			continue
+		}
+		c.report(diagnostics.Errorf(nil,
+			"%s has @key, which marks only a distinct type such as Key uint32",
+			t.QualifiedName,
+		))
+	}
+}
+
 // validateDeadOutputs errors when a file declares a language output that nothing uses:
 // every type omits the language and none is hand-written.
 func validateDeadOutputs(c *analysisCtx, types []resolution.Type) {
 	var hasActions bool
 	for _, t := range types {
-		if sf, ok := t.Form.(resolution.StructForm); ok && len(sf.Actions) > 0 {
+		if len(t.Actions()) > 0 {
 			hasActions = true
 		}
 	}
@@ -338,6 +388,29 @@ func getFieldString(f resolution.Field, lang, expr string) string {
 	return e.Values[0].IdentValue
 }
 
+// hasOutput reports whether the type exists in the language at some output path. An
+// enum without its own path takes the path of a struct in the same schema file.
+// Built-in and version-file types have no declared path, since plugins place them.
+func hasOutput(t resolution.Type, lang string, table *resolution.Table) bool {
+	switch t.Form.(type) {
+	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
+		return true
+	}
+	if getPath(t, lang) != "" {
+		return true
+	}
+	if _, _, ok := paths.VersionFile(t.FilePath); ok {
+		return true
+	}
+	if _, ok := t.Form.(resolution.EnumForm); !ok {
+		return false
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(s resolution.Type) bool {
+		return s.Namespace == t.Namespace && s.FilePath == t.FilePath &&
+			getPath(s, lang) != ""
+	})
+}
+
 // getPath returns the type's output path for the language, or "".
 func getPath(t resolution.Type, lang string) string {
 	dom, ok := t.Domains[lang]
@@ -349,4 +422,36 @@ func getPath(t resolution.Type, lang string) string {
 		return ""
 	}
 	return expr.Values[0].StringValue
+}
+
+// validateLengthRules errors on a min_length or max_length rule on a field whose type
+// is not a string, such as a uuid, a number, or an array.
+func validateLengthRules(table *resolution.Table, diag *diagnostics.Files) {
+	for _, t := range table.Types {
+		form, ok := t.Form.(resolution.StructForm)
+		if !ok {
+			continue
+		}
+		for _, f := range form.Fields {
+			rules := validation.Parse(f.Domains["validate"])
+			if rules.MinLength == nil && rules.MaxLength == nil {
+				continue
+			}
+			typeRef := f.Type
+			if !f.HasType() {
+				unified := resolution.UnifiedFields(t, table)
+				if inherited, ok := lo.Find(unified, func(u resolution.Field) bool {
+					return u.Name == f.Name
+				}); ok {
+					typeRef = inherited.Type
+				}
+			}
+			if resolution.PrimitiveBase(typeRef, table) != "string" {
+				diag.Report(t.Namespace+".oracle", diagnostics.Errorf(nil,
+					"%s.%s has a length rule, but its type is not a string",
+					t.QualifiedName, f.Name,
+				))
+			}
+		}
+	}
 }

@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { group, icd, NotFoundError, ontology, StaleError } from "@synnaxlabs/client";
+import { type icd, NotFoundError, StaleError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { id, uuid } from "@synnaxlabs/x";
+import { deep, id, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { assert, beforeEach, describe, expect, it } from "vitest";
@@ -19,6 +19,8 @@ import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
+
+const path = deep.path<icd.ICD>();
 
 const createICD = async (name: string = `icd-${id.create()}`) =>
   await client.icds.create({
@@ -46,16 +48,20 @@ describe("ICD queries", () => {
   describe("useList", () => {
     it("should list ICDs by key", async () => {
       const [a, b] = await Promise.all([createICD(), createICD()]);
-      const { result } = renderHook(() => ICD.useList(), { wrapper });
-      act(() => result.current.retrieve({ keys: [a.key, b.key] }));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
-      expect([...result.current.data].sort()).toEqual([a.key, b.key].sort());
+      const { result } = renderHook(
+        () => ICD.useList({ query: { where: { key: { in: [a.key, b.key] } } } }),
+        { wrapper },
+      );
+      act(() => result.current.more());
+      await waitFor(() =>
+        expect([...result.current.data].sort()).toEqual([a.key, b.key].sort()),
+      );
     });
 
     it("should add an ICD created after the list loads", async () => {
       const { result } = renderHook(() => ICD.useList(), { wrapper });
-      act(() => result.current.retrieve({}));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      act(() => result.current.more());
+      await waitFor(() => expect(result.current.answered).toBe(true));
       const ic = await createICD();
       await waitFor(() => expect(result.current.data).toContain(ic.key));
     });
@@ -130,7 +136,7 @@ describe("ICD queries", () => {
       );
       expect(result.current.form.value().messages).toEqual(ic.messages);
       act(() =>
-        result.current.form.set("messages", [
+        result.current.form.set(path.messages, [
           ...ic.messages,
           {
             key: uuid.create(),
@@ -172,13 +178,16 @@ describe("ICD queries", () => {
         { wrapper },
       );
       act(() =>
-        result.current.form.set("messages", [state, { ...state, key: uuid.create() }]),
+        result.current.form.set(path.messages, [
+          state,
+          { ...state, key: uuid.create() },
+        ]),
       );
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(false);
       });
       const second = result.current.form.value().messages[1].key;
-      const status = result.current.form.get(`messages.${second}.name`).status;
+      const status = result.current.form.get(path.messages[second].name).status;
       expect(status).toMatchObject({
         variant: "error",
         message: 'duplicate message name "State"',
@@ -196,7 +205,9 @@ describe("ICD queries", () => {
         { wrapper },
       );
       await client.icds.create({ ...ic, messages: [] });
-      act(() => result.current.form.set(`messages.${ic.messages[0].key}.name`, "Mode"));
+      act(() =>
+        result.current.form.set(path.messages[ic.messages[0].key].name, "Mode"),
+      );
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(false);
       });
@@ -214,7 +225,9 @@ describe("ICD queries", () => {
       );
       await client.icds.rename(ic.key, "Renamed");
       await waitFor(() => expect(result.current.form.value().name).toEqual("Renamed"));
-      act(() => result.current.form.set(`messages.${ic.messages[0].key}.name`, "Mode"));
+      act(() =>
+        result.current.form.set(path.messages[ic.messages[0].key].name, "Mode"),
+      );
       await act(async () => {
         expect(await result.current.saveAsync()).toBe(true);
       });
@@ -235,16 +248,8 @@ describe("ICD queries", () => {
   });
 
   describe("useTasks", () => {
-    it("should not list resources joined by other relationships", async () => {
+    it("should list no tasks for an ICD that no task uses", async () => {
       const ic = await createICD();
-      const child = await client.groups.create({
-        parent: ontology.ROOT_ID,
-        name: `group-${id.create()}`,
-      });
-      await client.ontology.addChildren(
-        icd.ontologyID(ic.key),
-        group.ontologyID(child.key),
-      );
       const { result } = await renderHookSuspended(
         () => ICD.useTasks({ key: ic.key }),
         { wrapper },

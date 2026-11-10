@@ -30,8 +30,8 @@
     }
 
     /* Collapses Empty.Action's 100% x 100% growing box to a compact block under the
-       watermark. The .pluto--center repeat outweighs the rule it overrides. */
-    .console-mosaic__empty-action.pluto--center {
+       watermark. The .lyra--center repeat outweighs the rule it overrides. */
+    .console-mosaic__empty-action.lyra--center {
         width: auto;
         height: auto;
         flex-grow: 0;
@@ -68,7 +68,7 @@
 }
 
 /* One stretched cell spares WebKit a level of per-frame flex re-measurement while a
-   pane resizes. Scoped under .console-mosaic to outrank .pluto-flex. */
+   pane resizes. Scoped under .console-mosaic to outrank .lyra-flex. */
 .console-mosaic .console-panel__tab {
     display: grid;
     grid-template: minmax(0, 1fr) / minmax(0, 1fr);

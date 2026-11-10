@@ -14,12 +14,14 @@ package v6
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Key is a unique identifier for a line plot, represented as a UUID.
@@ -29,8 +31,10 @@ type Key = v5.Key
 type TickType = v5.TickType
 
 const (
+	// TickTypeLinear labels ticks with numeric values.
 	TickTypeLinear TickType = v5.TickTypeLinear
-	TickTypeTime   TickType = v5.TickTypeTime
+	// TickTypeTime labels ticks with timestamps.
+	TickTypeTime TickType = v5.TickTypeTime
 )
 
 // DownsampleMode selects how a line condenses samples that map to the same pixel.
@@ -45,7 +49,9 @@ const (
 type XAxisKey = v5.XAxisKey
 
 const (
+	// XAxisKeyX1 is the x-axis at the bottom of the plot.
 	XAxisKeyX1 XAxisKey = v5.XAxisKeyX1
+	// XAxisKeyX2 is the x-axis at the top of the plot.
 	XAxisKeyX2 XAxisKey = v5.XAxisKeyX2
 )
 
@@ -53,9 +59,13 @@ const (
 type YAxisKey = v5.YAxisKey
 
 const (
+	// YAxisKeyY1 is a y-axis on the left of the plot.
 	YAxisKeyY1 YAxisKey = v5.YAxisKeyY1
+	// YAxisKeyY2 is a y-axis on the right of the plot.
 	YAxisKeyY2 YAxisKey = v5.YAxisKeyY2
+	// YAxisKeyY3 is a second y-axis on the left of the plot.
 	YAxisKeyY3 YAxisKey = v5.YAxisKeyY3
+	// YAxisKeyY4 is a second y-axis on the right of the plot.
 	YAxisKeyY4 YAxisKey = v5.YAxisKeyY4
 )
 
@@ -63,11 +73,17 @@ const (
 type AxisKey = v5.AxisKey
 
 const (
+	// AxisKeyX1 is the x-axis at the bottom of the plot.
 	AxisKeyX1 AxisKey = v5.AxisKeyX1
+	// AxisKeyX2 is the x-axis at the top of the plot.
 	AxisKeyX2 AxisKey = v5.AxisKeyX2
+	// AxisKeyY1 is a y-axis on the left of the plot.
 	AxisKeyY1 AxisKey = v5.AxisKeyY1
+	// AxisKeyY2 is a y-axis on the right of the plot.
 	AxisKeyY2 AxisKey = v5.AxisKeyY2
+	// AxisKeyY3 is a second y-axis on the left of the plot.
 	AxisKeyY3 AxisKey = v5.AxisKeyY3
+	// AxisKeyY4 is a second y-axis on the right of the plot.
 	AxisKeyY4 AxisKey = v5.AxisKeyY4
 )
 
@@ -81,13 +97,17 @@ type Legend = v5.Legend
 // carry zero or more channels each.
 type Channels = v5.Channels
 
+// CustomRangeType is the "variant" value that selects a variant of CustomRange.
 type CustomRangeType string
 
 const (
+	// DynamicCustomRangeType is a rolling window.
 	DynamicCustomRangeType CustomRangeType = "dynamic"
-	StaticCustomRangeType  CustomRangeType = "static"
+	// StaticCustomRangeType is a fixed window.
+	StaticCustomRangeType CustomRangeType = "static"
 )
 
+// CustomRangeVariant is implemented by every CustomRange variant.
 type CustomRangeVariant interface {
 	isCustomRangeVariant()
 }
@@ -149,24 +169,36 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CustomRangeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DynamicCustomRangeType:
-		var v DynamicCustomRange
+		var v struct {
+			Type CustomRangeType `json:"variant"`
+			DynamicCustomRange
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DynamicCustomRange
 	case StaticCustomRangeType:
-		var v StaticCustomRange
+		var v struct {
+			Type CustomRangeType `json:"variant"`
+			StaticCustomRange
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticCustomRange
 	default:
-		return errors.Newf("CustomRange: unknown variant %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"CustomRange: unknown variant %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -239,6 +271,32 @@ func (l *LinePlot) ApplyDefaults() {
 	for i := range l.Rules {
 		l.Rules[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (l *LinePlot) SetDefaults() {
+	l.Title.SetDefaults()
+	l.Legend.SetDefaults()
+	l.Axes.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (l *LinePlot) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(l))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (l *LinePlot) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain LinePlot
+	if reflect.ValueOf(*l).IsZero() {
+		l.SetDefaults()
+	}
+	return dec.Decode((*plain)(l))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

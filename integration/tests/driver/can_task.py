@@ -23,9 +23,8 @@ class CANCase(BusCase):
     sim_classes = [CANFrameSim]
 
     def unsupported(self) -> str | None:
-        if sys.platform != "linux":
-            return "The CAN simulator needs SocketCAN (Linux)"
-        return None
+        linux = sys.platform == "linux"
+        return None if linux else "The CAN simulator needs SocketCAN (Linux)"
 
     def setup(self) -> None:
         if sys.platform == "linux" and not can_frames.available():

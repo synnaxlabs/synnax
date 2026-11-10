@@ -34,7 +34,7 @@ const create = (configs: Array<[string, Config]>) => {
   const selection = MultiEdit.selection<Config>({
     configs: new Map(configs),
     fields: FIELDS,
-    onChange: (u) => updates.push(u),
+    onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
   });
   return { selection, updates };
 };
@@ -114,7 +114,7 @@ describe("selection", () => {
     MultiEdit.selection({
       configs: new Map([["a", config]]),
       fields: MultiEdit.fieldsByVariant({ state: schema }),
-      onChange: (u) => updates.push(u),
+      onChange: (u) => updates.push(u.map(({ key, next }) => [key, next])),
     }).setColors(
       [
         { key: "a", path: "fillColor", value: RED },
@@ -126,6 +126,19 @@ describe("selection", () => {
       [["a", { variant: "state", fillColor: BLUE, options: [{ color: BLUE }] }]],
     ]);
     expect(config.options[0].color).toEqual(RED);
+  });
+
+  it("should report the config that each update starts from", () => {
+    const base: Config = { variant: "gauge", precision: 2 };
+    const updates: Array<MultiEdit.Update<Config>> = [];
+    MultiEdit.selection<Config>({
+      configs: new Map([["a", base]]),
+      fields: FIELDS,
+      onChange: (u) => updates.push(...u),
+    }).set("precision", 3);
+    expect(updates).toEqual([
+      { key: "a", base, next: { variant: "gauge", precision: 3 } },
+    ]);
   });
 
   it("should not call onChange when no element declares the field", () => {

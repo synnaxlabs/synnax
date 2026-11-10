@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-icon {
+.lyra-icon {
     color: inherit;
 
     /* A wide mark sets --pluto-icon-aspect to widen its box rather than overflow it. */
@@ -17,16 +17,19 @@
     height: 1em;
     flex-shrink: 0;
 
-    &.pluto-icon--composite {
+    &.lyra-icon--composite {
         transform: scale(1.15);
     }
 
-    & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]):not(.pluto-sub__bg) {
+    & *:is(path, circle):is(:not([fill="none"]), [stroke="#000"]):not(.lyra-sub__bg) {
+        /* stylelint-disable declaration-no-important -- paths take the icon's color
+           whatever rule targets them */
         stroke: inherit !important;
         fill: inherit !important;
+        /* stylelint-enable declaration-no-important */
     }
 
-    & .pluto-icon__halo {
+    & .lyra-icon__halo {
         color: var(--pluto-btn-bg, var(--pluto-gray-l0));
 
         & :is(path, circle, rect, line, polyline, polygon) {
@@ -35,23 +38,26 @@
         }
     }
 
-    & .pluto-sub__bg {
+    & .lyra-sub__bg {
         transition: var(--pluto-btn-transition);
+        /* stylelint-disable-next-line declaration-no-important -- the badge backing
+           matches the button behind it whatever rule targets it */
         fill: var(--pluto-btn-bg, var(--pluto-gray-l0)) !important;
     }
 
-    .pluto-sub {
+    .lyra-sub {
         --pluto-scale: scale(calc(var(--pluto-base-scale, 1) * 0.8));
-        &.pluto-icon--add * {
+
+        &.lyra-icon--add * {
             stroke-width: 0.5rem;
         }
     }
 }
 
-.pluto--clickable:hover .pluto-icon .pluto-sub {
+.lyra--clickable:hover .lyra-icon .lyra-sub {
     background: var(--pluto-hover-bg);
 }
 
-.pluto--clickable:active .pluto-icon .pluto-sub {
+.lyra--clickable:active .lyra-icon .lyra-sub {
     background: var(--pluto-active-bg);
 }

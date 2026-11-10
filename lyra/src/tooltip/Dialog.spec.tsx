@@ -43,7 +43,7 @@ const ZERO_RECT = {
 } as DOMRect;
 
 const getTooltip = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>(".pluto-tooltip");
+  document.querySelector<HTMLElement>(".lyra-tooltip");
 
 const mockRect = (el: HTMLElement, rect: DOMRect = BUTTON_RECT): void => {
   el.getBoundingClientRect = () => (el.isConnected ? rect : ZERO_RECT);
@@ -287,7 +287,7 @@ describe("Tooltip.Dialog", () => {
       expect(getTooltip()?.textContent).toBe("Tip A");
       hover(b);
       advance(PAST_DELAY);
-      const tooltips = document.querySelectorAll(".pluto-tooltip");
+      const tooltips = document.querySelectorAll(".lyra-tooltip");
       expect(tooltips).toHaveLength(1);
       expect(tooltips[0].textContent).toBe("Tip B");
     });

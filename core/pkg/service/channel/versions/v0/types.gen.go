@@ -30,10 +30,15 @@ type Name = string
 type OperationType string
 
 const (
-	OperationTypeMin        OperationType = "min"
-	OperationTypeMax        OperationType = "max"
-	OperationTypeAvg        OperationType = "avg"
-	OperationTypeNone       OperationType = "none"
+	// OperationTypeMin keeps the lowest sample since the last reset.
+	OperationTypeMin OperationType = "min"
+	// OperationTypeMax keeps the highest sample since the last reset.
+	OperationTypeMax OperationType = "max"
+	// OperationTypeAvg keeps the mean of the samples since the last reset.
+	OperationTypeAvg OperationType = "avg"
+	// OperationTypeNone applies no aggregation.
+	OperationTypeNone OperationType = "none"
+	// OperationTypeDerivative computes the rate of change of the samples.
 	OperationTypeDerivative OperationType = "derivative"
 )
 

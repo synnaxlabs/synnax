@@ -117,11 +117,11 @@ var _ = Describe("Go ImEx Plugin", func() {
 			))
 		})
 
-		It("Should error when no ontology import path is configured", func() {
+		It("Should error when no resource import path is configured", func() {
 			opts := imex.DefaultOptions()
-			opts.OntologyImportPath = ""
+			opts.ResourceImportPath = ""
 			Expect(imex.New(opts).Generate(nil)).Error().To(MatchError(
-				ContainSubstring("go/imex requires Options.OntologyImportPath"),
+				ContainSubstring("go/imex requires Options.ResourceImportPath"),
 			))
 		})
 	})
@@ -179,14 +179,108 @@ var _ = Describe("Go ImEx Plugin", func() {
 				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").ToContain(
 					"package log",
 					`"github.com/synnaxlabs/synnax/core/pkg/service/log/versions"`,
-					`"github.com/synnaxlabs/synnax/pkg/service/ontology"`,
-					"func (s *Service) Export(ctx context.Context, id ontology.ID) "+
-						"(imex.Envelope, error)",
+					`"github.com/synnaxlabs/synnax/pkg/service/resource"`,
+					"func (s *Service) Export(\n\tctx context.Context,\n"+
+						"\tsnap gorp.Snapshot,\n\tid resource.ID,\n"+
+						") (imex.Envelope, error)",
+					"Exec(ctx, snap)",
 					"var v Log",
 					"Where(MatchKeys(key))",
 					"Version: versions.Latest, Type: string(s.Type()), Name: v.Name,",
 					"env.Encode(v)",
 				).ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should leave the reference fields out of the export",
+			func(ctx SpecContext) {
+				const live = `
+@go output "core/pkg/service/log"
+
+Log struct {
+	key   uuid @key
+	name  string
+	group uuid? {
+		@ref on_delete detach
+	}
+	owner_key uuid? {
+		@ref on_delete cascade
+	}
+	@go imex
+}
+`
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{3: logChain(true)},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain(`env.Encode(v, "group", "owner_key")`).
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should read the name of an exported union through its Base accessor",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		code int32
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\tcode int32\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				resp := MustSucceed(p.Generate(req))
+				ExpectContent(resp, "core/pkg/service/log/imex.gen.go").
+					ToContain("Name: v.Base().Name,").
+					ToBeValidGoSource()
+			},
+		)
+
+		It(
+			"Should error when the variants of an exported union share no base",
+			func(ctx SpecContext) {
+				live := `
+@go output "core/pkg/service/log"
+
+Base struct {
+	key  uuid @key
+	name string
+}
+
+Log union on type extends Base {
+	info {}
+	failure {
+		-name
+	}
+	@go imex
+}
+`
+				chain := "Base struct {\n\tkey uuid @key\n\tname string\n}\n\n" +
+					"Log union on type extends Base {\n\tinfo {}\n\tfailure {\n" +
+					"\t\t-name\n\t}\n\t@go imex\n}\n"
+				req := chainRequest(
+					ctx, GinkgoT().TempDir(), live, map[int]string{0: chain},
+				)
+				Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+					"log.Log: an exported union needs one base that every variant " +
+						"inherits",
+				)))
 			},
 		)
 
@@ -229,6 +323,82 @@ var _ = Describe("Go ImEx Plugin", func() {
 				Expect(resp.Deletions).To(ConsistOf(
 					"core/pkg/service/log/versions/v2/imex.gen.go",
 				))
+			},
+		)
+
+		It(
+			"Should delete every imex file when the type drops @go imex",
+			func(ctx SpecContext) {
+				tmpDir := GinkgoT().TempDir()
+				for _, dir := range []string{"v1", "v2"} {
+					Expect(os.MkdirAll(
+						filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
+						0o755,
+					)).To(Succeed())
+				}
+				live := `
+@go output "core/pkg/service/log"
+
+Log struct {
+	key  uuid @key
+	name string
+}
+`
+				req := chainRequest(ctx, tmpDir, live, map[int]string{
+					1: logChain(true),
+					2: logChain(false),
+				})
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(BeEmpty())
+				Expect(resp.Deletions).To(ConsistOf(
+					"core/pkg/service/log/imex.gen.go",
+					"core/pkg/service/log/versions/imex.gen.go",
+					"core/pkg/service/log/versions/v1/imex.gen.go",
+					"core/pkg/service/log/versions/v2/imex.gen.go",
+				))
+			},
+		)
+
+		It("Should keep every imex file it still emits", func(ctx SpecContext) {
+			tmpDir := GinkgoT().TempDir()
+			for _, dir := range []string{"v1", "v2"} {
+				Expect(os.MkdirAll(
+					filepath.Join(tmpDir, "core/pkg/service/log/versions", dir),
+					0o755,
+				)).To(Succeed())
+			}
+			req := chainRequest(ctx, tmpDir, liveLog, map[int]string{
+				1: logChain(true),
+				2: "Log = v1.Log\n",
+			})
+			resp := MustSucceed(p.Generate(req))
+			Expect(resp.Files).To(HaveLen(4))
+			Expect(resp.Deletions).To(BeEmpty())
+		})
+
+		It(
+			"Should keep emitted imex files when the output path is not clean",
+			func(ctx SpecContext) {
+				tmpDir := GinkgoT().TempDir()
+				Expect(os.MkdirAll(
+					filepath.Join(tmpDir, "core/pkg/service/log/versions/v1"),
+					0o755,
+				)).To(Succeed())
+				live := `
+@go output "./core/pkg/service/log/"
+
+Log struct {
+	key  uuid @key
+	name string
+	@go imex
+}
+`
+				req := chainRequest(
+					ctx, tmpDir, live, map[int]string{1: logChain(true)},
+				)
+				resp := MustSucceed(p.Generate(req))
+				Expect(resp.Files).To(HaveLen(3))
+				Expect(resp.Deletions).To(BeEmpty())
 			},
 		)
 
@@ -382,11 +552,23 @@ Symbol struct {
 			},
 		)
 
+		It(
+			"Should error when an exported version's file marks no type",
+			func(ctx SpecContext) {
+				req := chainRequest(ctx, GinkgoT().TempDir(), liveLog, map[int]string{
+					3: logChain(false),
+				})
+				Expect(p.Generate(req)).Error().To(MatchError(
+					"version 3 of schemas/synnax/log exports no @go imex type",
+				))
+			},
+		)
+
 		It("Should import the configured runtime package", func(ctx SpecContext) {
 			custom := imex.New(imex.Options{
 				FileNamePattern:    "imex.gen.go",
 				RuntimeImportPath:  "github.com/acme/portable/imex",
-				OntologyImportPath: "github.com/acme/portable/ontology",
+				ResourceImportPath: "github.com/acme/portable/resource",
 			})
 			req := chainRequest(
 				ctx, GinkgoT().TempDir(), liveLog,
@@ -577,6 +759,86 @@ ScanConfig struct {
 				).
 					ToBeValidGoSource()
 			})
+
+			It(
+				"Should keep a frozen version file when the current version adds a type",
+				func(ctx SpecContext) {
+					const (
+						readOnly = "ReadConfig struct {\n\tkey uuid @key\n\n" +
+							"\t@go imex body\n}\n"
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+						v2Path = "core/pkg/service/modbus/versions/v2/imex.gen.go"
+					)
+					before := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead,
+						map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n",
+						},
+					)))
+					after := MustSucceed(p.Generate(configRequest(
+						ctx, GinkgoT().TempDir(), map[int]string{
+							1: readOnly,
+							2: "ReadConfig = v1.ReadConfig\n\n" +
+								"ScanConfig struct {\n\tkey uuid @key\n\n" +
+								"\t@go imex body\n}\n",
+						},
+					)))
+					ExpectContent(before, v1Path).ToContain(
+						"// Version is the portable schema version of the ReadConfig " +
+							"shape this package defines.",
+					)
+					Expect(MustContentOf(after, v1Path)).To(
+						Equal(MustContentOf(before, v1Path)),
+					)
+					ExpectContent(after, v2Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+				},
+			)
+
+			It(
+				"Should keep a frozen version file when the live target set changes",
+				func(ctx SpecContext) {
+					const (
+						liveRead = `
+@go output "core/pkg/service/modbus"
+
+ReadConfig struct {
+	key uuid @key
+	@go imex body
+}
+`
+						v1Path = "core/pkg/service/modbus/versions/v1/imex.gen.go"
+					)
+					chain := map[int]string{
+						1: configChain("\n\t@go imex body"),
+						2: "ReadConfig = v1.ReadConfig\n\nScanConfig = v1.ScanConfig\n",
+					}
+					both := MustSucceed(p.Generate(
+						configRequest(ctx, GinkgoT().TempDir(), chain),
+					))
+					readOnly := MustSucceed(p.Generate(chainRequestFor(
+						ctx, GinkgoT().TempDir(), "modbus", liveRead, chain,
+					)))
+					ExpectContent(both, v1Path).ToContain(
+						"// Version is the portable schema version of the shapes this " +
+							"package defines.",
+					)
+					Expect(MustContentOf(readOnly, v1Path)).To(
+						Equal(MustContentOf(both, v1Path)),
+					)
+				},
+			)
 
 			It(
 				"Should error when a bare marker shares a package with a body type",

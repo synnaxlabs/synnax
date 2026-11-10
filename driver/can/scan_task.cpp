@@ -34,12 +34,12 @@ std::string device_key(const synnax::rack::Key rack, const Channel &ch) {
 
 void set_present(synnax::device::Device &dev, const synnax::rack::Key rack) {
     dev.status = synnax::device::Status{
-        .key = synnax::device::status_key(dev),
         .name = dev.name,
         .variant = synnax::status::VARIANT_SUCCESS,
         .message = "Channel available",
         .time = x::telem::TimeStamp::now(),
-        .details = {.rack = rack, .device = dev.key},
+        .details = {.rack = rack, .connected = true},
+        .owner = synnax::device::resource_id(dev.key),
     };
 }
 

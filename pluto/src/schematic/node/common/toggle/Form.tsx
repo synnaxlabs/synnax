@@ -10,6 +10,7 @@
 import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -17,16 +18,14 @@ import { ActivationDelayField } from "@/schematic/node/common/form/ActivationDel
 import { ControlChipField } from "@/schematic/node/common/form/Control";
 import { Staleness } from "@/vis/staleness";
 
+const path = deep.path<schematic.ToggleConfig>();
+
 interface ChannelFormProps {
-  path: string;
   omit?: string[];
 }
 
-export const ChannelForm = ({ path, omit = [] }: ChannelFormProps): ReactElement => {
-  const { value, onChange } =
-    Form.useField<
-      Pick<schematic.ToggleConfig, "stateChannel" | "commandChannel" | "control">
-    >(path);
+export const ChannelForm = ({ omit = [] }: ChannelFormProps): ReactElement => {
+  const { value, onChange } = Form.useField(path);
 
   const handleSourceChange = (v: channel.Key | null): void =>
     onChange({ ...value, stateChannel: v ?? undefined });

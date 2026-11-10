@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { rack, status } from "@synnaxlabs/client";
+import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/platform/device";
@@ -16,13 +17,10 @@ const createRack = (key: rack.Key, integrations: string[], running: boolean) =>
   rack.payloadZ.parse({
     key,
     name: `Rack ${key}`,
+    role: uuid.create(),
     integrations,
     status: running
-      ? status.create<typeof rack.statusDetailsZ>({
-          variant: "success",
-          message: "Running",
-          details: { rack: key },
-        })
+      ? status.create({ variant: "success", message: "Running" })
       : undefined,
   });
 
@@ -55,6 +53,22 @@ describe("getBlockedReason", () => {
       const racks = [createRack(1, ["opc"], false), createRack(2, ["opc"], true)];
       expect(Device.getBlockedReason(racks, { ...OPC, rack: 1 })).toBe(
         "Rack 1 is not running",
+      );
+    });
+
+    it("should name the error of a rack whose Driver reports one", () => {
+      const r = rack.payloadZ.parse({
+        key: 1,
+        name: "Rack 1",
+        role: uuid.create(),
+        integrations: ["opc"],
+        status: status.create({
+          variant: "error",
+          message: "Driver 0.59.3 cannot work with Core 0.60.1",
+        }),
+      });
+      expect(Device.getBlockedReason([r], { ...OPC, rack: 1 })).toBe(
+        "Driver 0.59.3 cannot work with Core 0.60.1",
       );
     });
 

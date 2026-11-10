@@ -26,11 +26,6 @@ const selectAll = (state: StoreState): State[] => [
   ...selectSliceState(state).ranges,
 ];
 
-export const useGetSliceState = (): (() => SliceState) => {
-  const store = useStore<StoreState>();
-  return () => selectSliceState(store.getState());
-};
-
 const selectSelectedKey = (state: StoreState): string | undefined =>
   selectSliceState(state).selected;
 

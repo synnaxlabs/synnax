@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createEmptyRole, createTestClient } from "@synnaxlabs/client/testutil";
 import { screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -21,14 +21,16 @@ describe("User.useAssignRoleModal", () => {
       params: { userKey: uniqueName("user"), title: "Change Permissions" },
     });
     await waitFor(() => expect(screen.getByText("Change Permissions")).toBeTruthy());
-    expect(findButton("Assign").className).toContain("pluto--disabled");
+    expect(findButton("Assign").className).toContain("lyra--disabled");
   });
 
   it("should fall back to the default title and enable Assign against a live Core", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
     await openModal(User.useAssignRoleModal, {
       client,
@@ -36,27 +38,28 @@ describe("User.useAssignRoleModal", () => {
     });
     await waitFor(() => expect(screen.getAllByText("Role").length).toBeGreaterThan(1));
     await waitFor(() =>
-      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
+      expect(findButton("Assign").className).not.toContain("lyra--disabled"),
     );
   });
 
   it("should submit on the shortcut its footer advertises", async () => {
     const client = createTestClient();
+    const { key: role } = await createEmptyRole(client);
     const subject = await client.users.create({
       username: uniqueName("user"),
       password: "password123",
+      role,
     });
     await openModal(User.useAssignRoleModal, {
       client,
       params: { userKey: subject.key },
     });
     await waitFor(() =>
-      expect(findButton("Assign").className).not.toContain("pluto--disabled"),
+      expect(findButton("Assign").className).not.toContain("lyra--disabled"),
     );
     // The footer advertises the shortcut, so it has to reach the same submit path the
-    // button does. Submitting with no role selected fails validation, and that error is
-    // the proof the keys got there rather than falling on the floor.
+    // button does. A save closes the modal, which proves the keys got there.
     pressSaveTrigger();
-    expect(await screen.findByText("Invalid UUID")).toBeTruthy();
+    await waitFor(() => expect(screen.queryByText("Assign")).toBeNull());
   });
 });

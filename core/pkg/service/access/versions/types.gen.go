@@ -18,8 +18,12 @@ import "github.com/synnaxlabs/synnax/pkg/service/access/versions/v0"
 type Action = v0.Action
 
 const (
-	ActionCreate   Action = v0.ActionCreate
-	ActionDelete   Action = v0.ActionDelete
+	// ActionCreate creates a resource.
+	ActionCreate Action = v0.ActionCreate
+	// ActionDelete deletes a resource.
+	ActionDelete Action = v0.ActionDelete
+	// ActionRetrieve reads a resource.
 	ActionRetrieve Action = v0.ActionRetrieve
-	ActionUpdate   Action = v0.ActionUpdate
+	// ActionUpdate changes a resource.
+	ActionUpdate Action = v0.ActionUpdate
 )

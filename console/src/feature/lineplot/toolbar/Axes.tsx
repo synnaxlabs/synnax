@@ -8,13 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { lineplot } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
-import { Direction, LinePlot } from "@synnaxlabs/pluto";
+import { Direction, LinePlot, Properties } from "@synnaxlabs/pluto";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -23,24 +21,20 @@ import { CSS } from "@/platform/css";
 export const Axes = (): ReactElement => {
   const axisKeys = LinePlot.useAxisKeys();
   return (
-    <Tabs.Frame
-      className={CSS.BE("line-plot", "toolbar", "axes-tabs")}
+    <Properties.Rail
+      tabs={axisKeys.map((key) => ({
+        key,
+        name: LinePlot.axisLabel(key),
+        icon: LinePlot.axisIcon(key),
+      }))}
       initialValue={axisKeys[0]}
-      grow
     >
-      <Tabs.Selector size="small">
-        {axisKeys.map((key) => (
-          <Tabs.Tab key={key} itemKey={key}>
-            {key.toUpperCase()}
-          </Tabs.Tab>
-        ))}
-      </Tabs.Selector>
       {axisKeys.map((key) => (
         <Tabs.Content key={key} itemKey={key}>
           <LinePlotAxisControls axisKey={key} />
         </Tabs.Content>
       ))}
-    </Tabs.Frame>
+    </Properties.Rail>
   );
 };
 
@@ -48,24 +42,34 @@ export interface LinePlotAxisControlsProps {
   axisKey: lineplot.AxisKey;
 }
 
-interface AutoBoundButtonProps extends Omit<Button.ButtonProps, "children"> {
-  enabled: boolean;
+const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
+
+interface BoundInputProps {
+  value: number;
+  manual: boolean;
+  onChange: (value: number) => void;
+  onAuto: () => void;
 }
 
-const AutoBoundButton = ({ enabled, ...rest }: AutoBoundButtonProps): ReactElement => (
-  <Button.Button
-    {...rest}
-    variant="outlined"
-    disabled={enabled}
-    tooltip={
-      enabled ? "Manually enter value to disable auto bounding" : "Enable auto bounding"
-    }
+// An auto bound lives only in the plot, so the field shows no number while auto.
+const BoundInput = ({
+  value,
+  manual,
+  onChange,
+  onAuto,
+}: BoundInputProps): ReactElement => (
+  <Input.Numeric
+    value={manual ? value : undefined}
+    placeholder="Enter a value to override"
+    endContent={manual ? undefined : <Input.AutoBadge />}
+    onChange={onChange}
+    onClear={onAuto}
+    resetValue={0}
+    dragScale={AXES_BOUNDS_DRAG_SCALE}
   >
-    <Icon.Auto />
-  </Button.Button>
+    {manual && <Input.AutoButton onClick={onAuto} />}
+  </Input.Numeric>
 );
-
-const AXES_BOUNDS_DRAG_SCALE = { x: 0.1, y: 0.1 };
 
 const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElement => {
   const dispatch = LinePlot.useSingleDispatch();
@@ -123,30 +127,20 @@ const LinePlotAxisControls = ({ axisKey }: LinePlotAxisControlsProps): ReactElem
     <Flex.Box y className={CSS.BE("line-plot", "toolbar", "axes")} gap="small">
       <Flex.Box x>
         <Input.Item label="Lower bound" y grow>
-          <Input.Numeric
+          <BoundInput
             value={axis.bounds.lower}
+            manual={axis.manualBounds.lower}
             onChange={handleLowerBoundChange}
-            resetValue={0}
-            dragScale={AXES_BOUNDS_DRAG_SCALE}
-          >
-            <AutoBoundButton
-              enabled={!axis.manualBounds.lower}
-              onClick={handleLowerAutoBoundEnable}
-            />
-          </Input.Numeric>
+            onAuto={handleLowerAutoBoundEnable}
+          />
         </Input.Item>
         <Input.Item label="Upper bound" grow>
-          <Input.Numeric
+          <BoundInput
             value={axis.bounds.upper}
+            manual={axis.manualBounds.upper}
             onChange={handleUpperBoundChange}
-            resetValue={0}
-            dragScale={AXES_BOUNDS_DRAG_SCALE}
-          >
-            <AutoBoundButton
-              enabled={!axis.manualBounds.upper}
-              onClick={handleUpperAutoBoundEnable}
-            />
-          </Input.Numeric>
+            onAuto={handleUpperAutoBoundEnable}
+          />
         </Input.Item>
         <Input.Item label="Tick spacing" grow>
           <Input.Numeric

@@ -27,7 +27,6 @@ cc_library(
         "//driver/ni/errors",
         "//driver/ni/syscfg:syscfg_official",
         "//x/cpp/lib",
-        "//x/cpp/os",
     ],
 )
 
@@ -49,7 +48,7 @@ cc_test(
     deps = [
         ":syscfg",
         "//driver/ni/errors",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

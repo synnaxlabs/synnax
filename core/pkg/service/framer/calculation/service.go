@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
@@ -44,7 +43,7 @@ type Status = calculation.Status
 
 // ServiceConfig is the configuration for opening the calculation service.
 type ServiceConfig struct {
-	// DB opens the transactions that status writes run in.
+	// DB holds the channels that the service reads, and stores statuses.
 	//
 	// [REQUIRED]
 	DB *gorp.DB
@@ -101,9 +100,8 @@ type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	cfg                          ServiceConfig
 	mu                           struct {
-		graph       *graph.Graph
-		calculators map[channel.Key]*calculator.Calculator
-		groups      map[int]*group
+		graph  *graph.Graph
+		groups map[int]*group
 		sync.Mutex
 	}
 }
@@ -118,16 +116,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	g, err := graph.New(graph.Config{
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
+		DB:              cfg.DB,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Service{cfg: cfg}
-	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 	s.mu.graph = g
-	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
+	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
@@ -144,34 +142,41 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) setStatus(
+// report saves a status a calculator reports for the channel with the given key.
+func (s *Service) report(ctx context.Context, key channel.Key, st Status) bool {
+	st.Time = telem.Now()
+	if err := s.cfg.ChannelGraph.SetRuntimeStatus(ctx, key, &st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+		return false
+	}
+	return true
+}
+
+// rejectDefinition reports that the Service cannot compile or request ch.
+func (s *Service) rejectDefinition(
 	ctx context.Context,
-	statuses ...calculator.Status,
+	ch channel.Channel,
+	message string,
+	err error,
 ) {
-	for _, st := range statuses {
-		chKey, err := channel.ParseKey(st.Key)
-		if err != nil {
-			s.cfg.L.Error(
-				"failed to parse channel key from status",
-				zap.Error(err),
-				zap.String("key", st.Key),
-			)
-			continue
-		}
-		s.cfg.L.Warn(st.String())
-		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
-			Name:        st.Name,
-			Variant:     st.Variant,
-			Message:     st.Message,
-			Description: st.Description,
-			Time:        telem.Now(),
-		}); err != nil {
-			s.cfg.L.Error(
-				"failed to set status",
-				zap.Error(err),
-				zap.Stringer("channel", chKey),
-			)
-		}
+	st := &Status{
+		Name:        ch.Name,
+		Variant:     status.VariantError,
+		Message:     message,
+		Description: err.Error(),
+		Time:        telem.Now(),
+	}
+	s.cfg.L.Warn(st.String())
+	if err := s.cfg.ChannelGraph.RejectDefinition(ctx, ch.Key(), st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", ch.Key()),
+		)
 	}
 }
 
@@ -185,29 +190,33 @@ func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
 	}
 }
 
+func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
+	if err := s.cfg.ChannelGraph.AcceptDefinition(ctx, key); err != nil {
+		s.cfg.L.Error(
+			"failed to clear status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+	}
+}
+
 func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
 	for cg := range reader {
 		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Variant != change.VariantSet || !ch.IsCalculated() {
+		if cg.Kind == gorp.ChangeDelete || !ch.IsCalculated() {
 			continue
 		}
 		s.mu.Lock()
-		if _, found := s.mu.calculators[cg.Key]; !found {
+		if !s.mu.graph.Contains(cg.Key) {
 			s.mu.Unlock()
 			continue
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
-			s.setStatus(ctx, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     "Failed to compile calculation",
-				Description: err.Error(),
-			})
+			s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
 		} else {
-			s.clearStatus(ctx, ch.Key())
+			s.acceptDefinition(ctx, ch.Key())
 		}
 		s.mu.Unlock()
 	}
@@ -224,18 +233,21 @@ func (s *Service) updateCalculation(ctx context.Context, ch channel.Channel) err
 	return s.rebuildGroups(ctx)
 }
 
-func (s *Service) openOrGetCalculator(
+func (s *Service) openCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
-	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	failed, err := s.cfg.ChannelGraph.Failed(ctx, mod.Channel.Key())
+	if err != nil {
+		return nil, err
+	}
+	calc, err := calculator.Open(ctx, calculator.Config{Module: mod, Failed: failed})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err, "failed to open calculator for channel %s", mod.Channel,
 		)
 	}
-	s.mu.calculators[calc.Channel().Key()] = calc
-	return calc, err
+	return calc, nil
 }
 
 func groupEquals(mods []compiler.Module, g *group) bool {
@@ -273,7 +285,7 @@ func (s *Service) updateGroup(
 	}
 	calculators := make([]*calculator.Calculator, len(mods))
 	for i, m := range mods {
-		calc, err := s.openOrGetCalculator(ctx, m)
+		calc, err := s.openCalculator(ctx, m)
 		if err != nil {
 			return err
 		}
@@ -284,7 +296,7 @@ func (s *Service) updateGroup(
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
 			calculators:     calculators,
-			onStatusChange:  s.setStatus,
+			report:          s.report,
 			framer:          s.cfg.Framer,
 			writer:          s.cfg.Writer,
 		},
@@ -351,14 +363,13 @@ func (s *Service) Close() error {
 func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
-	var (
-		channels []channel.Channel
-		statuses []calculator.Status
-	)
-	if err := s.cfg.Channel.NewRetrieve().
-		Where(channel.MatchKeys(added...)).
-		Entries(&channels).
-		Exec(ctx, nil); err != nil {
+	var channels []channel.Channel
+	if err := s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return s.cfg.Channel.NewRetrieve().
+			Where(channel.MatchKeys(added...)).
+			Entries(&channels).
+			Exec(ctx, snap)
+	}); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -374,25 +385,22 @@ func (s *Service) updateRequests(
 			graphChanged = true
 		}
 	}
+	running := s.mu.graph.CalculatedKeys()
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
 			continue
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
-			statuses = append(statuses, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     "Failed to request calculation",
-				Description: err.Error(),
-			})
-		} else {
-			s.clearStatus(ctx, ch.Key())
+			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
 		}
 		graphChanged = true
 	}
-	if len(statuses) > 0 {
-		s.setStatus(ctx, statuses...)
+	// A calculation that already runs owns its status, so only a new one clears it.
+	// Dependencies start with the channel that reads them.
+	for k := range s.mu.graph.CalculatedKeys() {
+		if !running.Contains(k) {
+			s.clearStatus(ctx, k)
+		}
 	}
 	if graphChanged {
 		if err := s.rebuildGroups(ctx); err != nil {
@@ -420,6 +428,7 @@ type RequestManager struct {
 }
 
 func (r *RequestManager) Set(ctx context.Context, keys channel.Keys) error {
+	keys = keys.Unique()
 	added, removed := lo.Difference(keys, r.currKeys)
 	if err := r.svc.updateRequests(ctx, added, removed); err != nil {
 		return err

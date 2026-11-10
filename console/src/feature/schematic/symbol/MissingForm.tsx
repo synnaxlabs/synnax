@@ -9,7 +9,7 @@
 
 import "@/feature/schematic/symbol/MissingForm.css";
 
-import { group, type schematic } from "@synnaxlabs/client";
+import { type group, type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,30 +17,29 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Group, Schematic } from "@synnaxlabs/pluto";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Edit } from "@/feature/schematic/symbol/edit";
 import { CSS } from "@/platform/css";
 
+const path = deep.path<{ specKey: schematic.symbol.Key; stateOverrides: unknown[] }>();
+
 export const MissingForm = (): ReactElement => {
   const form = Form.useContext();
   const openEditModal = Edit.useModal();
-  const symbolGroup = Schematic.Symbol.useGroup({});
   const [createGroupKey, setCreateGroupKey] = useState<group.Key | undefined>(
     undefined,
   );
   const handleRelink = (key: schematic.symbol.Key | undefined) => {
     if (key == null) return;
-    form.set("specKey", key);
-    form.set("stateOverrides", []);
+    form.set(path.specKey, key);
+    form.set(path.stateOverrides, []);
   };
   const handleCreate = () => {
     if (createGroupKey == null) return;
-    const missingKey = form.get<string>("specKey", { optional: true })?.value;
-    openEditModal({
-      parent: group.ontologyID(createGroupKey),
-      createKey: missingKey,
-    });
+    const missingKey = form.get(path.specKey, { optional: true })?.value;
+    openEditModal({ group: createGroupKey, createKey: missingKey });
   };
   return (
     <Flex.Box
@@ -63,7 +62,7 @@ export const MissingForm = (): ReactElement => {
           <Group.SelectSingle
             value={createGroupKey}
             onChange={setCreateGroupKey}
-            initialQuery={{ parent: group.ontologyID(symbolGroup.key) }}
+            query={Schematic.Symbol.GROUP_QUERY}
             className={CSS.B("schematic-missing-symbol-select-group")}
             grow
           />

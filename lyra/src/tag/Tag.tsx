@@ -32,6 +32,7 @@ export interface TagProps extends optional.Optional<
 export const Tag = ({
   children = "",
   size = "medium",
+  level,
   color: pColor,
   icon,
   onClose,
@@ -60,6 +61,8 @@ export const Tag = ({
         onClose != null && CSS.BM("tag", "closeable"),
       )}
       size={size}
+      // Tags are metadata, so a small tag prints a level below a small control's label.
+      level={level ?? (size === "small" ? "tiny" : undefined)}
       overflow="nowrap"
       align="center"
       gap="small"

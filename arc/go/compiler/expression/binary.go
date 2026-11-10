@@ -11,16 +11,73 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 )
+
+// firstOperandHint keeps an outer hint from retyping a literal-only first operand.
+func firstOperandHint[N, T antlr.ParserRuleContext](
+	ctx context.Context[N],
+	operands []T,
+) types.Type {
+	if !literalOnly(ctx, operands[0]) {
+		return ctx.Hint
+	}
+	if lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(ctx, op) }) {
+		return ctx.Hint
+	}
+	resolved, ok := ctx.TypeMap[ctx.AST]
+	if !ok || resolved.Kind == types.KindVariable {
+		return ctx.Hint
+	}
+	return resolved
+}
+
+// literalOnly reports whether every leaf of node is a numeric literal or a module
+// constant.
+func literalOnly[N antlr.ParserRuleContext](
+	ctx context.Context[N],
+	node antlr.Tree,
+) bool {
+	if prim, ok := node.(parser.IPrimaryExpressionContext); ok {
+		if lit := prim.Literal(); lit != nil {
+			return lit.NumericLiteral() != nil
+		}
+		if qid := prim.QualifiedIdentifier(); qid != nil {
+			head, tail := parser.QualifiedNameParts(qid)
+			scope, err := ctx.Scope.Resolve(ctx, head)
+			if err != nil {
+				return false
+			}
+			sym, err := scope.Resolve(ctx, tail)
+			return err == nil && sym.Kind == symbol.KindConstant
+		}
+		if prim.LPAREN() == nil || prim.Expression() == nil {
+			return false
+		}
+		return literalOnly(ctx, prim.Expression())
+	}
+	for _, child := range node.GetChildren() {
+		if _, ok := child.(antlr.TerminalNode); ok {
+			continue
+		}
+		if !literalOnly(ctx, child) {
+			return false
+		}
+	}
+	return true
+}
 
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
 	muls := ctx.AST.AllMultiplicativeExpression()
-	resultType, err := compileMultiplicative(ctx.Child(muls[0]))
+	resultType, err := compileMultiplicative(
+		ctx.Child(muls[0]).WithHint(firstOperandHint(ctx, muls)),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -110,7 +167,9 @@ func compileBinaryMultiplicative(
 ) (types.Type, error) {
 	unaries := ctx.AST.AllUnaryExpression()
 
-	resultType, err := compileUnary(ctx.Child(unaries[0]))
+	resultType, err := compileUnary(
+		ctx.Child(unaries[0]).WithHint(firstOperandHint(ctx, unaries)),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -197,7 +256,8 @@ func compileBinaryRelational(
 	ctx context.Context[parser.IRelationalExpressionContext],
 ) (types.Type, error) {
 	adds := ctx.AST.AllAdditiveExpression()
-	leftType, err := compileAdditive(ctx.Child(adds[0]))
+	// A comparison gives a bool, so an outer hint says nothing about its operands.
+	leftType, err := compileAdditive(ctx.Child(adds[0]).WithHint(types.Type{}))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -255,7 +315,8 @@ func compileBinaryEquality(
 	ctx context.Context[parser.IEqualityExpressionContext],
 ) (types.Type, error) {
 	rels := ctx.AST.AllRelationalExpression()
-	leftType, err := compileRelational(ctx.Child(rels[0]))
+	// An equality gives a bool, so an outer hint says nothing about its operands.
+	leftType, err := compileRelational(ctx.Child(rels[0]).WithHint(types.Type{}))
 	if err != nil {
 		return types.Type{}, err
 	}

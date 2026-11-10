@@ -47,17 +47,16 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 		if fn := item.FunctionDeclaration(); fn != nil {
 			name := fn.IDENTIFIER().GetText()
 
-			// The brace and parens blocks concatenate into one Inputs list; the
-			// trigger is the first parens-block param, if any.
+			// Inputs come first, then triggers. The first trigger is the Trigger.
 			var inputs, outputs types.Params
-			collectInput(ctx, fn.InputBlock(), &inputs)
-			parensStart := len(inputs)
-			collectInputs(ctx.Child(fn.TriggerList()), &inputs)
-			collectOutputs(fn.OutputType(), &outputs)
+			collectInputs(ctx, fn.InputList(), &inputs)
+			triggerStart := len(inputs)
+			collectTriggers(ctx.Child(fn.TriggerList()), &inputs)
+			collectOutputs(ctx, fn.OutputType(), &outputs)
 
 			trigger := symbol.TriggerOnly
-			if len(inputs) > parensStart {
-				trigger = symbol.TriggerInput(inputs[parensStart].Name)
+			if len(inputs) > triggerStart {
+				trigger = symbol.TriggerInput(inputs[triggerStart].Name)
 			}
 
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
@@ -77,21 +76,21 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	}
 }
 
-// collectInput extracts input parameter types without adding them to scope.
-func collectInput[T antlr.ParserRuleContext](
+// collectInputs extracts input parameter types without adding them to scope.
+func collectInputs[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	inputBlock parser.IInputBlockContext,
-	input *types.Params,
+	inputList parser.IInputListContext,
+	inputs *types.Params,
 ) {
-	if inputBlock == nil || inputBlock.InputList() == nil {
+	if inputList == nil {
 		return
 	}
 	seenOptional := false
-	for _, cfg := range inputBlock.InputList().AllInput() {
+	for _, cfg := range inputList.AllInput() {
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any
@@ -119,7 +118,7 @@ func collectInput[T antlr.ParserRuleContext](
 			continue
 		}
 
-		*input = append(*input, types.Param{
+		*inputs = append(*inputs, types.Param{
 			Name:  inputName,
 			Type:  inputType,
 			Value: defaultValue,
@@ -127,8 +126,20 @@ func collectInput[T antlr.ParserRuleContext](
 	}
 }
 
-// collectInputs extracts input parameter types without adding them to scope.
-func collectInputs(
+// inferType infers the type that typeCtx names and reports a type it cannot infer.
+func inferType[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	typeCtx parser.ITypeContext,
+) types.Type {
+	t, err := atypes.InferFromTypeContext(typeCtx)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+	}
+	return t
+}
+
+// collectTriggers extracts trigger parameter types without adding them to scope.
+func collectTriggers(
 	ctx acontext.Context[parser.ITriggerListContext],
 	inputs *types.Params,
 ) {
@@ -136,22 +147,22 @@ func collectInputs(
 		return
 	}
 	seenOptional := false
-	for _, input := range ctx.AST.AllTrigger() {
-		var inputType types.Type
-		if typeCtx := input.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+	for _, trigger := range ctx.AST.AllTrigger() {
+		var triggerType types.Type
+		if typeCtx := trigger.Type_(); typeCtx != nil {
+			triggerType = inferType(ctx, typeCtx)
 		}
-		inputName := input.IDENTIFIER().GetText()
+		triggerName := trigger.IDENTIFIER().GetText()
 
 		var defaultValue any
-		if lit := input.Literal(); lit != nil {
-			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
+		if lit := trigger.Literal(); lit != nil {
+			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(
 						err,
 						"invalid default value for parameter %s",
-						inputName,
+						triggerName,
 					),
 					lit,
 				))
@@ -161,23 +172,24 @@ func collectInputs(
 			seenOptional = true
 		} else if seenOptional {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
-				input,
+				trigger,
 				"required parameter %s cannot follow optional parameters",
-				inputName,
+				triggerName,
 			))
 			continue
 		}
 
 		*inputs = append(*inputs, types.Param{
-			Name:  inputName,
-			Type:  inputType,
+			Name:  triggerName,
+			Type:  triggerType,
 			Value: defaultValue,
 		})
 	}
 }
 
 // collectOutputs extracts output types without adding them to scope.
-func collectOutputs(
+func collectOutputs[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
 	outputType parser.IOutputTypeContext,
 	outputs *types.Params,
 ) {
@@ -189,14 +201,14 @@ func collectOutputs(
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		*outputs = append(*outputs, types.Param{Name: outputName, Type: outputTypeVal})
 		return
 	}
 
 	// Case 2: Unnamed single output (e.g., "f64")
 	if typeCtx := outputType.Type_(); typeCtx != nil {
-		outputTypeVal, _ := atypes.InferFromTypeContext(typeCtx)
+		outputTypeVal := inferType(ctx, typeCtx)
 		*outputs = append(
 			*outputs,
 			types.Param{Name: ir.DefaultOutputParam, Type: outputTypeVal},
@@ -211,7 +223,7 @@ func collectOutputs(
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			*outputs = append(
 				*outputs,
@@ -235,8 +247,8 @@ func Analyze(ctx acontext.Context[parser.IFunctionDeclarationContext]) {
 
 	// Add inputs and outputs to the function's scope
 	// (types are already populated by CollectDeclarations)
-	addInputToScope(ctx, ctx.AST.InputBlock(), fn)
-	addInputsToScope(ctx.Child(ctx.AST.TriggerList()).WithScope(fn))
+	addInputsToScope(ctx, ctx.AST.InputList(), fn)
+	addTriggersToScope(ctx.Child(ctx.AST.TriggerList()).WithScope(fn))
 	addOutputsToScope(ctx, ctx.AST.OutputType(), fn)
 
 	if block := ctx.AST.Block(); block != nil {
@@ -277,7 +289,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 	if identifier := outputType.IDENTIFIER(); identifier != nil &&
 		outputType.Type_() != nil {
 		outputName := identifier.GetText()
-		outputTypeVal, _ := atypes.InferFromTypeContext(outputType.Type_())
+		outputTypeVal := inferType(ctx, outputType.Type_())
 		if _, err := scope.Add(ctx, symbol.Symbol{
 			Name: outputName,
 			Kind: symbol.KindOutput,
@@ -301,7 +313,7 @@ func addOutputsToScope[T antlr.ParserRuleContext](
 			outputName := namedOutput.IDENTIFIER().GetText()
 			var outputTypeVal types.Type
 			if typeCtx := namedOutput.Type_(); typeCtx != nil {
-				outputTypeVal, _ = atypes.InferFromTypeContext(typeCtx)
+				outputTypeVal = inferType(ctx, typeCtx)
 			}
 			if _, err := scope.Add(ctx, symbol.Symbol{
 				Name: outputName,
@@ -350,31 +362,31 @@ func checkOutputAssignedInIfStmt(
 	return false
 }
 
-// addInputsToScope adds input parameters to the function's scope.
-// The input types are already collected in fn.Type.Inputs by CollectDeclarations.
-func addInputsToScope(
+// addTriggersToScope adds trigger parameters to the function's scope.
+// The trigger types are already collected in fn.Type.Inputs by CollectDeclarations.
+func addTriggersToScope(
 	ctx acontext.Context[parser.ITriggerListContext],
 ) {
 	if ctx.AST == nil {
 		return
 	}
 
-	for _, input := range ctx.AST.AllTrigger() {
-		var inputType types.Type
-		if typeCtx := input.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+	for _, trigger := range ctx.AST.AllTrigger() {
+		var triggerType types.Type
+		if typeCtx := trigger.Type_(); typeCtx != nil {
+			triggerType = inferType(ctx, typeCtx)
 		}
-		inputName := input.IDENTIFIER().GetText()
+		triggerName := trigger.IDENTIFIER().GetText()
 
 		var defaultValue any
-		if lit := input.Literal(); lit != nil {
-			value, err := literal.Parse(ctx.Child(lit).AST, inputType)
+		if lit := trigger.Literal(); lit != nil {
+			value, err := literal.Parse(ctx.Child(lit).AST, triggerType)
 			if err != nil {
 				ctx.Diagnostics.Add(diagnostics.Error(
 					errors.Wrapf(
 						err,
 						"invalid default value for parameter %s",
-						inputName,
+						triggerName,
 					),
 					lit,
 				))
@@ -384,13 +396,13 @@ func addInputsToScope(
 		}
 
 		if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
-			Name:         inputName,
+			Name:         triggerName,
 			Kind:         symbol.KindInput,
-			Type:         inputType,
-			AST:          input,
+			Type:         triggerType,
+			AST:          trigger,
 			DefaultValue: defaultValue,
 		}); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, input))
+			ctx.Diagnostics.Add(diagnostics.Error(err, trigger))
 		}
 	}
 }
@@ -424,21 +436,21 @@ func IfStmtAlwaysReturns(ifStmt parser.IIfStatementContext) bool {
 	return BlockAlwaysReturns(ifStmt.ElseClause().Block())
 }
 
-// addInputToScope adds input parameters to the function's scope.
+// addInputsToScope adds input parameters to the function's scope.
 // The input types are already collected in fn.Type.Inputs by CollectDeclarations.
-func addInputToScope[T antlr.ParserRuleContext](
+func addInputsToScope[T antlr.ParserRuleContext](
 	ctx acontext.Context[T],
-	inputBlock parser.IInputBlockContext,
+	inputList parser.IInputListContext,
 	scope *symbol.Symbol,
 ) {
-	if inputBlock == nil || inputBlock.InputList() == nil {
+	if inputList == nil {
 		return
 	}
-	for _, cfg := range inputBlock.InputList().AllInput() {
+	for _, cfg := range inputList.AllInput() {
 		inputName := cfg.IDENTIFIER().GetText()
 		var inputType types.Type
 		if typeCtx := cfg.Type_(); typeCtx != nil {
-			inputType, _ = atypes.InferFromTypeContext(typeCtx)
+			inputType = inferType(ctx, typeCtx)
 		}
 
 		var defaultValue any

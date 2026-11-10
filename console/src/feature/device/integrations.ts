@@ -7,11 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ComponentType } from "react";
+
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
@@ -21,26 +25,62 @@ import { FLAGS } from "@/flags";
 import { type Device as PlatformDevice } from "@/platform/device";
 import { type Task } from "@/platform/task";
 
-export interface Hardware extends PlatformDevice.Hardware {
+/**
+ * The menu items of an integration. Its device items call its tasks, whose forms use
+ * its descriptor, so the descriptor cannot hold them.
+ */
+interface Menus {
+  /** The items it adds to the context menu of one of its devices. */
+  ContextMenuItems: ComponentType<PlatformDevice.ContextMenuItemsProps>;
+  /** The items it adds to the context menu of a rack whose Driver runs it. */
+  RackMenuItems?: ComponentType<PlatformDevice.RackMenuItemsProps>;
+}
+
+export interface Network extends PlatformDevice.Network, Menus {}
+
+export interface Hardware extends PlatformDevice.Hardware, Menus {
   useCreateRead: Task.UseCreate;
 }
 
-export const NETWORK: PlatformDevice.Network[] = [
-  OPCUA.Device.NETWORK,
-  Modbus.Device.NETWORK,
-  HTTP.Device.NETWORK,
+export type Integration = Network | Hardware;
+
+export const NETWORK: Network[] = [
+  {
+    ...OPCUA.Device.NETWORK,
+    ContextMenuItems: OPCUA.Device.ContextMenuItems,
+    RackMenuItems: OPCUA.Device.RackMenuItems,
+  },
+  { ...Modbus.Device.NETWORK, ContextMenuItems: Modbus.Device.ContextMenuItems },
+  { ...HTTP.Device.NETWORK, ContextMenuItems: HTTP.Device.ContextMenuItems },
+  { ...Kafka.Device.NETWORK, ContextMenuItems: Kafka.Device.ContextMenuItems },
+  { ...MQTT.Device.NETWORK, ContextMenuItems: MQTT.Device.ContextMenuItems },
   ...(FLAGS.can
     ? [
-        CAN.Device.NETWORK,
-        Serial.Device.NETWORK,
-        TCP.Device.NETWORK,
-        UDP.Device.NETWORK,
+        { ...CAN.Device.NETWORK, ContextMenuItems: CAN.Device.ContextMenuItems },
+        { ...Serial.Device.NETWORK, ContextMenuItems: Serial.Device.ContextMenuItems },
+        { ...TCP.Device.NETWORK, ContextMenuItems: TCP.Device.ContextMenuItems },
+        { ...UDP.Device.NETWORK, ContextMenuItems: UDP.Device.ContextMenuItems },
       ]
     : []),
 ];
 
 export const HARDWARE: Hardware[] = [
-  { ...NI.Device.HARDWARE, useCreateRead: NI.Task.useCreateAnalogRead },
-  { ...LabJack.Device.HARDWARE, useCreateRead: LabJack.Task.useCreateRead },
-  { ...EtherCAT.Device.HARDWARE, useCreateRead: EtherCAT.Task.useCreateRead },
+  {
+    ...NI.Device.HARDWARE,
+    ContextMenuItems: NI.Device.ContextMenuItems,
+    RackMenuItems: NI.Device.RackMenuItems,
+    useCreateRead: NI.Task.useCreateAnalogRead,
+  },
+  {
+    ...LabJack.Device.HARDWARE,
+    ContextMenuItems: LabJack.Device.ContextMenuItems,
+    useCreateRead: LabJack.Task.useCreateRead,
+  },
+  {
+    ...EtherCAT.Device.HARDWARE,
+    ContextMenuItems: EtherCAT.Device.ContextMenuItems,
+    useCreateRead: EtherCAT.Task.useCreateRead,
+  },
 ];
+
+export const INTEGRATIONS: Integration[] = [...NETWORK, ...HARDWARE];

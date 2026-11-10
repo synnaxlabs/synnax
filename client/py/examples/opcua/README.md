@@ -79,12 +79,9 @@ Connect), use these settings:
 | Security Mode   | Sign And Encrypt            |
 | Security Policy | Basic 256-bit with SHA-256  |
 
-Certificates are auto-generated under `examples/opcua/certificates/` when the server
-starts. The driver needs these files to connect:
-
-- `server-certificate.der`
-- `client-certificate.der`
-- `client-private-key.pem`
+The server accepts the Driver certificate, so keep **Client certificate** set to
+**Driver certificate**. Click **Connect**, check the thumbprint of the certificate the
+server sent, and click **Trust**.
 
 #### TLS + username/password
 
@@ -97,7 +94,7 @@ starts. The driver needs these files to connect:
 | Security Mode   | Sign And Encrypt            |
 | Security Policy | Basic 256-bit with SHA-256  |
 
-Uses the same auto-generated certificates as the TLS server above.
+Connect it the same way as the TLS server above.
 
 ### 3. Connect your OPC UA server (script)
 
@@ -168,7 +165,7 @@ uv run python examples/opcua/read_task_array.py --tls-auth
 This example:
 
 - Creates channels for two array variables (my_array_0, my_array_1)
-- Configures a read task in **array mode** with `array_size=5`
+- Configures a read task with array sampling, with `ArraySampling(size=5)`
 - Each sample contains an entire array of 5 float values
 - Displays live array values
 - Press Ctrl+C to stop
@@ -303,7 +300,8 @@ OPC UA supports many data types. Common mappings to Synnax:
 - Reads entire arrays from OPC UA nodes
 - Each sample contains multiple values (fixed array size)
 - Best for: High-speed data acquisition, waveforms, batched readings
-- Example: `ReadTask(sample_rate=10*sy.Rate.HZ, array_mode=True, array_size=5, ...)`
+- Example:
+  `ReadTask(sample_rate=10*sy.Rate.HZ, sampling=sy.opcua.ArraySampling(size=5), ...)`
 
 **Performance**: Array mode is more efficient for high-rate data when the server
 provides arrays.
@@ -399,7 +397,7 @@ sampling, which is more efficient than polling.
 ### Array reads fail
 
 - Verify the node actually contains an array
-- Check `array_size` matches the server's array length
+- Check the array sampling `size` matches the server's array length
 - Ensure the node's data type supports arrays
 - Some servers require specific subscription settings for arrays
 

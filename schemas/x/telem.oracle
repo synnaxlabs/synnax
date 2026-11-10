@@ -26,12 +26,13 @@ TimeStamp int64 {
 
 TimeSpan int64 {
     @cpp hand
-    @doc value """
+    @doc value  """
         is a 64-bit signed integer representing a duration in nanoseconds. Used for
         expressing time intervals, sampling periods, and durations throughout the
         telemetry system.
     """
     @py hand
+    @py include "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -51,6 +52,7 @@ TimeRange struct {
     """
     @go marshal
     @py hand
+    @py include "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -107,7 +109,6 @@ Window union on variant {
     @doc value  "is a window of time: a rolling span that ends now, or a fixed range."
     @go marshal
     @pb omit
-    @py omit
     @ts hand
     @ts include "x/ts/src/telem/telem"
 }
@@ -155,9 +156,18 @@ DataType string {
 }
 
 Aggregation enum {
-    min_max  = "min_max"
-    average  = "average"
-    decimate = "decimate"
+    min_max  = "min_max" {
+        @doc value """
+            keeps the lowest and highest sample of each group in the order they
+            occurred.
+        """
+    }
+    average  = "average" {
+        @doc value "keeps the mean of each group."
+    }
+    decimate = "decimate" {
+        @doc value "keeps the first sample of each group."
+    }
 
     @cpp omit
     @doc value """
@@ -198,26 +208,42 @@ Reduction union on variant {
 }
 
 TimestampFormat enum {
-    iso         = "ISO"
-    isoDate     = "ISODate"
-    time        = "time"
-    preciseTime = "preciseTime"
-    date        = "date"
-    preciseDate = "preciseDate"
-    dateTime    = "dateTime"
+    iso         = "ISO" {
+        @doc value "renders the full ISO 8601 timestamp."
+    }
+    isoDate     = "ISODate" {
+        @doc value "renders only the date of the ISO 8601 form."
+    }
+    time        = "time" {
+        @doc value "renders the time of day to the second."
+    }
+    preciseTime = "preciseTime" {
+        @doc value "renders the time of day to the millisecond."
+    }
+    date        = "date" {
+        @doc value "renders the short month and the day."
+    }
+    preciseDate = "preciseDate" {
+        @doc value "renders the short month, the day, and the time to the millisecond."
+    }
+    dateTime    = "dateTime" {
+        @doc value "renders the short month, the day, and the time to the second."
+    }
 
     @cpp omit
     @doc value "is the rendered form of a timestamp displayed alongside a sample."
     @pb omit
-    @py omit
 }
 
 TimeZone enum {
-    local = "local"
-    utc   = "UTC"
+    local = "local" {
+        @doc value "renders the time in the local time zone."
+    }
+    utc   = "UTC" {
+        @doc value "renders the time in UTC."
+    }
 
     @cpp omit
     @doc value "is the time zone used when rendering timestamps."
     @pb omit
-    @py omit
 }

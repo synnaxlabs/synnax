@@ -11,23 +11,16 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/lib/lazy.h"
+
 #include "driver/common/common.h"
 #include "driver/common/sample_clock.h"
-#include "driver/ni/daqmx/prod.h"
 #include "driver/ni/daqmx/sugared.h"
-#include "driver/ni/syscfg/prod.h"
+#include "driver/ni/names.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/task.h"
 
 namespace driver::ni {
-const std::string MAKE = "NI";
-const std::string INTEGRATION_NAME = "ni";
-const std::string SCAN_TASK_TYPE = "ni_scanner";
-const std::string ANALOG_READ_TASK_TYPE = "ni_analog_read";
-const std::string ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
-const std::string COUNTER_READ_TASK_TYPE = "ni_counter_read";
-const std::string DIGITAL_READ_TASK_TYPE = "ni_digital_read";
-const std::string DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
 const std::vector UNREACHABLE_ERRORS = {
     daqmx::DEVICE_DISCONNECTED,
     daqmx::RESOURCE_NOT_AVAILABLE,
@@ -53,45 +46,24 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
     return err.skip(daqmx::ANALOG_WRITE_OUT_OF_BOUNDS);
 }
 
-/// @brief returns true if the NI SDK libraries (DAQmx and SysCfg) are available on this
-/// system.
-inline bool integration_supported() {
-    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
-    auto [sc, sc_err] = syscfg::ProdAPI::load();
-    return dmx != nullptr && sc != nullptr;
-}
-
 /// @brief a factory for instantiating and operating NI data acquisition, control,
 /// and device scanning tasks.
 class Factory final : public task::Factory {
-    /// @brief the daqmx library used to communicate with NI hardware.
-    std::shared_ptr<daqmx::SugaredAPI> dmx;
-    /// @brief the system configuration library used to get information
-    /// about devices.
-    std::shared_ptr<syscfg::SugaredAPI> syscfg;
+    /// @brief the DAQmx library that read and write tasks use.
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx;
+    /// @brief the System Configuration library that the scanner uses.
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> syscfg;
     common::TimingConfig timing_cfg;
-
-    /// @brief checks whether the factory is healthy and capable of creating tasks.
-    [[nodiscard]] bool check_health() const;
-
-    /// @brief checks whether the factory is healthy and capable of creating tasks.
-    /// If not, the factory will automatically send an error back through the
-    /// task state and return false.
-    [[nodiscard]] bool check_health(
-        const std::shared_ptr<task::Context> &ctx,
-        const synnax::task::Task &task,
-        const std::string &cmd_key
-    ) const;
 
 public:
     Factory(
-        const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
-        common::TimingConfig timing_cfg
+        x::lib::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+        x::lib::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
+        common::TimingConfig timing_cfg = common::TimingConfig{}
     );
 
-    /// @brief creates a new NI factory, loading the DAQmx and system configuration
-    /// libraries.
+    /// @brief creates a new NI factory that loads the DAQmx and System Configuration
+    /// libraries on first use.
     static std::unique_ptr<Factory>
     create(common::TimingConfig timing_cfg = common::TimingConfig{});
 
@@ -118,10 +90,13 @@ public:
         common::ConfigureResult result;
         auto [cfg, cfg_err] = ConfigT::parse(ctx->client, task, this->timing_cfg);
         if (cfg_err) return {std::move(result), cfg_err};
+        result.auto_start = cfg.auto_start;
+        auto [dmx, dmx_err] = this->dmx->get();
+        if (dmx_err) return {std::move(result), dmx_err};
         const std::string dmx_task_name = task.name + " (" + task.key.to_string() + ")";
         using Hardware = SourceSinkT::Hardware;
         typename SourceSinkT::MakeHardware make_hw =
-            [dmx = this->dmx, dmx_task_name](
+            [dmx, dmx_task_name](
                 const ConfigT &run_cfg
             ) -> std::pair<std::unique_ptr<Hardware>, x::errors::Error> {
             TaskHandle handle = nullptr;
@@ -133,7 +108,6 @@ public:
             if (const auto err = run_cfg.apply(dmx, handle)) return {nullptr, err};
             return {std::move(hw), x::errors::NIL};
         };
-        result.auto_start = cfg.auto_start;
         result.task = std::make_unique<TaskT>(
             task,
             ctx,

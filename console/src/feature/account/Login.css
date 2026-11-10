@@ -22,7 +22,7 @@
     height: 26rem;
     flex-shrink: 0;
 
-    & .pluto-orbital {
+    & .lyra-orbital {
         --pluto-orbital-size: 26rem;
         --pluto-loading-delay: 0ms;
     }

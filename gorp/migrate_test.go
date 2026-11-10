@@ -29,8 +29,7 @@ type entryV1 struct {
 	Data string `msgpack:"data" json:"data"`
 }
 
-func (e entryV1) GorpKey() int32    { return e.ID }
-func (e entryV1) SetOptions() []any { return nil }
+func (e entryV1) GorpKey() int32 { return e.ID }
 
 const testNamespace = "test"
 
@@ -112,6 +111,56 @@ var _ = Describe("Migrate", func() {
 				Expect(executed).To(Equal([]string{"first", "second"}))
 			},
 		)
+	})
+
+	Describe("MovedMigration", func() {
+		var (
+			testDB *gorp.DB
+			runs   int
+			lift   gorp.Migration
+			moved  gorp.Migration
+		)
+		BeforeEach(func() {
+			testDB = DeferClose(OpenGorpMsgpackDB())
+			runs = 0
+			lift = migrate.New(
+				"lift",
+				func(context.Context, gorp.Tx, alamos.Instrumentation) error {
+					runs++
+					return nil
+				},
+			)
+			moved = gorp.MovedMigration("old", lift)
+		})
+		run := func(ctx SpecContext, namespace string, m gorp.Migration) {
+			GinkgoHelper()
+			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+				DB:         testDB,
+				Namespace:  namespace,
+				Migrations: []gorp.Migration{m},
+			})).To(Succeed())
+		}
+
+		It(
+			"Should run a migration that its old namespace never ran",
+			func(ctx SpecContext) {
+				run(ctx, testNamespace, moved)
+				Expect(runs).To(Equal(1))
+				run(ctx, testNamespace, moved)
+				Expect(runs).To(Equal(1))
+			},
+		)
+
+		It("Should skip a migration that its old namespace ran", func(ctx SpecContext) {
+			run(ctx, "old", lift)
+			Expect(runs).To(Equal(1))
+			run(ctx, testNamespace, moved)
+			Expect(runs).To(Equal(1))
+		})
+
+		It("Should keep the key of the migration", func() {
+			Expect(moved.Key()).To(Equal("lift"))
+		})
 	})
 
 	Describe("Error handling", func() {

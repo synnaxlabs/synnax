@@ -20,8 +20,20 @@ import (
 // mainly used to create separation between protobuf types and application internal
 // types.
 type Translator[I, O freighter.Payload] interface {
+	ForwardTranslator[I, O]
+	BackwardTranslator[I, O]
+}
+
+// ForwardTranslator translates application internal payloads into transportable ones.
+// A server needs one only for its responses.
+type ForwardTranslator[I, O freighter.Payload] interface {
 	// Forward translates the given input into a transportable output.
 	Forward(context.Context, I) (O, error)
+}
+
+// BackwardTranslator translates transportable payloads into application internal
+// ones. A server needs one only for its requests.
+type BackwardTranslator[I, O freighter.Payload] interface {
 	// Backward translates the given output into an application internal input.
 	Backward(context.Context, O) (I, error)
 }

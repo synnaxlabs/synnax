@@ -9,9 +9,15 @@
 
 from opentelemetry.propagate import get_global_textmap
 from opentelemetry.trace import get_tracer_provider
-from uptrace import configure_opentelemetry
 
 from alamos import Instrumentation, Tracer
+
+try:
+    from uptrace import configure_opentelemetry
+except ImportError as e:
+    raise ImportError(
+        "alamos.dev requires uptrace. Install it with `pip install alamos[dev]`."
+    ) from e
 
 DEV_DSN = "http://synnax_dev@localhost:14317/2"
 
@@ -19,7 +25,7 @@ DEV_DSN = "http://synnax_dev@localhost:14317/2"
 def instrumentation() -> Instrumentation:
     """
     :returns: development instrumentation that connects to a locally hosted uptrace
-        server (see `alamos/dev/README.md`). It's best to only call this function once
+        server. It's best to only call this function once
         within a testing environment, such as using a session scoped fixture in
         conftest.py.
     """

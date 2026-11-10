@@ -15,7 +15,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
@@ -437,6 +437,28 @@ TEST(RegisterStatefulTest, LeavesPendingFeederValuesConsumableAfterReset) {
     std::vector<size_t> marked;
     auto ctx = mark_context(marked);
     const auto n = make_register(p, "stateful_variable");
+    emit(p.node("f"), int64_t(7), seconds(10));
+    n->reset(ctx);
+    ASSERT_NIL(n->next(ctx));
+    EXPECT_EQ(marked, std::vector<size_t>{0});
+    EXPECT_EQ(p.node("v").output(0)->values<int64_t>(), std::vector<int64_t>{7});
+}
+
+/// @brief it should stay a register when its first input has no value.
+TEST(RegisterStatefulTest, StaysARegisterWhenItsFirstInputHasNoValue) {
+    Program p(register_ir(types::Kind::I64, 42));
+    std::vector<size_t> marked;
+    auto ctx = mark_context(marked);
+    Module module;
+    const auto ir_node = make_node(
+        "v",
+        "stateful_variable",
+        {param("f0", types::Kind::I64)},
+        {}
+    );
+    const auto n = ASSERT_NIL_P(
+        module.create(runtime::node::Config(p.ir(), ir_node, p.node("v")))
+    );
     emit(p.node("f"), int64_t(7), seconds(10));
     n->reset(ctx);
     ASSERT_NIL(n->next(ctx));

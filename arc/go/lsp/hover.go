@@ -46,7 +46,8 @@ func intTypeDoc(name, desc, rng string) string {
 func (s *Server) Hover(
 	ctx context.Context,
 	params *protocol.HoverParams,
-) (*protocol.Hover, error) {
+) (result *protocol.Hover, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	d, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		s.cfg.L.Debug(
@@ -236,7 +237,10 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind(parser.LiteralFUNC, "Keyword"),
 		doc.Paragraph("Declares a function."),
 		doc.Divider(),
-		doc.Code("arc", "func name(param type) returnType {\n    // body\n}"),
+		doc.Code(
+			"arc",
+			"func name(param type) {trigger type} returnType {\n    // body\n}",
+		),
 	).Render(),
 	parser.LiteralSTAGE: doc.New(
 		doc.TitleWithKind(parser.LiteralSTAGE, "Keyword"),
@@ -594,6 +598,9 @@ func (s *Server) getUserSymbolHover(
 		if members := formatModuleMembersList(sym); len(members) > 0 {
 			d.Add(doc.Paragraph("Members: " + strings.Join(members, ", ")))
 		}
+	case symbol.KindConstant:
+		d = doc.New(doc.TitleWithKind(displayName, "Constant"))
+		d.Add(doc.Detail("Type", sym.Type.String(), true))
 	case symbol.KindVariable:
 		d = doc.New(doc.TitleWithKind(displayName, "Variable"))
 		d.Add(doc.Detail("Type", variableTypeDetail(sym), true))
@@ -654,28 +661,41 @@ func formatFunctionSignatureContent(sym *symbol.Symbol) string {
 	var sig strings.Builder
 	sig.WriteString("func ")
 	sig.WriteString(sym.Name)
-	sig.WriteString("(")
-	for i, param := range sym.Type.Inputs {
-		if i > 0 {
-			sig.WriteString(", ")
+	inputs, triggers := sym.Type.Inputs, types.Params(nil)
+	if idx := inputs.GetIndex(sym.Trigger.Target); idx >= 0 {
+		if sym.AST != nil {
+			// A declared function lists its triggers after its inputs.
+			inputs, triggers = inputs[:idx], inputs[idx:]
+		} else {
+			// An STL node lists its one trigger first.
+			triggers = inputs[idx : idx+1]
+			inputs = slices.Concat(inputs[:idx], inputs[idx+1:])
 		}
-		_, _ = fmt.Fprintf(&sig, "%s %s", param.Name, param.Type)
 	}
-	sig.WriteString(")")
+	writeParams(&sig, "(", inputs, ")")
+	if len(triggers) > 0 {
+		writeParams(&sig, " {", triggers, "}")
+	}
 	if len(sym.Type.Outputs) > 0 {
 		sig.WriteString(" ")
 		if len(sym.Type.Outputs) == 1 {
-			outputType := sym.Type.Outputs[0].Type
-			sig.WriteString(outputType.String())
+			sig.WriteString(sym.Type.Outputs[0].Type.String())
 		} else {
-			sig.WriteString("{")
-			for _, param := range sym.Type.Outputs {
-				_, _ = fmt.Fprintf(&sig, "\n    %s %s", param.Name, param.Type)
-			}
-			sig.WriteString("\n}")
+			writeParams(&sig, "(", sym.Type.Outputs, ")")
 		}
 	}
 	return sig.String()
+}
+
+func writeParams(sig *strings.Builder, start string, params types.Params, end string) {
+	sig.WriteString(start)
+	for i, param := range params {
+		if i > 0 {
+			sig.WriteString(", ")
+		}
+		_, _ = fmt.Fprintf(sig, "%s %s", param.Name, param.Type)
+	}
+	sig.WriteString(end)
 }
 
 func formatFunctionKindDescription(sym *symbol.Symbol) string {

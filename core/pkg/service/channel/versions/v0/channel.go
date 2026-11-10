@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/vmihailenco/msgpack/v5"
@@ -53,15 +53,6 @@ func (c Channel) Index() Key {
 
 // GorpKey implements the gorp.Entry interface.
 func (c Channel) GorpKey() Key { return c.Key() }
-
-// SetOptions implements the gorp.Entry interface. Returns a set of options that tell an
-// aspen.DB to properly lease the Channel to the node it will be recording data from.
-func (c Channel) SetOptions() []any {
-	if c.Free() {
-		return []any{node.KeyBootstrapper}
-	}
-	return []any{c.Leaseholder}
-}
 
 // Free returns true if the channel is not leased to a particular node i.e. it is a
 // non-leased virtual channel.
@@ -174,9 +165,9 @@ func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
 	return nil
 }
 
-// OntologyID returns the ontology.ID for the channel.
-func (c Channel) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeChannel, Key: c.Key().String()}
+// ResourceID returns the resource.ID for the channel.
+func (c Channel) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeChannel, Key: c.Key().String()}
 }
 
 // ToPayload returns a map representation of the channel for use in ontology resources

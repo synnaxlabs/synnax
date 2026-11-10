@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type Synnax as Client } from "@synnaxlabs/client";
+import { type resource, type Synnax as Client } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type PropsWithChildren, type ReactElement } from "react";
@@ -21,8 +21,8 @@ export interface SnapshotContext {
 
 export interface SnapshotService {
   icon: Icon.ReactElement;
-  onClick: (res: ontology.Resource, ctx: SnapshotContext) => Promise<void>;
-  onDelete: (res: ontology.Resource, ctx: SnapshotContext) => Promise<void>;
+  onClick: (res: resource.Resource, ctx: SnapshotContext) => Promise<void>;
+  onDelete: (res: resource.Resource, ctx: SnapshotContext) => Promise<void>;
 }
 
 export type SnapshotServices = Record<string, SnapshotService>;

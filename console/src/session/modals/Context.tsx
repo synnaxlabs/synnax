@@ -93,9 +93,9 @@ export class Store {
   }
 
   /**
-   * push opens a modal that renders Component with the given params bound, appending it to
-   * the top of the stack. resolve settles the caller's promise: it receives the result the
-   * content passes to close, or null on dismissal.
+   * push opens a modal that renders Component with the given params bound, appending it
+   * to the top of the stack. resolve settles the caller's promise: it receives the
+   * result the content passes to close, or null on dismissal.
    */
   push<Params extends ReservedParams, Result>(
     Component: Content<Params, Result>,
@@ -137,9 +137,9 @@ const [BaseContext, useStore] = context.create<Store>({
 export { useStore };
 
 /**
- * Provider creates the window-local modal store and makes it available to descendants via
- * context. Mount once near the root of each window; the store lives for the window's
- * lifetime and is never shared across windows or persisted.
+ * Provider creates the window-local modal store and makes it available to descendants
+ * via context. Mount once near the root of each window; the store lives for the
+ * window's lifetime and is never shared across windows or persisted.
  */
 export const Context = ({ children }: PropsWithChildren): ReactElement => {
   const [store] = useState(() => new Store());

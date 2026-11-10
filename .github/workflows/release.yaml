@@ -10,9 +10,9 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2} {3}{4}', inputs.console && ' Console' || '',
-  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.bump,
-  inputs.prerelease && ' candidate' || '') }}
+  ${{ format('Release{0}{1}{2}{3} {4}{5}', inputs.console && ' Console' || '',
+  inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.packages && '
+  Packages' || '', inputs.bump, inputs.prerelease && ' candidate' || '') }}
 
 on:
   workflow_dispatch:
@@ -27,6 +27,10 @@ on:
         default: true
       core:
         description: Release the Core
+        type: boolean
+        default: true
+      packages:
+        description: Publish the npm and PyPI packages whose versions are not published
         type: boolean
         default: true
       bump:
@@ -59,8 +63,7 @@ concurrency:
 
 permissions:
   actions: read
-  contents: write
-  packages: write
+  contents: read
 
 env:
   GH_REPO: ${{ github.repository }}
@@ -69,16 +72,52 @@ env:
 jobs:
   ci:
     name: CI
-    # A called workflow gets no more than its caller grants, and the fail-fast job in CI
-    # asks for actions: write.
+    # A called workflow gets no more than its caller grants. In CI, the fail-fast job
+    # asks for actions: write and the paths filter for pull-requests: read.
     permissions:
       actions: write
       contents: write
       packages: write
+      pull-requests: read
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  # A stored shape that changed without a migration stops the release before any draft.
+  migration-audit:
+    name: Migration audit
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/audit.migration.yaml
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   resolve:
     name: Resolve versions
@@ -94,17 +133,30 @@ jobs:
       core_tag: ${{ steps.core.outputs.tag }}
       core_previous_tag: ${{ steps.core.outputs.previous_tag }}
       core_latest: ${{ steps.core.outputs.latest }}
+      train:
+        ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
+        steps.driver.outputs.minor }}
       core_console_version: ${{ steps.embed.outputs.console_version }}
       core_driver_version: ${{ steps.embed.outputs.driver_version }}
     steps:
       - name: Require a product
-        if: ${{ !inputs.console && !inputs.driver && !inputs.core }}
+        if: >-
+          !inputs.console && !inputs.driver && !inputs.core && (!inputs.packages ||
+          inputs.prerelease)
         run: |
-          echo "no product selected" >&2
+          echo "no product selected; a candidate run never publishes packages" >&2
+          exit 1
+
+      - name: Require a release branch for packages
+        if: >-
+          inputs.packages && !inputs.prerelease && github.ref != 'refs/heads/main' &&
+          !startsWith(github.ref, 'refs/heads/release/')
+        run: |
+          echo "packages publish only from main or a release/ branch" >&2
           exit 1
 
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -134,6 +186,20 @@ jobs:
           product: core
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+
+      # A manifest off the train would ship a Console and clients that report the wrong
+      # minor to the Core.
+      - name: Check manifests against the train
+        if: inputs.console || inputs.driver || inputs.core
+        env:
+          MINORS: >-
+            ${{ steps.console.outputs.minor }} ${{ steps.driver.outputs.minor }} ${{
+            steps.core.outputs.minor }}
+        run: |
+          read -ra minors <<< "$MINORS"
+          for minor in $(printf '%s\n' "${minors[@]}" | sort -u); do
+            scripts/check_versions.sh --train "$minor"
+          done
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -168,12 +234,15 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci]
+    needs: [resolve, ci, migration-audit]
     if: inputs.console
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -203,17 +272,35 @@ jobs:
       version: ${{ needs.resolve.outputs.console_version }}
       release_tag: ${{ needs.resolve.outputs.console_tag }}
       updater_channel: ${{ inputs.prerelease && 'next' || 'stable' }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   publish-console:
     name: Publish Console
     needs: [resolve, build-console]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.console_tag }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Publish updater manifest
         uses: ./.github/actions/publish-updater-manifest
@@ -223,16 +310,19 @@ jobs:
           app: Synnax
 
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci]
+    needs: [resolve, ci, migration-audit]
     if: inputs.driver
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -261,31 +351,136 @@ jobs:
       use_simple_artifact_names: true
       version: ${{ needs.resolve.outputs.driver_version }}
       release_tag: ${{ needs.resolve.outputs.driver_tag }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   publish-driver:
     name: Publish Driver
     needs: [resolve, build-driver]
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.driver_tag }}
     steps:
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        run: gh release edit "$TAG" --draft=false --latest=false
+
+  # Packages have no candidate channel, so a candidate run never publishes them. The
+  # registries trust this file by name, so the publish jobs live here and not in a called
+  # workflow. pnpm and the prune step skip versions already on the registry.
+  publish-ts:
+    name: Publish TypeScript packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    env:
+      SYNNAX_TS_ENV: prod
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+
+      - name: Build
+        run: pnpm build:client
+
+      # A hotfix on an older train must not move `latest` back. Every package shares the
+      # client's minor.
+      - name: Pick the dist-tag
+        id: dist-tag
+        shell: bash
+        run: |
+          minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
+          latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
+          newest=$(printf '%s\n%s\n' "$minor" "$latest" | sort -V | tail -n 1)
+          if [ "$minor" = "$newest" ]; then
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=train-$minor" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish
+        env:
+          TAG: ${{ steps.dist-tag.outputs.tag }}
+        # pnpm refuses a branch other than main unless it is named here.
+        run: pnpm publish -r --tag "$TAG" --publish-branch "$GITHUB_REF_NAME"
+
+  publish-py:
+    name: Publish Python packages
+    needs: [resolve, ci]
+    if: inputs.packages && !inputs.prerelease
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          version: latest-known
+
+      - name: Pin internal dependency constraints
+        run: .github/scripts/pin_internal_deps.sh
+
+      - name: Build
+        run: |
+          for package in alamos/py x/py freighter/py client/py; do
+            (cd "$package" && uv build)
+          done
+
+      - name: Prune already-published distributions
+        run: uv run --no-project python .github/scripts/prune_published.py
+
+      - name: Publish
+        run: |
+          if compgen -G "dist/*.whl" > /dev/null || compgen -G "dist/*.tar.gz" > /dev/null; then
+            uv publish --check-url https://pypi.org/simple/
+          else
+            echo "All distributions already published; nothing to upload."
+          fi
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
   draft-core:
     name: Draft Core
-    needs: [resolve, ci, publish-console, publish-driver]
+    needs: [resolve, ci, migration-audit, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && (!inputs.console || needs.publish-console.result
-      == 'success') && (!inputs.driver || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
+      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
+      || needs.publish-driver.result == 'success')
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -303,9 +498,12 @@ jobs:
             needs.resolve.outputs.core_driver_version }}).
           prerelease: ${{ inputs.prerelease }}
 
+  # A job with no status check skips when any ancestor skipped, so each job after
+  # draft-core has its own. Without one, a run with no Console or Driver skips the Core.
   build-core:
     name: Build Core
     needs: [resolve, draft-core]
+    if: ${{ !cancelled() && needs.draft-core.result == 'success' }}
     uses: ./.github/workflows/build.synnax.yaml
     permissions:
       actions: read
@@ -326,21 +524,40 @@ jobs:
       docker_channel:
         ${{ inputs.prerelease && 'next' || needs.resolve.outputs.core_latest == 'true'
         && 'latest' || '' }}
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   windows-installer:
     name: Build Windows installer
     needs: [resolve, build-core]
+    if: ${{ !cancelled() && needs.build-core.result == 'success' }}
+    permissions:
+      actions: read
+      contents: write
     runs-on: windows-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
       VERSION: ${{ needs.resolve.outputs.core_version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Download Core binary
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: synnax-core-windows
           path: .github/scripts/
@@ -352,7 +569,7 @@ jobs:
           .github/scripts/synnax-server.exe
 
       - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v2
+        uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2
 
       - name: Install trusted-signing-cli
         run: cargo install trusted-signing-cli
@@ -383,9 +600,37 @@ jobs:
   publish-core:
     name: Publish Core
     needs: [resolve, build-core, windows-installer]
+    if: ${{ !cancelled() && needs.windows-installer.result == 'success' }}
+    permissions:
+      actions: read
+      contents: write
     runs-on: ubuntu-latest
     env:
       TAG: ${{ needs.resolve.outputs.core_tag }}
     steps:
+      # The repo has one Latest badge, and a publish takes it by default. It belongs to
+      # the newest stable Core, so a Console, Driver, or Desktop publish declines it.
       - name: Publish release
-        run: gh release edit "$TAG" --draft=false
+        env:
+          LATEST:
+            ${{ inputs.prerelease && 'false' || needs.resolve.outputs.core_latest }}
+        run: gh release edit "$TAG" --draft=false --latest="$LATEST"
+
+  deploy-docs:
+    name: Deploy docs
+    needs: [resolve, publish-console, publish-driver, publish-core]
+    # The docs read stable versions at build time. A release changes the download links
+    # of its train, next, and the newest train, and a new train moves the previous one
+    # off the root.
+    if: >-
+      !cancelled() && !inputs.prerelease && (needs.publish-console.result == 'success'
+      || needs.publish-driver.result == 'success' || needs.publish-core.result ==
+      'success')
+    uses: ./.github/workflows/deploy.docs.yaml
+    with:
+      versions: next latest previous
+      train: ${{ needs.resolve.outputs.train }}
+    secrets:
+      DOCS_ALGOLIA_APP_ID: ${{ secrets.DOCS_ALGOLIA_APP_ID }}
+      DOCS_ALGOLIA_WRITE_API_KEY: ${{ secrets.DOCS_ALGOLIA_WRITE_API_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

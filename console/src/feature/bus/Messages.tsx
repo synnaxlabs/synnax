@@ -19,12 +19,17 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { ICD } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
-import { type Accepts, type Message, messagesOf } from "@/feature/bus/types";
+import {
+  type Accepts,
+  CONFIG_PATH,
+  type Message,
+  messagesOf,
+} from "@/feature/bus/types";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Task } from "@/platform/task";
 
-const MESSAGES_PATH = "config.messages";
+const MESSAGES_PATH = CONFIG_PATH.messages;
 
 /**
  * @returns the messages of the ICD the form's config names, keyed by message key, and
@@ -34,7 +39,7 @@ const useICDMessages = (): {
   messages: Map<icd.MessageKey, icd.Message>;
   error?: string;
 } => {
-  const key = Form.useFieldValue<icd.Key>("config.icd", { optional: true });
+  const key = Form.useFieldValue(CONFIG_PATH.icd, { optional: true });
   const { data, variant, status } = ICD.useResult(key == null ? null : { key });
   return {
     messages: messagesOf(data),
@@ -67,7 +72,7 @@ const MessageItem = ({ definitions, onRemove, ...props }: MessageItemProps) => {
   return (
     <Select.Item {...props} justify="between" align="center" x>
       <Flex.Box y gap="tiny" className={CSS.BE("bus-message", "label")}>
-        <Text.Text weight={500} overflow="ellipsis">
+        <Text.Text weight={500} overflow="fade">
           {definition?.name ?? "Unknown message"}
         </Text.Text>
         <Text.Text level="small" color={8}>
@@ -75,7 +80,7 @@ const MessageItem = ({ definitions, onRemove, ...props }: MessageItemProps) => {
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">
-        <Task.EnabledCheckbox path={`${MESSAGES_PATH}.${index}.disabled`} />
+        <Task.EnabledCheckbox path={MESSAGES_PATH[index].disabled} />
         {!isPreview && (
           <Button.Button
             variant="text"
@@ -106,7 +111,7 @@ const ADD_TRIGGER_PROPS = { placeholder: "Add message", icon: <Icon.Add /> } as 
 const AddMessage = ({ definitions, onAdd }: AddMessageProps) => {
   const byKey = new Map(definitions.map((e) => [e.key, e]));
   return (
-    <Form.Field<Message[]>
+    <Form.Field
       path={MESSAGES_PATH}
       showLabel={false}
       padHelpText={false}
@@ -137,8 +142,8 @@ const AddMessage = ({ definitions, onAdd }: AddMessageProps) => {
 
 /** Props the details of a selected message render with. */
 export interface DetailsProps {
-  /** The form path of the message in the task's config. */
-  path: string;
+  /** The index of the message in the task's config. */
+  index: number;
   /** The message as its ICD defines it. */
   definition: icd.Message;
 }
@@ -161,7 +166,7 @@ const EMPTY_CONTENT = <Empty.Action message="No messages" />;
 export const Messages = ({ accepts, create, details }: MessagesProps): ReactElement => {
   const { messages: definitions, error } = useICDMessages();
   const ctx = Form.useContext();
-  const messages = Form.useFieldValue<Message[]>(MESSAGES_PATH);
+  const messages = Form.useFieldValue(MESSAGES_PATH);
   const [selected, setSelected] = useState<icd.MessageKey | undefined>(
     messages[0]?.message,
   );
@@ -170,16 +175,11 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
     (e) => accepts(e) && !keys.includes(e.key),
   );
   const handleAdd = (definition: icd.Message) => {
-    ctx.set(MESSAGES_PATH, [
-      ...ctx.get<Message[]>(MESSAGES_PATH).value,
-      create(definition),
-    ]);
+    ctx.set(MESSAGES_PATH, [...ctx.get(MESSAGES_PATH).value, create(definition)]);
     setSelected(definition.key);
   };
   const handleRemove = (key: icd.MessageKey) => {
-    const next = ctx
-      .get<Message[]>(MESSAGES_PATH)
-      .value.filter((m) => m.message !== key);
+    const next = ctx.get(MESSAGES_PATH).value.filter((m) => m.message !== key);
     ctx.set(MESSAGES_PATH, next);
     if (selected === key) setSelected(next[0]?.message);
   };
@@ -187,14 +187,14 @@ export const Messages = ({ accepts, create, details }: MessagesProps): ReactElem
     <MessageItem {...p} definitions={definitions} onRemove={handleRemove} />
   ));
   const index = selected == null ? -1 : keys.indexOf(selected);
-  const path = index === -1 ? null : `${MESSAGES_PATH}.${index}`;
+  const path = index === -1 ? null : MESSAGES_PATH[index];
   const definition = selected == null ? undefined : definitions.get(selected);
   let content: ReactNode;
   if (error != null) content = <Placeholder>{error}</Placeholder>;
   else if (path == null)
     content = <Placeholder>Select a message to configure</Placeholder>;
   else if (definition == null) content = <Placeholder>Loading message</Placeholder>;
-  else content = details({ path, definition });
+  else content = details({ index, definition });
   return (
     <Task.Views.Panes
       listTitle="Messages"

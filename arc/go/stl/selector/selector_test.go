@@ -26,6 +26,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// The select node emits on the ordinal of each output in its symbol.
+const (
+	trueOutputIdx  = 0
+	falseOutputIdx = 1
+)
+
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
 		It("Should create module", func() {
@@ -89,8 +95,7 @@ var _ = Describe("Select", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("select"),
 			}
-			_, err := factory.Create(cfg)
-			Expect(err).To(Equal(query.ErrNotFound))
+			Expect(factory.Create(cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("select.Next", func() {
@@ -145,13 +150,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV[bool]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 		})
 		It("Should split all true values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -162,13 +167,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, true, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
@@ -184,13 +189,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false, false, false, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(4)))
@@ -206,13 +211,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			falseOut := selectNode.Output(1)
@@ -232,7 +237,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueTime := selectNode.OutputTime(0)
@@ -252,7 +257,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, false, true, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20, 30, 40, 50)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseTime := selectNode.OutputTime(1)
@@ -271,13 +276,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(1)))
@@ -291,13 +296,13 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(100)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			outputs := make(set.Set[int])
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(1)))
@@ -317,7 +322,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(data...)
 			*source.OutputTime(0) = telem.NewSeriesV(times...)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -334,7 +339,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(false, false, true, true, true, false)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
@@ -356,7 +361,7 @@ var _ = Describe("Select", func() {
 			*source.Output(0) = telem.NewSeriesV(true, true, false, false, false, true)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6)
 			source.MarkFresh(0)
-			n, _ := factory.Create(cfg)
+			n := MustSucceed(factory.Create(cfg))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
@@ -510,7 +515,7 @@ var _ = Describe("Select", func() {
 				*source.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 100, 150, 200)
 				source.MarkFresh(0)
 
-				n, _ := factory.Create(cfg)
+				n := MustSucceed(factory.Create(cfg))
 				n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 
 				selectNode := s.Node("select")

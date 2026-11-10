@@ -17,7 +17,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax, User as PUser } from "@synnaxlabs/pluto";
 import { location, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -58,7 +58,7 @@ const Content = (): ReactElement => {
   const core = Session.Core.useSelectSelected();
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
-  const handleLogout = Session.useLogout();
+  const handleLogout = Core.useLogout();
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
@@ -68,6 +68,8 @@ const Content = (): ReactElement => {
   const copyAddress = (): void => {
     if (core != null) copy(`${core.host}:${core.port}`, "Core address", core.name);
   };
+  // A browser Console only talks to the Core that served it.
+  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
   const editConnection = (): void => {
     if (activeKey == null) return;
     close();
@@ -82,10 +84,10 @@ const Content = (): ReactElement => {
           gap="medium"
           className={CSS.BE("core-badge", "name")}
         >
-          <Text.Text weight={500} color={10} overflow="ellipsis">
+          <Text.Text weight={500} color={10} overflow="fade">
             {core?.name ?? "Core"}
           </Text.Text>
-          {activeKey != null && (
+          {editable && (
             <Button.Button
               aria-label="Edit connection"
               variant="text"
@@ -110,12 +112,7 @@ const Content = (): ReactElement => {
             gap="small"
             className={CSS.BE("core-badge", "address")}
           >
-            <Text.Text
-              level="small"
-              color={9}
-              overflow="ellipsis"
-              onClick={copyAddress}
-            >
+            <Text.Text level="small" color={9} overflow="fade" onClick={copyAddress}>
               {core.host}:{core.port}
             </Text.Text>
             <Button.Button variant="text" size="tiny" onClick={copyAddress}>
@@ -132,11 +129,6 @@ const Content = (): ReactElement => {
         {details.nodeVersion != null && (
           <Text.Text level="small" color={9}>
             {`Core v${details.nodeVersion}`}
-          </Text.Text>
-        )}
-        {details.nodeVersion != null && !details.clientServerCompatible && (
-          <Text.Text level="small" status="warning">
-            {`Incompatible with client v${details.clientVersion}`}
           </Text.Text>
         )}
         {details.nodeVersion != null && <License.Summary />}
@@ -179,7 +171,7 @@ const Content = (): ReactElement => {
 export const Badge = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant } = status;
-  const name = User.useDisplayName();
+  const { data: name } = PUser.useResultName({});
   return (
     <Dialog.Frame>
       <Tooltip.Dialog location={location.BOTTOM_LEFT}>

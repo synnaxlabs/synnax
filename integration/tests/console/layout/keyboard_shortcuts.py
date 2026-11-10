@@ -14,10 +14,15 @@ class KeyboardShortcuts(ConsoleCase):
     """Test layout keyboard shortcuts."""
 
     NAV_DRAWER_SELECTOR = (
-        ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+        ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
     )
-    FLOATING_DRAWER_SELECTOR = ".console-nav__drawer.pluto--visible.console--hover:not(.pluto--location-bottom)"
-    PINNED_DRAWER_SELECTOR = ".console-nav__drawer.pluto--visible:not(.console--hover):not(.pluto--location-bottom)"
+    FLOATING_DRAWER_SELECTOR = (
+        ".console-nav__drawer.lyra--visible.console--hover:not(.lyra--location-bottom)"
+    )
+    PINNED_DRAWER_SELECTOR = (
+        ".console-nav__drawer.lyra--visible:not(.console--hover)"
+        ":not(.lyra--location-bottom)"
+    )
 
     TOOLBAR_SHORTCUTS = [
         ("a", "arc", "Arc"),
@@ -74,7 +79,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         page_name = "Close Me"
-        console.pages.create_by_type("Line plot", page_name)
+        console.pages.create_by_type("lineplot", page_name)
         self._cleanup_pages.append(page_name)
 
         # Verify tab exists
@@ -103,7 +108,7 @@ class KeyboardShortcuts(ConsoleCase):
 
         # Create a page
         original_name = "Rename Via Shortcut"
-        console.pages.create_by_type("Line plot", original_name)
+        console.pages.create_by_type("lineplot", original_name)
         self._cleanup_pages.append(original_name)
 
         # Verify tab exists
@@ -156,13 +161,13 @@ class KeyboardShortcuts(ConsoleCase):
             self.log(f"test_toolbar_toggle: {label} toolbar with '{key.upper()}'")
 
             btn = self.page.locator(
-                f"button.console-main-nav__item:has(svg.pluto-icon--{icon})"
+                f"button.console-main-nav__item:has(svg.lyra-icon--{icon})"
             )
 
             # Single press to show floating toolbar
             self.page.keyboard.press(key)
             floating_drawer.wait_for(state="visible", timeout=5000)
-            assert "pluto--selected" in (btn.get_attribute("class") or ""), (
+            assert "lyra--selected" in (btn.get_attribute("class") or ""), (
                 f"{label} nav button should be selected after single press"
             )
 
@@ -171,7 +176,7 @@ class KeyboardShortcuts(ConsoleCase):
             self.page.keyboard.press(key)
             pinned_drawer.wait_for(state="visible", timeout=5000)
             floating_drawer.wait_for(state="hidden", timeout=5000)
-            assert "pluto--selected" in (btn.get_attribute("class") or ""), (
+            assert "lyra--selected" in (btn.get_attribute("class") or ""), (
                 f"{label} nav button should be selected after double press"
             )
 

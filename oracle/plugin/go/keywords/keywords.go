@@ -11,9 +11,9 @@ package keywords
 
 import "github.com/synnaxlabs/x/set"
 
-// Reserved contains Go reserved keywords and predeclared identifiers that cannot
+// reserved contains Go reserved keywords and predeclared identifiers that cannot
 // be used as variable names in generated code.
-var Reserved = set.New(
+var reserved = set.New(
 	// Keywords
 	"break", "case", "chan", "const", "continue",
 	"default", "defer", "else", "fallthrough", "for",
@@ -37,7 +37,7 @@ var Reserved = set.New(
 
 // Escape appends "Val" to names that collide with Go reserved words.
 func Escape(name string) string {
-	if Reserved.Contains(name) {
+	if reserved.Contains(name) {
 		return name + "Val"
 	}
 	return name

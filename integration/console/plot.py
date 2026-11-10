@@ -8,41 +8,41 @@
 #  included in the file licenses/APL.txt.
 
 import re
-from typing import Any, Literal
+from typing import Literal
 
 from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage
-from framework.run_dir import resolve_results_path
+from console.page import ConsolePage, PageType
 
-Axis = Literal["Y1", "Y2", "X1"]
+Axis = Literal["x1", "y1", "y2"]
+"""The keys of `sy.lineplot.AxisKey` that the Console toolbar offers."""
+
+# The middle of the range strip's first lane: 4 px of padding, then a 20 px lane.
+FIRST_LANE_CENTER = 14
 
 
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type = "Line plot"
+    page_type: PageType = "lineplot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Plot page wrapper (see ConsolePage.__init__ for details)."""
-        self.data: dict[str, Any] = {
-            "Y1": [],
-            "Y2": [],
-            "Ranges": [],
-            "X1": None,
-        }
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        self.data: dict[str, list[str]] = {"y1": [], "y2": [], "x1": [], "Ranges": []}
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -50,9 +50,9 @@ class Plot(ConsolePage):
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
-        axis_label = self.page.locator("label").filter(has_text=axis)
+        axis_label = self.page.locator("label").filter(has_text=axis.upper())
         axis_label.wait_for(state="visible", timeout=5000)
-        trigger = axis_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger = axis_label.locator("..").locator(".lyra-dialog__trigger")
         trigger.click(timeout=5000)
 
         search_input = self.page.locator("input[placeholder*='Search']")
@@ -77,7 +77,7 @@ class Plot(ConsolePage):
     ) -> None:
         """Add time ranges to the plot."""
         ranges_label = self.page.locator("label").filter(has_text="Ranges")
-        trigger = ranges_label.locator("..").locator(".pluto-dialog__trigger")
+        trigger = ranges_label.locator("..").locator(".lyra-dialog__trigger")
         trigger.click(timeout=5000)
 
         for range_value in ranges:
@@ -92,8 +92,7 @@ class Plot(ConsolePage):
 
         The file is saved to the tests/results directory with the plot name.
 
-        Returns:
-            The CSV file contents as a string.
+        :returns: The CSV file contents as a string.
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
@@ -109,86 +108,17 @@ class Plot(ConsolePage):
             download_button.click()
 
         download = download_info.value
-        save_path = resolve_results_path(f"{self.page_name}.csv")
+        save_path = str(self.layout.results_dir / f"{self.page_name}.csv")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             return f.read()
-
-    def set_axis(self, axis: Axis, config: dict[str, Any]) -> None:
-        """Set axis configuration with the given parameters."""
-        self.notifications.close_all()
-        self.page.get_by_role("tab", name="Axes", exact=True).click(timeout=5000)
-
-        self._select_axis_tab(axis)
-
-        for key, value in config.items():
-            self._set_axis_property(key, value)
-
-        self.layout.press_enter()
-
-    def _select_axis_tab(self, axis: Axis) -> None:
-        """Select the axis tab in the configuration panel."""
-        self.page.get_by_role("tab", name=axis, exact=True).click(timeout=5000)
-
-    def _set_axis_property(self, key: str, value: Any) -> None:
-        """Set a single axis property."""
-        try:
-            if key in {"Lower bound", "Upper bound", "Tick spacing", "Label"}:
-                self._set_input_field(key, value)
-            elif key == "Label direction":
-                self._set_label_direction(value)
-            elif key == "Label size":
-                self._set_label_size(value)
-            else:
-                self.page.locator(key).fill(str(value), timeout=5000)
-        except Exception as e:
-            raise ValueError(f'Failed to set axis property "{key}" to "{value}"') from e
-
-    def _set_input_field(self, key: str, value: Any) -> None:
-        """Set an input field value."""
-        selectors = [
-            f"label:has-text('{key}') + div input",
-            f"label:has-text('{key}') input",
-            f"input[aria-label*='{key}']",
-            f"input[placeholder*='{key}']",
-        ]
-
-        for selector in selectors:
-            try:
-                input_field = self.page.locator(selector)
-                if input_field.count() > 0:
-                    input_field.clear(timeout=5000)
-                    input_field.fill(str(value), timeout=5000)
-                    return
-            except Exception:
-                continue
-
-        raise RuntimeError(f"Could not find input field for {key}")
-
-    def _set_label_direction(
-        self, direction: Literal["horizontal", "vertical"]
-    ) -> None:
-        """Set label direction button."""
-
-        icon_direction: Literal["arrow-up", "arrow-right"] = (
-            "arrow-up" if direction == "vertical" else "arrow-right"
-        )
-        selector = f"label:has-text('Label direction') + div button:has(svg.pluto-icon--{icon_direction})"
-        self.page.locator(selector).click(timeout=5000)
-
-    def _set_label_size(self, size: Literal["xs", "s", "m", "l", "xl"]) -> None:
-        """Set label size button."""
-
-        selector = f"label:has-text('Label size') + div button:has-text('{size}')"
-        self.page.locator(selector).click(timeout=5000)
 
     def set_title(self, title: str) -> None:
         """Set the plot title via the Properties tab.
 
         Note: Setting the title also updates the tab name.
 
-        Args:
-            title: The new title for the plot
+        :param title: The new title for the plot
         """
         self.notifications.close_all()
         self.page.get_by_role("tab", name="Properties", exact=True).click(timeout=5000)
@@ -205,8 +135,7 @@ class Plot(ConsolePage):
     def set_line_thickness(self, thickness: int) -> None:
         """Set the stroke width for the first line via the Lines tab.
 
-        Args:
-            thickness: Stroke width (1-10)
+        :param thickness: Stroke width (1-10)
         """
         self.notifications.close_all()
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
@@ -218,7 +147,7 @@ class Plot(ConsolePage):
                 f"Lines container not found. Toolbar HTML: {html[:1000]}"
             )
 
-        line_items = lines_container.locator(".pluto-list__item")
+        line_items = lines_container.locator(".lyra-list__item")
         if line_items.count() == 0:
             html = lines_container.inner_html()
             raise RuntimeError(f"No line items. Lines container HTML: {html[:500]}")
@@ -230,8 +159,7 @@ class Plot(ConsolePage):
     def set_line_label(self, label: str) -> None:
         """Set the label for the first line via the Lines tab.
 
-        Args:
-            label: New label for the line
+        :param label: New label for the line
         """
         self.notifications.close_all()
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
@@ -239,7 +167,7 @@ class Plot(ConsolePage):
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
         lines_container.wait_for(state="visible", timeout=5000)
 
-        line_item = lines_container.locator(".pluto-list__item").first
+        line_item = lines_container.locator(".lyra-list__item").first
         line_item.wait_for(state="visible", timeout=5000)
 
         label_input = line_item.locator("input").first
@@ -249,42 +177,39 @@ class Plot(ConsolePage):
     def get_line_thickness(self) -> int:
         """Get the stroke width for the first line from the Lines tab.
 
-        Returns:
-            The current stroke width
+        :returns: The current stroke width
         """
         self.notifications.close_all()
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
-        line_item = lines_container.locator(".pluto-list__item").first
+        line_item = lines_container.locator(".lyra-list__item").first
         stroke_input = line_item.locator("input").nth(1)
         return int(stroke_input.input_value())
 
     def get_line_labels(self) -> list[str]:
         """Get labels for all lines from the Lines tab.
 
-        Returns:
-            List of line label strings.
+        :returns: List of line label strings.
         """
         self.notifications.close_all()
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Lines", exact=True).click(timeout=5000)
 
         lines_container = self.page.locator(".console-line-plot__toolbar-lines")
-        line_items = lines_container.locator(".pluto-list__item")
+        line_items = lines_container.locator(".lyra-list__item")
         count = line_items.count()
         return [
             line_items.nth(i).locator("input").first.input_value() for i in range(count)
         ]
 
     def drag_channel_to_canvas(
-        self, channel_name: str, channels: ChannelClient
+        self, channel_name: str, *, channels: ChannelClient
     ) -> None:
         """Drag a channel from the sidebar onto the plot canvas.
 
-        Args:
-            channel_name: Name of the channel to drag
-            channels: ChannelClient for showing/hiding channels sidebar
+        :param channel_name: Name of the channel to drag
+        :param channels: ChannelClient for showing/hiding channels sidebar
         """
         channels.show_channels()
 
@@ -295,20 +220,23 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
 
-        channel_item.drag_to(self.pane_locator)
+        self.layout.drag(channel_item, self.pane_locator)
         channels.hide_channels()
 
-        self.data["Y1"].append(channel_name)
+        self.data["y1"].append(channel_name)
 
     def drag_channel_to_toolbar(
-        self, channel_name: str, channels: ChannelClient, axis: Axis = "Y1"
+        self,
+        channel_name: str,
+        *,
+        channels: ChannelClient,
+        axis: Axis = "y1",
     ) -> None:
         """Drag a channel from the sidebar onto the toolbar data section.
 
-        Args:
-            channel_name: Name of the channel to drag
-            channels: ChannelClient for showing/hiding channels sidebar
-            axis: Target axis (Y1, Y2, or X1)
+        :param channel_name: Name of the channel to drag
+        :param channels: ChannelClient for showing/hiding channels sidebar
+        :param axis: Target axis
         """
         self.notifications.close_all()
         channels.show_channels()
@@ -321,10 +249,11 @@ class Plot(ConsolePage):
         data_tab = self.page.get_by_role("tab", name="Data", exact=True)
         data_tab.click(timeout=5000)
 
-        axis_section = self.page.locator(f"label:has-text('{axis}')").locator("..")
-        axis_section.wait_for(state="visible", timeout=5000)
+        # The axis row lays out as cells of the tab's grid and has no box of its own.
+        axis_field = self.page.locator(f"label:has-text('{axis.upper()}') + *")
+        axis_field.wait_for(state="visible", timeout=5000)
 
-        channel_item.drag_to(axis_section)
+        self.layout.drag(channel_item, axis_field)
         channels.hide_channels()
 
         self.data[axis].append(channel_name)
@@ -332,8 +261,7 @@ class Plot(ConsolePage):
     def create_range_from_selection(self, range_name: str) -> None:
         """Create a range by selecting a region on the plot and using the context menu.
 
-        Args:
-            range_name: Name for the new range
+        :param range_name: Name for the new range
         """
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
@@ -371,10 +299,10 @@ class Plot(ConsolePage):
         if not self.pane_locator:
             raise RuntimeError("Plot pane locator not available")
         return self.pane_locator.locator(
-            ".console-controls button:has(.pluto-icon--range)"
+            ".console-controls button:has(.lyra-icon--range)"
         )
 
-    def wait_for_annotation_toggle(self, timeout: int = 5000) -> None:
+    def wait_for_annotation_toggle(self, *, timeout: int = 5000) -> None:
         """Wait for the annotation visibility toggle to appear."""
         self.get_annotation_toggle().wait_for(state="visible", timeout=timeout)
 
@@ -383,15 +311,55 @@ class Plot(ConsolePage):
         self.get_annotation_toggle().click(timeout=5000)
 
     def expect_annotations_visible(
-        self, visible: bool = True, timeout: int = 5000
+        self, *, visible: bool = True, timeout: int = 5000
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
-        Pluto's Button.Toggle carries pluto--selected when on.
+        Pluto's Button.Toggle carries lyra--selected when on.
         """
-        pattern = re.compile(r"pluto--selected")
+        pattern = re.compile(r"lyra--selected")
         toggle = expect(self.get_annotation_toggle())
         if visible:
+            toggle.to_have_class(pattern, timeout=timeout)
+        else:
+            toggle.not_to_have_class(pattern, timeout=timeout)
+
+    def get_range_strip(self) -> Locator:
+        """Return the strip above the plot that shows the plot's ranges."""
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(".pluto-lineplot-range-provider")
+
+    def click_range(self, *, button: Literal["left", "right"] = "left") -> None:
+        """Click the range in the strip's first lane, at the middle of the plot.
+
+        Waits for the strip to report the range under the cursor before the click,
+        since the plot finds that range on its next render.
+        """
+        strip = self.get_range_strip()
+        box = strip.bounding_box()
+        if box is None:
+            raise RuntimeError("Range strip not visible")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + FIRST_LANE_CENTER
+        self.page.mouse.move(x, y)
+        expect(strip).to_have_class(re.compile(r"pluto--hovered"), timeout=5000)
+        self.page.mouse.click(x, y, button=button)
+
+    def get_pause_toggle(self) -> Locator:
+        """Return the button that pauses and resumes live plotting."""
+        if not self.pane_locator:
+            raise RuntimeError("Plot pane locator not available")
+        return self.pane_locator.locator(
+            ".console-controls button:has(.lyra-icon--pause), "
+            ".console-controls button:has(.lyra-icon--play)"
+        )
+
+    def expect_paused(self, *, paused: bool = True, timeout: int = 5000) -> None:
+        """Assert the plot is paused, or plotting live when paused is False."""
+        pattern = re.compile(r"lyra--selected")
+        toggle = expect(self.get_pause_toggle())
+        if paused:
             toggle.to_have_class(pattern, timeout=timeout)
         else:
             toggle.not_to_have_class(pattern, timeout=timeout)
@@ -401,7 +369,9 @@ class Plot(ConsolePage):
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
         self.page.get_by_role("tab", name="Data", exact=True).click(timeout=5000)
-        axis_section = self.page.locator("label").filter(has_text=axis).locator("..")
+        axis_section = (
+            self.page.locator("label").filter(has_text=axis.upper()).locator("..")
+        )
         return axis_section.get_by_text(channel_name).count() > 0
 
     def focus(self) -> None:

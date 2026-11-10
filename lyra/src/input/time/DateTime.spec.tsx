@@ -23,7 +23,7 @@ const VALUE = local(2026, 7, 23, 14, 5);
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 
 const open = (container: HTMLElement): HTMLInputElement => {
-  const trigger = container.querySelector(".pluto-time-editor__trigger");
+  const trigger = container.querySelector(".lyra-time-editor__trigger");
   if (trigger == null) throw new Error("no time editor trigger");
   fireEvent.click(trigger);
   return screen.getByRole<HTMLInputElement>("textbox");
@@ -48,7 +48,7 @@ describe("Input.DateTime", () => {
     const { container } = render(
       <Input.DateTime value={VALUE} onChange={vi.fn()} aria-label="Start" disabled />,
     );
-    const trigger = container.querySelector(".pluto-time-editor__trigger");
+    const trigger = container.querySelector(".lyra-time-editor__trigger");
     expect(trigger?.getAttribute("aria-label")).toBe("Start");
     expect(trigger?.getAttribute("aria-disabled")).toBe("true");
   });
@@ -92,7 +92,7 @@ describe("Input.DateTime", () => {
     const { container } = render(<Input.DateTime value={VALUE} onChange={onChange} />);
     const field = open(container);
     type(field, "2026-08-23 15:30");
-    fireEvent.click(container.querySelector(".pluto-time-editor__trigger") as Element);
+    fireEvent.click(container.querySelector(".lyra-time-editor__trigger") as Element);
     expect(onChange).toHaveBeenCalledWith(local(2026, 7, 23, 15, 30));
   });
 
@@ -211,9 +211,9 @@ describe("Input.DateTime", () => {
     type(field, "2h");
     const readings = screen
       .getAllByRole("menuitem")
-      .filter((item) => item.classList.contains("pluto-time-editor__suggestion"));
+      .filter((item) => item.classList.contains("lyra-time-editor__suggestion"));
     fireEvent.mouseEnter(readings[1]);
-    expect(readings[1].classList.contains("pluto--selected")).toBe(true);
+    expect(readings[1].classList.contains("lyra--selected")).toBe(true);
     const before = TimeStamp.now().nanoseconds;
     fireEvent.keyDown(field, { key: "Enter" });
     const committed = onChange.mock.calls[0][0] as number;
@@ -257,7 +257,7 @@ describe("Input.DateTime", () => {
     try {
       vi.setSystemTime(new Date(2026, 7, 23, 23, 59, 30));
       const { container } = render(<Input.DateTime value={VALUE} onChange={vi.fn()} />);
-      const day = () => container.querySelector(".pluto-datetime__day")?.textContent;
+      const day = () => container.querySelector(".lyra-datetime__day")?.textContent;
       expect(day()).toBe("Today");
       act(() => {
         vi.advanceTimersByTime(TimeSpan.seconds(30).milliseconds);

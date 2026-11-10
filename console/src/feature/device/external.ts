@@ -10,7 +10,9 @@
 import { CAN } from "@/feature/can";
 import { CONNECT_COMMANDS } from "@/feature/device/commands";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { OPCUA } from "@/feature/opcua";
 import { Serial } from "@/feature/serial";
 import { TCP } from "@/feature/tcp";
@@ -19,6 +21,7 @@ import { FLAGS } from "@/flags";
 import { type Command } from "@/platform/command";
 
 export * from "@/feature/device/Connect";
+export { INTEGRATIONS } from "@/feature/device/integrations";
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
 export * from "@/feature/device/Toolbar";
@@ -29,7 +32,9 @@ export * from "@/platform/device/external";
 export const COMMANDS: Command.Command[] = [
   ...CONNECT_COMMANDS,
   ...HTTP.Device.COMMANDS,
+  ...Kafka.Device.COMMANDS,
   ...Modbus.Device.COMMANDS,
+  ...MQTT.Device.COMMANDS,
   ...OPCUA.Device.COMMANDS,
   ...(FLAGS.can
     ? [

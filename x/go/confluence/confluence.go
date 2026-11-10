@@ -124,12 +124,6 @@ type Source[I Value] interface {
 // move on to processing the next value.
 type TransformFunc[I, O Value] func(ctx context.Context, i I) (o O, shouldSend bool, err error)
 
-// GeneratorFunc returns a function that generates a new value. If shouldSend is false,
-// the returned function will not be used and the generator will proceed to the next
-// cycle. If the returned error is not nil, the generator goroutine will exit with the
-// error.
-type GeneratorFunc[I, O Value] func(ctx context.Context, i I) (gen func() O, shouldSend bool, err error)
-
 // Inlet is the end of a Stream that accepts values and can be addressed.
 type Inlet[V Value] interface {
 	// Inlet pipes a value through the Stream.

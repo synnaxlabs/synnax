@@ -12,7 +12,9 @@ import datetime
 import math
 import random
 import socket
+import ssl
 from pathlib import Path
+from typing import override
 
 from asyncua import ua
 from asyncua.client.client import Client
@@ -43,6 +45,13 @@ ERROR_ARRAY_INDEX = 2
 ERROR_FLOAT_INDEX = 2
 
 CERT_DIR = Path(__file__).parent / "certificates"
+
+
+def read_server_certificate() -> str:
+    """Return the simulator's server certificate as PEM. The server writes it as DER
+    when it starts with encryption."""
+    der = (CERT_DIR / "server-certificate.der").read_bytes()
+    return ssl.DER_cert_to_PEM_cert(der)
 
 
 async def write_array_dimensions(node: Node, size: int) -> None:
@@ -214,6 +223,7 @@ class SimpleUserManager(UserManager):
     def __init__(self, users: dict[str, str]):
         self.users = users
 
+    @override
     def get_user(
         self,
         iserver: InternalServer,
@@ -276,6 +286,7 @@ async def configure_encryption(server: Server) -> None:
 
 
 async def run_server(
+    *,
     endpoint: str = "",
     rate: sy.Rate = DEFAULT_RATE,
     array_size: int = DEFAULT_ARRAY_SIZE,
@@ -362,6 +373,7 @@ class OPCUASim(DeviceSim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
@@ -375,6 +387,7 @@ class OPCUASim(DeviceSim):
         self.user_manager = user_manager
         self.max_sessions = max_sessions
 
+    @override
     def _wait_for_ready(self) -> None:
         """Poll until the server answers a GetEndpoints request. The socket accepts
         connections before the server is initialized, so the TCP check is too early."""
@@ -393,16 +406,18 @@ class OPCUASim(DeviceSim):
                     ) from e
                 sy.sleep(0.1)
 
+    @override
     async def _run_server(self) -> None:
         await run_server(
-            self.endpoint,
-            self.rate,
-            self.array_size,
-            self.encrypted,
-            self.user_manager,
-            self.max_sessions,
+            endpoint=self.endpoint,
+            rate=self.rate,
+            array_size=self.array_size,
+            encrypted=self.encrypted,
+            user_manager=self.user_manager,
+            max_sessions=self.max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -424,6 +439,7 @@ class OPCUATLSSim(OPCUASim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
@@ -437,6 +453,7 @@ class OPCUATLSSim(OPCUASim):
             max_sessions=max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -446,9 +463,34 @@ class OPCUATLSSim(OPCUASim):
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert=str(CERT_DIR / "server-certificate.der"),
+            server_cert=read_server_certificate(),
             client_cert=str(CERT_DIR / "client-certificate.der"),
             client_private_key=str(CERT_DIR / "client-private-key.pem"),
+        )
+
+
+class OPCUATLSDriverCertificateSim(OPCUATLSSim):
+    """TLS-encrypted OPC UA simulator on port 4844 that the Driver reaches with its own
+    certificate. The server checks the certificate's extensions and URI, but trusts any
+    issuer. Its device trusts no server certificate, so the Driver pins the first one it
+    sees."""
+
+    description = "TLS OPC UA simulator for the Driver certificate on port 4844"
+    host = "127.0.0.1"
+    port = 4844
+    device_name = "OPC UA TLS Driver Certificate Server"
+    endpoint = f"opc.tcp://{host}:{port}/freeopcua/server/"
+
+    @override
+    @staticmethod
+    def create_device(rack_key: int) -> opcua.Device:
+        return opcua.Device(
+            endpoint=OPCUATLSDriverCertificateSim.endpoint,
+            name=OPCUATLSDriverCertificateSim.device_name,
+            location=OPCUATLSDriverCertificateSim.endpoint,
+            rack=rack_key,
+            security_mode="SignAndEncrypt",
+            security_policy="Basic256Sha256",
         )
 
 
@@ -467,6 +509,7 @@ class OPCUATLSAuthSim(OPCUASim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
@@ -481,6 +524,7 @@ class OPCUATLSAuthSim(OPCUASim):
             max_sessions=max_sessions,
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> opcua.Device:
         return opcua.Device(
@@ -490,7 +534,7 @@ class OPCUATLSAuthSim(OPCUASim):
             rack=rack_key,
             security_mode="SignAndEncrypt",
             security_policy="Basic256Sha256",
-            server_cert=str(CERT_DIR / "server-certificate.der"),
+            server_cert=read_server_certificate(),
             client_cert=str(CERT_DIR / "client-certificate.der"),
             client_private_key=str(CERT_DIR / "client-private-key.pem"),
             username=TLS_AUTH_USERNAME,

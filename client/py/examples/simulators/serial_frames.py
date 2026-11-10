@@ -40,6 +40,7 @@ import random
 import struct
 import termios
 import tty
+from typing import override
 
 import synnax as sy
 from examples.simulators.bus_sim import BusSim
@@ -195,10 +196,12 @@ class SerialFrameSim(BusSim[bytes]):
         frames. Fault.NONE stops them."""
         self._faults.value = faults
 
+    @override
     def start(self) -> None:
         self._unlink()
         super().start()
 
+    @override
     def stop(self, timeout: sy.TimeSpan = 5 * sy.TimeSpan.SECOND) -> None:
         super().stop(timeout)
         self._unlink()
@@ -207,6 +210,7 @@ class SerialFrameSim(BusSim[bytes]):
         if os.path.islink(self.path):
             os.unlink(self.path)
 
+    @override
     async def _run_server(self) -> None:
         controller, terminal = os.openpty()
         # Raw mode keeps the terminal from echoing streamed frames back before the
@@ -256,6 +260,7 @@ class SerialFrameSim(BusSim[bytes]):
         await self._send_at_rate(stream)
 
     @staticmethod
+    @override
     def create_device(rack_key: int) -> serial.Device:
         return serial.Device(
             port=SerialFrameSim.path,

@@ -8,14 +8,15 @@
 #  included in the file licenses/APL.txt.
 
 from dataclasses import dataclass
+from typing import Unpack
 
 from examples.opcua import OPCUASim
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task_page import TaskPage
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
 from framework.run_with_connection import run_scripts
+from framework.test_case import Config
 from framework.utils import assert_envelope, assert_link_format
 from tests.driver.simulator_case import SimulatorCase
 from x import random_name
@@ -77,14 +78,8 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
     sim_classes = [OPCUASim]
 
-    def __init__(
-        self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        *,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self._cleanup_tasks: list[str] = []
 
     def setup_tasks(self) -> None:
@@ -92,6 +87,7 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         procs = run_scripts(
             self.synnax_connection,
             [f"examples.opcua.{t.script}" for t in TASKS],
+            log=self.log,
         )
         for t in TASKS:
             self.console.tasks.wait_for(t.name)
@@ -107,17 +103,18 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
                     self.client.tasks.delete([t.key for t in tasks])
             except (sy.NotFoundError, TypeError):
                 pass
+        # Deleting the range deletes its task snapshots, which use the channels.
+        try:
+            rng = self.client.ranges.retrieve(name=RANGE_NAME)
+            self.client.ranges.delete(rng.key)
+        except sy.NotFoundError:
+            pass
         with self._try_to("delete example channels"):
             for names in EXAMPLE_CHANNELS:
                 try:
                     self.client.channels.delete(names)
                 except sy.NotFoundError:
                     pass
-        try:
-            rng = self.client.ranges.retrieve(name=RANGE_NAME)
-            self.client.ranges.delete(rng.key)
-        except sy.QueryError:
-            pass
         super().teardown()
 
     def run(self) -> None:
@@ -132,20 +129,24 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.test_rename_task()
         self.test_delete_task()
 
-    def assert_data_saving(self, name: str, expected: bool) -> None:
+    def assert_data_saving(self, name: str, *, expected: bool) -> None:
         """Verify data saving state via the Python client, with polling.
 
         The config stores the inverted dataSavingDisabled flag.
         """
-        for _ in range(10):
+
+        def data_saving() -> bool | None:
             task = self.client.tasks.retrieve(names=[name])[0]
             disabled = task.config.get(
                 "dataSavingDisabled", task.config.get("data_saving_disabled")
             )
-            actual = None if disabled is None else not disabled
-            if actual == expected:
-                return
-            sy.sleep(0.5)
+            return None if disabled is None else not disabled
+
+        def matches() -> bool | None:
+            return True if data_saving() == expected else None
+
+        sy.poll(matches, timeout=5, interval=0.5)
+        actual = data_saving()
         assert actual == expected, (
             f"Task '{name}' data saving should be {expected}, got {actual}"
         )
@@ -176,11 +177,11 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         for name in read_names:
             self.console.tasks.disable_data_saving(name)
         for name in read_names:
-            self.assert_data_saving(name, False)
+            self.assert_data_saving(name, expected=False)
         for name in read_names:
             self.console.tasks.enable_data_saving(name)
         for name in read_names:
-            self.assert_data_saving(name, True)
+            self.assert_data_saving(name, expected=True)
 
         self.log("Testing: Group data saving disable/enable")
 
@@ -188,12 +189,12 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.tasks.disable_data_saving(read_names[2])
         self.console.tasks.disable_data_saving_many(TASK_NAMES)
         for name in read_names:
-            self.assert_data_saving(name, False)
+            self.assert_data_saving(name, expected=False)
         # Set one read task to data saving enabled (1 enabled, rest disabled)
         self.console.tasks.enable_data_saving(read_names[1])
         self.console.tasks.enable_data_saving_many(TASK_NAMES)
         for name in read_names:
-            self.assert_data_saving(name, True)
+            self.assert_data_saving(name, expected=True)
 
     def test_export_task(self) -> None:
         """Export a task via context menu and verify the JSON content."""
@@ -201,8 +202,8 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.log(f"Testing: Export task '{t.name}'")
         exported = self.console.tasks.export(t.name)
         assert_envelope(exported, envelope_type=t.type, min_version=1, name=t.name)
-        assert "channels" in exported, "Exported JSON should contain 'channels'"
-        assert len(exported["channels"]) > 0, "Exported channels should not be empty"
+        config = sy.opcua.ReadConfig.model_validate(exported)
+        assert len(config.channels) > 0, "Exported channels should not be empty"
 
     def test_open_task_config(self) -> None:
         """Open each task config via context menu and verify contents."""
@@ -210,11 +211,16 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
             self.log(f"Testing: Open config for '{t.name}'")
             toolbar_link = self.console.tasks.copy_link(t.name)
             task = self.client.tasks.retrieve(names=[t.name])[0]
-            assert_link_format(toolbar_link, "task", str(task.key))
+            assert_link_format(
+                toolbar_link, resource_type="task", resource_id=str(task.key)
+            )
             self.console.tasks.open_config(t.name)
             pane = self.console.page.locator(f".console-task-configure--{t.type}")
             task_page = TaskPage(
-                self.console.layout, self.client, t.name, pane_locator=pane
+                layout=self.console.layout,
+                client=self.client,
+                page_name=t.name,
+                pane_locator=pane,
             )
             task_page.verify_config(t.channels)
             page_link = task_page.copy_link()
@@ -241,13 +247,15 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
         self.console.ranges.set_active(RANGE_NAME)
 
         self.log("Testing: Snapshot single task to active range")
-        self.console.tasks.snapshot([TASK_NAMES[0]], RANGE_NAME)
+        self.console.tasks.snapshot([TASK_NAMES[0]], range_name=RANGE_NAME)
 
         self.log("Testing: Snapshot multiple tasks to active range")
-        self.console.tasks.snapshot(TASK_NAMES[1:], RANGE_NAME)
+        self.console.tasks.snapshot(TASK_NAMES[1:], range_name=RANGE_NAME)
 
     def test_rename_channel_sync(self) -> None:
-        """Rename channels from toolbar, verify in task config; rename back from task config, verify in toolbar."""
+        """Rename channels from toolbar, verify in task config; rename back from task
+        config, verify in toolbar.
+        """
         t = TASKS[0]
         original_names = ["my_float_0", "my_float_1"]
         renamed_names = ["renamed_float_0", "renamed_float_1"]
@@ -276,7 +284,8 @@ class TaskLifecycle(SimulatorCase, ConsoleCase):
 
         self.log("Testing: Verify original channel names in channels toolbar")
         assert self.console.channels.wait_for_channels(original_names), (
-            "Original channel names not found in channels toolbar after rename from task config"
+            "Original channel names not found in channels toolbar after rename from "
+            "task config"
         )
 
         self.console.close_all_tabs()

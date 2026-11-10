@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.access.policy.types_gen import Key, Policy, ontology_id
+from synnax.access.policy.types_gen import Key, Policy, resource_id
 
 __all__ = [
     "ACTION_CREATE",
@@ -16,7 +16,7 @@ __all__ = [
     "ACTION_UPDATE",
     "Key",
     "Policy",
-    "ontology_id",
+    "resource_id",
 ]
 
 ACTION_CREATE = "create"

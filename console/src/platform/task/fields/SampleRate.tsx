@@ -9,13 +9,17 @@
 
 import "@/platform/task/fields/SampleRate.css";
 
+import { deep } from "@synnaxlabs/x";
+
 import { CSS } from "@/platform/css";
 import { Rate } from "@/platform/task/fields/Rate";
+
+const path = deep.path<{ config: { sampleRate: number } }>();
 
 export const SampleRate = () => (
   <Rate
     label="Sample rate"
-    path="config.sampleRate"
+    path={path.config.sampleRate}
     className={CSS.B("task-rate-field")}
   />
 );

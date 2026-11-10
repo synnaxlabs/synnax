@@ -35,6 +35,7 @@ type (
 	ControlUpdate    = cesium.ControlUpdate
 	ControlState     = cesium.ControlState
 	ControlTransfer  = cesium.ControlTransfer
+	HistoryChange    = cesium.HistoryChange
 	IteratorConfig   = cesium.IteratorConfig
 	Iterator         = cesium.Iterator
 	StreamIterator   = cesium.StreamIterator
@@ -46,7 +47,11 @@ type (
 	StreamerResponse = cesium.StreamerResponse
 )
 
-const AutoSpan = cesium.AutoSpan
+const (
+	AutoSpan                       = cesium.AutoSpan
+	AlwaysIndexPersistOnAutoCommit = cesium.AlwaysIndexPersistOnAutoCommit
+)
+
 const (
 	WriterModePersistStream = cesium.WriterModePersistStream
 	WriterModePersistOnly   = cesium.WriterModePersistOnly

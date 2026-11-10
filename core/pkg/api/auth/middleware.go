@@ -17,16 +17,17 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
 
 // Middleware authenticates the session token on every request and puts the session and
-// its subject on the request for handlers to read. A stream holds its
-// session open for as long as it runs, and its context is cancelled with
-// [auth.ErrSessionEnded] when the session ends, which the middleware then returns.
+// its subject on the request for handlers to read. A unary request gives a session
+// cookie it carried a fresh lifetime. A stream holds its session open for as long as
+// it runs, and its context is cancelled with [auth.ErrSessionEnded] when the session
+// ends, which the middleware then returns.
 func Middleware(svc *auth.Service) freighter.Middleware {
 	return freighter.MiddlewareFunc(func(
 		ctx freighter.Context,
@@ -43,6 +44,7 @@ func Middleware(svc *auth.Service) freighter.Middleware {
 		ctx.Set(subjectKey, session.Subject)
 		ctx.Set(sessionKey, session)
 		if ctx.Variant != freighter.VariantStream {
+			ctx.Set(SessionCookieParam, SessionCookie{Lifetime: svc.IdleTimeout()})
 			return next(ctx)
 		}
 		return holdSession(ctx, next, svc, session.Key)
@@ -117,13 +119,13 @@ const (
 )
 
 // GetSubject returns the subject of the request's session.
-func GetSubject(ctx context.Context) ontology.ID {
+func GetSubject(ctx context.Context) resource.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
 	if !ok {
 		zap.S().DPanic("[api] - no subject found in context")
-		return user.OntologyID(uuid.Nil())
+		return user.ResourceID(uuid.Nil())
 	}
-	return s.(ontology.ID)
+	return s.(resource.ID)
 }
 
 func getSession(ctx context.Context) auth.Session {

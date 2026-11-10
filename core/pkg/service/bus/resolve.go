@@ -12,55 +12,26 @@ package bus
 import (
 	"context"
 	"strconv"
-	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Resolver completes bus task configs from the ICD they reference. Config stores call
-// it before storing a config.
-type Resolver struct {
-	// Stamper stamps the hash of the ICD messages the config uses into the config and
-	// relates the task to the ICD.
-	Stamper icd.Stamper
-}
-
-// Override returns r with each nil dependency taken from other.
-func (r Resolver) Override(other Resolver) Resolver {
-	r.Stamper.DB = override.Nil(r.Stamper.DB, other.Stamper.DB)
-	r.Stamper.Ontology = override.Nil(r.Stamper.Ontology, other.Stamper.Ontology)
-	return r
-}
-
-// Validate returns a validation error if r is missing a dependency.
-func (r Resolver) Validate() error {
-	v := validate.New("bus.resolver")
-	v.NotNil("stamper.db", r.Stamper.DB)
-	v.NotNil("stamper.ontology", r.Stamper.Ontology)
-	return v.Error()
-}
-
-// Read stamps cfg and returns a path-scoped validation error when cfg has messages but
-// no ICD, when a message or field it reads is not in its ICD, when fields that arrive
-// at different times share an index, or when a polled reply with no identifier could be
-// confused with a message the device sends unprompted.
-func (r Resolver) Read(
-	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
-	cfg *ReadConfig,
-) error {
+// ResolveRead stamps cfg from the ICD it references in snap. It returns a path-scoped
+// validation error when cfg has messages but no ICD, when a message or field it reads
+// is not in its ICD, when fields that arrive at different times share an index, or
+// when a polled reply with no identifier could be confused with a message the device
+// sends unprompted.
+func ResolveRead(ctx context.Context, snap gorp.Snapshot, cfg *ReadConfig) error {
 	keys := lo.Map(cfg.Messages, func(m ReadMessage, _ int) icd.MessageKey {
 		return m.Message
 	})
-	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, keys)
+	messages, err := stampConfig(ctx, snap, &cfg.Reference, keys)
 	if err != nil {
 		return err
 	}
@@ -82,18 +53,14 @@ func (r Resolver) Read(
 	return checkReplies(messages, cfg.Messages)
 }
 
-// Write stamps cfg and returns a path-scoped validation error when cfg has messages but
-// no ICD, or when a message or field it sends is not in its ICD.
-func (r Resolver) Write(
-	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
-	cfg *WriteConfig,
-) error {
+// ResolveWrite stamps cfg from the ICD it references in snap. It returns a path-scoped
+// validation error when cfg has messages but no ICD, or when a message or field it
+// sends is not in its ICD.
+func ResolveWrite(ctx context.Context, snap gorp.Snapshot, cfg *WriteConfig) error {
 	keys := lo.Map(cfg.Messages, func(m WriteMessage, _ int) icd.MessageKey {
 		return m.Message
 	})
-	messages, err := r.stamp(ctx, tx, taskKey, &cfg.Reference, keys)
+	messages, err := stampConfig(ctx, snap, &cfg.Reference, keys)
 	if err != nil {
 		return err
 	}
@@ -108,10 +75,9 @@ func (r Resolver) Write(
 	return nil
 }
 
-func (r Resolver) stamp(
+func stampConfig(
 	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
+	snap gorp.Snapshot,
 	ref *icd.Reference,
 	keys []icd.MessageKey,
 ) (map[icd.MessageKey]icd.Message, error) {
@@ -120,7 +86,7 @@ func (r Resolver) stamp(
 			validate.ErrValidation, "select an ICD before choosing messages",
 		), "icd")
 	}
-	ic, err := r.Stamper.Stamp(ctx, tx, taskKey, ref, keys)
+	ic, err := icd.Stamp(ctx, snap, ref, keys)
 	if err != nil {
 		return nil, err
 	}

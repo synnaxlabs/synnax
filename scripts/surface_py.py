@@ -74,7 +74,7 @@ def labels(obj: griffe.Object) -> str:
     return f" [{', '.join(sorted(obj.labels))}]" if obj.labels else ""
 
 
-def walk(obj: griffe.Object, out: list[str]) -> None:
+def walk(obj: griffe.Object, *, out: list[str]) -> None:
     for name in sorted(obj.members):
         member = obj.members[name]
         if not member.is_public:
@@ -83,13 +83,13 @@ def walk(obj: griffe.Object, out: list[str]) -> None:
             out.append(f"{member.path} = {member.target_path}")
         elif isinstance(member, griffe.Module):
             out.append(f"{member.path} module")
-            walk(member, out)
+            walk(member, out=out)
         elif isinstance(member, griffe.Class):
             bases = ", ".join(flat(b) for b in member.bases)
             out.append(
                 f"{member.path}{type_params(member)} class({bases}){labels(member)}"
             )
-            walk(member, out)
+            walk(member, out=out)
         elif isinstance(member, griffe.Function):
             out.extend(
                 f"{member.path} overload{signature(o)}" for o in member.overloads or []
@@ -106,12 +106,12 @@ def walk(obj: griffe.Object, out: list[str]) -> None:
             raise ValueError(f"unknown kind {member.kind} of {member.path}")
 
 
-def report(search_path: str, package: str) -> str:
+def report(search_path: str, *, package: str) -> str:
     root = griffe.load(package, search_paths=[search_path], resolve_aliases=False)
     if not isinstance(root, griffe.Module):
         raise TypeError(f"{package} is not a module")
     out = [f"{root.path} module"]
-    walk(root, out)
+    walk(root, out=out)
     return "\n".join(out) + "\n"
 
 
@@ -120,7 +120,7 @@ def main() -> None:
     parser.add_argument("search_path", help="directory that holds the package")
     parser.add_argument("package", help="name of the package to import")
     args = parser.parse_args()
-    sys.stdout.write(report(args.search_path, args.package))
+    sys.stdout.write(report(args.search_path, package=args.package))
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/icd"
+	apipb "github.com/synnaxlabs/synnax/pkg/api/icd/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -32,7 +33,7 @@ type (
 		icd.RetrieveRequest,
 		*RetrieveRequest,
 		icd.RetrieveResponse,
-		*RetrieveResponse,
+		*apipb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		icd.DeleteRequest,
@@ -65,7 +66,7 @@ var (
 	] = retrieveRequestTranslator{}
 	_ grpc.Translator[
 		icd.RetrieveResponse,
-		*RetrieveResponse,
+		*apipb.RetrieveResponse,
 	] = retrieveResponseTranslator{}
 	_ grpc.Translator[
 		icd.DeleteRequest,
@@ -119,55 +120,34 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	req icd.RetrieveRequest,
+	r icd.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(req.Keys, func(k icd.Key, _ int) string { return k.String() })
-	return &RetrieveRequest{
-		Keys:       keys,
-		SearchTerm: req.SearchTerm,
-		Limit:      int32(req.Limit),
-		Offset:     int32(req.Offset),
-	}, nil
+	req, err := apipb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	req *RetrieveRequest,
+	r *RetrieveRequest,
 ) (icd.RetrieveRequest, error) {
-	keys, err := lo.MapErr(req.Keys, func(keyStr string, _ int) (icd.Key, error) {
-		return uuid.Parse(keyStr)
-	})
-	if err != nil {
-		return icd.RetrieveRequest{}, err
-	}
-	return icd.RetrieveRequest{
-		Keys:       keys,
-		SearchTerm: req.SearchTerm,
-		Limit:      int(req.Limit),
-		Offset:     int(req.Offset),
-	}, nil
+	return apipb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
 	res icd.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	ics, err := pb.ICDSToPB(res.ICDs)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Icds: ics}, nil
+) (*apipb.RetrieveResponse, error) {
+	return apipb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	res *RetrieveResponse,
+	res *apipb.RetrieveResponse,
 ) (icd.RetrieveResponse, error) {
-	ics, err := pb.ICDSFromPB(res.Icds)
-	if err != nil {
-		return icd.RetrieveResponse{}, err
-	}
-	return icd.RetrieveResponse{ICDs: ics}, nil
+	return apipb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

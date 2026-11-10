@@ -10,14 +10,13 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { type default as Synnax } from "@/client";
 import { type connection } from "@/connection";
-import { AuthError, DisconnectedError } from "@/errors";
+import { AuthError, DisconnectedError, type Synnax } from "@/index";
 import { label } from "@/label";
 import {
   createTestClient,
   createTestClientWithPolicy,
-  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
 } from "@/testutil";
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
@@ -65,12 +64,16 @@ describe("connect", () => {
     const client = createTestClient({ password: "definitely-wrong" });
     await expect(client.connect()).rejects.toThrow(AuthError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
-    client.reauthenticate({
-      username: TEST_CLIENT_PARAMS.username,
-      password: TEST_CLIENT_PARAMS.password,
-    });
+    client.reauthenticate(TEST_CREDENTIALS);
     const state = await client.connect();
     expect(state.variant).toEqual("success");
+    await client.close();
+  });
+
+  it("should reject bad credentials without a change stream", async () => {
+    const client = createTestClient({ password: "definitely-wrong", cache: false });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
   });
 
@@ -100,7 +103,7 @@ describe("denied change stream", () => {
     const root = createTestClient();
     const restricted = await createTestClientWithPolicy(root, {
       name: "test",
-      objects: [label.ontologyID("")],
+      objects: [label.resourceID("")],
       actions: ["retrieve"],
     });
     const status = await restricted.connect();

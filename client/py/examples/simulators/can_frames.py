@@ -28,7 +28,7 @@ import math
 import os
 import struct
 import sys
-from typing import NamedTuple
+from typing import NamedTuple, override
 
 import can
 
@@ -94,6 +94,7 @@ class CANFrameSim(BusSim[Frame]):
     port = 0
     device_name = "CAN Test Controller"
 
+    @override
     async def _run_server(self) -> None:
         bus = can.Bus(interface="socketcan", channel=CHANNEL)
 
@@ -121,6 +122,7 @@ class CANFrameSim(BusSim[Frame]):
         await self._send_at_rate(send)
 
     @staticmethod
+    @override
     def create_device(rack_key: int) -> sy_can.Device:
         return sy_can.Device(
             backend="socketcan",

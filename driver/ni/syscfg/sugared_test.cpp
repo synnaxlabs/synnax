@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/syscfg/api.h"
 #include "driver/ni/syscfg/sugared.h"
@@ -115,7 +115,9 @@ TEST(SugaredAPITest, CloseHandlePropagatesOtherErrors) {
     const auto mock = std::make_shared<MockAPI>();
     mock->close_handle_status = NISysCfg_InvalidArg;
     SugaredAPI api(mock);
-    const auto err = api.CloseHandle(nullptr);
-    EXPECT_TRUE(err) << "Expected an error for InvalidArg";
+    ASSERT_OCCURRED_AS(
+        api.CloseHandle(nullptr),
+        x::errors::Error("failed to retrieve error message for status code -2147024809")
+    );
 }
 }

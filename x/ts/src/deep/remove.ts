@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { defaultGetter, SEPARATOR } from "@/deep/path";
+import { defaultGetter, getIndex, SEPARATOR } from "@/deep/path";
 import { type record } from "@/record";
 
 export const remove = <V>(obj: V, path: string): void => {
@@ -20,8 +20,8 @@ export const remove = <V>(obj: V, path: string): void => {
       const lastPart = parts[i];
 
       if (Array.isArray(result)) {
-        const index = parseInt(lastPart, 10);
-        if (!isNaN(index) && index < result.length) {
+        const index = getIndex(lastPart);
+        if (index != null && index < result.length) {
           result.splice(index, 1);
           return;
         }

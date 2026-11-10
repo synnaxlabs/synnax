@@ -31,9 +31,8 @@ type ReporterConfig struct {
 }
 
 var (
-	_ config.Config[ReporterConfig] = ReporterConfig{}
-	// DefaultReporterConfig is the default configuration for a Reporter.
-	DefaultReporterConfig = ReporterConfig{}
+	_                     config.Config[ReporterConfig] = ReporterConfig{}
+	defaultReporterConfig                               = ReporterConfig{}
 )
 
 // Validate implements config.Config.
@@ -61,38 +60,17 @@ type Reporter struct {
 // configurations are provided, the function will return an error. To use a no-op
 // reporter, simply pass a nil-pointer.
 func NewReporter(configs ...ReporterConfig) (*Reporter, error) {
-	cfg, err := config.New(DefaultReporterConfig, configs...)
+	cfg, err := config.New(defaultReporterConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Reporter{config: cfg}, nil
 }
 
-// Debug attaches the given ReportProvider to the Reporter with the given key in the
-// Debug environment . The Report is lazily evaluated, and will only be called
-// when the instrumentation report is generated.
-func (r *Reporter) Debug(key string, report ReportProvider) {
-	r.Attach(key, report, EnvironmentDebug)
-}
-
 // Prod attaches the given ReportProvider to the Reporter with the given key in the
 // production (Prod) environment. The Report is lazily evaluated, and will only be
 // called when the instrumentation report is generated.
 func (r *Reporter) Prod(key string, report ReportProvider) {
-	r.Attach(key, report, EnvironmentProd)
-}
-
-// Bench attaches the given ReportProvider to the Reporter with the given key in the
-// benchmark (Bench) environment. The Report is lazily evaluated, and will only be
-// called when the instrumentation report is generated.
-func (r *Reporter) Bench(key string, report ReportProvider) {
-	r.Attach(key, report, EnvironmentBench)
-}
-
-// Attach attaches the given ReportProvider to the Reporter with the given key under
-// the Environment env. The Report is lazily evaluated, and will only be called
-// when the instrumentation report is generated.
-func (r *Reporter) Attach(key string, report ReportProvider, env Environment) {
 	if r == nil {
 		return
 	}

@@ -11,6 +11,8 @@
 
 set -euo pipefail
 
+source "$(dirname "${BASH_SOURCE[0]}")/common/copyright.sh"
+
 # Find git repository root
 GIT_ROOT=$(git rev-parse --show-toplevel 2> /dev/null || echo ".")
 
@@ -297,12 +299,22 @@ classify_file() {
     # and the expected current year. Mirrors `grep -q` semantics (per-line).
     local has_copyright=0
     local has_current_year=0
+    # An Oracle output may keep a past year, because Oracle freezes the files in
+    # versions/vN packages.
+    local oracle_output=0
+    is_oracle_output "$file" && oracle_output=1
+    local year_re='Copyright ([0-9]{4}) Synnax Labs'
     for ((i = header_start_idx; i <= last_idx; i++)); do
         local line="${LINES[i]}"
         if [[ $line == *"Copyright"*"Synnax Labs"* ]]; then
             has_copyright=1
             if [[ $line == *"Copyright $CURRENT_YEAR Synnax Labs"* ]]; then
                 has_current_year=1
+            elif [ "$oracle_output" = "1" ] && [[ $line =~ $year_re ]] \
+                && [ "${BASH_REMATCH[1]}" -le "$CURRENT_YEAR" ]; then
+                has_current_year=1
+                local from="Copyright $CURRENT_YEAR " to="Copyright ${BASH_REMATCH[1]} "
+                expected_header="${expected_header//$from/$to}"
             fi
         fi
     done
@@ -515,6 +527,9 @@ fi
 
 if [ $EXIT_CODE -eq 0 ]; then
     echo "✅ All files have correct copyright headers with year $CURRENT_YEAR"
+else
+    echo "Run 'scripts/fix.sh' to fix the files your branch changes, or"
+    echo "'scripts/update_copyrights.sh' to fix all files."
 fi
 
 exit $EXIT_CODE

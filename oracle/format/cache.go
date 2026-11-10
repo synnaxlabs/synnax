@@ -22,13 +22,13 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// CacheVersion is the on-disk cache schema version. Bump this whenever the cache file
+// cacheVersion is the on-disk cache schema version. Bump this whenever the cache file
 // format changes incompatibly so stale caches are dropped instead of misinterpreted. v1
 // keyed only the raw-content hash. v2 stores a per-file Entry that tracks BOTH the raw
 // plugin-output hash AND the canonical post-format hash, so sync can detect when its
 // cached "this file is up to date" decision is invalidated by a formatter version bump
 // or a hand edit.
-const CacheVersion = 2
+const cacheVersion = 2
 
 // Cache records, for each generated file, the SHA-256 of the raw plugin output AND the
 // SHA-256 of the canonical post-format bytes that were last written. Sync's "skip this
@@ -73,7 +73,7 @@ func LoadCache(repoRoot string) *Cache {
 	c := &Cache{
 		path: filepath.Join(repoRoot, ".oracle", "sync-cache.json"),
 		data: cacheFile{
-			Version: CacheVersion,
+			Version: cacheVersion,
 			Entries: make(map[string]Entry),
 			Stamps:  make(map[string]string),
 		},
@@ -86,7 +86,7 @@ func LoadCache(repoRoot string) *Cache {
 	if err := json.Unmarshal(raw, &f); err != nil {
 		return c
 	}
-	if f.Version != CacheVersion {
+	if f.Version != cacheVersion {
 		return c
 	}
 	if f.Entries == nil {

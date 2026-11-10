@@ -21,6 +21,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Generic } from "@/generic";
 import { type Status } from "@/status";
+import { renderHighlight } from "@/text/highlight";
 import { isValidElement } from "@/util/children";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;
@@ -28,7 +29,7 @@ type AnchorProps = ComponentPropsWithoutRef<"a">;
 /** The typeface and treatment: body prose, monospace code, a key cap, or a link. */
 export type Variant = "prose" | "code" | "keyboard" | "link";
 /** What happens to text that outruns its box. */
-export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
+export type Overflow = "fade" | "clip" | "nowrap" | "wrap";
 
 /**
  * The text-specific props {@link TextProps} adds. Text is a flex box, so it also takes
@@ -51,8 +52,13 @@ export interface ExtensionProps
   overflow?: Overflow;
   /** Tints the text with a status color. */
   status?: Status.Variant;
-  /** Truncates past this many lines. Implies an ellipsis. */
+  /** Truncates past this many lines, fading the end of the last one. */
   lineClamp?: number;
+  /**
+   * A search term. Tints the start of each word that a token of the term begins, with
+   * words split at whitespace, '_', '-', and '.'. Applies to string children only.
+   */
+  highlight?: string;
 }
 
 /** Props for {@link Text}, on top of the props of the element it renders as. */
@@ -111,7 +117,8 @@ export const parseElement = <E extends Generic.ElementType = "p">(
   if (el != null) return el;
   if (href != null || variant === "link") return "a" as E;
   if (defaultEl != null) return defaultEl as E;
-  if (level != null) return level as E;
+  // HTML has no element below <small>, so tiny text renders in one too.
+  if (level != null) return (level === "tiny" ? "small" : level) as E;
   return "p" as E;
 };
 
@@ -133,7 +140,7 @@ const formatStyle = (
  * a label lay out inside one element with no wrapper.
  *
  * @example <Text.Text level="h3">Ranges</Text.Text>
- * @example <Text.Text level="p" overflow="ellipsis"><Icon.Range />{name}</Text.Text>
+ * @example <Text.Text level="p" overflow="fade"><Icon.Range />{name}</Text.Text>
  */
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",
@@ -148,6 +155,8 @@ export const Text = <E extends Generic.ElementType = "p">({
   autoFormatHref,
   status,
   lineClamp,
+  highlight,
+  children,
   ...rest
 }: TextProps<E>): ReactElement => {
   const formattedStyle = formatStyle(style, weight, lineClamp);
@@ -165,10 +174,14 @@ export const Text = <E extends Generic.ElementType = "p">({
         status != null && CSS.M("status", status),
         className,
       )}
-      square={isSquare(rest.children)}
+      square={isSquare(children)}
       gap="small"
       href={formatHref(href, autoFormatHref)}
       {...(rest as Flex.BoxProps<E>)}
-    />
+    >
+      {highlight != null && typeof children === "string"
+        ? renderHighlight(children, highlight)
+        : children}
+    </Flex.Box>
   );
 };

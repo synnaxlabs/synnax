@@ -8,14 +8,16 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Text } from "@synnaxlabs/lyra/text";
 import { array } from "@synnaxlabs/x";
+import pluralize from "pluralize";
 
 import { useConfirm } from "@/platform/modals/useConfirm";
 
 interface UseConfirmDeleteProps {
   /** Singular, capitalized noun for the resource, e.g. "Range". */
   type: string;
+  /** Noun for a count of items, e.g. "ICDs". Defaults to the plural of `type`. */
+  plural?: string;
   /** Dotted breadcrumb path for the header. Defaults to `${type}.Delete`. */
   title?: string;
   icon?: string;
@@ -26,8 +28,9 @@ interface ConfirmDeleteItem {
   name: string;
 }
 
-// A call, since the compiler cannot reorder a template literal in a parameter default.
+// Calls, since the compiler cannot reorder most expressions in a parameter default.
 const deleteTitle = (type: string): string => `${type}.Delete`;
+const deletePlural = (type: string): string => pluralize.plural(type.toLowerCase());
 
 /**
  * Prompts for confirmation before deleting resources. One item is named; two or more
@@ -35,6 +38,7 @@ const deleteTitle = (type: string): string => `${type}.Delete`;
  */
 export const useConfirmDelete = ({
   type,
+  plural = deletePlural(type),
   title = deleteTitle(type),
   icon,
   description = "This action cannot be undone.",
@@ -42,9 +46,7 @@ export const useConfirmDelete = ({
   const confirm = useConfirm();
   return async (items_: ConfirmDeleteItem | ConfirmDeleteItem[]): Promise<boolean> => {
     const items = array.toArray(items_);
-    // An acronym such as ICD keeps its capitals mid-sentence.
-    const noun = type === type.toUpperCase() ? type : type.toLowerCase();
-    let message = `Are you sure you want to delete ${items.length} ${Text.plural(noun)}?`;
+    let message = `Are you sure you want to delete ${items.length} ${plural}?`;
     if (items.length === 1)
       message = `Are you sure you want to delete ${items[0].name}?`;
     return (

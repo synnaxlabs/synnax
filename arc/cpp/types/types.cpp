@@ -8,8 +8,10 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <limits>
 #include <sstream>
 #include <stdexcept>
+#include <string>
 
 #include "arc/cpp/types/types.h"
 
@@ -230,6 +232,21 @@ std::ostream &operator<<(std::ostream &os, const Type &t) {
     return os << t.to_string();
 }
 
+namespace {
+/// @brief reads a float IR value, which is a JSON number, or text for NaN and infinity
+/// because JSON has no form for them.
+template<typename T>
+std::optional<T> to_float(const x::json::json &value) {
+    if (value.is_number()) return value.get<T>();
+    if (!value.is_string()) return std::nullopt;
+    const auto text = value.get<std::string>();
+    if (text == "NaN") return std::numeric_limits<T>::quiet_NaN();
+    if (text == "Infinity") return std::numeric_limits<T>::infinity();
+    if (text == "-Infinity") return -std::numeric_limits<T>::infinity();
+    return std::nullopt;
+}
+}
+
 std::optional<x::telem::SampleValue>
 to_sample_value(const x::json::json &value, const Type &type) {
     if (value.is_null()) return std::nullopt;
@@ -274,10 +291,9 @@ to_sample_value(const x::json::json &value, const Type &type) {
                 return static_cast<uint64_t>(std::stoull(value.get<std::string>()));
             return std::nullopt;
         case Kind::F32:
-            return value.is_number() ? std::optional(value.get<float>()) : std::nullopt;
+            return to_float<float>(value);
         case Kind::F64:
-            return value.is_number() ? std::optional(value.get<double>())
-                                     : std::nullopt;
+            return to_float<double>(value);
         case Kind::Bool:
             if (value.is_boolean())
                 return static_cast<uint8_t>(value.get<bool>() ? 1 : 0);

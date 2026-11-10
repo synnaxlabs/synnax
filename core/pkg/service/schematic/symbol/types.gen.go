@@ -11,7 +11,11 @@
 
 package symbol
 
-import "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a schematic symbol.
 type Key = versions.Key
@@ -33,3 +37,19 @@ type Spec = versions.Spec
 // Symbol is a persisted schematic symbol defining reusable visual components for
 // diagrams.
 type Symbol = versions.Symbol
+
+// Where is a filter that selects schematic symbols.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Groups matches the symbols in any of the given groups.
+	Groups []group.Key `json:"groups,omitzero" msgpack:"groups,omitempty"`
+	// Grouped matches the symbols in a group, or in no group when false.
+	Grouped *bool `json:"grouped,omitzero" msgpack:"grouped,omitempty"`
+}

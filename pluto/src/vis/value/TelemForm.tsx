@@ -10,13 +10,11 @@
 import { type channel } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { Status } from "@synnaxlabs/lyra/status";
-import { type notation, primitive } from "@synnaxlabs/x";
+import { deep, type notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 import { Notation } from "@/notation";
-import { Synnax } from "@/synnax";
 import { Staleness } from "@/vis/staleness";
 
 interface ValueTelemFormT {
@@ -26,25 +24,14 @@ interface ValueTelemFormT {
   notation?: notation.Notation;
 }
 
-export interface TelemFormProps {
-  path: string;
-}
+const path = deep.path<ValueTelemFormT>();
 
 /** TelemForm renders telemetry sections; place it inside `Form.Sections`. */
-export const TelemForm = ({ path }: TelemFormProps): ReactElement => {
-  const { set } = Form.useContext();
-  const { value, onChange } = Form.useField<ValueTelemFormT>(path);
+export const TelemForm = (): ReactElement => {
+  const { value, onChange } = Form.useField(path);
 
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const handleSourceChange = (key: channel.Key | null): void => {
-    if (primitive.isNonZero(key) && client != null)
-      handleError(async () => {
-        const { name } = await client.channels.retrieve({ key });
-        set(`${path}.tooltip`, [name]);
-      }, "Failed to retrieve channel");
+  const handleSourceChange = (key: channel.Key | null): void =>
     onChange({ ...value, channel: key ?? undefined });
-  };
 
   const handleNotationChange = (notation: notation.Notation): void =>
     onChange({ ...value, notation });

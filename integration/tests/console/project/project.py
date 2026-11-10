@@ -7,20 +7,53 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import tempfile
-from typing import Any
+from typing import Annotated, Literal, TypeAlias
 
+from pydantic import BaseModel, Field, TypeAdapter
+
+import synnax as sy
 from console.case import ConsoleCase
 from console.log import Log
 from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
 from framework.utils import get_fixture_path, resolve_channel_placeholders
+from x.spatial import Direction
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
+
+
+class _ResourceTab(sy.panel.TabBase):
+    """A resource tab of an exported panel. Its resource is a member path, not a
+    resource ID."""
+
+    variant: Literal["resource"] = "resource"
+    resource: str
+
+
+class _Leaf(BaseModel):
+    variant: Literal["leaf"] = "leaf"
+    tabs: list[
+        Annotated[_ResourceTab | sy.panel.ViewTab, Field(discriminator="variant")]
+    ]
+
+
+class _Split(BaseModel):
+    variant: Literal["split"] = "split"
+    direction: Direction
+    size: float
+    first: _Node
+    last: _Node
+
+
+_Node: TypeAlias = Annotated[_Leaf | _Split, Field(discriminator="variant")]
+_NODE: TypeAdapter[_Leaf | _Split] = TypeAdapter(_Node)
 
 
 class Project(ConsoleCase):
@@ -102,13 +135,15 @@ class Project(ConsoleCase):
         """Test importing a line plot from a JSON file."""
         self.log("Testing import line plot")
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.pages.import_file(json_path, "Metrics Plot")
+        self.console.pages.import_file(json_path, name="Metrics Plot")
 
         assert self.console.pages.exists("Metrics Plot"), (
             "Imported line plot should appear in project resources"
         )
 
-        plot = Plot.from_open_page(self.console.layout, self.client, "Metrics Plot")
+        plot = Plot.from_open_page(
+            layout=self.console.layout, client=self.client, name="Metrics Plot"
+        )
         labels = plot.get_line_labels()
         expected = [
             "sy_node_1_metrics_cpu_percentage",
@@ -122,14 +157,14 @@ class Project(ConsoleCase):
         """Test importing a schematic from a JSON file."""
         self.log("Testing import schematic")
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        self.console.pages.import_file(json_path, "Metrics Schematic")
+        self.console.pages.import_file(json_path, name="Metrics Schematic")
 
         assert self.console.pages.exists("Metrics Schematic"), (
             "Imported schematic should appear in project resources"
         )
 
         schematic = Schematic.from_open_page(
-            self.console.layout, self.client, "Metrics Schematic"
+            layout=self.console.layout, client=self.client, name="Metrics Schematic"
         )
         assert schematic.get_symbol_count() == 2, (
             "Imported schematic should have 2 gauge symbols"
@@ -141,13 +176,15 @@ class Project(ConsoleCase):
         """Test importing a log from a JSON file."""
         self.log("Testing import log")
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        self.console.pages.import_file(json_path, "Metrics Log")
+        self.console.pages.import_file(json_path, name="Metrics Log")
 
         assert self.console.pages.exists("Metrics Log"), (
             "Imported log should appear in project resources"
         )
 
-        log = Log.from_open_page(self.console.layout, self.client, "Metrics Log")
+        log = Log.from_open_page(
+            layout=self.console.layout, client=self.client, name="Metrics Log"
+        )
         assert log.has_channel("sy_node_1_metrics_cpu_percentage"), (
             "Imported log should have sy_node_1_metrics_cpu_percentage channel"
         )
@@ -201,25 +238,31 @@ class Project(ConsoleCase):
         """Test importing a table from a JSON file."""
         self.log("Testing import table")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
-        self.console.pages.import_file(json_path, "Metrics Table")
+        self.console.pages.import_file(json_path, name="Metrics Table")
 
         assert self.console.pages.exists("Metrics Table"), (
             "Imported table should appear in project resources"
         )
 
-        table = Table.from_open_page(self.console.layout, self.client, "Metrics Table")
+        table = Table.from_open_page(
+            layout=self.console.layout, client=self.client, name="Metrics Table"
+        )
         assert table.get_row_count() == 2, (
             f"Expected 2 rows, got {table.get_row_count()}"
         )
         assert table.get_column_count() == 2, (
             f"Expected 2 columns, got {table.get_column_count()}"
         )
-        assert table.has_text("CPU %", 0, 0), "Cell [0,0] should have text 'CPU %'"
-        assert table.has_text("Mem %", 0, 1), "Cell [0,1] should have text 'Mem %'"
-        assert table.has_channel("sy_node_1_metrics_cpu_percentage", 1, 0), (
+        assert table.has_text("CPU %", row=0, col=0), (
+            "Cell [0,0] should have text 'CPU %'"
+        )
+        assert table.has_text("Mem %", row=0, col=1), (
+            "Cell [0,1] should have text 'Mem %'"
+        )
+        assert table.has_channel("sy_node_1_metrics_cpu_percentage", row=1, col=0), (
             "Cell [1,0] should have sy_node_1_metrics_cpu_percentage"
         )
-        assert table.has_channel("sy_node_1_metrics_mem_percentage", 1, 1), (
+        assert table.has_channel("sy_node_1_metrics_mem_percentage", row=1, col=1), (
             "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
         )
 
@@ -250,16 +293,14 @@ class Project(ConsoleCase):
         assert manifest["version"] == 1, f"Unexpected manifest: {manifest}"
         assert manifest["name"] == "ImportSpace", f"Unexpected manifest: {manifest}"
 
-        def collect_references(node: dict[str, Any], out: list[str]) -> None:
-            if node["variant"] == "leaf":
+        def collect_references(node: _Leaf | _Split, out: list[str]) -> None:
+            if isinstance(node, _Leaf):
                 out.extend(
-                    tab["resource"]
-                    for tab in node["tabs"]
-                    if tab["variant"] == "resource"
+                    tab.resource for tab in node.tabs if isinstance(tab, _ResourceTab)
                 )
                 return
-            collect_references(node["first"], out)
-            collect_references(node["last"], out)
+            collect_references(node.first, out)
+            collect_references(node.last, out)
 
         referenced: list[str] = []
         for entry in os.listdir(self._export_dir):
@@ -268,7 +309,7 @@ class Project(ConsoleCase):
             with open(os.path.join(self._export_dir, entry), encoding="utf-8") as f:
                 envelope = json.load(f)
             if envelope.get("type") == "panel":
-                collect_references(envelope["root"], referenced)
+                collect_references(_NODE.validate_python(envelope["root"]), referenced)
 
         expected = {
             "Metrics Plot": "lineplot",

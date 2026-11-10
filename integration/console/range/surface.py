@@ -14,7 +14,7 @@ from console.base import ResourceClient
 FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
 UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
-_NAME_INPUT_PLACEHOLDER = "Name"
+_NAME_INPUT_PLACEHOLDER = "Range name"
 _STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
 
 # The stage menu names its items by action, not by the stage they reach.
@@ -24,9 +24,9 @@ _STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
     "Completed": ("Complete",),
 }
 _STAGE_ICONS: dict[str, str] = {
-    "To do": "pluto-icon--to-do",
-    "In progress": "pluto-icon--in-progress",
-    "Completed": "pluto-icon--completed",
+    "To do": "lyra-icon--to-do",
+    "In progress": "lyra-icon--in-progress",
+    "Completed": "lyra-icon--completed",
 }
 
 
@@ -107,7 +107,7 @@ class Surface(ResourceClient):
             # Scope to the picker dropdown: the explorer view has a search
             # input with the same placeholder.
             search_input = self.layout.page.locator(
-                ".pluto-dialog__dialog.pluto--visible "
+                ".lyra-dialog__dialog.lyra--visible "
                 "input[placeholder='Search ranges...']"
             )
             search_input.fill(parent)

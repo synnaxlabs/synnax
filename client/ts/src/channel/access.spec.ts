@@ -11,7 +11,7 @@ import { DataType, id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError, ValidationError } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
 const client = createTestClient();
@@ -37,7 +37,7 @@ describe("channel", () => {
     it("should allow the caller to retrieve channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [channel.ontologyID(0)],
+        objects: [channel.resourceID(0)],
         actions: ["retrieve"],
       });
       const randomChannel = await client.channels.create({
@@ -54,7 +54,7 @@ describe("channel", () => {
     it("should allow the caller to create channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [channel.ontologyID(0)],
+        objects: [channel.resourceID(0)],
         actions: ["create"],
       });
       await userClient.channels.create({
@@ -67,7 +67,7 @@ describe("channel", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [channel.ontologyID(0)],
+        objects: [channel.resourceID(0)],
         actions: ["retrieve"],
       });
       await expect(
@@ -82,8 +82,8 @@ describe("channel", () => {
     it("should allow the caller to delete channels with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [channel.ontologyID(0)],
-        actions: ["delete"],
+        objects: [channel.resourceID(0)],
+        actions: ["delete", "retrieve"],
       });
       const randomChannel = await client.channels.create({
         name: id.create(),
@@ -99,7 +99,7 @@ describe("channel", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [channel.ontologyID(0)],
+        objects: [channel.resourceID(0)],
         actions: ["retrieve"],
       });
       const randomChannel = await client.channels.create({
@@ -110,6 +110,46 @@ describe("channel", () => {
       await expect(userClient.channels.delete(randomChannel.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
       );
+    });
+
+    it("should show the key of a task the caller cannot retrieve", async () => {
+      const ch = await client.channels.create({
+        name: id.create(),
+        leaseholder: 1,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const rack = await client.racks.create({ name: "test" });
+      const device = await client.devices.create({
+        key: id.create(),
+        rack: rack.key,
+        location: "127.0.0.1:502",
+        name: "plc",
+        make: "modbus",
+        model: "modbus",
+        properties: {},
+      });
+      const task = await rack.createTask({
+        name: "read",
+        type: "modbus_read",
+        config: {
+          device: device.key,
+          channels: [{ type: "coil", key: "coil", channel: ch.key }],
+        },
+      });
+      const userClient = await createTestClientWithPolicy(client, {
+        name: "test",
+        objects: [channel.TYPE_RESOURCE_ID],
+        actions: ["retrieve", "delete"],
+      });
+      await expect(userClient.channels.delete(ch.key)).rejects.toThrow(
+        new ValidationError(
+          `cannot delete channel ${ch.name} because task ${task.key} uses it: ` +
+            "validation error",
+        ),
+      );
+      await client.tasks.delete(task.key);
+      await client.channels.delete(ch.key);
     });
   });
 });

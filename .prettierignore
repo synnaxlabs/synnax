@@ -12,3 +12,7 @@ site/portal/drizzle/meta
 
 # Generated background patterns, kept minified.
 site/docs/src/**/*.svg
+
+# Generated C++ tables. Prettier reads them as HTML and breaks them.
+x/cpp/tz/zoneinfo.inc
+driver/ethercat/esi/registry_settings.inc

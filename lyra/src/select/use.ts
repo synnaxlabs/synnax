@@ -9,19 +9,24 @@
 
 import {
   array,
-  type destructor,
   type location,
   type optional,
   type record,
   unique,
 } from "@synnaxlabs/x";
-import { useEffect, useRef } from "react";
+import { type KeyboardEvent, useEffect, useRef } from "react";
 
 import { Dialog } from "@/dialog";
 import { useSyncedRef } from "@/hooks/ref";
 import { List } from "@/list";
 import { useRegistryContext } from "@/select/registry";
-import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
+import {
+  type Cursor,
+  type SelectionOrder,
+  useCursor,
+  type UseCursorProps,
+  type UseCursorReturn,
+} from "@/select/useCursor";
 import { Triggers } from "@/triggers";
 
 /** Extra information passed as a second argument to a selection's `onChange`. */
@@ -53,6 +58,11 @@ export interface UseSingleRequiredProps<K extends record.Key> {
   autoSelectOnNone?: boolean;
 }
 
+type CursorProps<K extends record.Key> = Pick<
+  UseCursorProps<K>,
+  "initialHover" | "enableTriggers" | "moveX"
+> & { cursor?: Cursor };
+
 type UseSingleInternalProps<K extends record.Key> =
   UseSingleAllowNoneProps<K> | UseSingleRequiredProps<K>;
 
@@ -61,13 +71,10 @@ export type UseSingleProps<K extends record.Key> = optional.Optional<
   UseSingleInternalProps<K>,
   "allowNone"
 > &
-  Pick<UseHoverProps<K>, "initialHover" | "enableTriggers">;
+  CursorProps<K>;
 
 /** Props for {@link useMultiple}. */
-export interface UseMultipleProps<K extends record.Key> extends Pick<
-  UseHoverProps<K>,
-  "initialHover" | "enableTriggers"
-> {
+export interface UseMultipleProps<K extends record.Key> extends CursorProps<K> {
   /** Whether the user can deselect the last remaining entry. Defaults to true. */
   allowNone?: boolean;
   value: K[];
@@ -96,7 +103,10 @@ export const hasModifier = (e: {
 }): boolean => e.shiftKey || e.ctrlKey || e.metaKey;
 
 /** Return value for the {@link useSingle} and {@link useMultiple} hooks. */
-export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
+export interface UseReturn<K extends record.Key> extends Omit<
+  UseCursorReturn<K>,
+  "setCursor" | "target"
+> {
   /** Applies a click on the given key, honoring the held modifier keys. */
   onSelect: (key: K) => void;
   /** Replaces the selection outright, ignoring modifiers. */
@@ -105,38 +115,51 @@ export interface UseReturn<K extends record.Key> extends UseHoverReturn<K> {
   clear: () => void;
 }
 
-interface Order<K extends record.Key> {
-  /** Changes identity whenever the data changes. */
-  getOrder: () => K[];
-  scrollTo: (key: K, direction: location.Y) => void;
-  /** Clicks the option with the given key, as a mouse click would. */
-  click: (key: K) => void;
-  /** Calls the listener whenever the fixed items change. */
-  subscribe: (listener: () => void) => destructor.Destructor;
-}
-
 // The registry holds keys of every selection's type, so the order narrows them to K.
-const useOrder = <K extends record.Key>(): Order<K> => {
+const useOrder = <K extends record.Key>(): SelectionOrder<K> => {
   const registry = useRegistryContext("Select.Frame");
   const { data } = List.useData<K>();
   const { scrollToIndex } = List.useScroller();
-  const clickRow = List.useClick();
+  const getRowElement = List.useGetElement();
   const getOrder = () => registry.getOrder(data) as K[];
+  const getElement = (key: K) =>
+    registry.hasItem(key) ? registry.getElement(key) : getRowElement(key);
   const scrollTo = (key: K, direction: location.Y) => {
     const element = registry.getElement(key);
     if (element != null) element.scrollIntoView({ block: "nearest" });
     else scrollToIndex(data.indexOf(key), direction);
   };
-  const click = (key: K) => {
-    if (registry.hasItem(key)) registry.getElement(key)?.click();
-    else clickRow(key);
+  const click = (key: K) => getElement(key)?.click();
+  const doubleClick = (key: K) =>
+    getElement(key)?.dispatchEvent(
+      new MouseEvent("dblclick", { bubbles: true, cancelable: true }),
+    );
+  const contextMenu = (key: K) => {
+    const element = getElement(key);
+    if (element == null) return;
+    const { left, bottom } = element.getBoundingClientRect();
+    element.dispatchEvent(
+      new MouseEvent("contextmenu", {
+        bubbles: true,
+        cancelable: true,
+        clientX: left,
+        clientY: bottom,
+      }),
+    );
   };
-  return { getOrder, scrollTo, click, subscribe: registry.subscribe };
+  return {
+    getOrder,
+    scrollTo,
+    click,
+    doubleClick,
+    contextMenu,
+    subscribe: registry.subscribe,
+  };
 };
 
 /**
- * Drives a single-entry selection over the options of the enclosing frame, adding
- * keyboard hover and, when allowed, clear-on-reclick.
+ * Drives a single-entry selection over the options of the enclosing frame, adding a
+ * keyboard cursor and, when allowed, clear-on-reclick.
  */
 export const useSingle = <K extends record.Key>({
   allowNone = false,
@@ -144,12 +167,25 @@ export const useSingle = <K extends record.Key>({
   value,
   closeDialogOnSelect = false,
   initialHover,
+  cursor,
   enableTriggers,
+  moveX,
   autoSelectOnNone = false,
 }: UseSingleProps<K>): UseReturn<K> => {
   const valueRef = useSyncedRef(value);
   const { close } = Dialog.useContext();
-  const { getOrder, scrollTo, click, subscribe } = useOrder<K>();
+  const order = useOrder<K>();
+  const { getOrder, subscribe } = order;
+  const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
+  const { setCursor, target, ...rest } = useCursor({
+    order,
+    selected: value == null ? [] : [value],
+    select: (key) => setSelected([key]),
+    initialHover,
+    cursor,
+    enableTriggers,
+    moveX,
+  });
   useEffect(() => {
     if (!autoSelectOnNone) return;
     const select = (): void => {
@@ -164,6 +200,7 @@ export const useSingle = <K extends record.Key>({
     if (allowNone) onChange(null as unknown as K, { clicked: null });
   };
   const handleSelect = (key: K): void => {
+    setCursor(key);
     if (valueRef.current === key) {
       if (closeDialogOnSelect) close();
       else clear();
@@ -172,19 +209,8 @@ export const useSingle = <K extends record.Key>({
     onChange(key, { clicked: key });
     if (closeDialogOnSelect) close();
   };
-
-  const setSelected = (keys: K[]): void => onChange(keys[0], { clicked: null });
-
-  const hover = useHover({
-    getOrder,
-    subscribe,
-    scrollTo,
-    click,
-    initialHover,
-    enableTriggers,
-  });
-  List.usePin(hover.hover);
-  return { onSelect: handleSelect, setSelected, clear, ...hover };
+  List.usePin(target);
+  return { onSelect: handleSelect, setSelected, clear, ...rest };
 };
 
 /**
@@ -197,7 +223,9 @@ export const useMultiple = <K extends record.Key>({
   replaceOnSingle = false,
   onChange,
   initialHover,
+  cursor,
   enableTriggers,
+  moveX,
   allowNone = true,
   closeDialogOnSelect = false,
   autoSelectOnNone = false,
@@ -207,7 +235,22 @@ export const useMultiple = <K extends record.Key>({
   const ctrl = Triggers.useHeldRef({ triggers: [["Control"]], loose: true });
   const { close } = Dialog.useContext();
   const valueRef = useSyncedRef(value);
-  const { getOrder, scrollTo, click, subscribe } = useOrder<K>();
+  const order = useOrder<K>();
+  const { getOrder, subscribe } = order;
+  // A keyboard move selects as a plain click does, so it also anchors the next shift.
+  const select = (key: K): void => {
+    shiftValueRef.current = key;
+    onChange([key], { clicked: null });
+  };
+  const { setCursor, target, ...rest } = useCursor({
+    order,
+    selected: value,
+    select,
+    initialHover,
+    cursor,
+    enableTriggers,
+    moveX,
+  });
   useEffect(() => {
     if (!autoSelectOnNone) return;
     const select = (): void => {
@@ -219,6 +262,7 @@ export const useMultiple = <K extends record.Key>({
     return subscribe(select);
   }, [autoSelectOnNone, onChange, value, getOrder, subscribe]);
   const onSelect = (key: K): void => {
+    setCursor(key);
     const shiftValue = shiftValueRef.current;
     let nextSelected: K[];
     const value = array.toArray(valueRef.current).filter((v) => v != null);
@@ -259,14 +303,14 @@ export const useMultiple = <K extends record.Key>({
   };
   const clear = (): void => onChange([], { clicked: null });
   const setSelected = (keys: K[]): void => onChange(keys, { clicked: null });
-  const hover = useHover({
-    getOrder,
-    subscribe,
-    scrollTo,
-    click,
-    initialHover,
-    enableTriggers,
-  });
-  List.usePin(hover.hover);
-  return { onSelect, setSelected, clear, ...hover };
+  List.usePin(target);
+  return { onSelect, setSelected, clear, ...rest };
+};
+
+/**
+ * Stops Enter from clicking a focused trigger while its options are open, as
+ * {@link useHover} gives that Enter to the hovered option.
+ */
+export const preventEnterWhileOpen = (e: KeyboardEvent, visible: boolean): void => {
+  if (visible && e.key === "Enter") e.preventDefault();
 };

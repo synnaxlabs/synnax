@@ -25,7 +25,7 @@ const MILLISECOND = Number(TimeSpan.MILLISECOND.valueOf());
 const SECOND = Number(TimeSpan.SECOND.valueOf());
 
 const triggers = (container: HTMLElement): NodeListOf<HTMLElement> =>
-  container.querySelectorAll(".pluto-time-editor__trigger");
+  container.querySelectorAll(".lyra-time-editor__trigger");
 
 const startLabel = (): string =>
   screen.getByLabelText(/^Start, /).getAttribute("aria-label") ?? "";
@@ -45,7 +45,8 @@ describe("label resolution", () => {
   });
 
   it("should read to the millisecond across seconds", () => {
-    const now = TimeStamp.now().nanoseconds;
+    // A label drops a fraction of zero, so a whole-second now keeps `fraction` in it.
+    const now = TimeStamp.now().truncate(TimeSpan.SECOND).nanoseconds;
     render(
       <Ranger.Timeline
         value={{ start: now - 15 * SECOND + fraction, end: now }}
@@ -219,7 +220,7 @@ describe("Ranger.Timeline", () => {
         onChange={() => {}}
       />,
     );
-    expect(container.querySelector(".pluto-timespan__label")?.textContent).toBe("48s");
+    expect(container.querySelector(".lyra-timespan__label")?.textContent).toBe("48s");
   });
 
   it("should offer a planned end once a range is scheduled", () => {
@@ -322,7 +323,7 @@ describe("Ranger.Timeline", () => {
     const precedes = (a: Element, b: Element): boolean =>
       (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
     const span = (container: HTMLElement): Element =>
-      container.querySelector(".pluto-timespan") as Element;
+      container.querySelector(".lyra-timespan") as Element;
     const dot = (container: HTMLElement): Element =>
       container.querySelector(".pluto-range-timeline__dot") as Element;
 

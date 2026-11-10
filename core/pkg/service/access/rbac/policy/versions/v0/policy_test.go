@@ -24,10 +24,4 @@ var _ = Describe("Policy", func() {
 			Expect(v0.Policy{Key: k}.GorpKey()).To(Equal(k))
 		})
 	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Policy{}.SetOptions()).To(BeNil())
-		})
-	})
 })

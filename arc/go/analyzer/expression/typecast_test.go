@@ -150,7 +150,7 @@ var _ = Describe("Type Casts", func() {
 			}
 		`),
 		Entry("cast of literal in function call", `
-			func takeFloat(x f32) f32 {
+			func takeFloat() {x f32} f32 {
 				return x
 			}
 
@@ -475,5 +475,16 @@ var _ = Describe("Type Casts", func() {
 				}
 			`, nil, "undefined")
 		})
+
+		It(
+			"Should reject a cast to a type with an unknown unit",
+			func(ctx SpecContext) {
+				expectFailure(ctx, `
+				func testFunc() {
+					y := f32 bogus(1)
+				}
+			`, nil, "unknown unit: bogus")
+			},
+		)
 	})
 })

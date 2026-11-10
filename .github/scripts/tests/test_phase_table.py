@@ -33,9 +33,24 @@ class TestParse:
             "| 3 | Remove the old reader | `core/pkg/old` | 1, 2 |",
         )
         assert parse(rfc) == [
-            Phase(1, "Add the `foo` codec", ["core/pkg/foo"], []),
-            Phase(2, "Read `foo` in the clients", ["client/ts", "client/py"], [1]),
-            Phase(3, "Remove the old reader", ["core/pkg/old"], [1, 2]),
+            Phase(
+                number=1,
+                scope="Add the `foo` codec",
+                touches=["core/pkg/foo"],
+                depends_on=[],
+            ),
+            Phase(
+                number=2,
+                scope="Read `foo` in the clients",
+                touches=["client/ts", "client/py"],
+                depends_on=[1],
+            ),
+            Phase(
+                number=3,
+                scope="Remove the old reader",
+                touches=["core/pkg/old"],
+                depends_on=[1, 2],
+            ),
         ]
 
     def test_should_keep_escaped_pipes_in_a_cell(self) -> None:

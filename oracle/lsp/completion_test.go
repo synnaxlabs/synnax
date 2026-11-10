@@ -11,22 +11,45 @@ package lsp_test
 
 import (
 	"context"
+	"log"
+	"net"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.lsp.dev/jsonrpc2"
 	"go.lsp.dev/protocol"
 	"go.lsp.dev/uri"
 )
 
+// serve runs an Oracle LSP server over an in-memory connection and returns a client
+// handle to it.
+func serve() protocol.Server {
+	GinkgoHelper()
+	serverSide, clientSide := net.Pipe()
+	served := make(chan error, 1)
+	logger := log.New(GinkgoWriter, "", 0)
+	go func() { served <- lsp.New(logger).Serve(context.Background(), serverSide) }()
+	_, conn, server := protocol.NewClient(
+		context.Background(),
+		&MockClient{},
+		jsonrpc2.NewStream(clientSide),
+	)
+	DeferCleanup(func() {
+		Expect(conn.Close()).To(Succeed())
+		Eventually(conn.Done()).Should(BeClosed())
+		Eventually(served).Should(Receive())
+	})
+	return server
+}
+
 var _ = Describe("Completion", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func(ctx SpecContext) {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI:     "file:///test.oracle",
@@ -102,8 +125,8 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///domain.oracle", "  @\n")
 			list := completionFor(ctx, "file:///domain.oracle", 0, 3)
 			Expect(labels(list.Items)).To(ContainElements(
-				"key", "validate", "ontology", "doc", "go", "ts", "py", "cpp",
-				"pb", "filter",
+				"key", "validate", "resource", "doc", "go", "ts", "py", "cpp",
+				"pb", "filter", "response", "include", "group",
 			))
 		})
 	})
@@ -114,7 +137,7 @@ var _ = Describe("Completion", func() {
 			func(ctx SpecContext) {
 				list := completionAt(ctx, 2, 12)
 				Expect(labels(list.Items)).To(ContainElements(
-					"required", "min_length", "max_length",
+					"required", "min_length", "max_length", "min", "gt", "max",
 				))
 			},
 		)
@@ -125,7 +148,7 @@ var _ = Describe("Completion", func() {
 			openDoc(ctx, "file:///go-domain.oracle", "  @go \n")
 			list := completionFor(ctx, "file:///go-domain.oracle", 0, 6)
 			Expect(labels(list.Items)).To(ContainElements(
-				"output", "omit", "marshal", "wire", "to_any",
+				"output", "omit", "marshal", "wire", "to_any", "request_output",
 			))
 		})
 	})
@@ -140,12 +163,12 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Ontology Expression Completions", func() {
+	Describe("Resource Expression Completions", func() {
 		It(
-			"should return ontology expressions inside ontology domain",
+			"should return resource expressions inside resource domain",
 			func(ctx SpecContext) {
-				openDoc(ctx, "file:///ontology-domain.oracle", "  @ontology \n")
-				list := completionFor(ctx, "file:///ontology-domain.oracle", 0, 12)
+				openDoc(ctx, "file:///resource-domain.oracle", "  @resource \n")
+				list := completionFor(ctx, "file:///resource-domain.oracle", 0, 12)
 				Expect(labels(list.Items)).To(ContainElement("type"))
 			},
 		)
@@ -181,7 +204,7 @@ var _ = Describe("Completion", func() {
 
 var _ = Describe("Initialize", func() {
 	It("should return server capabilities", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		result := MustSucceed(server.Initialize(
 			context.Background(),
 			&protocol.InitializeParams{},
@@ -195,7 +218,7 @@ var _ = Describe("Initialize", func() {
 
 var _ = Describe("Initialized", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Initialized(
 			context.Background(),
 			&protocol.InitializedParams{},
@@ -205,17 +228,16 @@ var _ = Describe("Initialized", func() {
 
 var _ = Describe("Shutdown", func() {
 	It("should return nil", func() {
-		server := lsp.New()
+		server := lsp.New(log.New(GinkgoWriter, "", 0))
 		Expect(server.Shutdown(context.Background())).To(Succeed())
 	})
 })
 
 var _ = Describe("DidChange", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	It("should update document content", func(ctx SpecContext) {
@@ -267,8 +289,7 @@ var _ = Describe("DidChange", func() {
 
 var _ = Describe("DidClose", func() {
 	It("should remove document and clear diagnostics", func(ctx SpecContext) {
-		server := lsp.New()
-		server.SetClient(&MockClient{})
+		server := serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///close.oracle", Version: 1,
@@ -293,11 +314,10 @@ var _ = Describe("DidClose", func() {
 })
 
 var _ = Describe("Hover", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func(ctx SpecContext) {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
 			TextDocument: protocol.TextDocumentItem{
 				URI: "file:///hover.oracle", Version: 1,
@@ -324,6 +344,42 @@ var _ = Describe("Hover", func() {
 		hover := hoverAt(ctx, "file:///hover.oracle", 1, 10)
 		Expect(hover).ToNot(BeNil())
 		Expect(HoverContents(hover)).To(ContainSubstring("string"))
+	})
+
+	It("should tell the filter keyword from the @filter domain", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///filter.oracle", Version: 1,
+				Text: "Where filter Range {}\nname string @filter\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 0, 8))).
+			To(HavePrefix("**filter**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///filter.oracle", 1, 15))).
+			To(HavePrefix("**@filter**"))
+	})
+
+	It("should return no doc for the filter namespace", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///namespace.oracle", Version: 1,
+				Text: "name filter.String\n",
+			},
+		})).To(Succeed())
+		Expect(hoverAt(ctx, "file:///namespace.oracle", 0, 7)).To(BeNil())
+	})
+
+	It("should describe request_output and a key type", func(ctx SpecContext) {
+		Expect(server.DidOpen(ctx, &protocol.DidOpenTextDocumentParams{
+			TextDocument: protocol.TextDocumentItem{
+				URI: "file:///request.oracle", Version: 1,
+				Text: "@go request_output \"api\"\nKey uint32 @key\n",
+			},
+		})).To(Succeed())
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 0, 6))).
+			To(HavePrefix("**request_output**"))
+		Expect(HoverContents(hoverAt(ctx, "file:///request.oracle", 1, 13))).
+			To(ContainSubstring("marks a key type"))
 	})
 
 	It("should return nil for unknown document", func(ctx SpecContext) {
@@ -354,11 +410,10 @@ var _ = Describe("Hover", func() {
 })
 
 var _ = Describe("SemanticTokensFull", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
@@ -407,10 +462,17 @@ var _ = Describe("SemanticTokensFull", func() {
 		Expect(tokensFor(ctx, "file:///enum.oracle").Data).ToNot(BeEmpty())
 	})
 
-	// tokenTypeAt decodes the delta-encoded token stream and returns the type index of
-	// the token starting at line and char.
-	tokenTypeAt := func(data []uint32, line, char uint32) uint32 {
+	// tokenTypeAt decodes the delta-encoded token stream and returns the legend name of
+	// the type of the token starting at line and char.
+	tokenTypeAt := func(
+		ctx context.Context,
+		data []uint32,
+		line, char uint32,
+	) string {
 		GinkgoHelper()
+		res := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{}))
+		opts := res.Capabilities.SemanticTokensProvider.(*protocol.SemanticTokensOptions)
+		legend := opts.Legend.TokenTypes
 		var l, c uint32
 		for i := 0; i+4 < len(data); i += 5 {
 			if data[i] > 0 {
@@ -419,11 +481,11 @@ var _ = Describe("SemanticTokensFull", func() {
 			l += data[i]
 			c += data[i+1]
 			if l == line && c == char {
-				return data[i+3]
+				return legend[data[i+3]]
 			}
 		}
 		Fail("no token starts at the given position")
-		return 0
+		return ""
 	}
 
 	DescribeTable(
@@ -431,8 +493,7 @@ var _ = Describe("SemanticTokensFull", func() {
 		func(ctx SpecContext, text string, line, char uint32) {
 			openDoc(ctx, "file:///names.oracle", text)
 			data := tokensFor(ctx, "file:///names.oracle").Data
-			Expect(tokenTypeAt(data, line, char)).
-				To(Equal(uint32(lsp.SemanticTokenTypeProperty)))
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("property"))
 		},
 		Entry(
 			"field",
@@ -456,12 +517,35 @@ var _ = Describe("SemanticTokensFull", func() {
 	)
 
 	DescribeTable(
+		"should color the filter soft keyword by position",
+		func(ctx SpecContext, text string, char uint32, expected string) {
+			openDoc(ctx, "file:///filter.oracle", text)
+			data := tokensFor(ctx, "file:///filter.oracle").Data
+			Expect(tokenTypeAt(ctx, data, 0, char)).To(Equal(expected))
+		},
+		Entry(
+			"after a definition name",
+			"Where filter Range {}\n",
+			uint32(6),
+			"keyword",
+		),
+		Entry("as a field name", "filter string\n", uint32(0), "property"),
+	)
+
+	It("should not color the filter schema in a field type as a keyword", func(
+		ctx SpecContext,
+	) {
+		openDoc(ctx, "file:///operator.oracle", "name filter.String\n")
+		data := tokensFor(ctx, "file:///operator.oracle").Data
+		Expect(tokenTypeAt(ctx, data, 0, 5)).ToNot(Equal("keyword"))
+	})
+
+	DescribeTable(
 		"should color a primitive in type position as a type",
 		func(ctx SpecContext, text string, line, char uint32) {
 			openDoc(ctx, "file:///types.oracle", text)
 			data := tokensFor(ctx, "file:///types.oracle").Data
-			Expect(tokenTypeAt(data, line, char)).
-				To(Equal(uint32(lsp.SemanticTokenTypeType)))
+			Expect(tokenTypeAt(ctx, data, line, char)).To(Equal("type"))
 		},
 		Entry(
 			"field",
@@ -479,11 +563,10 @@ var _ = Describe("SemanticTokensFull", func() {
 })
 
 var _ = Describe("Formatting", func() {
-	var server *lsp.Server
+	var server protocol.Server
 
 	BeforeEach(func() {
-		server = lsp.New()
-		server.SetClient(&MockClient{})
+		server = serve()
 	})
 
 	openDoc := func(ctx context.Context, docURI uri.URI, text string) {
@@ -502,14 +585,17 @@ var _ = Describe("Formatting", func() {
 		}))
 	}
 
-	It("should return nil for unknown document", func(ctx SpecContext) {
-		Expect(formatDoc(ctx, "file:///unknown.oracle")).To(BeNil())
+	It("should return no edits for an unknown document", func(ctx SpecContext) {
+		Expect(formatDoc(ctx, "file:///unknown.oracle")).To(BeEmpty())
 	})
 
-	It("should return nil when content is already formatted", func(ctx SpecContext) {
-		openDoc(ctx, "file:///formatted.oracle", "User struct {}\n")
-		Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeNil())
-	})
+	It(
+		"should return no edits when content is already formatted",
+		func(ctx SpecContext) {
+			openDoc(ctx, "file:///formatted.oracle", "User struct {}\n")
+			Expect(formatDoc(ctx, "file:///formatted.oracle")).To(BeEmpty())
+		},
+	)
 
 	It(
 		"should return text edit when formatting changes content",

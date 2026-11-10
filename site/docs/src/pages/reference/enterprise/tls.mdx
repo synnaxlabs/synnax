@@ -53,8 +53,9 @@ names of the computer. If you change the host, the next start replaces `node.crt
 `node.key` with a pair signed by the same CA, so clients need no new CA certificate.
 
 <Note.Note variant="warning">
-  `--auto-cert` replaces a `node.crt` that does not cover the `--listen` host, even one
-  you supplied. Do not use it with your own certificate.
+  `--auto-cert` replaces a `node.crt` that does not cover the `--listen` host, that
+  `ca.crt` did not sign, or whose subject matches its issuer, even one you supplied. Do
+  not use it with your own certificate.
 </Note.Note>
 
 In Docker, the certificate folder is inside the container. Mount a volume at
@@ -151,7 +152,7 @@ The Core in the image runs as user and group `65532`.
 
    ```bash
    docker run -d --name synnax -p 9090:9090 --mac-address 02:5a:00:00:00:01 \
-     --stop-signal SIGINT --stop-timeout 30 \
+     --stop-timeout 30 \
      -v synnax-data:/synnax/synnax-data -v /etc/letsencrypt:/etc/letsencrypt:ro \
      synnaxlabs/synnax --listen=synnax.example.com:9090 \
      --certs-dir=/etc/letsencrypt/live/synnax.example.com \

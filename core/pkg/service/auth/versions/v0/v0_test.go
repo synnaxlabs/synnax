@@ -16,21 +16,15 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("SecureCredentials", func() {
 	Describe("GorpKey", func() {
 		It("Should return the username", func() {
 			Expect(v0.SecureCredentials{Username: "root"}.GorpKey()).To(Equal("root"))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.SecureCredentials{}.SetOptions()).To(BeNil())
 		})
 	})
 })

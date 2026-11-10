@@ -7,8 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from playwright.sync_api import Locator, Page
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from pathlib import Path
+
+from playwright.sync_api import Locator, Page, TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.access import AccessClient
@@ -26,7 +27,6 @@ from console.project import ProjectClient
 from console.range import Client as RangesClient
 from console.statuses import StatusesClient
 from console.tasks import TaskClient
-from framework.run_dir import resolve_results_path
 
 
 class Console:
@@ -34,8 +34,8 @@ class Console:
     Console UI automation interface - thin orchestration layer.
 
     Composes specialized clients for interacting with the Synnax Console application.
-    Layout operations are accessed through self.layout (LayoutClient).
-    Each client imports and instantiates its own utilities (notifications, ctx_menu, tree).
+    Layout operations are accessed through self.layout (LayoutClient). Each client
+    imports and instantiates its own utilities (notifications, ctx_menu, tree).
     """
 
     access: AccessClient
@@ -56,22 +56,24 @@ class Console:
     panels: PanelsClient
     page: Page
 
-    def __init__(self, page: Page, client: sy.Synnax):
+    def __init__(self, *, page: Page, client: sy.Synnax, results_dir: Path):
         self.page = page
         self.client = client
-        self.layout = LayoutClient(page)
+        self.layout = LayoutClient(page=page, results_dir=results_dir)
         self.notifications = self.layout.notifications
         self.docs = DocsClient(self.layout)
         self.labels = LabelClient(self.layout)
-        self.devices = DevicesClient(self.layout, self.client)
+        self.devices = DevicesClient(layout=self.layout, client=self.client)
         self.arc = ArcClient(self.layout)
         self.access = AccessClient(self.layout)
-        self.channels = ChannelClient(self.layout, self.client)
+        self.channels = ChannelClient(layout=self.layout, client=self.client)
         self.cluster = ClusterClient(self.layout)
         self.project = ProjectClient(self.layout)
-        self.pages = PagesClient(self.layout, self.client, self.project)
+        self.pages = PagesClient(
+            layout=self.layout, client=self.client, project=self.project
+        )
         self.panels = PanelsClient(self.layout)
-        self.ranges = RangesClient(self.layout, self.pages)
+        self.ranges = RangesClient(layout=self.layout, pages=self.pages)
         self.statuses = StatusesClient(self.layout)
         self.tasks = TaskClient(self.layout)
 
@@ -91,7 +93,7 @@ class Console:
             name = name + ".png"
 
         self.page.screenshot(
-            path=resolve_results_path(name),
+            path=str(self.layout.results_dir / name),
             full_page=True,
             animations="disabled",
             type="png",
@@ -124,14 +126,11 @@ class Console:
                 return tab
         return None
 
-    def close_all_tabs(self, except_tabs: list[str] | None = None) -> None:
+    def close_all_tabs(self, *, except_tabs: list[str] | None = None) -> None:
         """Close all tabs except specified ones.
 
-        Args:
-            except_tabs: Tab names to keep open. Defaults to ["Get Started"].
-
-        Raises:
-            RuntimeError: If tabs remain open after max iterations.
+        :param except_tabs: Tab names to keep open. Defaults to ["Get Started"].
+        :raises RuntimeError: If tabs remain open after max iterations.
         """
         if except_tabs is None:
             except_tabs = ["Get Started"]

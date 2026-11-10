@@ -98,13 +98,13 @@ class TestReport:
         assert "driver/rack/rack.h resolve .port = 9090\n" in out
         assert 'driver/rack/rack.h resolve .host = "localhost"\n' in out
 
-    def test_lists_default_integrations_and_their_conditions(
+    def test_lists_built_integrations_and_their_conditions(
         self, tmp_path: Path
     ) -> None:
         rack = tmp_path / "driver" / "rack"
         rack.mkdir(parents=True)
         src = (
-            "inline std::vector<std::string> default_integrations() {\n"
+            "inline std::vector<std::string> built_integrations() {\n"
             "    std::vector<std::string> integrations = {\n"
             "        opcua::INTEGRATION_NAME,\n"
             "        http::INTEGRATION_NAME\n"
@@ -118,10 +118,30 @@ class TestReport:
         (rack / "rack.h").write_text(src)
         before = write(tmp_path)
         assert [line for line in before.splitlines() if "rack.h" in line] == [
-            "driver/rack/rack.h default_integrations http::INTEGRATION_NAME",
-            "driver/rack/rack.h default_integrations modbus::INTEGRATION_NAME"
+            "driver/rack/rack.h built_integrations http::INTEGRATION_NAME",
+            "driver/rack/rack.h built_integrations modbus::INTEGRATION_NAME"
             " #ifndef SYNNAX_NILINUXRT",
-            "driver/rack/rack.h default_integrations opcua::INTEGRATION_NAME",
+            "driver/rack/rack.h built_integrations opcua::INTEGRATION_NAME",
         ]
         (rack / "rack.h").write_text(src.replace(" integrations", " names"))
         assert write(tmp_path) == before
+
+    def test_lists_the_integrations_of_each_platform(self, tmp_path: Path) -> None:
+        rack = tmp_path / "driver" / "rack"
+        rack.mkdir(parents=True)
+        (rack / "rack.h").write_text(
+            "std::vector<std::string> platform_integrations();\n"
+        )
+        (rack / "factories_windows.cpp").write_text(
+            "std::vector<std::string> platform_integrations() {\n"
+            "    return {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME};\n"
+            "}\n"
+        )
+        assert [
+            line for line in write(tmp_path).splitlines() if "platform" in line
+        ] == [
+            "driver/rack/factories_windows.cpp platform_integrations"
+            " labjack::INTEGRATION_NAME",
+            "driver/rack/factories_windows.cpp platform_integrations"
+            " ni::INTEGRATION_NAME",
+        ]

@@ -17,7 +17,7 @@ import { type CaptureSession } from "@/capture/rig";
  * name of their own.
  */
 export const control = (scope: Page | Locator, icon: string): Locator =>
-  scope.locator(`.console-controls button:has(.pluto-icon--${icon})`).first();
+  scope.locator(`.console-controls button:has(.lyra-icon--${icon})`).first();
 
 /**
  * showVisualizationToolbar opens the bottom visualization drawer if it is not
@@ -58,7 +58,7 @@ export const addChannels = async (
     .locator("label")
     .filter({ hasText: axis })
     .locator("..")
-    .locator(".pluto-dialog__trigger")
+    .locator(".lyra-dialog__trigger")
     .first();
   // Wide rows are mostly empty space: click their left-aligned text so the
   // cursor lands where a person aims and the camera gets a rect worth framing.
@@ -73,7 +73,7 @@ export const addChannels = async (
   if (search != null) await session.type(search);
   for (const channel of channels) {
     const item = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ has: page.getByText(channel, { exact: true }) })
       .first();
     await session.waitFor(item);

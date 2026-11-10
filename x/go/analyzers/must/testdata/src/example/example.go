@@ -18,19 +18,34 @@ func Consistently(args ...any) {}
 
 type Assertion struct{}
 
-func (Assertion) ToNot(any) {}
-func (Assertion) NotTo(any) {}
-func (Assertion) To(any)    {}
+func (Assertion) ToNot(any)  {}
+func (Assertion) NotTo(any)  {}
+func (Assertion) To(any)     {}
+func (Assertion) Should(any) {}
+
+func MatchError(any) any    { return nil }
+func Equal(any) any         { return nil }
+func SatisfyAll(...any) any { return nil }
+func SatisfyAny(...any) any { return nil }
+func And(...any) any        { return nil }
+func Or(...any) any         { return nil }
+
+type testErr struct{}
+
+func (testErr) Error() string { return "" }
+
+var errSentinel error = testErr{}
 
 func returnsValErr() (int, error)            { return 0, nil }
 func returnsErr() error                      { return nil }
 func returnsTwoValErr() (int, string, error) { return 0, "", nil }
+func returnsValBool() (int, bool)            { return 0, false }
 
 func example() {
 	var err error
 
 	// Pattern A: result, err := f(); Expect(err).ToNot(HaveOccurred())
-	result, err := returnsValErr() // want "can be replaced with MustSucceed"
+	result, err := returnsValErr() // want `^Expect\(err\)\.ToNot\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	Expect(err).ToNot(HaveOccurred())
 	_ = result
 
@@ -45,12 +60,12 @@ func example() {
 	Expect(err).ToNot(HaveOccurred())
 
 	// Pattern with NotTo variant
-	r2, err := returnsValErr() // want "can be replaced with MustSucceed"
+	r2, err := returnsValErr() // want `^Expect\(err\)\.NotTo\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	Expect(err).NotTo(HaveOccurred())
 	_ = r2
 
 	// Pattern with To(Not(HaveOccurred()))
-	r3, err := returnsValErr() // want "can be replaced with MustSucceed"
+	r3, err := returnsValErr() // want `^Expect\(err\)\.To\(Not\(HaveOccurred\(\)\)\) can be replaced with MustSucceed$`
 	Expect(err).To(Not(HaveOccurred()))
 	_ = r3
 
@@ -60,12 +75,12 @@ func example() {
 	_, _ = a, b
 
 	// Pattern D: _, err := f() → MustSucceed(f()) with no LHS
-	_, err = returnsValErr() // want "can be replaced with MustSucceed"
-	Expect(err).ToNot(HaveOccurred())
+	_, dErr := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(dErr).ToNot(HaveOccurred())
 
 	// Pattern E: _, _, err := f() → MustSucceed2(f()) with no LHS
-	_, _, err = returnsTwoValErr() // want "can be replaced with MustSucceed2"
-	Expect(err).ToNot(HaveOccurred())
+	_, _, eErr := returnsTwoValErr() // want "can be replaced with MustSucceed2"
+	Expect(eErr).ToNot(HaveOccurred())
 
 	// Pattern F: assignment and Expect(err) separated by an intervening statement
 	// that does not reference err.
@@ -81,7 +96,7 @@ func example() {
 	// Pattern H: non-adjacent case where the Expect call is split across multiple
 	// physical lines — the whole multi-line statement must be removed, not just
 	// the first line.
-	t2, err := returnsValErr() // want "can be replaced with MustSucceed"
+	t2, err := returnsValErr() // want `^Expect\(err\)\.ToNot\(HaveOccurred\(\)\) can be replaced with MustSucceed$`
 	_ = t2 + 1
 	Expect(err).
 		ToNot(HaveOccurred())
@@ -113,4 +128,88 @@ func example() {
 		err = returnsErr()
 		Expect(err).ToNot(HaveOccurred())
 	})
+
+	// Pattern I: err := f(); Expect(err).To(Succeed()) → Expect(f()).To(Succeed())
+	iErr := returnsErr() // want `^Expect\(iErr\)\.To\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
+	Expect(iErr).To(Succeed())
+
+	// Pattern J: _, err := f(); Expect(err).To(MatchError(e)) →
+	// Expect(f()).Error().To(MatchError(e))
+	_, mErr := returnsValErr() // want "assert the error inline"
+	Expect(mErr).To(MatchError(errSentinel))
+
+	// Pattern K: err := f(); Expect(err).Should(Equal(e)) →
+	// Expect(f()).Should(Equal(e))
+	kErr := returnsErr() // want "assert the error inline"
+	Expect(kErr).Should(Equal(errSentinel))
+
+	// Pattern L: err := f(); Expect(err).Should(Succeed()) →
+	// Expect(f()).To(Succeed())
+	err = returnsErr() // want `^Expect\(err\)\.Should\(Succeed\(\)\) can be replaced with Expect\(returnsErr\(\)\)\.To\(Succeed\(\)\)$`
+	Expect(err).Should(Succeed())
+
+	// Pattern M: composite matchers assert inline like MatchError.
+	_, allErr := returnsValErr() // want "assert the error inline"
+	Expect(allErr).To(SatisfyAll(MatchError(errSentinel)))
+	_, anyErr := returnsValErr() // want "assert the error inline"
+	Expect(anyErr).To(SatisfyAny(MatchError(errSentinel), Equal(errSentinel)))
+	_, andErr := returnsValErr() // want "assert the error inline"
+	Expect(andErr).To(And(MatchError(errSentinel)))
+	_, orErr := returnsValErr() // want "assert the error inline"
+	Expect(orErr).Should(Or(Succeed(), MatchError(errSentinel)))
+
+	// Should NOT match: a named result stays bound for a later assertion.
+	v3, nErr := returnsValErr()
+	Expect(nErr).To(MatchError(errSentinel))
+	_ = v3
+
+	// Should NOT match: the error is used after the assertion.
+	_, uErr := returnsValErr()
+	Expect(uErr).To(MatchError(errSentinel))
+	_ = uErr
+
+	// Should NOT match: the captured value is not an error.
+	_, okv := returnsValBool()
+	Expect(okv).To(Equal(true))
+
+	// Should NOT match: Equal(nil) passes on a nil error.
+	_, nilErr := returnsValErr()
+	Expect(nilErr).To(Equal(nil))
+}
+
+func laterDeclaration() {
+	a, err := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(err).To(Succeed())
+	b, err := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(err).To(Succeed())
+	_, _ = a, b
+}
+
+func laterRead() {
+	// Should NOT match: a later statement reads the error.
+	err := returnsErr()
+	Expect(err).To(Succeed())
+	_ = err
+}
+
+func outerVariable() {
+	var err error
+	func() {
+		// Should NOT match: code after the closure reads the outer error.
+		err = returnsErr()
+		Expect(err).To(Succeed())
+	}()
+	func() {
+		// Should NOT match: code after the closure reads the outer error.
+		_, err = returnsValErr()
+		Expect(err).To(MatchError(errSentinel))
+	}()
+	_ = err
+}
+
+func reusedResult() {
+	r := 0
+	r, rErr := returnsValErr() // want "can be replaced with MustSucceed"
+	Expect(rErr).To(Succeed())
+	_ = r
 }

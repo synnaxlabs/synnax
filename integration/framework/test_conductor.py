@@ -20,19 +20,23 @@ import traceback
 from collections.abc import Callable
 from datetime import UTC, datetime
 from enum import Enum, auto
-from typing import Any
+from pathlib import Path
+from types import FrameType
+
+from pydantic import JsonValue
 
 import synnax as sy
-from framework import failure_report, run_dir, server_log
+from framework import cores, failure_report, resources, run_dir, server_log, shards
 from framework.config_client import ConfigClient, Sequence, TestDefinition
+from framework.cores import Core
 from framework.execution_client import ExecutionClient
 from framework.log_client import LogClient, LogMode, SynnaxChannelSink
-from framework.models import SynnaxConnection, Test
-from framework.report_client import ReportClient
+from framework.models import DEFAULT_OPTIONS, RunOptions, SynnaxConnection, Test
+from framework.report_client import Progress, ReportClient
 from framework.target_filter import TargetFilter, parse_target, split_csv
 from framework.telemetry import TelemetryClient
 from framework.test_case import TestCase
-from x import validate_and_sanitize_name
+from x import is_ci, validate_and_sanitize_name
 
 
 class _STATE(Enum):
@@ -48,15 +52,28 @@ class _STATE(Enum):
 
 
 class _TestConductor:
-    """Manages execution of test sequences with timeout monitoring and result collection."""
+    """Manages execution of test sequences with timeout monitoring and result
+    collection.
+    """
 
     def __init__(
         self,
+        options: RunOptions,
+        server_log_path: Path,
         name: str | None = None,
         synnax_connection: SynnaxConnection | None = None,
+        cores_extra: int = 0,
+        core_binary: Path | None = None,
+        browsers: int | None = None,
+        shard: shards.Shard | None = None,
     ) -> None:
         """
         Initialize test conductor with connection parameters.
+
+        :param cores_extra: Cores to start beside the Core under test, from
+            core_binary.
+        :param browsers: Most Console tests that run at once. None means no limit.
+        :param shard: The part of the loaded suite to run. None runs all of it.
         """
 
         # Generate or validate name
@@ -71,9 +88,10 @@ class _TestConductor:
         # Establish the run directory before anything else writes artifacts.
         # Capture the server log's current size so that the run-scoped slice
         # at exit doesn't include lines from prior server sessions.
-        self.run_dir = run_dir.init_run_dir(self.name)
+        self.run_dir = run_dir.create(self.name)
         self.started_at = time.time()
-        self._server_log_start_offset = server_log.current_offset()
+        self._server_log_path = server_log_path
+        self._server_log_start_offset = server_log.current_offset(server_log_path)
 
         # Use provided connection or create default
         if synnax_connection is None:
@@ -91,7 +109,7 @@ class _TestConductor:
             name=self.name,
             mode=LogMode.REALTIME,
             persistent_sinks=[
-                SynnaxChannelSink(self.client, f"{self.name}_log"),
+                SynnaxChannelSink(client=self.client, channel_name=f"{self.name}_log"),
             ],
         )
 
@@ -106,12 +124,15 @@ class _TestConductor:
             raise RuntimeError("Failed to create range") from e
 
         self.config_client = ConfigClient(log=self.log)
+        self._shard = shard
+        self._cores = cores_extra + 1
+        self._browsers = browsers
 
         self.state = _STATE.INITIALIZING
         self.test_definitions: list[TestDefinition] = []
         self.sequences: list[Sequence] = []
         self.should_stop = False
-        self.status_callbacks: list[Any] = []
+        self.status_callbacks: list[Callable[[Test], None]] = []
         self.tests: list[Test] = []
         self.tests_lock = threading.Lock()
         self.active_tests: list[
@@ -126,9 +147,36 @@ class _TestConductor:
             get_should_stop=lambda: self.should_stop,
         )
 
+        self.report_client = ReportClient(
+            tests=self.tests,
+            tests_lock=self.tests_lock,
+            test_definitions=self.test_definitions,
+            active_tests=self.active_tests,
+            active_tests_lock=self.active_tests_lock,
+            log=self.log,
+        )
+
+        # main stops these Cores only once this returns, so no step after them can
+        # fail.
+        self.core_processes: list[cores.Process] = []
+        if cores_extra > 0:
+            if core_binary is None:
+                raise ValueError("--cores above 1 needs --core-binary")
+            self.log(f"Starting {cores_extra} more Cores from {core_binary}")
+            self.core_processes = cores.start(
+                binary=core_binary,
+                first=self.synnax_connection,
+                count=cores_extra,
+                log_dir=self.run_dir / "cores",
+            )
+        first = Core(connection=self.synnax_connection, log_path=server_log_path)
+
         self.execution_client = ExecutionClient(
             config_client=self.config_client,
-            synnax_connection=self.synnax_connection,
+            cores=[first, *(p.core for p in self.core_processes)],
+            resources=resources.Resources({resources.BROWSER: browsers}),
+            options=options,
+            run_dir=self.run_dir,
             client=self.client,
             conductor_range=self.range,
             tests=self.tests,
@@ -140,22 +188,13 @@ class _TestConductor:
             on_test_ran=self.telemetry_client.increment_tests_ran,
         )
 
-        self.report_client = ReportClient(
-            tests=self.tests,
-            tests_lock=self.tests_lock,
-            test_definitions=self.test_definitions,
-            active_tests=self.active_tests,
-            active_tests_lock=self.active_tests_lock,
-            log=self.log,
-        )
-
         signal.signal(signal.SIGINT, self._signal_handler)
         signal.signal(signal.SIGTERM, self._signal_handler)
 
         self.telemetry_client.start()
         sy.sleep(1)
 
-    def log(self, message: str, use_name: bool = True) -> None:
+    def log(self, message: str, *, use_name: bool = True) -> None:
         """Log message with real-time output."""
         if use_name:
             self.log_client.info(message)
@@ -166,6 +205,20 @@ class _TestConductor:
         """Load test sequences using the config client."""
         self.state = _STATE.LOADING
         sequences, new_defs = self.config_client.load(target_filter)
+        if self._shard is not None:
+            sequences = shards.select(
+                sequences,
+                self._shard,
+                durations=shards.load_durations(),
+                resources_of=self.config_client.resources_of,
+                cores=self._cores,
+                browsers=self._browsers,
+            )
+            new_defs = [t for s in sequences for t in s.tests]
+            self.log(
+                f"Shard {self._shard}: {len(new_defs)} tests across "
+                f"{len(sequences)} sequences"
+            )
         self.sequences = sequences
         self.test_definitions.clear()
         self.test_definitions.extend(new_defs)
@@ -200,8 +253,14 @@ class _TestConductor:
         self.execution_client.stop()
         self.wait_for_completion()
 
+        self.stop_cores()
         self.log("Shutdown complete\n")
         self.log_client.close()
+
+    def stop_cores(self) -> None:
+        """Stops the Cores the conductor started."""
+        cores.stop(self.core_processes)
+        self.core_processes = []
 
     def add_status_callback(self, callback: Callable[[Test], None]) -> None:
         """Add a callback function to be called when test status changes."""
@@ -225,8 +284,10 @@ class _TestConductor:
     def is_running(self) -> bool:
         return self.execution_client.is_running
 
-    def get_current_status(self) -> dict[str, Any]:
-        return self.report_client.get_current_status(self.execution_client.is_running)
+    def get_current_status(self) -> Progress:
+        return self.report_client.get_current_status(
+            is_running=self.execution_client.is_running
+        )
 
     def _get_test_statistics(self) -> dict[str, int]:
         return self.report_client.get_statistics()
@@ -234,7 +295,7 @@ class _TestConductor:
     def _print_summary(self) -> None:
         self.report_client.print_summary(self.range)
 
-    def _signal_handler(self, signal_num: int, frame: Any = None) -> None:
+    def _signal_handler(self, signal_num: int, frame: FrameType | None = None) -> None:
         """Handle system signals for graceful shutdown."""
         self.log(f"Received signal {signal_num}. Stopping test execution...")
         self.shutdown()
@@ -248,8 +309,9 @@ class _TestConductor:
         """
         try:
             server_log.copy_range(
+                self._server_log_path,
                 self.run_dir / "server.log",
-                self._server_log_start_offset,
+                start=self._server_log_start_offset,
             )
         except Exception as e:
             self.log(f"Warning: failed to capture server log: {e}")
@@ -261,14 +323,14 @@ class _TestConductor:
             (self.run_dir / "README.md").write_text(_BUNDLE_README, encoding="utf-8")
         except Exception as e:
             self.log(f"Warning: failed to write README.md: {e}")
-        report_path = failure_report.safe_render(self.run_dir, self.tests)
+        report_path = failure_report.safe_render(self.run_dir, tests=self.tests)
         if report_path is not None:
             self.log(f"→ failure report: {report_path}")
 
     def _write_summary(self) -> None:
         ended_at = time.time()
         stats = self.report_client.get_statistics() if self.tests else {}
-        tests_json: list[dict[str, Any]] = [
+        tests_json: list[JsonValue] = [
             {
                 "case": t.test_name,
                 "name": t.name,
@@ -276,8 +338,10 @@ class _TestConductor:
                 "started_at": _iso(t.started_at),
                 "ended_at": _iso(t.ended_at),
                 "duration_s": _duration(t.started_at, t.ended_at),
+                "core": t.core,
                 "error_message": t.error_message,
                 "skip_reason": t.skip_reason,
+                "metrics": dict(t.metrics),
                 "bundle_dir": (
                     os.path.relpath(t.bundle_dir, str(self.run_dir))
                     if t.bundle_dir
@@ -304,6 +368,7 @@ class _TestConductor:
                         "skipped",
                         "failed",
                         "flaky",
+                        "skipped",
                         "timeout",
                         "killed",
                     )
@@ -343,7 +408,7 @@ The layout and inspection workflow are identical between local dev and CI.
    This is the LLM-friendly entry point. Read it first.
 2. **Cross-reference `summary.json`** for run-level stats and per-test paths.
    ```bash
-   jq '.tests[] | select(.status | IN("PASSED", "SKIPPED", "FLAKY") | not)' summary.json
+   jq '.tests[] | select(.status | IN("FAILED", "TIMEOUT", "KILLED"))' summary.json
    ```
 3. **Drill into `tests/<name>/`** for the raw artifacts behind a section:
    - `trace.zip` -> full Playwright trace (only on FAILED/TIMEOUT/KILLED)
@@ -360,14 +425,14 @@ The layout and inspection workflow are identical between local dev and CI.
 
 ## Detailed workflow
 
-See the `synnax-integration-debug` skill (`.claude/skills/synnax-integration-debug/SKILL.md`
+See the `synnax-integration-debug` skill (`.agents/skills/synnax-integration-debug/SKILL.md`
 in the repo) for the full command cheatsheet, common gotchas, and triage heuristics.
 
 ## Bundle was generated by
 
 `uv run tc` writing this directory at conductor exit. The breadcrumb line
 `→ bundle: <path>` in conductor stdout points here.
-"""
+"""  # noqa: E501
 
 
 def _report_to_github(report_client: ReportClient) -> None:
@@ -385,7 +450,8 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
     while conductor.is_running:
         status = conductor.get_current_status()
         conductor.log(
-            f"Status: {status['completed_tests']}/{status['total_tests']} tests completed"
+            f"Status: {status['completed_tests']}/{status['total_tests']} tests "
+            "completed"
         )
         if status["active_tests"]:
             for test in status["active_tests"]:
@@ -393,6 +459,16 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
                     f"Running: {test['name']} (elapsed: {test['elapsed_time']:.1f}s)"
                 )
         sy.sleep(1)
+
+
+def _positive(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{value!r} is not a number") from None
+    if number < 1:
+        raise argparse.ArgumentTypeError(f"{value} is not at least 1")
+    return number
 
 
 def main() -> None:
@@ -447,7 +523,10 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--filter",
         "-f",
-        help="Filter tests by case path substring. Without a target, searches all *_tests.json. With a target, narrows results within that target.",
+        help=(
+            "Filter tests by case path substring. Without a target, searches all "
+            "*_tests.json. With a target, narrows results within that target."
+        ),
     )
     parser.add_argument(
         "--exclude",
@@ -457,39 +536,62 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--headed",
         action="store_true",
-        help="Run Playwright Console tests in headed mode (sets PLAYWRIGHT_CONSOLE_HEADED environment variable)",
+        help="Run Playwright Console tests in headed mode",
     )
     parser.add_argument(
         "--slow-mo",
         type=int,
         default=0,
         metavar="MS",
-        help=(
-            "Delay each Playwright action by MS milliseconds "
-            "(sets PLAYWRIGHT_CONSOLE_SLOW_MO environment variable)"
-        ),
+        help="Delay each Playwright action by MS milliseconds",
     )
     parser.add_argument(
         "--driver",
         "-d",
-        help="Driver rack name to use for driver tests (sets SYNNAX_DRIVER_RACK environment variable)",
+        help="Driver rack name to use for driver tests",
     )
     parser.add_argument(
         "--logs",
         action="store_true",
+        help=("Stream test case logs as they happen instead of only after a failure"),
+    )
+    parser.add_argument(
+        "--cores",
+        type=_positive,
+        default=1,
         help=(
-            "Stream test case logs as they happen instead of only after a failure "
-            "(sets TC_LOGS environment variable)"
+            "Run sequences on this many Cores at once. The conductor starts the Cores "
+            "past the first on the ports after --port, from --core-binary."
         ),
+    )
+    parser.add_argument(
+        "--core-binary",
+        type=Path,
+        help="Core binary that starts the Cores that --cores adds",
+    )
+    parser.add_argument(
+        "--browsers",
+        type=_positive,
+        help="Most Console tests that run at once (default: no limit)",
+    )
+    parser.add_argument(
+        "--shard",
+        type=shards.parse,
+        help="Run part index of count of the suite, as index/count. Give each part "
+        "the same other flags.",
     )
 
     args = parser.parse_args()
 
-    os.environ["PLAYWRIGHT_CONSOLE_HEADED"] = "1" if args.headed else "0"
-    os.environ["PLAYWRIGHT_CONSOLE_SLOW_MO"] = str(args.slow_mo)
-    os.environ["TC_LOGS"] = "1" if args.logs else "0"
-    if args.driver:
-        os.environ["SYNNAX_DRIVER_RACK"] = args.driver
+    if is_ci() and hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    options = RunOptions(
+        logs_streamed=args.logs,
+        headed=args.headed,
+        slow_mo=args.slow_mo,
+        driver_rack=args.driver or DEFAULT_OPTIONS.driver_rack,
+    )
+    server_log_path = Path(os.environ.get("SYNNAX_SERVER_LOG", server_log.DEFAULT_PATH))
 
     # Create connection object
     connection = SynnaxConnection(
@@ -503,8 +605,14 @@ All matching is case-insensitive substring.
 
     # Create and run test conductor
     conductor = _TestConductor(
+        options=options,
+        server_log_path=server_log_path,
         name=args.name,
         synnax_connection=connection,
+        cores_extra=args.cores - 1,
+        core_binary=args.core_binary,
+        browsers=args.browsers,
+        shard=args.shard,
     )
 
     try:
@@ -536,17 +644,11 @@ All matching is case-insensitive substring.
         # Update conductor range end time
         if conductor.range is not None:
             try:
-                conductor.client.ranges.create(
-                    key=conductor.range.key,
-                    name=conductor.range.name,
-                    time_range=sy.TimeRange(
-                        start=conductor.range.time_range.start,
-                        end=sy.TimeStamp.now(),
-                    ),
-                )
+                conductor.client.ranges.set_end(conductor.range.key, sy.TimeStamp.now())
             except Exception as e:
                 conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 
+        conductor.stop_cores()
         conductor.finalize_bundle()
         if os.environ.get("GITHUB_ACTIONS") == "true":
             _report_to_github(conductor.report_client)
@@ -557,7 +659,8 @@ All matching is case-insensitive substring.
 
             if stats["total_failed"] > 0:
                 conductor.log(
-                    f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
+                    "\nExiting with failure code due to "
+                    f"{stats['total_failed']}/{stats['total']} failed tests"
                 )
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(1)
@@ -568,7 +671,7 @@ All matching is case-insensitive substring.
                     message = (
                         f"All {ran} tests that ran passed, {stats['skipped']} skipped"
                     )
-                conductor.log(f"\n{message}", False)
+                conductor.log(f"\n{message}", use_name=False)
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(0)
         else:

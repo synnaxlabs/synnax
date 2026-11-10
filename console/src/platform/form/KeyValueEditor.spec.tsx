@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, type Mock, vi } from "vitest";
@@ -18,6 +19,9 @@ import { getKVRows } from "@/platform/form/testutil";
 import { getIconButton, renderWithConsole } from "@/testutil";
 
 const PATH = "headers";
+
+const root = deep.path<{ [PATH]: Form.Entry<string, string | number>[] }>();
+const named = deep.path<{ [PATH]: Form.Entry<"name", string | number>[] }>();
 
 type Row = Record<string, unknown>;
 type OnChange = (args: { values: unknown }) => void;
@@ -44,7 +48,7 @@ const Harness = ({
   return (
     <PForm.Form {...methods}>
       <Form.KeyValueEditor
-        path={PATH}
+        path={root[PATH]}
         label="Headers"
         keyField={keyField}
         valueType={valueType}
@@ -217,12 +221,62 @@ describe("KeyValueEditor", () => {
       const methods = PForm.use<typeof schema>({ values: {}, schema, onChange });
       return (
         <PForm.Form<typeof schema> {...methods}>
-          <Form.KeyValueEditor path={PATH} label="Headers" keyField="name" />
+          <Form.KeyValueEditor path={named[PATH]} label="Headers" keyField="name" />
         </PForm.Form>
       );
     };
     await renderWithConsole(<Optional />);
     expect(await screen.findByText("Headers")).toBeDefined();
     expect(onChange).not.toHaveBeenCalled();
+  });
+
+  describe("errors", () => {
+    const schema = z.object({
+      [PATH]: z.array(
+        z.object({
+          name: z.string().min(1, "Name is required"),
+          value: z.string().min(1, "Value is required"),
+        }),
+      ),
+    });
+
+    const Validated = ({ valueFirst }: { valueFirst?: boolean }): ReactElement => {
+      const methods = PForm.use<typeof schema>({
+        values: {
+          [PATH]: [
+            { name: "Accept", value: "" },
+            { name: "", value: "json" },
+          ],
+        },
+        schema,
+      });
+      return (
+        <PForm.Form<typeof schema> {...methods}>
+          <Form.KeyValueEditor
+            path={named[PATH]}
+            label="Headers"
+            keyField="name"
+            valueFirst={valueFirst}
+          />
+          <button onClick={() => methods.validate()}>Validate</button>
+        </PForm.Form>
+      );
+    };
+
+    const invalid = (row: HTMLElement, placeholder: string): string | null =>
+      within(row).getByPlaceholderText(placeholder).getAttribute("aria-invalid");
+
+    it.each([
+      ["the key column comes first", false],
+      ["the value column comes first", true],
+    ])("should mark each cell whose path holds an error when %s", async (_, first) => {
+      const { container } = await renderWithConsole(<Validated valueFirst={first} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Validate" }));
+      const [accept, unnamed] = getKVRows(container);
+      await waitFor(() => expect(invalid(accept, "Value")).toBe("true"));
+      expect(invalid(accept, "Key")).toBeNull();
+      expect(invalid(unnamed, "Key")).toBe("true");
+      expect(invalid(unnamed, "Value")).toBeNull();
+    });
   });
 });

@@ -9,139 +9,227 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The rail marks the rows as the field's own block and brightens while a cell holds
-   focus. As a border it sits outside the scrolled area, so rows never paint over it. It
-   starts at the heading ink, and an empty grid has none. */
-.pluto-input__table-scroll {
-    --pluto-input-table-rail: var(--pluto-gray-l5);
-
+/* A table wider than its container scrolls. */
+.lyra-input__table-scroll {
+    width: 100%;
+    min-width: 0;
     overflow-x: auto;
-
-    &:has(tbody tr) {
-        border-left: var(--pluto-border-width) solid;
-        border-image: linear-gradient(
-                transparent 1rem,
-                var(--pluto-input-table-rail) 1rem
-            )
-            1;
-    }
-
-    &:focus-within {
-        --pluto-input-table-rail: var(--pluto-gray-l7);
-    }
 }
 
-.pluto-input__table {
-    --pluto-input-table-gutter: 5rem;
-    --pluto-input-table-action: 6rem;
-
+/* A ruled grid. The data cells join into one box with shared lines. Row labels and
+   remove buttons sit outside it. */
+.lyra-input__table {
     width: 100%;
 
-    /* Past its columns' widths the grid scrolls instead of squeezing them, keeping
-       the row label, the first column, and the remove button in view. */
-    min-width: calc(var(--pluto-input-table-columns) + var(--pluto-input-table-action));
+    /* The table takes the width its columns need, past which its container scrolls. */
+    min-width: var(--pluto-input-table-width);
     table-layout: fixed;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
 
-    &:has(col.pluto-input__table-gutter) {
-        min-width: calc(
-            var(--pluto-input-table-columns) + var(--pluto-input-table-action) +
-                var(--pluto-input-table-gutter)
+    --pluto-input-table-gutter-width: 5rem;
+    --pluto-input-table-action-width: 5rem;
+    --pluto-input-table-width: calc(
+        var(--pluto-input-table-columns-width) + var(--pluto-input-table-action-width)
+    );
+
+    /* Inner lines are separators. The outer edge is a control border, as on inputs. */
+    --pluto-table-line: var(--pluto-gray-l6);
+    --pluto-table-edge: var(--pluto-gray-l7);
+
+    /* A corner cell curves inside the box edge. */
+    --pluto-table-cell-radius: calc(
+        var(--pluto-border-radius-tiny) - var(--pluto-border-width)
+    );
+
+    &:has(> colgroup > .lyra-input__table-gutter) {
+        --pluto-input-table-width: calc(
+            var(--pluto-input-table-columns-width) +
+                var(--pluto-input-table-action-width) +
+                var(--pluto-input-table-gutter-width)
         );
     }
 
-    & col.pluto-input__table-gutter {
-        width: var(--pluto-input-table-gutter);
+    /* Columns that all declare a width keep it, so the table does not stretch. */
+    &.lyra--sized {
+        width: var(--pluto-input-table-width);
     }
 
-    & col.pluto-input__table-action {
-        width: var(--pluto-input-table-action);
+    & .lyra-input__table-action {
+        width: var(--pluto-input-table-action-width);
     }
 
     & th,
     & td {
+        padding: 0;
         vertical-align: middle;
         font-weight: unset;
     }
 
-    /* The header row matches the add button's small height, so the field's
-       label centers on the first line whether or not rows exist. */
+    &:has(tbody tr) tfoot td {
+        padding-top: 1rem;
+    }
+
+    /* The header row matches the add button's small height, so the field's label
+       centers on the first line. */
     & thead th {
         text-align: left;
         height: var(--pluto-height-small);
-        overflow: hidden;
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
-
-    & tbody td {
-        padding-block: 0.5rem;
-
-        & > .pluto-input {
-            width: 100%;
-        }
-    }
-
-    /* The add row only stands off from rows above it. Alone in an empty grid,
-       it holds the first line so the field's label has a stable anchor. */
-    &:has(tbody tr) tfoot td {
-        padding-top: 0.5rem;
     }
 
     & th:last-child,
     & td:last-child {
-        text-align: right;
+        width: var(--pluto-input-table-action-width);
+        text-align: center;
     }
 
-    /* Column headings sit over the cell text, which shadow inputs inset. */
-    & thead th:not(.pluto-input__table-gutter) {
+    /* Matches the gutter's gap, so the remove button clears the box edge. */
+    & tbody td:last-child {
+        padding-left: 1rem;
+    }
+
+    /* Headings sit over the cell text, which shadow inputs inset. */
+    & thead th:not(.lyra-input__table-gutter) {
         padding-left: 1.5rem;
     }
 
-    /* The first column steps in from the rail. */
-    & tr > :first-child {
-        left: 0;
-        padding-left: 1.5rem;
-    }
-
-    /* The first heading carries the rail indent plus the text inset. */
-    & thead th:first-child:not(.pluto-input__table-gutter) {
-        padding-left: 3rem;
-    }
-
-    /* The gutter holds the row's label, the action column its remove button. */
-    & .pluto-input__table-gutter {
-        text-align: right;
+    & .lyra-input__table-gutter {
+        width: var(--pluto-input-table-gutter-width);
         padding-right: 1rem;
+
+        & > .lyra-text {
+            justify-content: flex-end;
+            margin-left: auto;
+            text-align: right;
+        }
     }
 
-    & td:not(:last-child) {
-        padding-right: 1rem;
+    & :is(thead, tbody) :is(th, td):not(:last-child, .lyra-input__table-gutter) {
+        border-right: var(--pluto-border-width) solid var(--pluto-table-line);
+        border-bottom: var(--pluto-border-width) solid var(--pluto-table-line);
     }
 
-    & tr > .pluto-input__table-gutter + * {
-        left: var(--pluto-input-table-gutter);
+    /* The box edge: the first and last data cell of each row, the top row, and the
+       last row. Without headings, the first row is the top row. */
+    &
+        :is(thead, tbody)
+        tr
+        > :is(
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
+        ) {
+        border-left: var(--pluto-border-width) solid var(--pluto-table-edge);
     }
 
-    & tr > :last-child {
-        right: 0;
+    & :is(thead, tbody) tr > :nth-last-child(2) {
+        border-right-color: var(--pluto-table-edge);
     }
 
-    /* Sticky cells paint the surface under the grid, so rows scroll beneath them. A
-       host that puts the grid on a surface other than the canvas sets
-       --pluto-input-table-bg to match it. */
-    & :is(thead, tbody) tr > :is(:first-child, :last-child),
-    & :is(thead, tbody) tr > .pluto-input__table-gutter + * {
-        position: sticky;
-
-        /* Above the controls in scrolled cells (1, 2 when focused), below an open
-           dropdown (6). */
-        z-index: 3;
-        background: var(--pluto-input-table-bg, var(--pluto-gray-l0));
+    & thead th:not(:last-child, .lyra-input__table-gutter),
+    &:not(:has(thead))
+        tbody
+        tr:first-child
+        > :is(th, td):not(:last-child, .lyra-input__table-gutter) {
+        border-top: var(--pluto-border-width) solid var(--pluto-table-edge);
     }
 
-    & tfoot td > .pluto-btn {
-        position: sticky;
-        left: var(--pluto-input-table-gutter);
+    & tbody tr:last-child > :is(th, td):not(:last-child, .lyra-input__table-gutter) {
+        border-bottom-color: var(--pluto-table-edge);
+    }
+
+    /* Cells carry the input fill, so the grid reads as one input. */
+    & tbody td:not(:last-child) {
+        background: var(--pluto-fill-rest);
+    }
+
+    /* A cell's content fills it, whether a bare input or a container. */
+    & tbody td:not(:last-child) > * {
+        width: 100%;
+        border-radius: 0;
+    }
+
+    /* The box corners. A cell input in a corner curves with it. */
+    & tbody tr:last-child > :nth-last-child(2) {
+        border-bottom-right-radius: var(--pluto-border-radius-tiny);
+
+        & > * {
+            border-bottom-right-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    & thead tr > :nth-last-child(2),
+    &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
+        border-top-right-radius: var(--pluto-border-radius-tiny);
+
+        & > * {
+            border-top-right-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    &
+        tbody
+        tr:last-child
+        > :is(
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
+        ) {
+        border-bottom-left-radius: var(--pluto-border-radius-tiny);
+
+        & > * {
+            border-bottom-left-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    &
+        thead
+        tr
+        > :is(
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
+        ),
+    &:not(:has(thead))
+        tbody
+        tr:first-child
+        > :is(
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
+        ) {
+        border-top-left-radius: var(--pluto-border-radius-tiny);
+
+        & > * {
+            border-top-left-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    /* A cell draws its border on the grid line, so focus and hover frame the whole
+       cell. The focused cell stays above its neighbors. */
+    & tbody .lyra-input {
+        border-width: 0;
+        outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);
+        outline-offset: 0;
+        transition:
+            var(--pluto-btn-transition),
+            outline-color 0.15s ease-in-out;
+
+        &:focus-within {
+            z-index: 2;
+        }
+    }
+
+    /* A marked cell keeps its frame at rest, above its unfocused neighbors. */
+    &
+        tbody
+        .lyra-input:is(.lyra--status-error, .lyra--status-warning):not(:focus-within) {
+        z-index: 1;
+    }
+
+    & tbody .lyra-input.lyra--status-error {
+        --pluto-border-color: var(--pluto-error-z);
+        --pluto-hover-border-color: var(--pluto-error-p1);
+    }
+
+    & tbody .lyra-input.lyra--status-warning {
+        --pluto-border-color: var(--pluto-warning-z);
+        --pluto-hover-border-color: var(--pluto-warning-p1);
     }
 }

@@ -120,6 +120,6 @@ describe("CopyItem", () => {
         </Menu.CopyItem>
       </Menu.Menu>,
     );
-    expect(c.container.querySelector(".pluto-menu-item")).toBeTruthy();
+    expect(c.container.querySelector(".lyra-menu-item")).toBeTruthy();
   });
 });

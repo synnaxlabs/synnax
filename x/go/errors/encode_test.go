@@ -96,14 +96,39 @@ var _ = Describe("Ferrors", Ordered, func() {
 			)
 		})
 	})
+	Describe("Expected", func() {
+		It("Should return true for a registered error", func(ctx SpecContext) {
+			Expect(
+				errors.Expected(ctx, errors.Wrap(errMyCustomOne, "ctx")),
+			).To(BeTrue())
+		})
+		It("Should return true for a join of registered errors", func(ctx SpecContext) {
+			Expect(
+				errors.Expected(ctx, errors.Join(errMyCustomOne, errMyCustomTwo)),
+			).To(BeTrue())
+		})
+		It(
+			"Should return false for a join with an unknown error",
+			func(ctx SpecContext) {
+				Expect(
+					errors.Expected(ctx, errors.Join(errMyCustomOne, errors.New("x"))),
+				).To(BeFalse())
+			},
+		)
+		It("Should return false for an unknown error", func(ctx SpecContext) {
+			Expect(errors.Expected(ctx, errors.New("unknown"))).To(BeFalse())
+		})
+		It("Should return false for a nil error", func(ctx SpecContext) {
+			Expect(errors.Expected(ctx, nil)).To(BeFalse())
+		})
+	})
 	Describe("Decode", func() {
 		Context("Internal is true", func() {
 			It(
 				"Should decode a custom error type from a payload",
 				func(ctx SpecContext) {
 					pld := errors.Encode(ctx, errMyCustomOne, true)
-					err := errors.Decode(ctx, pld)
-					Expect(err).To(Equal(errMyCustomOne))
+					Expect(errors.Decode(ctx, pld)).To(Equal(errMyCustomOne))
 				},
 			)
 			It(

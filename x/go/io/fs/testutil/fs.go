@@ -16,12 +16,10 @@ package testutil
 
 import (
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/testutil"
 )
@@ -35,90 +33,28 @@ type Factory func() xfs.FS
 // FileSystems maps FS implementation names to Factory constructors covering
 // every backend test code needs to exercise (in-memory and on-disk). Each entry
 // produces a fresh FS rooted at an isolated location and arranges for that
-// location to be torn down when the surrounding Ginkgo node exits.
+// location to be torn down when the surrounding Ginkgo node exits. Both roots are
+// named "testdata"; osFS puts its root in a new os.TempDir directory whose name
+// starts with "testdata-p<N>-", where N is the Ginkgo parallel process.
 var FileSystems = map[string]Factory{
-	"memFS": OpenMem,
-	"osFS":  OpenOS,
+	"memFS": openMem,
+	"osFS":  openOS,
 }
 
-// TempDirPrefix returns the prefix used by [OpenOS] for the temporary
-// directories it creates. The prefix encodes the current Ginkgo parallel
-// process so that tests inspecting [os.TempDir] see only entries created by
-// their own process and do not collide with sibling parallel processes.
-func TempDirPrefix() string {
+func tempDirPrefix() string {
 	return fmt.Sprintf("testdata-p%d-", ginkgo.GinkgoParallelProcess())
 }
 
-// OpenMem returns a fresh in-memory FS rooted at "testdata". The rooting
-// matches [OpenOS] so test expectations that include path segments behave
-// identically across backends. No cleanup is needed; the FS is reclaimed by
-// the garbage collector once references go out of scope.
-func OpenMem() xfs.FS {
+func openMem() xfs.FS {
 	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(xfs.NewMem().Sub("testdata"))
 }
 
-// OpenOS returns an on-disk FS rooted at a unique temporary directory and
-// registers a [ginkgo.DeferCleanup] that removes the directory and all of its
-// contents when the enclosing Ginkgo setup node exits.
-func OpenOS() xfs.FS {
+func openOS() xfs.FS {
 	ginkgo.GinkgoHelper()
-	dir := testutil.MustSucceed(os.MkdirTemp("", TempDirPrefix()+"*"))
+	dir := testutil.MustSucceed(os.MkdirTemp("", tempDirPrefix()+"*"))
 	ginkgo.DeferCleanup(func() {
 		gomega.Expect(os.RemoveAll(dir)).To(gomega.Succeed())
 	})
 	return testutil.MustSucceed(xfs.Default.Sub(dir))
-}
-
-// CopyFS copies every file and directory in srcFS into destFS, recursing into
-// sub-directories.
-func CopyFS(srcFS, destFS xfs.FS) error {
-	items, err := srcFS.List("")
-	if err != nil {
-		return err
-	}
-
-	for _, item := range items {
-		if item.IsDir() {
-			// Create directory in destination.
-			subDestFS, err := destFS.Sub(item.Name())
-			if err != nil {
-				return err
-			}
-			subSrcFS, err := srcFS.Sub(item.Name())
-			if err != nil {
-				return err
-			}
-
-			if err := CopyFS(subSrcFS, subDestFS); err != nil {
-				return err
-			}
-			continue
-		}
-
-		// Copy file from source to destination.
-		srcFile, err := srcFS.Open(item.Name(), os.O_RDONLY)
-		if err != nil {
-			return err
-		}
-		destFile, err := destFS.Open(
-			item.Name(),
-			os.O_CREATE|os.O_WRONLY|os.O_TRUNC,
-		)
-		if err != nil {
-			return errors.Combine(err, srcFile.Close())
-		}
-
-		if _, err := io.Copy(destFile, srcFile); err != nil {
-			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
-		}
-
-		if err := destFile.Sync(); err != nil {
-			return errors.Combine(err, errors.Join(srcFile.Close(), destFile.Close()))
-		}
-		if err := errors.Join(srcFile.Close(), destFile.Close()); err != nil {
-			return err
-		}
-	}
-	return nil
 }

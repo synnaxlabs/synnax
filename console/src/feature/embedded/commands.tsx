@@ -10,17 +10,26 @@
 import { Icon } from "@synnaxlabs/lyra/icon";
 
 import { showData, showLogs } from "@/feature/embedded/supervisor";
+import { useConnectModal } from "@/feature/embedded/useConnectModal";
 import { useDiagnosticsModal } from "@/feature/embedded/useDiagnosticsModal";
 import { useReset } from "@/feature/embedded/useReset";
 import { useRestart } from "@/feature/embedded/useRestart";
 import { useReveal } from "@/feature/embedded/useReveal";
 import { Command } from "@/platform/command";
+import { Session } from "@/session";
 
 const OpenDiagnosticsCommand = Command.create({
   key: "open-diagnostics",
   name: "Open diagnostics",
   icon: <Icon.Hardware />,
   useOnSelect: useDiagnosticsModal,
+});
+
+const ConnectCommand = Command.create({
+  key: "connect-from-code",
+  name: "Connect from code",
+  icon: <Icon.Code />,
+  useOnSelect: useConnectModal,
 });
 
 const RestartCommand = Command.create({
@@ -49,10 +58,12 @@ const EraseDataCommand = Command.create({
   name: "Erase all data",
   icon: <Icon.Delete />,
   useOnSelect: useReset,
+  useVisible: () => Session.Runtime.isMainWindow(),
 });
 
 export const COMMANDS = [
   OpenDiagnosticsCommand,
+  ConnectCommand,
   RestartCommand,
   ShowLogsCommand,
   ShowDataCommand,

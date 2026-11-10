@@ -63,5 +63,10 @@ try {
     }
     exit 1
 } finally {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue }
+    # Stop-Process alone kills only the cmd.exe wrapper. The Core and its Driver would
+    # then run through the later checks.
+    if (-not $process.HasExited) {
+        cmd /c "taskkill /PID $($process.Id) /T /F >nul 2>&1"
+    }
+    $process.WaitForExit()
 }

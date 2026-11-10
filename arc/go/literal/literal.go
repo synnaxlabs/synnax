@@ -80,7 +80,7 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 		}
 	}
 	if flags.Format {
-		segments, err := FmtStrParse(value)
+		segments, err := FmtStrSplit(body, flags)
 		if err != nil {
 			return ParsedValue{}, errors.Wrapf(err, "invalid format string %s", text)
 		}

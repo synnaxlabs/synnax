@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
+import { type label, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -15,8 +15,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { type ReactElement } from "react";
 
-import { type Flux } from "@/flux";
-import { type ListQuery, useList } from "@/label/queries";
+import { Flux } from "@/flux";
 import { HAUL_TYPE } from "@/label/types";
 
 const ListItem = ({
@@ -41,7 +40,7 @@ export interface SelectMultipleProps
       Select.MultipleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
+    Omit<Flux.UseListParams<label.RetrieveMultipleParams, label.Label>, "name"> {}
 
 const MultipleTag = (
   props: Select.MultipleTagProps<label.Key>,
@@ -65,19 +64,18 @@ const SELECT_MULTIPLE_TRIGGER_PROPS: Select.MultipleTriggerProps<label.Key> = {
 
 export const SelectMultiple = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    filter,
-    initialQuery,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.labels,
+    { name: "labels", query, filter },
+  );
   return (
     <Select.Multiple<label.Key, label.Label | undefined>
       haulType={HAUL_TYPE}
       getItem={getItem}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       renderTag={labelRenderTag}
@@ -100,22 +98,21 @@ export interface SelectSingleProps
       Select.SingleProps<label.Key, label.Label | undefined>,
       "data" | "resourceName" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, label.Key, label.Label> {}
+    Omit<Flux.UseListParams<label.RetrieveMultipleParams, label.Label>, "name"> {}
 
 export const SelectSingle = ({
   filter,
-  initialQuery,
+  query,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    filter,
-    initialQuery,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = Flux.useList(
+    (client: Synnax) => client.labels,
+    { name: "labels", query, filter },
+  );
   return (
     <Select.Single<label.Key, label.Label | undefined>
       getItem={getItem}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}

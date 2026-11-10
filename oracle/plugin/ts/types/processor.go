@@ -12,6 +12,7 @@ package types
 import (
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
 	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	"github.com/synnaxlabs/oracle/resolution"
@@ -64,7 +65,7 @@ func (fp *FieldProcessor) CollectTypeImports(ref *resolution.TypeRef) {
 		return
 	}
 	if resolved.Namespace == fp.Namespace {
-		zodName := casing.CamelAcronym(resolved.Name) + "Z"
+		zodName := casing.CamelAcronym(domain.GetName(resolved, "ts")) + "Z"
 		importPath := paths.CalculateImport(fp.OutputPath, fp.OutputPath) + "/types.gen"
 		fp.Imports.AddImport(importPath, zodName)
 	}

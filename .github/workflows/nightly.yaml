@@ -22,16 +22,36 @@ permissions:
 jobs:
   ci:
     name: CI
-    # A called workflow gets no more than its caller grants, and the fail-fast job in CI
-    # asks for actions: write.
+    # A called workflow gets no more than its caller grants. In CI, the fail-fast job
+    # asks for actions: write and the paths filter for pull-requests: read.
     permissions:
       actions: write
       contents: write
       packages: write
+      pull-requests: read
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
-    secrets: inherit
+    secrets:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+      APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+      PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
+      PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+      POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
+      TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+      TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
   # The Driver jobs below test against a Core, and CI builds its image in a job they
   # cannot depend on. Both builds tag the image by its sources, so the second finds the
@@ -45,7 +65,6 @@ jobs:
     with:
       module: core
       repository: ghcr.io/synnaxlabs/synnax
-    secrets: inherit
 
   # TSan cannot share the ASan build that CI runs, so it covers the bus code, which
   # moves data between threads, once a night.
@@ -65,7 +84,8 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       vcan: true
-    secrets: inherit
+    secrets:
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   driver-coverage:
     name: Driver - Coverage
@@ -82,7 +102,9 @@ jobs:
       test_flags: --spawn_strategy=local --local_test_jobs=1
       test_tags: -hardware
       vcan: true
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}
 
   notify:
     name: Notify Slack
@@ -106,7 +128,7 @@ jobs:
   triage-prompt:
     name: Write the triage prompt
     needs: ci
-    if: failure()
+    if: failure() && vars.NIGHTLY_TRIAGE_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -114,7 +136,7 @@ jobs:
       prompt: ${{ steps.prompt.outputs.prompt }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           sparse-checkout: .github/agents
 
@@ -141,6 +163,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      id-token: write
       issues: write
       pull-requests: write
     uses: ./.github/workflows/agent.yaml
@@ -151,4 +174,10 @@ jobs:
       title: "[nightly] Fix the failure in run ${{ github.run_id }}"
       labels: review/bot
       timeout-minutes: 90
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_APP_ID: ${{ secrets.CLAUDE_CODE_APP_ID }}
+      CLAUDE_CODE_APP_PRIVATE_KEY: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      CODEX_APP_ID: ${{ secrets.CODEX_APP_ID }}
+      CODEX_APP_PRIVATE_KEY: ${{ secrets.CODEX_APP_PRIVATE_KEY }}
+      SYNNAX_LICENSE_TOKEN: ${{ secrets.SYNNAX_LICENSE_TOKEN }}

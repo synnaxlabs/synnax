@@ -13,14 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apigroup "github.com/synnaxlabs/synnax/pkg/api/group"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apigroup.ServiceConfig {
 		return apigroup.ServiceConfig{
-			RBAC:  &rbac.Service{},
 			Group: &group.Service{},
 		}
 	}
@@ -38,11 +36,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
-				"rbac",
-				func(c *apigroup.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
-			Entry(
 				"group",
 				func(c *apigroup.ServiceConfig) { c.Group = nil },
 				"group: must be non-nil",
@@ -54,14 +47,12 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apigroup.ServiceConfig{}.Override(cfg)
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Group).To(BeIdenticalTo(cfg.Group))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apigroup.ServiceConfig{})
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Group).To(BeIdenticalTo(cfg.Group))
 		})
 	})

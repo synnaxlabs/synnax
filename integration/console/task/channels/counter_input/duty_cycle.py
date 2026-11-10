@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class DutyCycle(Counter):
@@ -30,9 +31,10 @@ class DutyCycle(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        edge: Literal["Rising", "Falling"] | None = None,
+        *,
+        edge: sy.ni.CIEdge | None = None,
         terminal: str | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize duty cycle channel with configuration."""
         super().__init__(

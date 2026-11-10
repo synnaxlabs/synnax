@@ -11,15 +11,13 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
-from x import telem
+from synnax import channel as channel_, device as device_, task
+from x import spatial, telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
 
@@ -596,9 +594,10 @@ class BaseAIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -635,9 +634,10 @@ class BaseCIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -648,21 +648,14 @@ class BaseAOChannel(BaseModel):
     Attributes:
         key: Uniquely identifies the channel within the task.
         disabled: Is true when the channel is excluded from the task.
-        cmd_channel: Is the Synnax channel commands are read from.
-        state_channel: Is the Synnax channel the output state is written to.
-        cmd_channel_name: Is the human-readable name of the command channel.
-        state_channel_name: Is the human-readable name of the state channel.
         port: Is the physical port the channel writes to.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
     disabled: bool = False
-    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    cmd_channel_name: str = ""
-    state_channel_name: str = ""
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -683,9 +676,10 @@ class DIChannel(BaseModel):
     name: str = ""
     disabled: bool = False
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
-    line: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
+    line: int = Field(default=0, ge=0, le=31)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -710,9 +704,10 @@ class DOChannel(BaseModel):
     state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     cmd_channel_name: str = ""
     state_channel_name: str = ""
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
-    line: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
+    line: int = Field(default=0, ge=0, le=31)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -726,21 +721,97 @@ class WriteConfig(task.WriteConfig):
 
     state_rate: telem.Rate = telem.Rate(10)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
 
 class ScanConfig(task.ScanConfig):
-    """Configures the NI device scanner task.
+    """Configures the NI device scanner task."""
 
-    Attributes:
-        ignored_models: Are regex patterns matching the device models the scan skips.
-    """
-
-    ignored_models: list[str] = Field(default_factory=lambda: ["^cRIO.*", "^nown.*"])
-
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class AnalogInputPort(BaseModel):
+    """Is an analog input port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 3 for ai3.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        default_terminal_config: Is the terminal configuration that Cfg_Default gives on
+            the port. The value Cfg_Default means that the Driver did not read it. DAQmx
+            always reads back a real configuration.
+        types: Are the channel types that the port accepts, such as ai_voltage.
+        negative: Is the port that a differential channel on this port uses as its
+            negative input. 0 means that the port has no pair. Port 0 is never a
+            negative port.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    default_terminal_config: TerminalConfig = "Cfg_Default"
+    types: list[str] = Field(default_factory=list)
+    negative: int = Field(default=0, ge=0, le=65535)
+
+
+class AnalogOutputPort(BaseModel):
+    """Is an analog output port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 1 for ao1.
+        terminal_configs: Are the terminal configurations that the port accepts.
+        types: Are the channel types that the port accepts, such as ao_voltage.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    terminal_configs: list[TerminalConfig] = Field(default_factory=list)
+    types: list[str] = Field(default_factory=list)
+
+
+class CounterPort(BaseModel):
+    """Is a counter of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the counter, such as 0 for ctr0.
+        types: Are the channel types that the counter accepts, such as ci_frequency.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    types: list[str] = Field(default_factory=list)
+
+
+class DigitalPort(BaseModel):
+    """Is a digital port of an NI device.
+
+    Attributes:
+        port: Is the number in the DAQmx name of the port, such as 0 for port0.
+        lines: Is the number of lines in the port.
+        input: Is true when the port reads digital input.
+        output: Is true when the port writes digital output.
+    """
+
+    port: int = Field(ge=0, le=65535)
+    lines: int = Field(ge=0, le=32)
+    input: bool = False
+    output: bool = False
+
+
+class CommandedAOChannel(BaseModel):
+    """Carries the command and state channels of a commanded analog output.
+
+    Attributes:
+        cmd_channel: Is the Synnax channel commands are read from.
+        state_channel: Is the Synnax channel the output state is written to.
+        cmd_channel_name: Is the human-readable name of the command channel.
+        state_channel_name: Is the human-readable name of the state channel.
+    """
+
+    cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    state_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
+    cmd_channel_name: str = ""
+    state_channel_name: str = ""
 
 
 class BuiltInCJC(BaseModel):
@@ -760,7 +831,7 @@ class ChanCJC(BaseModel):
     """Reads the reference temperature from another channel."""
 
     source: Literal["chan"] = "chan"
-    port: int = Field(default=0, ge=-2147483648, le=2147483647)
+    port: int = Field(default=0, ge=0, le=4294967295)
 
 
 # Is the cold-junction compensation for a thermocouple. The source selects where
@@ -837,6 +908,7 @@ class DigitalReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[DIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -850,8 +922,56 @@ class DigitalWriteConfig(WriteConfig):
 
     channels: list[DOChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Hardware(BaseModel):
+    """Is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
+    device. The Driver stores it in the device properties under hardware.
+
+    Attributes:
+        analog_inputs: Are the analog input ports of the device.
+        analog_outputs: Are the analog output ports of the device.
+        counter_inputs: Are the counters of the device that read input.
+        counter_outputs: Are the counters of the device that write output.
+        digital_ports: Are the digital ports of the device.
+        terminals: Are the terminals of the device, such as PFI0, without the device
+            name.
+        ai_min_rate: Is the lowest analog input sample rate, in Hz. 0 means that the
+            device does not support the attribute.
+        ai_max_single_channel_rate: Is the highest analog input sample rate of one
+            channel, in Hz. 0 means that the device does not support the attribute.
+        ai_max_multi_channel_rate: Is the highest analog input sample rate of the
+            device, in Hz. A task with several channels divides it by the channel count.
+            0 means that the device does not support the attribute.
+        ao_max_rate: Is the highest analog output sample rate, in Hz. 0 means that the
+            device does not support the attribute.
+        ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
+            included.
+        ai_current_ranges: Are the analog input current ranges of the device, ends
+            included.
+        ao_voltage_ranges: Are the analog output voltage ranges of the device, ends
+            included.
+        ao_current_ranges: Are the analog output current ranges of the device, ends
+            included.
+    """
+
+    analog_inputs: list[AnalogInputPort] = Field(default_factory=list)
+    analog_outputs: list[AnalogOutputPort] = Field(default_factory=list)
+    counter_inputs: list[CounterPort] = Field(default_factory=list)
+    counter_outputs: list[CounterPort] = Field(default_factory=list)
+    digital_ports: list[DigitalPort] = Field(default_factory=list)
+    terminals: list[str] = Field(default_factory=list)
+    ai_min_rate: telem.Rate = telem.Rate(0)
+    ai_max_single_channel_rate: telem.Rate = telem.Rate(0)
+    ai_max_multi_channel_rate: telem.Rate = telem.Rate(0)
+    ao_max_rate: telem.Rate = telem.Rate(0)
+    ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
 
 
 class CustomScale(BaseModel):
@@ -1193,7 +1313,7 @@ class CIFrequencyChannel(BaseCIChannel, CustomScale, MinMaxVal):
     edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: float = 0.000006
-    divisor: int = Field(default=4, ge=-2147483648, le=2147483647)
+    divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
 
@@ -1203,7 +1323,7 @@ class CIEdgeCountChannel(BaseCIChannel):
     type: Literal["ci_edge_count"] = "ci_edge_count"
     active_edge: CIEdge = "Rising"
     count_direction: CICountDirection = "CountUp"
-    initial_count: float = 0
+    initial_count: int = Field(default=0, ge=0, le=4294967295)
     terminal: str = ""
 
 
@@ -1217,7 +1337,7 @@ class CIPeriodChannel(BaseCIChannel, CustomScale, MinMaxVal):
     starting_edge: CIEdge = "Rising"
     meas_method: CIMeasMethod = "DynamicAvg"
     meas_time: float = 0.001000
-    divisor: int = Field(default=4, ge=-2147483648, le=2147483647)
+    divisor: int = Field(default=4, ge=1, le=4294967295)
     terminal: str = ""
 
 
@@ -1276,7 +1396,7 @@ class CIVelocityAngularChannel(BaseCIChannel, CustomScale, MinMaxVal):
     max_val: float = 1
     units: CIAngularVelocityUnits = "RPM"
     decoding_type: CIDecodingType = "X4"
-    pulses_per_rev: float = 24
+    pulses_per_rev: int = Field(default=24, ge=1, le=4294967295)
     terminal_a: str = ""
     terminal_b: str = ""
 
@@ -1299,7 +1419,7 @@ class CIPositionAngularChannel(BaseCIChannel, CustomScale, ZIndex):
     type: Literal["ci_position_angular"] = "ci_position_angular"
     units: CIAngularPositionUnits = "Degrees"
     decoding_type: CIDecodingType = "X4"
-    pulses_per_rev: float = 24
+    pulses_per_rev: int = Field(default=24, ge=1, le=4294967295)
     initial_angle: float = 0
     terminal_a: str = ""
     terminal_b: str = ""
@@ -1333,14 +1453,14 @@ CIChannel = Annotated[
 ]
 
 
-class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOCurrentChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a current output."""
 
     type: Literal["ao_current"] = "ao_current"
 
 
 class AOFuncGenChannel(BaseAOChannel):
-    """Drives a function-generator output."""
+    """Generates a waveform from task start to task stop, with no commands."""
 
     type: Literal["ao_func_gen"] = "ao_func_gen"
     wave_type: WaveType = "Sine"
@@ -1349,7 +1469,7 @@ class AOFuncGenChannel(BaseAOChannel):
     offset: float = 0
 
 
-class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale):
+class AOVoltageChannel(BaseAOChannel, MinMaxVal, CustomScale, CommandedAOChannel):
     """Drives a voltage output."""
 
     type: Literal["ao_voltage"] = "ao_voltage"
@@ -1372,6 +1492,7 @@ class AnalogReadConfig(task.ReadConfig):
 
     channels: list[AIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1385,6 +1506,7 @@ class CounterReadConfig(task.ReadConfig):
 
     channels: list[CIChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -1398,5 +1520,6 @@ class AnalogWriteConfig(WriteConfig):
 
     channels: list[AOChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

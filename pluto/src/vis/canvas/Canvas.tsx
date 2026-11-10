@@ -9,7 +9,6 @@
 
 import "@/vis/canvas/Canvas.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import {
   useCombinedRefs,
   useResize,
@@ -27,6 +26,7 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<

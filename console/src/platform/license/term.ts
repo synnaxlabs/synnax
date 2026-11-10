@@ -26,7 +26,7 @@ export const describeTerm = ({ exp, maxVersion }: license.License): string => {
 export const describeChannels = ({ channels }: license.License): string =>
   channels === 0 ? "Unlimited" : `Up to ${channels}`;
 
-/** Joins host hashes the way the portal reads them. */
+/** Joins the hashes of a fingerprint the way the portal reads them. */
 export const joinFingerprint = (fingerprint: string[]): string =>
   fingerprint.join(", ");
 

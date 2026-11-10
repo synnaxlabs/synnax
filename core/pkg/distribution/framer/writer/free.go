@@ -13,6 +13,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
@@ -22,22 +23,28 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// freeWriteAlignments tracks a monotonically increasing alignment counter for each
-// free index channel, shared across every writer opened on the service.
+// freeWriteAlignments tracks a monotonically increasing alignment counter for each free
+// index channel and each free channel with no index, shared across every writer opened
+// on the service.
 type freeWriteAlignments struct {
 	counters map[channel.Key]*cesium.AlignmentCounter
 	mu       sync.Mutex
 }
 
-// reserve returns the first alignment of a new domain for each index channel in
-// indexes.
+// reserve returns the first alignment of a new domain for the index channel of each key
+// in keys, or for the key itself when indexes holds no index for it.
 func (f *freeWriteAlignments) reserve(
+	keys []channel.Key,
 	indexes map[channel.Key]channel.Key,
 ) (map[channel.Key]telem.Alignment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	alignments := make(map[channel.Key]telem.Alignment, len(indexes))
-	for _, idx := range indexes {
+	alignments := make(map[channel.Key]telem.Alignment, len(keys))
+	for _, key := range keys {
+		idx, indexed := indexes[key]
+		if !indexed {
+			idx = key
+		}
 		if _, ok := alignments[idx]; ok {
 			continue
 		}
@@ -58,6 +65,7 @@ func (f *freeWriteAlignments) reserve(
 func (s *Service) newFree(
 	mode Mode,
 	sync bool,
+	keys []channel.Key,
 	freeIndexes map[channel.Key]channel.Key,
 	alignments map[channel.Key]telem.Alignment,
 	group uint32,
@@ -65,6 +73,10 @@ func (s *Service) newFree(
 	if freeIndexes == nil {
 		freeIndexes = make(map[channel.Key]channel.Key)
 	}
+	unindexed := lo.Filter(keys, func(k channel.Key, _ int) bool {
+		_, indexed := freeIndexes[k]
+		return !indexed
+	})
 	w := &freeWriter{
 		freeWrites: s.cfg.FreeWrites,
 		mode:       mode,
@@ -72,6 +84,7 @@ func (s *Service) newFree(
 		group:      group,
 		indexes:    freeIndexes,
 		alignments: alignments,
+		stamper:    newUnindexedStamper(unindexed),
 	}
 	w.Transform = w.transform
 	return w
@@ -81,8 +94,10 @@ func (s *Service) newFree(
 type freeWriter struct {
 	// indexes maps each free channel with an index to that index channel's key.
 	indexes map[channel.Key]channel.Key
-	// alignments tracks the current alignment for each free index channel.
+	// alignments tracks the current alignment for each free index channel and each free
+	// channel with no index.
 	alignments map[channel.Key]telem.Alignment
+	stamper    *unindexedStamper[channel.Key]
 	confluence.LinearTransform[Request, Response]
 	// freeWrites is the inlet for communicating free frames to the relay
 	freeWrites confluence.Inlet[relay.Response]
@@ -96,6 +111,7 @@ type freeWriter struct {
 }
 
 func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
+	w.stamper.stamp(fr.Frame)
 	var (
 		idx channel.Key
 		ok  bool
@@ -104,7 +120,13 @@ func (w *freeWriter) alignFrame(fr frame.Frame) frame.Frame {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		s.Alignment = w.alignments[w.indexes[fr.RawKeyAt(rawI)]]
+		key := fr.RawKeyAt(rawI)
+		if idx, ok = w.indexes[key]; ok {
+			s.Alignment = w.alignments[idx]
+		} else {
+			s.Alignment = w.alignments[key]
+			w.alignments[key] = s.Alignment.AddSamples(uint32(s.Len()))
+		}
 		fr.SetRawSeriesAt(rawI, s)
 	}
 

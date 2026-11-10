@@ -11,13 +11,12 @@
 
 from __future__ import annotations
 
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -40,6 +39,7 @@ class BaseChannel(BaseModel):
     node_name: str = ""
     data_type: telem.DataType = telem.DataType("float32")
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -47,8 +47,29 @@ class BaseChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an OPC UA scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class UnarySampling(BaseModel):
+    """Reads one sample per node at the sample rate."""
+
+    type: Literal["unary"] = "unary"
+
+
+class ArraySampling(BaseModel):
+    """Reads an array of samples from each node on each read."""
+
+    type: Literal["array"] = "array"
+    size: int = Field(default=1, ge=1, le=4294967295)
+
+
+# Selects how a read task samples its nodes.
+Sampling = Annotated[
+    UnarySampling | ArraySampling,
+    Field(discriminator="type"),
+]
 
 
 class ReadChannel(BaseChannel):
@@ -57,11 +78,15 @@ class ReadChannel(BaseChannel):
     Attributes:
         channel: Is the Synnax channel that samples are written to.
         is_index: Is true when the channel's Synnax channel is the task's index.
+        field: Is the path to a member of the node's structure value. Names join with
+            '.', and '&' escapes the next character. Empty reads the whole value.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
+    field: str = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -75,6 +100,7 @@ class WriteChannel(BaseChannel):
 
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -86,18 +112,21 @@ class ReadConfig(task.ReadConfig):
         sample_rate: Is the per-channel hardware sample rate, in Hertz.
         stream_rate: Is the rate at which samples are streamed to Synnax, in Hertz.
         device: Is the key of the device representing the OPC UA server.
-        array_mode: Is true when each read returns an array of samples per node.
-        array_size: Is the number of samples in each array when array_mode is true.
+        sampling: Is how the task samples each node.
         channels: Are the OPC UA nodes the task acquires.
+        nan_fill_enabled: Is true when a bad value of a float channel is written as NaN.
+            When false, a bad value skips the read for every channel that shares its
+            index.
     """
 
     sample_rate: telem.Rate = telem.Rate(50)
     stream_rate: telem.Rate = telem.Rate(25)
     device: device_.Key = ""
-    array_mode: bool = False
-    array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
+    sampling: Sampling = Field(default_factory=lambda: UnarySampling(type="unary"))
     channels: list[ReadChannel] = Field(default_factory=list)
+    nan_fill_enabled: bool = False
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -111,5 +140,6 @@ class WriteConfig(task.WriteConfig):
 
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

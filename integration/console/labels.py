@@ -9,8 +9,7 @@
 
 from re import search as re_search
 
-from playwright.sync_api import Locator, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError, expect
 
 from console.base import ResourceClient
 from console.color import pick as pick_color
@@ -26,9 +25,9 @@ class LabelClient(ResourceClient):
     def create(self, name: str, *, color: str | None = None) -> None:
         """Create a new label.
 
-        Args:
-            name: The name for the new label.
-            color: Optional hex color code (e.g., "#FF0000") to set for the new label.
+        :param name: The name for the new label.
+        :param color: Optional hex color code (e.g., "#FF0000") to set for the new
+            label.
         """
         self._open_edit_modal()
         add_button = self.layout.page.locator("button.console-label__create")
@@ -39,13 +38,13 @@ class LabelClient(ResourceClient):
         ).first
 
         if color is not None:
-            color_swatch = create_form.locator(".pluto-color-swatch").first
-            pick_color(self.layout.page, color_swatch, color)
+            color_swatch = create_form.locator(".lyra-color-swatch").first
+            pick_color(self.layout.page, color_swatch, hex_color=color)
 
         name_input = create_form.locator("input[placeholder='Name']")
         name_input.fill(name)
 
-        save_button = create_form.locator("button:has(svg.pluto-icon--check)")
+        save_button = create_form.locator("button:has(svg.lyra-icon--check)")
         save_button.click()
         create_form.wait_for(state="hidden", timeout=5000)
 
@@ -54,7 +53,8 @@ class LabelClient(ResourceClient):
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
             raise ValueError(
-                f"Label '{name}' was not created successfully. Available labels: {all_names}"
+                f"Label '{name}' was not created successfully. Available labels: "
+                f"{all_names}"
             )
 
         self._close_edit_modal()
@@ -89,7 +89,7 @@ class LabelClient(ResourceClient):
         label_item = self._wait_for_label_item(name)
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
-        color_swatch = label_item.locator(".pluto-color-swatch").first
+        color_swatch = label_item.locator(".lyra-color-swatch").first
         style = color_swatch.get_attribute("style")
         if style is None:
             raise ValueError(f"Label '{name}' has no style attribute")
@@ -104,9 +104,8 @@ class LabelClient(ResourceClient):
     def rename(self, *, old_name: str, new_name: str) -> None:
         """Rename an existing label.
 
-        Args:
-            old_name: The current name of the label.
-            new_name: The new name for the label.
+        :param old_name: The current name of the label.
+        :param new_name: The new name for the label.
         """
         self._open_edit_modal()
 
@@ -127,7 +126,8 @@ class LabelClient(ResourceClient):
             all_items = self._find_label_items()
             all_names = self._enumerate_label_names(all_items)
             raise RuntimeError(
-                f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}"
+                f"Label rename from '{old_name}' to '{new_name}' did not complete. "
+                f"Available labels: {all_names}"
             )
 
         self._close_edit_modal()
@@ -135,11 +135,8 @@ class LabelClient(ResourceClient):
     def delete(self, name: str) -> None:
         """Delete a label.
 
-        Args:
-            name: The name of the label to delete.
-
-        Raises:
-            ValueError: If the label with the provided name is not found.
+        :param name: The name of the label to delete.
+        :raises ValueError: If the label with the provided name is not found.
         """
         self._open_edit_modal()
 
@@ -152,7 +149,7 @@ class LabelClient(ResourceClient):
 
         label_item.hover()
 
-        delete_button = label_item.locator("button:has(svg.pluto-icon--delete)")
+        delete_button = label_item.locator("button:has(svg.lyra-icon--delete)")
         delete_button.wait_for(state="visible", timeout=5000)
 
         element_id = label_item.get_attribute("id")
@@ -167,8 +164,7 @@ class LabelClient(ResourceClient):
     def list_all(self) -> list[str]:
         """List all existing labels.
 
-        Returns:
-            List of label names.
+        :returns: List of label names.
         """
         self._open_edit_modal()
         labels: list[str] = []
@@ -186,9 +182,8 @@ class LabelClient(ResourceClient):
     def change_color(self, *, name: str, new_color: str) -> None:
         """Change the color of a label.
 
-        Args:
-            name: The name of the label to update.
-            new_color: The new hex color code (e.g., "#FF0000").
+        :param name: The name of the label to update.
+        :param new_color: The new hex color code (e.g., "#FF0000").
         """
         self._open_edit_modal()
 
@@ -196,12 +191,12 @@ class LabelClient(ResourceClient):
         if label_item is None:
             raise ValueError(f"Label '{name}' not found")
 
-        color_swatch = label_item.locator(".pluto-color-swatch").first
-        pick_color(self.layout.page, color_swatch, new_color)
+        color_swatch = label_item.locator(".lyra-color-swatch").first
+        pick_color(self.layout.page, color_swatch, hex_color=new_color)
         self._close_edit_modal()
 
     def _open_edit_modal(self) -> None:
-        self.layout.open_modal("Edit labels", _MODAL_SELECTOR)
+        self.layout.open_modal("Edit labels", selector=_MODAL_SELECTOR)
 
     def _close_edit_modal(self) -> None:
         self.layout.close_modal(_MODAL_SELECTOR)
@@ -234,11 +229,8 @@ class LabelClient(ResourceClient):
     def _enumerate_label_names(self, items: list[Locator]) -> list[str]:
         """Extract label names from a list of label item locators.
 
-        Args:
-            items: List of label item locators
-
-        Returns:
-            List of label names
+        :param items: List of label item locators
+        :returns: List of label names
         """
         all_names = []
         for item in items:

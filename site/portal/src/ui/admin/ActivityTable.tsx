@@ -14,9 +14,10 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type Activity } from "@/page";
-import { dateTime, describeEvent, machineName } from "@/ui/format";
+import { describeEvent, machineName } from "@/ui/format";
 import { Empty } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
+import { useClock } from "@/ui/useClock";
 
 export interface ActivityTableProps extends Activity {
   /** organizations shows each event's organization in its own column. */
@@ -36,6 +37,7 @@ export const ActivityTable = ({
   organizations = false,
   filtered = false,
 }: ActivityTableProps): ReactElement => {
+  const clock = useClock();
   if (page.entries.length === 0)
     return (
       <Empty
@@ -69,17 +71,17 @@ export const ActivityTable = ({
             }
           >
             <Text.Text level="p" color={9}>
-              {dateTime(e.at)}
+              {clock.dateTime(e.at)}
             </Text.Text>
             {organizations && (
-              <Text.Text level="p" color={10} overflow="ellipsis">
+              <Text.Text level="p" color={10} overflow="fade">
                 {organization}
               </Text.Text>
             )}
-            <Text.Text level="p" color={10} overflow="ellipsis">
+            <Text.Text level="p" color={10} overflow="fade">
               {license}
             </Text.Text>
-            <Text.Text level="p" color={11} overflow="ellipsis">
+            <Text.Text level="p" color={11} overflow="fade">
               {describeEvent(e, { machines, actors })}
             </Text.Text>
           </Row>

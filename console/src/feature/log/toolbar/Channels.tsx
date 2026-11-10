@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, log } from "@synnaxlabs/client";
-import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,7 +20,6 @@ import {
   color,
   DataType,
   type notation,
-  primitive,
   type TimestampFormat,
   type TimeZone,
 } from "@synnaxlabs/x";
@@ -29,7 +27,8 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
 
-const PRECISION_BOUNDS = { lower: -1, upper: 17 };
+const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -43,6 +42,8 @@ interface ChannelRowProps {
   disabled: boolean;
 }
 
+const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
+
 const ChannelRow = ({
   index,
   channel,
@@ -52,22 +53,29 @@ const ChannelRow = ({
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const config = Log.useChannelEntry({ channel });
-  const query = channel > 0 ? { key: channel } : null;
+  const otherChannels = Log.useChannelKeys().filter((key) => key !== channel);
+  const query = { key: channel };
   const { data: dataType } = Channel.useResultDataType(query);
   const { data: chName } = Channel.useResultName(query);
   const showNumeric = showsNumericFields(dataType);
   const showTimestamp = isTimestamp(dataType);
 
+  // Spreading counts each character as one, which the input's maxLength does not.
   const handleAliasChange = (alias: string) =>
-    dispatch(log.setChannelAlias({ channel, alias }));
+    dispatch(
+      log.setChannelAlias({
+        channel,
+        alias: [...alias].slice(0, ALIAS_MAX_LENGTH).join(""),
+      }),
+    );
   const handleNotationChange = (notation: notation.Notation) =>
     dispatch(log.setChannelNotation({ channel, notation }));
-  const handlePrecisionChange = (precision: number) =>
+  const handlePrecisionChange = (precision?: number) =>
     dispatch(log.setChannelPrecision({ channel, precision }));
   const handleFormatChange = (format: TimestampFormat) =>
     dispatch(log.setChannelTimestampFormat({ channel, format }));
-  const handleTzChange = (tz: TimeZone) =>
-    dispatch(log.setChannelTimestampTz({ channel, tz }));
+  const handleTimeZoneChange = (timeZone: TimeZone) =>
+    dispatch(log.setChannelTimestampTimeZone({ channel, timeZone }));
   // The log stores a zero color for a channel that follows the theme.
   const handleColorChange = (c?: color.Color) =>
     dispatch(log.setChannelColor({ channel, color: c ?? color.ZERO }));
@@ -79,7 +87,7 @@ const ChannelRow = ({
         : log.swapChannel({ from: channel, to }),
     );
   if (config == null) return null;
-  const { alias, timestamp, precision, notation } = config;
+  const { alias, timestampConfig, precision, notation } = config;
   const hasCustomColor = !color.isZero(config.color);
   return (
     <List.Item
@@ -99,8 +107,9 @@ const ChannelRow = ({
           value={channel}
           onChange={handleChannelChange}
           allowNone
-          initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+          query={selectQueryExcluding(otherChannels)}
           disabled={disabled}
+          triggerProps={SHADOW_TRIGGER_PROPS}
           className={CSS.BE("log", "channel-select")}
         />
         <Input.Text
@@ -118,13 +127,16 @@ const ChannelRow = ({
       <Flex.Box x align="center">
         {showNumeric && (
           <>
-            <Notation.Select value={notation} onChange={handleNotationChange} />
+            <Notation.Select
+              value={notation}
+              onChange={handleNotationChange}
+              disabled={disabled}
+            />
             <Input.Numeric
               value={precision}
               onChange={handlePrecisionChange}
-              resetValue={-1}
-              emptyValue={-1}
-              placeholder="Auto"
+              onClear={() => handlePrecisionChange()}
+              endContent={precision == null ? <Input.AutoBadge /> : undefined}
               bounds={PRECISION_BOUNDS}
               disabled={disabled}
               shrink={false}
@@ -134,31 +146,28 @@ const ChannelRow = ({
               className={CSS.BE("log", "channel-precision")}
               showDragHandle={false}
             >
-              <Button.Button
-                variant="outlined"
-                disabled={disabled || precision === -1}
-                onClick={() => handlePrecisionChange(-1)}
-                tooltip={
-                  config.precision === -1
-                    ? "Type a number to disable auto precision"
-                    : "Enable auto precision"
-                }
-              >
-                <Icon.Auto />
-              </Button.Button>
+              {precision != null && (
+                <Input.AutoButton
+                  disabled={disabled}
+                  onClick={() => handlePrecisionChange()}
+                />
+              )}
             </Input.Numeric>
           </>
         )}
         {showTimestamp && (
           <>
             <Telem.SelectTimestampFormat
-              value={timestamp.format}
+              value={timestampConfig.format}
               onChange={handleFormatChange}
+              disabled={disabled}
+              triggerProps={SHADOW_TRIGGER_PROPS}
             />
             <Telem.SelectTimeZone
               className={CSS.BE("log", "channel-tz")}
-              value={timestamp.tz}
-              onChange={handleTzChange}
+              value={timestampConfig.timeZone}
+              onChange={handleTimeZoneChange}
+              disabled={disabled}
             />
           </>
         )}
@@ -166,6 +175,7 @@ const ChannelRow = ({
           value={hasCustomColor ? config.color : undefined}
           fallback={defaultColor}
           onChange={handleColorChange}
+          disabled={disabled}
           size="small"
         />
       </Flex.Box>
@@ -174,8 +184,15 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  internal: IS_DEV ? undefined : false,
+  where: { internal: IS_DEV ? undefined : { eq: false } },
 };
+
+const selectQueryExcluding = (keys: channel.Key[]): Channel.ListQuery =>
+  keys.length === 0
+    ? SELECT_CHANNEL_INITIAL_QUERY
+    : {
+        where: { ...SELECT_CHANNEL_INITIAL_QUERY.where, not: { key: { in: keys } } },
+      };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {
   placeholder: "Add channel",
@@ -193,7 +210,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
       <Channel.SelectSingle
         allowNone
         onChange={handleAdd}
-        initialQuery={SELECT_CHANNEL_INITIAL_QUERY}
+        query={SELECT_CHANNEL_INITIAL_QUERY}
         disabled={disabled}
         triggerProps={ADD_CHANNEL_TRIGGER_PROPS}
         className={CSS.BE("log", "channel-select")}
@@ -205,7 +222,7 @@ const AddChannelRow = ({ disabled }: AddChannelRowProps): ReactElement => {
 export const Channels = (): ReactElement => {
   const channelKeys = Log.useChannelKeys();
   const key = Log.useKey();
-  const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(key));
+  const hasUpdatePermission = Access.useUpdateGranted(log.resourceID(key));
   return (
     <Flex.Box
       y
@@ -214,11 +231,9 @@ export const Channels = (): ReactElement => {
       aria-label="Log channels"
       className={CSS.BE("log", "toolbar", "channels")}
     >
-      {channelKeys.map((ch, i) =>
-        primitive.isZero(ch) ? null : (
-          <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
-        ),
-      )}
+      {channelKeys.map((ch, i) => (
+        <ChannelRow key={ch} index={i} channel={ch} disabled={!hasUpdatePermission} />
+      ))}
       <AddChannelRow disabled={!hasUpdatePermission} />
     </Flex.Box>
   );

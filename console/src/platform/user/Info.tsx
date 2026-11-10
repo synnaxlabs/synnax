@@ -17,56 +17,31 @@ import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
-const Roles = (): ReactElement | null => {
+const Role = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
-  const { data: roles } = Access.Role.useResultForUser(
+  const { data: role } = Access.Role.useResultForUser(
     key != null ? { user: key } : null,
   );
-  if (roles == null || roles.length === 0) return null;
+  if (role == null) return null;
   return (
-    <Flex.Box x wrap gap="small" className={CSS.BE("user-info", "roles")}>
-      {roles.map(({ key, name }) => (
-        <Tag.Tag key={key} size="small" icon={<Icon.Role />}>
-          {name}
-        </Tag.Tag>
-      ))}
-    </Flex.Box>
+    <Tag.Tag size="small" icon={<Icon.Role />} className={CSS.BE("user-info", "role")}>
+      {role.name}
+    </Tag.Tag>
   );
 };
 
-/** The logged-in user's first name, falling back to their username. */
-export const useDisplayName = (): string => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  return firstName != null && firstName !== "" ? firstName : username;
-};
-
-/** The logged-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name and role, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const { data: lastName } = User.useResultLastName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  const fullName = [firstName, lastName].filter((part) => part).join(" ");
-  const name = fullName !== "" ? fullName : username;
+  const { data: name } = User.useResultName({});
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
-        <Text.Text weight={500} color={11} overflow="ellipsis">
+        <Text.Text weight={500} color={11} overflow="fade">
           {name}
         </Text.Text>
-        <Roles />
+        <Role />
       </Flex.Box>
-      {fullName !== "" && (
-        <Text.Text level="small" color={9} overflow="ellipsis">
-          {username}
-        </Text.Text>
-      )}
     </Flex.Box>
   );
 };

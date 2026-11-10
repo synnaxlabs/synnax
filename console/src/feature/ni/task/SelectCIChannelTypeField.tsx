@@ -20,36 +20,52 @@ import {
   createCIChannel,
 } from "@/feature/ni/task/types";
 
-export const SelectCIChannelTypeField = Form.buildSelectField<CIChannelType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Channel type",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<CIChannelType>(path).value;
+/** The items of the channel type select, one for each of the types. */
+export const channelTypeItems = (types: readonly CIChannelType[]) =>
+  types.map((type) => {
+    const Icon = CI_CHANNEL_TYPE_ICONS[type];
+    return (
+      <Select.Item key={type} itemKey={type}>
+        <Icon color={9} />
+        {CI_CHANNEL_TYPE_NAMES[type]}
+      </Select.Item>
+    );
+  });
+
+const SelectType = Form.buildSelectField<CIChannelType>({
+  fieldProps: { label: "Channel type" },
+  inputProps: {
+    resourceName: "channel type",
+    children: channelTypeItems(record.keys(CI_CHANNEL_TYPE_NAMES)),
+  },
+});
+
+interface SelectCIChannelTypeFieldProps extends Pick<
+  Form.SelectFieldProps<CIChannelType>,
+  "inputProps"
+> {
+  path: deep.Path<CIChannel>;
+}
+
+export const SelectCIChannelTypeField = ({
+  path,
+  inputProps,
+}: SelectCIChannelTypeFieldProps) => (
+  <SelectType
+    path={path.type}
+    inputProps={inputProps}
+    onChange={(value, { get, set }) => {
+      const prevType = get(path.type).value;
       if (prevType === value) return;
       const next = createCIChannel(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<CIChannel>(parentPath).value;
+      const prevParent = get(path).value;
       const schema = CI_CHANNEL_SCHEMAS[value];
-      const nextValue = {
+      set(path, {
         ...deep.overrideValidItems(next, prevParent, schema),
         type: next.type,
         ...("minVal" in next && { minVal: next.minVal }),
         ...("maxVal" in next && { maxVal: next.maxVal }),
-      };
-      set(parentPath, nextValue);
-    },
-  },
-  inputProps: {
-    resourceName: "channel type",
-    children: record.keys(CI_CHANNEL_TYPE_NAMES).map((type) => {
-      const Icon = CI_CHANNEL_TYPE_ICONS[type];
-      return (
-        <Select.Item key={type} itemKey={type}>
-          <Icon color={9} />
-          {CI_CHANNEL_TYPE_NAMES[type]}
-        </Select.Item>
-      );
-    }),
-  },
-});
+      } as CIChannel);
+    }}
+  />
+);

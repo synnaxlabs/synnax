@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- restyles React Flow, which styles these
+   parts in its own stylesheet and inline */
+
 .pluto-diagram__container {
     width: inherit;
     height: inherit;

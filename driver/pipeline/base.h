@@ -15,6 +15,7 @@
 #include "absl/log/log.h"
 
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/errors/errors.h"
 #include "x/cpp/thread/thread.h"
 
 namespace driver::pipeline {
@@ -24,14 +25,19 @@ class Base {
     /// @brief the name to assign to the pipeline thread.
     std::string thread_name;
 
-    /// @brief an internal run
     void run_internal() {
         if (!this->thread_name.empty()) x::thread::set_name(this->thread_name.c_str());
         try {
             this->run();
         } catch (const std::exception &e) {
-            LOG(ERROR) << "[control] Unhandled standard exception: " << e.what();
-        } catch (...) { LOG(ERROR) << "[control] Unhandled unknown exception"; }
+            LOG(ERROR) << "[pipeline] unhandled exception: " << e.what();
+            this->stopped_with_err(x::errors::Error(x::errors::INTERNAL, e.what()));
+        } catch (...) {
+            LOG(ERROR) << "[pipeline] unhandled unknown exception";
+            this->stopped_with_err(
+                x::errors::Error(x::errors::INTERNAL, "unknown exception")
+            );
+        }
         // A breaker left running makes start() a permanent no-op.
         this->breaker.stop();
     }
@@ -51,6 +57,10 @@ public:
 
     /// @brief the main run loop for the pipeline.
     virtual void run() = 0;
+
+    /// @brief reports an error that stopped the pipeline, such as an exception thrown
+    /// by run().
+    virtual void stopped_with_err(const x::errors::Error &err) = 0;
 
     /// @brief starts the pipeline. This method is idempotent.
     /// @returns true if this is the first call to start() ever or the first call to

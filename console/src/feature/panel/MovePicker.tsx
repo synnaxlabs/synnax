@@ -44,7 +44,7 @@ const Row = (props: List.ItemProps<panel.Key>): ReactElement => {
   return (
     <Select.Item {...props} align="center" gap="medium" className={ROW_CLASS}>
       {renderIcon({ icon, color })}
-      <Text.Text overflow="ellipsis">{name}</Text.Text>
+      <Text.Text overflow="fade">{name}</Text.Text>
     </Select.Item>
   );
 };

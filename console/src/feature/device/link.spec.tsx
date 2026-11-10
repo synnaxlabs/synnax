@@ -10,7 +10,7 @@
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { id } from "@synnaxlabs/x";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
@@ -41,12 +41,14 @@ describe("Device.useLink", () => {
     const [entry] = modals.getState();
     expect(entry).toBeDefined();
     const { wrapper } = await createConsoleWrapper({ client });
-    render(
-      <Dialog.Frame variant="modal" visible>
-        {entry.render()}
-      </Dialog.Frame>,
-      { wrapper },
-    );
+    await act(async () => {
+      render(
+        <Dialog.Frame variant="modal" visible>
+          {entry.render()}
+        </Dialog.Frame>,
+        { wrapper },
+      );
+    });
     expect(await screen.findByDisplayValue("cDAQ Chassis")).toBeTruthy();
   });
 

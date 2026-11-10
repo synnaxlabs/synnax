@@ -12,7 +12,7 @@ import { type Locator } from "playwright";
 import { type capture } from "@/index";
 
 /** CHANNEL is the selector of each channel in a Modbus task form. */
-export const CHANNEL = ".console-channel-item";
+export const CHANNEL = ".console-list-channel-item";
 
 /**
  * choose opens the select in a channel that shows `current`, searches, and picks
@@ -25,13 +25,13 @@ export const choose = async (
   next: string,
 ): Promise<void> => {
   await session.click(
-    channel.locator(".pluto-dialog__trigger").filter({ hasText: current }).first(),
+    channel.locator(".lyra-dialog__trigger").filter({ hasText: current }).first(),
     { text: true },
   );
   await session.hold(300);
   await session.type(next);
   const item = session.page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ has: session.page.getByText(next, { exact: true }) })
     .first();
   await session.waitFor(item);
@@ -46,7 +46,7 @@ export const setAddress = async (
   channel: Locator,
   address: string,
 ): Promise<void> => {
-  await session.click(channel.locator("input").first());
+  await session.click(channel.locator(".console-modbus__address input").first());
   await session.press("ControlOrMeta+a");
   await session.type(address);
   await session.press("Enter");

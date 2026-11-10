@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <condition_variable>
+#include <functional>
 #include <future>
+#include <unordered_map>
+#include <utility>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/task/task.h"
@@ -28,10 +33,10 @@ public:
     MockEchoTask(const std::shared_ptr<Context> &ctx, const synnax::task::Task &task):
         ctx(ctx), sy_task(task) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key, .config_hash = task.config_hash}
+            .details = {.config_hash = task.config_hash},
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -40,29 +45,23 @@ public:
 
     void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
-            .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
-            .details = {
-                .task = sy_task.key,
-                .running = true,
-                .cmd = cmd.key,
-                .config_hash = sy_task.config_hash,
-                .data = cmd.args
-            }
+            .details =
+                {.running = true,
+                 .cmd = cmd.key,
+                 .config_hash = sy_task.config_hash,
+                 .data = cmd.args},
+            .owner = synnax::task::resource_id(sy_task.key),
         };
         ctx->set_status(status);
     }
 
     void stop(bool) override {
         synnax::task::Status status{
-            .key = synnax::task::status_key(sy_task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "stopped",
-            .details = {
-                .task = sy_task.key,
-                .running = false,
-                .config_hash = sy_task.config_hash
-            }
+            .details = {.running = false, .config_hash = sy_task.config_hash},
+            .owner = synnax::task::resource_id(sy_task.key),
         };
         ctx->set_status(status);
     }
@@ -95,10 +94,9 @@ public:
         std::unique_lock lock(mu);
         cv.wait(lock, [&] { return done.load(); });
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -156,10 +154,9 @@ public:
     ):
         sy_task(task), state(std::move(state)) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -278,6 +275,16 @@ void send_start(
     );
 }
 
+/// @brief applies the actions to the stored task, then reads task back from the Core.
+void edit_task(
+    const std::shared_ptr<synnax::Synnax> &client,
+    synnax::task::Task &task,
+    const std::vector<synnax::task::Action> &actions
+) {
+    ASSERT_NIL(client->tasks.dispatch(task.key, actions));
+    task = ASSERT_NIL_P(client->tasks.retrieve(task.key));
+}
+
 synnax::task::Status wait_for_task_status(
     synnax::framer::Streamer &streamer,
     const synnax::task::Task &task,
@@ -287,14 +294,14 @@ synnax::task::Status wait_for_task_status(
     x::telem::TimeSpan timeout = 5 * x::telem::SECOND
 ) {
     synnax::task::Status result;
-    x::test::eventually(
+    x::testutil::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
             for (const auto &j: frame.series->at(0).json_values()) {
                 auto parser = x::json::Parser(j);
                 auto s = synnax::task::Status::parse(parser);
-                if (s.details.task == task.key && pred(s)) {
+                if (s.owner == synnax::task::resource_id(task.key) && pred(s)) {
                     result = s;
                     return true;
                 }
@@ -319,7 +326,7 @@ synnax::task::Status wait_for_task_status(
     )
 
 #define EVENTUALLY(condition, failure_message, ...)                                    \
-    ::x::test::eventually(                                                             \
+    ::x::testutil::eventually(                                                         \
         condition,                                                                     \
         failure_message,                                                               \
         __FILE__,                                                                      \
@@ -373,7 +380,7 @@ protected:
                 for (const auto &j: frame.series->at(0).json_values()) {
                     auto parser = x::json::Parser(j);
                     auto s = synnax::task::Status::parse(parser);
-                    if (s.details.task == task.key &&
+                    if (s.owner == synnax::task::resource_id(task.key) &&
                         (any_rack || s.details.rack == rack.key))
                         received = true;
                 }
@@ -383,6 +390,46 @@ protected:
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
+    }
+
+    /// @brief reads the statuses that a Driver on this rack stamped at or after since,
+    /// keyed by owner, until done returns true for them. Fails the spec after 5
+    /// seconds.
+    std::unordered_map<synnax::resource::ID, synnax::task::Status> read_statuses_since(
+        const x::telem::TimeStamp since,
+        const std::function<bool(
+            const std::unordered_map<synnax::resource::ID, synnax::task::Status> &
+        )> &done
+    ) {
+        std::unordered_map<synnax::resource::ID, synnax::task::Status> statuses;
+        std::promise<bool> ended;
+        auto read_all = ended.get_future();
+        std::thread reader([&] {
+            while (true) {
+                auto [frame, err] = streamer.read();
+                if (err) {
+                    ended.set_value(false);
+                    return;
+                }
+                for (const auto &j: frame.series->at(0).json_values()) {
+                    auto parser = x::json::Parser(j);
+                    auto s = synnax::task::Status::parse(parser);
+                    if (s.details.rack == rack.key && s.time >= since)
+                        statuses[s.owner.value()] = s;
+                }
+                if (done(statuses)) {
+                    ended.set_value(true);
+                    return;
+                }
+            }
+        });
+        // read has no deadline, so closing the stream is what ends a read that waits
+        // for a status that never comes.
+        if (read_all.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+            streamer.close_send();
+        reader.join();
+        if (!read_all.get()) ADD_FAILURE() << "Timed out waiting for task statuses";
+        return statuses;
     }
 
     void TearDown() override {
@@ -407,7 +454,7 @@ TEST_F(TaskManagerTest, DeployOnStart) {
         return s.variant == synnax::status::VARIANT_SUCCESS &&
                s.message == "configured";
     });
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
     ASSERT_FALSE(task.config_hash.empty());
     ASSERT_EQ(s.details.config_hash, task.config_hash);
     ASSERT_EQ(s.details.rack, rack.key);
@@ -474,8 +521,11 @@ TEST_F(TaskManagerTest, RackMoveStopsLiveInstanceSilently) {
     ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
 
     auto other = ASSERT_NIL_P(client->racks.create("move_target"));
-    task.rack = other.key;
-    ASSERT_NIL(other.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
     // The redeploy start lands on the new rack; here it silently frees the
     // instance this driver still holds.
     send_start(client, task, "s2");
@@ -554,8 +604,8 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_EQ(
         s.description,
-        "No integration on this Driver handles task type '" + ALT_SYNTHETIC_TASK_TYPE +
-            "'."
+        "No integration on this Driver runs '" + ALT_SYNTHETIC_TASK_TYPE +
+            "' tasks. Check that the Driver and the Core run the same version."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
@@ -577,7 +627,7 @@ TEST_F(TaskManagerTest, StopOnShutdown) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.message == "stopped";
     });
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
 }
 
 TEST_F(TaskManagerTest, IgnoresSnapshot) {
@@ -617,7 +667,7 @@ TEST_F(TaskManagerTest, ParallelConfig) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, echo, [](const synnax::task::Status &s) {
         return s.message == "configured";
     });
-    ASSERT_EQ(s.details.task, echo.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(echo.key));
 
     f->release();
     WAIT_FOR_TASK_STATUS(streamer, blocking, [](const synnax::task::Status &s) {
@@ -644,6 +694,139 @@ TEST_F(TaskManagerTest, CommandForUnconfigured) {
     });
 }
 
+/// @brief fails the configure of every synthetic task and reports the failure with an
+/// error status. At boot it creates a synthetic task on the rack, as a scanner does.
+class FailingConfigureFactory final : public Factory {
+public:
+    synnax::task::Task initial;
+
+    std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>>
+    configure_initial_tasks(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::rack::Rack &rack
+    ) override {
+        this->initial = {
+            .rack = rack.key,
+            .name = "scanner",
+            .type = SYNTHETIC_TASK_TYPE
+        };
+        if (const auto err = rack.tasks.create(this->initial)) {
+            ADD_FAILURE() << err;
+            return {};
+        }
+        auto [tsk, _] = this->configure_task(ctx, this->initial, NO_COMMAND);
+        std::vector<std::pair<synnax::task::Task, std::unique_ptr<Task>>> tasks;
+        tasks.emplace_back(this->initial, std::move(tsk));
+        return tasks;
+    }
+
+    std::pair<std::unique_ptr<Task>, bool> configure_task(
+        const std::shared_ptr<Context> &ctx,
+        const synnax::task::Task &task,
+        const std::string &cmd_key
+    ) override {
+        if (task.type != SYNTHETIC_TASK_TYPE) return {nullptr, false};
+        synnax::task::Status status{
+            .name = task.name,
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = "Failed to configure task",
+            .description = "Npcap is not installed",
+            .details = {.cmd = cmd_key, .config_hash = task.config_hash},
+            .owner = synnax::task::resource_id(task.key),
+        };
+        ctx->set_status(status);
+        return {nullptr, true};
+    }
+};
+
+/// @brief it should answer a command for a task that failed to configure with the
+/// error of the configure.
+TEST_F(TaskManagerTest, CommandForFailedConfigureAnswersWithConfigureError) {
+    start_manager(std::make_unique<FailingConfigureFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    send_cmd(client, {.task = task.key, .type = "scan", .key = "scan-cmd"});
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "scan-cmd";
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(s.description, "Npcap is not installed");
+    EXPECT_FALSE(s.details.running);
+    EXPECT_EQ(s.details.rack, rack.key);
+}
+
+/// @brief it should answer that a task is not running when a refused pinned start
+/// replaced its configure error.
+TEST_F(TaskManagerTest, CommandAfterRefusedPinnedStartAnswersNotRunning) {
+    start_manager(std::make_unique<FailingConfigureFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "pinned-cmd",
+         .config_hash = "stale",
+         .pinned = true}
+    );
+    send_cmd(client, {.task = task.key, .type = "stop", .key = "stop-cmd"});
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "stop-cmd";
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Task is not running");
+    EXPECT_EQ(
+        s.description,
+        "The task did not start on this Driver. Deploy the task again, then retry."
+    );
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should answer a command for a task that a factory created at boot and
+/// failed to configure with the error of the configure.
+TEST_F(TaskManagerTest, CommandForFailedInitialTaskAnswersWithConfigureError) {
+    auto factory = std::make_unique<FailingConfigureFactory>();
+    const auto *f = factory.get();
+    start_manager(std::move(factory));
+    send_cmd(client, {.task = f->initial.key, .type = "scan", .key = "scan-cmd"});
+    auto s = WAIT_FOR_TASK_STATUS(
+        streamer,
+        f->initial,
+        [](const synnax::task::Status &s) { return s.details.cmd == "scan-cmd"; }
+    );
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(s.description, "Npcap is not installed");
+    EXPECT_FALSE(s.details.running);
+}
+
+/// @brief it should not answer a command for a task that this Driver never deployed,
+/// since another Driver may still run it after a rack move.
+TEST_F(TaskManagerTest, CommandForUndeployedTaskStaysSilent) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_cmd(client, {.task = task.key, .type = "tare", .key = "tare-cmd"});
+    expect_no_driver_status(task);
+}
+
 TEST_F(TaskManagerTest, RapidReconfigure) {
     start_manager(std::make_unique<EchoTaskFactory>());
     auto task = synnax::task::Task{
@@ -658,8 +841,11 @@ TEST_F(TaskManagerTest, RapidReconfigure) {
     });
 
     for (int i = 0; i < 5; i++) {
-        task.config = x::json::json{{"rate", i + 1}};
-        ASSERT_NIL(rack.tasks.create(task));
+        edit_task(
+            client,
+            task,
+            {synnax::task::set({.path = {"config", "rate"}, .value = i + 1})}
+        );
         send_start(client, task, "start-" + std::to_string(i + 1));
     }
     std::this_thread::sleep_for((500 * x::telem::MILLISECOND).chrono());
@@ -703,8 +889,11 @@ TEST_F(TaskManagerTest, StartWithUnchangedConfigDoesNotReconfigure) {
     ASSERT_FALSE(state->stopped.load());
 
     // Changed config: the third start rebuilds the task first.
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     send_start(client, task, "s3");
     EVENTUALLY(
         [&] {
@@ -744,8 +933,11 @@ TEST_F(TaskManagerTest, StartWithStaleCommandHashRedeploys) {
 
     // A start naming the deployed hash cannot hold the fast path once the
     // stored config has moved on: the new revision deploys.
-    task.config = x::json::json{{"rate", 100}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
     ASSERT_NE(task.config_hash, deployed_hash);
     send_start(client, task, "s2", deployed_hash);
     EVENTUALLY(
@@ -793,6 +985,203 @@ TEST_F(TaskManagerTest, StaleCommandHashOnCurrentDeployRunsLiveInstance) {
     ASSERT_FALSE(state->stopped.load());
 }
 
+/// @brief a pinned start whose hash matches the stored config should deploy the task.
+TEST_F(TaskManagerTest, PinnedStartWithStoredHashDeploys) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    ASSERT_EVENTUALLY_EQ(f->task_states[0]->exec_count.load(), 1);
+}
+
+/// @brief a pinned start whose hash is stale should be refused, and should leave the
+/// live instance untouched.
+TEST_F(TaskManagerTest, PinnedStartWithStaleHashIsRefused) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+    const auto seen_hash = task.config_hash;
+
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    ASSERT_NE(task.config_hash, seen_hash);
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = seen_hash,
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(s.message, "Config changed");
+    EXPECT_EQ(
+        s.description,
+        "The task config changed after you saw it. Review the task, then start it "
+        "again."
+    );
+    EXPECT_EQ(state->exec_count.load(), 1);
+    EXPECT_FALSE(state->stopped.load());
+    std::lock_guard lock(f->mu);
+    EXPECT_EQ(f->task_states.size(), 1);
+}
+
+/// @brief a refused pinned start should keep the running state and config hash of the
+/// live instance, so the task still shows as running its deployed config.
+TEST_F(TaskManagerTest, PinnedStartWithStaleHashKeepsRunningStatus) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1" && s.details.running;
+    });
+    const auto deployed_hash = task.config_hash;
+
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 100})}
+    );
+    ASSERT_NE(task.config_hash, deployed_hash);
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = deployed_hash,
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s2";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_TRUE(s.details.running);
+    EXPECT_EQ(s.details.config_hash, deployed_hash);
+}
+
+/// @brief a refused pinned start for a task with no stored status should claim neither
+/// a running instance nor a config hash.
+TEST_F(TaskManagerTest, PinnedStartWithStaleHashAndNoStatusClaimsNothing) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    const auto created = ASSERT_NIL_P(
+        rack.tasks.retrieve(task.key, {.include_status = true})
+    );
+    ASSERT_NIL(client->statuses.del(created.status.value().key));
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s1",
+         .config_hash = "stale",
+         .pinned = true}
+    );
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.details.cmd == "s1";
+    });
+    EXPECT_EQ(s.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_FALSE(s.details.running);
+    EXPECT_TRUE(s.details.config_hash.empty());
+}
+
+/// @brief a pinned start should fetch the stored config even when the live instance was
+/// built from the pinned hash.
+TEST_F(TaskManagerTest, PinnedStartOnCurrentDeployRunsLiveInstance) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+        .config = x::json::json{{"rate", 50}},
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    auto state = f->task_states[0];
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 1);
+
+    send_cmd(
+        client,
+        {.task = task.key,
+         .type = synnax::task::START_CMD_TYPE,
+         .key = "s2",
+         .config_hash = task.config_hash,
+         .pinned = true}
+    );
+    ASSERT_EVENTUALLY_EQ(state->exec_count.load(), 2);
+    std::lock_guard lock(f->mu);
+    ASSERT_EQ(f->task_states.size(), 1);
+}
+
 TEST_F(TaskManagerTest, Timeout) {
     auto factory = std::make_unique<TimeoutTaskFactory>();
     auto *f = factory.get();
@@ -820,7 +1209,7 @@ TEST_F(TaskManagerTest, Timeout) {
         },
         5 * x::telem::SECOND
     );
-    ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(s.owner, synnax::task::resource_id(task.key));
     ASSERT_EQ(
         s.description,
         "The operation did not finish within " +
@@ -902,8 +1291,11 @@ TEST_F(TaskManagerTest, ReconfigureStopsOld) {
         [] { return "first not created"; },
     );
 
-    task.config = x::json::json{{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 2})}
+    );
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_TRUE(first_state->stopped.load());
@@ -931,10 +1323,9 @@ public:
     ):
         sy_task(task), destroyed(destroyed) {
         synnax::task::Status status{
-            .key = synnax::task::status_key(task),
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "configured",
-            .details = {.task = task.key}
+            .owner = synnax::task::resource_id(task.key),
         };
         ctx->set_status(status);
     }
@@ -989,8 +1380,11 @@ TEST_F(TaskManagerTest, ReconfigureCallsDestructor) {
     ASSERT_EQ(f->configure_count.load(), 1);
     ASSERT_FALSE(f->first_destroyed.load());
 
-    task.config = {{"rate", 2}};
-    ASSERT_NIL(rack.tasks.create(task));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"config", "rate"}, .value = 2})}
+    );
     send_start(client, task, "s2");
 
     ASSERT_EVENTUALLY_GE(f->configure_count.load(), 2);
@@ -1350,9 +1744,10 @@ TEST_F(TaskManagerTest, RackRenameUpdatesContext) {
     start_manager(std::move(factory));
     ASSERT_NE(f->captured_ctx, nullptr);
     ASSERT_EQ(f->captured_ctx->rack_name(), "test_rack");
-    auto renamed = rack;
-    renamed.name = "renamed_rack";
-    ASSERT_NIL(client->racks.create(renamed));
+    ASSERT_NIL(client->racks.dispatch(
+        rack.key,
+        {synnax::rack::set({.path = {"name"}, .value = "renamed_rack"})}
+    ));
     ASSERT_EVENTUALLY_EQ(f->captured_ctx->rack_name(), "renamed_rack");
 }
 
@@ -1461,5 +1856,191 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
 
     ASSERT_NIL(writer.close());
+}
+
+using SynnaxContextTest = TaskManagerTest;
+
+/// @brief it should send the latest status of each task again, with no command key.
+TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        nullptr,
+        nullptr,
+        rack.key
+    );
+    auto running = synnax::task::Task{
+        .rack = rack.key,
+        .name = "running",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto failed = synnax::task::Task{
+        .rack = rack.key,
+        .name = "failed",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(running));
+    ASSERT_NIL(rack.tasks.create(failed));
+    synnax::task::Status configured{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .owner = synnax::task::resource_id(running.key),
+    };
+    ctx->set_status(configured);
+    synnax::task::Status started{
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task started",
+        .details = {.running = true, .cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(running.key),
+    };
+    ctx->set_status(started);
+    synnax::task::Status error{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to start task",
+        .details = {.cmd = "start-cmd"},
+        .owner = synnax::task::resource_id(failed.key),
+    };
+    ctx->set_status(error);
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(ctx->resend_statuses());
+    auto statuses = read_statuses_since(since, [](const auto &s) {
+        return s.size() == 2;
+    });
+    const auto &resent_running = statuses.at(synnax::task::resource_id(running.key));
+    EXPECT_EQ(resent_running.message, "Task started");
+    EXPECT_TRUE(resent_running.details.running);
+    EXPECT_EQ(resent_running.details.cmd, NO_COMMAND);
+    const auto &resent_failed = statuses.at(synnax::task::resource_id(failed.key));
+    EXPECT_EQ(resent_failed.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(resent_failed.message, "Failed to start task");
+    EXPECT_EQ(resent_failed.details.cmd, NO_COMMAND);
+}
+
+/// @brief it should not send the status of a task moved to another rack again.
+TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto moved = synnax::task::Task{
+        .rack = rack.key,
+        .name = "moved",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(moved));
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, [](const synnax::task::Status &s) {
+        return s.details.running;
+    });
+    send_start(client, moved);
+    WAIT_FOR_TASK_STATUS(streamer, moved, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task";
+    });
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    edit_task(
+        client,
+        moved,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
+    // The set event that moves the task carries no signal that it was handled.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto kept_owner = synnax::task::resource_id(kept.key);
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept_owner);
+    });
+    EXPECT_TRUE(statuses.at(kept_owner).details.running);
+    EXPECT_FALSE(statuses.contains(synnax::task::resource_id(moved.key)));
+    expect_no_driver_status(moved);
+}
+
+/// @brief it should write the statuses of a task that moves back to this rack.
+TEST_F(TaskManagerTest, RackMoveBackWritesStatusesAgain) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    const auto first = f->task_states[0];
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    edit_task(
+        client,
+        task,
+        {synnax::task::set({.path = {"rack"}, .value = other.key})}
+    );
+    send_start(client, task, "s2");
+    EVENTUALLY([&] { return first->stopped.load(); }, [] { return "not stopped"; });
+    // The worker drops the status after the instance stops and is destroyed.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    edit_task(client, task, {synnax::task::set({.path = {"rack"}, .value = rack.key})});
+    const auto since = x::telem::TimeStamp::now();
+    send_start(client, task, "s3");
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        return s.message == "configured" && s.details.rack == rack.key &&
+               s.time >= since;
+    });
+}
+
+/// @brief it should not send the status of a deleted task again.
+TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto deleted = synnax::task::Task{
+        .rack = rack.key,
+        .name = "deleted",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(deleted));
+    const auto is_running = [](const synnax::task::Status &s) {
+        return s.details.running;
+    };
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, is_running);
+    send_start(client, deleted);
+    WAIT_FOR_TASK_STATUS(streamer, deleted, is_running);
+
+    ASSERT_NIL(rack.tasks.del(deleted.key));
+    // The delete event carries no signal that it was handled.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto kept_owner = synnax::task::resource_id(kept.key);
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept_owner);
+    });
+    EXPECT_TRUE(statuses.at(kept_owner).details.running);
+    EXPECT_FALSE(statuses.contains(synnax::task::resource_id(deleted.key)));
+    expect_no_driver_status(deleted, true);
 }
 }

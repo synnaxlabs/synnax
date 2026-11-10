@@ -45,10 +45,18 @@ BaseChannel struct {
 
 ReadChannel struct extends BaseChannel {
     channel  channel.Key = 0 {
-        @doc value "is the Synnax channel that samples are written to."
+        @doc value     "is the Synnax channel that samples are written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     is_index bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
+    }
+    field    string = "" {
+        @doc value """
+            is the path to a member of the node's structure value. Names join with '.',
+            and '&' escapes the next character. Empty reads the whole value.
+        """
     }
 
     @doc value  "is a single OPC UA node the task reads from."
@@ -57,7 +65,9 @@ ReadChannel struct extends BaseChannel {
 
 WriteChannel struct extends BaseChannel {
     cmd_channel channel.Key = 0 {
-        @doc value "is the Synnax channel commands are read from."
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
     }
 
     @doc value  "is a single OPC UA node the task drives."
@@ -65,31 +75,38 @@ WriteChannel struct extends BaseChannel {
 }
 
 ReadConfig struct extends task.ReadConfig {
-    sample_rate telem.Rate = 50 {
+    sample_rate      telem.Rate = 50 {
         @doc value "is the per-channel hardware sample rate, in Hertz."
         @ts type   "number"
     }
-    stream_rate telem.Rate = 25 {
+    stream_rate      telem.Rate = 25 {
         @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
         @ts type   "number"
     }
-    device      device.Key = "" {
-        @doc value "is the key of the device representing the OPC UA server."
+    device           device.Key = "" {
+        @doc value     "is the key of the device representing the OPC UA server."
+        @ref kind      use
+        @ref on_delete restrict
     }
-    array_mode  bool = false {
-        @doc value "is true when each read returns an array of samples per node."
+    sampling         Sampling = unary {
+        @doc value "is how the task samples each node."
     }
-    array_size  int32 = 1 {
-        @doc value "is the number of samples in each array when array_mode is true."
-    }
-    channels    ReadChannel[] {
+    channels         ReadChannel[] {
         @doc value "are the OPC UA nodes the task acquires."
     }
+    nan_fill_enabled bool = false {
+        @doc value """
+            is true when a bad value of a float channel is written as NaN. When false, a
+            bad value skips the read for every channel that shares its index.
+        """
+    }
 
-    @doc value  "configures an OPC UA read task."
-    @go imex    body
+    @doc value           "configures an OPC UA read task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -97,10 +114,12 @@ WriteConfig struct extends task.WriteConfig {
         @doc value "are the OPC UA nodes the task drives."
     }
 
-    @doc value  "configures an OPC UA write task."
-    @go imex    body
+    @doc value           "configures an OPC UA write task."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -108,4 +127,22 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
+}
+
+Sampling union on type {
+    unary {
+        @doc value "reads one sample per node at the sample rate."
+    }
+    array {
+        size uint32 = 1 {
+            @doc value    "is the number of samples in each array the node returns."
+            @validate min 1
+        }
+
+        @doc value "reads an array of samples from each node on each read."
+    }
+
+    @doc value  "selects how a read task samples its nodes."
+    @go marshal
 }

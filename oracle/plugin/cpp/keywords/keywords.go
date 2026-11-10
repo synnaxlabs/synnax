@@ -11,8 +11,7 @@ package keywords
 
 import "github.com/synnaxlabs/x/set"
 
-// Reserved contains all C++ reserved keywords.
-var Reserved = set.New(
+var reserved = set.New(
 	"alignas", "alignof", "and", "and_eq", "asm",
 	"auto", "bitand", "bitor", "bool", "break",
 	"case", "catch", "char", "char16_t", "char32_t",
@@ -33,16 +32,17 @@ var Reserved = set.New(
 	"xor_eq",
 )
 
-// Escape appends an underscore suffix to names that collide with C++ reserved keywords.
-// Macros are Windows SDK macros that would expand a generated identifier with the same
+// macros are Windows SDK macros that would expand a generated identifier with the same
 // name.
-var Macros = set.New(
+var macros = set.New(
 	// winbase.h serial port parity capabilities.
 	"PARITY_NONE", "PARITY_ODD", "PARITY_EVEN", "PARITY_MARK", "PARITY_SPACE",
 )
 
+// Escape appends an underscore suffix to names that collide with C++ reserved keywords
+// or Windows SDK macros.
 func Escape(name string) string {
-	if Reserved.Contains(name) || Macros.Contains(name) {
+	if reserved.Contains(name) || macros.Contains(name) {
 		return name + "_"
 	}
 	return name

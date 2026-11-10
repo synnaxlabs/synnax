@@ -60,13 +60,6 @@ var _ = Describe("Registry", func() {
 		Expect(string(out)).To(Equal("ts source"))
 	})
 
-	It("Should report whether an extension is registered", func() {
-		r := format.NewRegistry()
-		Expect(r.Has(".go")).To(BeFalse())
-		r.Register(".go", &fakeFormatter{tag: "x"})
-		Expect(r.Has(".go")).To(BeTrue())
-	})
-
 	Describe("FormatBatch", func() {
 		It("Should preserve order of input files", func(ctx SpecContext) {
 			r := format.NewRegistry()

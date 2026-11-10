@@ -15,6 +15,8 @@ import { type ContextMenuProps } from "@/platform/tree/types";
 
 export interface CreateUseDeleteParams<K extends record.Key> {
   type: string;
+  /** Noun for a count of items, e.g. "ICDs". Defaults to the plural of `type`. */
+  plural?: string;
   icon?: string;
   description?: string;
   useUpdate: Flux.UseUpdate<K | K[]>;
@@ -27,6 +29,7 @@ export interface CreateUseDeleteParams<K extends record.Key> {
 
 export const createUseDelete = <K extends record.Key>({
   type,
+  plural,
   icon,
   description,
   useUpdate,
@@ -39,7 +42,7 @@ export const createUseDelete = <K extends record.Key>({
       selection: { ids },
       state: { getResource },
     } = props;
-    const confirm = Modals.useConfirmDelete({ type, description, icon });
+    const confirm = Modals.useConfirmDelete({ type, plural, description, icon });
     const { update } = useUpdate({
       beforeUpdate: async (query: Flux.BeforeUpdateParams<K | K[]>) => {
         const res = await confirm(getResource(ids));

@@ -335,8 +335,8 @@ export const edgePoints = (b: Crude, loc: location.Outer): [xy.XY, xy.XY] => {
 /**
  * Reposition a box so that it is centered within a given bound.
  *
- * @param target The box to reposition - Only works if the root is topLeft
- * @param bound The box to reposition within - Only works if the root is topLeft
+ * @param target - The box to reposition - Only works if the root is topLeft
+ * @param bound - The box to reposition within - Only works if the root is topLeft
  * @returns the repositioned box
  */
 export const positionInCenter = (target_: Crude, bound_: Crude): Box => {

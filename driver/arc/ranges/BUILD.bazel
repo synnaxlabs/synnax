@@ -23,7 +23,6 @@ cc_library(
         "//driver/arc:reporter",
         "//x/cpp/color",
         "//x/cpp/errors",
-        "//x/cpp/mem",
         "//x/cpp/telem",
         "//x/cpp/uuid",
     ],
@@ -40,7 +39,7 @@ cc_test(
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl/testutil",
         "//client/cpp/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

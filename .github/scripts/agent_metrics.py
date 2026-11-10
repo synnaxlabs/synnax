@@ -31,7 +31,7 @@ REVERT_DAYS = 30
 LIMIT = 1000
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class PR:
     number: int
     author: str
@@ -42,7 +42,7 @@ class PR:
     closed: datetime | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Run:
     event: str
     started: datetime
@@ -75,13 +75,13 @@ def parse_pr(raw: dict[str, object]) -> PR:
     )
 
 
-def group(pr: PR, agents: frozenset[str]) -> str:
+def group(pr: PR, *, agents: frozenset[str]) -> str:
     if pr.author in agents:
         return "agent"
     return "other bot" if pr.bot else "human"
 
 
-def percentile(values: Iterable[float], q: float) -> float:
+def percentile(values: Iterable[float], *, q: float) -> float:
     """Returns the nearest-rank percentile, so the result is always a sample."""
     ordered = sorted(values)
     return ordered[max(math.ceil(q * len(ordered)) - 1, 0)]
@@ -106,13 +106,14 @@ def tier(pr: PR) -> str:
     return tiers[0] if tiers else "no tier"
 
 
-def spread(values: list[float], unit: str) -> str:
-    return (
-        f"{percentile(values, 0.5):.1f} {unit} / {percentile(values, 0.9):.1f} {unit}"
-    )
+def spread(values: list[float], *, unit: str) -> str:
+    median = percentile(values, q=0.5)
+    p90 = percentile(values, q=0.9)
+    return f"{median:.1f} {unit} / {p90:.1f} {unit}"
 
 
 def report(
+    *,
     now: datetime,
     days: int,
     agents: frozenset[str],
@@ -123,11 +124,11 @@ def report(
     since = now - timedelta(days=days)
     lines = [f"*Agent report, {since:%Y-%m-%d} to {now:%Y-%m-%d}*"]
     groups = ["agent", "human", "other bot"]
-    opened = [group(p, agents) for p in prs if p.created >= since]
+    opened = [group(p, agents=agents) for p in prs if p.created >= since]
     lines.append("Opened: " + ", ".join(f"{g} {opened.count(g)}" for g in groups))
     closed = [p for p in prs if p.closed is not None and p.closed >= since]
     for g in groups[:2]:
-        mine = [p for p in closed if group(p, agents) == g]
+        mine = [p for p in closed if group(p, agents=agents) == g]
         merged = sum(p.merged is not None for p in mine)
         lines.append(
             f"{g.capitalize()} PRs: merged {merged}, closed {len(mine) - merged}"
@@ -139,7 +140,7 @@ def report(
             hours.setdefault(tier(p), []).append(elapsed)
     lines.append("Time to merge (median / p90):")
     lines.extend(
-        f"• `{t}` (n={len(v)}): {spread(v, 'h')}" for t, v in sorted(hours.items())
+        f"• `{t}` (n={len(v)}): {spread(v, unit='h')}" for t, v in sorted(hours.items())
     )
     revert_since = now - timedelta(days=REVERT_DAYS)
     bot = [
@@ -160,7 +161,8 @@ def report(
             minutes.setdefault(r.event, []).append(elapsed)
     lines.append("Successful CI duration (median / p90):")
     lines.extend(
-        f"• {e} (n={len(v)}): {spread(v, 'min')}" for e, v in sorted(minutes.items())
+        f"• {e} (n={len(v)}): {spread(v, unit='min')}"
+        for e, v in sorted(minutes.items())
     )
     return "\n".join(lines)
 
@@ -183,7 +185,7 @@ def search_prs(query: str) -> list[PR]:
     return [parse_pr(r) for r in raw]
 
 
-def fetch_prs(since: datetime, revert_since: datetime) -> list[PR]:
+def fetch_prs(since: datetime, *, revert_since: datetime) -> list[PR]:
     queries = [
         f"created:>={since:%Y-%m-%d}",
         f"closed:>={since:%Y-%m-%d}",
@@ -208,7 +210,9 @@ def fetch_runs(since: datetime) -> list[Run]:
         "--jq", ".workflow_runs[] | [.event, .run_started_at, .updated_at] | @json",
     )  # fmt: skip
     runs = (json.loads(line) for line in out)
-    return [Run(e, parse_time(s), parse_time(f)) for e, s, f in runs]
+    return [
+        Run(event=e, started=parse_time(s), finished=parse_time(f)) for e, s, f in runs
+    ]
 
 
 def main() -> None:
@@ -220,10 +224,15 @@ def main() -> None:
     since = now - timedelta(days=args.days)
     revert_since = now - timedelta(days=REVERT_DAYS)
     agents = frozenset(login({"login": a}) for a in json.loads(args.agents))
-    prs = fetch_prs(since, revert_since)
+    prs = fetch_prs(since, revert_since=revert_since)
     print(
         report(
-            now, args.days, agents, prs, fetch_runs(since), fetch_reverts(revert_since)
+            now=now,
+            days=args.days,
+            agents=agents,
+            prs=prs,
+            runs=fetch_runs(since),
+            reverts=fetch_reverts(revert_since),
         )
     )
 

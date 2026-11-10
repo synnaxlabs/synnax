@@ -30,6 +30,12 @@ and line numbers. The device manual lists the ports and lines.
 The Driver reads the lines on the computer clock, at the **Sample rate**. See
 [timing](/reference/hardware/tasks#timing).
 
+The Console gives the digital read tasks of a device one index channel, and only one
+writer can hold an index channel. So only one of these tasks can run on a device at a
+time, even when the tasks use different lines. A second task stops right after it
+starts, with an error that names the running task. Tasks from a client library have this
+limit only when they share an index channel.
+
 <Divider.Divider x />
 
 ## Create an NI digital read task
@@ -40,8 +46,10 @@ The Driver reads the lines on the computer clock, at the **Sample rate**. See
 1. In the devices toolbar, right-click the device and select **Create digital read
    task**.
 2. Set **Sample rate** and **Stream rate**.
-3. Click **Add channel**, then enter the port and the line in **Port/Line**.
-4. Click <Icon.Play /> (**Start**).
+3. The task starts with one channel. To add more, click **Add channel**, or click a free
+   line in the map above the channel list. See [ports](/reference/hardware/tasks#ports).
+4. In the channel list, enter the **Port** and the **Line** of each channel.
+5. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For a device with the identifier `dev1`, port 0, line
 1 gives `dev1_di_0_1`, with the index channel `dev1_di_time`.
@@ -75,9 +83,6 @@ task = ni.DigitalReadTask(
 client.tasks.configure(task)
 task.start()
 ```
-
-Python creates the task on the embedded Driver of the Core. For a device on another
-Driver, use the Console or TypeScript.
 
   </Fragment>
   <Fragment slot="typescript">
@@ -135,9 +140,10 @@ await task.start();
 Each channel has a `channel`, the Synnax channel that records the value as `uint8`. The
 table shows the Console label of each setting, with its Python field under it.
 
-| Setting                                 | Default | Notes                         |
-| --------------------------------------- | ------- | ----------------------------- |
-| Port/Line <small>`port`, `line`</small> | `0`/`0` | The port, and the line in it. |
+| Setting                    | Default | Notes                 |
+| -------------------------- | ------- | --------------------- |
+| Port <small>`port`</small> | `0`     | The port.             |
+| Line <small>`line`</small> | `0`     | The line in the port. |
 
 <Divider.Divider x />
 
@@ -145,15 +151,55 @@ table shows the Console label of each setting, with its Python field under it.
 
 <Problem.List>
 
-<Problem.Item message={"Port ..., line ... has already been used on another channel"}>
+<Problem.Item message={"Another channel uses port0/line0"}>
 <Problem.Cause>
 
-Two channels use the same line.
+Two enabled channels use the same line.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Change the port or the line of one of them.
+Change the **Port** or the **Line** of one of the channels, or disable one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device has no digital input port0"}>
+<Problem.Cause>
+
+The channel uses a port that the device does not have, or a port that cannot read input.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the **Port** of the channel. The line map above the channel list shows the ports
+of the device.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"port0 has 8 lines, numbered 0 to 7"}>
+<Problem.Cause>
+
+The **Line** of the channel is past the last line of its port.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the **Line** to a number in the range of the message.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... has no control authority - it is currently held by ..."}>
+<Problem.Cause>
+
+Another running task writes to the same index channel. The error names that task.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Stop the other task, or move its channels into this task.
 
 </Problem.Fix>
 </Problem.Item>

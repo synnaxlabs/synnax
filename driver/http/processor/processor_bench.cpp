@@ -15,12 +15,12 @@
 #include "x/cpp/telem/telem.h"
 
 #include "driver/http/errors/errors.h"
-#include "driver/http/mock/server.h"
 #include "driver/http/processor/processor.h"
+#include "driver/http/testutil/server.h"
 
 namespace driver::http {
 namespace {
-mock::Route slow_route(const x::telem::TimeSpan &delay) {
+testutil::Route slow_route(const x::telem::TimeSpan &delay) {
     return {
         .method = Method::GET,
         .path = "/slow",
@@ -44,9 +44,9 @@ x::telem::TimeSpan poll_timeout(const benchmark::State &state) {
 /// while the one request waits.
 static void BM_InFlightWait(benchmark::State &state) {
     const auto delay = 1 * x::telem::SECOND;
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {slow_route(delay)};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     if (const auto err = server.start()) {
         state.SkipWithError(err.message());
         return;
@@ -75,9 +75,9 @@ BENCHMARK(BM_InFlightWait)
 /// stays near zero when libcurl's own timers cap the poll wait.
 static void BM_TimeoutOvershoot(benchmark::State &state) {
     const auto timeout = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig cfg;
+    testutil::ServerConfig cfg;
     cfg.routes = {slow_route(200 * x::telem::MILLISECOND)};
-    mock::Server server(cfg);
+    testutil::Server server(cfg);
     if (const auto err = server.start()) {
         state.SkipWithError(err.message());
         return;

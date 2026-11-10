@@ -29,7 +29,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.login(session, world.project);
     const diagram = page.locator(".pluto-diagram:visible").first();
     const drawer = page
-      .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+      .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
       .first();
 
     await openOperator(session);
@@ -38,17 +38,17 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     // The OX main valve closes seconds after it opens, so the rest spends little
     // virtual time.
     const others = page
-      .locator(".console-mosaic .pluto-tabs__tab:visible")
+      .locator(".console-mosaic .lyra-tabs__tab:visible")
       .filter({ hasNotText: "Operator" });
     while ((await others.count()) > 0) {
       const tab = others.first();
       await tab.hover();
-      await tab.locator(".pluto-tabs__close").first().click();
+      await tab.locator(".lyra-tabs__close").first().click();
       await session.settle(100);
     }
     // Released, the schematic's controls fade out instead of staying pinned.
     const held = diagram.locator(
-      '.console-controls button[aria-pressed="true"]:has(.pluto-icon--circle)',
+      '.console-controls button[aria-pressed="true"]:has(.lyra-icon--circle)',
     );
     if ((await held.count()) > 0) await held.first().click();
 

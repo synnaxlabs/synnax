@@ -11,9 +11,9 @@ import { type EnhancedStore } from "@reduxjs/toolkit";
 import {
   type access,
   type connection,
-  type ontology,
   panel,
   type project,
+  type resource,
   type Synnax as Client,
   type SynnaxParams,
 } from "@synnaxlabs/client";
@@ -40,6 +40,7 @@ import { Provider } from "react-redux";
 import { assert } from "vitest";
 
 import { Session } from "@/session";
+import { STORE_CHECKS } from "@/testutil/store";
 import {
   createAsyncSynnaxWrapper,
   createSynnaxWrapper,
@@ -52,6 +53,10 @@ import {
  */
 export const uniqueName = (prefix: string = "test"): string =>
   `${prefix}_${id.create().replace(/-/g, "_")}`;
+
+/** Generates a unique search term that the Core search keeps as one word. */
+export const uniqueToken = (): string =>
+  `tok${id.create().replace(/[^a-zA-Z0-9]/g, "")}`;
 
 /**
  * Creates a UUID whose last six bytes repeat the given hex nibble. Gorp lists
@@ -79,7 +84,7 @@ export function assertDefined<T>(
  */
 export const findDialogTrigger = async (): Promise<HTMLElement> =>
   await waitFor(() => {
-    const el = document.querySelector<HTMLElement>(".pluto-dialog__trigger");
+    const el = document.querySelector<HTMLElement>(".lyra-dialog__trigger");
     assertDefined(el, "dialog trigger not found");
     return el;
   });
@@ -88,8 +93,8 @@ export const findDialogTrigger = async (): Promise<HTMLElement> =>
 export const findTagCloseButton = (name: string): HTMLElement => {
   const btn = screen
     .getByText(name)
-    .closest(".pluto-tag")
-    ?.querySelector<HTMLElement>(".pluto-tag__close");
+    .closest(".lyra-tag")
+    ?.querySelector<HTMLElement>(".lyra-tag__close");
   assertDefined(btn, `close button for tag ${name} not found`);
   return btn;
 };
@@ -198,10 +203,10 @@ export interface ConsoleTestProviderOptions {
 
 /**
  * Builds the console test store the same way the app builds its store: the full root
- * reducer wired through drift's middleware, but with a NoopRuntime in place of the Tauri
- * runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels exactly
- * as they do in production. Async because Drift.configureStore awaits runtime setup. This
- * is the one console store — every render helper below is backed by it.
+ * reducer wired through drift's middleware, but with a NoopRuntime in place of the
+ * Tauri runtime. Window actions (Drift.focusWindow, createWindow) resolve their labels
+ * exactly as they do in production. Async because Drift.configureStore awaits runtime
+ * setup. This is the one console store — every render helper below is backed by it.
  */
 export const createTestStore = async (options: ConsoleTestProviderOptions = {}) => {
   const { preloadedState, windowLabel } = options;
@@ -209,12 +214,8 @@ export const createTestStore = async (options: ConsoleTestProviderOptions = {}) 
     runtime: new Drift.NoopRuntime(windowLabel),
     reducer: Session.reducer,
     preloadedState: deep.copy({ ...Session.ZERO_STATE, ...preloadedState }),
-    // The checks still run. Only their timing warnings, which track machine load, go.
     middleware: (getDefault) =>
-      getDefault({
-        serializableCheck: { warnAfter: Infinity },
-        immutableCheck: { warnAfter: Infinity },
-      }).concat(...Session.BASE_MIDDLEWARE),
+      getDefault(STORE_CHECKS).concat(...Session.BASE_MIDDLEWARE),
     enablePrerender: false,
   });
 };
@@ -353,7 +354,7 @@ export const createConsoleWrapper = async ({
  */
 export const awaitGranted = async (
   client: Client,
-  id: ontology.ID,
+  id: resource.ID,
   action: access.Action = "create",
 ): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client });
@@ -409,6 +410,7 @@ export const createStatusConsoleWrapper = async ({
   wrapper: FC<PropsWithChildren>;
   store: TestStore;
 }> => {
+  if (client != null) disableActEnvironment();
   const { wrapper: Console, store } = await createConsoleWrapper({
     ...args,
     client: null,
@@ -424,6 +426,31 @@ export const createStatusConsoleWrapper = async ({
   return { wrapper: Wrapper, store };
 };
 
+export interface StatusHarness {
+  store: TestStore;
+  /** Changes the connection status the Synnax context reports. */
+  setStatus: (status?: connection.Status) => void;
+}
+
+/**
+ * Renders the UI the way {@link createStatusConsoleWrapper} wraps it, and lets the spec
+ * change the status afterwards.
+ */
+export const renderWithStatus = async (
+  ui: ReactElement,
+  { client, status, ...args }: CreateStatusConsoleWrapperParams,
+): Promise<StatusHarness> => {
+  if (client != null) disableActEnvironment();
+  const { wrapper, store } = await createConsoleWrapper({ ...args, client: null });
+  const withStatus = (current?: connection.Status): ReactElement => (
+    <Synnax.TestProvider client={client} status={current}>
+      {ui}
+    </Synnax.TestProvider>
+  );
+  const { rerender } = render(withStatus(status), { wrapper });
+  return { store, setStatus: (next) => rerender(withStatus(next)) };
+};
+
 const SessionSynnaxProvider = ({ children }: PropsWithChildren): ReactElement => {
   const connParams = Session.Core.useSelectConnParams();
   return <Synnax.Provider connParams={connParams}>{children}</Synnax.Provider>;
@@ -432,8 +459,8 @@ SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 
 /**
  * Like createConnectedConsoleWrapper, but derives the provider's connection params from
- * the store's selected Core, exactly as the production Pluto.Context does. Use for
- * tests that exercise the login -> select -> connect flow.
+ * the store's selected Core and logs in with its credentials. Use for tests that
+ * exercise the login -> select -> connect flow.
  */
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,

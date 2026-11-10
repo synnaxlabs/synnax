@@ -18,9 +18,12 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Schematic } from "@synnaxlabs/pluto";
 import { type location, xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/platform/css";
+
+const path = Schematic.Symbol.formPath;
 
 const SelectHandleOrientation = (props: Select.ButtonsProps<location.Outer>) => (
   <Select.Buttons size="small" {...props}>
@@ -43,15 +46,9 @@ interface HandleListItemProps extends List.ItemRenderProps<string> {}
 
 const HandleListItem = (props: HandleListItemProps) => {
   const { itemKey, index } = props;
-  const path = `data.handles.${itemKey}`;
-  const handle = Form.useFieldValue<{
-    key: string;
-    position: { x: number; y: number };
-  }>(path);
-  const { remove } = Form.useFieldListUtils<
-    string,
-    { key: string; position: { x: number; y: number } }
-  >("data.handles");
+  const entry = path.data.handles[itemKey];
+  const handle = Form.useFieldValue(entry);
+  const { remove } = Form.useFieldListUtils(path.data.handles);
   if (handle == null) return null;
   const scaledPos = xy.scale(handle.position, 100);
   return (
@@ -69,7 +66,7 @@ const HandleListItem = (props: HandleListItemProps) => {
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" empty>
-        <Form.Field<location.Outer> path={`${path}.orientation`} showLabel={false}>
+        <Form.Field path={entry.orientation} showLabel={false} showHelpText={false}>
           {({ onChange, value }) => (
             <SelectHandleOrientation value={value} onChange={onChange} />
           )}
@@ -92,10 +89,7 @@ interface HandleListProps extends Input.Control<string | undefined> {
 }
 
 export const HandleList = ({ value, onChange, onAddHandle }: HandleListProps) => {
-  const { data } = Form.useFieldList<
-    string,
-    { key: string; position: { x: number; y: number } }
-  >("data.handles");
+  const { data } = Form.useFieldList(path.data.handles);
 
   return (
     <Flex.Box y gap={1} className={CSS.B("schematic-handle-list")}>

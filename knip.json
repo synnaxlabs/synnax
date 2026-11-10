@@ -13,8 +13,9 @@
       "project": ["src/**/*.ts!"]
     },
     "client/ts": {
-      "entry": ["src/index.ts!"],
-      "project": ["src/**/*.ts!"]
+      "entry": ["src/index.ts!", "src/testutil/index.ts"],
+      "project": ["src/**/*.ts!"],
+      "ignoreIssues": { "src/**/where.gen.ts": ["exports"] }
     },
     "drift": {
       "entry": ["src/index.ts!", "src/react/index.ts!", "src/tauri/index.ts!"],
@@ -45,7 +46,7 @@
         "src/app/nav/drawer/Bottom.tsx": ["exports"],
         "src/feature/*/{explorer,overview}/external.tsx": ["exports"],
         "src/platform/*/filter/{Chips,MenuItem}.tsx": ["exports"],
-        "src/platform/task/{fields,views}/*.tsx": ["exports"]
+        "src/platform/task/{fields,payload,port,views}/*.tsx": ["exports"]
       }
     },
     "oracle/lsp/extensions/vscode": {

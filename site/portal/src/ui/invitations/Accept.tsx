@@ -15,9 +15,9 @@ import { type ReactElement, useEffect } from "react";
 import { ADMIN_ROLE } from "@/server/directory";
 import { type Invited } from "@/server/invitation";
 import { invitationPath, scoped } from "@/shell";
-import { navigate, post, reload } from "@/ui/api";
+import { navigate, post } from "@/ui/api";
 import { Auth } from "@/ui/auth";
-import { useClerk } from "@/ui/clerk";
+import { useLogOut } from "@/ui/clerk";
 import { Tile } from "@/ui/Tile";
 import { useAction } from "@/ui/useAction";
 
@@ -42,18 +42,6 @@ const JOINING = "joining-invitation";
 
 const invitedAs = (role: string): string =>
   role === ADMIN_ROLE ? "an admin" : "a member";
-
-// Reloading after the log out shows the page to a logged-out visitor.
-const useLogOut = (): (() => void) | undefined => {
-  const clerk = useClerk();
-  if (clerk == null) return undefined;
-  return () => {
-    void clerk.signOut(() => {
-      reload();
-      return Promise.resolve();
-    });
-  };
-};
 
 const Closed = ({
   title,

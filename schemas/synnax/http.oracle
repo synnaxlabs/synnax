@@ -18,25 +18,53 @@ import "schemas/x/telem"
 @ts output  "client/ts/src/http"
 
 Method enum {
-    get     = "GET"
-    head    = "HEAD"
-    post    = "POST"
-    put     = "PUT"
-    delete  = "DELETE"
-    patch   = "PATCH"
-    options = "OPTIONS"
-    trace   = "TRACE"
-    connect = "CONNECT"
+    get     = "GET" {
+        @doc value "reads a resource."
+    }
+    head    = "HEAD" {
+        @doc value "reads the headers of a resource, with no body."
+    }
+    post    = "POST" {
+        @doc value "submits data to a resource."
+    }
+    put     = "PUT" {
+        @doc value "replaces a resource."
+    }
+    delete  = "DELETE" {
+        @doc value "removes a resource."
+    }
+    patch   = "PATCH" {
+        @doc value "changes part of a resource."
+    }
+    options = "OPTIONS" {
+        @doc value "asks which communication options a resource supports."
+    }
+    trace   = "TRACE" {
+        @doc value "asks the server to echo the request it receives."
+    }
+    connect = "CONNECT" {
+        @doc value "opens a tunnel to the server."
+    }
 
     @doc value "is the HTTP method used when requesting an endpoint."
 }
 
 TimeFormat enum {
-    iso8601  = "iso8601"
-    unix_sec = "unix_sec"
-    unix_ms  = "unix_ms"
-    unix_us  = "unix_us"
-    unix_ns  = "unix_ns"
+    iso8601  = "iso8601" {
+        @doc value "is an ISO 8601 string."
+    }
+    unix_sec = "unix_sec" {
+        @doc value "is a count of seconds since the Unix epoch."
+    }
+    unix_ms  = "unix_ms" {
+        @doc value "is a count of milliseconds since the Unix epoch."
+    }
+    unix_us  = "unix_us" {
+        @doc value "is a count of microseconds since the Unix epoch."
+    }
+    unix_ns  = "unix_ns" {
+        @doc value "is a count of nanoseconds since the Unix epoch."
+    }
 
     @doc value "is the encoding of a timestamp value within a JSON body."
 }
@@ -91,8 +119,22 @@ ReadField struct {
     disabled    bool = false {
         @doc value "is true when the field is excluded from polling."
     }
+    optional    bool = false {
+        @doc value """
+            is true when a missing value is normal for this field. The task writes
+            fill_value, or NaN on a float channel, and sends no warning.
+        """
+    }
+    fill_value  any?           {
+        @doc value """
+            is the value written when an optional field is missing, typed by the
+            channel. Unset writes NaN, which needs a float channel.
+        """
+    }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax channel the extracted value is written to."
+        @doc value     "is the Synnax channel the extracted value is written to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     pointer     string = "" {
         @doc value "is the JSON Pointer to the value within the response body."
@@ -151,7 +193,9 @@ ReadEndpoint struct {
 
 ReadConfig struct extends task.PersistConfig {
     device           device.Key = "" {
-        @doc value "is the key of the HTTP server device to poll."
+        @doc value     "is the key of the HTTP server device to poll."
+        @ref kind      use
+        @ref on_delete restrict
     }
     rate             telem.Rate = 1 {
         @doc value "is the polling rate applied to all endpoints, in Hertz."
@@ -168,26 +212,38 @@ ReadConfig struct extends task.PersistConfig {
         """
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP read task, which polls one or more endpoints on an HTTP
         server device and writes extracted JSON values to Synnax channels.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 JSONType enum {
-    number  = "number"
-    string  = "string"
-    boolean = "boolean"
+    number  = "number" {
+        @doc value "writes the value as a JSON number."
+    }
+    string  = "string" {
+        @doc value "writes the value as a JSON string."
+    }
+    boolean = "boolean" {
+        @doc value "writes the value as a JSON boolean."
+    }
 
     @doc value "is the JSON type a channel value is serialized as in a request body."
 }
 
 GeneratorType enum {
-    uuid      = "uuid"
-    timestamp = "timestamp"
+    uuid      = "uuid" {
+        @doc value "produces a new UUID for each request."
+    }
+    timestamp = "timestamp" {
+        @doc value "produces the time of the request."
+    }
 
     @doc value "is the kind of value produced for a generated write field."
 }
@@ -204,7 +260,9 @@ ChannelField struct {
         @doc value "is the JSON type the channel value is serialized as."
     }
     channel     channel.Key = 0 {
-        @doc value "is the Synnax command channel that triggers the request."
+        @doc value     "is the Synnax command channel that triggers the request."
+        @ref kind      use
+        @ref on_delete restrict
     }
     name        string = "" {
         @doc value "is the human-readable name of the command channel."
@@ -307,19 +365,23 @@ WriteEndpoint struct {
 
 WriteConfig struct extends task.StartConfig {
     device    device.Key = "" {
-        @doc value "is the key of the HTTP server device to write to."
+        @doc value     "is the key of the HTTP server device to write to."
+        @ref kind      use
+        @ref on_delete restrict
     }
     endpoints WriteEndpoint[] {
         @doc value "contains the endpoints to write to."
     }
 
-    @doc value  """
+    @doc value           """
         configures an HTTP write task, which sends an HTTP request whenever a value is
         written to an endpoint's command channel.
     """
-    @go imex    body
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -327,4 +389,5 @@ ScanConfig struct extends task.ScanConfig {
     @go imex    body
     @go marshal
     @go migrate
+    @patch
 }

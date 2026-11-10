@@ -26,7 +26,7 @@ runs:
     # pnpm/setup saves a new store under a unique key from every job, about 8 GB per
     # CI run, which evicts every other cache in the repository within minutes.
     - name: Set up pnpm and Node.js
-      uses: pnpm/setup@v3
+      uses: pnpm/setup@fa36a5ef7dcdefc3a7cb25655c122e00cf6e636e # v3
       with:
         # Without the path, pnpm/setup finds no lockfile on Windows and skips the cache
         # that lets pnpm install reuse a past supply-chain check.
@@ -59,7 +59,7 @@ runs:
     - name: Restore the pnpm store
       id: cache
       if: inputs.cache == 'true'
-      uses: actions/cache/restore@v6
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ steps.key.outputs.path }}
         key: ${{ steps.key.outputs.key }}
@@ -83,7 +83,7 @@ runs:
       if:
         inputs.cache == 'true' && steps.cache.outputs.cache-hit != 'true' &&
         github.event_name != 'merge_group'
-      uses: actions/cache/save@v6
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
       with:
         path: ${{ steps.key.outputs.path }}
         key: ${{ steps.key.outputs.key }}

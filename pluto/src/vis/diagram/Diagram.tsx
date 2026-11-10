@@ -11,7 +11,6 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import {
   useCombinedRefs,
   useDebouncedCallback,
@@ -55,6 +54,7 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";

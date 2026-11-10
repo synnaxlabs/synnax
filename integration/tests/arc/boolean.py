@@ -20,7 +20,7 @@ UINT8 = sy.DataType.UINT8
 ARC_BOOLEAN_SOURCE = """
 // ─────────────────────── literals and constant folds ────────────────
 
-func do_literals(a bool) {
+func do_literals() {a bool} {
     bool_lit_true_out = true
     bool_lit_false_out = false
     bool_not_true_out = not true
@@ -30,7 +30,7 @@ func do_literals(a bool) {
     bool_or_tf_out = true or false
     bool_or_ff_out = false or false
 }
-bool_a1_trigger -> do_literals{}
+bool_a1_trigger -> do_literals()
 
 bool_flow_trigger -> sequence {
     true -> bool_lit_true_out
@@ -45,14 +45,14 @@ bool_flow_trigger -> sequence {
 
 // ─────────────────────── logical operators (a = 0) ──────────────────
 
-func do_logical_a0(a bool) {
+func do_logical_a0() {a bool} {
     bool_not_0_out = not a
     bool_and_00_out = a and bool_and_00_b
     bool_and_01_out = a and bool_and_01_b
     bool_or_00_out = a or bool_or_00_b
     bool_or_01_out = a or bool_or_01_b
 }
-bool_a0_trigger -> do_logical_a0{}
+bool_a0_trigger -> do_logical_a0()
 
 bool_flow_trigger -> stage {
     not bool_flow_trigger -> bool_not_0_out
@@ -64,14 +64,14 @@ bool_flow_trigger -> stage {
 
 // ─────────────────────── logical operators (a = 1) ──────────────────
 
-func do_logical_a1(a bool) {
+func do_logical_a1() {a bool} {
     bool_not_1_out = not a
     bool_and_10_out = a and bool_and_10_b
     bool_and_11_out = a and bool_and_11_b
     bool_or_10_out = a or bool_or_10_b
     bool_or_11_out = a or bool_or_11_b
 }
-bool_a1_trigger -> do_logical_a1{}
+bool_a1_trigger -> do_logical_a1()
 
 bool_flow_trigger -> stage {
     not bool_flow_trigger -> bool_not_1_out
@@ -83,33 +83,33 @@ bool_flow_trigger -> stage {
 
 // ─────────────────────── and/or short circuit ───────────────────────
 
-func mark_skipped(v bool) bool {
+func mark_skipped() {v bool} bool {
     bool_sc_skipped = true
     return v
 }
 
-func mark_called(v bool) bool {
+func mark_called() {v bool} bool {
     bool_sc_called = true
     return v
 }
 
-func do_short_circuit(a bool) {
+func do_short_circuit() {a bool} {
     bool_sc_and_skip_out = false and mark_skipped(a)
     bool_sc_or_skip_out = true or mark_skipped(a)
     bool_sc_and_eval_out = true and mark_called(a)
     bool_sc_or_eval_out = false or mark_called(a)
 }
-bool_sc_trigger -> do_short_circuit{}
+bool_sc_trigger -> do_short_circuit()
 
 // ─────────────────────── comparisons produce bool ───────────────────
 
-func do_compare(a i64) {
+func do_compare() {a i64} {
     bool_cmp_gt_out = a > bool_cmp_gt_b
     bool_cmp_lt_out = a < bool_cmp_lt_b
     bool_cmp_eq_out = a == bool_cmp_eq_b
     bool_cmp_neq_out = a != bool_cmp_neq_b
 }
-bool_i64_trigger -> do_compare{}
+bool_i64_trigger -> do_compare()
 
 bool_i64_flow_trigger -> stage {
     bool_i64_flow_trigger > bool_cmp_gt_b -> bool_cmp_gt_out
@@ -120,7 +120,7 @@ bool_i64_flow_trigger -> stage {
 
 // ─────────────────────── if on bool (a = 1) ─────────────────────────
 
-func do_if_a1(a bool) {
+func do_if_a1() {a bool} {
     if a {
         bool_if1_out = true
     } else {
@@ -132,11 +132,11 @@ func do_if_a1(a bool) {
         bool_if1_not_out = false
     }
 }
-bool_a1_trigger -> do_if_a1{}
+bool_a1_trigger -> do_if_a1()
 
 // ─────────────────────── if on bool (a = 0) ─────────────────────────
 
-func do_if_a0(a bool) {
+func do_if_a0() {a bool} {
     if a {
         bool_if0_out = true
     } else {
@@ -148,15 +148,15 @@ func do_if_a0(a bool) {
         bool_if0_not_out = false
     }
 }
-bool_a0_trigger -> do_if_a0{}
+bool_a0_trigger -> do_if_a0()
 
 // ─────────────────────── select on bool keys ────────────────────────
 
-bool_sel1_in -> select{} -> {
+bool_sel1_in -> select() -> {
     true: 1 -> bool_sel1_out,
     false: 2 -> bool_sel1_out
 }
-bool_sel0_in -> select{} -> {
+bool_sel0_in -> select() -> {
     true: 1 -> bool_sel0_out,
     false: 2 -> bool_sel0_out
 }

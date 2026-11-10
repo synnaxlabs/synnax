@@ -21,15 +21,15 @@ class Tombstone(ConsoleCase):
     def run(self) -> None:
         suffix = random_name()
         pages: list[tuple[PageType, str]] = [
-            ("Line plot", f"TombPlot_{suffix}"),
-            ("Schematic", f"TombSch_{suffix}"),
-            ("Log", f"TombLog_{suffix}"),
-            ("Table", f"TombTable_{suffix}"),
+            ("lineplot", f"TombPlot_{suffix}"),
+            ("schematic", f"TombSch_{suffix}"),
+            ("log", f"TombLog_{suffix}"),
+            ("table", f"TombTable_{suffix}"),
         ]
         for page_type, page_name in pages:
-            self.test_tombstone_lifecycle(page_type, page_name)
+            self.test_tombstone_lifecycle(page_type, page_name=page_name)
 
-    def test_tombstone_lifecycle(self, page_type: PageType, page_name: str) -> None:
+    def test_tombstone_lifecycle(self, page_type: PageType, *, page_name: str) -> None:
         """Delete an open page, restore it from the tombstone, then delete it
         again and dismiss the tombstone with Close."""
         console = self.console

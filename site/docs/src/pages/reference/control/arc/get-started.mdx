@@ -50,8 +50,7 @@ Leave the Tank simulator running. It turns the valve commands into a tank pressu
 ## <Step step={2} level="h2">Create an Arc automation</Step>
 
 1. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
-2. Type `My press sequence` as the name, select **Text** as the **Editor mode**, and
-   click **Create**.
+2. Type `My press sequence` as the name, and click **Create**.
 3. In the controls bar at the bottom of the editor, open the **Driver** list and select
    **Node 1**. This entry runs the automation inside the Synnax Core.
 
@@ -122,7 +121,7 @@ click on a valve has no effect while your automation runs. See
        }
        stage hold {
            0 -> sample_press_vlv_cmd
-           time.wait{duration=10s} => vent
+           time.wait(duration=10s) => vent
        }
        stage vent {
            1 -> sample_vent_vlv_cmd
@@ -133,7 +132,7 @@ click on a valve has no effect while your automation runs. See
    true => press
    ```
 
-   - `time.wait{duration=10s} => vent` moves to `vent` 10 seconds after `hold` starts.
+   - `time.wait(duration=10s) => vent` moves to `vent` 10 seconds after `hold` starts.
    - `sample_tank_pt < 5 => idle` goes back to `idle`, so you can run the test again.
 
 2. Click **Redeploy** in the controls bar. The automation starts again with the new
@@ -173,7 +172,7 @@ To change timing precision and CPU use, see
        stage hold {
            0 -> sample_press_vlv_cmd
            sample_abort_cmd == 1 => abort
-           time.wait{duration=10s} => vent
+           time.wait(duration=10s) => vent
        }
        stage vent {
            1 -> sample_vent_vlv_cmd

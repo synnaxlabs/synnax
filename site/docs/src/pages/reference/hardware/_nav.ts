@@ -7,16 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type PageNavNode } from "@/components/nav/tree";
-import { CAN_NAV } from "@/pages/reference/hardware/can/_nav";
+import { type Nav } from "@/components/nav";
 import { ETHERCAT_NAV } from "@/pages/reference/hardware/ethercat/_nav";
 import { HTTP_NAV } from "@/pages/reference/hardware/http/_nav";
+import { KAFKA_NAV } from "@/pages/reference/hardware/kafka/_nav";
 import { LABJACK_NAV } from "@/pages/reference/hardware/labjack/_nav";
 import { MODBUS_NAV } from "@/pages/reference/hardware/modbus/_nav";
+import { MQTT_NAV } from "@/pages/reference/hardware/mqtt/_nav";
 import { NI_NAV } from "@/pages/reference/hardware/ni/_nav";
 import { OPC_UA_NAV } from "@/pages/reference/hardware/opc-ua/_nav";
 
-export const HARDWARE_NAV: PageNavNode = {
+export const HARDWARE_NAV: Nav.PageNavNode = {
   key: "hardware",
   name: "Hardware",
   children: [
@@ -40,17 +41,17 @@ export const HARDWARE_NAV: PageNavNode = {
       href: "/reference/hardware/troubleshooting",
       name: "Troubleshooting",
     },
-    CAN_NAV,
     ETHERCAT_NAV,
     HTTP_NAV,
+    KAFKA_NAV,
     LABJACK_NAV,
     MODBUS_NAV,
+    MQTT_NAV,
     NI_NAV,
     OPC_UA_NAV,
     {
       href: "/reference/hardware/custom",
       name: "Custom devices",
-      edition: "enterprise",
     },
   ],
 };

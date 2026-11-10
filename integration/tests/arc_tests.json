@@ -31,6 +31,10 @@
       "tests": [
         { "case": "arc/lifecycle", "parameters": { "rack_key": [65537, 65538] } },
         {
+          "case": "arc/user_modules",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
           "case": "arc/thermal_monitor",
           "parameters": { "rack_key": [65537, 65538] }
         },
@@ -60,6 +64,18 @@
         },
         {
           "case": "arc/stage_routing",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stage_entry_samples",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stale_batch_abort",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/stable_for",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {

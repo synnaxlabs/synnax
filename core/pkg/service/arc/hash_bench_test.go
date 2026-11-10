@@ -31,7 +31,7 @@ func program(lines int) string {
 	return b.String()
 }
 
-func bigGraphArc(nodes int) arc.Arc {
+func bigGraphArc(nodes int) arc.Base {
 	g := graph.Graph{Inputs: map[string]msgpack.EncodedJSON{}}
 	for i := range nodes {
 		key := fmt.Sprintf("node_%d", i)
@@ -45,10 +45,10 @@ func bigGraphArc(nodes int) arc.Arc {
 			})
 		}
 	}
-	return arc.Arc{Mode: arc.ModeGraph, Graph: g}
+	return arc.Base{Source: arc.Source{Variant: arc.GraphSource{Graph: g}}}
 }
 
-func benchHash(b *testing.B, a arc.Arc) {
+func benchHash(b *testing.B, a arc.Base) {
 	b.ReportAllocs()
 	for b.Loop() {
 		if _, err := arc.Hash(a); err != nil {

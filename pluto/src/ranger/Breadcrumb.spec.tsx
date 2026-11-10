@@ -14,8 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Ranger } from "@/ranger";
 
-const STAGE_ICONS =
-  ".pluto-icon--to-do, .pluto-icon--in-progress, .pluto-icon--completed";
+const STAGE_ICONS = ".lyra-icon--to-do, .lyra-icon--in-progress, .lyra-icon--completed";
 
 describe("Breadcrumb", () => {
   describe("rendering", () => {
@@ -53,7 +52,7 @@ describe("Breadcrumb", () => {
           }}
         />,
       );
-      expect(c.container.querySelector(".pluto-icon--completed")).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--completed")).toBeTruthy();
     });
 
     it("should not render a stage icon without a time range", () => {

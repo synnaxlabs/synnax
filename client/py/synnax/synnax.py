@@ -14,33 +14,42 @@ from alamos import NOOP, Instrumentation
 from freighter import URL
 from freighter.exceptions import Unreachable
 from synnax import (
+    access as access_,
     arc,
     auth,
     channel,
     connection,
+    control as control_,
     device,
+    exceptions,
     framer,
     group,
     icd,
+    imex as imex_,
+    label,
+    license as license_,
+    lineplot,
+    log,
+    panel,
     project,
     rack,
     ranger,
+    resource,
+    schematic,
+    signals as signals_,
     status,
+    table,
     task,
     user,
     view,
 )
-from synnax.access import Client as AccessClient
-from synnax.config import try_load_options_if_none_provided
-from synnax.control import Client as ControlClient
-from synnax.imex import Client as ImexClient
-from synnax.license import Client as LicenseClient
-from synnax.ontology import Client as OntologyClient
+from synnax.config import DESKTOP_NOT_RUNNING_MSG, try_load_options_if_none_provided
+from synnax.exceptions import ValidationError
 from synnax.options import Options
-from synnax.ranger.retrieve import Retriever as RangeRetriever
-from synnax.signals import Registry as SignalsRegistry
-from synnax.telem import TimeSpan
+from synnax.telem import CrudeTimeSpan, TimeSpan
 from synnax.transport import Transport
+from x.exceptions import Registry
+from x.params import deprecate_positional
 
 
 class Synnax(framer.Client):
@@ -64,53 +73,73 @@ class Synnax(framer.Client):
             secure=True,
             ca_cert="/path/to/ca.crt",
         )
+
+    With an API key::
+        client = sy.Synnax(host="synnax.example.com", port=9090, api_key="syk_...")
     """
 
     channels: channel.Client
     connectivity: connection.Checker
-    access: AccessClient
+    access: access_.Client
     users: user.Client
     ranges: ranger.Client
-    control: ControlClient
-    signals: SignalsRegistry
+    control: control_.Client
+    signals: signals_.Registry
     racks: rack.Client
     devices: device.Client
     tasks: task.Client
-    ontology: OntologyClient
-    license: LicenseClient
+    resources: resource.Client
+    license: license_.Client
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    labels: label.Client
     views: view.Client
     icds: icd.Client
-    imex: ImexClient
+    imex: imex_.Client
     projects: project.Client
+    tables: table.Client
+    line_plots: lineplot.Client
+    panels: panel.Client
+    logs: log.Client
+    schematics: schematic.Client
 
     _transport: Transport
 
+    @deprecate_positional(
+        "host",
+        "port",
+        "username",
+        "password",
+        "secure",
+        "open_timeout",
+        "read_timeout",
+        "keep_alive",
+        "max_retries",
+        "instrumentation",
+        "clock_skew_threshold",
+        "ca_cert",
+    )
     def __init__(
         self,
+        *,
         host: str = "",
         port: int = 0,
         username: str = "",
         password: str = "",
         secure: bool = False,
-        open_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        read_timeout: TimeSpan = TimeSpan.SECOND * 5,
-        keep_alive: TimeSpan = TimeSpan.SECOND * 30,
+        open_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        read_timeout: CrudeTimeSpan = TimeSpan.SECOND * 5,
+        keep_alive: CrudeTimeSpan = TimeSpan.SECOND * 30,
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
         ca_cert: str | None = None,
+        api_key: str = "",
     ):
-        """Creates a new client. Connection parameters can be provided as arguments, or,
-        if none are provided, the client will attempt to load them from the Synnax
-        configuration file (~/.synnax/config.json) as well as credentials stored in the
-        operating system's keychain.
-
-        If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `sy login` command, which will prompt and securely store your
-        credentials. The client can then be initialized without parameters.
+        """Creates a new client. Without a host, the client connects with the
+        credentials that `sy login` saved, or, if it saved none, to the Core of Synnax
+        Desktop on this computer.
 
         :param host: Hostname of a Core in the Synnax cluster.
         :param port: Port of the Core.
@@ -119,14 +148,31 @@ class Synnax(framer.Client):
         :param secure: Whether to use TLS when connecting to the Core. The client
             verifies the Core's certificate against ca_cert, or the system trust roots
             when ca_cert is None.
+        :param open_timeout: The time to wait for a connection. A bare number is
+            seconds.
+        :param read_timeout: The time to wait for a response. A bare number is seconds.
+        :param keep_alive: The time between keep alive pings. A bare number is seconds.
         :param clock_skew_threshold: The maximum allowable clock skew between this
             host and Synnax Core before a warning is issued. Defaults to 1 second.
+        :param api_key: API key to authenticate with, in place of a username and
+            password. Requires a host.
         :param ca_cert: The path to a PEM file of CA certificates that sign the Core's
             certificate, such as the ca.crt that the Core generates.
         """
-        opts = try_load_options_if_none_provided(
-            host, port, username, password, secure, ca_cert
+        if api_key and (username or password):
+            raise ValidationError(
+                "give either an API key or a username and password, not both"
+            )
+        opts, embedded = try_load_options_if_none_provided(
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+            ca_cert=ca_cert,
+            api_key=api_key,
         )
+        registry = exceptions.create_registry()
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -134,28 +180,46 @@ class Synnax(framer.Client):
             keep_alive=keep_alive,
             max_retries=max_retries,
             instrumentation=instrumentation,
+            registry=registry,
         )
         self.auth = auth.Client(
             transport=self._transport.unary,
-            username=opts.username,
-            password=opts.password,
+            proof=(
+                auth.APIKeyProof(key=opts.api_key)
+                if opts.api_key
+                else auth.PasswordProof(username=opts.username, password=opts.password)
+            ),
         )
-        self.auth.authenticate()
+        try:
+            self.auth.authenticate()
+        except Unreachable as e:
+            if embedded:
+                raise Unreachable(
+                    target=e.target, message=DESKTOP_NOT_RUNNING_MSG
+                ) from e
+            raise
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
         self.connectivity = connection.Checker(
             client=self._transport.unary,
             client_version=_version("synnax"),
             clock_skew_threshold=clock_skew_threshold,
+            embedded=embedded,
         )
         # Not __del__: interpreter finalization would run it after daemon threads
         # are frozen, deadlocking stop()'s join. finalize runs at atexit, before
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        ch_retriever = channel.Retriever(self._transport.unary, instrumentation)
-        deleter = framer.Deleter(self._transport.unary, instrumentation)
-        ch_creator = channel.Writer(self._transport.unary, instrumentation)
+        ch_retriever = channel.Retriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        deleter = framer.Deleter(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        ch_creator = channel.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
@@ -163,20 +227,39 @@ class Synnax(framer.Client):
             file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
+            registry=registry,
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
-        self.ontology = OntologyClient(client=self._transport.unary)
-        self.channels = channel.Client(self, ch_retriever, ch_creator)
-        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
-        range_creator = ranger.Writer(self._transport.unary, instrumentation)
-        self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
+        self.labels = label.Client(self._transport.unary)
+        self.resources = resource.Client(self._transport.unary)
+        self.channels = channel.Client(
+            client=self._transport.unary,
+            frame_client=self,
+            retriever=ch_retriever,
+            creator=ch_creator,
+        )
+        range_retriever = ranger.Retriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        range_creator = ranger.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        self.signals = signals_.Registry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
         self.icds = icd.Client(client=self._transport.unary)
-        self.imex = ImexClient(file_transport=self._transport.file_transport)
-        self.projects = project.Client(client=self._transport.unary)
+        self.imex = imex_.Client(file_transport=self._transport.file_transport)
+        self.projects = project.Client(
+            client=self._transport.unary,
+            file_transport=self._transport.file_transport,
+        )
+        self.tables = table.Client(client=self._transport.unary)
+        self.line_plots = lineplot.Client(client=self._transport.unary)
+        self.panels = panel.Client(client=self._transport.unary)
+        self.logs = log.Client(self._transport.unary)
+        self.schematics = schematic.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -190,15 +273,17 @@ class Synnax(framer.Client):
             writer=range_creator,
             retriever=range_retriever,
             signals=self.signals,
-            ontology=self.ontology,
             tasks=self.tasks,
+            labels=self.labels,
         )
-        self.control = ControlClient(self, ch_retriever, self._transport.unary)
+        self.control = control_.Client(
+            framer=self, channels=ch_retriever, client=self._transport.unary
+        )
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
-        self.license = LicenseClient(self._transport.unary)
-        self.arcs = arc.Client(self._transport.unary)
-        self.access = AccessClient(self._transport.unary)
+        self.license = license_.Client(self._transport.unary)
+        self.arcs = arc.Client(self._transport.unary, tasks=self.tasks)
+        self.access = access_.Client(self._transport.unary)
 
     def close(self) -> None:
         """Logs out, shuts down the client, and closes all connections. All open
@@ -215,15 +300,18 @@ class Synnax(framer.Client):
 
 
 def _configure_transport(
+    *,
     opts: Options,
-    open_timeout: TimeSpan,
-    read_timeout: TimeSpan,
-    keep_alive: TimeSpan,
+    open_timeout: CrudeTimeSpan,
+    read_timeout: CrudeTimeSpan,
+    keep_alive: CrudeTimeSpan,
     max_retries: int,
+    registry: Registry,
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
     return Transport(
         instrumentation=instrumentation,
+        registry=registry,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
         ca_cert=opts.ca_cert,

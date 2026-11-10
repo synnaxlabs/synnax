@@ -8,10 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Dialog } from "@/dialog";
+import { List } from "@/list";
 import { Select } from "@/select";
 import { createRenderCounter } from "@/testutil/renders";
 import { Triggers } from "@/triggers";
@@ -21,6 +23,9 @@ interface RenderOptions {
   visible?: boolean;
   onChange?: (key: string | null) => void;
   search?: boolean;
+  data?: string[];
+  /** Adds a "time" item below the list, with a hint that its label leaves out. */
+  pinned?: boolean;
 }
 
 const renderSelect = ({
@@ -28,12 +33,14 @@ const renderSelect = ({
   visible = false,
   onChange = vi.fn(),
   search = false,
+  data = ["alpha", "bravo"],
+  pinned = false,
 }: RenderOptions = {}): RenderResult =>
   render(
     <Triggers.Provider>
       <Dialog.Frame visible={visible}>
         <Select.Frame<string, undefined>
-          data={["alpha", "bravo"]}
+          data={data}
           value={value}
           onChange={onChange}
           allowNone
@@ -54,6 +61,12 @@ const renderSelect = ({
               </Select.Items>
               <Select.Item itemKey="custom">Custom</Select.Item>
             </Select.List>
+            {pinned && (
+              <Select.Item itemKey="time" label="Time">
+                <span>Time</span>
+                <span>Uses each channel's time.</span>
+              </Select.Item>
+            )}
           </Select.Dialog>
         </Select.Frame>
       </Dialog.Frame>
@@ -61,7 +74,7 @@ const renderSelect = ({
   );
 
 const hovered = (c: RenderResult): string | undefined =>
-  c.baseElement.querySelector(".pluto-list__item.pluto--hovered")?.id;
+  c.baseElement.querySelector(".lyra-list__item.lyra--hovered")?.id;
 
 const keyDown = (code: string): void => {
   act(() => {
@@ -78,7 +91,7 @@ describe("Select.Item", () => {
       const c = renderSelect({ value: "custom" });
       const trigger = c.getByRole("button");
       expect(trigger.textContent).toBe("Custom");
-      expect(trigger.querySelector(".pluto-select__label")).not.toBeNull();
+      expect(trigger.querySelector(".lyra-select__label")).not.toBeNull();
     });
 
     it("should not render unselected fixed items", () => {
@@ -178,6 +191,52 @@ describe("Select.Item", () => {
       keyDown("ArrowUp");
       expect(hovered(c)).toBe("custom");
     });
+
+    it("should never hide a fixed item outside the list", () => {
+      const c = renderSelect({ visible: true, search: true, pinned: true });
+      type(c, "zzz");
+      expect(c.baseElement.querySelector("#custom")?.hasAttribute("hidden")).toBe(true);
+      expect(c.baseElement.querySelector("#time")?.hasAttribute("hidden")).toBe(false);
+    });
+
+    it("should leave a fixed item outside the list out of its rows", () => {
+      const c = renderSelect({ visible: true, search: true, pinned: true, data: [] });
+      type(c, "channel");
+      const scroll = c.baseElement.querySelector(".lyra-list__scroll");
+      expect(scroll?.classList.contains("lyra-list__scroll--empty")).toBe(true);
+    });
+  });
+
+  describe("pinned", () => {
+    it("should walk a fixed item outside the list after it", () => {
+      const c = renderSelect({ visible: true, pinned: true });
+      keyDown("ArrowDown");
+      keyDown("ArrowUp");
+      expect(hovered(c)).toBe("time");
+    });
+
+    it("should select a fixed item outside the list on click", () => {
+      const onChange = vi.fn();
+      const c = renderSelect({ visible: true, pinned: true, onChange });
+      fireEvent.click(c.getByText("Uses each channel's time."));
+      expect(onChange).toHaveBeenCalledWith("time", { clicked: "time" });
+    });
+  });
+
+  describe("label", () => {
+    it("should show the label in a closed trigger instead of the children", () => {
+      const c = renderSelect({ value: "time", pinned: true });
+      expect(c.getByRole("button").textContent).toBe("Time");
+    });
+
+    it("should show the label in the trigger and the children in the row", () => {
+      const c = renderSelect({ value: "time", visible: true, pinned: true });
+      const trigger = c.baseElement.querySelector(".lyra-dialog__trigger");
+      expect(trigger?.textContent).toBe("Time");
+      expect(c.baseElement.querySelector("#time")?.textContent).toBe(
+        "TimeUses each channel's time.",
+      );
+    });
   });
 });
 
@@ -200,7 +259,7 @@ describe("Select.MultipleTrigger", () => {
         </Select.Frame>
       </Dialog.Frame>,
     );
-    const tag = c.baseElement.querySelector(".pluto-tag");
+    const tag = c.baseElement.querySelector(".lyra-tag");
     expect(tag?.textContent).toContain("All");
     expect(tag?.className).not.toContain("error");
   });
@@ -242,6 +301,43 @@ describe("Select render isolation", () => {
     expect([...counts.keys()].sort()).toEqual(["key-3", "key-7"]);
   });
 
+  it("should re-render only the two items an arrow key moves the hover between", () => {
+    const { Counted, counts, reset } = createRenderCounter();
+    render(
+      <Triggers.Provider>
+        <Dialog.Frame visible>
+          <Select.Frame<string, undefined>
+            data={KEYS}
+            onChange={vi.fn()}
+            allowNone
+            initialHover={3}
+          >
+            <Select.List>
+              <Select.Items<string>>
+                {({ key, ...p }) => (
+                  <Counted key={key} id={p.itemKey}>
+                    <Select.Item {...p}>{p.itemKey}</Select.Item>
+                  </Counted>
+                )}
+              </Select.Items>
+            </Select.List>
+          </Select.Frame>
+        </Dialog.Frame>
+      </Triggers.Provider>,
+    );
+    reset();
+    act(() => {
+      fireEvent.keyDown(window, { code: "ArrowDown" });
+    });
+    act(() => {
+      fireEvent.keyUp(window, { code: "ArrowDown" });
+    });
+    expect([...counts.entries()].sort()).toEqual([
+      ["key-3", 1],
+      ["key-4", 1],
+    ]);
+  });
+
   it("should render only the fixed items whose visibility changes on a search", () => {
     const { Counted, counts, reset } = createRenderCounter();
     const c = render(
@@ -271,5 +367,105 @@ describe("Select render isolation", () => {
     changed.push("key-2", ...Array.from({ length: 10 }, (_, i) => `key-2${i}`));
     expect([...counts.keys()].sort()).toEqual(changed.sort());
     counts.forEach((count) => expect(count).toBe(1));
+  });
+
+  describe("checkable", () => {
+    interface CheckableProps {
+      onActivate?: () => void;
+      onChange?: (keys: string[]) => void;
+      disabled?: boolean;
+    }
+
+    const Checkable = ({
+      onActivate,
+      onChange,
+      disabled,
+    }: CheckableProps): ReactElement => {
+      const [value, setValue] = useState<string[]>([]);
+      const handleChange = (next: string[]): void => {
+        setValue(next);
+        onChange?.(next);
+      };
+      return (
+        <Triggers.Provider>
+          <Select.Frame<string, undefined>
+            multiple
+            data={["alpha", "bravo"]}
+            value={value}
+            onChange={handleChange}
+          >
+            <List.Scroll>
+              <List.Items<string>>
+                {({ key, ...p }): ReactElement => (
+                  <Select.Item
+                    key={key}
+                    {...p}
+                    checkable
+                    onActivate={onActivate}
+                    disabled={disabled}
+                  >
+                    {p.itemKey}
+                  </Select.Item>
+                )}
+              </List.Items>
+            </List.Scroll>
+          </Select.Frame>
+        </Triggers.Provider>
+      );
+    };
+
+    const item = (c: RenderResult, key: string): HTMLElement =>
+      c.baseElement.querySelector<HTMLElement>(`#${key}`)!;
+
+    const checkbox = (c: RenderResult, key: string): HTMLInputElement =>
+      item(c, key).querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+
+    it("should call onActivate on a plain click without selecting", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(item(c, "alpha"));
+      expect(onActivate).toHaveBeenCalledTimes(1);
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
+
+    it("should select on a click with Command held without activating", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(item(c, "alpha"), { metaKey: true });
+      expect(onActivate).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(true);
+    });
+
+    it("should add to the selection through each checkbox", () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      fireEvent.click(checkbox(c, "bravo"));
+      expect(onChange).toHaveBeenLastCalledWith(["alpha", "bravo"]);
+    });
+
+    it("should empty the selection when the last checkbox clears", () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      fireEvent.click(checkbox(c, "alpha"));
+      expect(onChange).toHaveBeenLastCalledWith([]);
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
+
+    it("should not activate when the checkbox is clicked", () => {
+      const onActivate = vi.fn();
+      const c = render(<Checkable onActivate={onActivate} />);
+      fireEvent.click(checkbox(c, "alpha"));
+      expect(onActivate).not.toHaveBeenCalled();
+    });
+
+    it("should not select a disabled item through its checkbox", async () => {
+      const onChange = vi.fn();
+      const c = render(<Checkable onChange={onChange} disabled />);
+      await userEvent.click(checkbox(c, "alpha"));
+      expect(onChange).not.toHaveBeenCalled();
+      expect(checkbox(c, "alpha").checked).toBe(false);
+    });
   });
 });

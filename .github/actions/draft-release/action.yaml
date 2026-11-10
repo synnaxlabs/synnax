@@ -38,8 +38,8 @@ inputs:
 runs:
   using: composite
   steps:
-    # A failed earlier run can leave a draft under the same tag; the tag itself only
-    # exists once a release is published.
+    # A failed earlier run can leave a draft under the same tag, and GitHub lets a
+    # second release take a tag that another holds, so clear the tag first.
     - name: Draft release
       shell: bash
       env:
@@ -51,11 +51,7 @@ runs:
         PRERELEASE: ${{ inputs.prerelease }}
         CONFIG: ${{ inputs.config }}
       run: |
-        RELEASES=$(gh release list --json tagName,isDraft)
-        if jq -e --arg tag "$TAG" 'any(.[]; .tagName == $tag and .isDraft)' \
-          <<< "$RELEASES" > /dev/null; then
-          gh release delete "$TAG" --yes
-        fi
+        .github/scripts/clear_release_drafts.sh "$TAG"
         BODY=$(.github/scripts/release_notes.sh "$TAG" "$GITHUB_SHA" "$CONFIG" \
           "$PREVIOUS_TAG" "$NOTES")
         ARGS=(--draft --target "$GITHUB_SHA" --title "$TITLE" --notes "$BODY")

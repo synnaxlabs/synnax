@@ -16,7 +16,7 @@
 #include "client/cpp/bus/types.gen.h"
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/bus/testutil/testutil.h"

@@ -160,7 +160,7 @@ var _ = Describe("ImEx", func() {
 				ctx SpecContext,
 			) {
 				var env imex.Envelope
-				Expect(imex.Codec.Decode(ctx, []byte(
+				Expect(imex.Codec.Decode([]byte(
 					`{"version":1,"type":"log","name":"Tank \ud83d level"}`,
 				), &env)).To(Succeed())
 				Expect(env.Name).To(Equal("Tank \uFFFD level"))
@@ -173,7 +173,7 @@ var _ = Describe("ImEx", func() {
 			It("Should replace invalid UTF-8", func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
-					ctx, []byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
+					[]byte("{\"version\":1,\"name\":\"\xff\"}"), &env,
 				)).To(Succeed())
 				Expect(env.Name).To(Equal("\uFFFD"))
 			})
@@ -181,7 +181,7 @@ var _ = Describe("ImEx", func() {
 			It("Should reject a duplicate object name", func(ctx SpecContext) {
 				var env imex.Envelope
 				Expect(imex.Codec.Decode(
-					ctx, []byte(`{"version":1,"name":"a","name":"b"}`), &env,
+					[]byte(`{"version":1,"name":"a","name":"b"}`), &env,
 				)).To(MatchError(ContainSubstring("failed to decode")))
 			})
 
@@ -383,6 +383,45 @@ var _ = Describe("ImEx", func() {
 				Expect(round).ToNot(HaveKey("key"))
 				Expect(round["name"]).To(Equal("n"))
 				Expect(round["foo"]).To(BeEquivalentTo(1))
+			})
+
+			It("Should drop the reference fields it is given", func() {
+				type referencing struct {
+					Name   string   `json:"name"`
+					Parent string   `json:"parent"`
+					Labels []string `json:"labels"`
+					Range  string   `json:"range"`
+				}
+				env := imex.Envelope{Version: 1, Type: "range"}
+				Expect(env.Encode(
+					referencing{
+						Name:   "n",
+						Parent: "p",
+						Labels: []string{"l"},
+						Range:  "r",
+					},
+					"parent",
+					"labels",
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("parent"))
+				Expect(round).ToNot(HaveKey("labels"))
+				Expect(round["range"]).To(Equal("r"))
+				Expect(round["name"]).To(Equal("n"))
+			})
+
+			It("Should drop the reference fields of a map body", func() {
+				env := imex.Envelope{Version: 1, Type: "task", Name: "n"}
+				Expect(env.Encode(
+					map[string]any{"rack": 1, "group": "consumers"}, "rack",
+				)).To(Succeed())
+				b := MustSucceed(json.Marshal(env))
+				var round map[string]any
+				Expect(json.Unmarshal(b, &round)).To(Succeed())
+				Expect(round).ToNot(HaveKey("rack"))
+				Expect(round["group"]).To(Equal("consumers"))
 			})
 
 			It(

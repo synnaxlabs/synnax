@@ -25,13 +25,47 @@ import (
 // Key is a unique identifier for a saved view configuration.
 type Key = v0.Key
 
+// Base carries the fields shared by every view variant.
+type Base struct {
+	// Key is the unique identifier for this view.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the view.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (b Base) Validate() error {
+	v := validate.New("Base")
+	v.NotEmptyString("name", b.Name)
+	return v.Error()
+}
+
+// RangeQuery filters the ranges shown by a range view.
+type RangeQuery struct {
+	// HasLabels restricts the view to ranges carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+}
+
+// StatusQuery filters the statuses shown by a status view.
+type StatusQuery struct {
+	// HasLabels restricts the view to statuses carrying any of these labels.
+	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
+	// Variants restricts the view to statuses of these variants.
+	Variants []status.Variant `json:"variants" msgpack:"variants"`
+}
+
+// ViewType is the "type" value that selects a variant of View.
 type ViewType string
 
 const (
-	RangeViewType  ViewType = "range"
+	// RangeViewType is a saved view of ranges.
+	RangeViewType ViewType = "range"
+	// StatusViewType is a saved view of statuses.
 	StatusViewType ViewType = "status"
 )
 
+// ViewVariant is implemented by every View variant.
 type ViewVariant interface {
 	isViewVariant()
 }
@@ -110,26 +144,49 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ViewType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case RangeViewType:
-		var v RangeView
+		var v struct {
+			Type ViewType `json:"type"`
+			RangeView
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RangeView
 	case StatusViewType:
-		var v StatusView
+		var v struct {
+			Type ViewType `json:"type"`
+			StatusView
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StatusView
 	default:
-		return errors.Newf("View: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"View: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case RangeView:
+		return RangeViewType
+	case StatusView:
+		return StatusViewType
+	}
+	return ""
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant
@@ -144,32 +201,27 @@ func (u View) Validate() error {
 	return nil
 }
 
-// Base carries the fields shared by every view variant.
-type Base struct {
-	// Key is the unique identifier for this view.
-	Key Key `json:"key" msgpack:"key"`
-	// Name is a human-readable name for the view.
-	Name string `json:"name" msgpack:"name"`
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u View) Base() Base {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		return variant.Base
+	case StatusView:
+		return variant.Base
+	}
+	return Base{}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (b Base) Validate() error {
-	v := validate.New("Base")
-	v.NotEmptyString("name", b.Name)
-	return v.Error()
-}
-
-// RangeQuery filters the ranges shown by a range view.
-type RangeQuery struct {
-	// HasLabels restricts the view to ranges carrying any of these labels.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-}
-
-// StatusQuery filters the statuses shown by a status view.
-type StatusQuery struct {
-	// HasLabels restricts the view to statuses carrying any of these labels.
-	HasLabels []label.Key `json:"has_labels" msgpack:"has_labels"`
-	// Variants restricts the view to statuses of these variants.
-	Variants []status.Variant `json:"variants" msgpack:"variants"`
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *View) SetBase(base Base) {
+	switch variant := u.Variant.(type) {
+	case RangeView:
+		variant.Base = base
+		u.Variant = variant
+	case StatusView:
+		variant.Base = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("View: cannot set the base of variant %T", variant))
+	}
 }

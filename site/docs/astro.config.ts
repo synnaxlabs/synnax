@@ -14,14 +14,16 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
+import path from "path";
 
-import { schema } from "./src/util/env";
 import { inlineCode } from "./src/util/inlineCode";
 import { outline } from "./src/util/outline";
 import { quantities } from "./src/util/quantities";
 import { listReleaseNotes } from "./src/util/releaseNotes";
+import { Releases } from "./src/util/releases";
+import { NEXT, parse, resolve, withSites } from "./src/util/version";
 
 // Each version's notes render only inside /releases, so their old routes point at the
 // version's anchor there.
@@ -32,23 +34,32 @@ const RELEASE_REDIRECTS = Object.fromEntries(
   ]),
 );
 
+// One resolution serves every page, so a deployment never mixes statuses, and a page
+// that renders per request never asks GitHub for its version.
+const releases = new Releases({ token: process.env.DOCS_GITHUB_TOKEN });
+const versionName = parse(process.env.DOCS_VERSION);
+const version =
+  versionName == null
+    ? null
+    : resolve(
+        versionName,
+        withSites(await releases.trains("core")),
+        versionName === NEXT ? null : await releases.onTrain("core", versionName),
+      );
+
 // https://astro.build/config
 export default defineConfig({
   integrations: [integration(), react(), mdx()],
-  output: "server",
-  env: { schema },
-  adapter: vercel({
-    // Misses read Vercel's shared page cache, not the function, and pages refresh
-    // with the release listing. The updater feeds stay uncached so a failed lookup
-    // never sticks.
-    isr: { expiration: 300, exclude: [/^\/releases\/[^/]+\/(latest|next)\.json$/] },
-  }),
+  adapter: vercel(),
   vite: {
+    define: { __DOCS_VERSION__: JSON.stringify(version) },
     // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
     // An inlined font ships in the render-blocking stylesheet whether or not a page
     // needs its characters.
@@ -65,6 +76,7 @@ export default defineConfig({
     },
   },
   redirects: {
+    "/": "/reference",
     // Shipped clients print these paths in errors and docstrings.
     "/reference/client/resources/troubleshooting": "/reference/client/troubleshooting",
     "/reference/client/working-with-data/streaming-data":
@@ -89,6 +101,7 @@ export default defineConfig({
     "/reference/console/requirements": "/reference/enterprise/requirements",
     "/reference/console/channels": "/reference/channels",
     "/reference/console/calculated-channels": "/reference/channels/calculated",
+    "/reference/desktop/usage-data": "/privacy-policy#desktop-usage-data",
     "/reference/console/ranges": "/reference/ranges/find",
     "/reference/console/workspaces": "/reference/visualize/projects",
     "/reference/control/arc/concepts": "/reference/control/arc/execution-model",
@@ -119,6 +132,7 @@ export default defineConfig({
     "/reference/control/arc/how-to/unit-conversions":
       "/reference/control/arc/compute-values",
     "/reference/control/arc/introduction": "/reference/control/arc",
+    "/reference/control/arc/graph-editor": "/reference/control/arc/automations",
     "/reference/control/arc/concepts/stateful-variables":
       "/reference/control/arc/reference/variables",
     "/reference/control/arc/reference/built-ins":
@@ -202,7 +216,7 @@ export default defineConfig({
     "/reference/concepts/streams": "/reference/client/stream-data",
     "/reference/concepts/writes": "/reference/client/write-data",
     "/reference/console": "/reference/visualize",
-    "/reference/console/get-started": "/reference/enterprise/console",
+    "/reference/console/get-started": "/reference/get-started/install-desktop",
     "/reference/console/line-plots": "/reference/visualize/line-plots",
     "/reference/console/logs": "/reference/visualize/logs",
     "/reference/console/projects": "/reference/visualize/projects",

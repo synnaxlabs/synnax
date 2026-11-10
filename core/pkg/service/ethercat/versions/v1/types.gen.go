@@ -14,12 +14,15 @@ package v1
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // PDOAddress addresses a PDO entry explicitly in the CoE object dictionary.
@@ -44,6 +47,12 @@ func (p *PDOAddress) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *PDOAddress) SetDefaults() {
+	p.BitLength = 16
+	p.DataType = "uint16"
+}
+
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
 type BaseReadChannel struct {
 	// Key uniquely identifies the channel within the task.
@@ -58,13 +67,18 @@ type BaseReadChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// ReadChannelType is the "type" value that selects a variant of ReadChannel.
 type ReadChannelType string
 
 const (
+	// AutomaticReadChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticReadChannelType ReadChannelType = "automatic"
-	ManualReadChannelType    ReadChannelType = "manual"
+	// ManualReadChannelType specifies its PDO address inline.
+	ManualReadChannelType ReadChannelType = "manual"
 )
 
+// ReadChannelVariant is implemented by every ReadChannel variant.
 type ReadChannelVariant interface {
 	isReadChannelVariant()
 }
@@ -85,6 +99,11 @@ type ManualReadChannel struct {
 }
 
 func (ManualReadChannel) isReadChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualReadChannel) SetDefaults() {
+	m.PDOAddress.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualReadChannel) ApplyDefaults() {
@@ -131,26 +150,50 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AutomaticReadChannelType:
-		var v AutomaticReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			AutomaticReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AutomaticReadChannel
 	case ManualReadChannelType:
-		var v ManualReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			ManualReadChannel
+		}
+		v.ManualReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ManualReadChannel
 	default:
-		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"ReadChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AutomaticReadChannel:
+		return AutomaticReadChannelType
+	case ManualReadChannel:
+		return ManualReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -160,6 +203,31 @@ func (u *ReadChannel) ApplyDefaults() {
 	case ManualReadChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u ReadChannel) Base() BaseReadChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		return variant.BaseReadChannel
+	case ManualReadChannel:
+		return variant.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *ReadChannel) SetBase(base BaseReadChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	case ManualReadChannel:
+		variant.BaseReadChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("ReadChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -183,13 +251,18 @@ type BaseWriteChannel struct {
 	Device device.Key `json:"device" msgpack:"device"`
 }
 
+// WriteChannelType is the "type" value that selects a variant of WriteChannel.
 type WriteChannelType string
 
 const (
+	// AutomaticWriteChannelType resolves its PDO address from the slave's discovered
+	// PDOs.
 	AutomaticWriteChannelType WriteChannelType = "automatic"
-	ManualWriteChannelType    WriteChannelType = "manual"
+	// ManualWriteChannelType specifies its PDO address inline.
+	ManualWriteChannelType WriteChannelType = "manual"
 )
 
+// WriteChannelVariant is implemented by every WriteChannel variant.
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -210,6 +283,11 @@ type ManualWriteChannel struct {
 }
 
 func (ManualWriteChannel) isWriteChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (m *ManualWriteChannel) SetDefaults() {
+	m.PDOAddress.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (m *ManualWriteChannel) ApplyDefaults() {
@@ -256,26 +334,50 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AutomaticWriteChannelType:
-		var v AutomaticWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			AutomaticWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AutomaticWriteChannel
 	case ManualWriteChannelType:
-		var v ManualWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			ManualWriteChannel
+		}
+		v.ManualWriteChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ManualWriteChannel
 	default:
-		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"WriteChannel: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return AutomaticWriteChannelType
+	case ManualWriteChannel:
+		return ManualWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -285,6 +387,31 @@ func (u *WriteChannel) ApplyDefaults() {
 	case ManualWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
+	}
+}
+
+// Base returns the fields every variant shares, or the zero value if Variant is nil.
+func (u WriteChannel) Base() BaseWriteChannel {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		return variant.BaseWriteChannel
+	case ManualWriteChannel:
+		return variant.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// SetBase replaces the fields every variant shares. It panics if Variant is nil.
+func (u *WriteChannel) SetBase(base BaseWriteChannel) {
+	switch variant := u.Variant.(type) {
+	case AutomaticWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	case ManualWriteChannel:
+		variant.BaseWriteChannel = base
+		u.Variant = variant
+	default:
+		panic(errors.Newf("WriteChannel: cannot set the base of variant %T", variant))
 	}
 }
 
@@ -302,6 +429,30 @@ func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
@@ -329,6 +480,31 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (w *WriteConfig) SetDefaults() {
+	w.StateRate = 25
+	w.ExecutionRate = 1000
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (w *WriteConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(w))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain WriteConfig
+	if reflect.ValueOf(*w).IsZero() {
+		w.SetDefaults()
+	}
+	return dec.Decode((*plain)(w))
+}
+
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig struct {
 	task.ScanConfig
@@ -337,4 +513,28 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
 }

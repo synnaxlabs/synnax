@@ -53,7 +53,7 @@ because those steps move on to the next step in the code. See
 ### Add a timeout to each stage that waits
 
 A stage that waits for a value that never comes holds the test forever. Add
-`time.wait{duration=60s} => abort` as the last transition of the stage. See
+`time.wait(duration=60s) => abort` as the last transition of the stage. See
 [add a timeout](/reference/control/arc/test-sequences#add-a-timeout).
 
 ### Show the stage to operators
@@ -123,12 +123,12 @@ stops and waits for the next click.
 
 ## Functions
 
-### Keep side effects out of functions with no input
+### Keep side effects out of functions with no upstream trigger
 
-A function call with no input that reads a channel runs in every cycle while its stage
-is active. A call to `ranges.end` or `status.set` inside such a function repeats in
-every cycle. Call those functions directly in the stage, with literal or variable
-arguments: `ranges.end{key=range_key}`. See
+A function call with no upstream trigger that reads a channel runs in every cycle while
+its stage is active. A call to `ranges.end` or `status.set` inside such a function
+repeats in every cycle. Call those functions directly in the stage, with literal or
+variable arguments: `ranges.end(key=range_key)`. See
 [mark each run with a range](/reference/control/arc/test-sequences#mark-each-run-with-a-range).
 
 ### Keep state in the right place

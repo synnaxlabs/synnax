@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { table } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type border, box, dimensions, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Cell } from "@/table/cells";
 import { Indicator, type IndicatorProps } from "@/table/Indicator";
 import { useCell, useDispatch } from "@/table/queries";
@@ -172,13 +172,13 @@ const VariantCell = memo(
       dimensions.construct(width, height),
     );
     const shift = { x: shiftX, y: shiftY };
-    const handleChange = (config: table.CellConfig) => {
+    if (cell == null) return null;
+    const handleChange = (next: table.CellConfig) => {
       dispatch({
         key: resourceKey,
-        actions: [table.setCell({ cell: { key: cellKey, config } })],
+        actions: table.setChanged({ key: cellKey, base: cell, next }),
       });
     };
-    if (cell == null) return null;
     const Spec = Cell.resolveSpec(cell.variant);
     return (
       <Shift value={shift}>

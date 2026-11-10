@@ -10,8 +10,11 @@
 package console_test
 
 import (
+	"net/http"
 	"testing"
+	"time"
 
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,3 +26,13 @@ func TestConsole(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// serve runs req through app. The default 1s app.Test timeout is too short for a race
+// build on a loaded CI runner.
+func serve(app *fiber.App, req *http.Request) *http.Response {
+	GinkgoHelper()
+	return MustSucceed(app.Test(req, fiber.TestConfig{
+		Timeout:       10 * time.Second,
+		FailOnTimeout: true,
+	}))
+}

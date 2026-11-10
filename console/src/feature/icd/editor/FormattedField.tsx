@@ -9,10 +9,11 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 export interface FormattedFieldProps<V> {
-  path: string;
+  path: deep.Target<V | undefined>;
   label: string;
   /** Shown while the text is empty. */
   placeholder?: string;
@@ -40,7 +41,7 @@ export const FormattedField = <V,>({
   parse,
 }: FormattedFieldProps<V>): ReactElement => {
   const { set } = Form.useContext();
-  const state = Form.useFieldState<V>(path, { optional });
+  const state = Form.useFieldState(path, { optional });
   const value = state?.value;
   const handleChange = (text: string) => {
     if (optional && text.trim() === "") return set(path, undefined);

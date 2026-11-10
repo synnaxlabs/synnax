@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -30,8 +31,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -264,6 +265,24 @@ var _ = Describe("License", func() {
 				true,
 			),
 		)
+
+		Describe("ActivationURL", func() {
+			It("Should open the portal with the fingerprint and the name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("stand 3")))
+				Expect(u.Scheme + "://" + u.Host + u.Path).To(Equal(
+					"https://portal.synnaxlabs.com/licenses/activate",
+				))
+				Expect(u.Query()).To(Equal(url.Values{
+					"fingerprint": {"aaaa,bbbb"},
+					"name":        {"stand 3"},
+				}))
+			})
+
+			It("Should leave out an empty name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("")))
+				Expect(u.Query()).To(Equal(url.Values{"fingerprint": {"aaaa,bbbb"}}))
+			})
+		})
 	})
 
 	Describe("Open", func() {
@@ -469,7 +488,7 @@ var _ = Describe("License", func() {
 				svc = open(ctx, clocked)
 				keys := announcements(svc)
 				clock.Store(now.Add(time.Hour).UnixNano())
-				Eventually(keys).Should(Receive(Equal(license.OntologyKey)))
+				Eventually(keys).Should(Receive(Equal(license.ResourceKey)))
 			},
 		)
 		It("should never move the recorded time back", func(ctx SpecContext) {
@@ -742,7 +761,7 @@ var _ = Describe("License", func() {
 		It("should announce an activated license", func(ctx SpecContext) {
 			keys := announcements(svc)
 			MustSucceed(svc.Activate(ctx, sign(newLicense())))
-			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+			Expect(keys).To(Receive(Equal(license.ResourceKey)))
 		})
 		It("should not announce a refused license key", func(ctx SpecContext) {
 			keys := announcements(svc)
@@ -822,7 +841,42 @@ var _ = Describe("License", func() {
 			MustSucceed(svc.Activate(ctx, sign(lic)))
 			keys := announcements(svc)
 			MustSucceed(svc.Deactivate(ctx, lic.Jti))
-			Expect(keys).To(Receive(Equal(license.OntologyKey)))
+			Expect(keys).To(Receive(Equal(license.ResourceKey)))
 		})
+	})
+
+	Describe("CheckUpdate", func() {
+		// expired returns a license whose term ended and that covers versions up to
+		// ceiling.
+		expired := func(ceiling string) *license.License {
+			lic := newLicense()
+			lic.Exp = seconds(now.Add(-100 * day))
+			lic.MaxVersion = new(ceiling)
+			return &lic
+		}
+		It(
+			"should refuse an update from a version that only the license covers",
+			func(ctx SpecContext) {
+				store(ctx, *expired("0.59"))
+				Expect(open(ctx).CheckUpdate("0.59.3")).To(And(
+					MatchError(license.ErrExpired),
+					MatchError(ContainSubstring(
+						"license covers versions up to 0.59, this Core is 0.60.1",
+					)),
+				))
+			},
+		)
+		DescribeTable(
+			"should allow an update that keeps the license",
+			func(ctx SpecContext, lic *license.License) {
+				if lic != nil {
+					store(ctx, *lic)
+				}
+				Expect(open(ctx).CheckUpdate("0.59.3")).To(Succeed())
+			},
+			Entry("with a license that covers this Core", new(newLicense())),
+			Entry("with a license that covered neither version", expired("0.58")),
+			Entry("without a license", nil),
+		)
 	})
 })

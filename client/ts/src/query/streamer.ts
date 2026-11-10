@@ -30,9 +30,8 @@ export interface Listener<Z extends z.ZodType = z.ZodType> {
 }
 
 /**
- * Sorts channel names to ensure deletions are processed before other changes. This
- * ensures that modifications to things like relationships (delete followed by create)
- * are processed in the correct order.
+ * Sorts channel names so deletions are processed before other changes, so a delete and
+ * a re-create of one record in the same frame apply in order.
  * @returns Sort order (-1, 0, or 1)
  */
 const channelNameSort = (a: string, b: string) => {
@@ -127,8 +126,8 @@ export const createStreamer = ({
       { channels },
       {
         breaker: breakerConfig,
-        // onLive first: onReopen's reconcile fetches must not hit a stale liveness short
-        // circuit
+        // onLive first: onReopen's reconcile fetches must not hit a stale liveness
+        // short circuit
         onReopen: () => {
           onLive?.();
           onReopen?.();
@@ -144,9 +143,11 @@ export const createStreamer = ({
     // ObservableStreamer construction below starts reads, so onOpen precedes any frame.
     onOpen?.();
     onLive?.();
+    // A listener can await, so each frame waits for the one before it to apply.
+    let applied: Promise<void> = Promise.resolve();
     const handleChange = (frame: framer.Frame) => {
       const namesInFrame = frame.uniqueNames.sort(channelNameSort);
-      void (async () => {
+      applied = applied.then(async () => {
         for (const name of namesInFrame) {
           const series = frame.get(name);
           const listeners = listenersForChannels.get(name);
@@ -170,7 +171,7 @@ export const createStreamer = ({
             }
           }
         }
-      })();
+      });
     };
     const stream = new ObservableStreamer(h, undefined, (error) => {
       // drop the memoized stream so the next demand opens a fresh one

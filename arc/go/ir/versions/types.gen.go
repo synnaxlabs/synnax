@@ -21,8 +21,11 @@ type Handle = v1.Handle
 type EdgeKind = v1.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = v1.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = v1.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = v1.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = v1.EdgeKindConditional
 )
 

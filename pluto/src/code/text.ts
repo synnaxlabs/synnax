@@ -22,9 +22,9 @@ export interface Diff {
 export const utf16Offset = (s: string, codePointIndex: number): number =>
   codePoints(s).slice(0, codePointIndex).join("").length;
 
-/** diff computes the single contiguous change that turns oldStr into newStr, measured in
- * code points: the longest common prefix and suffix are stripped and what remains in the
- * middle is the deletion (from oldStr) and insertion (from newStr). */
+/** diff computes the single contiguous change that turns oldStr into newStr, measured
+ * in code points: the longest common prefix and suffix are stripped and what remains in
+ * the middle is the deletion (from oldStr) and insertion (from newStr). */
 export const diff = (oldStr: string, newStr: string): Diff => {
   const o = codePoints(oldStr);
   const n = codePoints(newStr);

@@ -7,31 +7,31 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
 
-from console.schematic.symbol import Symbol
+import synnax as sy
+from console.schematic.symbol import Symbol, option_text
 
 
 class StateIndicator(Symbol):
     """Schematic state indicator symbol (read-only state display)"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
         *,
         label: str,
         channel_name: str,
-        options: list[dict[str, Any]] | None = None,
+        options: list[sy.schematic.StateMapping] | None = None,
     ):
         """Initialize a state indicator symbol with configuration.
 
-        Args:
-            label: Display label for the symbol
-            channel_name: Channel name for the state input
-            options: List of option dicts with "name", "value", and optional "color" keys
+        :param label: Display label for the symbol
+        :param channel_name: Channel name for the state input
+        :param options: List of option dicts with "name", "value", and optional "color"
+            keys
         """
-        super().__init__(label, symbol_type="State indicator", rotatable=False)
+        super().__init__(label=label, symbol_type="State indicator", rotatable=False)
         self.channel_name = channel_name
         self.options = options or []
 
@@ -40,19 +40,17 @@ class StateIndicator(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
-        options: list[dict[str, Any]] | None = None,
-        **kwargs: Any,
-    ) -> dict[str, Any]:
+        options: list[sy.schematic.StateMapping] | None = None,
+    ) -> None:
         self.click()
-        applied_properties: dict[str, Any] = {}
 
         if channel_name is not None:
             self.set_label(channel_name)
             self.open_properties_tab()
             self.page.get_by_text("Telemetry").click()
             self.set_channel(section="State", channel_name=channel_name)
-            applied_properties["channel"] = channel_name
 
         if options is not None and len(options) > 0:
             self.click()
@@ -63,21 +61,17 @@ class StateIndicator(Symbol):
                     self.page.get_by_text("Add an option").click()
                 else:
                     self.page.get_by_text("Add option", exact=True).click()
-                items = self.page.locator(".pluto-list__item").all()
+                items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
-                name_input.fill(option["name"])
+                name_input.fill(option.name)
                 value_input = last_item.locator("input").nth(1)
-                value_input.fill(str(option["value"]))
-            applied_properties["options"] = options
-
-        return applied_properties
+                value_input.fill(option_text(option.value))
 
     def get_label(self) -> str:
         """Read the currently displayed state label text.
 
-        Returns:
-            The text shown inside the state indicator.
+        :returns: The text shown inside the state indicator.
         """
         self._disable_edit_mode()
         content = self.locator.locator(".pluto-state-indicator__content").first

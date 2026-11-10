@@ -13,35 +13,44 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
-var allObjects = []ontology.ID{
-	{Type: ontology.ResourceTypeLabel},
-	{Type: ontology.ResourceTypeLog},
-	{Type: ontology.ResourceTypeNode},
-	{Type: ontology.ResourceTypeChannel},
-	{Type: ontology.ResourceTypeGroup},
-	{Type: ontology.ResourceTypeRange},
-	{Type: ontology.ResourceTypeFramer},
-	{Type: ontology.ResourceTypeRangeAlias},
-	{Type: ontology.ResourceTypeUser},
-	{Type: ontology.ResourceTypeProject},
-	{Type: ontology.ResourceTypePanel},
-	{Type: ontology.ResourceTypeSchematic},
-	{Type: ontology.ResourceTypeLineplot},
-	{Type: ontology.ResourceTypeRack},
-	{Type: ontology.ResourceTypeDevice},
-	{Type: ontology.ResourceTypeTask},
-	{Type: ontology.ResourceTypeTable},
-	{Type: ontology.ResourceTypeArc},
-	{Type: ontology.ResourceTypeSchematicSymbol},
-	{Type: ontology.ResourceTypeStatus},
-	{Type: ontology.ResourceTypeRole},
-	{Type: ontology.ResourceTypePolicy},
-	{Type: ontology.ResourceTypeBuiltin},
-	{Type: ontology.ResourceTypeView},
-	{Type: ontology.ResourceTypeICD},
+var allObjects = []resource.ID{
+	{Type: resource.TypeLabel},
+	{Type: resource.TypeLog},
+	{Type: resource.TypeNode},
+	{Type: resource.TypeChannel},
+	{Type: resource.TypeGroup},
+	{Type: resource.TypeRange},
+	{Type: resource.TypeFramer},
+	{Type: resource.TypeRangeAlias},
+	{Type: resource.TypeUser},
+	{Type: resource.TypeProject},
+	{Type: resource.TypePanel},
+	{Type: resource.TypeSchematic},
+	{Type: resource.TypeLineplot},
+	{Type: resource.TypeRack},
+	{Type: resource.TypeDevice},
+	{Type: resource.TypeEthercatMaster},
+	{Type: resource.TypeEthercatSlave},
+	{Type: resource.TypeHTTPServer},
+	{Type: resource.TypeLabjackDevice},
+	{Type: resource.TypeModbusServer},
+	{Type: resource.TypeNiChassis},
+	{Type: resource.TypeNiDevice},
+	{Type: resource.TypeOpcuaServer},
+	{Type: resource.TypeTask},
+	{Type: resource.TypeTable},
+	{Type: resource.TypeArc},
+	{Type: resource.TypeArcDirectory},
+	{Type: resource.TypeSchematicSymbol},
+	{Type: resource.TypeStatus},
+	{Type: resource.TypeRole},
+	{Type: resource.TypePolicy},
+	{Type: resource.TypeBuiltin},
+	{Type: resource.TypeView},
+	{Type: resource.TypeICD},
 }
 
 var (
@@ -69,39 +78,48 @@ var (
 	engineerPolicies = []policy.Policy{
 		{
 			Name: "Engineer Edit Access",
-			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeLabel},
-				{Type: ontology.ResourceTypeLog},
-				{Type: ontology.ResourceTypeNode},
-				{Type: ontology.ResourceTypeChannel},
-				{Type: ontology.ResourceTypeGroup},
-				{Type: ontology.ResourceTypeRange},
-				{Type: ontology.ResourceTypeFramer},
-				{Type: ontology.ResourceTypeRangeAlias},
-				{Type: ontology.ResourceTypeProject},
-				{Type: ontology.ResourceTypePanel},
-				{Type: ontology.ResourceTypeSchematic},
-				{Type: ontology.ResourceTypeLineplot},
-				{Type: ontology.ResourceTypeRack},
-				{Type: ontology.ResourceTypeDevice},
-				{Type: ontology.ResourceTypeTask},
-				{Type: ontology.ResourceTypeTable},
-				{Type: ontology.ResourceTypeArc},
-				{Type: ontology.ResourceTypeSchematicSymbol},
-				{Type: ontology.ResourceTypeStatus},
-				{Type: ontology.ResourceTypeView},
-				{Type: ontology.ResourceTypeICD},
+			Objects: []resource.ID{
+				{Type: resource.TypeLabel},
+				{Type: resource.TypeLog},
+				{Type: resource.TypeNode},
+				{Type: resource.TypeChannel},
+				{Type: resource.TypeGroup},
+				{Type: resource.TypeRange},
+				{Type: resource.TypeFramer},
+				{Type: resource.TypeRangeAlias},
+				{Type: resource.TypeProject},
+				{Type: resource.TypePanel},
+				{Type: resource.TypeSchematic},
+				{Type: resource.TypeLineplot},
+				{Type: resource.TypeRack},
+				{Type: resource.TypeDevice},
+				{Type: resource.TypeEthercatMaster},
+				{Type: resource.TypeEthercatSlave},
+				{Type: resource.TypeHTTPServer},
+				{Type: resource.TypeLabjackDevice},
+				{Type: resource.TypeModbusServer},
+				{Type: resource.TypeNiChassis},
+				{Type: resource.TypeNiDevice},
+				{Type: resource.TypeOpcuaServer},
+				{Type: resource.TypeTask},
+				{Type: resource.TypeTable},
+				{Type: resource.TypeArc},
+				{Type: resource.TypeArcDirectory},
+				{Type: resource.TypeSchematicSymbol},
+				{Type: resource.TypeStatus},
+				{Type: resource.TypeView},
+				{Type: resource.TypeICD},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
 		},
 		{
 			Name: "Engineer View Access",
-			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeUser},
-				{Type: ontology.ResourceTypeRole},
-				{Type: ontology.ResourceTypePolicy},
-				{Type: ontology.ResourceTypeBuiltin},
+			Objects: []resource.ID{
+				{Type: resource.TypeUser},
+				{Type: resource.TypeRole},
+				{Type: resource.TypePolicy},
+				{Type: resource.TypeBuiltin},
 			},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
@@ -110,41 +128,54 @@ var (
 )
 
 var (
-	hostRoleName = "Host"
-	hostRole     = role.Role{
-		Name:        hostRoleName,
-		Description: "For machines running the Synnax driver. Full access to hardware and task configuration.",
+	driverRoleName = "Driver"
+	driverRole     = role.Role{
+		Name:        driverRoleName,
+		Description: "For racks running the Synnax Driver. Full access to hardware and task configuration.",
 		Internal:    true,
 	}
-	hostPolicies = []policy.Policy{
+	driverPolicies = []policy.Policy{
 		{
-			Name: "Host Edit Access",
-			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeRange},
-				{Type: ontology.ResourceTypeRack},
-				{Type: ontology.ResourceTypeDevice},
-				{Type: ontology.ResourceTypeTask},
-				{Type: ontology.ResourceTypeArc},
-				{Type: ontology.ResourceTypeStatus},
+			Name: "Driver Edit Access",
+			Objects: []resource.ID{
+				{Type: resource.TypeRange},
+				{Type: resource.TypeDevice},
+				{Type: resource.TypeEthercatMaster},
+				{Type: resource.TypeEthercatSlave},
+				{Type: resource.TypeHTTPServer},
+				{Type: resource.TypeLabjackDevice},
+				{Type: resource.TypeModbusServer},
+				{Type: resource.TypeNiChassis},
+				{Type: resource.TypeNiDevice},
+				{Type: resource.TypeOpcuaServer},
+				{Type: resource.TypeTask},
+				{Type: resource.TypeArc},
+				{Type: resource.TypeStatus},
 			},
 			Actions:  access.AllActions,
 			Internal: true,
 		},
 		{
-			Name:     "Host Channel View Access",
-			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
+			Name:     "Driver Rack Access",
+			Objects:  []resource.ID{{Type: resource.TypeRack}},
+			Actions:  []access.Action{access.ActionRetrieve, access.ActionUpdate},
+			Internal: true,
+		},
+		{
+			Name:     "Driver Channel View Access",
+			Objects:  []resource.ID{{Type: resource.TypeChannel}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
 		{
-			Name:     "Host ICD View Access",
-			Objects:  []ontology.ID{{Type: ontology.ResourceTypeICD}},
+			Name:     "Driver ICD View Access",
+			Objects:  []resource.ID{{Type: resource.TypeICD}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
 		{
-			Name:    "Host Framer Access",
-			Objects: []ontology.ID{{Type: ontology.ResourceTypeFramer}},
+			Name:    "Driver Framer Access",
+			Objects: []resource.ID{{Type: resource.TypeFramer}},
 			Actions: []access.Action{
 				access.ActionCreate,
 				access.ActionRetrieve,
@@ -153,6 +184,15 @@ var (
 		},
 	}
 )
+
+// formerNames maps a built-in role or policy name to the name it was stored under
+// before a rename, so provisioning renames the stored record instead of adding one.
+var formerNames = map[string]string{
+	driverRoleName:               "Host",
+	"Driver Edit Access":         "Host Edit Access",
+	"Driver Channel View Access": "Host Channel View Access",
+	"Driver Framer Access":       "Host Framer Access",
+}
 
 var (
 	operatorRoleName = "Operator"
@@ -164,9 +204,9 @@ var (
 	operatorPolicies = []policy.Policy{
 		{
 			Name: "Operator Edit Access",
-			Objects: []ontology.ID{
-				{Type: ontology.ResourceTypeFramer},
-				{Type: ontology.ResourceTypeRange},
+			Objects: []resource.ID{
+				{Type: resource.TypeFramer},
+				{Type: resource.TypeRange},
 			},
 			Actions:  access.AllActions,
 			Internal: true,

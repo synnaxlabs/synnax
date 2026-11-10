@@ -188,9 +188,10 @@ A record goes to the group whose key equals its own, else to the empty-key group
 one exists, else it is skipped as not addressed to this task. Its value is parsed as
 JSON, and for every enabled field in the group the value at `pointer` is converted with
 the HTTP driver's rules (RFC 0028 §3.1). A record that lacks a field's pointer, or holds
-a value that does not convert, is a task error status, and the record is skipped. A
-topic whose shapes differ without keys needs a match on a value inside the record, which
-is an open question (§9).
+a value that does not convert, is skipped. Each poll writes at most one error status for
+its skipped records, carrying the count and the first reason. A topic whose shapes
+differ without keys needs a match on a value inside the record, which is an open
+question (§9).
 
 `name` and `data_type` serve channel creation only: at deploy the Console creates a
 channel for every field whose `channel` is zero, as the HTTP read form does. After that
@@ -198,27 +199,31 @@ the channel record is the truth. The Core reads each channel's real type at conf
 and rejects a config whose `data_type` disagrees.
 
 A group's index channel is a field like any other, targeting a timestamp channel with a
-`time_format`. A group with no timestamp field stamps its samples with the receive time.
-Every fetch batch becomes one even frame per group, written through that group's
-`framer.Writer`.
+`time_format`. A group with no timestamp field stamps its samples with the Kafka record
+timestamp. Every fetch batch becomes one frame with an even series set per group,
+written through one `framer.Writer` for the task.
 
 A Cesium index is strictly increasing, so a group's timestamps must be too. The task
 sorts each batch by timestamp before writing, and a record stamped at or before the
-group's last written timestamp is an error status and is skipped. A topic with several
-partitions interleaves their timestamps across batches, so a group reads from a topic
-whose records arrive in order, or accepts those errors.
+group's last written timestamp is an error status and is skipped. Kafka timestamps count
+only milliseconds, so a record stamped by Kafka at or before the last written timestamp
+moves to one nanosecond past it instead. A topic with several partitions interleaves
+their timestamps across batches, so a group reads from a topic whose records arrive in
+order, or accepts those errors.
 
 Delivery is at least once. The writer opens with `Sync` and `AlwaysAutoPersist`, so a
 write acknowledgment means the samples are on disk. The consumer commits only marked
 offsets, and a batch is marked after its write is acknowledged. A write failure sets an
 error status, leaves the batch unmarked, and stops the task, so a restart resumes from
 the last acknowledged batch. A crash between the acknowledgment and the offset commit
-replays that batch. At start the task reads the last stored timestamp of each group as
-its replay boundary. Records at or before the boundary that arrive before the first
-record past it are the replay, and skip silently: under the ordering rule, each one was
-either stored or rejected with a status the first time. Any regression after that first
-record is an error as above. The boundary applies when the timestamp comes from the
-record. A task that stamps receive time stores a replayed record again as a new sample.
+replays that batch, and so does a group that reassigns partitions, as after a lost
+connection. At start the task reads the last stored timestamp of each group as its
+replay boundary, and the last written timestamp becomes the boundary on every
+reassignment. Records at or before the boundary that arrive before the first record past
+it are the replay, and skip silently: under the ordering rule, each one was either
+stored or rejected with a status the first time. Any regression after that first record
+is handled as above. A record stamped by Kafka in the same millisecond as the boundary
+is indistinguishable from the replay, so a restart inside that millisecond skips it.
 
 Validation at deploy: a device of make `kafka`, a non-empty topic, at least one enabled
 field, a pointer on every enabled field, a `time_format` on every timestamp channel, at
@@ -278,7 +283,9 @@ Each task holds a `driver.StatusHandler`. Configure failures answer the start co
 with an error status, as `pagerduty.factory.setConfigStatus` does. A start opens the
 client and reports "Task started successfully" with `running: true`; a connection
 failure at start is an error status with `running: false`. Runtime failures write
-unsolicited error statuses and leave the running flag as it was.
+unsolicited error statuses and leave the running flag as it was. A read task that loses
+the cluster keeps running: it writes a warning, the consumer retries, and the first
+records after the cluster returns write "Reconnected to cluster".
 
 ### 4.6 Console
 
@@ -403,7 +410,7 @@ Phase 6, behind the flag.
 
 - Wide layout for the write task: one record per index row, per-channel pointers.
 - A read field match on a value inside the record, for mixed-shape topics without keys.
-- Out-of-order timestamps across partitions: a sort window, or a receive-time fallback.
+- Out-of-order timestamps across partitions: a sort window.
 - A `kafka_read` integration test needs a broker in the conductor's environment: a
   Redpanda container, or none and rely on the Go specs.
 - Consumer lag as a status detail on the read task.

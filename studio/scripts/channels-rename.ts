@@ -32,9 +32,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.contextMenu(session, item, "Rename");
   // The name turns into a contenteditable with its text selected, so typing
   // replaces it.
-  const editable = page
-    .locator(".pluto-text--editable[contenteditable='true']")
-    .first();
+  const editable = page.locator(".lyra-text--editable[contenteditable='true']").first();
   await session.waitFor(editable);
   await session.hold(400);
   await session.type("ox_tank_pressure");

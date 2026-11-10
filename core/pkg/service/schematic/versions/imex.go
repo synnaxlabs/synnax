@@ -11,6 +11,7 @@ package versions
 
 import (
 	"context"
+	"encoding/json/v2"
 	"uuid"
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -70,6 +71,9 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	if err != nil {
 		return Schematic{}, err
 	}
+	if sch, err = positiveScales(sch); err != nil {
+		return Schematic{}, err
+	}
 	// Importing always materializes a new resource, so any key on the wire is dropped
 	// and the importer mints a fresh one.
 	sch.Key = uuid.Nil()
@@ -77,8 +81,34 @@ func DecodeImExEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 	// fallback the imex service applies. Console-era decodes drop it, so it is stamped
 	// here for every path.
 	sch.Name = env.Name
-	// The newest-format arm decodes straight into the current shape, so it is the one
-	// path that has not already filled defaults through a migration step.
-	sch.ApplyDefaults()
+	return sch, nil
+}
+
+// positiveScales sets every scale of sch that is not positive to 1, as the
+// v59_positive_scale migration does for stored schematics. A Core before that migration
+// could export a zero scale, which sizes a symbol to nothing.
+func positiveScales(sch Schematic) (Schematic, error) {
+	for key, cfg := range sch.Configs {
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return Schematic{}, err
+		}
+		var fields map[string]any
+		if err = json.Unmarshal(b, &fields); err != nil {
+			return Schematic{}, err
+		}
+		scale, ok := fields["scale"].(float64)
+		if !ok || scale > 0 {
+			continue
+		}
+		fields["scale"] = 1.0
+		if b, err = json.Marshal(fields); err != nil {
+			return Schematic{}, err
+		}
+		if err = json.Unmarshal(b, &cfg); err != nil {
+			return Schematic{}, err
+		}
+		sch.Configs[key] = cfg
+	}
 	return sch, nil
 }

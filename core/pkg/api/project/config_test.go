@@ -13,15 +13,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiproject "github.com/synnaxlabs/synnax/pkg/api/project"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/synnax/pkg/service/project/bundle"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiproject.ServiceConfig {
 		return apiproject.ServiceConfig{
-			RBAC:    &rbac.Service{},
 			Project: &project.Service{},
+			Bundle:  &bundle.Service{},
 		}
 	}
 
@@ -38,14 +38,14 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
-				"rbac",
-				func(c *apiproject.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
-			Entry(
 				"project",
 				func(c *apiproject.ServiceConfig) { c.Project = nil },
 				"project: must be non-nil",
+			),
+			Entry(
+				"bundle",
+				func(c *apiproject.ServiceConfig) { c.Bundle = nil },
+				"bundle: must be non-nil",
 			),
 		)
 	})
@@ -54,15 +54,15 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiproject.ServiceConfig{}.Override(cfg)
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Project).To(BeIdenticalTo(cfg.Project))
+			Expect(merged.Bundle).To(BeIdenticalTo(cfg.Bundle))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiproject.ServiceConfig{})
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Project).To(BeIdenticalTo(cfg.Project))
+			Expect(merged.Bundle).To(BeIdenticalTo(cfg.Bundle))
 		})
 	})
 })

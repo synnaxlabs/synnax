@@ -16,6 +16,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/task",
         "//x/cpp/json",
         "//x/cpp/telem",
     ],
@@ -26,7 +27,7 @@ cc_test(
     srcs = ["transform_test.cpp"],
     deps = [
         "//driver/transform",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

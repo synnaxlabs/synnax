@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 )
@@ -29,7 +29,7 @@ var legacyMappingKVKey = []byte("sy_rbac_legacy_permission_mapping")
 // LegacyUserMapping stores the legacy permission data for a single user, persisted to
 // KV between Phase 1 (extraction) and Phase 2 (role assignment).
 type LegacyUserMapping struct {
-	UserOntologyID ontology.ID `json:"user_ontology_id"`
+	UserResourceID resource.ID `json:"user_ontology_id"`
 	Policies       []Policy    `json:"policies"`
 }
 
@@ -108,12 +108,12 @@ func buildUserMappings(legacyPolicies []Policy) []LegacyUserMapping {
 	}
 	mappings := make([]LegacyUserMapping, 0, len(byUser))
 	for key, policies := range byUser {
-		id, err := ontology.ParseID(key)
+		id, err := resource.ParseID(key)
 		if err != nil {
 			continue
 		}
 		mappings = append(mappings, LegacyUserMapping{
-			UserOntologyID: id,
+			UserResourceID: id,
 			Policies:       policies,
 		})
 	}

@@ -11,7 +11,6 @@ package can
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -30,9 +29,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Resolver checks read and write configs against their ICD.
-	// [REQUIRED]
-	Resolver bus.Resolver
 	alamos.Instrumentation
 }
 
@@ -41,7 +37,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Resolver = c.Resolver.Override(other.Resolver)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -50,9 +45,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("can.service")
 	v.NotNil("db", c.DB)
-	v.Exec(
-		func() error { return validate.PathedError(c.Resolver.Validate(), "resolver") },
-	)
 	return v.Error()
 }
 
@@ -85,13 +77,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            "can_read",
 			Ladder:          versions.ReadConfigLadder,
 			SetEntryKey:     (*ReadConfig).SetKey,
+			PatchEntry:      (*ReadConfig).Patch,
+			HashEntry:       (*ReadConfig).HashContent,
+			References:      readConfigReferences(),
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
-				key uuid.UUID,
+				snap gorp.Snapshot,
 				c *ReadConfig,
 			) error {
-				return cfg.Resolver.Read(ctx, tx, key, &c.ReadConfig)
+				return bus.ResolveRead(ctx, snap, &c.ReadConfig)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -104,13 +98,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:            "can_write",
 			Ladder:          versions.WriteConfigLadder,
 			SetEntryKey:     (*WriteConfig).SetKey,
+			PatchEntry:      (*WriteConfig).Patch,
+			HashEntry:       (*WriteConfig).HashContent,
+			References:      writeConfigReferences(),
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
-				key uuid.UUID,
+				snap gorp.Snapshot,
 				c *WriteConfig,
 			) error {
-				return cfg.Resolver.Write(ctx, tx, key, &c.WriteConfig)
+				return bus.ResolveWrite(ctx, snap, &c.WriteConfig)
 			},
 		},
 	); !ok(err, s.Write) {
@@ -123,6 +119,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:               "can_scan",
 			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type aether } from "@synnaxlabs/pluto/ether";
@@ -36,13 +35,14 @@ import { Session } from "@/session";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
+  createMinimalStore,
   createSynnaxWrapper,
   type TestStore,
 } from "@/testutil";
 
 // Modal content mounts inside an error Boundary that reads the layout slice, so the
 // stack needs a Redux Provider even though modals themselves live in a separate store.
-const store = configureStore({
+const store = createMinimalStore({
   reducer: Session.reducer,
   preloadedState: deep.freeze(deep.copy(Session.ZERO_STATE)),
 });
@@ -73,21 +73,18 @@ export interface RenderWithModalsOptions {
 }
 
 /**
- * Renders ui together with a live {@link Modals.Stack} inside {@link Wrapper}, so modals
- * pushed during the test actually mount. Modals portal to the document body; query them
- * via the returned result's baseElement or testing-library's screen.
+ * Renders ui inside a live {@link Modals.Stack} within {@link Wrapper}, as the window
+ * renders its page, so modals pushed during the test actually mount. Modals portal to
+ * the document body; query them via the returned result's baseElement or
+ * testing-library's screen.
  */
 export const renderWithModals = (
   ui: ReactNode,
   { connectionStatus }: RenderWithModalsOptions = {},
 ): RenderResult =>
-  render(
-    <>
-      {ui}
-      <Modals.Stack />
-    </>,
-    { wrapper: connectionStatus == null ? Wrapper : createWrapper(connectionStatus) },
-  );
+  render(<Modals.Stack>{ui}</Modals.Stack>, {
+    wrapper: connectionStatus == null ? Wrapper : createWrapper(connectionStatus),
+  });
 
 /** The value a modal hook yields, paired with the live store backing it. */
 export interface ModalHookHandle<T> {
@@ -96,9 +93,9 @@ export interface ModalHookHandle<T> {
 }
 
 /**
- * Renders a modal hook (an opener or prompt hook) within {@link Wrapper} and returns its
- * value alongside the window's modal store, letting a spec invoke the opener and inspect
- * or settle the resulting stack directly.
+ * Renders a modal hook (an opener or prompt hook) within {@link Wrapper} and returns
+ * its value alongside the window's modal store, letting a spec invoke the opener and
+ * inspect or settle the resulting stack directly.
  */
 export const renderModalHook = <T,>(
   useHook: () => T,
@@ -107,7 +104,9 @@ export const renderModalHook = <T,>(
   return renderHook(useHandle, { wrapper: Wrapper });
 };
 
-/** Pulls the close callback the store bound into the topmost modal's rendered content. */
+/**
+ * Pulls the close callback the store bound into the topmost modal's rendered content.
+ */
 export const closeOf = (
   store: Session.Modals.Store,
 ): Session.Modals.ContentProps["close"] =>
@@ -123,6 +122,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   additionalRegistry?: aether.ComponentRegistry;
   /** Receives every event the modal reports; discards them by default. */
   analytics?: Analytics.Sink;
+  /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
+  extra?: ReactNode;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -153,6 +154,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     additionalRegistry,
     onCaughtError,
     analytics = Analytics.NOOP,
+    extra,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -166,6 +168,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
         <Triggers.Provider>
           {children}
           <Modals.Stack />
+          {extra}
         </Triggers.Provider>
       </Analytics.Provider>
     </Console>
@@ -191,7 +194,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   };
 };
 
-export interface OpenModalOptions<P> {
+export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "extra"> {
   client?: Client | null;
   params?: P;
 }
@@ -204,10 +207,11 @@ export interface OpenModalOptions<P> {
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
-  { client = null, params }: OpenModalOptions<P> = {},
+  { client = null, params, extra }: OpenModalOptions<P> = {},
 ): Promise<ModalOpenerHandle<void>> =>
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
+    extra,
   });
 
 /**

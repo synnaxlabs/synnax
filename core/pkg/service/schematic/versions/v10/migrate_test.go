@@ -15,11 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v10 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // stored decodes a v9 config the way the v9 Core persists it.
@@ -91,6 +92,35 @@ var _ = Describe("MigrateSchematic", func() {
 		Expect(out.Key).To(Equal(key))
 		Expect(out.Name).To(Equal("Feed system"))
 		Expect(out.Snapshot).To(BeTrue())
+	})
+})
+
+var _ = Describe("MigrateElementConfig", func() {
+	It("Should copy the v9 values and leave the fields v10 adds unset", func(
+		ctx SpecContext,
+	) {
+		cmd := channel.Key(7)
+		out := MustSucceed(v10.MigrateElementConfig(ctx, v9.ElementConfig{
+			Variant: v9.SetpointElementConfig{
+				CommandChannel: &cmd,
+				Units:          "kPa",
+				Disabled:       true,
+				OnClickDelay:   250,
+			},
+		}))
+		setpoint := out.Variant.(v10.SetpointElementConfig)
+		Expect(setpoint.CommandChannel).To(HaveValue(Equal(cmd)))
+		Expect(setpoint.Units).To(Equal("kPa"))
+		Expect(setpoint.Disabled).To(BeTrue())
+		Expect(setpoint.OnClickDelay).To(BeEquivalentTo(250))
+		Expect(setpoint.StateChannel).To(BeNil())
+		Expect(setpoint.StalenessTimeout).To(BeZero())
+		Expect(setpoint.InlineSize).To(BeZero())
+	})
+
+	It("Should keep a nil variant nil", func(ctx SpecContext) {
+		out := MustSucceed(v10.MigrateElementConfig(ctx, v9.ElementConfig{}))
+		Expect(out.Variant).To(BeNil())
 	})
 })
 

@@ -108,8 +108,8 @@ const std::string TIMER_VAR_SRC = R"(import time
     sequence main {
         rate := i64 ns(100ms)
         stage s {
-            time.interval{rate} -> %tick%
-            time.wait{1s} -> sequence {
+            time.interval(rate) -> %tick%
+            time.wait(1s) -> sequence {
                 rate = i64 ns(200ms)
             }
         }
@@ -119,8 +119,8 @@ const std::string TIMER_VAR_SRC = R"(import time
 const std::string TIMER_CONST_SRC = R"(import time
     sequence main {
         stage s {
-            time.interval{100ms} -> %tick%
-            time.wait{1s} -> %tick%
+            time.interval(100ms) -> %tick%
+            time.wait(1s) -> %tick%
         }
     }
     %start_cmd% => main)";

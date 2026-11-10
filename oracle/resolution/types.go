@@ -24,8 +24,8 @@ const (
 	ValueKindStruct
 )
 
-// Primitives is the set of built-in primitive type names recognized by Oracle.
-var Primitives = set.New(
+// primitives is the set of built-in primitive type names recognized by Oracle.
+var primitives = set.New(
 	"uuid", "string", "bool",
 	"int8", "int16", "int32", "int64",
 	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
@@ -34,27 +34,25 @@ var Primitives = set.New(
 )
 
 // IsPrimitive returns true if the name is a built-in primitive type.
-func IsPrimitive(name string) bool { return Primitives.Contains(name) }
+func IsPrimitive(name string) bool { return primitives.Contains(name) }
 
-// StringPrimitives identifies primitives that map to string-like types.
-var StringPrimitives = set.New("string", "uuid")
+var stringPrimitives = set.New("string", "uuid")
 
-// NumberPrimitives identifies primitives that map to number types.
-var NumberPrimitives = set.New(
+var numberPrimitives = set.New(
 	"int8", "int16", "int32", "int64",
 	"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
 	"float32", "float64",
 )
 
-// Constraints is the set of built-in constraint-only type names recognized by Oracle.
+// constraints is the set of built-in constraint-only type names recognized by Oracle.
 // These are valid as type parameter constraints but cannot be used as field types.
-var Constraints = set.New("comparable", "numeric")
+var constraints = set.New("comparable", "numeric")
 
 // IsConstraint returns true if the name is a built-in constraint-only type.
-func IsConstraint(name string) bool { return Constraints.Contains(name) }
+func IsConstraint(name string) bool { return constraints.Contains(name) }
 
 // IsStringPrimitive checks if the primitive is a string-like type.
-func IsStringPrimitive(name string) bool { return StringPrimitives.Contains(name) }
+func IsStringPrimitive(name string) bool { return stringPrimitives.Contains(name) }
 
 // IsNumberPrimitive checks if the primitive is a number type.
-func IsNumberPrimitive(name string) bool { return NumberPrimitives.Contains(name) }
+func IsNumberPrimitive(name string) bool { return numberPrimitives.Contains(name) }

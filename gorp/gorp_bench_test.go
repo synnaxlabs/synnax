@@ -27,8 +27,7 @@ type benchEntry struct {
 	Data string
 }
 
-func (e benchEntry) GorpKey() int32    { return e.ID }
-func (e benchEntry) SetOptions() []any { return nil }
+func (e benchEntry) GorpKey() int32 { return e.ID }
 
 // benchStringEntry uses a string key, exercising direct concatenation encoding.
 type benchStringEntry struct {
@@ -36,8 +35,7 @@ type benchStringEntry struct {
 	Data string
 }
 
-func (e benchStringEntry) GorpKey() string   { return e.ID }
-func (e benchStringEntry) SetOptions() []any { return nil }
+func (e benchStringEntry) GorpKey() string { return e.ID }
 
 // benchLargeEntry has a realistically-sized value body (~1KB) to make
 // serialization cost visible relative to key encoding overhead.
@@ -49,8 +47,7 @@ type benchLargeEntry struct {
 	Value       float64
 }
 
-func (e benchLargeEntry) GorpKey() int32    { return e.ID }
-func (e benchLargeEntry) SetOptions() []any { return nil }
+func (e benchLargeEntry) GorpKey() int32 { return e.ID }
 
 func setupBenchDB(b *testing.B) *gorp.DB {
 	b.Helper()
@@ -218,31 +215,6 @@ func BenchmarkCreate(b *testing.B) {
 						e[j].ID = int32(i*size+j) + 1
 					}
 					if err := gorp.NewCreate[int32, benchLargeEntry]().Entries(&e).
-						Exec(ctx, db); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-		}
-	})
-	b.Run("merge_existing", func(b *testing.B) {
-		for _, size := range []int{1, 10, 100} {
-			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				db := setupBenchDB(b)
-				ctx := b.Context()
-				populateEntries(b, db, size)
-				entries := makeBenchEntries(size)
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					e := make([]benchEntry, len(entries))
-					copy(e, entries)
-					if err := gorp.NewCreate[int32, benchEntry]().
-						MergeExisting(func(_ gorp.Context, creating, existing benchEntry) (benchEntry, error) {
-							creating.Data = existing.Data + "-merged"
-							return creating, nil
-						}).
-						Entries(&e).
 						Exec(ctx, db); err != nil {
 						b.Fatal(err)
 					}

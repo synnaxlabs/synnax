@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Compares one user-facing surface between two checkouts of the repository.
+#
+#   surface.sh <surface> <base-dir> <head-dir> <out-dir>
+#
+# Each checkout makes its report with its own generator. The script writes
+# <out-dir>/status (same, changed, or error) and <out-dir>/diff (the unified diff of the
+# two reports, or the tail of the failed generator's output). It exits non-zero when the
+# head report fails. A base can predate a report, so a failed base report records error
+# and exits zero.
+
+set -euo pipefail
+
+surface=$1
+base=$(cd "$2" && pwd)
+head=$(cd "$3" && pwd)
+mkdir -p "$4"
+out=$(cd "$4" && pwd)
+
+report() {
+    case "$surface" in
+        oracle)
+            (cd oracle && go build -buildvcs=false -o "$1/.oracle-surface" .) >&2 \
+                && ./.oracle-surface surface
+            ;;
+        console-state)
+            pnpm install --frozen-lockfile >&2 \
+                && pnpm exec turbo build --filter='@synnaxlabs/console^...' >&2 \
+                && console/scripts/surface.sh
+            ;;
+        client-ts)
+            pnpm install --frozen-lockfile >&2 \
+                && pnpm exec turbo build --filter='@synnaxlabs/client^...' >&2 \
+                && client/ts/scripts/surface.sh
+            ;;
+        client-py-cli)
+            uv run --project scripts scripts/surface_py_cli.py
+            ;;
+        client-py-state)
+            uv run --project scripts scripts/surface_py_state.py
+            ;;
+        client-py)
+            uv run --project scripts scripts/surface_py.py client/py synnax
+            ;;
+        core | core-windows)
+            cd core && go run -buildvcs=false ./cmd/surface/dump
+            ;;
+        driver)
+            uv run --project scripts scripts/surface_driver.py .
+            ;;
+        client-cpp)
+            uv run --project scripts scripts/surface_cpp.py .
+            ;;
+        *)
+            echo "unknown surface: $surface" >&2
+            return 2
+            ;;
+    esac
+}
+
+for side in head base; do
+    dir=$base
+    [ "$side" = head ] && dir=$head
+    if ! (cd "$dir" && report "$dir") > "$out/$side.txt" 2> "$out/$side.log"; then
+        echo error > "$out/status"
+        {
+            echo "The $side report failed:"
+            tail -n 40 "$out/$side.log"
+        } > "$out/diff"
+        cat "$out/diff" >&2
+        [ "$side" = base ] && exit 0
+        exit 1
+    fi
+done
+
+if diff -u --label base --label head "$out/base.txt" "$out/head.txt" > "$out/diff"; then
+    echo same > "$out/status"
+else
+    echo changed > "$out/status"
+fi
+cat "$out/status"

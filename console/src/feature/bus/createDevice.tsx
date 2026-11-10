@@ -9,7 +9,7 @@
 
 import "@/feature/bus/Connect.css";
 
-import { device, type rack } from "@synnaxlabs/client";
+import { device } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -40,6 +40,10 @@ export interface CreateDeviceParams<
   properties: P;
   /** The integration a rack must run for the device to connect from it. */
   integration: Analytics.Properties<"device_connected">["integration"];
+  /** The type of the integration's scan task. Empty when it has none. */
+  scanType: string;
+  /** How the locations of its devices read. */
+  location: PDevice.LocationFormat;
   /** Edits the device's properties, at paths under properties. */
   Properties: FC;
   /** @returns the model of a device with the given properties. */
@@ -64,6 +68,8 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
   icon,
   properties,
   integration,
+  scanType,
+  location,
   Properties,
   getModel,
   getLocation,
@@ -95,18 +101,18 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     set,
     setStatus,
   }: Flux.BeforeValidateParams<PDevice.RetrieveQuery, Schema>): boolean => {
-    const props = properties.parse(get("properties").value);
+    const props = properties.parse(get(PDevice.formPath.properties).value);
     let valid = true;
     for (const [field, message] of Object.entries(required)) {
       if (message == null || props[field] !== "") continue;
-      const path = `properties.${field}`;
-      setStatus(path, { key: path, variant: "error", message });
+      const path = PDevice.formPath.properties[field];
+      setStatus(path, { key: String(path), variant: "error", message });
       valid = false;
     }
     if (!valid) return false;
-    set("model", getModel(props));
-    set("location", getLocation(props));
-    set("configured", true);
+    set(PDevice.formPath.model, getModel(props));
+    set(PDevice.formPath.location, getLocation(props));
+    set(PDevice.formPath.configured, true);
     return true;
   };
 
@@ -130,12 +136,10 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
       beforeValidate,
       afterSave: ({ get }) => {
         if (deviceKey == null) capture("device_connected", { integration });
-        close(get<device.Key>("key").value);
+        close(get(PDevice.formPath.key).value);
       },
     });
-    const rackKey = Form.useFieldValue<rack.Key, rack.Key, Schema>("rack", {
-      ctx: form,
-    });
+    const rackKey = Form.useFieldValue(PDevice.formPath.rack, { ctx: form });
     const reason = PlatformDevice.useBlockedReason({
       integration,
       name,
@@ -146,7 +150,10 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
         <Modal.Header icon={icon}>{`${noun}.Connect`}</Modal.Header>
         <Modal.Body>
           <Form.Form<Schema> {...form}>
-            <Form.TextField inputProps={NAME_INPUT_PROPS} path="name" />
+            <Form.TextField
+              inputProps={NAME_INPUT_PROPS}
+              path={PDevice.formPath.name}
+            />
             <PlatformDevice.RackField integration={integration} />
             <Properties />
           </Form.Form>
@@ -173,6 +180,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
         label={caseconv.capitalize(noun)}
         make={make}
         icon={icon}
+        locationFormat={location}
         connect={{ title: noun, open: () => openConnect() }}
       />
     );
@@ -184,7 +192,7 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
       name: `Connect ${noun}`,
       icon,
       useOnSelect: useConnectModal,
-      useVisible: () => Access.useCreateGranted(device.TYPE_ONTOLOGY_ID),
+      useVisible: () => Access.useCreateGranted(device.TYPE_RESOURCE_ID),
     }),
   ];
 
@@ -194,6 +202,9 @@ export const createDevice = <M extends string, P extends z.ZodType<record.Unknow
     title: noun,
     description,
     icon,
+    make,
+    scanType,
+    location,
     Connect,
   };
 

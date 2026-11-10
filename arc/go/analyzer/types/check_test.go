@@ -25,6 +25,86 @@ var _ = Describe("Check", func() {
 		cs = constraints.New()
 	})
 
+	Describe("Untyped literals", func() {
+		DescribeTable(
+			"Should check an untyped value against an untyped target",
+			func(target, value types.Type, fits bool) {
+				t := types.Variable("target", &target)
+				v := types.Variable("value", &value)
+				if fits {
+					Expect(atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")).
+						To(Succeed())
+					return
+				}
+				Expect(atypes.Check(cs, t, v, testutil.NewMockAST(1), "test")).
+					To(MatchError(ContainSubstring("got float")))
+			},
+			Entry(
+				"float into integer",
+				types.IntegerConstraint(),
+				types.FloatConstraint(),
+				false,
+			),
+			Entry(
+				"integer into float",
+				types.FloatConstraint(),
+				types.IntegerConstraint(),
+				true,
+			),
+			Entry(
+				"integer into integer",
+				types.IntegerConstraint(),
+				types.IntegerConstraint(),
+				true,
+			),
+		)
+	})
+
+	It("Should let an integer literal fix a generic numeric parameter", func() {
+		numeric := types.NumericConstraint()
+		param := types.Variable("T", &numeric)
+		integer := types.IntegerConstraint()
+		value := types.Variable("value", &integer)
+		Expect(atypes.Check(cs, param, value, testutil.NewMockAST(1), "test")).
+			To(Succeed())
+		Expect(cs.Unify()).To(Succeed())
+		Expect(cs.ApplySubstitutions(param)).To(Equal(types.I64()))
+	})
+
+	DescribeTable("Should widen a generic numeric parameter to a float in either order",
+		func(integerFirst bool) {
+			numeric := types.NumericConstraint()
+			param := types.Variable("T", &numeric)
+			integer := types.IntegerConstraint()
+			intValue := types.Variable("int", &integer)
+			float := types.FloatConstraint()
+			floatValue := types.Variable("float", &float)
+			first, second := intValue, floatValue
+			if !integerFirst {
+				first, second = floatValue, intValue
+			}
+			ast := testutil.NewMockAST(1)
+			Expect(atypes.Check(cs, param, first, ast, "test")).To(Succeed())
+			Expect(atypes.Check(cs, param, second, ast, "test")).To(Succeed())
+			Expect(cs.Unify()).To(Succeed())
+			Expect(cs.ApplySubstitutions(param)).To(Equal(types.F64()))
+			Expect(cs.ApplySubstitutions(intValue)).To(Equal(types.F64()))
+		},
+		Entry("integer first", true),
+		Entry("float first", false),
+	)
+
+	It("Should check an untyped value against the type its target is bound to", func() {
+		integer := types.IntegerConstraint()
+		target := types.Variable("target", &integer)
+		Expect(cs.AddEquality(target, types.F32(), nil, "test")).To(Succeed())
+		float := types.FloatConstraint()
+		value := types.Variable("value", &float)
+		Expect(atypes.Check(cs, target, value, testutil.NewMockAST(1), "test")).
+			To(Succeed())
+		Expect(cs.ApplySubstitutions(value)).To(Equal(types.F32()))
+	})
+
 	Describe("Invalid Types", func() {
 		DescribeTable("should return nil without checking",
 			func(t1, t2 types.Type) {

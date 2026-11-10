@@ -8,26 +8,36 @@
 // included in the file licenses/APL.txt.
 
 import { existsSync } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { parseArgs } from "node:util";
 
+import { z } from "zod";
+
 import { OUT_ROOT, readStamp, ROOT, run, select, THEMES } from "@/cli/common";
-import { cdnKey, stillKey, stillsDir, videoName } from "@/manifest";
+import { versionOf } from "@/cli/hash";
+import { stillKey, stillsDir, videoKey, videoName } from "@/manifest";
 
 const usage = `usage: pnpm upload [filter] [options]
 Uploads produced videos and stills for manifest entries whose id contains [filter]
 to the docs CDN bucket (synnax/docs on DigitalOcean Spaces), where the docs site's
-Video and Image components serve them. Requires credentials in the environment:
+Video and Image components serve them, and writes each video's version to the docs
+site. Requires credentials in the environment:
   DO_SPACES_KEY     Spaces access key id
   DO_SPACES_SECRET  Spaces secret key
 Options:
-  --exact         treat [filter] as a full id instead of a substring
+  --exact         treat [filter] as a comma-separated list of full ids instead of a
+                  substring
   --dry-run       print what would upload without uploading
   --allow-draft   permit uploading draft-quality renders (normally refused)`;
 
 const ENDPOINT = "https://nyc3.digitaloceanspaces.com";
 const BUCKET = "synnax";
+const VIDEO_VERSIONS = path.resolve(
+  ROOT,
+  "../site/docs/src/components/media/videos.json",
+);
+const versionsZ = z.record(z.string(), z.string());
 
 interface Upload {
   file: string;
@@ -53,6 +63,7 @@ const main = async (): Promise<void> => {
 
   const uploads: Upload[] = [];
   const missing: string[] = [];
+  const versions: Record<string, string> = {};
   for (const entry of entries) {
     if (!values["allow-draft"] && (await readStamp(entry.id))?.draft === true) {
       console.error(
@@ -78,12 +89,26 @@ const main = async (): Promise<void> => {
     }
     // An unthemed page requests one file, so only the dark render ships.
     const themes = entry.themed === false ? (["dark"] as const) : THEMES;
-    for (const theme of themes) {
-      const file = path.join(OUT_ROOT, videoName(entry.id, theme));
-      const key = cdnKey(entry.id, entry.themed === false ? null : theme);
-      if (existsSync(file)) uploads.push({ file, key, contentType: "video/mp4" });
-      else missing.push(videoName(entry.id, theme));
+    const absent = themes.filter(
+      (theme) => !existsSync(path.join(OUT_ROOT, videoName(entry.id, theme))),
+    );
+    if (absent.length > 0) {
+      missing.push(...absent.map((theme) => videoName(entry.id, theme)));
+      continue;
     }
+    const files: Record<string, Buffer> = {};
+    for (const theme of themes)
+      files[`${theme}.mp4`] = await readFile(
+        path.join(OUT_ROOT, videoName(entry.id, theme)),
+      );
+    const version = versionOf(files);
+    versions[entry.id] = version;
+    for (const theme of themes)
+      uploads.push({
+        file: path.join(OUT_ROOT, videoName(entry.id, theme)),
+        key: videoKey(entry.id, version, entry.themed === false ? null : theme),
+        contentType: "video/mp4",
+      });
   }
   if (missing.length > 0) {
     console.error(`missing media (run pnpm batch first):\n  ${missing.join("\n  ")}`);
@@ -118,12 +143,23 @@ const main = async (): Promise<void> => {
         Body: await readFile(u.file),
         ACL: "public-read",
         ContentType: u.contentType,
-        CacheControl: "public, max-age=86400",
+        // A key changes with its content, so a file never changes under its key.
+        CacheControl: "public, max-age=31536000, immutable",
       }),
     );
     console.log("done");
   }
   console.log(`${uploads.length} files uploaded`);
+  if (Object.keys(versions).length === 0) return;
+  const merged = {
+    ...versionsZ.parse(JSON.parse(await readFile(VIDEO_VERSIONS, "utf8"))),
+    ...versions,
+  };
+  const sorted = Object.fromEntries(
+    Object.entries(merged).sort(([a], [b]) => a.localeCompare(b)),
+  );
+  await writeFile(VIDEO_VERSIONS, `${JSON.stringify(sorted, null, 2)}\n`);
+  console.log(`wrote ${path.relative(ROOT, VIDEO_VERSIONS)}`);
 };
 
 run(main);

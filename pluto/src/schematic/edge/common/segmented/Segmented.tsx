@@ -10,13 +10,13 @@
 import "@/schematic/edge/common/segmented/Segmented.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { type ReactFlowState, useReactFlow, useStore } from "@xyflow/react";
 import { type FC, Fragment, type ReactElement, useRef, useState } from "react";
 
+import { CSS } from "@/css";
 import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import {

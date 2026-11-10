@@ -12,7 +12,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement } from "react";
 
+import { Keys } from "@/components/keys/Keys";
 import { Results } from "@/components/search/Results";
+
+const TRIGGER: Triggers.Trigger = ["Control", "K"];
 
 export interface SearchProps {
   initialVisible?: boolean;
@@ -34,11 +37,11 @@ export const Search = ({ initialVisible }: SearchProps): ReactElement => (
         justify="center"
         size="medium"
         textColor={8}
-        trigger={["Control", "K"]}
-        triggerIndicator
+        trigger={TRIGGER}
       >
         <Icon.Search />
         Search
+        <Keys trigger={TRIGGER} className="search-box__keys" />
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered={false}

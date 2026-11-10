@@ -20,11 +20,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/change"
+	"github.com/synnaxlabs/x/coalesce"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -32,6 +33,9 @@ import (
 
 // Changes is a batch of channel changes the Graph reconciles as a unit.
 type Changes = gorp.TxReader[channel.Key, channel.Channel]
+
+// channelChange is one change to a channel.
+type channelChange = gorp.EntryChange[channel.Key, channel.Channel]
 
 type node struct {
 	channel.Channel
@@ -53,10 +57,15 @@ type Graph struct {
 	status     *status.Service
 	obs        observe.Observer[Changes]
 	disconnect observe.Disconnect
-	mu         struct {
+	// changed reconciles the latest change to each channel that commits change, since a
+	// reader of a commit must not commit.
+	changed *coalesce.Worker[channel.Key, channelChange]
+	mu      struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
+		// rejected holds the channels reported through RejectDefinition.
+		rejected set.Set[channel.Key]
 		sync.RWMutex
 	}
 }
@@ -122,26 +131,58 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	g.mu.nodes = make(map[channel.Key]node)
 	g.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
 	g.mu.unresolvedByName = make(map[string]set.Set[channel.Key])
+	g.mu.rejected = make(set.Set[channel.Key])
 	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return g.hydrate(ctx, tx)
 	}); err != nil {
 		return nil, err
 	}
-	g.disconnect = cfg.Channel.Observe().OnChange(g.handleChanges)
+	if g.changed, err = coalesce.Open(coalesce.Config[channel.Key, channelChange]{
+		Instrumentation: cfg.Instrumentation,
+		Handle:          g.handleChanges,
+	}); err != nil {
+		return nil, err
+	}
+	g.disconnect = cfg.Channel.Observe().OnChange(func(_ context.Context, r Changes) {
+		for ch := range r {
+			g.changed.Add(ch.Key, ch)
+		}
+	})
 	return g, nil
 }
 
 // Observe returns an observable that fires with a channel change batch after the Graph
-// has reconciled it and committed the resulting statuses and node state. Subscribers
-// that act on calculated channels must use this instead of the channel observable, so
-// that their work runs against a reconciled graph and their status reports land after
-// the Graph's own.
+// has reconciled it and committed the resulting statuses and node state. The batch also
+// holds an update for each calculated channel the Graph re-inspected and found valid
+// because a channel it reads changed. Subscribers that act on calculated channels must
+// use this instead of the channel observable, so that their work runs against a
+// reconciled graph and their status reports land after the Graph's own.
 func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
+// RejectDefinition persists a status the calculation runtime reports when it cannot
+// compile or request the definition of the channel with the given key. The Graph then
+// drops runtime reports for the channel until ClearRuntimeStatus.
+func (g *Graph) RejectDefinition(
+	ctx context.Context,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.mu.rejected.Add(key)
+	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return g.writeStatus(ctx, tx, key, stat)
+	})
+}
+
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
-// channel with the given key. Routing runtime reports through the Graph keeps a single
-// writer on the status record, so a report and a validity clear apply in submission
-// order. A report for a channel deleted in the meantime is dropped.
+// channel with the given key when the report changes the stored status. A success
+// changes only a stored error. Any other report changes a stored status with a
+// different variant, message, or description. Routing runtime reports through the Graph
+// keeps a single writer on the status record, so a report and a validity clear apply in
+// submission order. The Graph drops a report for a deleted channel, and a report for a
+// channel it holds as invalid or rejected: that record describes the channel
+// definition.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
@@ -149,22 +190,96 @@ func (g *Graph) SetRuntimeStatus(
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
+		return nil
+	}
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		exists, err := g.svc.NewRetrieve().
-			Where(channel.MatchKeys(key)).
-			Exists(ctx, tx)
+		stored, found, err := g.retrieveStatus(ctx, tx, key)
 		if err != nil {
 			return err
 		}
-		if !exists {
-			g.L.Debug("dropping runtime status for a deleted channel",
-				zap.Stringer("channel", key),
-			)
+		if !changes(stored, found, stat) {
 			return nil
 		}
-		stat.Key = calculation.StatusKey(key)
-		return g.status.NewWriter(tx).Set(ctx, stat)
+		if stat.Variant == status.VariantError {
+			g.L.Warn(stat.String())
+		} else {
+			g.L.Info(stat.String())
+		}
+		return g.writeStatus(ctx, tx, key, stat)
 	})
+}
+
+func changes(stored calculation.Status, found bool, next *calculation.Status) bool {
+	if next.Variant == status.VariantSuccess {
+		return found && stored.Variant == status.VariantError
+	}
+	return !found || stored.Variant != next.Variant ||
+		stored.Message != next.Message || stored.Description != next.Description
+}
+
+// Failed returns true when the stored status of the channel with the given key is an
+// error.
+func (g *Graph) Failed(ctx context.Context, key channel.Key) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	var failed bool
+	err := g.db.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		stored, found, err := g.retrieveStatus(ctx, snap, key)
+		failed = found && stored.Variant == status.VariantError
+		return err
+	})
+	return failed, err
+}
+
+func (g *Graph) retrieveStatus(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	key channel.Key,
+) (calculation.Status, bool, error) {
+	var stored calculation.Status
+	err := g.status.NewRetrieve[struct{}]().
+		Where(status.MatchOwners[struct{}](channel.ResourceID(key))).
+		Entry(&stored).
+		Exec(ctx, snap)
+	if errors.Is(err, query.ErrNotFound) {
+		return stored, false, nil
+	}
+	return stored, err == nil, err
+}
+
+func (g *Graph) writeStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
+	exists, err := g.svc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Exists(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		g.L.Debug("dropping runtime status for a deleted channel",
+			zap.Stringer("channel", key),
+		)
+		return nil
+	}
+	stat.Owner = new(channel.ResourceID(key))
+	return g.status.NewWriter(tx).Set(ctx, stat)
+}
+
+// AcceptDefinition acts as ClearRuntimeStatus for the channel with the given key when
+// RejectDefinition rejected the channel. It keeps the status of a channel that is not
+// rejected: a running calculation owns that record.
+func (g *Graph) AcceptDefinition(ctx context.Context, key channel.Key) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.mu.rejected.Contains(key) {
+		return nil
+	}
+	return g.clearRuntimeStatus(ctx, key)
 }
 
 // ClearRuntimeStatus removes the status record for the channel with the given key after
@@ -173,20 +288,27 @@ func (g *Graph) SetRuntimeStatus(
 func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.clearRuntimeStatus(ctx, key)
+}
+
+func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
+	g.mu.rejected.Remove(key)
 	if nd, ok := g.mu.nodes[key]; ok && nd.invalid {
 		return nil
 	}
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return g.status.NewWriter(tx).Delete(ctx, calculation.StatusKey(key))
+		return g.deleteStatus(ctx, tx, key)
 	})
+}
+
+func (g *Graph) deleteStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
+	return g.status.NewWriter(tx).DeleteOwned(ctx, channel.ResourceID(key))
 }
 
 // Close disconnects the graph from the channel observable.
 func (g *Graph) Close() error {
-	if g.disconnect != nil {
-		g.disconnect()
-	}
-	return nil
+	g.disconnect()
+	return g.changed.Close()
 }
 
 func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
@@ -297,20 +419,25 @@ func (g *Graph) hydrate(ctx context.Context, tx gorp.Tx) error {
 	return nil
 }
 
-func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
+// handleChanges reconciles the Graph with the latest change to each channel.
+func (g *Graph) handleChanges(
+	ctx context.Context,
+	latest map[channel.Key]channelChange,
+) {
 	var (
 		updates []channel.Channel
-		batch   []change.Change[channel.Key, channel.Channel]
+		valid   []channel.Channel
+		batch   []channelChange
 	)
 	g.mu.Lock()
 	err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		analyzer := g.newAnalyzer(tx)
 		queued := make(set.Set[channel.Key])
 		var unresolvedNames []string
-		for chg := range reader {
+		for _, chg := range latest {
 			batch = append(batch, chg)
 			ch := chg.Value
-			if chg.Variant == change.VariantDelete {
+			if chg.Kind == gorp.ChangeDelete {
 				g.L.Debug(
 					"channel deleted, removing node and re-inspecting dependents",
 					zap.Stringer("channel", chg.Key),
@@ -323,6 +450,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 					unresolvedNames = append(unresolvedNames, ch.Name)
 				}
 				g.enqueueDependents(chg.Key, queued)
+				g.mu.rejected.Remove(chg.Key)
 				continue
 			}
 			if ch.IsCalculated() {
@@ -365,10 +493,11 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 			g.enqueueDependents(ch.Key(), queued)
 			unresolvedNames = append(unresolvedNames, ch.Name)
 		}
-		updates = append(
-			updates,
-			g.reconcileQueued(ctx, tx, queued, unresolvedNames, analyzer)...,
+		var reconciled []channel.Channel
+		reconciled, valid = g.reconcileQueued(
+			ctx, tx, queued, unresolvedNames, analyzer,
 		)
+		updates = append(updates, reconciled...)
 		return nil
 	})
 	g.mu.Unlock()
@@ -376,12 +505,20 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 		g.L.Error("failed to apply calculated channel changes", zap.Error(err))
 		return
 	}
+	for _, ch := range valid {
+		batch = append(batch, channelChange{
+			Key:   ch.Key(),
+			Value: ch,
+			Kind:  gorp.ChangeUpdate,
+		})
+	}
 	g.obs.Notify(ctx, slices.Values(batch))
 	if len(updates) > 0 {
 		g.L.Info("updating channel data types", zap.Int("count", len(updates)))
-		w := g.svc.NewWriter(nil)
 		for _, ch := range updates {
-			if err := w.ChangeDataType(ctx, ch.Key(), ch.DataType); err != nil {
+			if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
+				return g.svc.NewWriter(tx).ChangeDataType(ctx, ch.Key(), ch.DataType)
+			}); err != nil {
 				g.L.Error(
 					"failed to update channel data type",
 					zap.Stringer("channel", ch.Key()),
@@ -407,8 +544,7 @@ func (g *Graph) setNodeStatus(
 }
 
 func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
-	if err := g.status.NewWriter(tx).
-		Delete(ctx, calculation.StatusKey(key)); err != nil {
+	if err := g.deleteStatus(ctx, tx, key); err != nil {
 		g.L.Warn(
 			"failed to clear status for channel",
 			zap.Stringer("channel", key),
@@ -453,12 +589,12 @@ func (g *Graph) reconcileQueued(
 	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	analyzer *channel.CalculationAnalyzer,
-) []channel.Channel {
+) (updates, valid []channel.Channel) {
 	g.enqueueUnresolved(unresolvedNames, queued)
 	if len(queued) > 0 {
 		g.L.Debug("reconciling dependent channels", zap.Int("count", len(queued)))
 	}
-	updates := make([]channel.Channel, 0)
+	updates = make([]channel.Channel, 0)
 	for len(queued) > 0 {
 		next := make(set.Set[channel.Key])
 		for key := range queued {
@@ -496,6 +632,7 @@ func (g *Graph) reconcileQueued(
 				)
 				continue
 			}
+			valid = append(valid, refetched)
 			if oldInvalid {
 				g.clearNodeStatus(ctx, tx, key)
 			}
@@ -515,7 +652,7 @@ func (g *Graph) reconcileQueued(
 		}
 		queued = next
 	}
-	return updates
+	return updates, valid
 }
 
 func (g *Graph) removeNode(key channel.Key) {

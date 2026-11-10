@@ -21,68 +21,25 @@ import (
 )
 
 var _ = Describe("Frame", func() {
-	Describe("SplitByLeaseholder", func() {
-		It(
-			"Should split the frame into separate frames by the channels leaseholder",
-			func() {
-				node1ch1 := channel.NewKey(1, 1)
-				node1ch2 := channel.NewKey(1, 1)
-				node2ch1 := channel.NewKey(2, 1)
-				node2ch2 := channel.NewKey(2, 1)
-				f := frame.NewMulti(
-					[]channel.Key{node1ch1, node1ch2, node2ch1, node2ch2},
-					[]telem.Series{
-						telem.NewSeriesV[int64](1, 2, 3),
-						telem.NewSeriesV[int64](4, 5, 6),
-						telem.NewSeriesV[int64](7, 8, 9),
-						telem.NewSeriesV[int64](10, 11, 12),
-					},
-				)
-				frames := f.SplitByLeaseholder()
-				Expect(frames).To(HaveLen(2))
-				Expect(frames[1]).To(Equal(frame.NewMulti(
-					[]channel.Key{node1ch1, node1ch2},
-					[]telem.Series{
-						telem.NewSeriesV[int64](1, 2, 3),
-						telem.NewSeriesV[int64](4, 5, 6),
-					},
-				)))
-				Expect(frames[2]).To(Equal(frame.NewMulti(
-					[]channel.Key{node2ch1, node2ch2},
-					[]telem.Series{
-						telem.NewSeriesV[int64](7, 8, 9),
-						telem.NewSeriesV[int64](10, 11, 12),
-					},
-				)))
-			},
-		)
-	})
-
-	Describe("SplitByHost", func() {
-		It("Should split a frame into a local, remote, and free frame", func() {
-			localNodeCh := channel.NewKey(1, 1)
-			remoteNodeCh := channel.NewKey(2, 1)
-			freeNodeCh := channel.NewKey(node.KeyFree, 1)
+	Describe("SplitFree", func() {
+		It("Should split a frame into a stored and a free frame", func() {
+			storedCh := channel.NewKey(1, 1)
+			freeCh := channel.NewKey(node.KeyFree, 1)
 			f := frame.NewMulti(
-				[]channel.Key{localNodeCh, remoteNodeCh, freeNodeCh},
+				[]channel.Key{storedCh, freeCh},
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
 					telem.NewSeriesV[int64](4, 5, 6),
-					telem.NewSeriesV[int64](7, 8, 9),
 				},
 			)
-			local, remote, free := f.SplitByHost(1)
-			Expect(local).To(Equal(frame.NewUnary(
-				localNodeCh,
+			stored, free := f.SplitFree()
+			Expect(stored).To(Equal(frame.NewUnary(
+				storedCh,
 				telem.NewSeriesV[int64](1, 2, 3),
 			)))
-			Expect(remote).To(Equal(frame.NewUnary(
-				remoteNodeCh,
-				telem.NewSeriesV[int64](4, 5, 6),
-			)))
 			Expect(free).To(Equal(frame.NewUnary(
-				freeNodeCh,
-				telem.NewSeriesV[int64](7, 8, 9),
+				freeCh,
+				telem.NewSeriesV[int64](4, 5, 6),
 			)))
 		})
 	})

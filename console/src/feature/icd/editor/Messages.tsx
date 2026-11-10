@@ -17,11 +17,11 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
+import { ICD } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { formatHex } from "@/feature/icd/editor/FormattedField";
-import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 import { Button as PlatformButton } from "@/platform/button";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -64,19 +64,19 @@ const describe = (message: icd.Message): string => {
 };
 
 const Item = (props: List.ItemRenderProps<string>): ReactElement | null => {
-  const path = `messages.${props.itemKey}`;
-  const message = Form.useFieldValue<icd.Message>(path, { optional: true });
-  const status = useNestedStatus(path);
+  const path = ICD.formPath.messages[props.itemKey];
+  const message = Form.useFieldValue(path, { optional: true });
+  const status = Form.useStatuses(path).at(0);
   if (message == null) return null;
   return (
     <Select.Item {...props} justify="between" align="center" gap="small">
       <Flex.Box x align="center" gap="small" className={CSS.BE("icd-message", "label")}>
         <Icon.Binary />
         <Flex.Box y gap="tiny" className={CSS.BE("icd-message", "text")}>
-          <Text.Text weight={500} overflow="ellipsis">
+          <Text.Text weight={500} overflow="fade">
             {message.name}
           </Text.Text>
-          <Text.Text level="small" color={8} overflow="ellipsis">
+          <Text.Text level="small" color={8} overflow="fade">
             {describe(message)}
           </Text.Text>
         </Flex.Box>
@@ -105,7 +105,7 @@ const ContextMenu = ({ keys, onRemove }: ContextMenuProps): ReactElement => {
   );
 };
 
-const isMessages = (key: string): boolean => key === "messages";
+const PATH = ICD.formPath.messages;
 
 export interface MessagesProps {
   /** The keys of the selected messages. The editor shows the first. */
@@ -119,7 +119,7 @@ export interface MessagesProps {
  * a whole, such as a removed message that a task uses, shows below it.
  */
 export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement => {
-  const messages = Form.useFieldList<string, icd.Message>("messages");
+  const messages = Form.useFieldList(PATH);
   const { data, push, remove } = messages;
   const menuProps = Menu.useContextMenu();
   const handleAdd = () => {
@@ -128,7 +128,7 @@ export const Messages = ({ selected, onSelect }: MessagesProps): ReactElement =>
     onSelect([message.key]);
   };
   const handleRemove = (keys: string[]) => onSelect(remove(keys).slice(0, 1));
-  const status = useNestedStatus("messages", isMessages);
+  const status = Form.useStatuses(PATH).find(({ key }) => key === String(PATH));
   return (
     <Flex.Box y empty grow className={CSS.BE("icd-editor", "messages")}>
       <Menu.ContextMenu

@@ -25,6 +25,7 @@ html {
     --max-width: 1400px;
 
     /* Breakpoints (for reference - CSS can't use vars in media queries) */
+
     /* Mobile: 800px, Small mobile: 600px, Tablet: 1100px, Page nav: 1024px, Outline:
        1280px, or 900px on a page without the page nav */
 
@@ -71,12 +72,14 @@ html {
     --pluto-tiny-size: round(2.166rem, 1px);
     --pluto-tiny-weight: 350;
     --pluto-tiny-line-height: calc(var(--pluto-tiny-size) * 1.5);
+
+    /* Keys print at the docs small size, not at the tiny size the Console uses. */
+    --pluto-keycap-font-size: var(--pluto-small-size);
     --pluto-height-large: 5.75rem;
     --pluto-height-medium: 5rem;
-
     --pluto-shadow-v1:
-        0px 1px 1px rgba(0, 0, 0, 0.02), 0px 4px 8px -4px rgba(0, 0, 0, 0.1),
-        0px 16px 24px -8px rgba(0, 0, 0, 0.12);
+        0px 1px 1px rgb(0 0 0 / 2%), 0px 4px 8px -4px rgb(0 0 0 / 10%),
+        0px 16px 24px -8px rgb(0 0 0 / 12%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -84,13 +87,13 @@ html {
         --docs-body-color: #a9abaa;
         --pluto-gray-l8: #838383;
         --pluto-shadow-v1:
-            lch(0 0 0 / 0.188) 0px 3px 8px, lch(0 0 0 / 0.188) 0px 2px 5px,
-            lch(0 0 0 / 0.188) 0px 1px 1px;
+            lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px,
+            lch(0% 0 0deg / 18.8%) 0px 1px 1px;
     }
 }
 
 /* Responsive typography */
-@media (max-width: 800px) {
+@media (width <= 800px) {
     :root {
         --pluto-h1-size: 5rem;
         --pluto-h2-size: 4rem;
@@ -117,6 +120,7 @@ body {
 }
 
 /* Link styles - exclude Pluto buttons which have their own styling */
+
 /* List styles */
 li {
     margin: round(1.3333rem, 1px) 0;
@@ -173,7 +177,7 @@ code:not(:is(h1, h2, h3, h4, h5, h6, .problem__title, .astro-code) code) {
 code {
     font-size: inherit;
     line-height: inherit;
-    font-family: "Geist Mono";
+    font-family: "Geist Mono", monospace;
     font-feature-settings:
         "liga" 0,
         "calt" 0;
@@ -181,7 +185,7 @@ code {
     border-radius: var(--pluto-border-radius);
 }
 
-a:not(.pluto-btn) code {
+a:not(.lyra-btn) code {
     color: inherit;
 }
 
@@ -310,7 +314,7 @@ table th {
     text-align: start;
 }
 
-@media (max-width: 800px) {
+@media (width <= 800px) {
     table > :not(caption) > * > * {
         padding: 1rem;
     }
@@ -334,6 +338,13 @@ blockquote {
     margin-left: 3rem;
 }
 
+/* A large button that leads the reader to the next step. */
+.docs-cta {
+    --pluto-height-large: 6.5rem;
+
+    padding: 0 4rem;
+}
+
 /* Scrollbar styling utility */
 .styled-scrollbar {
     /* Firefox */
@@ -345,13 +356,16 @@ blockquote {
         width: 0.75rem;
         height: 0.75rem;
     }
+
     &::-webkit-scrollbar-track {
         background: transparent;
     }
+
     &::-webkit-scrollbar-thumb {
         background-color: var(--pluto-gray-l4);
         border-radius: 0.5rem;
     }
+
     &::-webkit-scrollbar-thumb:hover {
         background-color: var(--pluto-gray-l5);
     }

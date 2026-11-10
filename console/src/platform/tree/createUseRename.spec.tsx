@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, ontology } from "@synnaxlabs/client";
+import { channel, DataType, resource } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -36,7 +36,7 @@ const client = createTestClient();
 
 const useRename = Tree.createUseRename({
   useUpdate: PChannel.useRename,
-  ontologyID: channel.ontologyID,
+  resourceID: channel.resourceID,
   convertKey: Number,
 });
 
@@ -54,13 +54,13 @@ interface Harness {
 }
 
 const setup = async (ch: channel.Channel): Promise<Harness> => {
-  const otgID = channel.ontologyID(ch.key);
-  const itemID = List.itemNameID(ontology.idToString(otgID));
+  const id = channel.resourceID(ch.key);
+  const itemID = List.itemNameID(resource.idToString(id));
   const store = await createTestStore();
   const props: Tree.ContextMenuProps = {
     ...createBaseProps({ client, store }),
-    selection: createSelection({ ids: [otgID] }),
-    state: createState([createResource(otgID, ch.name)]),
+    selection: createSelection({ ids: [id] }),
+    state: createState([createResource(id, ch.name)]),
   };
   const { wrapper: Console } = await createConsoleWrapper({ client, store });
   // The editable item is the surface the rename drives, so it mounts alongside the

@@ -16,13 +16,18 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func fixedOffset(offset telem.Size) domain.OffsetResolver {
+func fixedOffset(offset telem.Size) func(
+	context.Context,
+	telem.TimeStamp,
+	telem.TimeStamp,
+) (telem.Size, telem.TimeStamp, error) {
 	return func(
 		ctx context.Context,
 		_ telem.TimeStamp,
@@ -35,7 +40,11 @@ func fixedOffset(offset telem.Size) domain.OffsetResolver {
 func fixedOffsetAndTimeStamp(
 	offset telem.Size,
 	ts telem.TimeStamp,
-) domain.OffsetResolver {
+) func(
+	context.Context,
+	telem.TimeStamp,
+	telem.TimeStamp,
+) (telem.Size, telem.TimeStamp, error) {
 	return func(
 		_ context.Context,
 		_ telem.TimeStamp,
@@ -55,18 +64,15 @@ var _ = Describe("Delete", Ordered, func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 
 			Context("Single Pointer", func() {
 				JustBeforeEach(func(ctx SpecContext) {
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -84,7 +90,9 @@ var _ = Describe("Delete", Ordered, func() {
 							fixedOffset(density.Size(int64(startOffset))),
 							fixedOffset(density.Size(int64(endOffset))),
 						)).To(Succeed())
-						b := MustSucceed(domain.Read(ctx, db, telem.TimeRangeMax))
+						b := MustSucceed(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						)
 						Expect(b).To(BeNil())
 					},
 					Entry(
@@ -116,7 +124,9 @@ var _ = Describe("Delete", Ordered, func() {
 							fixedOffset(density.Size(int64(endOffset))),
 							fixedOffset(density.Size(int64(startOffset))),
 						)).To(Succeed())
-						b := MustSucceed(domain.Read(ctx, db, telem.TimeRangeMax))
+						b := MustSucceed(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						)
 						Expect(
 							b,
 						).To(Equal([]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19}))
@@ -150,7 +160,9 @@ var _ = Describe("Delete", Ordered, func() {
 							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
 							fixedOffset(1),
 						)).To(Succeed())
-						b := MustSucceed(domain.Read(ctx, db, telem.TimeRangeMax))
+						b := MustSucceed(
+							testutil.ReadDomain(ctx, db, telem.TimeRangeMax),
+						)
 						Expect(b).To(Equal([]byte{11, 12, 13, 14, 15, 16, 17, 18, 19}))
 						i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 						Expect(i.SeekFirst(ctx)).To(BeTrue())
@@ -164,19 +176,19 @@ var _ = Describe("Delete", Ordered, func() {
 
 			Context("Multiple Pointers", func() {
 				JustBeforeEach(func(ctx SpecContext) {
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(10 * telem.SecondTS).SpanRange(10*telem.Second),
 						[]byte{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
 					)).To(Succeed())
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(22 * telem.SecondTS).SpanRange(8*telem.Second),
 						[]byte{20, 21, 22, 23, 24, 25, 26, 27, 28, 29},
 					)).To(Succeed())
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -551,13 +563,31 @@ var _ = Describe("Delete", Ordered, func() {
 						Expect(iter.Close()).To(Succeed())
 					},
 				)
+
+				It(
+					"Should step past a domain whose start was deleted",
+					func(ctx SpecContext) {
+						iter := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+						Expect(iter.SeekFirst(ctx)).To(BeTrue())
+						Expect(db.Delete(
+							ctx,
+							(10 * telem.SecondTS).Range(12*telem.SecondTS),
+							fixedOffsetAndTimeStamp(0, 200*telem.SecondTS),
+							fixedOffset(1),
+						)).To(Succeed())
+						Expect(iter.Next()).To(BeTrue())
+						Expect(iter.TimeRange()).
+							To(Equal((22 * telem.SecondTS).SpanRange(8 * telem.Second)))
+						Expect(iter.Close()).To(Succeed())
+					},
+				)
 			})
 
 			Context("Edge cases", func() {
 				Context("With Data", func() {
 					JustBeforeEach(func(ctx SpecContext) {
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -565,7 +595,7 @@ var _ = Describe("Delete", Ordered, func() {
 							),
 						).To(Succeed())
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(22 * telem.SecondTS).SpanRange(8*telem.Second),
@@ -573,7 +603,7 @@ var _ = Describe("Delete", Ordered, func() {
 							),
 						).To(Succeed())
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).SpanRange(10*telem.Second),
@@ -600,7 +630,7 @@ var _ = Describe("Delete", Ordered, func() {
 					It(
 						"Should return errors when the startOffset is after the endOffset for same pointer deletion",
 						func(ctx SpecContext) {
-							err := db.Delete(
+							Expect(db.Delete(
 								ctx,
 								telem.TimeRange{
 									Start: 26 * telem.SecondTS,
@@ -608,10 +638,7 @@ var _ = Describe("Delete", Ordered, func() {
 								},
 								fixedOffset(7),
 								fixedOffset(5),
-							)
-							Expect(
-								err,
-							).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
+							)).To(MatchError(ContainSubstring("deletion start offset 7 is after end offset 5")))
 						},
 					)
 

@@ -48,13 +48,7 @@ export const ItemLabel = ({
         {kind}
       </Text.Text>
     )}
-    <Text.Text
-      level="p"
-      weight={500}
-      color={color}
-      variant={variant}
-      overflow="ellipsis"
-    >
+    <Text.Text level="p" weight={500} color={color} variant={variant} overflow="fade">
       {children}
     </Text.Text>
   </>

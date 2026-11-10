@@ -11,26 +11,20 @@ import { tcp } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Bus } from "@/feature/bus";
+
+const PATH = deep.path<{ properties: tcp.Properties }>().properties;
 
 const HOST_INPUT_PROPS = { autoFocus: true, placeholder: "localhost" } as const;
 const PORT_INPUT_PROPS = { placeholder: "5025" } as const;
 
 const Properties = (): ReactElement => (
   <Flex.Box x>
-    <Form.TextField
-      path="properties.host"
-      label="Host"
-      grow
-      inputProps={HOST_INPUT_PROPS}
-    />
-    <Form.NumericField
-      path="properties.port"
-      label="Port"
-      inputProps={PORT_INPUT_PROPS}
-    />
+    <Form.TextField path={PATH.host} label="Host" grow inputProps={HOST_INPUT_PROPS} />
+    <Form.NumericField path={PATH.port} label="Port" inputProps={PORT_INPUT_PROPS} />
   </Flex.Box>
 );
 
@@ -42,6 +36,8 @@ export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDe
   icon: <Icon.Link />,
   properties: tcp.propertiesZ,
   integration: "tcp",
+  scanType: "tcp_scan",
+  location: { shape: "address" },
   Properties,
   getModel: () => "TCP server",
   required: { host: "Host is required" },

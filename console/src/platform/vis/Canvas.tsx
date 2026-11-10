@@ -15,5 +15,5 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 export const Canvas = ({ children }: PropsWithChildren): ReactElement => (
-  <Base.Canvas id={CSS.BE("vis", "canvas")}>{children}</Base.Canvas>
+  <Base.Canvas className={CSS.BE("vis", "canvas")}>{children}</Base.Canvas>
 );

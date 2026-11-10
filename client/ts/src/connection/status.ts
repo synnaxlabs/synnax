@@ -37,6 +37,9 @@ export type Reason = z.infer<typeof reasonZ>;
 export const statusDetailsZ = z.object({
   error: z.instanceof(Error).optional(),
   authenticated: z.boolean(),
+  // The key of the client's session, so a new session notifies observers. Never the
+  // token: status details get logged.
+  session: z.string().optional(),
   streamLive: z.boolean(),
   // The cluster refused the change stream. Unary calls the user is allowed to
   // make still work; live updates do not arrive.
@@ -45,6 +48,8 @@ export const statusDetailsZ = z.object({
   clusterKey: z.string(),
   clientVersion: z.string(),
   nodeVersion: z.string().optional(),
+  // The key of the node the client connects to. Absent until the first check.
+  nodeKey: z.number().optional(),
   clientServerCompatible: z.boolean(),
   clockSkew: TimeSpan.z,
   clockSkewExceeded: z.boolean(),
@@ -116,6 +121,7 @@ export const DEFAULT_STATUS: Status = {
   message: "Disconnected",
   description: "",
   time: TimeStamp.ZERO,
+  labels: [],
   details: DEFAULT_STATUS_DETAILS,
 };
 
@@ -142,8 +148,8 @@ export interface Handle {
   /** Subscribes to status changes. Returns a destructor that unsubscribes. */
   onChange: (callback: (status: Status) => void) => destructor.Destructor;
   /**
-   * Resets the retry backoff and checks immediately. Auth and incompatibility
-   * errors are not cleared: those rest until the user supplies something new.
+   * Resets the retry backoff and checks immediately. Auth errors are not cleared: those
+   * rest until the user supplies new credentials.
    */
   retryNow: () => void;
 }
@@ -175,6 +181,8 @@ export const awaitConnected = async (
 export interface Info {
   clusterKey: string;
   nodeVersion: string;
+  /** The key of the node that answered the check. */
+  nodeKey: number;
   /** Skew measured across the check's round trip. */
   clockSkew: TimeSpan;
   /** The check's round trip. The skew is off by at most half of it. */
@@ -190,11 +198,12 @@ export interface Info {
 export type Event =
   | { type: "check.started" }
   | { type: "check.success"; info: Info }
-  | { type: "check.failure"; error: Error; attempt: number }
+  /** `info` comes from a check without auth, when one answered. */
+  | { type: "check.failure"; error: Error; attempt: number; info?: Info }
   | { type: "stream.live" }
   | { type: "stream.drop"; error?: Error }
   | { type: "stream.denied"; error?: Error }
-  | { type: "auth.success" }
+  | { type: "auth.success"; session: string }
   | { type: "auth.failure"; error: Error }
   | { type: "epoch.advanced"; epoch: number }
   | { type: "retry.scheduled"; attempt: number; nextAt: TimeStamp }
@@ -207,6 +216,7 @@ const CONNECTED = "Connected";
 const CONNECTING = "Connecting";
 const RECONNECTING = "Reconnecting";
 const UNREACHABLE = "Cannot reach Core";
+const INCOMPATIBLE = "Core version not supported";
 const AUTH_FAILED = "Failed to authenticate";
 const STREAM_DENIED =
   "Live updates are unavailable. This user cannot read the change channels.";
@@ -264,8 +274,7 @@ const enterError = (
   details: { ...prev.details, ...details },
 });
 
-export const isSelfHealing = (reason: Reason): boolean =>
-  reason === "unreachable" || reason === "unlicensed";
+export const isSelfHealing = (reason: Reason): boolean => reason !== "auth";
 
 // A 0.0 major.minor marks a development build, which pairs with anything.
 const isDev = (version: string): boolean => version.startsWith("0.0.");
@@ -282,6 +291,7 @@ const isCompatible = (nodeVersion: string, clientVersion: string): boolean =>
 const checkFacts = (info: Info, config: Config): Partial<StatusDetails> => ({
   clusterKey: info.clusterKey,
   nodeVersion: info.nodeVersion,
+  nodeKey: info.nodeKey,
   // the check traverses the auth middleware, so a response is proof of auth
   authenticated: true,
   clockSkew: info.clockSkew,
@@ -326,9 +336,9 @@ const reduceCheckSuccess = (prev: Status, info: Info, config: Config): Status =>
       retry: null,
     });
   // reachable but the stream is still dark: the client re-demands it and we
-  // stay degraded until it reports live. A parked unreachable or unlicensed
-  // error must lift out of error: the short circuit it drives would starve
-  // the very stream reopen this state waits on.
+  // stay degraded until it reports live. A parked self-healing error must lift
+  // out of error: an unreachable or unlicensed one drives a short circuit that
+  // would starve the very stream reopen this state waits on.
   if (config.requiresStream && !prev.details.streamLive) {
     if (prev.details.streamDenied) return enterStreamDenied(prev, facts);
     if (prev.variant === "error" && isSelfHealing(prev.details.reason))
@@ -364,7 +374,7 @@ const reduceAuthFailure = (prev: Status, error: Error): Status =>
   enterError(
     prev,
     AUTH_FAILED,
-    { reason: "auth", error, authenticated: false, retry: null },
+    { reason: "auth", error, authenticated: false, session: undefined, retry: null },
     error.message,
   );
 
@@ -373,7 +383,21 @@ const reduceCheckFailure = (
   error: Error,
   attempt: number,
   config: Config,
+  info?: Info,
 ): Status => {
+  if (info != null && !isCompatible(info.nodeVersion, config.clientVersion))
+    return enterError(
+      prev,
+      INCOMPATIBLE,
+      {
+        ...checkFacts(info, config),
+        reason: "incompatible",
+        error,
+        authenticated: false,
+        retry: null,
+      },
+      `Client ${config.clientVersion} cannot work with Core ${info.nodeVersion}.`,
+    );
   if (AuthError.matches(error)) return reduceAuthFailure(prev, error);
   const escalating = prev.variant === "loading";
   if (escalating && attempt >= config.escalateAfter)
@@ -383,10 +407,11 @@ const reduceCheckFailure = (
       { reason: "unreachable", error },
       error.message,
     );
-  // an unlicensed Core that stops answering is unreachable, not still unlicensed
+  // an unlicensed or incompatible Core that stops answering is unreachable
   if (
     prev.variant === "success" ||
-    (prev.variant === "error" && prev.details.reason === "unlicensed")
+    (prev.variant === "error" &&
+      (prev.details.reason === "unlicensed" || prev.details.reason === "incompatible"))
   )
     return enter(prev, "loading", RECONNECTING, { error });
   return update(prev, { error });
@@ -432,9 +457,10 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "check.success":
       return update(reduceCheckSuccess(prev, event.info, config), { checking: false });
     case "check.failure":
-      return update(reduceCheckFailure(prev, event.error, event.attempt, config), {
-        checking: false,
-      });
+      return update(
+        reduceCheckFailure(prev, event.error, event.attempt, config, event.info),
+        { checking: false },
+      );
     case "stream.live":
       return reduceStreamLive(prev);
     case "stream.drop":
@@ -442,7 +468,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "stream.denied":
       return enterStreamDenied(prev);
     case "auth.success":
-      return update(prev, { authenticated: true });
+      return update(prev, { authenticated: true, session: event.session });
     case "auth.failure":
       return reduceAuthFailure(prev, event.error);
     case "epoch.advanced":
@@ -452,8 +478,8 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
     case "retry.exhausted":
       return reduceRetryExhausted(prev);
     case "retry.requested":
-      // deliberately does not clear auth or incompatibility: those rest until
-      // the user supplies something new
+      // deliberately does not clear auth: it rests until the user supplies new
+      // credentials
       if (prev.variant !== "error" || !isSelfHealing(prev.details.reason)) return prev;
       return enter(prev, "loading", CONNECTING);
     case "credentials.replaced":
@@ -462,6 +488,7 @@ export const reduce = (prev: Status, event: Event, config: Config): Status => {
         error: undefined,
         streamDenied: false,
         authenticated: false,
+        session: undefined,
       });
     case "closed":
       return enter(prev, "disabled", "Closed", {
@@ -480,8 +507,7 @@ const comparable = ({ time: _, ...rest }: Status): unknown => ({
   details: { ...rest.details, clockSkew: undefined },
 });
 
-/** Whether the change is worth notifying observers about. */
-export const materialChange = (prev: Status, next: Status): boolean =>
+const materialChange = (prev: Status, next: Status): boolean =>
   !deep.equal(comparable(prev), comparable(next));
 
 /**

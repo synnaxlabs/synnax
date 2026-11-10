@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-orbital {
+.lyra-orbital {
     width: 100%;
     height: 100%;
     min-width: 0;
@@ -17,11 +17,12 @@
     container-type: size;
 }
 
-.pluto-orbital__stage {
+.lyra-orbital__stage {
     position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
+
     /* Container units clamp against both axes at once, so the figure stays
        square and fits a region that is short, narrow, or both. */
     width: min(var(--pluto-orbital-size, 18rem), 100cqw, 100cqh);
@@ -29,22 +30,22 @@
     transform-style: preserve-3d;
 }
 
-.pluto-orbital__tilt {
+.lyra-orbital__tilt {
     position: absolute;
     inset: var(--orbital-inset, 0);
     transform-style: preserve-3d;
-    animation: pluto-orbital-tumble var(--orbital-tumble, 8s) linear infinite;
+    animation: lyra-orbital-tumble var(--orbital-tumble, 8s) linear infinite;
     animation-direction: var(--orbital-tumble-dir, normal);
 }
 
-.pluto-orbital__tilt--a {
+.lyra-orbital__tilt--a {
     --orbital-rz: 25deg;
     --orbital-rx: 72deg;
     --orbital-tumble: 7s;
     --orbital-spin: 3s;
 }
 
-.pluto-orbital__tilt--b {
+.lyra-orbital__tilt--b {
     --orbital-rz: -65deg;
     --orbital-rx: 54deg;
     --orbital-tumble: 11s;
@@ -54,7 +55,7 @@
     --orbital-inset: 3.33%;
 }
 
-.pluto-orbital__tilt--c {
+.lyra-orbital__tilt--c {
     --orbital-rz: 80deg;
     --orbital-rx: 62deg;
     --orbital-tumble: 17s;
@@ -63,34 +64,37 @@
     --orbital-inset: 11.1%;
 }
 
-@keyframes pluto-orbital-tumble {
+@keyframes lyra-orbital-tumble {
     from {
         transform: rotateZ(var(--orbital-rz)) rotateX(var(--orbital-rx));
     }
+
     to {
         transform: rotateZ(var(--orbital-rz)) rotateX(calc(var(--orbital-rx) + 360deg));
     }
 }
 
-.pluto-orbital__ring {
-    --orbital-ring-width: var(--pluto-orbital-ring-width, 2px);
+.lyra-orbital__ring {
+    --orbital-ring-width: 2px;
+
     position: absolute;
     inset: 0;
     border-radius: 50%;
     border: var(--orbital-ring-width) solid var(--pluto-gray-l11-20);
-    animation: pluto-orbital-spin var(--orbital-spin, 3s) linear infinite;
+    animation: lyra-orbital-spin var(--orbital-spin, 3s) linear infinite;
     animation-direction: var(--orbital-spin-dir, normal);
     transform-style: preserve-3d;
 }
 
-.pluto-orbital__tilt--c .pluto-orbital__ring {
+.lyra-orbital__tilt--c .lyra-orbital__ring {
     border-style: dashed;
 }
 
-@keyframes pluto-orbital-spin {
+@keyframes lyra-orbital-spin {
     from {
         transform: rotateZ(0deg);
     }
+
     to {
         transform: rotateZ(360deg);
     }
@@ -98,7 +102,7 @@
 
 /* A comet arc riding the ring band: conic sweep clipped to the border ring by
    a radial mask, carried around by the ring's spin. */
-.pluto-orbital__laser {
+.lyra-orbital__laser {
     position: absolute;
     inset: calc(-1 * var(--orbital-ring-width));
     border-radius: 50%;
@@ -115,7 +119,7 @@
     );
 }
 
-.pluto-orbital__core {
+.lyra-orbital__core {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -123,7 +127,7 @@
     flex-shrink: 0;
 }
 
-.pluto-orbital__core--orb {
+.lyra-orbital__core--orb {
     width: 14%;
     height: 14%;
     border-radius: 50%;

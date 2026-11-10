@@ -18,20 +18,16 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-)
+var db *gorp.DB
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	db = DeferClose(gorp.Wrap(memkv.New()))
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	MustOpen(icd.OpenTable(ctx, icd.TableConfig{DB: db}))
 })
 
 func TestCAN(t *testing.T) {
@@ -41,12 +37,8 @@ func TestCAN(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// createICD stores an ICD with one message and defines the ontology resource of the
-// task that will use it. It returns the ICD and its message.
-func createICD(
-	ctx context.Context,
-	task uuid.UUID,
-) (icd.ICD, icd.Message) {
+// createICD stores an ICD with one message. It returns the ICD and its message.
+func createICD(ctx context.Context) (icd.ICD, icd.Message) {
 	GinkgoHelper()
 	m := icd.Message{
 		Key: uuid.New(), Name: "Status",
@@ -64,10 +56,5 @@ func createICD(
 	Expect(gorp.NewCreate[icd.Key, icd.ICD]().
 		Entry(&ic).
 		Exec(ctx, db)).To(Succeed())
-	Expect(otg.NewWriter(nil).DefineResources(
-		ctx,
-		icd.OntologyID(ic.Key),
-		ontology.ID{Type: ontology.ResourceTypeTask, Key: task.String()},
-	)).To(Succeed())
 	return ic, m
 }

@@ -11,9 +11,12 @@ import { udp } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Bus } from "@/feature/bus";
+
+const PATH = deep.path<{ properties: udp.Properties }>().properties;
 
 const PORT_INPUT_PROPS = { placeholder: "5000" } as const;
 const REMOTE_HOST_INPUT_PROPS = { placeholder: "None" } as const;
@@ -24,28 +27,28 @@ const Properties = (): ReactElement => (
   <>
     <Flex.Box x>
       <Form.TextField
-        path="properties.localAddress"
+        path={PATH.localAddress}
         label="Local address"
         grow
         inputProps={LOCAL_ADDRESS_INPUT_PROPS}
       />
       <Form.NumericField
-        path="properties.port"
+        path={PATH.port}
         label="Local port"
         inputProps={PORT_INPUT_PROPS}
       />
     </Flex.Box>
     <Flex.Box x>
       <Form.TextField
-        path="properties.remoteHost"
+        path={PATH.remoteHost}
         label="Remote host"
         grow
         inputProps={REMOTE_HOST_INPUT_PROPS}
       />
-      <Form.NumericField path="properties.remotePort" label="Remote port" />
+      <Form.NumericField path={PATH.remotePort} label="Remote port" />
     </Flex.Box>
     <Form.TextField
-      path="properties.multicastGroup"
+      path={PATH.multicastGroup}
       label="Multicast group"
       inputProps={MULTICAST_INPUT_PROPS}
     />
@@ -60,6 +63,8 @@ export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDe
   icon: <Icon.Bridge />,
   properties: udp.propertiesZ,
   integration: "udp",
+  scanType: "",
+  location: { shape: "address" },
   Properties,
   getModel: () => "UDP socket",
   getLocation: ({ localAddress, port }) => `${localAddress}:${port}`,

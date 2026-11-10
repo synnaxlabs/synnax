@@ -10,8 +10,10 @@
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { TimeSpan } from "@synnaxlabs/x";
+import { deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+const PATH = deep.path<{ config: { rate: number; timeout: TimeSpan } }>().config;
 
 const RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 
@@ -19,11 +21,11 @@ const RATE_INPUT_PROPS = { endContent: "Hz" } as const;
 export const Poll = (): ReactElement => (
   <Flex.Box x>
     <Form.NumericField
-      path="config.rate"
+      path={PATH.rate}
       label="Poll rate"
       inputProps={RATE_INPUT_PROPS}
     />
-    <Form.Field<TimeSpan> path="config.timeout" label="Reply timeout">
+    <Form.Field path={PATH.timeout} label="Reply timeout">
       {({ value, onChange, ...rest }) => (
         <Input.Numeric
           {...rest}

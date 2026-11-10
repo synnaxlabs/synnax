@@ -13,9 +13,11 @@ import synnax as sy
 from console.task.opcua import OPCUATask
 from tests.console.task.task_case import ConsoleTaskCase
 
-# Node name to node ID on the simulator. Float index 2 carries error injection.
-FLOAT_NODES = {"my_float_0": "NS=2;I=8", "my_float_1": "NS=2;I=9"}
-COMMAND_NODES = {f"command_{i}": f"NS=2;I={18 + i}" for i in range(3)}
+NAMESPACE_URI = "http://examples.freeopcua.github.io"
+# Node name to node ID on the simulator, as the Browser gives it. Float index 2 carries
+# error injection.
+FLOAT_NODES = {f"my_float_{i}": f"nsu={NAMESPACE_URI};i={8 + i}" for i in range(2)}
+COMMAND_NODES = {f"command_{i}": f"nsu={NAMESPACE_URI};i={18 + i}" for i in range(3)}
 BROWSER_ROOT_NODE = "MyObject"
 
 

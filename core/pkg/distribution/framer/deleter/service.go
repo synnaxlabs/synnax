@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package deleter provides a service for deleting data from a Synnax cluster through
-// deleting certain time ranges from channels.
+// Package deleter deletes time ranges of data from channels.
 package deleter
 
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
@@ -23,15 +22,16 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Service is the distribution layer interface for deleting data from a Synnax cluster
-// through deleting certain time ranges from channels.
-type Service struct{ proxy *leaseProxy }
+// Service is the distribution layer interface for deleting time ranges of data from
+// channels.
+type Service struct{ cfg ServiceConfig }
 
 // ServiceConfig is the configuration for the Service.
 type ServiceConfig struct {
-	HostResolver cluster.HostResolver
-	TSChannel    *ts.DB
-	Transport    Transport
+	// TS is the storage-layer time-series database to delete data from.
+	//
+	// [REQUIRED]
+	TS *ts.DB
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -39,17 +39,13 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 // Validate validates the ServiceConfig.
 func (c ServiceConfig) Validate() error {
 	v := validate.New("distribution.framer.deleter")
-	v.NotNil("host_resolver", c.HostResolver)
-	v.NotNil("ts_channel", c.TSChannel)
-	v.NotNil("transport", c.Transport)
+	v.NotNil("ts", c.TS)
 	return v.Error()
 }
 
 // Override overrides the ServiceConfig with the other ServiceConfig.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
-	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
-	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
-	c.Transport = override.Nil(c.Transport, other.Transport)
+	c.TS = override.Nil(c.TS, other.TS)
 	return c
 }
 
@@ -59,23 +55,12 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	proxy, err := newLeaseProxy(cfg)
-	if err != nil {
-		return nil, err
-	}
-	cfg.Transport.Server().
-		BindHandler(func(ctx context.Context, req Request) (struct{}, error) {
-			return struct{}{}, cfg.TSChannel.DeleteTimeRange(
-				ctx,
-				req.Keys.Storage(),
-				req.Bounds,
-			)
-		})
-	return &Service{proxy: proxy}, nil
+	return &Service{cfg: cfg}, nil
 }
 
 // DeleteTimeRange deletes a time range in the specified channels. It is idempotent: if
-// no data is found in the range, that channel is skipped.
+// no data is found in the range, that channel is skipped. Free channels have no stored
+// data and are skipped.
 //
 // It is NOT atomic: if any deletion fails after others have succeeded, the operation is
 // abandoned midway.
@@ -84,5 +69,8 @@ func (s *Service) DeleteTimeRange(
 	keys channel.Keys,
 	tr telem.TimeRange,
 ) error {
-	return s.proxy.deleteTimeRange(ctx, keys, tr)
+	stored := channel.Keys(lo.Reject(keys, func(k channel.Key, _ int) bool {
+		return k.Free()
+	}))
+	return s.cfg.TS.DeleteTimeRange(ctx, stored.Storage(), tr)
 }

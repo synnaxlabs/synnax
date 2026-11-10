@@ -1,0 +1,51 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Compares the Sedosaur reviews of the trial with Greptile's reviews of the same
+# commits, and writes the report to the run's summary. It covers the whole trial each
+# day, so a finding's verdict updates as its thread is fixed, declined, or voted on.
+
+name: Report - Sedosaur
+
+on:
+  schedule:
+    - cron: "0 14 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days of reviews to compare"
+        type: number
+        default: 30
+
+permissions: {}
+
+jobs:
+  report:
+    name: Compare the reviews
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+    steps:
+      # The verdicts read the commits of each pull request, never their file contents.
+      - name: Check out the scripts and the history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+
+      - name: Compare the reviews
+        working-directory: .github/scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days || 30 }}
+        run: python3 -m review compare "$DAYS" >> "$GITHUB_STEP_SUMMARY"

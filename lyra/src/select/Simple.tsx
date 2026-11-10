@@ -11,10 +11,9 @@ import { caseconv, type record } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Dialog } from "@/dialog";
-import { EmptyContent } from "@/select/Body";
+import { BorderedList, EmptyContent } from "@/select/Body";
 import { Dialog as SelectDialog } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps, type SingleFrameProps } from "@/select/Frame";
-import { List } from "@/select/List";
 import { MultipleTrigger, type MultipleTriggerProps } from "@/select/MultipleTrigger";
 import { searchPlaceholder, usePlaceholder } from "@/select/placeholder";
 import { useVisibleCount } from "@/select/registry";
@@ -43,10 +42,17 @@ interface BaseSimpleProps
   resourceName: string;
   /** Singular name for the search field. It defaults to `resourceName`. */
   searchName?: string;
+  /** Leaves out the search field, for a list short enough to scan. */
+  searchHidden?: boolean;
   /** The options, as {@link Item}s. */
   children: ReactNode;
   /** Shown when the search hides every option. */
   emptyContent?: ReactNode;
+  /**
+   * Pinned below the options. A {@link Item} in it is a pinned option, which the
+   * search never hides.
+   */
+  footer?: ReactNode;
   variant?: Dialog.FrameProps["variant"];
   /** Whether to render the trigger flat and inert, for use inside a preview. */
   preview?: boolean;
@@ -98,6 +104,7 @@ const Empty = (props: EmptyProps): ReactNode =>
 export const Simple = <K extends record.Key>({
   resourceName,
   searchName = resourceName,
+  searchHidden,
   value,
   onChange,
   multiple,
@@ -108,6 +115,7 @@ export const Simple = <K extends record.Key>({
   closeDialogOnSelect,
   children,
   emptyContent,
+  footer,
   haulType,
   disabled,
   icon,
@@ -139,11 +147,11 @@ export const Simple = <K extends record.Key>({
   };
   const dialog = (
     <SelectDialog {...dialogProps}>
-      <Search placeholder={searchPlaceholder(searchName)} />
-      <List bordered borderColor={6} grow rounded full="x">
+      {!searchHidden && <Search placeholder={searchPlaceholder(searchName)} />}
+      <BorderedList footer={footer}>
         {children}
         <Empty resourceName={resourceName} emptyContent={emptyContent} />
-      </List>
+      </BorderedList>
     </SelectDialog>
   );
   return (

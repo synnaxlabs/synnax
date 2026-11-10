@@ -60,6 +60,9 @@ struct Config {
     x::telem::TimeSpan clock_skew_threshold = x::telem::SECOND * 1;
     /// @brief sets the maximum number of login retries before giving up.
     std::uint32_t max_retries = 5;
+    /// @brief an API key to log in with. When set, the username and password are
+    /// ignored.
+    std::string api_key;
 
     template<typename ParserT>
     void override(ParserT &parser) {
@@ -73,6 +76,7 @@ struct Config {
             this->clock_skew_threshold.nanoseconds()
         ));
         this->max_retries = parser.field("max_retries", this->max_retries);
+        this->api_key = parser.field("api_key", this->api_key);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
@@ -82,6 +86,8 @@ struct Config {
            << cfg.username << "\n"
            << "  " << x::log::SHALE() << "password" << x::log::RESET() << ": "
            << x::log::sensitive_string(cfg.password) << "\n"
+           << "  " << x::log::SHALE() << "api key" << x::log::RESET() << ": "
+           << x::log::sensitive_string(cfg.api_key) << "\n"
            << "  " << x::log::SHALE() << "secure" << x::log::RESET() << ": "
            << x::log::bool_to_str(cfg.secure);
         return os;
@@ -101,7 +107,8 @@ struct Config {
             {"password", this->password},
             {"secure", this->secure},
             {"clock_skew_threshold", this->clock_skew_threshold.nanoseconds()},
-            {"max_retries", this->max_retries}
+            {"max_retries", this->max_retries},
+            {"api_key", this->api_key}
         };
     }
 };
@@ -114,6 +121,8 @@ public:
     /// @brief Client for creating and retrieving channels from the Core.
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
+    /// @brief Client for creating, listing, and deleting API keys.
+    auth::KeyClient api_keys;
     /// @brief Connectivity checker that polls the Core for health and clock skew.
     std::shared_ptr<connection::Checker> connectivity;
     /// @brief Client for creating, retrieving, and performing operations on ranges from
@@ -145,12 +154,17 @@ public:
                 std::move(this->t.auth_session_renew),
                 std::move(this->t.auth_session_retrieve),
                 std::move(this->t.auth_session_delete),
-                cfg.username,
-                cfg.password
+                cfg.api_key.empty() ? auth::password_proof(cfg.username, cfg.password)
+                                    : auth::api_key_proof(cfg.api_key)
             );
             this->t.use(mw);
             return mw;
         }()),
+        api_keys(
+            std::move(this->t.auth_key_create),
+            std::move(this->t.auth_key_retrieve),
+            std::move(this->t.auth_key_delete)
+        ),
         connectivity(
             std::make_shared<connection::Checker>(
                 std::move(this->t.connectivity_check),
@@ -163,14 +177,19 @@ public:
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
-            std::move(this->t.range_set_end),
+            std::move(this->t.range_dispatch),
             ranger::kv::Client(
                 this->t.range_kv_get,
                 this->t.range_kv_set,
                 this->t.range_kv_delete
             )
         ),
-        tasks(this->t.task_create, this->t.task_retrieve, this->t.task_delete),
+        tasks(
+            this->t.task_create,
+            this->t.task_retrieve,
+            this->t.task_delete,
+            this->t.task_dispatch
+        ),
         telem(
             std::move(this->t.frame_stream),
             std::move(this->t.frame_write),
@@ -180,12 +199,14 @@ public:
             std::move(this->t.rack_create_client),
             std::move(this->t.rack_retrieve),
             std::move(this->t.rack_delete),
+            std::move(this->t.rack_dispatch),
             this->tasks
         ),
         devices(
             std::move(this->t.device_create),
             std::move(this->t.device_retrieve),
-            std::move(this->t.device_delete)
+            std::move(this->t.device_delete),
+            std::move(this->t.device_dispatch)
         ),
         statuses(
             this->t.status_retrieve,

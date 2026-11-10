@@ -13,6 +13,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useId } from "react";
 
 import {
@@ -45,7 +46,7 @@ const create = (
 };
 
 interface FlagProps extends Pick<Form.UseFieldOptions<boolean>, "onChange"> {
-  path: string;
+  path: deep.Target<boolean>;
   label: string;
   disabled?: boolean;
 }
@@ -53,7 +54,7 @@ interface FlagProps extends Pick<Form.UseFieldOptions<boolean>, "onChange"> {
 const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
   const id = useId();
   const labelID = `${id}-label`;
-  const field = Form.useField<boolean>(path, { onChange });
+  const field = Form.useField(path, { onChange });
   return (
     <Flex.Box x align="center" gap="small">
       <Input.Checkbox
@@ -76,18 +77,18 @@ const Flag = ({ path, label, disabled, onChange }: FlagProps): ReactElement => {
   );
 };
 
-const CANFields = ({ path }: { path: string }): ReactElement => {
-  const fd = Form.useFieldValue<boolean>(`${path}.fd`);
+const CANFields = ({ path }: { path: deep.Path<icd.CanIdentifier> }): ReactElement => {
+  const fd = Form.useFieldValue(path.fd);
   return (
     <>
       <FormattedField<number>
-        path={`${path}.id`}
+        path={path.id}
         label="ID"
         format={formatHex}
         parse={parseInteger}
       />
       <FormattedField<number>
-        path={`${path}.mask`}
+        path={path.mask}
         label="Mask"
         placeholder="Exact match"
         optional
@@ -100,19 +101,15 @@ const CANFields = ({ path }: { path: string }): ReactElement => {
         className={CSS.BE("icd-editor", "wide")}
       >
         <Flex.Box x wrap align="center" className={CSS.BE("icd-editor", "flags")}>
-          <Flag path={`${path}.extended`} label="Extended ID" />
+          <Flag path={path.extended} label="Extended ID" />
           <Flag
-            path={`${path}.fd`}
+            path={path.fd}
             label="CAN FD"
             onChange={(next, { set }) => {
-              if (!next) set(`${path}.bitrateSwitched`, false);
+              if (!next) set(path.bitrateSwitched, false);
             }}
           />
-          <Flag
-            path={`${path}.bitrateSwitched`}
-            label="Bitrate switch"
-            disabled={!fd}
-          />
+          <Flag path={path.bitrateSwitched} label="Bitrate switch" disabled={!fd} />
         </Flex.Box>
       </Input.Item>
     </>
@@ -120,7 +117,7 @@ const CANFields = ({ path }: { path: string }): ReactElement => {
 };
 
 interface TypeFieldsProps {
-  path: string;
+  path: deep.Path<icd.Identifier>;
   type: icd.IdentifierType;
   fields: icd.BinaryField[];
 }
@@ -128,11 +125,12 @@ interface TypeFieldsProps {
 const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
   switch (type) {
     case "can":
-      return <CANFields path={path} />;
-    case "field":
+      return <CANFields path={deep.variant(path, "type", "can")} />;
+    case "field": {
+      const field = deep.variant(path, "type", "field");
       return (
         <>
-          <Form.Field<string> path={`${path}.field`} label="Field">
+          <Form.Field path={field.field} label="Field">
             {(p) => (
               <Select.Simple<string> resourceName="field" variant="floating" {...p}>
                 {fields.map(({ key, name }) => (
@@ -143,27 +141,27 @@ const TypeFields = ({ path, type, fields }: TypeFieldsProps): ReactElement => {
               </Select.Simple>
             )}
           </Form.Field>
-          <Form.NumericField path={`${path}.value`} label="Value" />
+          <Form.NumericField path={field.value} label="Value" />
         </>
       );
+    }
   }
 };
 
 export interface IdentifierProps {
   /** The form path of the binary payload. */
-  path: string;
+  path: deep.Path<icd.BinaryPayload>;
 }
 
 /** Picks how a binary message selects the frames that belong to it. */
 export const Identifier = ({ path }: IdentifierProps): ReactElement => {
-  const identifierPath = `${path}.identifier`;
   const { set } = Form.useContext();
-  const type = Form.useFieldValue<icd.IdentifierType>(`${identifierPath}.type`, {
+  const type = Form.useFieldValue(deep.present(path.identifier).type, {
     optional: true,
   });
-  const fields = Form.useFieldValue<icd.BinaryField[]>(`${path}.fields`);
+  const fields = Form.useFieldValue(path.fields);
   const handleChange = (next: Type) =>
-    set(identifierPath, next === "none" ? undefined : create(next, fields));
+    set(path.identifier, next === "none" ? undefined : create(next, fields));
   return (
     <Input.Item label="Identifier" padHelpText>
       <Select.Simple<Type>
@@ -184,11 +182,14 @@ export const Identifier = ({ path }: IdentifierProps): ReactElement => {
 
 /** Edits the values the message's identifier matches frames against. */
 export const IdentifierFields = ({ path }: IdentifierProps): ReactElement | null => {
-  const identifierPath = `${path}.identifier`;
-  const identifier = Form.useFieldValue<icd.Identifier>(identifierPath, {
-    optional: true,
-  });
-  const fields = Form.useFieldValue<icd.BinaryField[]>(`${path}.fields`);
+  const identifier = Form.useFieldValue(path.identifier, { optional: true });
+  const fields = Form.useFieldValue(path.fields);
   if (identifier == null) return null;
-  return <TypeFields path={identifierPath} type={identifier.type} fields={fields} />;
+  return (
+    <TypeFields
+      path={deep.present(path.identifier)}
+      type={identifier.type}
+      fields={fields}
+    />
+  );
 };

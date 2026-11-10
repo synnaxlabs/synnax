@@ -17,7 +17,7 @@ export const useCreate = (): (() => void) => {
   const openTab = Panel.useOpenTab();
   const { update } = ICD.useCreate({
     afterOptimistic: ({ data: { key } }) =>
-      openTab({ variant: "resource", resource: icd.ontologyID(key) }),
+      openTab({ variant: "resource", resource: icd.resourceID(key) }),
   });
   return () => update({ name: "ICD", messages: [] });
 };

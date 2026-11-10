@@ -12,13 +12,17 @@ package flow_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/analyzer/flow"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -113,6 +117,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 					Diagnostics: ctx.Diagnostics,
 					Constraints: ctx.Constraints,
 					TypeMap:     ctx.TypeMap,
+					FmtStrings:  ctx.FmtStrings,
 					AST:         expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
@@ -194,6 +199,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 				Diagnostics: ctx.Diagnostics,
 				Constraints: ctx.Constraints,
 				TypeMap:     ctx.TypeMap,
+				FmtStrings:  ctx.FmtStrings,
 				AST:         expr1,
 			}
 			flow.AnalyzeSingleExpression(ctx1)
@@ -304,6 +310,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 					Diagnostics: ctx.Diagnostics,
 					Constraints: ctx.Constraints,
 					TypeMap:     ctx.TypeMap,
+					FmtStrings:  ctx.FmtStrings,
 					AST:         expr1,
 				}
 				flow.AnalyzeSingleExpression(ctx1)
@@ -383,6 +390,105 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 	})
 })
 
+var _ = Describe("Series expressions in flows", func() {
+	DescribeTable(
+		"Should keep the series type of an expression",
+		func(bCtx SpecContext, source string) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(
+				nil,
+				symbol.Symbol{
+					Name: "x",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+					ID:   1,
+				},
+				symbol.Symbol{
+					Name: "s",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Series(types.F32())),
+					ID:   2,
+				},
+				symbol.Symbol{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.Series(types.F32())),
+					ID:   3,
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var outputs []types.Type
+			for _, sym := range ctx.Scope.Root().Children() {
+				if out, ok := sym.Type.Outputs.Get(ir.DefaultOutputParam); ok &&
+					sym.Kind == symbol.KindFunction {
+					outputs = append(
+						outputs,
+						ctx.Constraints.ApplySubstitutions(out.Type),
+					)
+				}
+			}
+			Expect(outputs).To(ContainElement(types.Series(types.F32())))
+		},
+		Entry("a flow source", "s + 1.0 -> out"),
+		Entry("a mid-flow node", "s -> s + 1.0 -> out"),
+		Entry(
+			"a stage flow",
+			"sequence main {\n stage a {\n s + 1.0 -> out\n }\n}\nx => main",
+		),
+		Entry("a declaration read by a flow", "y := s + 1.0\ny -> out"),
+		Entry(
+			"a function trigger",
+			"func consume() {v series f32} {\n}\n(s) -> consume()",
+		),
+		Entry(
+			"a function trigger after a sum",
+			"func consume() {v series f32} {\n}\ns + 1.0 -> consume()",
+		),
+	)
+})
+
+var _ = Describe("Expression type variables", func() {
+	DescribeTable("Should give the output and the body one type variable",
+		func(bCtx SpecContext, source string, sink types.Type) {
+			ast := MustSucceed(parser.Parse(source))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(
+				nil,
+				symbol.Symbol{
+					Name: "x",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   1,
+				},
+				symbol.Symbol{
+					Name: "out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(sink),
+					ID:   2,
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var literals []types.Type
+			for node, t := range ctx.TypeMap {
+				if lit, ok := node.(parser.ILiteralContext); ok &&
+					lit.NumericLiteral() != nil {
+					literals = append(literals, t)
+				}
+			}
+			Expect(literals).ToNot(BeEmpty())
+			Expect(literals).To(HaveEach(sink))
+		},
+		Entry("integers to i32", "x -> 1 + 2 -> out", types.I32()),
+		Entry("floats to f32", "x -> 1.5 + 2.5 -> out", types.F32()),
+		Entry(
+			"integers to i32 in a stage",
+			"sequence main {\n stage a {\n 1 + 2 -> out\n }\n}\nx => main",
+			types.I32(),
+		),
+	)
+})
+
 var _ = Describe("LiftVarReads", func() {
 	var (
 		root *symbol.Symbol
@@ -433,12 +539,22 @@ var _ = Describe("LiftVarReads", func() {
 		Expect(child.Internal).To(BeTrue())
 	})
 
-	It("Should not lift a variable that was never reassigned", func(bCtx SpecContext) {
+	It("Should not lift a never-reassigned literal variable", func(bCtx SpecContext) {
 		addVar(bCtx, symbol.Symbol{
 			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+			DefaultValue: int32(5),
 		})
 		lift(bCtx, "x + 1")
 		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should lift a computed variable as an input param", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		})
+		ctx := lift(bCtx, "x + 1")
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
 	})
 
 	It(
@@ -536,6 +652,14 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		GinkgoHelper()
 		expr := MustSucceed(parser.ParseExpression(code))
 		ctx := context.NewRoot(bCtx, expr, root)
+		// The flow analyzes a format string, and parses its placeholders, first.
+		if lit := parser.GetLiteral(expr); lit != nil {
+			if strTerm := parser.StringTerminal(lit); strTerm != nil {
+				analysis := ctx
+				analysis.Diagnostics = &diagnostics.Diagnostics{}
+				expression.AnalyzeFmtStrLiteral(analysis, strTerm)
+			}
+		}
 		flow.LiftFmtStrVarReads(ctx, fn, expr)
 		return ctx
 	}
@@ -621,5 +745,111 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 			Expect(ok).To(BeFalse())
 			Expect(MustBeOk(fn.Type.Inputs.Get("y")).Type).To(Equal(types.F64()))
 		},
+	)
+})
+
+var _ = Describe("AnalyzeComputedArgs", func() {
+	It("Should register a synth only for a computed argument", func(bCtx SpecContext) {
+		root := NewRoot(nil, symbol.Symbol{
+			Name: "one",
+			Kind: symbol.KindFunction,
+			Type: types.Function(types.FunctionProperties{
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
+			}),
+		})
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+		args := []symbol.Argument{
+			{Expr: MustSucceed(parser.ParseExpression("1"))},
+			{Expr: MustSucceed(parser.ParseExpression("x"))},
+			{Expr: MustSucceed(parser.ParseExpression("x + 1"))},
+			{Expr: MustSucceed(parser.ParseExpression("one()"))},
+		}
+		ctx := context.NewRoot(bCtx, args[2].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		var synths []*symbol.Symbol
+		for _, c := range root.Children() {
+			if c.Name != "one" &&
+				(c.Kind == symbol.KindFunction || c.Kind == symbol.KindConstant) {
+				synths = append(synths, c)
+			}
+		}
+		Expect(synths).To(HaveLen(2))
+		for _, s := range synths {
+			Expect(s.Name).To(HavePrefix("expression_"))
+		}
+		Expect(MustSucceed(root.GetChildByParserRule(args[2].Expr))).To(
+			BeIdenticalTo(synths[0]),
+		)
+		Expect(MustSucceed(root.GetChildByParserRule(args[3].Expr))).To(
+			BeIdenticalTo(synths[1]),
+		)
+	})
+
+	It("Should register no synth for a float constant", func(bCtx SpecContext) {
+		root := symbol.NewRoot(nil, stl.NewSymbols())
+		symbol.AutoImportModules(root)
+		var args []symbol.Argument
+		for _, src := range []string{"math.inf", "f32(-math.inf)", "-math.nan"} {
+			args = append(args, symbol.Argument{
+				Expr: MustSucceed(parser.ParseExpression(src)),
+			})
+		}
+		ctx := context.NewRoot(bCtx, args[0].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		for _, arg := range args {
+			Expect(root.GetChildByParserRule(arg.Expr)).Error().
+				To(MatchError("could not find symbol matching parser rule"))
+		}
+	})
+})
+
+var _ = Describe("BindOutput", func() {
+	var root *symbol.Symbol
+	BeforeEach(func(bCtx SpecContext) {
+		root = NewRoot(nil)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+	})
+
+	It("Should bind the untyped output of a node to the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.F32())
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(ctx.Constraints.Unify()).To(Succeed())
+		synth := MustSucceed(root.GetChildByParserRule(expr))
+		out := MustBeOk(synth.Type.Outputs.Get(ir.DefaultOutputParam))
+		Expect(ctx.Constraints.ApplySubstitutions(out.Type)).To(Equal(types.F32()))
+	})
+
+	It("Should report an output that does not fit the type", func(bCtx SpecContext) {
+		expr := MustSucceed(parser.ParseExpression("1.5 * 2.0"))
+		ctx := context.NewRoot(bCtx, expr, root)
+		flow.AnalyzeSingleExpression(ctx)
+		flow.BindOutput(ctx, expr, types.Bool())
+		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+		Expect(ctx.Diagnostics.String()).To(ContainSubstring("assignment"))
+	})
+
+	DescribeTable("Should do nothing",
+		func(bCtx SpecContext, source string, registered bool) {
+			expr := MustSucceed(parser.ParseExpression(source))
+			ctx := context.NewRoot(bCtx, expr, root)
+			if registered {
+				flow.AnalyzeSingleExpression(ctx)
+			}
+			before := len(ctx.Constraints.Constraints)
+			flow.BindOutput(ctx, expr, types.F32())
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			Expect(ctx.Constraints.Constraints).To(HaveLen(before))
+		},
+		Entry("with no registered node", "1.5 * 2.0", false),
+		Entry("with a concrete output", "x + x", true),
 	)
 })

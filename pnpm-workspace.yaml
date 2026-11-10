@@ -28,6 +28,10 @@ packages:
 
 shellEmulator: true
 
+# Node.js downloads from nodejs.org sometimes time out on hosted CI runners. The default
+# is two retries.
+fetchRetries: 5
+
 trustPolicy: no-downgrade
 trustPolicyExclude:
   # Old major versions that predate provenance on their package, so the downgrade is
@@ -50,9 +54,19 @@ lockfile:
 overrides:
   # GHSA-9wv6-86v2-598j. Lift when @vercel/routing-utils ships a fixed version.
   '@vercel/routing-utils>path-to-regexp': 6.3.0
-  # GHSA-p98j-92pf-mc4p and GHSA-6688-9rhm-gjv2. Lift when @codingame/monaco-vscode-api
-  # ships a fixed version.
-  '@codingame/monaco-vscode-api>dompurify': 3.4.16
+  # GHSA-cg2g-xh64-v4q7, GHSA-mrv2-3pqr-j5jr, and GHSA-c6gr-qvv4-5v3f. Lift when
+  # @codingame/monaco-vscode-api ships a fixed version.
+  '@codingame/monaco-vscode-api>dompurify': 3.4.17
+  # GHSA-mrhx-c7xc-m3w5. Lift when @vercel/oidc moves past @vercel/cli-config 0.3.1.
+  '@vercel/cli-config>zod': ^4.6.7
+  # GHSA-g3hv-75wg-m249. glob 13 breaks on minimatch 11, so glob moves to 14 as well.
+  # Lift when eslint, typescript-estree, vsce, and vscode-languageclient move to it.
+  '@vercel/nft>glob': ^14.0.3
+  minimatch@10: ^11.0.4
+
+# Replaces makeRe(), which minimatch 11 removes. Lift with the minimatch override.
+patchedDependencies:
+  vscode-languageclient@10.1.2: patches/npm/vscode-languageclient@10.1.2.patch
 
 catalogMode: strict
 catalogPrune: true
@@ -92,11 +106,12 @@ catalog:
   '@fontsource/inter': ^5.3.0
   '@juggle/resize-observer': ^3.4.0
   '@neondatabase/serverless': ^1.2.0
+  '@noble/hashes': ^2.4.0
   '@opentelemetry/api': ^1.9.1
   '@prettier/plugin-xml': ^3.4.2
   '@reduxjs/toolkit': ^2.13.0
-  '@remotion/bundler': ^4.0.536
-  '@remotion/renderer': ^4.0.536
+  '@remotion/bundler': ^4.0.540
+  '@remotion/renderer': ^4.0.540
   '@rolldown/plugin-babel': ^0.2.4
   '@stylistic/eslint-plugin': ^5.10.0
   '@synnaxlabs/alamos': workspace:^
@@ -140,6 +155,7 @@ catalog:
   '@types/ws': ^8.18.2
   '@vercel/oidc-aws-credentials-provider': ^3.3.13
   '@vitejs/plugin-react': ^6.1.2
+  '@vitest/browser-playwright': ^5.0.5
   '@vitest/coverage-v8': ^5.0.5
   '@vscode/vsce': ^4.0.0
   '@xyflow/react': ^12.12.0
@@ -153,16 +169,17 @@ catalog:
   compromise: ^14.18.0
   compromise-dates: ^3.9.0
   d3-scale: ^4.0.2
+  dompurify: ^3.4.17
   drizzle-kit: ^0.31.11
   drizzle-orm: ^0.45.4
   error-stack-parser: ^2.1.4
   esbuild: ^0.28.2
   eslint: ^10.13.0
+  eslint-plugin-jsdoc: 65.4.2
   eslint-plugin-react-hooks: ^7.1.1
   eslint-plugin-simple-import-sort: ^14.0.0
   fake-indexeddb: ^6.2.6
   fflate: ^0.8.3
-  fuse.js: ^7.5.0
   globals: ^17.13.0
   gray-matter: ^4.0.3
   hast-util-from-html: ^2.0.3
@@ -178,6 +195,9 @@ catalog:
   playwright: ^1.64.1
   pluralize: ^8.0.0
   postcss: ^8.5.30
+  postcss-html: ^1.8.1
+  postcss-selector-parser: ^7.1.6
+  postcss-value-parser: ^4.2.0
   # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
   # release minutes old and trips the minimum release age gate.
   posthog-js: 1.438.12
@@ -197,7 +217,7 @@ catalog:
   react-redux: ^9.3.0
   remark: ^15.0.1
   remark-gfm: ^4.0.1
-  remotion: ^4.0.536
+  remotion: ^4.0.540
   resend: ^6.34.1
   rolldown: ~1.2.14
   satteri: ^0.10.5
@@ -211,10 +231,12 @@ catalog:
   turbo: ^2.11.9
   typescript: ^7.0.2
   typescript-eslint: ^8.71.2
+  undici: ^8.12.2
   use-sync-external-store: ^1.7.0
   uuid: ^14.0.3
   vite: ^8.3.4
   vitest: ^5.0.5
+  vitest-browser-react: ^2.3.0
   vscode: npm:@codingame/monaco-vscode-extension-api@^37.6.1
   vscode-jsonrpc: ^9.0.3
   vscode-languageclient: ^10.1.2

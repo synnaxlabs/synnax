@@ -11,13 +11,12 @@ package symbol
 
 import (
 	"context"
-	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/x/config"
@@ -37,13 +36,7 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
-	// Ontology is used to define relationships between symbols and other entities in
-	// the Synnax resource graph.
-	//
-	// [REQUIRED]
-	Ontology *ontology.Ontology
-	// Group is used to create and manage the permanent group for symbols, and to delete
-	// the groups that hold them.
+	// Group creates and deletes the groups that hold symbols.
 	//
 	// [REQUIRED]
 	Group *group.Service
@@ -64,7 +57,6 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
@@ -75,7 +67,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("symbol")
 	v.NotNil("db", c.DB)
-	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
 	v.NotNil("imex", c.ImEx)
 	return v.Error()
@@ -83,11 +74,11 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying symbols from Synnax.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	group  group.Group
-	table  *gorp.Table[Key, Symbol]
-	search *gorp.SearchIndex[Key, Symbol]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Symbol]
+	indexes indexes
+	state   *actions.State[Key, Action]
 }
 
 // OpenService instantiates a new symbol service using the provided configurations. Each
@@ -98,64 +89,65 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{
+		cfg:     cfg,
+		indexes: newIndexes(),
+		state:   actions.NewState[Key, Action](cfg.DB),
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Symbol]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Symbol]{s.search},
+		Name:            tableName,
+		Indexes:         s.indexes.all(),
+		References:      s.indexes.references(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	if s.group, err = cfg.Group.CreateOrRetrieve(
-		ctx,
-		"Schematic Symbols",
-		ontology.RootID,
-	); !ok(err, nil) {
-		return nil, err
-	}
-	cfg.Ontology.RegisterService(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		signalsCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
-		signalsCfg.SetName = "sy_schematic_symbol_set"
-		signalsCfg.DeleteName = "sy_schematic_symbol_delete"
-		var sig io.Closer
-		if sig, err = cfg.Signals.PublishFromGorp(ctx, signalsCfg); !ok(err, sig) {
+		if err = cfg.Signals.PublishTable(ctx, signals.TableConfig[Key, Symbol]{
+			Changes:    s.table.Changes,
+			Resource:   ResourceID,
+			SetName:    "sy_schematic_symbol_set",
+			DeleteName: "sy_schematic_symbol_delete",
+		}); !ok(err, nil) {
+			return nil, err
+		}
+		if err = cfg.Signals.PublishActions(ctx, signals.ActionConfig[Key, Action]{
+			Name:     "sy_schematic_symbol_action_set",
+			Actions:  s.state,
+			Resource: ResourceID,
+		}); !ok(err, nil) {
 			return nil, err
 		}
 	}
 	return s, nil
 }
 
-// NewWriter opens a new writer for creating, updating, and deleting symbols in Synnax.
-// If tx is provided, the writer will use that transaction. If tx is nil, the Writer
-// will execute the operations directly on the underlying gorp.DB.
+// NewWriter opens a new writer for creating, updating, and deleting symbols in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.cfg.Ontology.NewWriter(tx),
-		otg:       s.cfg.Ontology,
-		table:     s.table,
+		tx:         tx,
+		table:      s.table,
+		dispatcher: s.state.Dispatcher(),
 	}
 }
+
+// Actions returns the action batches that Writer attaches to its transactions.
+func (s *Service) Actions() *actions.State[Key, Action] { return s.state }
 
 // NewRetrieve opens a new query build for retrieving symbols from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		indexes: s.indexes,
 	}
 }
-
-// Group returns the permanent group for schematic symbols.
-func (s *Service) Group() group.Group { return s.group }
 
 // Close closes the symbol service, shutting down signal publishers.
 func (s *Service) Close() error { return s.closer.Close() }

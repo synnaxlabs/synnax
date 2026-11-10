@@ -19,7 +19,7 @@
 
 #include "client/cpp/icd/types.gen.h"
 #include "x/cpp/telem/series.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/codec/errors.h"
@@ -236,10 +236,6 @@ icd::TextField random_text_field(std::mt19937_64 &rng, const std::size_t i) {
         field
     );
     return field;
-}
-
-const icd::BaseField &base(const icd::TextField &f) {
-    return std::visit([](const auto &v) -> const icd::BaseField & { return v; }, f);
 }
 }
 

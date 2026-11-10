@@ -9,23 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Matches the Console's body rule in console/src/app/App.css. */
 body {
     margin: 0;
     height: 100%;
     width: 100%;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
-#root {
+.pluto-root {
     height: 100%;
     width: 100%;
 }
 
 * {
-    *:not(:is(.pluto-text, input, label)) {
-        user-select: none !important;
-        -webkit-user-select: none !important;
-    }
-
     box-sizing: border-box;
 }
 

@@ -18,21 +18,29 @@
 #include <variant>
 #include <vector>
 
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
+#include "core/pkg/api/icd/pb/icd.pb.h"
 #include "core/pkg/service/icd/pb/icd.pb.h"
 
 namespace synnax::icd {
 
 struct Reference;
+struct Where;
+struct Cursor;
 struct BaseField;
+struct RetrieveRequest;
 struct BinaryField;
 struct Message;
 struct ICD;
+struct RetrieveResponse;
 
 constexpr const char *BYTE_ORDER_LITTLE_ENDIAN = "little_endian";
 constexpr const char *BYTE_ORDER_BIG_ENDIAN = "big_endian";
@@ -61,6 +69,69 @@ struct Reference {
     to_proto() const;
     static std::pair<Reference, x::errors::Error>
     from_proto(const ::service::icd::pb::Reference &pb);
+};
+
+/// @brief Where is a filter that selects ICDs.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::icd::pb::Where;
+    [[nodiscard]] std::pair<::service::icd::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::icd::pb::Where &pb);
+};
+
+/// @brief Cursor is a position in an order of icds: the sort value and the key of a
+/// icd.
+struct Cursor {
+    /// @brief key is the key of the icd at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::icd::pb::Cursor;
+    [[nodiscard]] std::pair<::api::icd::pb::Cursor, x::errors::Error> to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::icd::pb::Cursor &pb);
 };
 
 /// @brief BaseField carries the parts every message field shares.
@@ -153,6 +224,47 @@ to_proto(const Identifier &value);
 std::pair<Identifier, x::errors::Error>
 identifier_from_proto(const ::service::icd::pb::Identifier &pb);
 
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the icds that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the icds strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most icds to return.
+    std::optional<std::uint32_t> limit;
+};
+
+/// @brief RetrieveRequest is a request to retrieve icds.
+struct RetrieveRequest {
+    /// @brief where selects the icds to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the icds that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the icds strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most icds to return.
+    std::optional<std::uint32_t> limit;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::icd::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::icd::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::icd::pb::RetrieveRequest &pb);
+};
+
 /// @brief BinaryField is a field read from a bit range of a binary payload.
 struct BinaryField : public BaseField {
     /// @brief start_bit is the bit where the field starts, numbered as in a DBC file:
@@ -221,6 +333,11 @@ TextField parse_text_field(x::json::Parser parser);
 to_proto(const TextField &value);
 std::pair<TextField, x::errors::Error>
 text_field_from_proto(const ::service::icd::pb::TextField &pb);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseField &base(const TextField &value) {
+    return std::visit([](const auto &v) -> const BaseField & { return v; }, value);
+}
 
 /// @brief BinaryPayload is a payload of raw bytes.
 struct BinaryPayload {
@@ -324,9 +441,24 @@ struct ICD {
     from_proto(const ::service::icd::pb::ICD &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("icd", "");
+/// @brief RetrieveResponse holds the icds a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief icds are the icds the request selects.
+    std::vector<ICD> icds;
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("icd", key.to_string());
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::icd::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::icd::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::icd::pb::RetrieveResponse &pb);
+};
+
+const synnax::resource::ID TYPE_RESOURCE_ID("icd", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("icd", key.to_string());
 }
 }

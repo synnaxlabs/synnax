@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-picker {
+.lyra-color-picker {
     width: 44rem;
     padding: 1.5rem;
 
-    .pluto-color-picker__plane,
-    .pluto-color-picker__slider {
+    .lyra-color-picker__plane,
+    .lyra-color-picker__slider {
         position: relative;
         touch-action: none;
         user-select: none;
@@ -26,7 +26,7 @@
         }
     }
 
-    .pluto-color-picker__plane {
+    .lyra-color-picker__plane {
         height: 22rem;
         border-radius: var(--pluto-border-radius-medium);
         background:
@@ -36,17 +36,17 @@
         cursor: crosshair;
     }
 
-    .pluto-color-picker__slider {
+    .lyra-color-picker__slider {
         height: 2rem;
         border-radius: 1rem;
         background: var(--pluto-color-picker-track);
     }
 
-    .pluto-color-picker__alpha {
+    .lyra-color-picker__alpha {
         background: var(--pluto-color-picker-track), var(--pluto-checkerboard);
     }
 
-    .pluto-color-picker__thumb {
+    .lyra-color-picker__thumb {
         position: absolute;
         top: 50%;
         width: 2.5rem;
@@ -61,7 +61,7 @@
         pointer-events: none;
     }
 
-    .pluto-color-picker__alpha-input {
+    .lyra-color-picker__alpha-input {
         width: 13rem;
         flex-shrink: 0;
     }

@@ -13,12 +13,13 @@ import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
-  createEntryReadChannel,
-  createEntryWriteChannel,
+  createDewesoftXSettings,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
   createUnresolvedWriteChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 
 const roundTrip = (key: string): string =>
@@ -44,19 +45,36 @@ describe("addressKey", () => {
   });
 });
 
-describe("uniqueEntries", () => {
+describe("usableEntries", () => {
+  const props = (
+    inputs: EtherCAT.Device.SlaveProperties["pdos"]["inputs"],
+    settings?: EtherCAT.Device.SlaveProperties["settings"],
+  ): EtherCAT.Device.SlaveProperties => ({
+    ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+    pdos: { inputs, outputs: [] },
+    settings,
+  });
+
   it("should list an address that two PDOs map only once", () => {
     const value = { ...STATUS_ENTRY, name: "Value", pdoName: "Channel 1" };
-    const entries = EtherCAT.Task.uniqueEntries([
-      value,
-      { ...value, pdoName: "Other" },
-    ]);
+    const entries = EtherCAT.Task.usableEntries(
+      props([value, { ...value, pdoName: "Other" }]),
+      "inputs",
+    );
     expect(entries).toEqual([value]);
   });
 
   it("should keep entries that share a name but not an address", () => {
     const { inputs } = createRepeatedNamePDOs();
-    expect(EtherCAT.Task.uniqueEntries(inputs)).toHaveLength(8);
+    expect(EtherCAT.Task.usableEntries(props(inputs), "inputs")).toHaveLength(8);
+  });
+
+  it("should leave out the inputs that only another program reads", () => {
+    const entries = EtherCAT.Task.usableEntries(
+      props([STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], createDewesoftXSettings(true)),
+      "inputs",
+    );
+    expect(entries).toEqual([STRAIN_ENTRY]);
   });
 });
 
@@ -184,10 +202,11 @@ describe("createReadChannel", () => {
   });
 
   it("should copy the slave of the last channel but reset its entry and binding", () => {
-    const last = createEntryReadChannel("dev", STATUS_ENTRY, {
+    const last = {
+      ...EtherCAT.Task.createEntryReadChannel("dev", STATUS_ENTRY),
       channel: 42,
       name: "copied",
-    });
+    };
     const ch = EtherCAT.Task.createReadChannel([last]);
     expect(ch).toMatchObject({
       type: "entry",
@@ -218,14 +237,16 @@ describe("createWriteChannel", () => {
     expect(EtherCAT.Task.hasEntry(ch)).toBe(false);
   });
 
-  it("should copy the last channel but reset names, bindings, and the entry", () => {
-    const last = createEntryWriteChannel("dev", STATUS_ENTRY, {
+  it("should copy the last channel but reset names, bindings, the entry, and the stop value", () => {
+    const last = {
+      ...EtherCAT.Task.createEntryWriteChannel("dev", STATUS_ENTRY),
       cmdChannel: 5,
       stateChannel: 6,
       cmdChannelName: "cmd",
       stateChannelName: "state",
       name: "copied",
-    });
+      stopValue: 1,
+    };
     const ch = EtherCAT.Task.createWriteChannel([last]);
     expect(ch).toMatchObject({
       device: "dev",
@@ -235,6 +256,7 @@ describe("createWriteChannel", () => {
       stateChannelName: "",
       name: "",
       index: 0,
+      stopValue: 0,
     });
     expect(ch.key).not.toBe(last.key);
   });
@@ -250,7 +272,10 @@ describe("createWriteChannel", () => {
 
 describe("getPortLabel", () => {
   it("should label a channel with the address of its entry", () => {
-    const ch = createEntryReadChannel("dev", { ...STATUS_ENTRY, index: 0x6010 });
+    const ch = EtherCAT.Task.createEntryReadChannel("dev", {
+      ...STATUS_ENTRY,
+      index: 0x6010,
+    });
     expect(EtherCAT.Task.getPortLabel(ch)).toBe("0x6010:01");
   });
 
@@ -342,5 +367,20 @@ describe("legacy shapes", () => {
       ],
     };
     expect(EtherCAT.Task.READ_SCHEMAS.config.safeParse(v0Config).success).toBe(false);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each([
+    ["read", EtherCAT.Task.READ_SCHEMAS.config, EtherCAT.Task.deployReadConfigZ],
+    ["write", EtherCAT.Task.WRITE_SCHEMAS.config, EtherCAT.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
   });
 });

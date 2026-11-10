@@ -23,11 +23,11 @@
 
     .console-core-badge__name,
     .console-core-badge__address {
-        .pluto-btn {
+        .lyra-btn {
             opacity: 0;
         }
 
-        &:is(:hover, :focus-within) .pluto-btn {
+        &:is(:hover, :focus-within) .lyra-btn {
             opacity: 1;
         }
     }

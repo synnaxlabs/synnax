@@ -19,14 +19,14 @@ class RenameSynchronization(ConsoleCase):
     """
 
     def run(self) -> None:
-        page_types: list[PageType] = ["Schematic", "Line plot", "Log", "Table"]
+        page_types: list[PageType] = ["schematic", "lineplot", "log", "table"]
         for page_type in page_types:
             self.test_tree_to_tab(page_type)
             self.test_tab_to_tree(page_type)
 
     def _create_page(self, page_type: PageType) -> str:
         """Create a page and register its cleanup. Returns the page name."""
-        name = f"{page_type.lower().replace(' ', '_')}_{random_name()}"
+        name = f"{page_type}_{random_name()}"
         self.console.pages.create_by_type(page_type, name)
         self._cleanup_pages.append(name)
         return name
@@ -53,7 +53,9 @@ class RenameSynchronization(ConsoleCase):
         self.console.layout.hide_visualization_toolbar()
 
     def test_tree_to_tab(self, page_type: PageType) -> None:
-        """Tree-driven rename should propagate to the open tab + visualization toolbar."""
+        """Tree-driven rename should propagate to the open tab + visualization
+        toolbar.
+        """
         self.log(f"{page_type} tree → tab")
         original = self._create_page(page_type)
         renamed = f"{original}_tree_renamed"

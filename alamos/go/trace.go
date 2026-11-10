@@ -52,10 +52,9 @@ type TracingConfig struct {
 }
 
 var (
-	_ config.Config[TracingConfig] = (*TracingConfig)(nil)
-	// DefaultTracingConfig is the default configuration for a Tracer.
-	DefaultTracingConfig = TracingConfig{
-		Filter: ThresholdEnvFilter(EnvironmentBench),
+	_                    config.Config[TracingConfig] = (*TracingConfig)(nil)
+	defaultTracingConfig                              = TracingConfig{
+		Filter: thresholdEnvFilter(EnvironmentBench),
 	}
 )
 
@@ -90,7 +89,7 @@ type Tracer struct {
 // configuration is provided, NewTracer will return a validation error. If you want a
 // no-op devTracer, simply use a nil pointer.
 func NewTracer(configs ...TracingConfig) (*Tracer, error) {
-	cfg, err := config.New(DefaultTracingConfig, configs...)
+	cfg, err := config.New(defaultTracingConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +177,7 @@ func (s span) Error(err error, exclude ...error) error {
 	}
 	s.otel.RecordError(err)
 	if !errors.IsAny(err, exclude...) {
-		s.Status(StatusError)
+		s.Status(statusError)
 	}
 	return err
 }
@@ -195,7 +194,7 @@ func (s span) End() {
 
 // EndWith implements Span.
 func (s span) EndWith(err error, exclude ...error) error {
-	_ = s.Error(err, exclude...)
+	err = s.Error(err, exclude...)
 	s.End()
 	return err
 }

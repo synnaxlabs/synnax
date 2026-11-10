@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 from functools import reduce
+from typing import override
 from urllib.parse import urljoin, urlsplit
 
 _DEFAULT_PORTS = {"http": 80, "https": 443, "ws": 80, "wss": 443}
@@ -31,7 +32,7 @@ class URL:
     path: str
 
     def __init__(
-        self, host: str, port: int, path: str = "", protocol: str = ""
+        self, *, host: str, port: int, path: str = "", protocol: str = ""
     ) -> None:
         self.protocol = protocol
         self.host = host
@@ -54,10 +55,13 @@ class URL:
             if parsed.scheme not in _DEFAULT_PORTS:
                 raise ValueError(f"URL {url!r} has no port")
             port = _DEFAULT_PORTS[parsed.scheme]
-        return URL(parsed.hostname, port, parsed.path, parsed.scheme)
+        return URL(
+            host=parsed.hostname, port=port, path=parsed.path, protocol=parsed.scheme
+        )
 
     def replace(
         self,
+        *,
         host: str | None = None,
         port: int | None = None,
         path: str | None = None,
@@ -65,15 +69,20 @@ class URL:
     ) -> URL:
         """Returns a new URL with the specified fields replaced."""
         return URL(
-            self.host if host is None else host,
-            self.port if port is None else port,
-            self.path if path is None else path,
-            self.protocol if protocol is None else protocol,
+            host=self.host if host is None else host,
+            port=self.port if port is None else port,
+            path=self.path if path is None else path,
+            protocol=self.protocol if protocol is None else protocol,
         )
 
     def child(self, path: str) -> URL:
         """Creates a new URL with the given path appended to the current path."""
-        return URL(self.host, self.port, self._child_prefix(path), self.protocol)
+        return URL(
+            host=self.host,
+            port=self.port,
+            path=self._child_prefix(path),
+            protocol=self.protocol,
+        )
 
     def stringify(self) -> str:
         """Returns the URL as a string."""
@@ -82,6 +91,7 @@ class URL:
     def _child_prefix(self, path: str) -> str:
         return reduce(urljoin, [self.path, _format_path(path)])
 
+    @override
     def __str__(self) -> str:
         return self.stringify()
 

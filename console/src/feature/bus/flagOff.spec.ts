@@ -21,7 +21,9 @@ vi.mock("@/flags", () => ({ FLAGS: { icd: true, can: false } }));
 
 describe("bus integration flag off", () => {
   it("should hide every bus selectable and command when off", () => {
-    const selectable = Task.SELECTABLES.map((s) => s.type);
+    const selectable = Task.INTEGRATIONS.flatMap(({ selectables }) =>
+      selectables.map((s) => s.type),
+    );
     BUS_TASK_TYPES.forEach((type) => expect(selectable).not.toContain(type));
     const commands = [...Task.COMMANDS, ...Device.COMMANDS].map((c) => c.key);
     [...BUS_TASK_COMMANDS, ...BUS_CONNECT_COMMANDS].forEach((key) =>

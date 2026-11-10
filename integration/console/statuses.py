@@ -25,7 +25,9 @@ class StatusesClient(ResourceClient):
     def __init__(self, layout: LayoutClient):
         super().__init__(layout)
         self.views = ViewsClient(
-            layout, self.SEARCH_INPUT_PLACEHOLDER, self.STATIC_VIEW_NAME
+            layout=layout,
+            search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
+            static_view_name=self.STATIC_VIEW_NAME,
         )
 
     # ── Private Helpers ──────────────────────────────────────────────────
@@ -40,7 +42,7 @@ class StatusesClient(ResourceClient):
 
     def _select_explorer_statuses(self, names: list[str]) -> Locator:
         """Select multiple explorer statuses via their checkbox labels."""
-        return self.layout.select_items(names, self.get_explorer_item)
+        return self.layout.select_items(names, get_item_fn=self.get_explorer_item)
 
     # ── Create ────────────────────────────────────────────────────────────
 
@@ -52,19 +54,18 @@ class StatusesClient(ResourceClient):
     ) -> None:
         """Create a new status via the command palette.
 
-        Args:
-            name: The name for the new status.
-            labels: Optional list of label names to attach.
+        :param name: The name for the new status.
+        :param labels: Optional list of label names to attach.
         """
         self.layout.command_palette("Create status")
         modal = self.layout.page.locator(LayoutClient.MODAL_SELECTOR)
         modal.wait_for(state="visible", timeout=5000)
 
-        name_input = modal.locator("input[placeholder='Name']")
+        name_input = modal.locator("input[placeholder='Status name']")
         name_input.fill(name)
 
         if labels is not None:
-            self.layout.select_labels(labels, modal)
+            self.layout.select_labels(labels, scope=modal)
 
         modal.get_by_role("button", name="Create").click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -82,7 +83,7 @@ class StatusesClient(ResourceClient):
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a status item locator from the explorer by name."""
-        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name=name)
 
     def exists_in_explorer(self, name: str) -> bool:
         """Check if a status exists in the explorer."""
@@ -95,15 +96,12 @@ class StatusesClient(ResourceClient):
     def get_labels_in_explorer(self, name: str) -> list[str]:
         """Get the label names displayed on a status item in the explorer.
 
-        Args:
-            name: The status name to look up.
-
-        Returns:
-            List of label name strings displayed as tags on the status item.
+        :param name: The status name to look up.
+        :returns: List of label name strings displayed as tags on the status item.
         """
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        tags = item.locator(".pluto-tag").all()
+        tags = item.locator(".lyra-tag").all()
         return [tag.inner_text().strip() for tag in tags if tag.is_visible()]
 
     def delete_from_explorer(self, name: str) -> None:
@@ -153,24 +151,21 @@ class StatusesClient(ResourceClient):
     def select_explorer_variant_filter(self, variant_name: str) -> None:
         """Select a variant in the explorer's variant filter dropdown.
 
-        Args:
-            variant_name: The display name of the variant (e.g. "Error", "Success").
+        :param variant_name: The display name of the variant (e.g. "Error", "Success").
         """
         self.views.select_filter("Variants", variant_name)
 
     def clear_explorer_variant_filter(self, variant_name: str) -> None:
         """Remove a variant from the active filter by clicking its chip close button.
 
-        Args:
-            variant_name: The display name of the variant to remove.
+        :param variant_name: The display name of the variant to remove.
         """
         self.views.clear_filter(variant_name)
 
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
 
-        Args:
-            label_name: The name of the label to filter by.
+        :param label_name: The name of the label to filter by.
         """
         self.views.select_filter("Labels", label_name)
 
@@ -190,7 +185,7 @@ class StatusesClient(ResourceClient):
 
     def get_toolbar_item(self, name: str) -> Locator:
         """Get a status item locator from the toolbar by name."""
-        return self.layout.get_list_item(self.TOOLBAR_ITEM_SELECTOR, name)
+        return self.layout.get_list_item(self.TOOLBAR_ITEM_SELECTOR, name=name)
 
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a status exists in the toolbar (is favorited)."""

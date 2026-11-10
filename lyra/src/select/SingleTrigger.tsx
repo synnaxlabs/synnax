@@ -10,7 +10,7 @@
 import "@/select/SingleTrigger.css";
 
 import { primitive, type record } from "@synnaxlabs/x";
-import { type KeyboardEvent, type ReactElement, useId } from "react";
+import { type KeyboardEvent, type ReactElement, type ReactNode, useId } from "react";
 
 import { Button } from "@/button";
 import { Caret } from "@/caret";
@@ -18,18 +18,25 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
 import { staticCanDrop } from "@/select/MultipleTrigger";
 import { useIsFixed, useText } from "@/select/registry";
+import { preventEnterWhileOpen } from "@/select/use";
 
 export interface SingleTriggerEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
 }
 
 /** Props for {@link SingleTrigger}. */
-export interface SingleTriggerProps extends Dialog.TriggerProps {
+export interface SingleTriggerProps extends Omit<Dialog.TriggerProps, "variant"> {
+  /**
+   * The trigger's chassis. A shadow trigger reads as its value: no box at rest, a
+   * border on hover, and a box while open. Its caret shows only on hover or while open.
+   */
+  variant?: Input.Variant;
   /** Haul item type this trigger accepts as a drop. Empty accepts nothing. */
   haulType?: string;
   placeholder?: string;
@@ -37,13 +44,18 @@ export interface SingleTriggerProps extends Dialog.TriggerProps {
   /** Whether to render the icon alone, with no name and no caret. */
   iconOnly?: boolean;
   /**
-   * Whether hovering the trigger shows a button that clears the selection, and Delete or
-   * Backspace on the focused trigger clears it. The button covers the icon, or the caret
-   * when there is no icon. Single sets it from `allowNone`.
+   * Whether hovering the trigger shows a button that clears the selection, and Delete
+   * or Backspace on the focused trigger clears it. The button covers the icon, or the
+   * caret when there is no icon. Single sets it from `allowNone`.
    */
   clearable?: boolean;
   /** Chooses an icon from the selected entry, overriding `icon`. */
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
+  /**
+   * Renders content from the selected entry at the trailing edge, before the caret. An
+   * icon-only trigger shows none.
+   */
+  renderEndContent?: (entry: unknown) => ReactNode;
   /**
    * Whether the trigger drops its name and caret when too narrow to read the name. A
    * tooltip then shows the name. The caller must size the select, because the
@@ -70,11 +82,14 @@ export const SingleTrigger = <K extends record.Key>({
   disabled,
   iconOnly = false,
   hideCaret = false,
+  variant: triggerVariant = "outlined",
   renderIcon,
+  renderEndContent,
   collapsible = false,
   clearable = false,
   preview,
   className,
+  status,
   tooltip,
   hideTooltip,
   id: idProp,
@@ -89,6 +104,7 @@ export const SingleTrigger = <K extends record.Key>({
   const item = List.useItem<K, SingleTriggerEntry<K>>(selected);
   const { name, icon } = item ?? {};
   const resolvedIcon = renderIcon?.(item) ?? icon ?? baseIcon;
+  const endContent = iconOnly ? undefined : renderEndContent?.(item);
   const canDrop = (hauled: Haul.DraggingState) =>
     staticCanDrop(hauled, haulType, allSelected, disabled);
   const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
@@ -126,6 +142,7 @@ export const SingleTrigger = <K extends record.Key>({
   // The clear button is not a tab stop, so the focused trigger takes the key instead.
   const handleKeyDown = (e: KeyboardEvent<HTMLElement>): void => {
     onKeyDown?.(e);
+    preventEnterWhileOpen(e, visible);
     if (!canClear || (e.key !== "Delete" && e.key !== "Backspace")) return;
     e.preventDefault();
     clear();
@@ -142,6 +159,13 @@ export const SingleTrigger = <K extends record.Key>({
       />
     </span>
   );
+  const itemStatus = Input.useItemStatus({
+    status,
+    tooltip: tooltip ?? (collapsible ? shown : undefined),
+    hideTooltip: hideTooltip ?? (collapsible ? nameReadable : undefined),
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -150,7 +174,7 @@ export const SingleTrigger = <K extends record.Key>({
   return (
     <Dialog.Trigger
       id={id}
-      variant="outlined"
+      variant={triggerVariant}
       gap="small"
       className={CSS.cls(
         CSS.dropRegion(canDrop(dragging)),
@@ -170,8 +194,11 @@ export const SingleTrigger = <K extends record.Key>({
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
-      tooltip={tooltip ?? (collapsible ? shown : undefined)}
-      hideTooltip={hideTooltip ?? (collapsible ? nameReadable : undefined)}
+      status={itemStatus.status}
+      aria-invalid={itemStatus["aria-invalid"]}
+      aria-describedby={itemStatus["aria-describedby"]}
+      tooltip={itemStatus.tooltip}
+      hideTooltip={itemStatus.hideTooltip}
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
@@ -180,6 +207,9 @@ export const SingleTrigger = <K extends record.Key>({
         <Label itemKey={selected} id={labelId}>
           {shown}
         </Label>
+      )}
+      {endContent != null && (
+        <span className={CSS.BE("select-single-trigger", "end")}>{endContent}</span>
       )}
       {clearOnCaret &&
         withClear(

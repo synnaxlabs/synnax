@@ -11,6 +11,7 @@ import asyncio
 import multiprocessing
 import queue
 from collections.abc import Callable
+from typing import override
 
 import synnax as sy
 from examples.simulators.device_sim import DeviceSim
@@ -33,6 +34,7 @@ class BusSim[T](DeviceSim):
         self._records: multiprocessing.Queue[T] = multiprocessing.Queue()
         self._received: list[T] = []
 
+    @override
     def _wait_for_ready(self) -> None:
         timer = sy.Timer()
         while timer.elapsed() < self.startup_timeout:

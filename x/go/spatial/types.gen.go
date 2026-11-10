@@ -18,10 +18,14 @@ import "github.com/synnaxlabs/x/spatial/versions"
 type OuterLocation = versions.OuterLocation
 
 const (
-	OuterLocationTop    OuterLocation = versions.OuterLocationTop
-	OuterLocationRight  OuterLocation = versions.OuterLocationRight
+	// OuterLocationTop is the top edge of the container.
+	OuterLocationTop OuterLocation = versions.OuterLocationTop
+	// OuterLocationRight is the right edge of the container.
+	OuterLocationRight OuterLocation = versions.OuterLocationRight
+	// OuterLocationBottom is the bottom edge of the container.
 	OuterLocationBottom OuterLocation = versions.OuterLocationBottom
-	OuterLocationLeft   OuterLocation = versions.OuterLocationLeft
+	// OuterLocationLeft is the left edge of the container.
+	OuterLocationLeft OuterLocation = versions.OuterLocationLeft
 )
 
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
@@ -32,7 +36,9 @@ type XY = versions.XY
 type Direction = versions.Direction
 
 const (
+	// DirectionX is the horizontal axis.
 	DirectionX Direction = versions.DirectionX
+	// DirectionY is the vertical axis.
 	DirectionY Direction = versions.DirectionY
 )
 
@@ -40,7 +46,9 @@ const (
 type XLocation = versions.XLocation
 
 const (
-	XLocationLeft  XLocation = versions.XLocationLeft
+	// XLocationLeft is the left edge of the container.
+	XLocationLeft XLocation = versions.XLocationLeft
+	// XLocationRight is the right edge of the container.
 	XLocationRight XLocation = versions.XLocationRight
 )
 
@@ -48,7 +56,9 @@ const (
 type YLocation = versions.YLocation
 
 const (
-	YLocationTop    YLocation = versions.YLocationTop
+	// YLocationTop is the top edge of the container.
+	YLocationTop YLocation = versions.YLocationTop
+	// YLocationBottom is the bottom edge of the container.
 	YLocationBottom YLocation = versions.YLocationBottom
 )
 
@@ -57,7 +67,9 @@ const (
 type StickyUnit = versions.StickyUnit
 
 const (
-	StickyUnitPx      StickyUnit = versions.StickyUnitPx
+	// StickyUnitPx measures the coordinate in pixels.
+	StickyUnitPx StickyUnit = versions.StickyUnitPx
+	// StickyUnitDecimal measures the coordinate as a decimal fraction of the container.
 	StickyUnitDecimal StickyUnit = versions.StickyUnitDecimal
 )
 
@@ -82,10 +94,15 @@ type Viewport = versions.Viewport
 type Location = versions.Location
 
 const (
-	LocationTop    Location = versions.LocationTop
-	LocationRight  Location = versions.LocationRight
+	// LocationTop is the top edge of the container.
+	LocationTop Location = versions.LocationTop
+	// LocationRight is the right edge of the container.
+	LocationRight Location = versions.LocationRight
+	// LocationBottom is the bottom edge of the container.
 	LocationBottom Location = versions.LocationBottom
-	LocationLeft   Location = versions.LocationLeft
+	// LocationLeft is the left edge of the container.
+	LocationLeft Location = versions.LocationLeft
+	// LocationCenter is the center of the container.
 	LocationCenter Location = versions.LocationCenter
 )
 
@@ -93,8 +110,11 @@ const (
 type XCenterLocation = versions.XCenterLocation
 
 const (
-	XCenterLocationLeft   XCenterLocation = versions.XCenterLocationLeft
-	XCenterLocationRight  XCenterLocation = versions.XCenterLocationRight
+	// XCenterLocationLeft is the left edge of the container.
+	XCenterLocationLeft XCenterLocation = versions.XCenterLocationLeft
+	// XCenterLocationRight is the right edge of the container.
+	XCenterLocationRight XCenterLocation = versions.XCenterLocationRight
+	// XCenterLocationCenter is the center of the container.
 	XCenterLocationCenter XCenterLocation = versions.XCenterLocationCenter
 )
 
@@ -102,8 +122,11 @@ const (
 type YCenterLocation = versions.YCenterLocation
 
 const (
-	YCenterLocationTop    YCenterLocation = versions.YCenterLocationTop
+	// YCenterLocationTop is the top edge of the container.
+	YCenterLocationTop YCenterLocation = versions.YCenterLocationTop
+	// YCenterLocationBottom is the bottom edge of the container.
 	YCenterLocationBottom YCenterLocation = versions.YCenterLocationBottom
+	// YCenterLocationCenter is the center of the container.
 	YCenterLocationCenter YCenterLocation = versions.YCenterLocationCenter
 )
 
@@ -123,8 +146,10 @@ type Bounds = versions.Bounds
 type Order string
 
 const (
+	// OrderFirst is the first position in the sequence.
 	OrderFirst Order = "first"
-	OrderLast  Order = "last"
+	// OrderLast is the last position in the sequence.
+	OrderLast Order = "last"
 )
 
 // IsValid reports whether o is one of the defined Order

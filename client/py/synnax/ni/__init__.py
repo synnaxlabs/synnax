@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from synnax.ni import chassis, device
 from synnax.ni.types import (
     MAKE,
     AnalogReadTask,
@@ -86,6 +87,7 @@ from synnax.ni.types_gen import (
     CITwoEdgeSepChannel,
     CIVelocityAngularChannel,
     CIVelocityLinearChannel,
+    CommandedAOChannel,
     ConstValCJC,
     CounterReadConfig,
     DIChannel,
@@ -96,6 +98,7 @@ from synnax.ni.types_gen import (
     ExcitationSource,
     ForceSensitivityUnits,
     ForceUnits,
+    Hardware,
     LinearScale,
     MapScale,
     MinMaxVal,
@@ -194,6 +197,7 @@ __all__ = [
     "CIVelocityAngularChannel",
     "CIVelocityLinearChannel",
     "ChanCJC",
+    "CommandedAOChannel",
     "ConstValCJC",
     "CounterReadConfig",
     "CounterReadTask",
@@ -208,6 +212,7 @@ __all__ = [
     "ExcitationSource",
     "ForceSensitivityUnits",
     "ForceUnits",
+    "Hardware",
     "LinearScale",
     "MapScale",
     "MinMaxVal",
@@ -231,4 +236,6 @@ __all__ = [
     "WaveType",
     "WriteConfig",
     "ZIndexPhase",
+    "chassis",
+    "device",
 ]

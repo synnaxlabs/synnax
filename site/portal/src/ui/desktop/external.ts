@@ -7,5 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/ui/desktop/Invite";
 export * from "@/ui/desktop/Link";
+export * from "@/ui/desktop/platform";
 export * from "@/ui/desktop/url";

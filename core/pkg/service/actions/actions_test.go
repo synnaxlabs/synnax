@@ -12,14 +12,15 @@ package actions_test
 import (
 	"context"
 	"encoding/json/v2"
-	"sync"
-	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
+	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
-	"github.com/synnaxlabs/x/set"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -74,162 +75,214 @@ var _ = Describe("DispatchRequest", func() {
 	})
 })
 
+var _ = Describe("DispatchResponse", func() {
+	It("Should marshal its actions under the actions key", func() {
+		res := actions.DispatchResponse[testAction]{
+			Actions: []testAction{{Type: "x", Payload: "y"}},
+		}
+		b := MustSucceed(json.Marshal(res))
+		var decoded map[string]any
+		Expect(json.Unmarshal(b, &decoded)).To(Succeed())
+		Expect(decoded).To(HaveKeyWithValue("actions", HaveLen(1)))
+	})
+})
+
 var _ = Describe("State", func() {
-	It("Should hand out a usable Dispatcher", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction](nil)
-		received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-		state.OnAction(
-			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-				received <- sa
-			},
-		)
+	var (
+		db    *gorp.DB
+		state *actions.State[uuid.UUID, testAction]
+		rec   *Recorder[uuid.UUID, testAction]
+	)
+	BeforeEach(func() {
+		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		state = actions.NewState[uuid.UUID, testAction](db)
+		rec = &Recorder[uuid.UUID, testAction]{}
+		DeferCleanup(state.OnChange(rec.Record))
+	})
+
+	attach := func(
+		ctx SpecContext,
+		d actions.Dispatcher[uuid.UUID, testAction],
+		key uuid.UUID,
+		acts ...testAction,
+	) {
+		GinkgoHelper()
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			d.Attach(tx, key, acts...)
+			return nil
+		})).To(Succeed())
+	}
+
+	It("Should deliver an attached batch with its commit", func(ctx SpecContext) {
 		key := uuid.New()
-		state.Dispatcher().Notify(ctx, key, "dk", []testAction{{Type: "ping"}})
-		var got actions.Scoped[uuid.UUID, testAction]
-		Eventually(received).Should(Receive(&got))
-		Expect(got.Key).To(Equal(key))
-		Expect(got.DispatchKey).To(Equal("dk"))
-		Expect(got.Seq).To(Equal(uint64(1)))
-		Expect(got.Actions).To(HaveLen(1))
+		attach(ctx, state.Dispatcher(), key, testAction{Type: "ping"})
+		Expect(rec.Snapshot()).To(Equal([]actions.Scoped[uuid.UUID, testAction]{{
+			Key:     key,
+			Seq:     1,
+			Actions: []testAction{{Type: "ping"}},
+		}}))
+	})
+
+	It("Should give each batch a higher Seq than the batches before it", func(
+		ctx SpecContext,
+	) {
+		key := uuid.New()
+		for range 3 {
+			attach(ctx, state.Dispatcher(), key)
+		}
+		Expect(rec.Snapshot()).To(HaveExactElements(
+			HaveField("Seq", uint64(1)),
+			HaveField("Seq", uint64(2)),
+			HaveField("Seq", uint64(3)),
+		))
 	})
 
 	It(
-		"Should stamp a monotonically increasing Seq across dispatches",
+		"Should deliver the batches of one transaction in order with rising Seq values",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction](nil)
-			seqs := make(chan uint64, 3)
-			state.OnAction(
-				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-					seqs <- sa.Seq
-				},
-			)
-			d := state.Dispatcher()
-			key := uuid.New()
-			for range 3 {
-				d.Notify(ctx, key, "", nil)
-			}
-			var got [3]uint64
-			for i := range got {
-				Eventually(seqs).Should(Receive(&got[i]))
-			}
-			Expect(got).To(Equal([3]uint64{1, 2, 3}))
+			a, b := uuid.New(), uuid.New()
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().
+					WithDispatchKey("dk").
+					Attach(tx, a, testAction{Type: "a"})
+				state.Dispatcher().Attach(tx, b, testAction{Type: "b"})
+				return nil
+			})).To(Succeed())
+			Expect(rec.Snapshot()).To(Equal([]actions.Scoped[uuid.UUID, testAction]{
+				{Key: a, DispatchKey: "dk", Seq: 1, Actions: []testAction{{Type: "a"}}},
+				{Key: b, Seq: 2, Actions: []testAction{{Type: "b"}}},
+			}))
 		},
 	)
 
 	It(
-		"Should share the Seq counter across Dispatchers handed out by the same State",
+		"Should number two batches for one key in one commit so a client keeps both",
 		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction](nil)
-			var maxSeq atomic.Uint64
-			state.OnAction(
-				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-					for {
-						prev := maxSeq.Load()
-						if sa.Seq <= prev || maxSeq.CompareAndSwap(prev, sa.Seq) {
-							break
-						}
-					}
-				},
-			)
-			d1 := state.Dispatcher()
-			d2 := state.Dispatcher()
 			key := uuid.New()
-			d1.Notify(ctx, key, "", nil)
-			d2.Notify(ctx, key, "", nil)
-			d1.Notify(ctx, key, "", nil)
-			Eventually(maxSeq.Load).Should(Equal(uint64(3)))
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().
+					WithDispatchKey("dk").
+					Attach(tx, key, testAction{Type: "edit"})
+				state.Dispatcher().Attach(tx, key, testAction{Type: "sweep"})
+				return nil
+			})).To(Succeed())
+			var (
+				last uint64
+				kept []string
+			)
+			for _, b := range rec.Snapshot() {
+				// A client drops a batch whose Seq does not exceed the last it applied.
+				if b.Seq <= last {
+					continue
+				}
+				last = b.Seq
+				kept = append(kept, b.Actions[0].Type)
+			}
+			Expect(kept).To(Equal([]string{"edit", "sweep"}))
 		},
 	)
 
-	It("Should serialize Seq under concurrent Notify", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction](nil)
-		const N = 200
-		var mu sync.Mutex
-		seen := make([]uint64, 0, N)
-		state.OnAction(
-			func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-				mu.Lock()
-				seen = append(seen, sa.Seq)
-				mu.Unlock()
-			},
-		)
-		d := state.Dispatcher()
-		var wg sync.WaitGroup
-		wg.Add(N)
-		for range N {
-			go func() {
-				defer wg.Done()
-				d.Notify(ctx, uuid.New(), "", nil)
-			}()
-		}
-		wg.Wait()
-		mu.Lock()
-		defer mu.Unlock()
-		Expect(seen).To(HaveLen(N))
-		uniq := set.New(seen...)
-		Expect(uniq).To(HaveLen(N))
-		maxSeq := uint64(0)
-		for s := range uniq {
-			if s > maxSeq {
-				maxSeq = s
-			}
-		}
-		Expect(maxSeq).To(Equal(uint64(N)))
+	It(
+		"Should skip the numbers that an aborted transaction took",
+		func(ctx SpecContext) {
+			txErr := errors.New("abort")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				state.Dispatcher().Attach(tx, uuid.New())
+				return txErr
+			})).To(MatchError(txErr))
+			attach(ctx, state.Dispatcher(), uuid.New())
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField("Seq", uint64(2))))
+		},
+	)
+
+	It("Should deliver nothing when the transaction aborts", func(ctx SpecContext) {
+		txErr := errors.New("abort")
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			state.Dispatcher().Attach(tx, uuid.New(), testAction{Type: "a"})
+			return txErr
+		})).To(MatchError(txErr))
+		Expect(rec.Snapshot()).To(BeEmpty())
 	})
 
-	It(
-		"Should fan out to every subscriber registered via OnAction",
-		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction](nil)
-			a := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-			b := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-			state.OnAction(
-				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { a <- sa },
-			)
-			state.OnAction(
-				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) { b <- sa },
-			)
-			state.Dispatcher().Notify(ctx, uuid.New(), "", []testAction{{Type: "fan"}})
-			Eventually(a).Should(Receive())
-			Eventually(b).Should(Receive())
-		},
-	)
+	It("Should keep the batches of two States apart", func(ctx SpecContext) {
+		other := actions.NewState[uuid.UUID, testAction](db)
+		otherRec := &Recorder[uuid.UUID, testAction]{}
+		DeferCleanup(other.OnChange(otherRec.Record))
+		attach(ctx, other.Dispatcher(), uuid.New(), testAction{Type: "other"})
+		Expect(rec.Snapshot()).To(BeEmpty())
+		Expect(otherRec.Snapshot()).To(HaveLen(1))
+	})
 
-	It("Should stop notifying a subscriber after Disconnect", func(ctx SpecContext) {
-		state := actions.NewState[uuid.UUID, testAction](nil)
-		var hits atomic.Uint64
-		disconnect := state.OnAction(
-			func(_ context.Context, _ actions.Scoped[uuid.UUID, testAction]) {
-				hits.Add(1)
-			},
+	It("Should stop calling a handler after Disconnect", func(ctx SpecContext) {
+		var hits int
+		disconnect := state.OnChange(
+			func(context.Context, actions.Scoped[uuid.UUID, testAction]) { hits++ },
 		)
-		key := uuid.New()
-		state.Dispatcher().Notify(ctx, key, "", nil)
-		Eventually(hits.Load).Should(Equal(uint64(1)))
+		attach(ctx, state.Dispatcher(), uuid.New())
 		disconnect()
-		state.Dispatcher().Notify(ctx, key, "", nil)
-		Consistently(hits.Load).Should(Equal(uint64(1)))
+		attach(ctx, state.Dispatcher(), uuid.New())
+		Expect(hits).To(Equal(1))
 	})
 
-	It(
-		"Should carry the action sequence verbatim onto the Scoped envelope",
-		func(ctx SpecContext) {
-			state := actions.NewState[uuid.UUID, testAction](nil)
-			received := make(chan actions.Scoped[uuid.UUID, testAction], 1)
-			state.OnAction(
-				func(_ context.Context, sa actions.Scoped[uuid.UUID, testAction]) {
-					received <- sa
-				},
-			)
-			actionSeq := []testAction{
-				{Type: "a", Payload: "1"},
-				{Type: "b", Payload: "2"},
-				{Type: "c", Payload: "3"},
-			}
-			state.Dispatcher().Notify(ctx, uuid.New(), "dk", actionSeq)
-			var got actions.Scoped[uuid.UUID, testAction]
-			Eventually(received).Should(Receive(&got))
-			Expect(got.Actions).To(Equal(actionSeq))
-		},
+	Describe("Of", func() {
+		It("Should return the batches of a commit", func(ctx SpecContext) {
+			var commits []gorp.Commit
+			DeferCleanup(db.Observe().OnChange(func(_ context.Context, c gorp.Commit) {
+				commits = append(commits, c)
+			}))
+			key := uuid.New()
+			attach(ctx, state.Dispatcher(), key, testAction{Type: "a"})
+			Expect(commits).To(HaveLen(1))
+			Expect(
+				state.Of(commits[0]),
+			).To(Equal([]actions.Scoped[uuid.UUID, testAction]{
+				{Key: key, Seq: 1, Actions: []testAction{{Type: "a"}}},
+			}))
+		})
+	})
+})
+
+var _ = Describe("Dispatcher", func() {
+	var (
+		db    *gorp.DB
+		state *actions.State[uuid.UUID, testAction]
+		rec   *Recorder[uuid.UUID, testAction]
 	)
+	BeforeEach(func() {
+		db = DeferClose(gorptestutil.OpenGorpMsgpackDB())
+		state = actions.NewState[uuid.UUID, testAction](db)
+		rec = &Recorder[uuid.UUID, testAction]{}
+		DeferCleanup(state.OnChange(rec.Record))
+	})
+
+	Describe("WithDispatchKey", func() {
+		It("Should stamp the dispatch key onto each batch", func(ctx SpecContext) {
+			d := state.Dispatcher().WithDispatchKey("dk")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				d.Attach(tx, uuid.New())
+				d.Attach(tx, uuid.New())
+				return nil
+			})).To(Succeed())
+			Expect(rec.Snapshot()).To(HaveExactElements(
+				HaveField("DispatchKey", "dk"),
+				HaveField("DispatchKey", "dk"),
+			))
+		})
+
+		It("Should leave the original Dispatcher unchanged", func(ctx SpecContext) {
+			d := state.Dispatcher()
+			d.WithDispatchKey("dk")
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				d.Attach(tx, uuid.New())
+				return nil
+			})).To(Succeed())
+			Expect(rec.Snapshot()).To(HaveExactElements(HaveField("DispatchKey", "")))
+		})
+	})
+
+	Describe("Attach", func() {
+		It("Should panic when the transaction is a DB", func() {
+			Expect(func() { state.Dispatcher().Attach(db, uuid.New()) }).To(Panic())
+		})
+	})
 })

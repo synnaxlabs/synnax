@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import os
-import platform
 from collections import deque
 
 import matplotlib
@@ -151,14 +150,12 @@ class BenchReport(Latency):
         plt.tight_layout()
         plt.subplots_adjust(top=0.85)  # Make room for the title and description
 
-        # Selected arbitrarily. However, these values should
-        # provide a good maximumm threshold
-        max_p90 = 7
-        max_p95 = 10
-        max_p99 = 15
-        max_average_jitter = 5
-
-        max_peak_to_peak_jitter = 40 if platform.system().lower() == "windows" else 20
+        # Two to four times the worst nightly CI values on the Ubuntu and Windows bots.
+        max_p90 = 2
+        max_p95 = 2.5
+        max_p99 = 3
+        max_average_jitter = 0.5
+        max_peak_to_peak_jitter = 5
 
         # Print statistics
         p90_msg = f"P90: {p90:.2f}ms"
@@ -196,6 +193,7 @@ class BenchReport(Latency):
         os.makedirs("tests/results", exist_ok=True)
         plt.savefig("tests/results/bench_load.png", dpi=300, bbox_inches="tight")
         self.log(
-            f"Saved benchmark plot to: {os.path.abspath('tests/results/bench_load.png')}"
+            "Saved benchmark plot to: "
+            f"{os.path.abspath('tests/results/bench_load.png')}"
         )
         plt.close(fig)

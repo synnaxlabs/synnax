@@ -20,12 +20,14 @@ bool Rack::should_exit(
     const x::errors::Error &err,
     const std::function<void()> &on_shutdown
 ) {
-    this->run_err = err;
     if (!err) return false;
-    const auto breaker_ok = synnax::errors::is_temporarily_unavailable(err) &&
-                            breaker.wait(err);
-    if (!breaker_ok && on_shutdown) on_shutdown();
-    return !breaker_ok;
+    if (synnax::errors::is_temporarily_unavailable(err) && this->breaker.wait(err))
+        return false;
+    // A stop came first, so the error did not stop the rack.
+    if (!this->breaker.running()) return true;
+    this->run_err = err;
+    if (on_shutdown) on_shutdown();
+    return true;
 }
 
 Rack::~Rack() {
@@ -44,17 +46,17 @@ void Rack::run(x::args::Parser &args, const std::function<void()> &on_shutdown) 
         VLOG(1) << "loaded config. starting task manager";
         if (!this->breaker.running()) return;
         auto rt_manager = std::make_shared<x::thread::rt::Manager>();
+        const auto client = cfg.new_client();
         this->task_manager = std::make_unique<task::Manager>(
             cfg.rack,
-            cfg.new_client(),
-            cfg.new_factory(rt_manager),
+            client,
+            cfg.new_factory(client, rt_manager),
             cfg.manager
         );
         err = this->task_manager->run([this]() { this->breaker.reset(); });
         if (err && this->should_exit(err, on_shutdown)) return;
     }
     if (this->task_manager != nullptr) this->task_manager->stop();
-    this->run_err = x::errors::NIL;
 }
 
 void Rack::start(x::args::Parser &args, std::function<void()> on_shutdown) {

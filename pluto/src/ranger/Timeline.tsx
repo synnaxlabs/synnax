@@ -11,7 +11,6 @@ import "@/ranger/Timeline.css";
 
 import { type Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,6 +20,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type NumericTimeRange, type text, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { CSS } from "@/css";
 import { moveEnd, moveStart, UNSET } from "@/ranger/move";
 import {
   getStage,

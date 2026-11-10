@@ -88,7 +88,7 @@ cc_test(
         ":serial",
         "//driver/bus",
         "//driver/bus/testutil:contract",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -103,7 +103,7 @@ cc_test(
     deps = [
         ":serial",
         "//driver/transport",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@asio//:asio_no_openssl",
         "@googletest//:gtest_main",
     ],
@@ -120,7 +120,7 @@ cc_test(
     deps = [
         ":serial",
         "//driver/transport",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -142,9 +142,9 @@ cc_test(
         ":task",
         "//driver/bus",
         "//driver/bus/testutil",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -167,7 +167,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/bus/testutil",
         "//driver/bus/testutil:core",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -11,19 +11,29 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
+import { type deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
+import { useFromConfig } from "@/feature/ni/device/queries";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
-import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
+import { PortField } from "@/feature/ni/task/PortField";
+import { ANALOG_OUTPUT } from "@/feature/ni/task/ports";
 import {
+  channelTypeItems,
+  SelectAOChannelTypeField,
+} from "@/feature/ni/task/SelectAOChannelTypeField";
+import {
+  AO_CHANNEL_TYPES,
   AO_CURRENT_CHAN_TYPE,
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
+  type AOChannel,
   type AOChannelType,
   type WaveType,
 } from "@/feature/ni/task/types";
+import { allowedTypes } from "@/feature/ni/task/usePort";
 
 interface SelectWaveTypeProps extends Select.ButtonsProps<WaveType> {}
 
@@ -48,29 +58,31 @@ const SelectWaveType = (props: SelectWaveTypeProps) => (
   </Select.Buttons>
 );
 
-interface FormProps {
-  path: string;
+type Variant<K extends AOChannelType> = Extract<AOChannel, { type: K }>;
+
+interface FormProps<K extends AOChannelType = AOChannelType> {
+  path: deep.Path<Variant<K>>;
 }
 
-const CHANNEL_FORMS: Record<AOChannelType, FC<FormProps>> = {
+const CHANNEL_FORMS: { [K in AOChannelType]: FC<FormProps<K>> } = {
   [AO_CURRENT_CHAN_TYPE]: ({ path }) => <MinMaxValueFields path={path} />,
   [AO_FUNC_GEN_CHAN_TYPE]: ({ path }) => (
     <>
-      <Form.Field<WaveType> path={`${path}.waveType`} label="Wave">
+      <Form.Field path={path.waveType} label="Wave">
         {selectWaveType}
       </Form.Field>
       <Form.NumericField
-        path={`${path}.frequency`}
+        path={path.frequency}
         label="Frequency"
         inputProps={HZ_END_CONTENT_INPUT_PROPS}
       />
       <Form.NumericField
-        path={`${path}.amplitude`}
+        path={path.amplitude}
         label="Amplitude"
         inputProps={V_END_CONTENT_INPUT_PROPS}
       />
       <Form.NumericField
-        path={`${path}.offset`}
+        path={path.offset}
         label="Offset"
         inputProps={V_END_CONTENT_INPUT_PROPS}
       />
@@ -87,21 +99,37 @@ const selectWaveType = Component.renderProp(SelectWaveType);
 
 export interface AOChannelFormProps {
   type: AOChannelType;
-  path: string;
+  path: deep.Path<AOChannel>;
+  /** The path of the task's channels. */
+  channelsPath: deep.Target<AOChannel[]>;
 }
 
-export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
-  const TypeForm = CHANNEL_FORMS[type];
+const TypeFields = createTypeFields<AOChannel>(CHANNEL_FORMS);
+
+export const AOChannelForm = ({ type, path, channelsPath }: AOChannelFormProps) => {
+  const device = useFromConfig();
+  const port = Form.useFieldValue(path.port);
+  const entry = device?.properties.hardware?.analogOutputs.find((p) => p.port === port);
+  const types = allowedTypes(AO_CHANNEL_TYPES, type, entry);
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <PortField path={path} />
+        <PortField
+          path={path}
+          channelsPath={channelsPath}
+          device={device}
+          kind={ANALOG_OUTPUT}
+          deviceOf={() => device?.key ?? ""}
+        />
       </Form.Section>
       <Form.Section title="Signal">
-        <SelectAOChannelTypeField path={path} />
-        <TypeForm path={path} />
+        <SelectAOChannelTypeField
+          path={path}
+          inputProps={{ children: channelTypeItems(types) }}
+        />
+        <TypeFields type={type} path={path} />
       </Form.Section>
-      <CustomScaleSection prefix={path} />
+      <CustomScaleSection path={path} />
     </Form.Sections>
   );
 };

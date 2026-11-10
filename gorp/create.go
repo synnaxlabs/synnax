@@ -11,42 +11,24 @@ package gorp
 
 import (
 	"context"
-
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
 	// entries is the set of entries the query will write.
 	entries Entries[K, E]
-	// onUpdate is the ordered set of MergeExisting filters applied when
-	// an entry with a matching key already exists. When onUpdate is
-	// empty, the query skips the existing-entry lookup entirely.
-	onUpdate onUpdate[K, E]
 	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes the query stages writes
-	// against. Nil means writes are not staged.
-	indexes []Index[K, E]
+	// table is the Table the query writes through. Nil for a query that no Table
+	// built.
+	table *Table[K, E]
+	// exclusive is true when Exec refuses an entry whose key exists.
+	exclusive bool
 }
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
 	return Create[K, E]{}
-}
-
-// MergeExisting adds a function to the query that can be used to prevent the accidental
-// override of existing entries with the same GorpKey. The provided function receives
-// the existing entry and should return an error if the entry should not be overwritten.
-// If no entry with a matching GorpKey is found, the function is not called.
-// MergeExisting adds overhead to the query, as a retrieval is required to check for
-// existing entries.
-func (c Create[K, E]) MergeExisting(
-	filter func(ctx Context, creating, existing E) (E, error),
-) Create[K, E] {
-	c.onUpdate = append(c.onUpdate, filter)
-	return c
 }
 
 // Entries sets the Entries to write to the DB.
@@ -61,47 +43,24 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 	return c
 }
 
-// Exec executes the query against the provided transaction. It returns any errors
-// encountered during execution.
-func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("Create.Exec", tx)
-	w := wrapWriter(tx, c.keyPrefix, c.indexes)
-	if len(c.onUpdate) == 0 {
-		return w.Set(ctx, c.entries.All()...)
-	}
-	r := wrapReader[K, E](tx, c.keyPrefix)
-	all := c.entries.All()
-	toWrite := make([]E, 0, len(all))
-	for _, entry := range all {
-		e, err := r.Get(ctx, entry.GorpKey())
-		if errors.Is(err, query.ErrNotFound) {
-			toWrite = append(toWrite, entry)
-			continue
-		}
-		if err != nil {
-			return err
-		}
-		if e, err = c.onUpdate.exec(Context{
-			Context: ctx,
-			Tx:      tx,
-		}, entry, e); err != nil {
-			return err
-		}
-		toWrite = append(toWrite, e)
-	}
-	return w.Set(ctx, toWrite...)
+// Exclusive makes Exec refuse an entry whose key exists in the transaction, including
+// one that an earlier write in the transaction created.
+func (c Create[K, E]) Exclusive() Create[K, E] {
+	c.exclusive = true
+	return c
 }
 
-type MergeExistingFunc[K Key, E Entry[K]] = func(ctx Context, creating, existing E) (E, error)
-
-type onUpdate[K Key, E Entry[K]] []MergeExistingFunc[K, E]
-
-func (o onUpdate[K, E]) exec(ctx Context, creating, existing E) (E, error) {
-	var err error
-	for _, f := range o {
-		if creating, err = f(ctx, creating, existing); err != nil {
-			return creating, err
-		}
+// Exec executes the query against the provided transaction. It returns any errors
+// encountered during execution. An exclusive query returns an error wrapping
+// validate.ErrValidation that names the table and the key of an entry that exists.
+func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Create.Exec", tx)
+	var w Writer[K, E]
+	if c.table != nil {
+		w = c.table.writer(tx, true)
+	} else {
+		w = wrapWriter[K, E](tx, "", c.keyPrefix, nil)
 	}
-	return creating, nil
+	w.exclusive = c.exclusive
+	return w.Set(ctx, c.entries.All()...)
 }

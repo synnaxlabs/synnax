@@ -38,10 +38,12 @@ cc_test(
     deps = [
         ":wasm",
         "//arc/cpp/runtime/testutil:compile",
+        "//arc/cpp/stl",
+        "//arc/cpp/stl/strings",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -68,7 +70,7 @@ cc_test(
         "//client/cpp:synnax",
         "//client/cpp/testutil",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -9,9 +9,9 @@
 
 // Package library is the toolkit that domain services use to store library documents:
 // resources such as an ICD that hold definitions many other resources use. It hashes
-// document content, collects the problems a check finds, rejects saves of a stale
-// document, and records which resources use a document. The toolkit never calls back
-// into a domain; each domain calls the parts it needs.
+// document content, collects the problems a check finds, and rejects saves of a stale
+// document. The toolkit never calls back into a domain; each domain calls the parts it
+// needs.
 package library
 
 import (

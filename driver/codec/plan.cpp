@@ -33,10 +33,6 @@ const icd::BaseField &base(const icd::BinaryField &field) {
     return field;
 }
 
-const icd::BaseField &base(const icd::TextField &field) {
-    return std::visit([](const auto &f) -> const icd::BaseField & { return f; }, field);
-}
-
 x::errors::Error validate_scaling(const icd::BaseField &field) {
     if (!std::isfinite(field.scale) || field.scale == 0)
         return field_error(field.name, "scale must be finite and non-zero");

@@ -64,11 +64,11 @@
             ".   .    .   .       .";
     }
 
-    > .console-nav__bar.pluto--location-top {
+    > .console-nav__bar.lyra--location-top {
         grid-area: top;
     }
 
-    > .console-nav__bar.pluto--location-left {
+    > .console-nav__bar.lyra--location-left {
         grid-area: rail;
     }
 }
@@ -81,9 +81,8 @@
 
 .console-main__row {
     height: 0;
-    &:has(
-        .console-nav__drawer.pluto--location-left:is(.pluto--hidden, .console--hover)
-    ) {
+
+    &:has(.console-nav__drawer.lyra--location-left:is(.lyra--hidden, .console--hover)) {
         gap: 0;
     }
 }

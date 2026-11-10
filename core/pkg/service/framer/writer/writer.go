@@ -14,6 +14,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -52,10 +53,22 @@ const (
 	// CommandSetAuthority represents a call to Writer.SetAuthority. Re-exported from
 	// [writer.CommandSetAuthority].
 	CommandSetAuthority = writer.CommandSetAuthority
+	// ModePersistStream persists and streams written frames. Re-exported from
+	// [writer.ModePersistStream].
+	ModePersistStream = writer.ModePersistStream
+	// ModePersistOnly persists written frames and does not stream them. Re-exported
+	// from [writer.ModePersistOnly].
+	ModePersistOnly = writer.ModePersistOnly
+	// ModeStreamOnly streams written frames and does not persist them. Re-exported
+	// from [writer.ModeStreamOnly].
+	ModeStreamOnly = writer.ModeStreamOnly
+	// CommandEndDomain represents a call to Writer.EndDomain. Re-exported from
+	// [writer.CommandEndDomain].
+	CommandEndDomain = writer.CommandEndDomain
 )
 
-// ErrClosed is returned when a method is called on a Writer after it has been closed.
-// Re-exported from [writer.ErrClosed].
+// ErrClosed is returned when a method is called on a Writer after it has been closed,
+// or when its pipeline exits before it answers. Re-exported from [writer.ErrClosed].
 var ErrClosed = writer.ErrClosed
 
 // Writer is a buffered, synchronous wrapper around a StreamWriter that exposes a
@@ -81,16 +94,39 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 }
 
 // Commit commits all writes since the last commit, returning the end timestamp of the
-// committed region.
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+// committed region. authorized is false if the writer lacks control of a channel with
+// samples to commit, and the end is then zero. authorized is also false if a write
+// since the last commit was refused for no control, but the commit applies and returns
+// its end. The writer stays open so that it can regain control.
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(Request{Command: CommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 // SetAuthority updates the control authorities the writer holds over its channels.
 func (w *Writer) SetAuthority(cfg Config) error {
 	_, err := w.exec(Request{Command: CommandSetAuthority, Config: cfg}, true)
 	return err
+}
+
+// EndDomain commits the writer, then ends the domains of the given indexes and of the
+// data channels they index. The next write to an index starts a new domain at its first
+// timestamp, which frees the time before that timestamp for a writer in persist mode.
+// It returns false if another writer controls an index or one of its data channels. The
+// index then keeps its domain, and some of its data channels may end theirs. It returns
+// a validation error if a key is not an index the writer was opened with.
+func (w *Writer) EndDomain(indexes channel.Keys) (authorized bool, err error) {
+	res, err := w.exec(
+		Request{Command: CommandEndDomain, Config: Config{Keys: indexes}},
+		true,
+	)
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
 }
 
 func (w *Writer) exec(req Request, sync bool) (Response, error) {
@@ -100,21 +136,26 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	}
 	select {
 	case res = <-w.responses.Outlet():
-		return res, w.close(res.Err)
-	case w.requests.Inlet() <- req:
-	}
-	if !sync {
-		return res, nil
-	}
-	for res = range w.responses.Outlet() {
 		if res.Err != nil {
-			return res, w.close(res.Err)
+			return Response{}, w.close(res.Err)
 		}
-		if res.Command == req.Command {
+	case w.requests.Inlet() <- req:
+		if !sync {
 			return res, nil
 		}
+		for res = range w.responses.Outlet() {
+			if res.Err != nil {
+				return Response{}, w.close(res.Err)
+			}
+			if res.Command == req.Command {
+				return res, nil
+			}
+		}
 	}
-	return res, w.close(nil)
+	if err := w.close(nil); err != nil {
+		return Response{}, err
+	}
+	return Response{}, errors.Wrap(ErrClosed, "writer exited without a response")
 }
 
 // Close closes the writer, releasing its control over the written region. Close returns

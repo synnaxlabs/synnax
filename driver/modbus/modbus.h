@@ -10,14 +10,10 @@
 #pragma once
 
 #include "driver/modbus/device/device.h"
+#include "driver/modbus/names.h"
 #include "driver/task/task.h"
 
 namespace driver::modbus {
-/// @brief the make the Console and clients write on Modbus server devices.
-const std::string MAKE = "Modbus";
-/// @brief integration name for modbus.
-const std::string INTEGRATION_NAME = "modbus";
-
 /// @brief implements the driver::task::Factory to configure and operate modbus tasks.
 class Factory final : public task::Factory {
     /// @brief central device manager that connects and controls access to devices.

@@ -18,7 +18,7 @@ import (
 )
 
 var demuxSource = `
-func demux{threshold f64} (value f64) (high f64, low f64) {
+func demux(threshold f64) {value f64} (high f64, low f64) {
     if (value > threshold) {
         high = value
     } else {
@@ -38,7 +38,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"low_out":  {types.F64(), 300},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 					high: 1.0 -> high_out,
 					low: 2.0 -> low_out
 				}
@@ -86,7 +86,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"low_out":  {types.F64(), 300},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 					high: 1.0 -> high_out,
 					low: 2.0 -> low_out
 				}
@@ -132,7 +132,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"low_out":  {types.F64(), 300},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 					high: 1.0 -> high_out,
 					low: 2.0 -> low_out
 				}
@@ -182,7 +182,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"pos_out":  {types.I64(), 400},
 				})
 				h := newRuntimeHarness(ctx, `
-				func classify{} (value i64) (negative i64, zero i64, positive i64) {
+				func classify() {value i64} (negative i64, zero i64, positive i64) {
 				    if (value < 0) {
 				        negative = value
 				    } else if (value > 0) {
@@ -192,7 +192,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				sensor -> classify{} -> {
+				sensor -> classify() -> {
 				    negative: -1 -> neg_out,
 				    zero: 0 -> zero_out,
 				    positive: 1 -> pos_out
@@ -240,12 +240,12 @@ var _ = Describe("Routing Table Runtime", func() {
 					"mode_out": {types.U8(), 300},
 				})
 				h := newRuntimeHarness(ctx, `
-				func split{} (value f64) (ok bool, mode u8) {
+				func split() {value f64} (ok bool, mode u8) {
 				    mode = 2
 				    ok = value > 50.0
 				}
 
-				sensor -> split{} -> {
+				sensor -> split() -> {
 				    ok: 1 -> flag_out,
 				    mode: 2 -> mode_out
 				}`, resolver,
@@ -295,7 +295,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"label_out": {types.U8(), 700},
 				})
 				h := newRuntimeHarness(ctx, `
-				func spread{} (value f64) (
+				func spread() {value f64} (
 				    count u16,
 				    mode i32,
 				    total i64,
@@ -311,7 +311,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    count = 300
 				}
 
-				sensor -> spread{} -> {
+				sensor -> spread() -> {
 				    count: 1 -> count_out,
 				    mode: 2 -> mode_out,
 				    total: 3 -> total_out,
@@ -373,7 +373,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"vlv_cmd": {types.U8(), 200},
 				})
 				h := newRuntimeHarness(ctx, `
-				func gate{} (value f64) (level u8) {
+				func gate() {value f64} (level u8) {
 				    level = 0
 				}
 
@@ -383,7 +383,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				sensor -> gate{} -> {
+				sensor -> gate() -> {
 				    level: true => alarm
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -417,12 +417,12 @@ var _ = Describe("Routing Table Runtime", func() {
 					"alarm_out": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				func amplify{} (signal f64) f64 {
+				func amplify() {signal f64} f64 {
 				    return signal * 2.0
 				}
 
-				sensor -> demux{threshold=50.0} -> {
-				    high: 2.0 -> amplify{} -> alarm_out
+				sensor -> demux(threshold=50.0) -> {
+				    high: 2.0 -> amplify() -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -462,12 +462,12 @@ var _ = Describe("Routing Table Runtime", func() {
 					"alarm_out": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				func amplify{} (signal f64) f64 {
+				func amplify() {signal f64} f64 {
 				    return signal * 2.0
 				}
 
-				sensor -> demux{threshold=50.0} -> {
-				    high: 2.0 -> amplify{} -> alarm_out
+				sensor -> demux(threshold=50.0) -> {
+				    high: 2.0 -> amplify() -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -497,12 +497,12 @@ var _ = Describe("Routing Table Runtime", func() {
 					"alarm_out": {types.F64(), 200},
 				})
 				h := newRuntimeHarness(ctx, demuxSource+`
-				func amplify{} (signal f64) f64 {
+				func amplify() {signal f64} f64 {
 				    return signal * 2.0
 				}
 
-				sensor -> demux{threshold=50.0} -> {
-				    high: 2.0 -> amplify{} -> alarm_out
+				sensor -> demux(threshold=50.0) -> {
+				    high: 2.0 -> amplify() -> alarm_out
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
 					channels.Digest{Key: 200, DataType: telem.Float64T},
@@ -577,7 +577,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"vlv_cmd": {types.U8(), 200},
 				})
 				h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux(threshold f64) {value f64} (high u8, low f64) {
 				    if (value > threshold) {
 				        high = 1
 				    } else {
@@ -591,7 +591,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 				    high: true => alarm
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -639,7 +639,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"vlv_cmd": {types.U8(), 200},
 				})
 				h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux(threshold f64) {value f64} (high u8, low f64) {
 				    if (value > threshold) {
 				        high = 1
 				    } else {
@@ -653,7 +653,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 				    high: true => alarm
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -683,7 +683,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"log_cmd":  {types.U8(), 300},
 				})
 				h := newRuntimeHarness(ctx, `
-				func classify{threshold f64} (value f64) (above u8, below u8) {
+				func classify(threshold f64) {value f64} (above u8, below u8) {
 				    if (value > threshold) {
 				        above = 1
 				    } else {
@@ -703,7 +703,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				sensor -> classify{threshold=100.0} -> {
+				sensor -> classify(threshold=100.0) -> {
 				    above: true => open_valve,
 				    below: true => log_event
 				}`, resolver,
@@ -751,7 +751,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"vlv_cmd":  {types.U8(), 200},
 				})
 				h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux(threshold f64) {value f64} (high u8, low f64) {
 				    if (value > threshold) {
 				        high = 1
 				    } else {
@@ -759,21 +759,21 @@ var _ = Describe("Routing Table Runtime", func() {
 				    }
 				}
 
-				func check_pressure(p f32) bool {
+				func check_pressure() {p f32} bool {
 				    return p > 100
 				}
 
 				sequence pressurize {
 				    stage fill {
 				        1 -> vlv_cmd
-				        press_pt -> check_pressure{} => next
+				        press_pt -> check_pressure() => next
 				    }
 				    stage hold {
 				        0 -> vlv_cmd
 				    }
 				}
 
-				sensor -> demux{threshold=50.0} -> {
+				sensor -> demux(threshold=50.0) -> {
 				    high: true => pressurize
 				}`, resolver,
 					channels.Digest{Key: 100, DataType: telem.Float64T},
@@ -819,7 +819,7 @@ var _ = Describe("Routing Table Runtime", func() {
 		)
 	})
 
-	Describe("Routing with select{}", func() {
+	Describe("Routing with select()", func() {
 		It(
 			"Should use select to route a boolean channel into different sequence stages",
 			func(ctx SpecContext) {
@@ -829,7 +829,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"shut_cmd": {types.U8(), 300},
 				})
 				h := newRuntimeHarness(ctx, `
-				flag -> select{} -> {
+				flag -> select() -> {
 				    true: true => open_valve,
 				    false: true => shut_valve
 				}
@@ -892,7 +892,7 @@ var _ = Describe("Routing Table Runtime", func() {
 		)
 	})
 
-	Describe("Routing with select{}", func() {
+	Describe("Routing with select()", func() {
 		It("Should use select to route a boolean channel", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"flag":     {types.Bool(), 100},
@@ -900,7 +900,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"shut_cmd": {types.U8(), 300},
 			})
 			h := newRuntimeHarness(ctx, `
-				flag -> select{} -> {
+				flag -> select() -> {
 					true: true => open_valve,
 					false: true => shut_valve
 				}
@@ -947,7 +947,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"vlv_cmd": {types.Bool(), 200},
 			})
 			h := newRuntimeHarness(ctx, `
-				flag -> select{} -> {
+				flag -> select() -> {
 					true: true -> vlv_cmd,
 					false: false -> vlv_cmd
 				}
@@ -992,7 +992,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"seq_out":   {types.U8(), 300},
 				})
 				h := newRuntimeHarness(ctx, `
-				flag -> select{} -> {
+				flag -> select() -> {
 				    true: stage { 1 -> stage_out },
 				    false: sequence { 1 -> seq_out }
 				}
@@ -1043,7 +1043,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					"vlv_cmd": {types.U8(), 200},
 				})
 				h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low u8) {
+				func demux(threshold f64) {value f64} (high u8, low u8) {
 				    if (value > threshold) {
 				        high = 1
 				    } else {
@@ -1055,7 +1055,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 				sequence main {
 				    stage first {
-				        sensor -> demux{threshold=50.0} -> {
+				        sensor -> demux(threshold=50.0) -> {
 				            high: true => pressurize,
 				        }
 				    }

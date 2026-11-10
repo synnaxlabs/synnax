@@ -12,7 +12,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/can/nixnet/mock.h"
 #include "driver/can/nixnet/nixnet.h"

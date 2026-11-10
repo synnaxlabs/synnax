@@ -34,12 +34,12 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.selectSymbols(session, [gate, light, pump]);
   await session.hold(1000);
 
-  const swatch = page.locator(".console-multiedit-colors .pluto-color-swatch").first();
+  const swatch = page.locator(".console-multiedit-colors .lyra-color-swatch").first();
   await session.waitFor(swatch);
   await session.click(swatch, { zoom: false });
-  const hex = page.locator(".pluto-color-picker .pluto-color-hex-text input");
+  const hex = page.locator(".lyra-color-picker .lyra-color-hex-text input");
   await session.waitFor(hex);
-  await session.zoom(page.locator(".pluto-color-picker").first());
+  await session.zoom(page.locator(".lyra-color-picker").first());
   await session.hold(600);
 
   await session.click(hex, { zoom: false });

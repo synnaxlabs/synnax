@@ -60,9 +60,8 @@ const renderSymbolsToolbar = async (as?: Client) =>
 const createRemoteSymbolGroup = async (
   symbolNames: string[],
 ): Promise<{ grp: group.Group; symbols: schematic.symbol.Symbol[] }> => {
-  const root = await client.schematics.symbols.retrieveGroup();
   const grp = await client.groups.create({
-    parent: group.ontologyID(root.key),
+    scope: "schematic_symbol",
     name: uniqueName("remote_grp"),
   });
   const symbols: schematic.symbol.Symbol[] = [];
@@ -70,7 +69,7 @@ const createRemoteSymbolGroup = async (
     symbols.push(
       await client.schematics.symbols.create({
         ...createSymbolPayload(name),
-        parent: group.ontologyID(grp.key),
+        group: grp.key,
       }),
     );
   return { grp, symbols };
@@ -201,8 +200,7 @@ describe("Schematic toolbar Symbols", () => {
     name.innerText = renamed;
     fireEvent.keyDown(name, { key: "Enter" });
     await waitFor(async () => {
-      const resource = await client.ontology.retrieve(group.ontologyID(grp.key));
-      expect(resource.name).toBe(renamed);
+      expect((await client.groups.retrieve({ key: grp.key })).name).toBe(renamed);
     });
   });
 
@@ -244,33 +242,33 @@ describe("Schematic toolbar Symbols", () => {
     const name = uniqueName("new_grp");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
-    const root = await client.schematics.symbols.retrieveGroup();
-    await waitFor(async () => {
-      const children = await client.ontology.children.retrieve({
-        ids: group.ontologyID(root.key),
-      });
-      expect(children.map((c) => c.name)).toContain(name);
+    const [created] = await waitFor(async () => {
+      const found = await client.groups.retrieve({ searchTerm: name });
+      if (found[0]?.name !== name) throw new Error(`group ${name} not created`);
+      return found;
     });
+    expect(created.scope).toBe("schematic_symbol");
+    expect(created.parent).toBeUndefined();
   });
 });
 
 describe("schematic/toolbar/Symbols permissions", () => {
   const READS = [
-    schematicClient.TYPE_ONTOLOGY_ID,
-    schematicClient.symbol.TYPE_ONTOLOGY_ID,
-    group.TYPE_ONTOLOGY_ID,
-    project.TYPE_ONTOLOGY_ID,
-    panel.TYPE_ONTOLOGY_ID,
-    label.TYPE_ONTOLOGY_ID,
-    ranger.TYPE_ONTOLOGY_ID,
-    channel.TYPE_ONTOLOGY_ID,
+    schematicClient.TYPE_RESOURCE_ID,
+    schematicClient.symbol.TYPE_RESOURCE_ID,
+    group.TYPE_RESOURCE_ID,
+    project.TYPE_RESOURCE_ID,
+    panel.TYPE_RESOURCE_ID,
+    label.TYPE_RESOURCE_ID,
+    ranger.TYPE_RESOURCE_ID,
+    channel.TYPE_RESOURCE_ID,
   ];
 
   const createEditor = async (grants: Grants = {}) =>
     await createTestClientWithGrants(client, {
       ...grants,
       retrieve: READS,
-      update: [schematicClient.TYPE_ONTOLOGY_ID],
+      update: [schematicClient.TYPE_RESOURCE_ID],
     });
 
   it("should withhold the creation actions from an editor who cannot add symbols", async () => {
@@ -305,7 +303,7 @@ describe("schematic/toolbar/Symbols permissions", () => {
 
   it("should offer the creation actions to an editor who may add symbols", async () => {
     const editor = await createEditor({
-      create: [group.TYPE_ONTOLOGY_ID, schematicClient.symbol.TYPE_ONTOLOGY_ID],
+      create: [group.TYPE_RESOURCE_ID, schematicClient.symbol.TYPE_RESOURCE_ID],
     });
     const { result } = await renderSymbolsToolbar(editor);
     await screen.findByText("Gauge");
@@ -341,7 +339,7 @@ describe("schematic/toolbar/Symbols permissions", () => {
 
   it("should offer the delete item to an editor who may delete symbols", async () => {
     await openSymbolMenu(
-      await createEditor({ delete: [schematicClient.symbol.TYPE_ONTOLOGY_ID] }),
+      await createEditor({ delete: [schematicClient.symbol.TYPE_RESOURCE_ID] }),
     );
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
@@ -353,7 +351,7 @@ describe("schematic/toolbar/Symbols permissions", () => {
   });
 
   it("should offer the delete item to an editor who may delete symbol groups", async () => {
-    await openGroupMenu(await createEditor({ delete: [group.TYPE_ONTOLOGY_ID] }));
+    await openGroupMenu(await createEditor({ delete: [group.TYPE_RESOURCE_ID] }));
     expect(await screen.findByText("Delete")).toBeTruthy();
   });
 });

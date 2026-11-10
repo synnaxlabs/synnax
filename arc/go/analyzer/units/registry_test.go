@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/units"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Registry", func() {
@@ -82,41 +83,9 @@ var _ = Describe("Registry", func() {
 	})
 
 	Specify("Mutating a Unit Entry Should not Modify Value in Registry", func() {
-		u := units.MustResolve("m")
+		u := MustBeOk(units.Resolve("m"))
 		u.Scale = 12
-		u2 := units.MustResolve("m")
+		u2 := MustBeOk(units.Resolve("m"))
 		Expect(u2.Scale).To(Equal(1.0))
-	})
-
-	Describe("IsValid", func() {
-		DescribeTable("Valid units",
-			func(unitName string) {
-				Expect(units.IsValid(unitName)).To(BeTrue())
-			},
-			Entry("psi", "psi"),
-			Entry("ms", "ms"),
-			Entry("Hz", "Hz"),
-		)
-
-		DescribeTable("Invalid units",
-			func(unitName string) {
-				Expect(units.IsValid(unitName)).To(BeFalse())
-			},
-			Entry("invalid", "invalid"),
-			Entry("empty", ""),
-		)
-	})
-
-	Describe("MustResolve", func() {
-		It("should return unit for valid name", func() {
-			u := units.MustResolve("m")
-			Expect(u.Name).To(Equal("m"))
-		})
-
-		It("should panic for invalid name", func() {
-			Expect(func() {
-				units.MustResolve("invalid_unit")
-			}).To(PanicWith(ContainSubstring("failed to resolve invalid_unit")))
-		})
 	})
 })

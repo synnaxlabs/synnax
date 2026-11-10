@@ -10,11 +10,11 @@
 import "@/schematic/node/general/gauge/gauge.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
@@ -51,11 +51,7 @@ export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => 
 
   return (
     <div
-      className={CSS.cls(
-        CSS.B("symbol-colored"),
-        CSS.BE("gauge", "container"),
-        className,
-      )}
+      className={CSS.cls(CSS.symbolColored, CSS.BE("gauge", "container"), className)}
       style={style}
     >
       <svg width="67" height="67" className={CSS.BE("gauge", "svg")}>

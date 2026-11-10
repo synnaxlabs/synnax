@@ -11,7 +11,8 @@ import { Unreachable } from "@synnaxlabs/freighter";
 import { id, TimeRange, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Client } from "@/framer/client";
+import { framer } from "@/framer";
+import { UnsupportedError } from "@/index";
 import { createTestClient, secondsLinspace, TEST_CORE_ADDRESS } from "@/testutil";
 import { Transport } from "@/transport";
 
@@ -22,7 +23,7 @@ describe("Client", () => {
     it("should report each failed stream reconnect to onRetry", async () => {
       const transport = new Transport(new url.URL(TEST_CORE_ADDRESS));
       const retries: Error[] = [];
-      const unreachable = new Client({
+      const unreachable = new framer.Client({
         stream: transport.stream,
         unary: transport.unary,
         file: transport.file,
@@ -34,7 +35,7 @@ describe("Client", () => {
       const feed = unreachable.openFeed({
         breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
       });
-      const sub = feed.stream(() => {}, [1]);
+      const sub = feed.subscribe({ keys: [1], limit: { variant: "latest", count: 1 } });
       await expect.poll(() => retries.length).toBeGreaterThan(1);
       expect(retries.every((error) => Unreachable.matches(error.cause))).toBe(true);
       sub.close();
@@ -101,11 +102,21 @@ describe("Client", () => {
       await client.write(start, time.key, start);
       await client.write(start, data.key, 1);
     });
-  });
-  describe("retrieveGroup", () => {
-    it("should correctly retrieve the main channel group", async () => {
-      const group = await client.channels.retrieveGroup();
-      expect(group.name).toEqual("Channels");
+    it("should reject a read of a calculation over a virtual channel", async () => {
+      const source = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        virtual: true,
+      });
+      const calc = await client.channels.create({
+        name: id.create(),
+        dataType: "float64",
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      const read = client.read(TimeRange.MAX, calc.key);
+      await expect(read).rejects.toThrow(UnsupportedError);
+      await expect(read).rejects.toThrow(/cannot open iterator on virtual channel/);
     });
   });
   describe("readLatestN", () => {

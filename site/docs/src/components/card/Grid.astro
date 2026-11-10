@@ -25,18 +25,22 @@ const { columns = 3 } = Astro.props;
         grid-template-columns: repeat(var(--docs-card-columns), minmax(0, 1fr));
         gap: 3rem;
         margin: 2.5rem 0;
+
         &[data-columns="2"] {
             --docs-card-columns: 2;
         }
+
         &[data-columns="3"] {
             --docs-card-columns: 3;
         }
-        @media (max-width: 900px) {
+
+        @media (width <= 900px) {
             &[data-columns] {
                 --docs-card-columns: 2;
             }
         }
-        @media (max-width: 600px) {
+
+        @media (width <= 600px) {
             &[data-columns] {
                 --docs-card-columns: 1;
             }

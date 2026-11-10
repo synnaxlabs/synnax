@@ -19,15 +19,17 @@ orchestration.
 - `pnpm test` / `pnpm test:<pkg>`
 - `pnpm lint` / `pnpm fix` (also per-pkg variants)
 - `pnpm cycles` / `pnpm cycles:console` — circular dependency check (knip)
-- `pnpm knip --production --include exports,types` — exports that only specs import.
-  Drop the `export` and make its specs test through the public API. When the package's
-  users need the symbol, export it from the package entry instead. A pattern in
-  `knip.json` that ends in `!` is production code.
+- `python3 scripts/check_exports_ts.py` — exports that only their own module or test
+  code import. A module is the nearest directory with an index file. Drop the `export`
+  and make its specs test through the public API, or move a helper that other modules'
+  tests need into a `testutil` directory. When the package's users need the symbol,
+  export it from the package entry instead. A pattern in `knip.json` that ends in `!` is
+  production code.
 
 ### Console dev login
 
-Local server: host `localhost`, port `9090`, user `synnax`, password `seldon`. The login
-form shows placeholders but does NOT pre-fill — actually type the values.
+Host and port of your Core, user `synnax`, password `seldon`. The login form shows
+placeholders but does NOT pre-fill — actually type the values.
 
 ## Style
 
@@ -51,14 +53,19 @@ A module's `index.ts` re-exports its public surface:
 `export * as Channel from "@/channel/external"`. Never import-side
 `import * as X from "..."` — the barrel is the only namespace mechanism. (Exception: a
 dependency subpath that ships only named exports but is conceptually one namespace, e.g.
-`import * as Drift from "@synnaxlabs/drift/react"`.)
+`import * as Drift from "@synnaxlabs/drift/react"`.) ESLint rejects a namespace import
+of a local module.
 
 ### Rule 2: Cross-module imports go through the namespace
 
 `import { Range } from "@/range"` then `Range.FavoriteButton` — never
 `import { FavoriteButton } from "@/range/FavoriteButton"` from another module.
 Same-module sibling files import named members directly and use them unqualified (the
-barrel would be circular). Spec files follow the same rule — tests are not exempt.
+barrel would be circular). A module is a directory with an `index.ts`, and a child
+module is another module. A spec imports only barrels, its own module's included, and
+never a sibling file. A module's `testutil` file or directory is a barrel for other
+modules' tests. An `external.ts` may `export *` from another module's `external.ts` to
+merge a Console layer. The `synnax/barrel-imports` lint rule enforces this.
 
 ### Rule 3: Package subpaths mirror `src/` layout
 
@@ -164,7 +171,7 @@ errors.
   helper, as a change to the values it receives. When a hook comes between the code that
   makes a value and such a call, the compiler drops the value's cache. Call hooks first,
   and put that call next to the code that makes the value. When the call must come after
-  a hook, as with a Fuse index searched later, keep a `useMemo` with a one-line reason
+  a hook, as with a search index searched later, keep a `useMemo` with a one-line reason
   and disable `no-restricted-syntax` on it.
 - Use the `"use no memo"` directive only for an incompatible library, a fixed hook list,
   or a memo hook that keeps its own cache, with a one-line reason. The lint rules still
@@ -258,7 +265,7 @@ identity.
 | 1. Our own stack     | `@synnaxlabs/{x,freighter,alamos,client,drift,lyra,pluto}` | Always external |
 | 2. Framework         | `react`, `react-dom`, `react-redux`, `@reduxjs/toolkit`    | External, peer  |
 | 3. Shared vocabulary | `zod`                                                      | External        |
-| 4. Private machinery | monaco, mathjs, fuse.js, d3-scale, `@synnaxlabs/arc`       | Bundle          |
+| 4. Private machinery | monaco, mathjs, d3-scale, `@synnaxlabs/arc`                | Bundle          |
 
 Tiers 1 to 3 cross a package boundary: a `Series` from the Client must satisfy
 `instanceof Series` in Pluto, and a Zod schema from the Client must compose with a

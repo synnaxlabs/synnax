@@ -37,7 +37,7 @@ sequence press {
     }
     stage hold {
         0 -> sample_press_vlv_cmd
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> sample_vent_vlv_cmd
@@ -66,7 +66,7 @@ sequence press {
     stage hold {
         0 -> sample_press_vlv_cmd
         sample_abort_cmd == 1 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> sample_vent_vlv_cmd

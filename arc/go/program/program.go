@@ -31,7 +31,7 @@
 //	)
 //
 //	// Parse Arc source code
-//	src := text.Text{Raw: "func add(a i64, b i64) i64 { return a + b }"}
+//	src := text.Text{Raw: "func add() {a i64, b i64} i64 { return a + b }"}
 //	parsed, err := text.Parse(src)
 //	if err != nil {
 //	    panic(err)

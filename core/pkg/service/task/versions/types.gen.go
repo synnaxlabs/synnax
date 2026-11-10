@@ -11,37 +11,79 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 
 // Key is a unique identifier for a task.
-type Key = v2.Key
+type Key = v3.Key
 
 // StatusDetails contains task-specific status details including execution state.
-type StatusDetails = v2.StatusDetails
+type StatusDetails = v3.StatusDetails
 
 // Status is task-specific status information including execution state and
 // task-specific data.
-type Status = v2.Status
+type Status = v3.Status
 
 // Task is an executable unit of work in the Driver system. Tasks represent specific
 // hardware operations such as reading sensor data, writing control signals, or scanning
 // for devices.
-type Task = v2.Task
+type Task = v3.Task
 
 // KeyedConfig is the base for every stored task configuration record.
-type KeyedConfig = v2.KeyedConfig
+type KeyedConfig = v3.KeyedConfig
 
 // StartConfig carries the configuration fields shared by every task.
-type StartConfig = v2.StartConfig
+type StartConfig = v3.StartConfig
 
 // PersistConfig carries the configuration fields shared by tasks that write telemetry.
-type PersistConfig = v2.PersistConfig
+type PersistConfig = v3.PersistConfig
 
 // ReadConfig carries the configuration fields shared by hardware acquisition tasks.
-type ReadConfig = v2.ReadConfig
+type ReadConfig = v3.ReadConfig
 
 // WriteConfig carries the configuration fields shared by hardware control tasks.
-type WriteConfig = v2.WriteConfig
+type WriteConfig = v3.WriteConfig
 
 // ScanConfig carries the fields shared by every scan task configuration.
-type ScanConfig = v2.ScanConfig
+type ScanConfig = v3.ScanConfig
+
+// Scale determines how the raw values of a hardware read channel are transformed to
+// engineering units.
+type Scale = v3.Scale
+
+// ScaleVariant is implemented by every Scale variant.
+type ScaleVariant = v3.ScaleVariant
+
+// ScaleType is the "type" value that selects a variant of Scale.
+type ScaleType = v3.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = v3.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = v3.MapScaleType
+	// PolynomialScaleType maps raw values to engineering units with a polynomial.
+	PolynomialScaleType ScaleType = v3.PolynomialScaleType
+	// TableScaleType maps raw values to engineering units by linear interpolation
+	// between the breakpoints, and clips raw values outside the table to its first or
+	// last scaled value.
+	TableScaleType ScaleType = v3.TableScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = v3.NoneScaleType
+)
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale = v3.LinearScale
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale = v3.MapScale
+
+// PolynomialScale maps raw values to engineering units with a polynomial.
+type PolynomialScale = v3.PolynomialScale
+
+// TableScale maps raw values to engineering units by linear interpolation between the
+// breakpoints, and clips raw values outside the table to its first or last scaled
+// value.
+type TableScale = v3.TableScale
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale = v3.NoneScale

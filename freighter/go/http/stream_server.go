@@ -36,7 +36,7 @@ import (
 // codecs don't need to carry it on every instance.
 type additionalCodec struct {
 	contentType string
-	new         func() encoding.Codec
+	new         func(context.Context) encoding.Codec
 }
 
 // streamServerOptions configures a streaming HTTP server. Stream handlers can register
@@ -54,12 +54,12 @@ type StreamServerOption func(*streamServerOptions)
 
 // WithAdditionalCodec registers a stream-server codec for the given content type. The
 // constructor is invoked once per matching connection so the codec may be stateful and
-// hold per-stream state. The factory returns an encoding.Codec because the content type
-// is supplied here at registration — stateful codecs don't need a ContentType method on
-// every instance.
+// hold per-stream state. It receives the context of the connection. The factory returns
+// an encoding.Codec because the content type is supplied here at registration —
+// stateful codecs don't need a ContentType method on every instance.
 func WithAdditionalCodec(
 	contentType string,
-	new func() encoding.Codec,
+	new func(context.Context) encoding.Codec,
 ) StreamServerOption {
 	return func(o *streamServerOptions) {
 		o.additionalCodecs = append(o.additionalCodecs, additionalCodec{
@@ -69,20 +69,17 @@ func WithAdditionalCodec(
 	}
 }
 
-// WithCodec registers a stateless stream-server codec. The same instance is reused
-// across every connection that negotiates the codec's content type. For codecs that
-// hold per-stream state, use WithAdditionalCodec instead.
-func WithCodec(c http.Codec) StreamServerOption {
+func withCodec(c http.Codec) StreamServerOption {
 	return WithAdditionalCodec(
 		c.ContentType(),
-		func() encoding.Codec { return c },
+		func(context.Context) encoding.Codec { return c },
 	)
 }
 
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
 	so := streamServerOptions{}
 	for _, c := range defaultCodecs {
-		WithCodec(c)(&so)
+		withCodec(c)(&so)
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -115,11 +112,12 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 }
 
 func (s *streamServer[RQ, RS]) resolveStreamCodec(
+	ctx context.Context,
 	contentType string,
 ) (encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
-			return ac.new(), true
+			return ac.new(ctx), true
 		}
 	}
 	return nil, false
@@ -146,7 +144,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path), true)
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, ok := s.resolveStreamCodec(headerContentType)
+	codec, ok := s.resolveStreamCodec(iCtx, headerContentType)
 	if !ok {
 		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}

@@ -18,7 +18,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 
-import { SECTION_ICONS } from "@/components/nav/icons";
+import { Nav } from "@/components/nav";
 import {
   type Entry,
   fromHit,
@@ -26,11 +26,15 @@ import {
   hitSchema,
   type Result,
 } from "@/components/search/result";
-import { codifyHTML, InlineCode } from "@/components/text/InlineCode";
+import { Text as DocsText } from "@/components/text";
+import { indexName } from "@/util/version";
+import { VERSION } from "@/version";
 
 const ALGOLIA_APP_ID = "YWD9T0JXCS";
 const ALGOLIA_SEARCH_ONLY_API_KEY = "1f8b0497301392c94adedf89a98afb6f";
-const ALGOLIA_URL = `https://${ALGOLIA_APP_ID}-dsn.algolia.net/1/indexes/docs_site/query`;
+const ALGOLIA_INDEX = indexName(VERSION?.name ?? null);
+const ALGOLIA_ORIGIN = `https://${ALGOLIA_APP_ID}-dsn.algolia.net`;
+const ALGOLIA_URL = `${ALGOLIA_ORIGIN}/1/indexes/${ALGOLIA_INDEX}/query`;
 const ALGOLIA_HEADERS = {
   "X-Algolia-API-Key": ALGOLIA_SEARCH_ONLY_API_KEY,
   "X-Algolia-Application-Id": ALGOLIA_APP_ID,
@@ -39,7 +43,7 @@ const ALGOLIA_HEADERS = {
 // A result shows the icon of the deepest nav group that has one, such as a vendor under
 // Hardware.
 const ICONS: Record<string, Icon.ReactElement> = {
-  ...SECTION_ICONS,
+  ...Nav.SECTION_ICONS,
   blog: <Icon.Guide />,
   releases: <Icon.Release />,
   ni: <Icon.Logo.NI />,
@@ -78,20 +82,20 @@ const Item = (props: List.ItemRenderProps<string>) => {
         </span>
         <span
           className="search-result__title"
-          dangerouslySetInnerHTML={{ __html: codifyHTML(title) }}
+          dangerouslySetInnerHTML={{ __html: DocsText.codifyHTML(title) }}
         />
         {path.length > 0 && (
           <span className="search-result__path">
             {path.map((name) => (
               <span key={name}>
-                <InlineCode text={name} />
+                <DocsText.InlineCode text={name} />
               </span>
             ))}
           </span>
         )}
         <span
           className="search-result__excerpt"
-          dangerouslySetInnerHTML={{ __html: codifyHTML(excerpt) }}
+          dangerouslySetInnerHTML={{ __html: DocsText.codifyHTML(excerpt) }}
         />
         <Triggers.Text
           className="search-result__enter"

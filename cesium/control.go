@@ -13,6 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/control"
+	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 )
 
@@ -38,6 +40,31 @@ func (db *DB) OnControlUpdate(
 	handler func(context.Context, ControlUpdate),
 ) observe.Disconnect {
 	return db.controlUpdates.OnChange(handler)
+}
+
+// authorizeEndDomain returns control.ErrUnauthorized if another writer controls a data
+// channel of index outside of own. That channel's domain would outlive the index's.
+func (db *DB) authorizeEndDomain(
+	index ChannelKey,
+	own map[ChannelKey]*unaryWriterState,
+) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+	for key, d := range db.mu.dbs.unary {
+		if _, ok := own[key]; ok || d.Channel().Index != index {
+			continue
+		}
+		if s := d.LeadingControlState(); s != nil {
+			return errors.Wrapf(
+				xcontrol.ErrUnauthorized,
+				"cannot end the domain of index %v because writer %v holds channel %v",
+				index,
+				s.Subject,
+				d.Channel(),
+			)
+		}
+	}
+	return nil
 }
 
 // ControlStates returns the leading control resource in each unary and virtual channel

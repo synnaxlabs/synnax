@@ -18,10 +18,13 @@ import { StartStopButton } from "@/platform/task/controls/StartStopButton";
 import { Status } from "@/platform/task/controls/Status";
 
 export interface BarProps extends Flex.BoxProps {
-  status: status.Status;
+  /** Absent for a task with no status. */
+  status?: status.Status;
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
+  /** Replaces the redeploy button's tooltip, to say what is stale. */
+  redeployTooltip?: ReactNode;
   /** Hides the action row entirely, for a caller that cannot command the task. */
   hideActions?: boolean;
   /** Disables the deploy and start/stop actions. */
@@ -32,8 +35,11 @@ export interface BarProps extends Flex.BoxProps {
   startStopVariant?: status.Variant;
   /** Rendered inside the action row, before the deploy controls. */
   extraActions?: ReactNode;
-  onDeploy: () => void;
-  onStop: () => void;
+  /** The task's settings, first in the action row. They show when the actions hide. */
+  settings?: ReactNode;
+  /** Unused when the actions hide. */
+  onDeploy?: () => void;
+  onStop?: () => void;
 }
 
 /**
@@ -44,11 +50,13 @@ export const Bar = ({
   status: stat,
   running,
   drifted = false,
+  redeployTooltip,
   hideActions = false,
   disabled = false,
   fallbackMessage,
   startStopVariant,
   extraActions,
+  settings,
   onDeploy,
   onStop,
   ...props
@@ -56,7 +64,7 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  const handleStartStop = () => (running ? onStop() : onDeploy());
+  const handleStartStop = () => (running ? onStop?.() : onDeploy?.());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status
@@ -65,20 +73,26 @@ export const Bar = ({
         onToggle={handleToggle}
         fallbackMessage={fallbackMessage}
       />
-      {!hideActions && (
+      {(!hideActions || settings != null) && (
         <Actions>
-          {extraActions}
-          <RedeployButton
-            visible={drifted}
-            onClick={onDeploy}
-            disabled={disabled || startStopVariant === "loading"}
-          />
-          <StartStopButton
-            running={running}
-            onClick={handleStartStop}
-            disabled={disabled}
-            statusVariant={startStopVariant}
-          />
+          {settings}
+          {!hideActions && (
+            <>
+              {extraActions}
+              <RedeployButton
+                visible={drifted}
+                tooltip={redeployTooltip}
+                onClick={() => onDeploy?.()}
+                disabled={disabled || startStopVariant === "loading"}
+              />
+              <StartStopButton
+                running={running}
+                onClick={handleStartStop}
+                disabled={disabled}
+                statusVariant={startStopVariant}
+              />
+            </>
+          )}
         </Actions>
       )}
     </Frame>

@@ -10,11 +10,10 @@
 import { renderToString } from "react-dom/server";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Page } from "@/components/nav/Page";
+import { Nav } from "@/components/nav";
 import { start } from "@/components/nav/sidebar";
-import { type PageNavNode } from "@/components/nav/tree";
 
-const NODES: PageNavNode[] = [
+const NODES: Nav.PageNavNode[] = [
   {
     key: "channels",
     name: "Channels",
@@ -54,9 +53,11 @@ const NODES: PageNavNode[] = [
   },
 ];
 
-const show = (path: string, nodes: PageNavNode[] = NODES): void => {
+const show = (path: string, nodes: Nav.PageNavNode[] = NODES): void => {
   window.history.replaceState(null, "", path);
-  document.body.innerHTML = renderToString(<Page nodes={nodes} currentPage={path} />);
+  document.body.innerHTML = renderToString(
+    <Nav.Page nodes={nodes} currentPage={path} />,
+  );
 };
 
 const item = (name: string): HTMLElement => {
@@ -78,7 +79,7 @@ const selected = (): string[] =>
   );
 
 const caret = (name: string): Element => {
-  const found = item(name).querySelector(".pluto-tree__expansion-indicator");
+  const found = item(name).querySelector(".lyra-tree__expansion-indicator");
   if (found == null) throw new Error(`no caret on ${name}`);
   return found;
 };
@@ -171,7 +172,7 @@ describe("sidebar", () => {
       show("/reference/channels");
       click(caret("Arc"));
       expect(item("Arc").getAttribute("aria-expanded")).toBe("true");
-      expect(caret("Arc").classList).toContain("pluto--location-bottom");
+      expect(caret("Arc").classList).toContain("lyra--location-bottom");
       expect(visible()).toContain("Get started");
       expect(visible()).not.toContain("Stages");
     });
@@ -179,7 +180,7 @@ describe("sidebar", () => {
     it("should hide every descendant when a node collapses", () => {
       show("/reference/control/arc/concepts/stages");
       click(caret("Arc"));
-      expect(caret("Arc").classList).toContain("pluto--location-right");
+      expect(caret("Arc").classList).toContain("lyra--location-right");
       expect(visible()).toEqual([
         "Channels",
         "Overview",
@@ -278,7 +279,7 @@ describe("sidebar", () => {
       throw new DOMException("blocked", "SecurityError");
     });
     document.body.innerHTML = `<nav class="page-nav">${renderToString(
-      <Page nodes={NODES} currentPage="/reference/channels" />,
+      <Nav.Page nodes={NODES} currentPage="/reference/channels" />,
     )}</nav>`;
     expect(() => start()).not.toThrow();
   });

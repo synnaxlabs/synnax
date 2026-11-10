@@ -13,7 +13,7 @@ package v0
 
 import (
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
-	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v1"
 	icd "github.com/synnaxlabs/synnax/pkg/service/icd/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"

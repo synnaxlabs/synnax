@@ -7,10 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal
+from typing import Unpack
 
+import synnax as sy
 from console.layout import LayoutClient
-from console.task.channels.counter import Counter
+from console.task.channels.counter import Counter, Options
 
 
 class EdgeCount(Counter):
@@ -20,7 +21,8 @@ class EdgeCount(Counter):
     Kwargs:
         port (int): Physical port number
         active_edge (Literal["Rising", "Falling"]): Active edge
-        count_direction (Literal["Count up", "Count down", "Externally controlled"]): Count direction
+        count_direction (Literal["Count up", "Count down", "Externally controlled"]):
+            Count direction
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         initial_count (int): Initial count value
     """
@@ -30,12 +32,12 @@ class EdgeCount(Counter):
         layout: LayoutClient,
         name: str,
         device: str,
-        active_edge: Literal["Rising", "Falling"] | None = None,
-        count_direction: Literal["Count up", "Count down", "Externally controlled"]
-        | None = None,
+        *,
+        active_edge: sy.ni.CIEdge | None = None,
+        count_direction: sy.ni.CICountDirection | None = None,
         terminal: str | None = None,
         initial_count: int | None = None,
-        **kwargs: Any,
+        **kwargs: Unpack[Options],
     ) -> None:
         """Initialize edge count channel with configuration."""
         super().__init__(

@@ -11,6 +11,7 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
+import { SERVER_CERTIFICATE } from "@/feature/opcua/testutil";
 
 describe("OPC UA Scan Task Types", () => {
   it("should parse null scan config as empty object", () => {
@@ -57,9 +58,9 @@ describe("OPC UA Write Task Types", () => {
 });
 
 describe("OPC UA Read Task Config Validation", () => {
-  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]): unknown => ({
+  const createConfig = (channels: Partial<OPCUA.Task.ReadChannel>[]) => ({
     device: "dev",
-    arrayMode: false,
+    sampling: { type: "unary" },
     sampleRate: 50,
     streamRate: 25,
     channels: channels.map((overrides, i) => ({
@@ -81,35 +82,68 @@ describe("OPC UA Read Task Config Validation", () => {
     );
   });
 
-  it("should reject a node ID used by multiple channels", () => {
+  it("should warn at each node ID used by multiple channels", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ nodeId: "ns=1;s=dup" }, { nodeId: "ns=1;s=dup" }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) => message.includes("already been used")),
-    ).toBe(true);
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This node ID has already been used elsewhere in the configuration",
+          params: { variant: "warning" },
+        }),
+      ),
+    );
   });
 
-  it("should reject multiple channels marked as index", () => {
+  it("should accept channels that read different fields of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Position.Y" },
+      ]),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("should warn at each channel that reads the same field of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+      ]),
+    );
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This field has already been used elsewhere in the configuration",
+        }),
+      ),
+    );
+  });
+
+  it("should reject each channel marked as index when there are several", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ isIndex: true }, { isIndex: true }]),
     );
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) =>
-        message.includes("Only one channel can be marked as an index"),
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "isIndex"],
+          message: "Only one channel can be marked as an index channel",
+        }),
       ),
-    ).toBe(true);
+    );
   });
 
   it("should reject an array size larger than the sample rate", () => {
     const config = {
-      device: "dev",
-      arrayMode: true,
-      sampleRate: 50,
-      arraySize: 100,
-      channels: [],
+      ...createConfig([{}]),
+      sampling: { type: "array", size: 100 },
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
@@ -120,26 +154,38 @@ describe("OPC UA Read Task Config Validation", () => {
     ).toBe(true);
   });
 
-  it("should reject a non-positive array size", () => {
+  it("should reject an enabled structure field channel in array mode", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse({
+      ...createConfig([{ field: "Speed" }, { field: "Speed", disabled: true }, {}]),
+      sampling: { type: "array", size: 5 },
+    });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["channels", 0, "nodeId"],
+        message: "Array sampling cannot read structure fields",
+      }),
+    ]);
+  });
+
+  it.each([0, 1.5])("should reject an array size of %d", (size) => {
     const config = {
-      device: "dev",
-      arrayMode: true,
-      sampleRate: 50,
-      arraySize: 0,
-      channels: [],
+      ...createConfig([{}]),
+      sampling: { type: "array", size },
     };
     const result = OPCUA.Task.deployReadConfigZ.safeParse(config);
     expect(result.success).toBe(false);
-    expect(
-      result.error?.issues.some(({ message }) =>
-        message.includes("Array size must be a positive integer"),
-      ),
-    ).toBe(true);
+    expect(result.error?.issues).toEqual([
+      expect.objectContaining({
+        path: ["sampling", "size"],
+        message: "Array size must be a positive integer",
+      }),
+    ]);
   });
 
   it("should reject a stream rate outside of (0, 10000]", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse({
-      ...(createConfig([{}]) as object),
+      ...createConfig([{}]),
       streamRate: 20000,
     });
     expect(result.success).toBe(false);
@@ -177,7 +223,7 @@ describe("OPC UA Write Task Config Validation", () => {
 
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({
+    const result = OPCUA.Task.browseResponseZ.parse({
       channels: [
         {
           dataType: "float32",
@@ -187,27 +233,34 @@ describe("Scanned Nodes", () => {
           nodeId: "ns=2;s=A",
         },
       ],
-      connection: OPCUA.Device.ZERO_PROPERTIES.connection,
     });
-    expect(result?.channels[0].key).toBe("ns=2;s=A");
+    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A", field: "" }] });
   });
 });
 
-describe("draft configs", () => {
-  // Drafts persist server-side before configuration, so the shape schema must
-  // accept every zero config; retrieve parses with it.
-  it("should accept the zero read config", () => {
-    expect(
-      OPCUA.Task.READ_SCHEMAS.config.safeParse(OPCUA.Task.READ_SCHEMAS.config.parse({}))
-        .success,
-    ).toBe(true);
+describe("Scan command replies", () => {
+  it("should parse a certificate reply", () => {
+    const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
+    expect(OPCUA.Task.certificatesResponseZ.parse(reply)).toEqual(reply);
   });
-  it("should accept the zero write config", () => {
-    expect(
-      z.validate(
-        OPCUA.Task.WRITE_SCHEMAS.config,
-        OPCUA.Task.WRITE_SCHEMAS.config.parse({}),
-      ),
-    ).toBe(true);
+
+  it("should parse a failed test connection reply with the server certificate", () => {
+    const reply = { serverCertificate: SERVER_CERTIFICATE };
+    expect(OPCUA.Task.testConnectionResponseZ.parse(reply)).toEqual(reply);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each([
+    ["read", OPCUA.Task.READ_SCHEMAS.config, OPCUA.Task.deployReadConfigZ],
+    ["write", OPCUA.Task.WRITE_SCHEMAS.config, OPCUA.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
   });
 });

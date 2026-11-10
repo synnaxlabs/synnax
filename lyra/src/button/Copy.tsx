@@ -13,6 +13,7 @@ import {
   isValidElement,
   type MouseEvent,
   type ReactElement,
+  useEffect,
   useState,
 } from "react";
 
@@ -68,6 +69,13 @@ export const Copy = ({
   const [copied, setCopied] = useState(false);
   const addStatus = useAdder();
   const handleError = useErrorHandler();
+  const copiedMS = TimeSpan.fromMilliseconds(copiedDuration).milliseconds;
+
+  useEffect(() => {
+    if (!copied) return;
+    const timeout = setTimeout(() => setCopied(false), copiedMS);
+    return () => clearTimeout(timeout);
+  }, [copied, copiedMS]);
 
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
     onClick?.(e);
@@ -84,10 +92,6 @@ export const Copy = ({
         onCopy?.();
         if (success != null) return addStatus({ variant: "success", ...success });
         setCopied(true);
-        setTimeout(
-          () => setCopied(false),
-          TimeSpan.fromMilliseconds(copiedDuration).milliseconds,
-        );
       },
       { message: "Failed to copy to clipboard", name: success?.name ?? "" },
     );

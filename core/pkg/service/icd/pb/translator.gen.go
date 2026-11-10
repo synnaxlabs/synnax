@@ -14,8 +14,13 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -43,11 +48,15 @@ func BaseFieldToPB(r icd.BaseField) (*BaseField, error) {
 }
 
 // BaseFieldFromPB converts BaseField to BaseField.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func BaseFieldFromPB(pb *BaseField) (icd.BaseField, error) {
 	var r icd.BaseField
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
@@ -71,6 +80,7 @@ func BaseFieldFromPB(pb *BaseField) (icd.BaseField, error) {
 	if pb.Max != nil {
 		r.Max = pb.Max
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -133,11 +143,15 @@ func BinaryFieldToPB(r icd.BinaryField) (*BinaryField, error) {
 }
 
 // BinaryFieldFromPB converts BinaryField to BinaryField.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 	var r icd.BinaryField
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
@@ -169,6 +183,7 @@ func BinaryFieldFromPB(pb *BinaryField) (icd.BinaryField, error) {
 	if pb.Max != nil {
 		r.Max = pb.Max
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -220,19 +235,25 @@ func MessageToPB(r icd.Message) (*Message, error) {
 }
 
 // MessageFromPB converts Message to Message.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func MessageFromPB(pb *Message) (icd.Message, error) {
 	var r icd.Message
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return icd.Message{}, err
 	}
-	r.Payload, err = PayloadFromPB(pb.Payload)
-	if err != nil {
-		return icd.Message{}, err
+	if pb.Payload != nil {
+		r.Payload, err = PayloadFromPB(pb.Payload)
+		if err != nil {
+			return icd.Message{}, err
+		}
 	}
 	r.Name = pb.Name
 	if pb.Period != nil {
@@ -242,6 +263,7 @@ func MessageFromPB(pb *Message) (icd.Message, error) {
 	if pb.Query != nil {
 		r.Query = pb.Query
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -287,11 +309,15 @@ func ICDToPB(r icd.ICD) (*ICD, error) {
 }
 
 // ICDFromPB converts ICD to ICD.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ICDFromPB(pb *ICD) (icd.ICD, error) {
 	var r icd.ICD
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
@@ -303,6 +329,7 @@ func ICDFromPB(pb *ICD) (icd.ICD, error) {
 	}
 	r.Name = pb.Name
 	r.Hash = pb.Hash
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -345,11 +372,15 @@ func ReferenceToPB(r icd.Reference) (*Reference, error) {
 }
 
 // ReferenceFromPB converts Reference to Reference.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ReferenceFromPB(pb *Reference) (icd.Reference, error) {
 	var r icd.Reference
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.ICDHash = pb.IcdHash
 	if pb.Icd != nil {
 		v, err := uuid.Parse(*pb.Icd)
@@ -358,6 +389,7 @@ func ReferenceFromPB(pb *Reference) (icd.Reference, error) {
 		}
 		r.ICD = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -387,6 +419,189 @@ func ReferencesFromPB(pbs []*Reference) ([]icd.Reference, error) {
 	return result, nil
 }
 
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r icd.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (icd.Where, error) {
+	var r icd.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return icd.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return icd.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return icd.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return icd.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return icd.Where{}, err
+		}
+		r.Name = &val
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []icd.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]icd.Where, error) {
+	result := make([]icd.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // CanIdentifierToPB converts CanIdentifier to IdentifierCanPayload.
 func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 	pb := &IdentifierCanPayload{
@@ -402,11 +617,15 @@ func CanIdentifierToPB(r icd.CanIdentifier) (*IdentifierCanPayload, error) {
 }
 
 // CanIdentifierFromPB converts IdentifierCanPayload to CanIdentifier.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
 	var r icd.CanIdentifier
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.ID = pb.Id
 	r.Extended = pb.Extended
 	r.Fd = pb.Fd
@@ -414,6 +633,7 @@ func CanIdentifierFromPB(pb *IdentifierCanPayload) (icd.CanIdentifier, error) {
 	if pb.Mask != nil {
 		r.Mask = pb.Mask
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -453,17 +673,22 @@ func FieldIdentifierToPB(r icd.FieldIdentifier) (*IdentifierFieldPayload, error)
 }
 
 // FieldIdentifierFromPB converts IdentifierFieldPayload to FieldIdentifier.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func FieldIdentifierFromPB(pb *IdentifierFieldPayload) (icd.FieldIdentifier, error) {
 	var r icd.FieldIdentifier
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Field, err = uuid.Parse(pb.Field)
 	if err != nil {
 		return icd.FieldIdentifier{}, err
 	}
 	r.Value = pb.Value
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -502,12 +727,17 @@ func DelimitedTextFieldToPB(r icd.DelimitedTextField) (*TextFieldDelimitedPayloa
 }
 
 // DelimitedTextFieldFromPB converts TextFieldDelimitedPayload to DelimitedTextField.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func DelimitedTextFieldFromPB(pb *TextFieldDelimitedPayload) (icd.DelimitedTextField, error) {
 	var r icd.DelimitedTextField
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	r.Position = pb.Position
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -605,11 +835,15 @@ func BinaryPayloadToPB(r icd.BinaryPayload) (*PayloadBinaryPayload, error) {
 }
 
 // BinaryPayloadFromPB converts PayloadBinaryPayload to BinaryPayload.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (icd.BinaryPayload, error) {
 	var r icd.BinaryPayload
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Fields, err = BinaryFieldsFromPB(pb.Fields)
 	if err != nil {
@@ -626,6 +860,7 @@ func BinaryPayloadFromPB(pb *PayloadBinaryPayload) (icd.BinaryPayload, error) {
 		}
 		r.Identifier = &val
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -670,11 +905,15 @@ func TextPayloadToPB(r icd.TextPayload) (*PayloadTextPayload, error) {
 }
 
 // TextPayloadFromPB converts PayloadTextPayload to TextPayload.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func TextPayloadFromPB(pb *PayloadTextPayload) (icd.TextPayload, error) {
 	var r icd.TextPayload
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Fields, err = TextFieldsFromPB(pb.Fields)
 	if err != nil {
@@ -682,6 +921,7 @@ func TextPayloadFromPB(pb *PayloadTextPayload) (icd.TextPayload, error) {
 	}
 	r.Delimiter = pb.Delimiter
 	r.Prefix = pb.Prefix
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -833,9 +1073,11 @@ func TextFieldFromPB(pb *TextField) (icd.TextField, error) {
 			return r, err
 		}
 		m := inner
-		m.BaseField, err = BaseFieldFromPB(pb.BaseField)
-		if err != nil {
-			return r, err
+		if pb.BaseField != nil {
+			m.BaseField, err = BaseFieldFromPB(pb.BaseField)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	case *TextField_Tagged:
@@ -844,9 +1086,11 @@ func TextFieldFromPB(pb *TextField) (icd.TextField, error) {
 			return r, err
 		}
 		m := inner
-		m.BaseField, err = BaseFieldFromPB(pb.BaseField)
-		if err != nil {
-			return r, err
+		if pb.BaseField != nil {
+			m.BaseField, err = BaseFieldFromPB(pb.BaseField)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	}

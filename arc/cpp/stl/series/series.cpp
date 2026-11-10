@@ -458,6 +458,17 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
 
 #undef BIND_SERIES_OPS
 
+    // A str series holds variable-length samples, so it starts with no samples.
+    linker
+        .func_wrap(
+            MODULE_NAME,
+            "create_empty_str",
+            [ss](uint32_t) -> uint32_t {
+                return ss->store(x::telem::Series(x::telem::STRING_T, 0));
+            }
+        )
+        .unwrap();
+
     // Registers the series operations valid on a bool series: allocation,
     // element access, and indexing. Bool series arise from element-wise
     // comparisons and support no arithmetic.

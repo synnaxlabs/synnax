@@ -35,7 +35,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<ReadTaskSource>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
@@ -73,7 +73,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
     result.task = std::make_unique<common::WriteTask>(
         task,
         ctx,
-        x::breaker::default_config(task.name),
+        common::unlimited_retry_config(task.name),
         std::make_unique<WriteTaskSink>(devs, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};

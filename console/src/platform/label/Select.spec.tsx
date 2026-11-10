@@ -70,7 +70,7 @@ describe("Label.Select permissions", () => {
   const createSubject = async (grants: Grants) =>
     await createTestClientWithGrants(client, {
       ...grants,
-      retrieve: [label.TYPE_ONTOLOGY_ID],
+      retrieve: [label.TYPE_RESOURCE_ID],
     });
 
   const renderPicker = async (as: Client): Promise<string> => {
@@ -93,11 +93,11 @@ describe("Label.Select permissions", () => {
     expect(screen.queryByText("New label")).toBeNull();
     // A footer that renders null still counts as a footer, which moves the border
     // off the list onto an empty wrapper.
-    expect(document.querySelector(".pluto-select__body")).toBeNull();
+    expect(document.querySelector(".lyra-select__body")).toBeNull();
   });
 
   it("should offer the new-label action to a subject who may create labels", async () => {
-    await renderPicker(await createSubject({ create: [label.TYPE_ONTOLOGY_ID] }));
+    await renderPicker(await createSubject({ create: [label.TYPE_RESOURCE_ID] }));
     expect(await screen.findByText("New label")).toBeTruthy();
   });
 });

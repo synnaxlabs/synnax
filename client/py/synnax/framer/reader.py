@@ -20,7 +20,7 @@ from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
 from synnax.framer.frame import Frame
 from synnax.telem import Reduction, StrideReduction, TimeRange
-from x.exceptions import ExceptionPayload, decode_exception
+from x.exceptions import ExceptionPayload, Registry
 from x.fs import FilePath
 
 _ENDPOINT = "/frame/read"
@@ -42,16 +42,22 @@ class Reader:
 
     _retriever: Retriever
     _file: FileTransport
+    _registry: Registry
 
-    def __init__(self, retriever: Retriever, file_transport: FileTransport) -> None:
+    def __init__(
+        self, *, retriever: Retriever, file_transport: FileTransport, registry: Registry
+    ) -> None:
         self._retriever = retriever
         self._file = file_transport
+        self._registry = registry
 
     def read(
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         reduction: Reduction | None = None,
+        timestamps_included: bool = False,
     ) -> Frame:
         """Reads every sample the given channels hold within tr.
 
@@ -60,14 +66,20 @@ class Reader:
             is keyed by name.
         :param reduction: how the Core reduces the samples of each channel. Defaults to
             keeping every sample.
+        :param timestamps_included: also reads the index channels of the channels
+            that channels leaves out.
         :returns: the samples as a frame.
         """
-        adapter = ReadFrameAdapter(self._retriever)
+        adapter = ReadFrameAdapter(
+            self._retriever,
+            reduction=reduction,
+            timestamps_included=timestamps_included,
+        )
         adapter.update(channels)
         req = _Request(keys=adapter.keys, bounds=tr, reduction=reduction)
         frame = Frame()
-        with self._file.stream(_ENDPOINT, req, _FRAME_CONTENT_TYPE) as body:
-            for record in _records(body):
+        with self._file.stream(_ENDPOINT, req, accept=_FRAME_CONTENT_TYPE) as body:
+            for record in _records(body, self._registry):
                 pld = adapter.codec.decode(record)
                 frame.append(Frame(channels=pld.keys, series=pld.series))
         return adapter.adapt(frame)
@@ -76,6 +88,7 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -97,6 +110,7 @@ class Reader:
         self,
         tr: TimeRange,
         channels: channel.Params,
+        *,
         dest: FilePath,
         reduction: StrideReduction | None = None,
     ) -> None:
@@ -129,10 +143,10 @@ class Reader:
             reduction=reduction,
             timestamps_included=True,
         )
-        self._file.download(_ENDPOINT, req, dest)
+        self._file.download(_ENDPOINT, req, dest=dest)
 
 
-def _records(body: Iterator[bytes]) -> Iterator[bytes]:
+def _records(body: Iterator[bytes], registry: Registry) -> Iterator[bytes]:
     """Yields the payload of every data record in a frame-encoded read body.
 
     The terminator ends the iteration, raising the error it carries when the read failed
@@ -163,6 +177,6 @@ def _records(body: Iterator[bytes]) -> Iterator[bytes]:
             continue
         if size == 0:
             return
-        raise decode_exception(
+        raise registry.decode(
             ExceptionPayload.model_validate_json(payload)
         ) or UnexpectedError(_TRUNCATED)

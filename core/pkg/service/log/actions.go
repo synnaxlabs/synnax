@@ -12,50 +12,63 @@ package log
 import (
 	"slices"
 
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/notation"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
+	"github.com/synnaxlabs/x/patch"
 )
 
-// Oracle does not emit Go struct defaults, so the defaults a newly added channel entry
-// receives are duplicated here. They must stay in sync with the field defaults declared
-// on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
-// defaultChannelEntry in client/ts/src/log/actions.ts.
-const (
-	defaultPrecision         int32                 = -1
-	defaultNotation          notation.Notation     = notation.NotationStandard
-	defaultTimestampFormat   telem.TimestampFormat = telem.TimestampFormatPreciseDate
-	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
-)
-
-// minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
-// precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/synnax/log.oracle.
-const (
-	minTimestampPrecision int32 = 0
-	maxTimestampPrecision int32 = 3
-)
-
-// minChannelPrecision and maxChannelPrecision bound a channel entry's display
-// precision. They mirror the @validate constraints on ChannelEntry.precision in
-// schemas/synnax/log.oracle.
-const (
-	minChannelPrecision int32 = -1
-	maxChannelPrecision int32 = 17
-)
-
-// Handle replaces the document with its created state.
-func (p CreatePayload) Handle(Log) (Log, error) {
-	return p.Log, nil
+// Handle returns an error wrapping validate.ErrValidation, as only the Core creates a
+// log.
+func (CreatePayload) Handle(Log) (Log, error) {
+	return Log{}, actions.CoreOnlyError("a log create")
 }
 
-// Handle replaces the log's name.
-func (p RenamePayload) Handle(state Log) (Log, error) {
-	state.Name = p.Name
+// Handle applies the set to the log's name, group, or project.
+func (p SetPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Set(p).Apply)
+}
+
+// Handle applies the remove to the log's name, group, or project.
+func (p RemovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Remove(p).Apply)
+}
+
+// Handle applies the insert to the log's name, group, or project.
+func (p InsertPayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Insert(p).Apply)
+}
+
+// Handle applies the move to the log's name, group, or project.
+func (p MovePayload) Handle(state Log) (Log, error) {
+	return edit(state, patch.Move(p).Apply)
+}
+
+// document is the part of a log that path actions edit.
+type document struct {
+	Name    string       `json:"name"`
+	Group   *group.Key   `json:"group,omitzero"`
+	Project *project.Key `json:"project,omitzero"`
+}
+
+// edit applies a path action to a copy of the log's document. A document that gains a
+// member it does not declare is rejected.
+func edit(state Log, apply func(map[string]any) error) (Log, error) {
+	d, err := patch.Edit(
+		document{Name: state.Name, Group: state.Group, Project: state.Project},
+		apply,
+	)
+	if err != nil {
+		return Log{}, err
+	}
+	state.Name, state.Group, state.Project = d.Name, d.Group, d.Project
 	return state, nil
 }
+
+func newSetAction(s patch.Set) Action { return NewSetAction(SetPayload(s)) }
+
+func newRemoveAction(r patch.Remove) Action { return NewRemoveAction(RemovePayload(r)) }
 
 // Handle appends a default channel entry for the given channel. No-op when the
 // channel already has an entry. The inverse RemoveChannel undoes the append
@@ -107,19 +120,9 @@ func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the display precision of the entry referencing the channel. It
-// returns validate.ErrValidation when the precision is outside the inclusive
-// range [-1, 17], and is a no-op when no entry references the channel.
+// Handle sets the display precision of the entry referencing the channel, or clears it
+// when the payload carries none. No-op when no entry references the channel.
 func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.Precision < minChannelPrecision || p.Precision > maxChannelPrecision {
-		return Log{}, errors.Wrapf(
-			validate.ErrValidation,
-			"channel precision %d out of range [%d, %d]",
-			p.Precision,
-			minChannelPrecision,
-			maxChannelPrecision,
-		)
-	}
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
 		state.Channels[i].Precision = p.Precision
 	}
@@ -135,52 +138,39 @@ func (p SetChannelAliasPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the timestamp render format of the entry referencing the channel.
-// No-op when no entry references it.
+// Handle sets the format of the values of the timestamp channel. No-op when no entry
+// references it.
 func (p SetChannelTimestampFormatPayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Format = p.Format
+		state.Channels[i].TimestampConfig.Format = p.Format
 	}
 	return state, nil
 }
 
-// Handle sets the timestamp time zone of the entry referencing the channel.
-// No-op when no entry references it.
-func (p SetChannelTimestampTzPayload) Handle(state Log) (Log, error) {
+// Handle sets the time zone of the values of the timestamp channel. No-op when no
+// entry references it.
+func (p SetChannelTimestampTimeZonePayload) Handle(state Log) (Log, error) {
 	if i := channelEntryIndex(state.Channels, p.Channel); i != -1 {
-		state.Channels[i].Timestamp.Tz = p.Tz
+		state.Channels[i].TimestampConfig.TimeZone = p.TimeZone
 	}
-	return state, nil
-}
-
-// Handle replaces the entire ordered list of channel entries.
-func (p SetChannelsPayload) Handle(state Log) (Log, error) {
-	state.Channels = p.Channels
 	return state, nil
 }
 
 // Handle repoints the entry referencing From at To in place, preserving the entry's
-// position and display configuration. No-op when no entry references From.
+// position and display configuration. No-op when no entry references From or an entry
+// already references To.
 func (p SwapChannelPayload) Handle(state Log) (Log, error) {
+	if channelEntryIndex(state.Channels, p.To) != -1 {
+		return state, nil
+	}
 	if i := channelEntryIndex(state.Channels, p.From); i != -1 {
 		state.Channels[i].Channel = p.To
 	}
 	return state, nil
 }
 
-// Handle sets the log-level timestamp precision. It returns validate.ErrValidation
-// when the precision is outside the inclusive range [0, 3].
+// Handle sets the log-level timestamp precision.
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.TimestampPrecision < minTimestampPrecision ||
-		p.TimestampPrecision > maxTimestampPrecision {
-		return Log{}, errors.Wrapf(
-			validate.ErrValidation,
-			"timestamp precision %d out of range [%d, %d]",
-			p.TimestampPrecision,
-			minTimestampPrecision,
-			maxTimestampPrecision,
-		)
-	}
 	state.TimestampPrecision = p.TimestampPrecision
 	return state, nil
 }
@@ -191,9 +181,15 @@ func (p SetChannelNamesHiddenPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle controls whether the receipt timestamp column is hidden.
-func (p SetReceiptTimestampHiddenPayload) Handle(state Log) (Log, error) {
-	state.ReceiptTimestampHidden = p.ReceiptTimestampHidden
+// Handle controls whether line times are hidden.
+func (p SetTimestampsHiddenPayload) Handle(state Log) (Log, error) {
+	state.TimestampsHidden = p.TimestampsHidden
+	return state, nil
+}
+
+// Handle sets the time zone of the line times and day rows.
+func (p SetTimeZonePayload) Handle(state Log) (Log, error) {
+	state.TimeZone = p.TimeZone
 	return state, nil
 }
 
@@ -207,16 +203,9 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 }
 
 // defaultChannelEntry builds a channel entry with the schema's default display
-// configuration. Color is left as the zero value; the rendering layer resolves a
-// palette color for entries without an explicit color.
+// configuration. A zero color renders in the text color of the log.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
-	return ChannelEntry{
-		Channel:   key,
-		Notation:  defaultNotation,
-		Precision: defaultPrecision,
-		Timestamp: TimestampConfig{
-			Format: defaultTimestampFormat,
-			Tz:     defaultTimestampTimeZone,
-		},
-	}
+	e := ChannelEntry{Channel: key}
+	e.ApplyDefaults()
+	return e
 }

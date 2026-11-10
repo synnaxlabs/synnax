@@ -13,18 +13,9 @@ import sys
 from pathlib import Path
 
 import pytest
+from scripts_common import FakeGH
 
 SCRIPT = Path(__file__).resolve().parents[1] / "publish_qa_report.py"
-
-# Records its arguments and the body file, then prints an issue URL.
-FAKE_GH = """#!/usr/bin/env bash
-echo "$*" > "$FAKE_DIR/args"
-while [ $# -gt 0 ]; do
-    if [ "$1" = --body-file ]; then cp "$2" "$FAKE_DIR/body"; fi
-    shift
-done
-echo https://github.com/synnaxlabs/synnax/issues/1
-"""
 
 REPORT = """# Console QA: 1 finding
 
@@ -41,22 +32,23 @@ def git(cwd: Path, *args: str) -> str:
 
 
 @pytest.fixture
-def env(tmp_path: Path) -> dict[str, str]:
+def gh(tmp_path: Path) -> FakeGH:
+    gh = FakeGH(tmp_path)
+    gh.serve("issue create", "https://github.com/synnaxlabs/synnax/issues/1")
+    return gh
+
+
+@pytest.fixture
+def env(tmp_path: Path, gh: FakeGH) -> dict[str, str]:
     origin = tmp_path / "origin.git"
     git(tmp_path, "init", "-q", "--bare", str(origin))
     clone = tmp_path / "clone"
     git(tmp_path, "init", "-q", str(clone))
     git(clone, "remote", "add", "origin", str(origin))
-    bin_dir = tmp_path / "bin"
-    bin_dir.mkdir()
-    gh = bin_dir / "gh"
-    gh.write_text(FAKE_GH)
-    gh.chmod(0o755)
     base = {k: v for k, v in os.environ.items() if not k.startswith("GITHUB_")}
     return {
         **base,
-        "PATH": f"{bin_dir}{os.pathsep}{base['PATH']}",
-        "FAKE_DIR": str(tmp_path),
+        "PATH": f"{gh.bin_dir}{os.pathsep}{base['PATH']}",
         "GIT_AUTHOR_NAME": "ci",
         "GIT_AUTHOR_EMAIL": "ci@synnaxlabs.com",
         "GIT_COMMITTER_NAME": "ci",
@@ -80,7 +72,7 @@ def publish(
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(SCRIPT), str(qa), *args],
-        cwd=Path(env["FAKE_DIR"]) / "clone",
+        cwd=qa.parent / "clone",
         env=env,
         capture_output=True,
         text=True,
@@ -89,15 +81,16 @@ def publish(
 
 class TestPublish:
     def test_should_open_an_issue_with_hosted_images(
-        self, env: dict[str, str], report: Path, tmp_path: Path
+        self, env: dict[str, str], report: Path, tmp_path: Path, gh: FakeGH
     ) -> None:
         done = publish(env, report)
         assert done.returncode == 0, done.stderr
         assert done.stdout.strip() == "https://github.com/synnaxlabs/synnax/issues/1"
-        args = (tmp_path / "args").read_text()
+        call = gh.calls()[-1]
+        args = " ".join(call)
         assert "--title Console QA: 1 finding" in args
         assert "--label console-qa" in args
-        body = (tmp_path / "body").read_text()
+        body = Path(call[call.index("--body-file") + 1]).read_text()
         commit = git(tmp_path / "origin.git", "rev-parse", "agent-assets")
         url = f"https://raw.githubusercontent.com/synnaxlabs/synnax/{commit}"
         assert f"]({url}/console-qa-42/legend.png)" in body
@@ -130,14 +123,14 @@ class TestPublish:
         assert git(tmp_path / "origin.git", "branch", "--list") == "agent-assets"
 
     def test_should_write_the_issue_to_a_file_in_a_dry_run(
-        self, env: dict[str, str], report: Path, tmp_path: Path
+        self, env: dict[str, str], report: Path, tmp_path: Path, gh: FakeGH
     ) -> None:
         done = publish(env, report, "--dry-run")
         assert done.returncode == 0, done.stderr
         issue = (report / "issue.md").read_text()
         assert issue.startswith("# Console QA: 1 finding\n")
         assert "](images/legend.png)" in issue
-        assert not (tmp_path / "args").exists()
+        assert gh.calls() == []
         assert git(tmp_path / "origin.git", "branch", "--list") == ""
 
     def test_should_reject_a_report_without_a_title(

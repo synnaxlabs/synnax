@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -27,8 +28,6 @@ type entry struct {
 
 func (m entry) GorpKey() int32 { return m.ID }
 
-func (m entry) SetOptions() []any { return nil }
-
 type prefixEntry struct {
 	ID   int32
 	Data string
@@ -36,16 +35,12 @@ type prefixEntry struct {
 
 func (m prefixEntry) GorpKey() string { return "prefix-" + strconv.Itoa(int(m.ID)) }
 
-func (m prefixEntry) SetOptions() []any { return nil }
-
 type grape struct {
 	ID   int32
 	Data string
 }
 
 func (m grape) GorpKey() int32 { return m.ID }
-
-func (m grape) SetOptions() []any { return nil }
 
 var _ = Describe("Create", Ordered, func() {
 	var (
@@ -93,69 +88,69 @@ var _ = Describe("Create", Ordered, func() {
 		})
 	})
 
-	Describe("Guard", func() {
+	Describe("Exclusive", func() {
+		create := func(ctx SpecContext, data string) error {
+			return gorp.NewCreate[int32, entry]().
+				Exclusive().
+				Entry(&entry{ID: 7, Data: data}).
+				Exec(ctx, tx)
+		}
+		stored := func(ctx SpecContext) entry {
+			GinkgoHelper()
+			var e entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](7)).
+				Entry(&e).
+				Exec(ctx, tx)).To(Succeed())
+			return e
+		}
+		exists := SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("%s 7 already exists", types.Name[entry]())),
+		)
+		It("Should create an entry whose key does not exist", func(ctx SpecContext) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(stored(ctx).Data).To(Equal("first"))
+		})
+		It("Should refuse an entry that a committed write created", func(
+			ctx SpecContext,
+		) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			next := DeferClose(db.OpenTx())
+			Expect(gorp.NewCreate[int32, entry]().
+				Exclusive().
+				Entry(&entry{ID: 7, Data: "second"}).
+				Exec(ctx, next)).To(exists)
+			Expect(next.Close()).To(Succeed())
+			Expect(gorp.NewDelete[int32, entry]().
+				Where(gorp.MatchKeys[int32, entry](7)).
+				Exec(ctx, db)).To(Succeed())
+		})
+		It("Should refuse an entry that an earlier write in the tx created", func(
+			ctx SpecContext,
+		) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(create(ctx, "second")).To(exists)
+			Expect(stored(ctx).Data).To(Equal("first"))
+		})
 		It(
-			"Should prevent the accidental override of existing entries",
+			"Should create an entry that the transaction deleted",
 			func(ctx SpecContext) {
-				e := &entry{
-					ID:   int32(42),
-					Data: "The answer to life, the universe, and everything",
-				}
-				Expect(
-					gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx),
-				).To(Succeed())
-				Expect(
-					gorp.NewCreate[int32, entry]().Entry(e).
-						MergeExisting(func(_ gorp.Context, c, e entry) (entry, error) {
-							Expect(e.GorpKey()).To(Equal(int32(42)))
-							return entry{}, validate.ErrValidation
-						}).
-						Exec(ctx, tx),
-				).To(MatchError(validate.ErrValidation))
+				Expect(create(ctx, "first")).To(Succeed())
+				Expect(gorp.NewDelete[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](7)).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(create(ctx, "second")).To(Succeed())
+				Expect(stored(ctx).Data).To(Equal("second"))
 			},
 		)
-		It(
-			"Should not call the filter if no entry with a matching GorpKey is found",
-			func(ctx SpecContext) {
-				e := &entry{
-					ID:   42,
-					Data: "The answer to life, the universe, and everything",
-				}
-				c := 0
-				Expect(
-					gorp.NewCreate[int32, entry]().Entry(e).
-						MergeExisting(func(_ gorp.Context, creating, _ entry) (entry, error) {
-							c++
-							return creating, validate.ErrValidation
-						}).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(c).To(Equal(0))
-			},
-		)
-		It("Should merge an existing entry with the new entry", func(ctx SpecContext) {
-			e := &entry{
-				ID:   42,
-				Data: "The answer to life, the universe, and everything",
-			}
-			Expect(gorp.NewCreate[int32, entry]().Entry(e).Exec(ctx, tx)).To(Succeed())
-			Expect(
-				gorp.NewCreate[int32, entry]().Entry(e).
-					MergeExisting(func(_ gorp.Context, _, e entry) (entry, error) {
-						Expect(e.GorpKey()).To(Equal(int32(42)))
-						return entry{ID: e.ID, Data: e.Data + "!"}, nil
-					}).
-					Exec(ctx, tx),
-			).To(Succeed())
-			var e2 entry
-			Expect(
-				gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](int32(42))).
-					Entry(&e2).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(
-				e2.Data,
-			).To(Equal("The answer to life, the universe, and everything!"))
+		It("Should overwrite an entry without the option", func(ctx SpecContext) {
+			Expect(create(ctx, "first")).To(Succeed())
+			Expect(gorp.NewCreate[int32, entry]().
+				Entry(&entry{ID: 7, Data: "second"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(stored(ctx).Data).To(Equal("second"))
 		})
 	})
 

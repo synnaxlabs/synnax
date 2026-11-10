@@ -9,17 +9,11 @@
 
 import { connection, Synnax, type SynnaxParams } from "@synnaxlabs/client";
 import { context } from "@synnaxlabs/lyra/context";
-import { useCombinedStateAndRef } from "@synnaxlabs/lyra/hooks";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Status } from "@synnaxlabs/lyra/status";
-import { migrate } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { record } from "@synnaxlabs/x";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import z from "zod";
 
 import { Aether } from "@/aether";
@@ -48,22 +42,12 @@ export interface ProviderProps extends PropsWithChildren {
   connParams?: SynnaxParams;
 }
 
-export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
 export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
-
-export const statusDetailsSchema = z.object({
-  type: z.string(),
-  oldServer: z.boolean(),
-  nodeVersion: z.string().optional(),
-  clientVersion: z.string(),
-});
 
 export const clockSkewDetailsSchema = z.object({
   type: z.string(),
   clockSkew: z.number(),
 });
-
-export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
 
 const addClockSkewStatus = (
   addStatus: Status.Adder,
@@ -87,26 +71,6 @@ const addClockSkewStatus = (
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
   status.variant === "error" ? status.details.reason : undefined;
-
-const addVersionMismatchStatus = (
-  addStatus: Status.Adder,
-  status: connection.Status,
-): void => {
-  const oldServer =
-    status.details.nodeVersion == null ||
-    migrate.semVerOlder(status.details.nodeVersion, status.details.clientVersion);
-  addStatus<typeof statusDetailsSchema>({
-    variant: "warning",
-    message: "Incompatible Core version",
-    description: `Core version ${status.details.nodeVersion != null ? `${status.details.nodeVersion} ` : ""}is ${oldServer ? "older" : "newer"} than client version ${status.details.clientVersion}. Compatibility issues may arise.`,
-    details: {
-      type: SERVER_VERSION_MISMATCH,
-      oldServer,
-      nodeVersion: status.details.nodeVersion,
-      clientVersion: status.details.clientVersion,
-    },
-  });
-};
 
 interface TestProviderProps extends PropsWithChildren {
   client: Synnax | null;
@@ -148,15 +112,32 @@ export const Provider = ({
   // the cue for latched error boundaries to try again.
   const [resetKey, setResetKey] = useState(0);
 
+  // The worker joins the page client's session instead of opening its own, so ending
+  // the page's session ends the worker's access too.
+  const { client: pageClient } = state;
+  // for a moment after a switch, the page client still belongs to the previous Core
+  const current =
+    pageClient != null &&
+    connParams != null &&
+    pageClient.params.host === connParams.host &&
+    Number(pageClient.params.port) === Number(connParams.port) &&
+    pageClient.params.secure === (connParams.secure ?? false);
+  const token =
+    current && state.status.details.authenticated ? pageClient.auth.token : undefined;
+  let workerParams: SynnaxParams | null = null;
+  if (connParams != null && token != null) {
+    const shared = record.omit(connParams, "username", "password", "token");
+    workerParams =
+      token === "" ? { ...shared, sessionCookie: true } : { ...shared, token };
+  }
   const { path } = Aether.useUnidirectional({
     type: synnax.Provider.TYPE,
     schema: synnax.Provider.stateZ,
-    state: { props: connParams ?? null },
+    state: { props: workerParams },
   });
 
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const versionWarned = useRef(false);
 
   const handleChange = (connStatus: connection.Status) => {
     const prev = ref.current.status;
@@ -166,35 +147,33 @@ export const Provider = ({
       reasonOf(prev) !== reasonOf(connStatus)
     )
       addStatus(connStatus);
-    if (connStatus.variant === "success") {
-      if (connStatus.details.clockSkewExceeded)
-        addClockSkewStatus(addStatus, connStatus);
-      if (!connStatus.details.clientServerCompatible && !versionWarned.current) {
-        versionWarned.current = true;
-        addVersionMismatchStatus(addStatus, connStatus);
-      }
-    }
+    if (connStatus.variant === "success" && connStatus.details.clockSkewExceeded)
+      addClockSkewStatus(addStatus, connStatus);
     if (connStatus.details.epoch !== prev.details.epoch) setResetKey((key) => key + 1);
     setState((prev) => ({ ...prev, status: connStatus }));
   };
+  // Read through refs, so a new callback does not rebuild the client.
+  const handleChangeRef = useSyncedRef(handleChange);
+  const handleErrorRef = useSyncedRef(handleError);
 
   useEffect(() => {
     if (connParams == null) {
       setState(ZERO_CONTEXT_VALUE);
       return;
     }
-    versionWarned.current = false;
     const heading = {
       message: "Failed to sync with Core",
       name: connParams.name ?? "",
     };
     const client = new Synnax({
       ...connParams,
-      onInternalError: (e) => handleError(e, heading),
+      onInternalError: (e) => handleErrorRef.current(e, heading),
     });
     setState({ client, status: client.connection.status });
     setResetKey((key) => key + 1);
-    const detach = client.connection.onChange(handleChange);
+    const detach = client.connection.onChange((connStatus) =>
+      handleChangeRef.current(connStatus),
+    );
     return () => {
       detach();
       // Effect cleanup cannot await. The failure is logged rather than pushed
@@ -202,7 +181,7 @@ export const Provider = ({
       client.close().catch((e: unknown) => console.error("failed to close client", e));
       setState(ZERO_CONTEXT_VALUE);
     };
-  }, [connParams, handleChange, handleError]);
+  }, [connParams]);
 
   return (
     <Context value={state}>

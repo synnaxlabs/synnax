@@ -29,14 +29,17 @@ extern "C" {
 
 /// @brief connects to a Synnax Core and verifies connectivity. secure=0 connects in
 /// plaintext; secure!=0 uses TLS and verifies the Core against the system trust store.
-/// max_retries=0 and clock_skew_threshold<=0 take the Config defaults. NULL
-/// host/username/password fall back to localhost/synnax/seldon, port 0 to 9090. On
-/// success writes the handle to *out_client and returns 0.
+/// max_retries=0 and clock_skew_threshold<=0 take the Config defaults. NULL host falls
+/// back to localhost, port 0 to 9090. A non-empty api_key logs in with that key, and a
+/// username or password given with it is a validation error. Without a key, NULL
+/// username/password fall back to synnax/seldon. On success writes the handle to
+/// *out_client and returns 0.
 SYNNAX_EXPORT int32_t synnax_client_open(
     const char *host,
     uint16_t port,
     const char *username,
     const char *password,
+    const char *api_key,
     int32_t secure,
     uint32_t max_retries,
     int64_t clock_skew_threshold,

@@ -7,12 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Schematic } from "@synnaxlabs/pluto";
 import { deep } from "@synnaxlabs/x";
+
+const path = Schematic.Symbol.formPath;
 
 export interface SelectVariantProps extends Input.Control<string> {}
 
@@ -34,17 +36,18 @@ export interface SelectVariantFieldProps {
 }
 
 export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) => (
-  <Form.Field<string>
-    path="data.variant"
+  <Form.Field
+    path={path.data.variant}
     showLabel={false}
+    showHelpText={false}
     onChange={(next, { get, set }) => {
-      const prev = get("data.variant").value;
+      const prev = get(path.data.variant).value;
       if (prev === next) return;
-      const prevStates = get<schematic.symbol.State[]>("data.states").value;
+      const prevStates = get(path.data.states).value;
       if (next === "actuator") {
         const baseState = prevStates.find((s) => s.key === "base");
         const baseRegions = baseState?.regions ?? [];
-        set("data.states", [
+        set(path.data.states, [
           ...prevStates,
           {
             key: "active",
@@ -54,7 +57,7 @@ export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) =
         ]);
       } else if (next === "static") {
         onSelectState("base");
-        set("data.states", [...prevStates.filter((s) => s.key !== "active")]);
+        set(path.data.states, [...prevStates.filter((s) => s.key !== "active")]);
       }
     }}
   >

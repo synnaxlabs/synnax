@@ -15,6 +15,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -31,13 +32,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It(
@@ -45,7 +43,7 @@ var _ = Describe("DB", func() {
 					func(ctx SpecContext) {
 						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 						Expect(
-							domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
+							testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
 						).To(Succeed())
 						Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
 					},
@@ -56,7 +54,7 @@ var _ = Describe("DB", func() {
 					func(ctx SpecContext) {
 						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 						Expect(
-							domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
+							testutil.WriteDomain(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6}),
 						).To(Succeed())
 						Expect(
 							db.HasDataFor(
@@ -97,13 +95,10 @@ var _ = Describe("DB", func() {
 				)
 				BeforeEach(func() {
 					fs = openFS()
-					db = MustSucceed(domain.Open(domain.Config{
+					db = MustOpen(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 
 				It("Should return zero for an empty database", func() {
@@ -115,7 +110,7 @@ var _ = Describe("DB", func() {
 					func(ctx SpecContext) {
 						data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 						tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
-						Expect(domain.Write(ctx, db, tr, data)).To(Succeed())
+						Expect(testutil.WriteDomain(ctx, db, tr, data)).To(Succeed())
 						Expect(db.Size()).To(Equal(telem.Size(len(data))))
 					},
 				)
@@ -125,11 +120,11 @@ var _ = Describe("DB", func() {
 					func(ctx SpecContext) {
 						data1 := []byte{1, 2, 3, 4, 5}
 						tr1 := (10 * telem.SecondTS).SpanRange(5 * telem.Second)
-						Expect(domain.Write(ctx, db, tr1, data1)).To(Succeed())
+						Expect(testutil.WriteDomain(ctx, db, tr1, data1)).To(Succeed())
 
 						data2 := []byte{6, 7, 8, 9, 10, 11, 12}
 						tr2 := (20 * telem.SecondTS).SpanRange(7 * telem.Second)
-						Expect(domain.Write(ctx, db, tr2, data2)).To(Succeed())
+						Expect(testutil.WriteDomain(ctx, db, tr2, data2)).To(Succeed())
 
 						expectedSize := telem.Size(len(data1) + len(data2))
 						Expect(db.Size()).To(Equal(expectedSize))
@@ -139,6 +134,16 @@ var _ = Describe("DB", func() {
 		})
 	}
 
+	Describe("Open", func() {
+		It("Should reject a file size that does not fit in 32 bits", func() {
+			Expect(domain.Open(domain.Config{
+				FS:              fs.NewMem(),
+				Instrumentation: PanicLogger(),
+				FileSize:        5 * telem.Gigabyte,
+			})).Error().To(MatchError(ContainSubstring("file_size")))
+		})
+	})
+
 	Describe("Attempting Operations on a Closed DB", func() {
 		Describe("HasDataFor", func() {
 			It("Should return ErrDBClosed", func(ctx SpecContext) {
@@ -147,8 +152,10 @@ var _ = Describe("DB", func() {
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())
-				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(MatchError(domain.ErrDBClosed))
+				Expect(
+					db.HasDataFor(ctx, telem.TimeRange{}),
+				).Error().
+					To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})

@@ -61,62 +61,61 @@ func (cfg GCConfig) Validate() error {
 	return v.Error()
 }
 
-func keyToDirName(ch ChannelKey) string { return strconv.Itoa(int(ch)) }
+func keyToDirName(ch ChannelKey) string { return strconv.FormatUint(uint64(ch), 10) }
 
-// DeleteChannel deletes a channel by its key.
+func dirNameToKey(name string) (ChannelKey, error) {
+	key, err := strconv.ParseUint(name, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return ChannelKey(key), nil
+}
+
+// DeleteChannel deletes a channel by its key. It returns once the channel is detached
+// and removes its data in the background. Close waits for the removal to finish.
 //
 // This method returns an error if there are other channels depending on the current
 // channel, or if the current channel is being written to or read from.
 //
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	// Close waits for removals under db.mu, so the check must hold the lock.
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
-	// Rename the file first, so we can avoid hogging the mutex while deleting the
-	// directory, which may take a longer time. Rename the file to have a random suffix
-	// in case the channel is repeatedly created and deleted.
+	// The random suffix lets a channel be created and deleted again while an earlier
+	// removal runs.
 	oldName := keyToDirName(ch)
-	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	if err := func() error {
-		db.mu.Lock()
-		defer db.mu.Unlock()
-		if err := db.removeChannel(ch); err != nil {
-			return err
-		}
-		err := db.fs.Rename(oldName, newName)
-		if errors.Is(err, fs.ErrNotExist) {
-			return nil
-		}
-		return err
-	}(); err != nil {
+	newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
+	if err := db.removeChannel(ch); err != nil {
 		return err
 	}
-	return db.fs.Remove(newName)
+	if err := db.fs.Rename(oldName, newName); err != nil {
+		return errors.Skip(err, fs.ErrNotExist)
+	}
+	db.removeDirs(newName)
+	return nil
 }
 
 // DeleteChannels deletes many channels by their keys. This operation is not guaranteed
-// to be atomic: it is possible some channels in chs are deleted and some are not.
+// to be atomic: it is possible some channels in chs are deleted and some are not. It
+// returns once the channels are detached and removes their data in the background.
+// Close waits for the removal to finish.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
 	var (
 		indexChannels       = make([]ChannelKey, 0, len(chs))
 		directoriesToRemove = make([]string, 0, len(chs))
 	)
 	db.mu.Lock()
-	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.dbs.unary and db.mu.dbs.virtual are also
-	// deleted on FS.
 	defer func() {
+		db.removeDirs(directoriesToRemove...)
 		db.mu.Unlock()
-		var errRemove error
-		for _, name := range directoriesToRemove {
-			errRemove = errors.Join(errRemove, db.fs.Remove(name))
-		}
-		err = errors.Combine(err, errRemove)
 	}()
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
@@ -137,7 +136,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		// Rename the files first, so we can avoid hogging the mutex while deleting the
 		// directory, which may take a longer time.
 		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
 			return err
@@ -154,7 +153,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		}
 
 		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
 			return err
@@ -164,6 +163,29 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	}
 
 	return err
+}
+
+// deletedDirInfix marks a channel directory that a delete detached and that waits for
+// removal.
+const deletedDirInfix = "-DELETE-"
+
+// removeDirs removes the named detached channel directories in the background. A
+// failed removal logs the error, and the next Open retries it.
+func (db *DB) removeDirs(names ...string) {
+	if len(names) == 0 {
+		return
+	}
+	db.removals.Go(func() {
+		for _, name := range names {
+			if err := db.fs.Remove(name); err != nil {
+				db.L.Error(
+					"failed to remove deleted channel data",
+					zap.String("dir", name),
+					zap.Error(err),
+				)
+			}
+		}
+	})
 }
 
 // removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
@@ -201,7 +223,8 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 // DeleteTimeRange deletes a time range of data in the database in the given channels
 // This method return an error if the channel to be deleted is an index channel and
 // there are other channels depending on it in the time range. DeleteTimeRange is
-// idempotent, but when the channel does not exist, it returns ErrChannelNotFound.
+// idempotent, but when the channel does not exist, it returns ErrChannelNotFound. It
+// deletes nothing and returns ctx.Err() if ctx is already canceled.
 func (db *DB) DeleteTimeRange(
 	ctx context.Context,
 	chs []ChannelKey,
@@ -209,6 +232,9 @@ func (db *DB) DeleteTimeRange(
 ) error {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	var (
 		indexChannels = make([]ChannelKey, 0, len(chs))
 		dataChannels  = make([]ChannelKey, 0, len(chs))
@@ -277,6 +303,10 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 	for i := range min(int(maxGoRoutine), len(pending)) {
 		sCtx.Go(func(ctx context.Context) error {
 			for uDB := range pending {
+				// A collection rewrites files and does not stop for ctx.
+				if ctx.Err() != nil {
+					return nil
+				}
 				if err := uDB.GarbageCollect(ctx); err != nil {
 					return err
 				}

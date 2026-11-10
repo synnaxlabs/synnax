@@ -95,7 +95,7 @@ const universities = [
         max-width: 1300px;
         min-height: 90vh;
 
-        @media (max-width: 450px) {
+        @media (width <= 450px) {
             padding-top: 2rem;
         }
     }
@@ -114,7 +114,7 @@ const universities = [
             font-weight: 400;
         }
 
-        @media (max-width: 600px) {
+        @media (width <= 600px) {
             padding: 20rem 5rem;
         }
     }
@@ -180,13 +180,13 @@ const universities = [
         color: var(--pluto-gray-l9);
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .sponsorships-grid {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .sponsorships-grid {
             grid-template-columns: repeat(2, 1fr);
         }

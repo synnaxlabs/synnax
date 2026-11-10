@@ -17,6 +17,7 @@ package task
 
 import (
 	context "context"
+	pb "github.com/synnaxlabs/synnax/pkg/api/task/pb"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -136,7 +137,7 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskRetrieveServiceClient interface {
-	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error)
+	Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error)
 }
 
 type taskRetrieveServiceClient struct {
@@ -147,9 +148,9 @@ func NewTaskRetrieveServiceClient(cc grpc.ClientConnInterface) TaskRetrieveServi
 	return &taskRetrieveServiceClient{cc}
 }
 
-func (c *taskRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*RetrieveResponse, error) {
+func (c *taskRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveRequest, opts ...grpc.CallOption) (*pb.RetrieveResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(RetrieveResponse)
+	out := new(pb.RetrieveResponse)
 	err := c.cc.Invoke(ctx, TaskRetrieveService_Exec_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
@@ -161,7 +162,7 @@ func (c *taskRetrieveServiceClient) Exec(ctx context.Context, in *RetrieveReques
 // All implementations should embed UnimplementedTaskRetrieveServiceServer
 // for forward compatibility.
 type TaskRetrieveServiceServer interface {
-	Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error)
+	Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error)
 }
 
 // UnimplementedTaskRetrieveServiceServer should be embedded to have
@@ -171,7 +172,7 @@ type TaskRetrieveServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedTaskRetrieveServiceServer struct{}
 
-func (UnimplementedTaskRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*RetrieveResponse, error) {
+func (UnimplementedTaskRetrieveServiceServer) Exec(context.Context, *RetrieveRequest) (*pb.RetrieveResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
 }
 func (UnimplementedTaskRetrieveServiceServer) testEmbeddedByValue() {}
@@ -422,6 +423,106 @@ var TaskCopyService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Exec",
 			Handler:    _TaskCopyService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/task/task.proto",
+}
+
+const (
+	TaskDispatchService_Exec_FullMethodName = "/grpc.task.TaskDispatchService/Exec"
+)
+
+// TaskDispatchServiceClient is the client API for TaskDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type TaskDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type taskDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewTaskDispatchServiceClient(cc grpc.ClientConnInterface) TaskDispatchServiceClient {
+	return &taskDispatchServiceClient{cc}
+}
+
+func (c *taskDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TaskDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// TaskDispatchServiceServer is the server API for TaskDispatchService service.
+// All implementations should embed UnimplementedTaskDispatchServiceServer
+// for forward compatibility.
+type TaskDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedTaskDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedTaskDispatchServiceServer struct{}
+
+func (UnimplementedTaskDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedTaskDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeTaskDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to TaskDispatchServiceServer will
+// result in compilation errors.
+type UnsafeTaskDispatchServiceServer interface {
+	mustEmbedUnimplementedTaskDispatchServiceServer()
+}
+
+func RegisterTaskDispatchServiceServer(s grpc.ServiceRegistrar, srv TaskDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedTaskDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&TaskDispatchService_ServiceDesc, srv)
+}
+
+func _TaskDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// TaskDispatchService_ServiceDesc is the grpc.ServiceDesc for TaskDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var TaskDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.task.TaskDispatchService",
+	HandlerType: (*TaskDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _TaskDispatchService_Exec_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

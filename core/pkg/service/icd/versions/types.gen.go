@@ -32,7 +32,11 @@ const (
 
 // Identifier selects which frames on a bus belong to a binary message.
 type Identifier = v0.Identifier
+
+// IdentifierVariant is implemented by every Identifier variant.
 type IdentifierVariant = v0.IdentifierVariant
+
+// IdentifierType is the "type" value that selects a variant of Identifier.
 type IdentifierType = v0.IdentifierType
 
 const (
@@ -56,7 +60,11 @@ type BinaryField = v0.BinaryField
 
 // TextField is a field read from a text line.
 type TextField = v0.TextField
+
+// TextFieldVariant is implemented by every TextField variant.
 type TextFieldVariant = v0.TextFieldVariant
+
+// TextFieldType is the "encoding" value that selects a variant of TextField.
 type TextFieldType = v0.TextFieldType
 
 const (
@@ -74,7 +82,11 @@ type TaggedTextField = v0.TaggedTextField
 
 // Payload is the layout of a message's payload.
 type Payload = v0.Payload
+
+// PayloadVariant is implemented by every Payload variant.
 type PayloadVariant = v0.PayloadVariant
+
+// PayloadType is the "format" value that selects a variant of Payload.
 type PayloadType = v0.PayloadType
 
 const (

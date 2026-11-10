@@ -14,30 +14,30 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/bus"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/tcp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *tcp.Service
+	var (
+		svc   *tcp.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
-		svc = MustOpen(tcp.OpenService(ctx, tcp.ServiceConfig{
-			DB: db,
-			Resolver: bus.Resolver{
-				Stamper: icd.Stamper{DB: db, Ontology: otg},
-			},
+		svc = MustOpen(tcp.OpenService(ctx, tcp.ServiceConfig{DB: db}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the resolver", func(ctx SpecContext) {
-			Expect(tcp.OpenService(ctx, tcp.ServiceConfig{DB: db})).Error().
-				To(MatchError(ContainSubstring(
-					"resolver.stamper.db: must be non-nil",
-				)))
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(tcp.OpenService(ctx, tcp.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 	})
 
@@ -57,16 +57,15 @@ var _ = Describe("Service", func() {
 
 	Describe("Write", func() {
 		It("Should stamp the ICD hash into a read config", func(ctx SpecContext) {
-			key := uuid.New()
-			ic, m := createICD(ctx, key)
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ic, m := createICD(ctx)
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"icd": ic.Key.String(),
 				"messages": []any{map[string]any{
 					"message": m.Key.String(),
 					"index":   1,
 				}},
-			})).To(Succeed())
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["icd_hash"]).To(Equal(MustSucceed(
 				icd.TaskHash(ic, []icd.MessageKey{m.Key}),
 			)))
@@ -75,31 +74,29 @@ var _ = Describe("Service", func() {
 		It("Should reject a read config whose message is not in the ICD", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			ic, _ := createICD(ctx, key)
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ic, _ := createICD(ctx)
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"icd":      ic.Key.String(),
 				"messages": []any{map[string]any{"message": uuid.New().String()}},
-			})).To(MatchError(ContainSubstring("is not in the ICD")))
+			})).Error().To(MatchError(ContainSubstring("is not in the ICD")))
 		})
 
 		It("Should reject a write config whose ICD does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"icd": uuid.New().String(),
-			})).To(MatchError(ContainSubstring("does not exist")))
+			})).Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 
 		It("Should apply read config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			ic, _ := createICD(ctx, key)
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ic, _ := createICD(ctx)
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"icd": ic.Key.String(),
-			})).To(Succeed())
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 1))
 			Expect(data["timeout"]).To(Equal("1000000000"))
 			Expect(data["framing"]).To(Equal(map[string]any{
@@ -111,13 +108,12 @@ var _ = Describe("Service", func() {
 		It(
 			"Should default the length of a fixed framing to one byte",
 			func(ctx SpecContext) {
-				key := uuid.New()
-				ic, _ := createICD(ctx, key)
-				Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+				ic, _ := createICD(ctx)
+				key := MustSucceed(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 					"icd":     ic.Key.String(),
 					"framing": map[string]any{"type": "fixed", "length": 0},
-				})).To(Succeed())
-				data := MustSucceed(svc.Write.Read(ctx, nil, key))
+				}))
+				data := MustSucceed(svc.Write.Read(ctx, db, key))
 				Expect(
 					data["framing"],
 				).To(HaveKeyWithValue("length", BeNumerically("==", 1)))
@@ -127,9 +123,8 @@ var _ = Describe("Service", func() {
 		It("Should apply scan config schema defaults to absent fields", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
-			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
+			key := MustSucceed(tasks.Create(ctx, svc.Scan, msgpack.EncodedJSON{}))
+			data := MustSucceed(svc.Scan.Read(ctx, db, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 	})

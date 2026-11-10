@@ -20,7 +20,11 @@ export const POST: APIRoute = async (context) =>
     const key = context.params.key ?? "";
     const { portal } = context.locals;
     const session = await portal.session();
-    const { license, organization } = await activationFor(portal, session, key);
+    const { activation, license, organization } = await activationFor(
+      portal,
+      session,
+      key,
+    );
     const now = portal.now();
     await check(portal.store, {
       actor: session.userID,
@@ -32,5 +36,5 @@ export const POST: APIRoute = async (context) =>
       actor: session.userID,
       now,
     });
-    return download(signed, license.label);
+    return download(signed, license.label, activation.name);
   });

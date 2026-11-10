@@ -12,6 +12,7 @@ import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
+import { NotFoundError } from "@/errors";
 import { type Key, keyZ } from "@/ranger/types.gen";
 
 const resolveReqZ = z.object({ range: keyZ, aliases: z.string().array() });
@@ -33,16 +34,18 @@ const retrieveReqZ = z.object({ range: keyZ, channels: channel.keyZ.array() });
 const retrieveResZ = z.object({ aliases: z.record(z.string(), z.string()) });
 
 export class Client {
-  private readonly cache = new Map<string, channel.Key>();
   private readonly client: UnaryClient;
   private readonly rangeKey: Key;
 
   constructor(rangeKey: Key, client: UnaryClient) {
     this.rangeKey = rangeKey;
-    this.cache = new Map();
     this.client = client;
   }
 
+  /**
+   * @returns the key of the channel with the alias.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   resolve(aliases: string): Promise<channel.Key>;
 
   resolve(aliases: string[]): Promise<Record<string, channel.Key>>;
@@ -50,28 +53,16 @@ export class Client {
   async resolve(
     aliases: string | string[],
   ): Promise<channel.Key | Record<string, channel.Key>> {
-    const toFetch: string[] = [];
-    const isSingle = typeof aliases === "string";
-    const cached: Record<string, channel.Key> = {};
-    if (isSingle) {
-      const c = this.cache.get(aliases);
-      if (c != null) return c;
-      toFetch.push(aliases);
-    } else
-      aliases.forEach((alias) => {
-        const c = this.cache.get(alias);
-        if (c != null) cached[alias] = c;
-        else toFetch.push(alias);
-      });
-    if (toFetch.length === 0) return cached;
     const res = await this.client.send(
       "/range/alias/resolve",
-      { range: this.rangeKey, aliases: toFetch },
+      { range: this.rangeKey, aliases: array.toArray(aliases) },
       resolveReqZ,
       resolveResZ,
     );
-    Object.entries(res.aliases).forEach(([alias, key]) => this.cache.set(alias, key));
-    return isSingle ? res.aliases[toFetch[0]] : { ...cached, ...res.aliases };
+    if (typeof aliases !== "string") return res.aliases;
+    if (!Object.hasOwn(res.aliases, aliases))
+      throw new NotFoundError(`alias not found matching ${JSON.stringify(aliases)}`);
+    return res.aliases[aliases];
   }
 
   async set(aliases: Record<channel.Key, string>): Promise<void> {
@@ -94,6 +85,10 @@ export class Client {
     ).aliases;
   }
 
+  /**
+   * @returns the alias of the channel.
+   * @throws {NotFoundError} if the channel has no alias.
+   */
   async retrieve(alias: channel.Key): Promise<string>;
   async retrieve(aliases: channel.Key[]): Promise<Record<channel.Key, string>>;
 
@@ -107,7 +102,10 @@ export class Client {
       retrieveReqZ,
       retrieveResZ,
     );
-    return isSingle ? res.aliases[alias] : res.aliases;
+    if (!isSingle) return res.aliases;
+    if (!Object.hasOwn(res.aliases, alias))
+      throw new NotFoundError(`alias not found matching channel ${alias}`);
+    return res.aliases[alias];
   }
 
   async delete(aliases: channel.Key | channel.Key[]): Promise<void> {

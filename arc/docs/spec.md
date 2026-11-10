@@ -74,7 +74,13 @@ mask := data > 2.0 // [false, false, true] (series bool)
 - Out-of-bounds access = runtime error
 - Binary ops require equal-length series
 - Comparisons return `series bool` elementwise
-- Empty `[]` requires type annotation
+- Empty `[]` without a type takes its element type from its first typed write or use.
+  `y[0] = n` with `n i32` gives `series i32`, `y = [true]` gives `series bool`, and
+  `not y` gives `series bool`. Number literals and arithmetic keep the element numeric:
+  `y += 1` then `y += 1.5` is valid, and an element that nothing else fixes is `f64`. A
+  value of another kind after that is an error, such as `y[0] = true` after `y[0] = 1`.
+- `w series f64 := y` with an untyped empty `y` is an error. Declare the type on the
+  literal: `y series f64 := []`.
 
 ### Strings
 
@@ -132,7 +138,8 @@ TypeCast ::= Type '(' Expression ')'
 - Narrowing (e.g., `i8(i64_val)`) truncates
 - Signed ↔ Unsigned saturates at bounds
 - Float → Integer truncates toward zero, saturates on overflow
-- Integer overflow uses two's-complement wrapping
+- Integer overflow uses two's-complement wrapping. An expression made only of integer
+  literals that overflows its type is a compile error (`ARC6001`).
 - Numeric → `bool` is `x != 0`; `bool` → numeric is `1` or `0`
 - Numeric or `bool` → `str` renders text (`"3.14"`, `"true"`); no casts from `str`
 
@@ -207,9 +214,13 @@ Assignment ::= Identifier '=' Expression
 
 A variable's kind is inferred from its initializer:
 
-- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
-  into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals can be stateful.
+- **Literal**: a held value (`gain := 6`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes it stateful, keeping its value across entries.
+- **Computed**: an expression that reads no channel (`start := time.now()`,
+  `gain := 2 * 3`). It runs once on each entry into its declaring scope, at the same
+  moment a literal resets, and the variable holds the result. A later `=` replaces the
+  value until the next entry. At the top level it runs once when the program starts.
+  With `$=` it runs once, on the first entry, and the value persists.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -267,7 +278,7 @@ LogicalOp ::= 'and' | 'or'
 Examples:
 
 ```arc
-func example{}(){
+func example() {
     power := 2 ^ 8 // 256
     neg := -2 ^ 2 // -4: parses as -(2 ^ 2)
     remainder := 10 % 3 // 1
@@ -293,20 +304,53 @@ chars := len(msg) // 5 (i64)
 current := now() // current timestamp (i64 ns)
 ```
 
+## NaN and infinity
+
+A float can hold NaN or infinity. NaN fails every comparison except `!=`, so `x != x` is
+true only for NaN. The `math` module has these members. They are not keywords, so a
+channel or a variable can use the name `nan` or `inf`.
+
+- `math.is_nan(x)` - Returns `true` if `x` is NaN
+- `math.is_infinite(x)` - Returns `true` if `x` is positive or negative infinity
+- `math.is_finite(x)` - Returns `true` if `x` is not NaN and not infinite
+- `math.nan` - The NaN value
+- `math.inf` - The positive infinity value. `-math.inf` is negative infinity
+
+The checks take `f32` or `f64`. A typed integer argument is a compile error. An integer
+literal is read as a float. The constants act like a float literal: they fit `f32` or
+`f64`, default to `f64`, and do not fit an integer type, so `i32(math.nan)` is a compile
+error. In a flow, a constant sends its value: `x -> math.nan -> y`. `x != math.nan` is
+always `true`, and `==`, `<`, `>`, `<=`, or `>=` with `math.nan` is always `false`, so
+each fails with error ARC2004: test with `math.is_nan(x)` or `not math.is_nan(x)`.
+
+```arc
+import math
+
+sequence main {
+    stage spin_down {
+        not math.is_finite(pump_speed) or pump_speed < 15 => next
+    }
+    stage stopped {
+        1 -> pump_stopped
+    }
+}
+```
+
 ## Functions
 
 Arc has two execution contexts with different function syntax:
 
 - **Reactive scope** (flow statements): Functions are instantiated as nodes using
-  `func{...}` syntax, with an upstream edge feeding the trigger input
+  `func(...)` syntax, with an upstream edge feeding the first trigger
 - **Imperative scope** (function bodies): Functions are called using `func(args)` syntax
 
 ### Function declaration
 
 ```
-FunctionDeclaration ::= 'func' Identifier BraceInputs? '(' InputList? ')' OutputType? Block
+FunctionDeclaration ::= 'func' Identifier '(' InputList? ')' ('{' TriggerList? '}')?
+                        OutputType? Block
 
-BraceInputs ::= '{' InputList? '}'
+TriggerList ::= InputList
 InputList ::= Input (',' Input)* ','?
 Input ::= Identifier Type ('=' Literal)?
 
@@ -319,40 +363,44 @@ NamedOutput ::= Identifier Type
 
 ### Inputs
 
-A function declares a single list of **inputs**. Each input has a name, a type, and an
-optional default value (`= literal`, trailing only).
+A function declares a single list of parameters. Each parameter has a name, a type, and
+an optional default value (`= literal`, trailing only).
 
-Inputs are written in two bracket groups after the function name. Both contribute to the
-same inputs list, in brace-then-parens order:
+Parameters are written in two bracket groups after the function name. Both contribute to
+the same list, in parens-then-braces order:
 
-- The **brace block** `{}` holds inputs set when the function is instantiated as a node.
-- The **parens block** `()` holds the **trigger** input (see [Triggers](#triggers)).
+- The **parens** `()` hold the **inputs**: values set when the function is instantiated
+  as a node. The parens are required and may be empty.
+- The **braces** `{}` hold the **triggers**: the parameters that upstream edges feed
+  (see [Triggers](#triggers)). The braces are optional. A declaration with no braces has
+  no triggers.
 
-The two-group split is transitional, not semantic: `()` will eventually carry all
-inputs, and `{}` is kept (and bridged during analysis) until that merge completes.
+The last brace block of a declaration is the body. A `{...}` between the parens and
+another block is the trigger list: `func f() { ... }` has no triggers, and
+`func f() {x f64} { ... }` has one.
 
 ```arc
-func controller{
+func controller(
     setpoint f64,       // literal-valued: static at instantiation
     sensor chan f64,    // channel-reference: resolved by key
     actuator chan f64,  // channel-reference: resolved by key
-} (enable bool) f64 {
+) {enable bool} f64 {
 // function body
 }
 ```
 
-A function with no brace block is just a parens list:
+A function with no inputs has empty parens:
 
 ```arc
-func add(x f64, y f64) f64 {
+func add() {x f64, y f64} f64 {
     return x + y
 }
 ```
 
-**Optional inputs** carry a default value and may be omitted (must be trailing):
+**Optional parameters** carry a default value and may be omitted (must be trailing):
 
 ```arc
-func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
+func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
     if value < min {
         return min
     }
@@ -363,30 +411,32 @@ func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
 }
 ```
 
-**Supplying brace-block inputs:**
+**Supplying inputs:**
 
-- By name with `=`: `controller{setpoint=100.0}`
-- Positionally by declaration order: `filter{50.0}` sets the first input;
-  `average{10ms, 100}` sets the first and second. Trailing inputs with defaults may be
+- By name with `=`: `controller(setpoint=100.0)`
+- Positionally by declaration order: `filter(50.0)` sets the first input;
+  `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
-- Values must be literals or channel identifiers (resolved at compile time).
+- With any expression: `trigger -> f(time.now())` passes the value computed when the
+  call fires. A channel name is not an input value; read it in an expression or pass it
+  to a `chan` input.
 
 ### Triggers
 
-In reactive scope, an incoming edge connects to a node. A function's **trigger** names
-which input that edge feeds:
+In reactive scope, an incoming edge connects to a node. A function's **triggers** name
+the parameters that edges feed:
 
-- A function with a parens-block input takes its first such input as the trigger
-  (`enable` in `controller` above, `value` in `clamp`). The upstream value binds to it.
-- A function with no parens-block input is **trigger-only**: the edge activates the node
-  without binding a value.
+- A single upstream edge feeds the first trigger (`enable` in `controller` above,
+  `value` in `clamp`). The upstream value binds to it.
+- A function with no triggers has only inputs: the edge activates the node without
+  binding a value. `func f(x f64) { }` declares an input `x`, not a trigger.
 
 ### Calling functions (imperative scope)
 
 Inside function bodies, call other functions using parentheses:
 
 ```arc
-func process(x f64) f64 {
+func process() {x f64} f64 {
     clamped := clamp(x, 0.0, 100.0) // function call
     return clamped * 2.0
 }
@@ -394,21 +444,21 @@ func process(x f64) f64 {
 
 ### Instantiating functions (reactive scope)
 
-In flow statements, instantiate functions as nodes using brace block syntax:
+In flow statements, instantiate functions as nodes with parens after the name. The paren
+must touch the name:
 
 ```arc
-sensor -> controller{setpoint=100.0, sensor=temp, actuator=valve}
+sensor -> controller(setpoint=100.0, sensor=temp, actuator=valve)
 ```
 
-The upstream edge feeds the function's trigger input. Mapping multiple upstream sources
-to named inputs requires routing tables (see Flow Layer).
+The upstream edge feeds the function's first trigger.
 
 ### Multi-output functions
 
 Functions can have multiple named outputs:
 
 ```arc
-func threshold(value f64) (above f64, below f64) {
+func threshold() {value f64} (above f64, below f64) {
     if value > 50.0 {
         above = value
     } else {
@@ -429,15 +479,12 @@ func counter() i64 {
 }
 ```
 
-A `$=` initializer must be a literal value; only literal variables can be stateful.
-`true` and `false` are literals.
-
 ### Channel operations in functions
 
 Functions can read from and write to channels:
 
 ```arc
-func controller{input chan f64, output chan f64, threshold f64} () {
+func controller(input chan f64, output chan f64, threshold f64) {
     value := input // read from channel (non-blocking)
     if value > threshold {
         output = value // write to channel
@@ -460,6 +507,8 @@ ForClause ::= Identifier (',' Identifier)? ':=' Expression | Expression
 ```
 
 `for` iterates a series or `range()`, tests a condition, or is empty to loop forever.
+Typed `range()` arguments must share one integer type, which types the loop variable.
+Untyped literals adopt it. All literals give `i64`.
 
 ```arc
 if pressure > 100 {
@@ -499,19 +548,19 @@ The flow layer connects functions via channels in the reactive scope.
 ### Flow statement grammar
 
 ```
-FlowStatement ::= (RoutingTable | FlowNode) (FlowOperator (RoutingTable | FlowNode))+
+FlowStatement ::= FlowNode (FlowOperator (RoutingTable | FlowNode))+
 
 FlowOperator ::= '->'       // continuous flow
                | '=>'       // conditional flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
-RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)* (':' Identifier)?
+RoutingEntry ::= RoutingKey ':' FlowNode (('->' | '=>') FlowNode)*
 
 RoutingKey ::= Identifier | 'true' | 'false'
 
 FlowNode ::= Identifier           // channel, variable, stage, or sequence name
-           | FunctionInvocation   // func{...}
+           | FunctionInvocation   // func(...)
            | Expression           // inline computation
            | StageDeclaration     // inline stage body
            | SequenceDeclaration  // inline sequence body
@@ -520,13 +569,12 @@ FlowNode ::= Identifier           // channel, variable, stage, or sequence name
 
 An output routing entry's case body must be a full flow statement (at least two nodes)
 or an inline stage/sequence body. The routed output only decides that the entry runs; it
-feeds no value into it. A trailing `: Identifier` maps the entry's own result to an
-input of the function after the table.
+feeds no value into it.
 
 ### Simple pipelines
 
 ```arc
-sensor -> filter{threshold=50.0} -> controller{} -> actuator
+sensor -> filter(threshold=50.0) -> controller() -> actuator
 ```
 
 ### Output routing tables
@@ -534,32 +582,9 @@ sensor -> filter{threshold=50.0} -> controller{} -> actuator
 Branch on named outputs; the output that fires runs its entry:
 
 ```arc
-sensor -> demux{} -> {
+sensor -> demux() -> {
     high: true => alarm,
     low: true => all_clear
-}
-```
-
-### Input routing tables
-
-Map multiple sources to named input parameters:
-
-```arc
- {
-    sensor1: a,
-    sensor2: b
-} -> combiner{}
-```
-
-### Combined routing
-
-```arc
- {
-    temp1: a,
-    temp2: b
-} -> averager{} -> threshold{} -> {
-    above: true => alarm,
-    below: true => all_clear
 }
 ```
 
@@ -570,18 +595,18 @@ scope (channels, variables), literals, and function calls, but not function-loca
 variables.
 
 ```arc
-temperature > 100 -> alarm{} // comparison (the edge carries a bool)
+temperature > 100 -> alarm() // comparison (the edge carries a bool)
  (sensor1 + sensor2) / 2.0 -> display // arithmetic
-pressure > 100 or emergency -> shutdown{} // logical (emergency is a chan bool)
+pressure > 100 or emergency -> shutdown() // logical (emergency is a chan bool)
 ```
 
 ### Selecting on a boolean
 
-`select{}` runs the `true` or `false` entry for each `bool` input. No value flows into
+`select()` runs the `true` or `false` entry for each `bool` trigger. No value flows into
 the entry; each case body is a full flow statement.
 
 ```arc
-pressure > 500.0 -> select{} -> {
+pressure > 500.0 -> select() -> {
     true: true => alarm,
     false: true => all_clear
 }
@@ -634,7 +659,7 @@ StageItem ::= FlowStatement | Assignment | SingleInvocation
 sequence main {
     stage pressurize {
         // Reactive flows: run continuously while stage is active
-        sensor -> pressure_control{target=500.0}
+        sensor -> pressure_control(target=500.0)
         // One-shot transitions: fire once when condition is true
         pressure > 500.0 => next
         abort_btn => abort
@@ -709,7 +734,7 @@ it leaves and re-enters it.
 
 **Entry nodes**: Fire once per scope activation, and again on re-entry. A node is an
 entry node when nothing flows into it and it reads no channels: a literal, or a call
-taking only `{...}` inputs.
+taking only `(...)` inputs.
 
 ### Scope entry semantics
 
@@ -774,8 +799,8 @@ These simplify implementation while maintaining expressiveness:
    time
 3. **No assignment in expressions**: Separate statements required
 4. **No partial function application**: Must provide all required arguments
-5. **Brace-block inputs are compile-time constants**: Only literals, global constants,
-   or channel IDs may be supplied in the `{}` block
+5. **Inputs are compile-time constants**: Only literals, global constants, or channel
+   IDs may be supplied in the `()` of a flow call
 6. **No closures**: Functions cannot capture variables from enclosing scope
 7. **No nested functions**: Functions cannot be defined inside other functions
 
@@ -783,17 +808,22 @@ These simplify implementation while maintaining expressiveness:
 
 ### Compile-time errors
 
-- **Type errors**: Mismatches, invalid casts, bare `[]` without type
+- **Type errors**: Mismatches, invalid casts
 - **Name resolution**: Undefined identifiers, duplicates, shadowing
 - **Structural**: Missing returns, unreachable code, wrong argument count
-- **Flow graph**: Cycles in non-transition flows, unconnected inputs, type mismatches
+- **Flow graph**: Cycles in non-transition flows, unconnected triggers, type mismatches
 - **Dimensional**: Incompatible units in operations, non-literal exponent with
   dimensioned base
 - **Operands**: Non-`bool` logical operands
+- **Constants**: An expression made only of integer literals that overflows its type
+  (`ARC6001`), such as `x i8 := 100 + 100`, or that divides or takes a modulo by zero
+  (`ARC6002`), such as `x := 1 / 0`. A negated literal is one signed value, so
+  `x i8 := -128` fits. A cast passes a constant through only when the target type holds
+  it. Float arithmetic follows IEEE 754 and is never a constant error.
 
 ### Runtime errors
 
-- **Arithmetic**: Division/modulo by zero
+- **Arithmetic**: Integer division/modulo by a zero that is not constant
 - **Array/String**: Out-of-bounds access, length mismatch in series operations
 - **Channel**: Type mismatches (if not statically verified)
 

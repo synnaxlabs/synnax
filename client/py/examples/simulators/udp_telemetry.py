@@ -27,6 +27,7 @@ The simulator records every datagram it receives.
 import asyncio
 import math
 import struct
+from typing import override
 
 from examples.simulators.bus_sim import BusSim
 from synnax import udp
@@ -69,9 +70,11 @@ class _Receiver(asyncio.DatagramProtocol):
     def __init__(self, sim: "UDPTelemetrySim") -> None:
         self.sim = sim
 
+    @override
     def datagram_received(self, data: bytes, addr: tuple[str | int, ...]) -> None:
         self.sim._record(data)
 
+    @override
     def error_received(self, exc: Exception) -> None:
         # The Driver's port refuses datagrams until a read task binds it.
         pass
@@ -85,6 +88,7 @@ class UDPTelemetrySim(BusSim[bytes]):
     port = 5030
     device_name = "UDP Test Telemetry Unit"
 
+    @override
     async def _run_server(self) -> None:
         loop = asyncio.get_running_loop()
         transport, _ = await loop.create_datagram_endpoint(
@@ -103,6 +107,7 @@ class UDPTelemetrySim(BusSim[bytes]):
         await self._send_at_rate(send)
 
     @staticmethod
+    @override
     def create_device(rack_key: int) -> udp.Device:
         return udp.Device(
             port=DRIVER_PORT,

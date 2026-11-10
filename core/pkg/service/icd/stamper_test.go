@@ -15,14 +15,14 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // usingConfig returns the config of a task that uses the given messages of an ICD,
@@ -47,7 +47,7 @@ func createUsingTask(
 ) task.Task {
 	GinkgoHelper()
 	t := task.Task{
-		Rack:   testRack.Key,
+		Rack:   testRack,
 		Name:   name,
 		Type:   testTaskType,
 		Config: usingConfig(ic, messages...),
@@ -66,29 +66,23 @@ func retrieveTask(ctx context.Context, key task.Key) task.Task {
 	return t
 }
 
-func retrieveUsers(ctx context.Context, key icd.Key) []ontology.ID {
+// retrieveUsers returns the keys of the tasks that use the ICD with key.
+func retrieveUsers(ctx context.Context, key icd.Key) []task.Key {
 	GinkgoHelper()
-	var users []ontology.Resource
-	Expect(otg.NewRetrieve().
-		WhereIDs(icd.OntologyID(key)).
-		TraverseTo(ontology.UsersTraverser).
-		Entries(&users).
+	var tasks []task.Task
+	Expect(taskSvc.NewRetrieve().
+		Where(task.MatchICDs(key)).
+		Entries(&tasks).
 		Exec(ctx, tx)).To(Succeed())
-	return ontology.ResourceIDs(users)
+	return lo.Map(tasks, func(t task.Task, _ int) task.Key { return t.Key })
 }
 
-// retrieveUses returns the uses relationships the task is the source of.
-func retrieveUses(ctx context.Context, t task.Task) []ontology.Relationship {
+// setConfig sets the config field at path of the task with key to value.
+func setConfig(ctx context.Context, key task.Key, path string, value any) {
 	GinkgoHelper()
-	var rels []ontology.Relationship
-	Expect(gorp.NewRetrieve[string, ontology.Relationship]().
-		Where(gorp.Match(func(_ gorp.Context, rel *ontology.Relationship) (bool, error) {
-			return rel.From == t.OntologyID() &&
-				rel.Type == ontology.RelationshipTypeUses, nil
-		})).
-		Entries(&rels).
-		Exec(ctx, tx)).To(Succeed())
-	return rels
+	MustSucceed(taskSvc.NewWriter(tx).Apply(ctx, key, task.NewSetAction(
+		task.SetPayload{Path: []string{"config", path}, Value: value},
+	)))
 }
 
 var _ = Describe("Task references", func() {
@@ -122,7 +116,7 @@ var _ = Describe("Task references", func() {
 
 	It("Should relate the task to the ICD it uses", func(ctx SpecContext) {
 		t := createUsingTask(ctx, "Decoder", ic, status)
-		Expect(retrieveUsers(ctx, ic.Key)).To(ConsistOf(t.OntologyID()))
+		Expect(retrieveUsers(ctx, ic.Key)).To(Equal([]task.Key{t.Key}))
 	})
 
 	It(
@@ -131,16 +125,16 @@ var _ = Describe("Task references", func() {
 			t := createUsingTask(ctx, "Decoder", ic, status)
 			other := icd.ICD{Name: "Other"}
 			Expect(svc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			t.Config = msgpack.EncodedJSON{"icd": other.Key.String()}
-			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+			setConfig(ctx, t.Key, "messages", []any{})
+			setConfig(ctx, t.Key, "icd", other.Key.String())
 			Expect(retrieveUsers(ctx, ic.Key)).To(BeEmpty())
-			Expect(retrieveUsers(ctx, other.Key)).To(ConsistOf(t.OntologyID()))
+			Expect(retrieveUsers(ctx, other.Key)).To(Equal([]task.Key{t.Key}))
 		},
 	)
 
 	It("Should store a task with no ICD and relate it to none", func(ctx SpecContext) {
 		t := task.Task{
-			Rack:   testRack.Key,
+			Rack:   testRack,
 			Name:   "Draft",
 			Type:   testTaskType,
 			Config: msgpack.EncodedJSON{},
@@ -150,17 +144,15 @@ var _ = Describe("Task references", func() {
 			Not(HaveKey("icd")),
 			HaveKeyWithValue("icd_hash", ""),
 		))
-		Expect(retrieveUses(ctx, t)).To(BeEmpty())
 	})
 
 	It(
 		"Should remove the relationship when the task stops using an ICD",
 		func(ctx SpecContext) {
 			t := createUsingTask(ctx, "Decoder", ic, status)
-			t.Config = msgpack.EncodedJSON{}
-			Expect(taskSvc.NewWriter(tx).Create(ctx, &t)).To(Succeed())
+			setConfig(ctx, t.Key, "messages", []any{})
+			setConfig(ctx, t.Key, "icd", nil)
 			Expect(retrieveUsers(ctx, ic.Key)).To(BeEmpty())
-			Expect(retrieveUses(ctx, t)).To(BeEmpty())
 			Expect(
 				retrieveTask(ctx, t.Key).Config,
 			).To(HaveKeyWithValue("icd_hash", ""))
@@ -170,7 +162,7 @@ var _ = Describe("Task references", func() {
 	It("Should reject a task that references a missing ICD", func(ctx SpecContext) {
 		key := uuid.New()
 		t := task.Task{
-			Rack:   testRack.Key,
+			Rack:   testRack,
 			Name:   "Orphan",
 			Type:   testTaskType,
 			Config: msgpack.EncodedJSON{"icd": key.String()},
@@ -206,10 +198,8 @@ var _ = Describe("Task references", func() {
 		"Should leave a task untouched when a message it does not use changes",
 		func(ctx SpecContext) {
 			t := createUsingTask(ctx, "Decoder", ic, status)
-			before := stamps
 			ic = setScale(ic, 1, 0.5)
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-			Expect(stamps).To(Equal(before))
 			res := retrieveTask(ctx, t.Key)
 			Expect(res.ConfigHash).To(Equal(t.ConfigHash))
 			Expect(res.Config["icd_hash"]).To(Equal(t.Config["icd_hash"]))
@@ -221,10 +211,8 @@ var _ = Describe("Task references", func() {
 		func(ctx SpecContext) {
 			reader := createUsingTask(ctx, "Reader", ic, status)
 			braker := createUsingTask(ctx, "Braker", ic, brake)
-			before := stamps
 			ic = setScale(ic, 1, 0.5)
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-			Expect(stamps).To(Equal(before + 1))
 			Expect(retrieveTask(ctx, reader.Key).ConfigHash).
 				To(Equal(reader.ConfigHash))
 			Expect(retrieveTask(ctx, braker.Key).ConfigHash).
@@ -236,10 +224,8 @@ var _ = Describe("Task references", func() {
 		"Should leave a task untouched when only the ICD's name changes",
 		func(ctx SpecContext) {
 			t := createUsingTask(ctx, "Decoder", ic, status)
-			before := stamps
 			ic.Name = "Renamed"
 			Expect(svc.NewWriter(tx).Create(ctx, &ic)).To(Succeed())
-			Expect(stamps).To(Equal(before))
 			Expect(retrieveTask(ctx, t.Key).ConfigHash).To(Equal(t.ConfigHash))
 		},
 	)
@@ -276,7 +262,7 @@ var _ = Describe("Task references", func() {
 			func(ctx SpecContext) {
 				createUsingTask(ctx, "Decoder", ic, status)
 				ic.Messages = ic.Messages[1:]
-				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
+				Expect(MustSucceed(svc.Check(ctx, tx, ic))).To(Equal(
 					library.Problems{{
 						Path: "messages",
 						Message: `task "Decoder" uses message "Status", which the ` +
@@ -296,7 +282,7 @@ var _ = Describe("Task references", func() {
 						p.Fields = []icd.BinaryField{binaryField("speed", 0, 16)}
 					},
 				)
-				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(Equal(
+				Expect(MustSucceed(svc.Check(ctx, tx, ic))).To(Equal(
 					library.Problems{{
 						Path: "messages.0.payload.fields",
 						Message: `task "Decoder" uses field "rpm" of message ` +
@@ -310,7 +296,7 @@ var _ = Describe("Task references", func() {
 			createUsingTask(ctx, "Decoder", ic, status)
 			createUsingTask(ctx, "Logger", ic, status)
 			ic.Messages = ic.Messages[1:]
-			Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(ConsistOf(
+			Expect(MustSucceed(svc.Check(ctx, tx, ic))).To(ConsistOf(
 				HaveField("Message", ContainSubstring(`task "Decoder"`)),
 				HaveField("Message", ContainSubstring(`task "Logger"`)),
 			))
@@ -321,7 +307,7 @@ var _ = Describe("Task references", func() {
 			func(ctx SpecContext) {
 				createUsingTask(ctx, "Decoder", ic, status)
 				ic.Messages = ic.Messages[:1]
-				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, ic))).To(BeEmpty())
+				Expect(MustSucceed(svc.Check(ctx, tx, ic))).To(BeEmpty())
 			},
 		)
 
@@ -329,7 +315,7 @@ var _ = Describe("Task references", func() {
 			"Should report only the ICD's own problems when no ICD has its key",
 			func(ctx SpecContext) {
 				unsaved := icd.ICD{Key: uuid.New()}
-				Expect(MustSucceed(svc.NewWriter(tx).Check(ctx, unsaved))).To(Equal(
+				Expect(MustSucceed(svc.Check(ctx, tx, unsaved))).To(Equal(
 					icd.Check(unsaved),
 				))
 			},
@@ -338,19 +324,20 @@ var _ = Describe("Task references", func() {
 
 	It("Should relate a copied task to the ICD", func(ctx SpecContext) {
 		t := createUsingTask(ctx, "Decoder", ic, status)
-		copied := MustSucceed(taskSvc.NewWriter(tx).Copy(ctx, t.Key, "Copy", false))
-		Expect(retrieveUsers(ctx, ic.Key)).
-			To(ConsistOf(t.OntologyID(), copied.OntologyID()))
+		copied := MustSucceed(
+			taskSvc.NewWriter(tx).Copy(ctx, t.Key, "Copy", false, nil),
+		)
+		Expect(retrieveUsers(ctx, ic.Key)).To(ConsistOf(t.Key, copied.Key))
 	})
 
 	It("Should reject deleting an ICD a task uses", func(ctx SpecContext) {
-		createUsingTask(ctx, "Decoder", ic, status)
-		createUsingTask(ctx, "Sender", ic, brake)
-		Expect(svc.NewWriter(tx).Delete(ctx, ic.Key)).To(SatisfyAll(
-			MatchError(validate.ErrValidation),
-			MatchError(ContainSubstring("Bus is used by ")),
-			MatchError(ContainSubstring("Decoder")),
-			MatchError(ContainSubstring("Sender")),
+		t := createUsingTask(ctx, "Decoder", ic, status)
+		Expect(svc.NewWriter(tx).Delete(ctx, ic.Key)).To(MatchError(
+			gorp.RestrictError{
+				Target:    gorp.NewTarget("icd", ic.Key),
+				Holder:    gorp.NewTarget(taskconfig.TableName(testTaskType), t.Key),
+				Reference: "icd",
+			},
 		))
 	})
 

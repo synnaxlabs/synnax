@@ -276,11 +276,11 @@ describe("schematic selector stability under dispatch", () => {
 const client = createTestClient();
 
 const baseObjects = [
-  channel.TYPE_ONTOLOGY_ID,
-  framer.TYPE_ONTOLOGY_ID,
-  user.TYPE_ONTOLOGY_ID,
-  access.role.TYPE_ONTOLOGY_ID,
-  access.policy.TYPE_ONTOLOGY_ID,
+  channel.TYPE_RESOURCE_ID,
+  framer.TYPE_RESOURCE_ID,
+  user.TYPE_RESOURCE_ID,
+  access.role.TYPE_RESOURCE_ID,
+  access.policy.TYPE_RESOURCE_ID,
 ];
 
 const loadSchematic = async (
@@ -316,7 +316,8 @@ const setup = async ({
   userClient = client,
   scoped = true,
 }: SetupParams) => {
-  const created = await client.schematics.create(projectKey, {
+  const created = await client.schematics.create({
+    project: projectKey,
     key: uuid.create(),
     name: id.create(),
     snapshot,
@@ -341,7 +342,7 @@ const setup = async ({
   const { result } = renderHook(
     () => ({
       editable: Schematic.useSelectEditable(scoped ? undefined : { key: created.key }),
-      granted: Access.useUpdateGranted(schematic.ontologyID(created.key)),
+      granted: Access.useUpdateGranted(schematic.resourceID(created.key)),
     }),
     { wrapper: scoped ? ScopedWrapper : Wrapper },
   );
@@ -379,7 +380,7 @@ describe("useSelectEditable", () => {
   it("blocks editing when the user lacks update permission", async () => {
     const userClient = await createTestClientWithPolicy(client, {
       name: id.create(),
-      objects: [schematic.TYPE_ONTOLOGY_ID, ...baseObjects],
+      objects: [schematic.TYPE_RESOURCE_ID, ...baseObjects],
       actions: ["retrieve"],
     });
     const result = await setup({ editable: true, userClient });

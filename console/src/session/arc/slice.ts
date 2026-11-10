@@ -36,12 +36,11 @@ const graphStateZ = z.object({
 });
 export interface GraphState extends z.infer<typeof graphStateZ> {}
 
-export const stateZ = z.object({
+const stateZ = z.object({
   graph: graphStateZ.prefault({}),
   toolbar: toolbarStateZ.prefault({}),
 });
 export interface State extends z.infer<typeof stateZ> {}
-export interface NewState extends z.input<typeof stateZ> {}
 
 export const ZERO_STATE = stateZ.parse({});
 
@@ -65,8 +64,6 @@ export interface StoreState extends Drift.StoreState {
 interface KeyedPayload extends Window.OptionalKeyParams {
   key: arc.Key;
 }
-
-export interface CreatePayload extends KeyedPayload, NewState {}
 
 export interface RemovePayload {
   keys: string[];
@@ -97,13 +94,11 @@ export interface SetViewportModePayload extends KeyedPayload {
 }
 
 const withSelectedState = Window.createWithDocumentHandler(stateZ);
-const initializeDocument = Window.createDocumentInitializer(stateZ);
 
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: ZERO_SLICE_STATE,
   reducers: {
-    create: initializeDocument<CreatePayload, SliceState>,
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       Window.removeDocuments(state, payload.keys);
     },
@@ -149,7 +144,6 @@ export const {
   remove,
   setSelected,
   setFitViewOnResize,
-  create,
   selectToolbarTab,
   setViewport,
   setEditable,
@@ -158,7 +152,7 @@ export const {
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;
 
-export const purgeState = (state: State): State => {
+const purgeState = (state: State): State => {
   state.graph.selected = [];
   return state;
 };
@@ -174,7 +168,6 @@ export const MIDDLEWARE = [
   Window.createInjectKeyMiddleware([
     setSelected,
     setFitViewOnResize,
-    create,
     selectToolbarTab,
     setViewport,
     setEditable,

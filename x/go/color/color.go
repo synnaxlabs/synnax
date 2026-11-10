@@ -18,29 +18,11 @@ import (
 	"github.com/synnaxlabs/x/color/versions"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
-	"github.com/synnaxlabs/x/zyn"
 )
-
-// Schema is a zyn schema for parsing a color.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"r": zyn.Number().Uint8().Coerce(),
-	"g": zyn.Number().Uint8().Coerce(),
-	"b": zyn.Number().Uint8().Coerce(),
-	"a": zyn.Number().Float64().Coerce(),
-})
 
 // FromHex parses a hex color string into a Color. Supports 6 or 8 character hex
 // strings with or without a leading '#'.
 func FromHex(s string) (Color, error) { return versions.FromHex(s) }
-
-// MustFromHex parses a hex color string into a Color, panicking on error.
-func MustFromHex(s string) Color {
-	c, err := FromHex(s)
-	if err != nil {
-		panic(err)
-	}
-	return c
-}
 
 // rgbPattern matches an rgb()/rgba() string with three 0-255 channels and an
 // optional alpha.

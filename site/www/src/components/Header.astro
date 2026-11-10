@@ -12,6 +12,7 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
+import Arrow from "@/components/common/Arrow.astro";
 import { Nav } from "@/components/Nav";
 import Drawer from "@synnaxlabs/site-common/Drawer.astro";
 import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
@@ -26,9 +27,19 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
             <div class="header-nav">
                 <Nav />
             </div>
-            <Button.Button variant="filled" href="/#contact">
-                Book a demo
-            </Button.Button>
+            <Flex.Box x gap="small" align="center" className="header-actions">
+                <Button.Button href="/#contact" className="header-contact">
+                    Talk to an engineer
+                </Button.Button>
+                <Button.Button
+                    variant="filled"
+                    href="https://docs.synnaxlabs.com/releases/desktop/download"
+                    data-event="desktop_download_clicked"
+                    data-location="header"
+                >
+                    Download
+                </Button.Button>
+            </Flex.Box>
             <MenuButton />
         </Flex.Box>
     </Flex.Box>
@@ -63,17 +74,31 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
             Docs
         </a>
         <Divider.Divider x className="mobile-drawer-divider" />
-        <div class="mobile-drawer-cta">
+        <Flex.Box y gap="small" className="mobile-drawer-cta">
             <Button.Button
                 variant="filled"
-                size="large"
+                size="huge"
+                level="p"
+                full="x"
+                justify="center"
+                href="https://docs.synnaxlabs.com/releases/desktop/download"
+                data-event="desktop_download_clicked"
+                data-location="drawer"
+            >
+                Download Synnax Desktop
+                <Arrow direction="down" />
+            </Button.Button>
+            <Button.Button
+                size="huge"
+                level="p"
                 full="x"
                 justify="center"
                 href="/#contact"
             >
-                Book a demo
+                Talk to an engineer
+                <Arrow direction="right" />
             </Button.Button>
-        </div>
+        </Flex.Box>
     </div>
 </Drawer>
 
@@ -118,12 +143,13 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         }
     }
 
-    .header .pluto-btn.pluto-btn--filled {
+    .header .header-actions .lyra-btn {
         padding: clamp(0.6rem, 0.3rem + 0.5vw, 1rem) clamp(1.2rem, 0.8rem + 0.8vw, 2rem);
         font-weight: 550;
+        border-radius: var(--pluto-border-radius-small);
     }
 
-    .header .pluto-btn.pluto-btn--text .pluto-icon {
+    .header .lyra-btn.lyra-btn--text .lyra-icon {
         color: var(--pluto-gray-l8);
         height: 3rem;
         width: 3rem;
@@ -177,16 +203,16 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         position: absolute;
         top: calc(100% + 1.5rem);
         left: 50%;
-        transform: translateX(-50%);
         width: 680px;
         padding: 2rem;
         box-shadow:
-            0 4px 12px rgba(0, 0, 0, 0.15),
-            0 16px 40px rgba(0, 0, 0, 0.2);
+            0 4px 12px rgb(0 0 0 / 15%),
+            0 16px 40px rgb(0 0 0 / 20%);
         z-index: 20;
         visibility: hidden;
         opacity: 0;
         transform: translateX(-50%) translateY(-6px) scale(0.98);
+
         /* Stays open briefly after the pointer leaves. */
         transition:
             visibility 0s 0.15s,
@@ -291,17 +317,27 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         margin-right: 0.5rem;
     }
 
-    .mobile-drawer-cta {
+    .mobile-drawer .mobile-drawer-cta {
         margin: 0.5rem var(--mobile-drawer-inset);
+
+        .lyra-btn {
+            font-size: 2.5rem;
+            font-weight: 550;
+            border-radius: var(--pluto-border-radius-small);
+        }
     }
 
-    @media (max-width: 600px) {
-        .header {
-            .header-nav {
-                display: none;
-            }
+    /* The pair crowds the nav at this width, so only Download stays. */
+    @media (width <= 900px) {
+        .header-actions .header-contact {
+            display: none;
+        }
+    }
 
-            .pluto-btn.pluto-btn--filled {
+    @media (width <= 600px) {
+        .header {
+            .header-nav,
+            .header-actions {
                 display: none;
             }
         }

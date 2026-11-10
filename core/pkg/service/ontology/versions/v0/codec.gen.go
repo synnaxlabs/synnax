@@ -14,29 +14,6 @@ package v0
 import "github.com/synnaxlabs/x/encoding/orc"
 
 // EncodeOrc writes the value to w in the Orc binary format.
-func (id ID) EncodeOrc(w *orc.Writer) error {
-	w.String(string(id.Type))
-	w.String(id.Key)
-	return nil
-}
-
-// DecodeOrc reads the value from r in the Orc binary format.
-func (id *ID) DecodeOrc(r *orc.Reader) error {
-	var err error
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		id.Type = ResourceType(rawV)
-	}
-	if id.Key, err = r.String(); err != nil {
-		return err
-	}
-	return nil
-}
-
-// EncodeOrc writes the value to w in the Orc binary format.
 func (rv Relationship) EncodeOrc(w *orc.Writer) error {
 	if err := rv.From.EncodeOrc(w); err != nil {
 		return err

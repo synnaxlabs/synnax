@@ -16,7 +16,7 @@ import { Core } from "@/session/core";
 import { Nav } from "@/session/nav";
 import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
-import { renderHookWithConsole } from "@/testutil";
+import { MemoryKV, renderHookWithConsole } from "@/testutil";
 
 const PROJECT_KEY = "11111111-1111-4111-8111-111111111111";
 const PANEL_KEY = "22222222-2222-4222-8222-222222222222";
@@ -69,7 +69,7 @@ describe("useLogout", () => {
   });
 
   it("should not restore the project selection when logging back into the same Core", async () => {
-    const db = new Session.Persist.MemoryKV();
+    const db = new MemoryKV();
     const store = await Session.createStore({
       runtime: new Drift.NoopRuntime<Session.State, Session.Action>(),
       enablePrerender: false,

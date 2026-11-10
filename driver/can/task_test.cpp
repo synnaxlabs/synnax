@@ -24,7 +24,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bus/testutil/testutil.h"
 #include "driver/bus/write.h"
@@ -34,7 +34,7 @@
 #include "driver/can/scan_task.h"
 #include "driver/can/slcan/slcan.h"
 #include "driver/can/write.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
 namespace driver::can {
@@ -158,6 +158,10 @@ public:
         this->sent.push_back(status);
     }
 
+    x::errors::Error resend_statuses() override { return x::errors::NIL; }
+
+    bool statuses_stale() override { return false; }
+
     /// @returns the last status the task sent, or an empty one before the first.
     synnax::task::Status last() {
         std::lock_guard lock(this->mu);
@@ -250,7 +254,7 @@ protected:
             this->ctx,
             breaker,
             std::make_unique<Source>(std::move(cfg), this->acquire()),
-            std::make_shared<pipeline::mock::WriterFactory>(this->writes)
+            std::make_shared<pipeline::testutil::WriterFactory>(this->writes)
         );
     }
 
@@ -603,7 +607,13 @@ TEST_F(CANTask, WaitsForAChannelThatIsAbsentAtStart) {
     EXPECT_TRUE(this->ctx->last().details.running);
     this->backend->plug("can0");
     ASSERT_TRUE(this->eventually_reads(3));
-    ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_SUCCESS);
+    // The recovery follows the warning inside the status window, so it waits.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        this->ctx->last().variant,
+        synnax::status::VARIANT_SUCCESS,
+        SLOW,
+        POLL
+    );
     t->stop("stop", true);
 }
 
@@ -612,9 +622,12 @@ TEST_F(CANTask, ReconnectsAReadTaskAfterAnUnplug) {
     t->start("start");
     ASSERT_TRUE(this->eventually_reads(1));
     this->backend->unplug("can0");
-    ASSERT_EVENTUALLY_EQ(
+    // The second warning follows the first inside the status window, so it waits.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
         this->ctx->last().description,
-        "reconnecting to dev: channel can0 is not attached"
+        "reconnecting to dev: channel can0 is not attached",
+        SLOW,
+        POLL
     );
     EXPECT_EQ(this->ctx->last().message, "Failed to read some data");
     EXPECT_EQ(this->ctx->last().variant, synnax::status::VARIANT_WARNING);
@@ -622,7 +635,13 @@ TEST_F(CANTask, ReconnectsAReadTaskAfterAnUnplug) {
     this->backend->plug("can0");
     ASSERT_TRUE(this->eventually_reads(2));
     EXPECT_EQ(this->backend->opens("can0"), 2);
-    ASSERT_EVENTUALLY_EQ(this->ctx->last().variant, synnax::status::VARIANT_SUCCESS);
+    // The recovery follows the warning inside the status window, so it waits.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        this->ctx->last().variant,
+        synnax::status::VARIANT_SUCCESS,
+        SLOW,
+        POLL
+    );
     t->stop("stop", true);
 }
 

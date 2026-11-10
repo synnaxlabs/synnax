@@ -241,7 +241,7 @@ export const DateTime = ({
             <Text.Text
               level="small"
               color={9}
-              overflow="ellipsis"
+              overflow="fade"
               className={CSS.BE("time-editor", "detail")}
             >
               {details.filter((d) => d.length > 0).join(" · ")}

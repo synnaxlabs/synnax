@@ -49,7 +49,11 @@ const (
 
 // Framing is how a byte stream is split into frames.
 type Framing = versions.Framing
+
+// FramingVariant is implemented by every Framing variant.
 type FramingVariant = versions.FramingVariant
+
+// FramingType is the "type" value that selects a variant of Framing.
 type FramingType = versions.FramingType
 
 const (

@@ -8,11 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import random
-import uuid
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.task.analog_read import AnalogRead
+from console.task.channels import analog_input
 from framework.hardware_case import HardwareCase
 
 
@@ -28,25 +28,26 @@ class NoDevice(HardwareCase, ConsoleCase):
         Test Opening and closing pages
         """
 
-        self.log("Creating NI Analog Read Task Page")
         rand_int = random.randint(100, 999)
-        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
-
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
-        self.create_rack(rack_name, dev_name)
-        self.initial_assertion(ni_ai)
-        self.configure_without_channels(ni_ai)
-        self.nominal_configuration(ni_ai, rack_name, dev_name)
+        # A new task takes the only NI device if it is configured. This device keeps
+        # one that a concurrent test configured from being the only one.
+        self.create_rack(rack_name, dev_name=dev_name)
 
-    def create_rack(self, rack_name: str, dev_name: str) -> None:
+        self.log("Creating NI Analog Read Task Page")
+        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
+        self.initial_assertion(ni_ai)
+        self.configure_without_device(ni_ai)
+        self.nominal_configuration(ni_ai, rack_name=rack_name, dev_name=dev_name)
+
+    def create_rack(self, rack_name: str, *, dev_name: str) -> None:
         self.log(f"Creating {rack_name} and devices")
 
         rack = self.create_test_rack(rack_name)
         self.create_test_devices(
             [
                 sy.ni.Device(
-                    key=str(uuid.uuid5(uuid.NAMESPACE_DNS, dev_name)),
                     rack=rack.key,
                     name=dev_name,
                     model=dev_name,
@@ -59,43 +60,37 @@ class NoDevice(HardwareCase, ConsoleCase):
     def initial_assertion(self, ni_ai: AnalogRead) -> None:
         """Initial assertion of task status"""
         status = ni_ai.status()
-        msg = status["msg"]
-        level = status["level"]
+        variant_expected = "disabled"
+        message_expected = "Task not deployed"
 
-        level_expected = "disabled"
-        msg_expected = "Task not deployed"
-
-        assert level_expected == level, (
-            f"Task status level <{level}> should be <{level_expected}>"
+        assert variant_expected == status.variant, (
+            f"Task status variant <{status.variant}> should be <{variant_expected}>"
         )
-        assert msg_expected == msg, (
-            f"Task status msg <{msg}> should be <{msg_expected}>"
+        assert message_expected == status.message, (
+            f"Task status message <{status.message}> should be <{message_expected}>"
         )
 
-    def configure_without_channels(self, ni_ai: AnalogRead) -> None:
-        """Configure without defining channels"""
+    def configure_without_device(self, ni_ai: AnalogRead) -> None:
+        """Deploy the first channel of a new task, which has no device; the form
+        blocks it at the device field."""
         ni_ai.deploy(expect=None)
 
-        msg_expected = "Failed to start task"
-        desc_expected = "No devices selected"
-        # Other tests' devices raise toasts that can push this one out of view, so one
-        # wait checks the message and the description together.
-        assert self.console.notifications.wait_for(
-            msg_expected, description=desc_expected
-        ), f"No <{msg_expected}> notification with <{desc_expected}> appeared"
+        msg_expected = "Device is required"
+        msg = ni_ai.field_help_text("Device")
+        assert msg_expected == msg, f"Device error <{msg}> should be <{msg_expected}>"
 
         # Deploy rejects the config before it writes or starts anything, so the task
         # keeps the status it had.
         self.initial_assertion(ni_ai)
 
     def nominal_configuration(
-        self, ni_ai: AnalogRead, rack_name: str, dev_name: str
+        self, ni_ai: AnalogRead, *, rack_name: str, dev_name: str
     ) -> None:
         """Nominal configuration of task"""
         # Add channel
         ni_ai.add_channel(
             name="new_channel",
-            chan_type="Voltage",
+            chan_type=analog_input.Voltage,
             device=dev_name,
             dev_name="usb_6000",
         )
@@ -106,9 +101,11 @@ class NoDevice(HardwareCase, ConsoleCase):
         # No Driver answers a start command on this rack, so the Console stands the
         # rack's own problem in for a wait that would never end. The Core stamps a
         # "status unknown" placeholder while the task saves, so the wait keys on the
-        # message rather than on the level.
+        # message rather than on the variant.
         ni_ai.wait_for_status("Driver not running")
 
-        level = ni_ai.status()["level"]
-        level_expected = "warning"
-        assert level_expected == level, f"<{level}> should be <{level_expected}>"
+        variant = ni_ai.status().variant
+        variant_expected = "warning"
+        assert variant_expected == variant, (
+            f"<{variant}> should be <{variant_expected}>"
+        )

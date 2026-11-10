@@ -13,14 +13,18 @@ package icd
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 )
 
+// tableName names the ICD table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "icd"
+
 // Retrieve is used to retrieve ICD records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, ICD]
 	indexes indexes
 }
@@ -52,6 +56,14 @@ func newIndexes() indexes {
 func (i indexes) all() []gorp.Index[Key, ICD] {
 	return []gorp.Index[Key, ICD]{
 		i.search,
+	}
+}
+
+// MatchSearch matches the icds whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, ICD] {
+		return r.indexes.search.Filter(term)
 	}
 }
 
@@ -93,8 +105,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -105,6 +116,17 @@ func (r Retrieve) Search(term string) Retrieve {
 func MatchKeys(keys ...Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, ICD] {
 		return gorp.MatchKeys[Key, ICD](keys...)
+	}
+}
+
+// MatchNames returns a filter for
+// icds whose Name matches any of the
+// provided values.
+func MatchNames(vals ...string) Filter {
+	return func(Retrieve) gorp.Filter[Key, ICD] {
+		return gorp.Match(func(_ gorp.Context, e *ICD) (bool, error) {
+			return slices.Contains(vals, e.Name), nil
+		})
 	}
 }
 
@@ -135,24 +157,33 @@ func (r Retrieve) Entries(es *[]ICD) Retrieve {
 // Limit sets the maximum number of icds to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the icds to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// SkipMissingKeys makes Exec treat a key with no icd as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
 }
 
-// Count returns the number of icds matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Exists checks whether any icds match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of icds in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
+}
+
+// Exists checks whether any icds in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

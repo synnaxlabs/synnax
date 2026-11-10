@@ -53,7 +53,8 @@ export const Notification = ({
   const getCopyText = () => toString(stat);
 
   return (
-    // The key remounts the card when a repeat arrives, replaying the entrance animation.
+    // The key remounts the card when a repeat arrives, replaying the entrance
+    // animation.
     <div
       className={CSS.cls(CSS.B("notification"), className)}
       key={time.toString()}
@@ -71,8 +72,8 @@ export const Notification = ({
             gap="small"
             className={CSS.BE("notification", "stamp")}
           >
-            {count > 1 && <Text.Text level="small" color={9}>{`x${count}`}</Text.Text>}
-            <TelemText.TimeStamp level="small" color={9} format="time">
+            {count > 1 && <Text.Text level="tiny" color={9}>{`x${count}`}</Text.Text>}
+            <TelemText.TimeStamp level="tiny" color={9} format="time">
               {time}
             </TelemText.TimeStamp>
           </Flex.Box>
@@ -100,7 +101,7 @@ export const Notification = ({
             level="small"
             status={variant}
             weight={500}
-            overflow="ellipsis"
+            overflow="fade"
             className={CSS.BE("notification", "name")}
           >
             {name}

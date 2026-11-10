@@ -16,13 +16,18 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/compare"
 )
+
+// tableName names the Device table for references. Pass it as
+// gorp.TableConfig.Name.
+const tableName = "device"
 
 // Retrieve is used to retrieve Device records from the database using a
 // builder pattern for constructing queries.
 type Retrieve struct {
-	baseTX  gorp.Tx
 	gorp    gorp.Retrieve[Key, Device]
 	indexes indexes
 }
@@ -32,6 +37,10 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	name   *gorp.SortedIndex[Key, Device, string]
+	rack   *gorp.KeyReference[Key, Device, rack.Key]
+	group  *gorp.KeyReference[Key, Device, group.Key]
+	parent *gorp.KeyReference[Key, Device, Key]
 	search *gorp.SearchIndex[Key, Device]
 }
 
@@ -40,6 +49,45 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		name: gorp.NewSortedIndex[Key, Device, string](
+			"name",
+			func(e *Device) string { return compare.TextKey(string(e.Name)) },
+		),
+		rack: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, rack.Key]{
+			Name:     "rack",
+			Table:    "rack",
+			OnDelete: gorp.Restrict,
+			Kind:     gorp.Place,
+			Targets: func(e *Device) []rack.Key {
+				return []rack.Key{e.Rack}
+			},
+		}),
+		group: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, group.Key]{
+			Name:     "group",
+			Table:    "group",
+			OnDelete: gorp.Detach,
+			Kind:     gorp.Place,
+			Targets: func(e *Device) []group.Key {
+				if e.Group == nil {
+					return nil
+				}
+				return []group.Key{*e.Group}
+			},
+			Detach: func(e *Device, _ group.Key) { e.Group = nil },
+		}),
+		parent: gorp.NewKeyReference(gorp.KeyReferenceConfig[Key, Device, Key]{
+			Name:     "parent",
+			Table:    "device",
+			OnDelete: gorp.Cascade,
+			Kind:     gorp.Place,
+			Acyclic:  true,
+			Targets: func(e *Device) []Key {
+				if e.Parent == nil {
+					return nil
+				}
+				return []Key{*e.Parent}
+			},
+		}),
 		search: gorp.NewSearchIndex[Key, Device](
 			"search",
 			func(e *Device) []string {
@@ -53,7 +101,57 @@ func newIndexes() indexes {
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[Key, Device] {
 	return []gorp.Index[Key, Device]{
+		i.name,
 		i.search,
+	}
+}
+
+// references returns the references packaged for registration via
+// gorp.TableConfig.References when opening the underlying table.
+func (i indexes) references() []gorp.Reference[Key, Device] {
+	return []gorp.Reference[Key, Device]{
+		i.rack,
+		i.group,
+		i.parent,
+	}
+}
+
+// MatchSearch matches the devices whose text matches term.
+// The closest match comes first.
+func MatchSearch(term string) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.search.Filter(term)
+	}
+}
+
+// Order is a sort that OrderBy applies. An OrderBy function builds one.
+type Order func(r Retrieve) gorp.OrderQuery[Key, Device]
+
+// OrderBy walks the devices in the order o defines.
+func (r Retrieve) OrderBy(o Order) Retrieve {
+	r.gorp = r.gorp.OrderBy(o(r))
+	return r
+}
+
+// OrderByName returns an Order by name in lower case, then by key.
+func OrderByName(dir gorp.Direction) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Device] {
+		return r.indexes.name.Ordered(dir)
+	}
+}
+
+// OrderByNameAfter returns an Order like OrderByName that starts strictly past the
+// position of value and key.
+func OrderByNameAfter(
+	dir gorp.Direction,
+	value string,
+	key Key,
+) Order {
+	return func(r Retrieve) gorp.OrderQuery[Key, Device] {
+		return r.indexes.name.Ordered(dir).After(
+			compare.TextKey(string(value)),
+			key,
+		)
 	}
 }
 
@@ -95,8 +193,7 @@ func (r Retrieve) Search(term string) Retrieve {
 	if term == "" {
 		return r
 	}
-	r.gorp = r.gorp.Where(r.indexes.search.Filter(term))
-	return r
+	return r.Where(MatchSearch(term))
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -110,14 +207,12 @@ func MatchKeys(keys ...Key) Filter {
 	}
 }
 
-// MatchRacks returns a filter for
-// devices whose Rack matches any of the
-// provided values.
+// MatchRacks returns a filter for devices
+// whose Rack matches any of the provided
+// values.
 func MatchRacks(vals ...rack.Key) Filter {
-	return func(Retrieve) gorp.Filter[Key, Device] {
-		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Rack), nil
-		})
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.rack.Filter(vals...)
 	}
 }
 
@@ -158,10 +253,66 @@ func MatchModels(vals ...string) Filter {
 // devices whose Name matches any of the
 // provided values.
 func MatchNames(vals ...string) Filter {
-	return func(Retrieve) gorp.Filter[Key, Device] {
-		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-			return slices.Contains(vals, e.Name), nil
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		keys := make([]string, len(vals))
+		for i, v := range vals {
+			keys[i] = compare.TextKey(string(v))
+		}
+		return gorp.And(
+			r.indexes.name.Filter(keys...),
+			gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+				return slices.Contains(vals, e.Name), nil
+			}),
+		)
+	}
+}
+
+// MatchGroups returns a filter for devices
+// whose Group matches any of the provided
+// values.
+func MatchGroups(vals ...group.Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.group.Filter(vals...)
+	}
+}
+
+// MatchHasGroup returns a filter for devices whose
+// Group holds a target when has is true, and holds none when has is false.
+func MatchHasGroup(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.group.FilterHolding(has)
+	}
+}
+
+// setGroup returns an update that sets the Group of the
+// devices with keys to v.
+func setGroup(
+	table *gorp.Table[Key, Device],
+	v *group.Key,
+	keys ...Key,
+) gorp.Update[Key, Device] {
+	return table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Device](keys...)).
+		Change(func(_ gorp.Context, e Device) Device {
+			e.Group = v
+			return e
 		})
+}
+
+// MatchParents returns a filter for devices
+// whose Parent matches any of the provided
+// values.
+func MatchParents(vals ...Key) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.parent.Filter(vals...)
+	}
+}
+
+// MatchHasParent returns a filter for devices whose
+// Parent holds a target when has is true, and holds none when has is false.
+func MatchHasParent(has bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
+		return r.indexes.parent.FilterHolding(has)
 	}
 }
 
@@ -192,24 +343,33 @@ func (r Retrieve) Entries(es *[]Device) Retrieve {
 // Limit sets the maximum number of devices to return.
 func (r Retrieve) Limit(limit int) Retrieve { r.gorp = r.gorp.Limit(limit); return r }
 
-// Offset sets the starting index of the devices to
-// return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
+// After starts the query strictly past key in key order. It panics on a query with an
+// OrderBy, since an Order carries its own cursor.
+func (r Retrieve) After(key Key) Retrieve {
+	r.gorp = r.gorp.After(key)
 	return r
 }
 
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
+// SkipMissingKeys makes Exec treat a key with no device as a
+// non-match instead of returning query.ErrNotFound.
+func (r Retrieve) SkipMissingKeys() Retrieve {
+	r.gorp = r.gorp.SkipMissingKeys()
+	return r
 }
 
-// Count returns the number of devices matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Exec executes the query against snap. It panics when snap is nil.
+func (r Retrieve) Exec(ctx context.Context, snap gorp.Snapshot) error {
+	return r.gorp.Exec(ctx, snap)
 }
 
-// Exists checks whether any devices match the query.
-func (r Retrieve) Exists(ctx context.Context, tx gorp.Tx) (bool, error) {
-	return r.gorp.Exists(ctx, gorp.OverrideTx(r.baseTX, tx))
+// Count returns the number of devices in snap that match
+// the query. It panics when snap is nil.
+func (r Retrieve) Count(ctx context.Context, snap gorp.Snapshot) (int, error) {
+	return r.gorp.Count(ctx, snap)
+}
+
+// Exists checks whether any devices in snap match the
+// query. It panics when snap is nil.
+func (r Retrieve) Exists(ctx context.Context, snap gorp.Snapshot) (bool, error) {
+	return r.gorp.Exists(ctx, snap)
 }

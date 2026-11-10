@@ -58,12 +58,13 @@ func (w *Module) Create(cfg node.Config) (node.Node, error) {
 		if param.Value == nil {
 			continue
 		}
-		if s, ok := param.Value.(string); ok {
+		value := types.DecodeValue(param.Value, param.Type)
+		if s, ok := value.(string); ok {
 			// A literal string gets a stable handle that persists across Flush calls.
 			params[i] = uint64(w.Strings.CreateLiteral(s))
 			continue
 		}
-		val, err := ConvertLiteralValue(param.Value)
+		val, err := ConvertLiteralValue(value)
 		if err != nil {
 			return nil, err
 		}

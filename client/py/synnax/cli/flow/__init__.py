@@ -15,7 +15,7 @@ from synnax.cli.console import Console, Sugared
 class Context:
     console: Sugared
 
-    def __init__(self, console: Console, prompt_enabled: bool = True):
+    def __init__(self, *, console: Console, prompt_enabled: bool = True):
         self.console = Sugared(prompt=console, print=console, enabled=prompt_enabled)
 
 
@@ -30,7 +30,7 @@ class Flow[T]:
     def add(self, name: str, step: Callable[[Context, T], str | None]) -> None:
         self.steps[name] = step
 
-    def run(self, req: T, root: str) -> None:
+    def run(self, req: T, *, root: str) -> None:
         root_step = self.steps[root]
         self._run(root_step, req)
 

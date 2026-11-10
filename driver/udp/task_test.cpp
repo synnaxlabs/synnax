@@ -18,13 +18,13 @@
 
 #include "client/cpp/udp/json.gen.h"
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bus/read.h"
 #include "driver/bus/task.h"
 #include "driver/bus/testutil/testutil.h"
 #include "driver/bus/write.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 #include "driver/udp/socket.h"
 
 namespace driver::udp {
@@ -89,7 +89,7 @@ protected:
                 std::move(cfg),
                 bus::acquirer<Socket>(this->connections, "dev", this->props())
             ),
-            std::make_shared<pipeline::mock::WriterFactory>(this->writes)
+            std::make_shared<pipeline::testutil::WriterFactory>(this->writes)
         );
     }
 
@@ -108,7 +108,7 @@ protected:
                 )
             ),
             nullptr,
-            pipeline::mock::simple_streamer_factory({7}, commands)
+            pipeline::testutil::simple_streamer_factory({7}, commands)
         );
     }
 };

@@ -34,19 +34,13 @@ int login(x::args::Parser &args) {
     config.username = x::cli::prompt("Username");
     config.password = x::cli::prompt("Password", std::nullopt, true);
 
-    LOG(INFO) << "connecting to Synnax using the following parameters: \n" << config;
-    const synnax::Synnax client(config);
-    if (const auto err = client.auth->authenticate()) {
-        LOG(ERROR) << "failed to authenticate: " << err;
+    const auto [cfg, err] = rack::Config::login(args, config);
+    if (err) {
+        LOG(ERROR) << "failed to enroll the rack: " << err;
         return 1;
     }
-    LOG(INFO) << x::log::GREEN() << "successfully logged in!" << x::log::RESET();
-    if (const auto err = rack::Config::save_conn_params(args, config)) {
-        LOG(ERROR) << "failed to save credentials: " << err;
-        return 1;
-    }
-    LOG(INFO) << x::log::GREEN() << "credentials saved successfully!"
-              << x::log::RESET();
+    LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name << " ("
+              << cfg.rack.key << ") and saved its API key" << x::log::RESET();
     LOG(INFO) << "start driver: " << x::log::BLUE() << "synnax-driver start -s"
               << x::log::RESET();
     return 0;

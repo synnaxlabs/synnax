@@ -11,6 +11,7 @@ import "@/platform/arc/CreateModal.css";
 
 import { type arc, status, UnexpectedError } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Input } from "@synnaxlabs/lyra/input";
@@ -21,9 +22,12 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Arc, type Flux } from "@synnaxlabs/pluto";
 import { type z } from "zod";
 
+import { FLAGS } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
+
+const path = Arc.formPath;
 
 export interface CreateModalResult {
   key: arc.Key;
@@ -35,7 +39,8 @@ export interface CreateModalParams {
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
-  placeholder: "Name",
+  placeholder: "Arc name",
+  "aria-label": "Arc name",
   level: "h2",
   variant: "text",
   selectOnFocus: true,
@@ -62,41 +67,60 @@ const Create = ({
       <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Arc.formSchema> {...form}>
-          <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
-            {({ value, onChange }) => (
-              <Select.Buttons value={value} onChange={onChange} variant="card" full="x">
-                <Select.Item itemKey="text">
-                  <Icon.Tile>
-                    <Icon.Text />
-                  </Icon.Tile>
-                  <Text.Text weight={500}>Text</Text.Text>
-                  <Text.Text color={9} level="small">
-                    Best for complex automations such as control sequences
-                  </Text.Text>
-                </Select.Item>
-                <Select.Item itemKey="graph">
-                  <Icon.Tile>
-                    <Icon.Schematic />
-                  </Icon.Tile>
-                  <Text.Text weight={500}>Graph</Text.Text>
-                  <Text.Text color={9} level="small">
-                    Best for simple automations such as alarms
-                  </Text.Text>
-                </Select.Item>
-              </Select.Buttons>
-            )}
-          </Form.Field>
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          {FLAGS.arcModules && (
+            <Form.Field path={path.type} label="Type" full="x">
+              {({ value, onChange }) => (
+                <Select.Buttons
+                  value={value}
+                  onChange={onChange}
+                  variant="card"
+                  full="x"
+                >
+                  <Select.Item itemKey="automation">
+                    <Icon.Tile size="large">
+                      <Icon.Arc />
+                    </Icon.Tile>
+                    <Flex.Box el="span" y gap="tiny">
+                      <Text.Text el="span" weight={500}>
+                        Automation
+                      </Text.Text>
+                      <Text.Text color={9} level="small">
+                        Runs as a task, such as a control sequence or an alarm
+                      </Text.Text>
+                    </Flex.Box>
+                  </Select.Item>
+                  <Select.Item itemKey="module">
+                    <Icon.Tile size="large">
+                      <Icon.Module />
+                    </Icon.Tile>
+                    <Flex.Box el="span" y gap="tiny">
+                      <Text.Text el="span" weight={500}>
+                        Module
+                      </Text.Text>
+                      <Text.Text color={9} level="small">
+                        Holds code that other Arcs import
+                      </Text.Text>
+                    </Flex.Box>
+                  </Select.Item>
+                </Select.Buttons>
+              )}
+            </Form.Field>
+          )}
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Create" trigger={Triggers.SAVE} />
         <Nav.Bar.End align="center">
           <Button.Button
             status={status.keepVariants(variant, "loading")}
             variant="filled"
             onClick={() => save()}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>

@@ -49,7 +49,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::auth::AuthSessionCreateService>>(pool, base_target);
     this->auth_session_renew = std::make_unique<freighter::grpc::UnaryClient<
         google::protobuf::Empty,
-        google::protobuf::Empty,
+        grpc::auth::SessionRenewResponse,
         grpc::auth::AuthSessionRenewService>>(pool, base_target);
     this->auth_session_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::auth::SessionRetrieveRequest,
@@ -59,6 +59,18 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::auth::SessionDeleteRequest,
         google::protobuf::Empty,
         grpc::auth::AuthSessionDeleteService>>(pool, base_target);
+    this->auth_key_create = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyCreateRequest,
+        grpc::auth::KeyCreateResponse,
+        grpc::auth::AuthKeyCreateService>>(pool, base_target);
+    this->auth_key_retrieve = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyRetrieveRequest,
+        grpc::auth::KeyRetrieveResponse,
+        grpc::auth::AuthKeyRetrieveService>>(pool, base_target);
+    this->auth_key_delete = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::auth::KeyDeleteRequest,
+        google::protobuf::Empty,
+        grpc::auth::AuthKeyDeleteService>>(pool, base_target);
     this->frame_stream = std::make_unique<freighter::grpc::StreamClient<
         grpc::framer::StreamerRequest,
         grpc::framer::StreamerResponse,
@@ -73,20 +85,20 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::channel::ChannelCreateService>>(pool, base_target);
     this->chan_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::channel::RetrieveRequest,
-        grpc::channel::RetrieveResponse,
+        ::api::channel::pb::RetrieveResponse,
         grpc::channel::ChannelRetrieveService>>(pool, base_target);
     this->range_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ranger::RetrieveRequest,
-        grpc::ranger::RetrieveResponse,
+        ::api::ranger::pb::RetrieveResponse,
         grpc::ranger::RangeRetrieveService>>(pool, base_target);
     this->range_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ranger::CreateRequest,
         grpc::ranger::CreateResponse,
         grpc::ranger::RangeCreateService>>(pool, base_target);
-    this->range_set_end = std::make_unique<freighter::grpc::UnaryClient<
-        grpc::ranger::SetEndRequest,
+    this->range_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::ranger::DispatchRequest,
         google::protobuf::Empty,
-        grpc::ranger::RangeSetEndService>>(pool, base_target);
+        grpc::ranger::RangeDispatchService>>(pool, base_target);
     this->range_kv_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::kv::DeleteRequest,
         google::protobuf::Empty,
@@ -105,43 +117,55 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::rack::RackCreateService>>(pool, base_target);
     this->rack_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::rack::RetrieveRequest,
-        grpc::rack::RetrieveResponse,
+        ::api::rack::pb::RetrieveResponse,
         grpc::rack::RackRetrieveService>>(pool, base_target);
     this->rack_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::rack::DeleteRequest,
         google::protobuf::Empty,
         grpc::rack::RackDeleteService>>(pool, base_target);
+    this->rack_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::rack::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::rack::RackDispatchService>>(pool, base_target);
     this->task_create = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::CreateRequest,
         grpc::task::CreateResponse,
         grpc::task::TaskCreateService>>(pool, base_target);
     this->task_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::RetrieveRequest,
-        grpc::task::RetrieveResponse,
+        ::api::task::pb::RetrieveResponse,
         grpc::task::TaskRetrieveService>>(pool, base_target);
     this->task_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::DeleteRequest,
         google::protobuf::Empty,
         grpc::task::TaskDeleteService>>(pool, base_target);
+    this->task_dispatch = std::make_shared<freighter::grpc::UnaryClient<
+        grpc::task::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::task::TaskDispatchService>>(pool, base_target);
     this->device_create = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::CreateRequest,
         grpc::device::CreateResponse,
         grpc::device::DeviceCreateService>>(pool, base_target);
     this->device_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::RetrieveRequest,
-        grpc::device::RetrieveResponse,
+        ::api::device::pb::RetrieveResponse,
         grpc::device::DeviceRetrieveService>>(pool, base_target);
     this->device_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::DeleteRequest,
         google::protobuf::Empty,
         grpc::device::DeviceDeleteService>>(pool, base_target);
+    this->device_dispatch = std::make_unique<freighter::grpc::UnaryClient<
+        grpc::device::DispatchRequest,
+        google::protobuf::Empty,
+        grpc::device::DeviceDispatchService>>(pool, base_target);
     this->control_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::control::RetrieveRequest,
         grpc::control::RetrieveResponse,
         grpc::control::ControlRetrieveService>>(pool, base_target);
     this->status_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::status::RetrieveRequest,
-        grpc::status::RetrieveResponse,
+        ::api::status::pb::RetrieveResponse,
         grpc::status::StatusRetrieveService>>(pool, base_target);
     this->status_set = std::make_shared<freighter::grpc::UnaryClient<
         grpc::status::SetRequest,
@@ -161,7 +185,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::arc::ArcCreateService>>(pool, base_target);
     this->arc_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::RetrieveRequest,
-        grpc::arc::RetrieveResponse,
+        ::api::arc::pb::RetrieveResponse,
         grpc::arc::ArcRetrieveService>>(pool, base_target);
     this->arc_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::DeleteRequest,
@@ -173,7 +197,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::icd::ICDCreateService>>(pool, base_target);
     this->icd_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::icd::RetrieveRequest,
-        grpc::icd::RetrieveResponse,
+        ::api::icd::pb::RetrieveResponse,
         grpc::icd::ICDRetrieveService>>(pool, base_target);
     this->icd_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::icd::DeleteRequest,
@@ -186,25 +210,31 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
 };
 
 void Transport::use(const std::shared_ptr<freighter::Middleware> &mw) const {
+    auth_key_create->use(mw);
+    auth_key_retrieve->use(mw);
+    auth_key_delete->use(mw);
     frame_stream->use(mw);
     frame_write->use(mw);
     chan_create->use(mw);
     chan_retrieve->use(mw);
     range_retrieve->use(mw);
     range_create->use(mw);
-    range_set_end->use(mw);
+    range_dispatch->use(mw);
     range_kv_delete->use(mw);
     range_kv_get->use(mw);
     range_kv_set->use(mw);
     rack_create_client->use(mw);
     rack_retrieve->use(mw);
     rack_delete->use(mw);
+    rack_dispatch->use(mw);
     task_create->use(mw);
     task_retrieve->use(mw);
     task_delete->use(mw);
+    task_dispatch->use(mw);
     device_create->use(mw);
     device_retrieve->use(mw);
     device_delete->use(mw);
+    device_dispatch->use(mw);
     control_retrieve->use(mw);
     status_retrieve->use(mw);
     status_set->use(mw);

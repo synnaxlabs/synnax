@@ -10,12 +10,12 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { InlineCode } from "@/components/text/InlineCode";
+import { Text } from "@/components/text";
 
 const LIMIT = 32;
 
 const code = (text: string): HTMLElement => {
-  const { container } = render(<InlineCode text={text} />);
+  const { container } = render(<Text.InlineCode text={text} />);
   return container.querySelector("code") as HTMLElement;
 };
 

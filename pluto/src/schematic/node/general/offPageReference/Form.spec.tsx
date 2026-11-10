@@ -10,7 +10,7 @@
 import { schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
-import { uuid } from "@synnaxlabs/x";
+import { deep, uuid } from "@synnaxlabs/x";
 import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
@@ -18,6 +18,8 @@ import { describe, expect, it } from "vitest";
 import { Node } from "@/schematic/node";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+
+const path = deep.path<schematic.OffPageReferenceNodeConfig>();
 
 const CONFIG_Z = schematic.offPageReferenceNodeConfigZ;
 
@@ -87,12 +89,15 @@ describe("OffPageReferenceForm", () => {
     const client = createTestClient();
     const SynnaxWrapper = await createAsyncSynnaxWrapper({ client });
     const proj = await client.projects.create({ name: "off_page_form" });
-    const source = await client.schematics.create(proj.key, { name: "source" });
+    const source = await client.schematics.create({
+      project: proj.key,
+      name: "source",
+    });
     const targetName = `target_${uuid.create().slice(0, 8)}`;
     const target =
       targetType === "schematic"
-        ? await client.schematics.create(proj.key, { name: targetName })
-        : await client.lineplots.create(proj.key, { name: targetName });
+        ? await client.schematics.create({ project: proj.key, name: targetName })
+        : await client.lineplots.create({ project: proj.key, name: targetName });
     const initialColor = "#000000";
     let methods: Form.UseReturn<typeof CONFIG_Z> | undefined;
     const Wrapper = ({ children }: PropsWithChildren): ReactElement => {
@@ -118,7 +123,8 @@ describe("OffPageReferenceForm", () => {
       if (methods == null) throw new Error("form did not mount");
       return methods;
     };
-    const getColor = (): string => JSON.stringify(getMethods().get("fillColor").value);
+    const getColor = (): string =>
+      JSON.stringify(getMethods().get(path.fillColor).value);
     return { ...rendered, target, targetName, getMethods, getColor };
   };
 
@@ -144,7 +150,7 @@ describe("OffPageReferenceForm", () => {
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
-      expect(getMethods().get("page").value).toEqual({
+      expect(getMethods().get(path.page).value).toEqual({
         type: "lineplot",
         key: target.key,
       }),
@@ -161,7 +167,7 @@ describe("OffPageReferenceForm", () => {
     fireEvent.click(getByText("Select page"));
     fireEvent.click(await findByText(targetName));
     await waitFor(() =>
-      expect(getMethods().get("page").value).toEqual({
+      expect(getMethods().get(path.page).value).toEqual({
         type: "lineplot",
         key: target.key,
       }),
@@ -177,7 +183,7 @@ describe("OffPageReferenceForm", () => {
     const before = getColor();
     fireEvent.click(await findByLabelText(`Clear ${targetName}`));
     await waitFor(() =>
-      expect(getMethods().get("page", { optional: true })?.value).toBeUndefined(),
+      expect(getMethods().get(path.page, { optional: true })?.value).toBeUndefined(),
     );
     expect(getColor()).toBe(before);
   });

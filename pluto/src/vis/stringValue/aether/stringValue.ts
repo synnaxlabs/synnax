@@ -112,7 +112,7 @@ export class StringValue
     canvas.textAlign = "left";
     canvas.textBaseline = "middle";
     canvas.fillStyle = color.hex(this.textColor);
-    const value = source.value();
+    const value = source.value().data;
     if (value.length === 0) return;
     const position = xy.construct(box.left(b), box.center(b).y);
     const width = box.width(b);

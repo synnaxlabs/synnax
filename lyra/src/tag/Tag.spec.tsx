@@ -30,4 +30,14 @@ describe("Tag", () => {
     fireEvent.click(btn);
     expect(close).toHaveBeenCalled();
   });
+
+  it("should print a small tag at the tiny level", () => {
+    const c = render(<Tag.Tag size="small">Test</Tag.Tag>);
+    expect(c.container.firstElementChild?.classList).toContain("lyra-text--tiny");
+  });
+
+  it("should print a medium tag at the paragraph level", () => {
+    const c = render(<Tag.Tag>Test</Tag.Tag>);
+    expect(c.container.firstElementChild?.classList).toContain("lyra-text--p");
+  });
 });

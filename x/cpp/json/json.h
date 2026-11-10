@@ -9,13 +9,16 @@
 
 #pragma once
 
+#include <cmath>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <optional>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 
 #include "nlohmann/json.hpp"
@@ -41,8 +44,35 @@ struct is_vector<std::vector<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
-/// @brief Type trait to detect std::map and std::unordered_map types with string or
-/// numeric keys
+/// @brief Type trait to detect a key type with a static parse from a string that
+/// returns a pair of the key and an error, such as x::uuid::UUID.
+template<typename K, typename = void>
+struct is_string_parseable : std::false_type {};
+
+template<typename K>
+struct is_string_parseable<
+    K,
+    std::enable_if_t<std::is_same_v<
+        decltype(K::parse(std::declval<const std::string &>())),
+        std::pair<K, errors::Error>>>> : std::true_type {};
+
+template<typename K>
+inline constexpr bool is_string_parseable_v = is_string_parseable<K>::value;
+
+/// @brief returns the JSON object key for a map key. Accepts strings, integers, and
+/// types with a to_string member, such as x::uuid::UUID.
+template<typename K>
+std::string map_key(const K &key) {
+    if constexpr (std::is_same_v<K, std::string>)
+        return key;
+    else if constexpr (std::is_integral_v<K>)
+        return std::to_string(key);
+    else
+        return key.to_string();
+}
+
+/// @brief Type trait to detect std::map and std::unordered_map types with string,
+/// numeric, or string-parseable keys
 template<typename T>
 struct is_map : std::false_type {
     using key_type = void;
@@ -52,7 +82,8 @@ struct is_map : std::false_type {
 template<typename K, typename V>
 struct is_map<std::map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -62,7 +93,8 @@ struct is_map<std::map<K, V>>
 template<typename K, typename V>
 struct is_map<std::unordered_map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -100,6 +132,11 @@ struct is_indirect<x::mem::indirect<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_indirect_v = is_indirect<T>::value;
 
+/// @brief true for the integer types whose range the parser checks.
+template<typename T>
+inline constexpr bool is_ranged_integer_v = std::is_integral_v<T> &&
+                                            !std::is_same_v<T, bool>;
+
 /// @brief a utility class for improving the experience of parsing JSON-based
 /// configurations.
 class Parser {
@@ -107,6 +144,19 @@ class Parser {
     json config;
     /// @brief noop means the parser should fail fast.
     bool noop = false;
+    /// @brief true once a keyed lookup has reported a value that is not an object.
+    bool shape_reported = false;
+
+    /// @brief finds the value at path. Null reads as missing. Any other value that is
+    /// not an object binds one error, so a type with only defaulted fields cannot
+    /// accept malformed content.
+    json::iterator find(const std::string &path) {
+        if (!config.is_object() && !config.is_null() && !shape_reported) {
+            shape_reported = true;
+            field_err("", "expected an object");
+        }
+        return config.find(path);
+    }
 
     Parser(
         json config,
@@ -121,13 +171,62 @@ class Parser {
     template<typename T>
     T parse_value(const std::string &path, const json &j);
 
+    template<typename T>
+    void range_err(const std::string &path) const {
+        field_err(
+            path,
+            "must be between " + std::to_string(+std::numeric_limits<T>::min()) +
+                " and " + std::to_string(+std::numeric_limits<T>::max())
+        );
+    }
+
+    /// @returns whether j holds T after the truncation that get<T> applies.
+    template<typename T>
+    static bool fits(const json &j) {
+        if (j.is_number_unsigned()) return std::in_range<T>(j.get<uint64_t>());
+        if (j.is_number_integer()) return std::in_range<T>(j.get<int64_t>());
+        const double v = std::trunc(j.get<double>());
+        const double upper = std::ldexp(1.0, std::numeric_limits<T>::digits);
+        return v >= (std::is_signed_v<T> ? -upper : 0.0) && v < upper;
+    }
+
+    enum class IntegerRead { VALID, NOT_A_NUMBER, OUT_OF_RANGE };
+
+    /// @brief reads an integer from text as std::istream reads one, then checks that it
+    /// fits T.
+    template<typename T>
+    static std::pair<T, IntegerRead> read_integer(const std::string &text) {
+        long long wide = 0;
+        if (std::istringstream wide_in(text); wide_in >> wide) {
+            if (std::in_range<T>(wide))
+                return {static_cast<T>(wide), IntegerRead::VALID};
+            return {T(), IntegerRead::OUT_OF_RANGE};
+        }
+        // A failed read stores 0 when the text is not a number, else the limit it
+        // passed.
+        if (wide == 0) return {T(), IntegerRead::NOT_A_NUMBER};
+        unsigned long long above = 0;
+        if (std::istringstream above_in(text);
+            wide > 0 && above_in >> above && std::in_range<T>(above))
+            return {static_cast<T>(above), IntegerRead::VALID};
+        return {T(), IntegerRead::OUT_OF_RANGE};
+    }
+
     /// @brief Helper to convert JSON key to map key type
     template<typename K>
     std::pair<K, bool>
     convert_key(const std::string &json_key, const std::string &path) {
         if constexpr (std::is_same_v<K, std::string>)
             return {json_key, true};
-        else if constexpr (std::is_arithmetic_v<K>) {
+        else if constexpr (is_ranged_integer_v<K>) {
+            const auto [map_key, read] = read_integer<K>(json_key);
+            if (read == IntegerRead::VALID) return {map_key, true};
+            if (read == IntegerRead::OUT_OF_RANGE)
+                range_err<K>(path);
+            else
+                field_err(path, "Invalid numeric key: '" + json_key + "'");
+            return {K{}, false};
+        } else if constexpr (std::is_arithmetic_v<K>) {
             try {
                 K map_key;
                 if constexpr (std::is_integral_v<K>)
@@ -139,6 +238,13 @@ class Parser {
                 field_err(path, "Invalid numeric key: '" + json_key + "'");
                 return {K{}, false};
             }
+        } else if constexpr (is_string_parseable_v<K>) {
+            auto [map_key, err] = K::parse(json_key);
+            if (err) {
+                field_err(path, "Invalid key: '" + json_key + "'");
+                return {K{}, false};
+            }
+            return {map_key, true};
         }
         return {K{}, false};
     }
@@ -226,7 +332,7 @@ public:
     T field(const std::string &path) {
         if (noop) return T();
         if (path.empty()) return field<T>();
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end()) {
             if constexpr (is_optional_v<T>) return std::nullopt;
             if constexpr (is_indirect_v<T>) return nullptr;
@@ -248,7 +354,7 @@ public:
     T field(const std::string &path, const T &default_value) {
         if (noop) return default_value;
 
-        const auto iter = config.find(path);
+        const auto iter = find(path);
         if (iter == config.end() || iter->is_null()) return default_value;
         return get<T>(path, iter);
     }
@@ -266,7 +372,7 @@ public:
         }
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 
@@ -284,7 +390,7 @@ public:
         if (paths.empty()) return default_value;
 
         for (const auto &path: paths) {
-            if (const auto iter = config.find(path); iter != config.end())
+            if (const auto iter = find(path); iter != config.end())
                 return get<T>(path, iter);
         }
 
@@ -538,7 +644,21 @@ T Parser::parse_value(const std::string &path, const json &j) {
             return T::parse(child_parser);
     } else {
         try {
-            if constexpr (std::is_arithmetic_v<T>) {
+            if constexpr (is_ranged_integer_v<T>) {
+                if (j.is_string()) {
+                    const auto text = j.get<std::string>();
+                    const auto [value, read] = read_integer<T>(text);
+                    if (read == IntegerRead::NOT_A_NUMBER)
+                        field_err(path, "expected a number, got '" + text + "'");
+                    else if (read == IntegerRead::OUT_OF_RANGE)
+                        range_err<T>(path);
+                    return value;
+                }
+                if (j.is_number() && !fits<T>(j)) {
+                    range_err<T>(path);
+                    return T();
+                }
+            } else if constexpr (std::is_arithmetic_v<T>) {
                 if (j.is_string()) {
                     T value;
                     std::istringstream iss(j.get<std::string>());
@@ -571,19 +691,27 @@ struct has_to_json<T, std::void_t<decltype(std::declval<T>().to_json())>>
 template<typename T>
 inline constexpr bool has_to_json_v = has_to_json<T>::value;
 
-/// @brief Converts a container of items to a JSON array.
-/// Items with a to_json() method will have it called; others are assigned directly.
+/// @brief Converts a value to JSON. A value with a to_json() method has it called, a
+/// std::monostate becomes null, and any other value is assigned directly.
+template<typename T>
+json to_json(const T &value) {
+    if constexpr (std::is_same_v<T, std::monostate>)
+        return nullptr;
+    else if constexpr (has_to_json_v<T>)
+        return value.to_json();
+    else
+        return value;
+}
+
+/// @brief Converts a container of items to a JSON array, converting each item with
+/// to_json.
 /// @param items The container to convert.
 /// @returns A JSON array containing the serialized items.
 template<typename Container>
 json to_array(const Container &items) {
     auto arr = json::array();
-    for (const auto &item: items) {
-        if constexpr (has_to_json_v<typename Container::value_type>)
-            arr.push_back(item.to_json());
-        else
-            arr.push_back(item);
-    }
+    for (const auto &item: items)
+        arr.push_back(to_json(item));
     return arr;
 }
 

@@ -15,10 +15,13 @@ import { renderToString } from "react-dom/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { builtinEnvironments } from "vitest/runtime";
 
+import { Media } from "@/components/media";
 import { start } from "@/components/media/lightbox";
 import Lightbox from "@/components/media/Lightbox.astro";
-import { Image, Video } from "@/components/media/Media";
 import { REDUCED_MOTION } from "@/components/media/video";
+import versions from "@/components/media/videos.json";
+
+const [ID] = Object.keys(versions);
 
 let dialogHTML = "";
 let duration = 10;
@@ -41,7 +44,7 @@ const dialog = (): HTMLDialogElement => find(".docs-lightbox");
 const control = (name: string): HTMLElement => find(`.docs-lightbox__${name}`);
 
 const openVideo = (): HTMLVideoElement => {
-  show(renderToString(<Video id="clip" />));
+  show(renderToString(<Media.Video id={ID} />));
   const video = find<HTMLVideoElement>("video");
   video.click();
   return video;
@@ -151,7 +154,7 @@ describe("lightbox", () => {
     });
 
     it("should caption an image with its text alternative", () => {
-      show(renderToString(<Image id="still" alt="The plot toolbar" />));
+      show(renderToString(<Media.Image id="still" alt="The plot toolbar" />));
       find<HTMLElement>(".docs-image").click();
       expect(control("caption").textContent).toBe("The plot toolbar");
     });

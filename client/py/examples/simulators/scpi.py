@@ -30,6 +30,7 @@ reply before it sends it, so replies arrive late.
 import asyncio
 import multiprocessing
 import socket
+from typing import override
 
 import synnax as sy
 from examples.simulators.bus_sim import BusSim
@@ -135,6 +136,7 @@ class SCPISim(BusSim[str]):
             raise TimeoutError(f"No reply to {command}")
         return line.rstrip("\r\n")
 
+    @override
     async def _run_server(self) -> None:
         instrument = _Instrument()
 
@@ -175,6 +177,7 @@ class SCPISim(BusSim[str]):
             await server.serve_forever()
 
     @staticmethod
+    @override
     def create_device(rack_key: int) -> tcp.Device:
         return tcp.Device(
             host=SCPISim.host,

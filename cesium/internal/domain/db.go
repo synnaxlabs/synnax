@@ -66,7 +66,8 @@ type Config struct {
 	// exceed by much with frequent commits.
 	// [OPTIONAL] Default: 800 MB
 	FileSize telem.Size
-	// MaxDescriptors is the maximum number of file descriptors that the DB will use. A
+	// MaxDescriptors is the maximum number of file descriptors that the DB will use for
+	// domain files. An open waits for a descriptor when the DB is at this limit. A
 	// higher value will allow more concurrent reads and writes. It's important to note
 	// that the exact performance impact of changing this value is still relatively
 	// unknown.
@@ -78,12 +79,16 @@ type Config struct {
 	// instead, set it to a very small number greater than 0.
 	// [OPTIONAL] Default: 0.2
 	GCThreshold float32
+	// OnHistoryChange receives the time range of each domain inserted before the last,
+	// each commit to a domain that is not the last, and each delete that removes data.
+	// It runs inline under the DB's locks and must not block or call back into the DB.
+	// [OPTIONAL]
+	OnHistoryChange func(context.Context, telem.TimeRange)
 }
 
 var (
-	_ config.Config[Config] = Config{}
-	// DefaultConfig is the default configuration for a DB.
-	DefaultConfig = Config{
+	_             config.Config[Config] = Config{}
+	defaultConfig                       = Config{
 		FileSize:       800 * telem.Megabyte,
 		GCThreshold:    0.2,
 		MaxDescriptors: 100,
@@ -94,6 +99,13 @@ var (
 func (c Config) Validate() error {
 	v := validate.New("domain")
 	v.Positive("file_size", c.FileSize)
+	// FileSize holds 80% of the configured size, and file offsets are 32-bit.
+	v.Ternaryf(
+		"file_size",
+		math.Round(1.25*float64(c.FileSize)) > math.MaxUint32,
+		"must be at most %d bytes",
+		uint32(math.MaxUint32),
+	)
 	v.Positive("max_descriptors", c.MaxDescriptors)
 	v.NotNil("fs", c.FS)
 	v.GreaterThanEq("gc_threshold", c.GCThreshold, 0)
@@ -108,6 +120,7 @@ func (c Config) Override(other Config) Config {
 	c.FS = override.Nil(c.FS, other.FS)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.GCThreshold = override.Numeric(c.GCThreshold, other.GCThreshold)
+	c.OnHistoryChange = override.Nil(c.OnHistoryChange, other.OnHistoryChange)
 	// Store 80% of the desired maximum file size as file size since we must leave some
 	// buffer for when we stop acquiring a new writer on a file.
 	c.FileSize = telem.Size(math.Round(0.8 * float64(c.FileSize)))
@@ -117,11 +130,11 @@ func (c Config) Override(other Config) Config {
 // Open opens a DB using a merged view of the provided configurations (where the next
 // configuration overrides the previous).
 func Open(configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	idx := &index{}
+	idx := &index{onHistoryChange: cfg.OnHistoryChange}
 	idxPst, err := openIndexPersist(idx, cfg.FS)
 	if err != nil {
 		return nil, err

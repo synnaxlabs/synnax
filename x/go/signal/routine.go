@@ -138,18 +138,6 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 	}
 }
 
-// WithBreaker sets the breaker to use to enable the goroutine to attempt to rerun
-// despite a panic. The breaker controls the interval between two reruns as well as the
-// coefficient by which the interval grows.
-// When WithBreaker is used, the PanicPolicy of recoverErr is automatically used.
-func WithBreaker(breakerCfg breaker.Config) RoutineOption {
-	return func(r *routineOptions) {
-		r.breakerCfg = breakerCfg
-		r.useBreaker = true
-		r.panicPolicy = recoverErr
-	}
-}
-
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
 // to restart for the first time. (Default: 1 second)
@@ -257,13 +245,8 @@ func (r *routine) runPrelude() (ctx context.Context, proceed bool) {
 	}
 
 	r.ctx.mu.routines = append(r.ctx.mu.routines, r)
-
-	// If the context has already been canceled, don't even start the routine.
-	if r.ctx.Err() != nil {
-		r.state.state = RoutineStateFailed
-		r.state.err = r.ctx.Err()
-		return r.ctx, false
-	}
+	// A routine runs even when the context is already canceled, since it may own
+	// resources that only it releases.
 	r.state.state = RoutineStateStarting
 
 	r.ctx.L.Debug("starting routine", r.zapFields()...)
@@ -290,7 +273,7 @@ func (r *routine) runPostlude(err error) error {
 	defer r.ctx.mu.Unlock()
 
 	if err != nil {
-		_ = r.span.Error(err, context.Canceled)
+		err = r.span.Error(err, context.Canceled)
 		// Only non-context errors are considered failures.
 		if errors.IsAny(err, context.Canceled, context.DeadlineExceeded) {
 			r.state.state = RoutineStateContextCanceled
@@ -342,8 +325,7 @@ func (r *routine) maybeRecover(panicReason any) error {
 	case propagatePanic:
 		r.state.state = RoutineStatePanicked
 		if err, ok := panicReason.(error); ok {
-			r.state.err = err
-			_ = r.span.Error(err)
+			r.state.err = r.span.Error(err)
 		}
 		r.span.End()
 		panic(panicReason)
@@ -454,7 +436,7 @@ key: %s
 
 --------------------------------- ERROR ----------------------------------------
 
-%+v
+%v
 
 -------------------------------- ROUTINES --------------------------------------
 %s

@@ -27,13 +27,19 @@ export const Form = <Z extends z.ZodType>({
   value,
   has,
   remove,
+  insert,
+  move,
+  batch,
   setStatus,
   clearStatuses,
+  addCheck,
+  focus,
+  addFocusHandler,
   reset,
   setCurrentStateAsInitialValues,
   getStatuses,
 }: PropsWithChildren<ContextValue<Z>>): ReactElement => {
-  const ctx = {
+  const ctx: ContextValue<Z> = {
     bind,
     set,
     get,
@@ -43,11 +49,17 @@ export const Form = <Z extends z.ZodType>({
     value,
     has,
     remove,
+    insert,
+    move,
+    batch,
     setStatus,
     clearStatuses,
+    addCheck,
+    focus,
+    addFocusHandler,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses,
-  } as ContextValue;
+  };
   return <Context value={ctx}>{children}</Context>;
 };

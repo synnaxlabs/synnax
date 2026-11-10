@@ -23,30 +23,35 @@ import (
 
 func newText(raw string) text.Text { return text.Text{Doc: text.Create(raw)} }
 
-func textArc(raw string) arc.Arc {
-	return arc.Arc{Mode: arc.ModeText, Text: newText(raw)}
+func textBase(t text.Text) arc.Base {
+	return arc.Base{Source: arc.Source{Variant: arc.TextSource{Text: t}}}
 }
 
-func graphArc() arc.Arc {
-	return arc.Arc{
-		Mode: arc.ModeGraph,
-		Graph: graph.Graph{
-			Nodes: graph.Nodes{
-				{Key: "a", Position: spatial.XY{X: 0, Y: 0}},
-				{Key: "b", Position: spatial.XY{X: 10, Y: 10}},
-			},
-			Edges: graph.Edges{{
-				Key:    "e1",
-				Source: ir.Handle{Node: "a", Param: "out"},
-				Target: ir.Handle{Node: "b", Param: "in"},
-			}},
-			Inputs: map[string]msgpack.EncodedJSON{
-				"a": {"type": "on", "channel": 1},
-				"b": {"type": "set", "channel": 2},
-			},
+func textArc(raw string) arc.Base { return textBase(newText(raw)) }
+
+func graphBase(g graph.Graph) arc.Base {
+	return arc.Base{Source: arc.Source{Variant: arc.GraphSource{Graph: g}}}
+}
+
+func testGraph() graph.Graph {
+	return graph.Graph{
+		Nodes: graph.Nodes{
+			{Key: "a", Position: spatial.XY{X: 0, Y: 0}},
+			{Key: "b", Position: spatial.XY{X: 10, Y: 10}},
+		},
+		Edges: graph.Edges{{
+			Key:    "e1",
+			Source: ir.Handle{Node: "a", Param: "out"},
+			Target: ir.Handle{Node: "b", Param: "in"},
+		}},
+		Inputs: map[string]msgpack.EncodedJSON{
+			"a": {"type": "on", "channel": 1},
+			"b": {"type": "set", "channel": 2},
 		},
 	}
 }
+
+func graphArc() arc.Base { return graphBase(testGraph()) }
 
 var _ = Describe("Hash", func() {
 	Describe("Text mode", func() {
@@ -60,25 +65,17 @@ var _ = Describe("Hash", func() {
 				ToNot(Equal(MustSucceed(arc.Hash(textArc("a -> c")))))
 		})
 
-		It("Should ignore graph content", func() {
-			a := textArc("a -> b")
-			b := textArc("a -> b")
-			b.Graph = graphArc().Graph
-			Expect(MustSucceed(arc.Hash(a))).To(Equal(MustSucceed(arc.Hash(b))))
-		})
-
 		It("Should hash a pre-materialized arc identically", func() {
 			a := textArc("a -> b")
-			materialized := a
-			materialized.Text = materialized.Text.Materialize()
+			materialized := textBase(newText("a -> b").Materialize())
 			Expect(MustSucceed(arc.Hash(materialized))).
 				To(Equal(MustSucceed(arc.Hash(a))))
 		})
 
 		It("Should ignore a stale Raw and hash the document", func() {
-			a := textArc("a -> b")
-			a.Text.Raw = "a -> c"
-			Expect(MustSucceed(arc.Hash(a))).
+			t := newText("a -> b")
+			t.Raw = "a -> c"
+			Expect(MustSucceed(arc.Hash(textBase(t)))).
 				To(Equal(MustSucceed(arc.Hash(textArc("a -> b")))))
 		})
 	})
@@ -90,62 +87,62 @@ var _ = Describe("Hash", func() {
 		})
 
 		It("Should ignore node positions", func() {
-			moved := graphArc()
-			moved.Graph.Nodes[0].Position = spatial.XY{X: 500, Y: 500}
+			moved := testGraph()
+			moved.Nodes[0].Position = spatial.XY{X: 500, Y: 500}
 			Expect(MustSucceed(arc.Hash(graphArc()))).
-				To(Equal(MustSucceed(arc.Hash(moved))))
+				To(Equal(MustSucceed(arc.Hash(graphBase(moved)))))
 		})
 
 		It("Should ignore edge identity", func() {
-			rekeyed := graphArc()
-			rekeyed.Graph.Edges[0].Key = "e2"
+			rekeyed := testGraph()
+			rekeyed.Edges[0].Key = "e2"
 			Expect(MustSucceed(arc.Hash(graphArc()))).
-				To(Equal(MustSucceed(arc.Hash(rekeyed))))
+				To(Equal(MustSucceed(arc.Hash(graphBase(rekeyed)))))
 		})
 
 		It("Should ignore node and edge ordering", func() {
-			reordered := graphArc()
-			reordered.Graph.Nodes[0], reordered.Graph.Nodes[1] = reordered.Graph.Nodes[1], reordered.Graph.Nodes[0]
-			reordered.Graph.Edges = append(graph.Edges{{
+			reordered := testGraph()
+			reordered.Nodes[0], reordered.Nodes[1] = reordered.Nodes[1], reordered.Nodes[0]
+			reordered.Edges = append(graph.Edges{{
 				Key:    "e3",
 				Source: ir.Handle{Node: "b", Param: "out"},
 				Target: ir.Handle{Node: "a", Param: "in"},
-			}}, reordered.Graph.Edges...)
-			base := graphArc()
-			base.Graph.Edges = append(base.Graph.Edges, graph.Edge{
+			}}, reordered.Edges...)
+			base := testGraph()
+			base.Edges = append(base.Edges, graph.Edge{
 				Key:    "e4",
 				Source: ir.Handle{Node: "b", Param: "out"},
 				Target: ir.Handle{Node: "a", Param: "in"},
 			})
-			Expect(MustSucceed(arc.Hash(base))).
-				To(Equal(MustSucceed(arc.Hash(reordered))))
+			Expect(MustSucceed(arc.Hash(graphBase(base)))).
+				To(Equal(MustSucceed(arc.Hash(graphBase(reordered)))))
 		})
 
 		It("Should change when an edge is reconnected", func() {
-			reconnected := graphArc()
-			reconnected.Graph.Edges[0].Target = ir.Handle{Node: "b", Param: "other"}
+			reconnected := testGraph()
+			reconnected.Edges[0].Target = ir.Handle{Node: "b", Param: "other"}
 			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(reconnected))))
+				ToNot(Equal(MustSucceed(arc.Hash(graphBase(reconnected)))))
 		})
 
 		It("Should change when node inputs change", func() {
-			changed := graphArc()
-			changed.Graph.Inputs["a"] = msgpack.EncodedJSON{"type": "on", "channel": 9}
+			changed := testGraph()
+			changed.Inputs["a"] = msgpack.EncodedJSON{"type": "on", "channel": 9}
 			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(changed))))
+				ToNot(Equal(MustSucceed(arc.Hash(graphBase(changed)))))
 		})
 
 		It("Should change when a node is added", func() {
-			grown := graphArc()
-			grown.Graph.Nodes = append(grown.Graph.Nodes, graph.Node{Key: "c"})
+			grown := testGraph()
+			grown.Nodes = append(grown.Nodes, graph.Node{Key: "c"})
 			Expect(MustSucceed(arc.Hash(graphArc()))).
-				ToNot(Equal(MustSucceed(arc.Hash(grown))))
+				ToNot(Equal(MustSucceed(arc.Hash(graphBase(grown)))))
 		})
 	})
 
 	It("Should hash the two modes differently", func() {
-		a := arc.Arc{Mode: arc.ModeText}
-		b := arc.Arc{Mode: arc.ModeGraph}
+		a := textBase(text.Text{})
+		b := graphBase(graph.Graph{})
 		Expect(MustSucceed(arc.Hash(a))).ToNot(Equal(MustSucceed(arc.Hash(b))))
 	})
 })

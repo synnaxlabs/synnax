@@ -10,7 +10,6 @@
 import "@/arc/graph/Editor.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -35,6 +34,7 @@ import {
 } from "@/arc/queries";
 import { Scope } from "@/arc/scope";
 import { useKey } from "@/arc/Suspended";
+import { CSS } from "@/css";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 const FIT_VIEW_OPTIONS: BaseDiagram.FitViewOptions = {

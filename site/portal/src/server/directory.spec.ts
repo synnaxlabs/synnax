@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ADMIN_ROLE, clerk, memory } from "@/server/directory";
+import { ADMIN_ROLE, clerk, isInternal, memory } from "@/server/directory";
 
 interface FakeUser {
   id: string;
@@ -24,6 +24,7 @@ interface FakeUser {
   }[];
   hasImage: boolean;
   imageUrl: string;
+  createdAt: number;
 }
 
 const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
@@ -38,6 +39,7 @@ const user = (overrides: Partial<FakeUser> = {}): FakeUser => ({
   ],
   hasImage: false,
   imageUrl: "https://img.clerk.com/default",
+  createdAt: Date.parse("2026-09-01T00:00:00Z"),
   ...overrides,
 });
 
@@ -67,7 +69,7 @@ interface FakeArgs {
   }[];
   organizations?: { id: string; name: string; membersCount?: number }[];
   listed?: { id: string; fullName: string | null; primaryEmailAddress: unknown }[];
-  /** unavailable are organization ids Clerk fails to read with a 500. */
+  /** unavailable are organization and user ids Clerk fails to read with a 500. */
   unavailable?: string[];
   /** refusal is what Clerk throws on every write. */
   refusal?: Error;
@@ -92,19 +94,24 @@ const createClient = ({
   };
   const client = {
     users: {
-      getUser: async (id: string) => {
-        const found = users.find((u) => u.id === id);
-        if (found == null) throw new Error("Not Found");
-        return found;
-      },
       getOrganizationMembershipList: async (args: Paged & { userId: string }) => {
         record("memberships", args);
         return page(memberships, args);
       },
-      getUserList: async (args: { userId: string[]; limit: number }) => {
+      getUser: async (id: string) => {
+        if (unavailable.includes(id))
+          throw Object.assign(new Error("Down"), { status: 500 });
+        const found = users.find((u) => u.id === id);
+        if (found == null) throw Object.assign(new Error("Not Found"), { status: 404 });
+        return found;
+      },
+      deleteUser: async (id: string) => await write("deletedUsers", id),
+      getUserList: async (args: Paged & { userId?: string[] }) => {
         record("userList", args);
+        if (args.userId == null) return page(users, args);
+        const { userId } = args;
         return {
-          data: listed.filter((u) => args.userId.includes(u.id)).slice(0, args.limit),
+          data: listed.filter((u) => userId.includes(u.id)).slice(0, args.limit),
         };
       },
     },
@@ -143,6 +150,20 @@ const createClient = ({
 };
 
 describe("directory", () => {
+  describe("isInternal", () => {
+    it("should accept a Synnax Labs address in any case", () => {
+      expect(isInternal("em@synnaxlabs.com")).toBe(true);
+      expect(isInternal("Em@SynnaxLabs.com")).toBe(true);
+    });
+
+    it("should refuse an address on another domain", () => {
+      expect(isInternal("ada@example.com")).toBe(false);
+      expect(isInternal("ada@notsynnaxlabs.com")).toBe(false);
+      expect(isInternal("ada@synnaxlabs.com.example.com")).toBe(false);
+      expect(isInternal("")).toBe(false);
+    });
+  });
+
   describe("memory", () => {
     const directory = memory({
       people: {
@@ -183,6 +204,36 @@ describe("directory", () => {
         { userID: "user_c", name: "Cy", email: "", role: ADMIN_ROLE },
       ]);
       expect(await directory.roster("org_other")).toEqual([]);
+    });
+
+    it("should list and find users, newest first", async () => {
+      const dir = memory({
+        people: {
+          user_a: { email: "ada@example.com", name: "Ada", joinedAt: new Date(1) },
+          user_b: { email: "bob@example.com", name: "Bob", joinedAt: new Date(2) },
+        },
+      });
+      expect(await dir.users()).toEqual([
+        {
+          userID: "user_b",
+          name: "Bob",
+          email: "bob@example.com",
+          joinedAt: new Date(2),
+        },
+        {
+          userID: "user_a",
+          name: "Ada",
+          email: "ada@example.com",
+          joinedAt: new Date(1),
+        },
+      ]);
+      expect(await directory.account("user_c")).toEqual({
+        userID: "user_c",
+        name: "Cy",
+        email: "",
+        joinedAt: new Date(0),
+      });
+      expect(await directory.account("user_x")).toBeNull();
     });
 
     it("should list and find organizations", async () => {
@@ -312,6 +363,61 @@ describe("directory", () => {
       it("should throw when Clerk does not know the user", async () => {
         const { directory } = createClient();
         await expect(directory.person("user_x")).rejects.toThrow("Not Found");
+      });
+    });
+
+    describe("users", () => {
+      it("should list every user across every page, newest first", async () => {
+        const { directory, calls } = createClient({
+          users: range(101, (i) => user({ id: `user_${i}`, createdAt: i })),
+        });
+        const users = await directory.users();
+        expect(users).toHaveLength(101);
+        expect(users[3]).toEqual({
+          userID: "user_3",
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          joinedAt: new Date(3),
+        });
+        expect(calls.userList).toEqual([
+          { limit: 100, offset: 0, orderBy: "-created_at" },
+          { limit: 100, offset: 100, orderBy: "-created_at" },
+        ]);
+      });
+
+      it("should name a user without a name by username, then address", async () => {
+        const { directory } = createClient({
+          users: [
+            user({ id: "user_a", firstName: null, lastName: null }),
+            user({ id: "user_b", firstName: null, lastName: null, username: null }),
+          ],
+        });
+        expect((await directory.users()).map((u) => u.name)).toEqual([
+          "ada",
+          "ada@example.com",
+        ]);
+      });
+    });
+
+    describe("account", () => {
+      it("should read one user", async () => {
+        const { directory } = createClient();
+        expect(await directory.account("user_a")).toEqual({
+          userID: "user_a",
+          name: "Ada Lovelace",
+          email: "ada@example.com",
+          joinedAt: new Date("2026-09-01T00:00:00Z"),
+        });
+      });
+
+      it("should answer null for a user Clerk does not know", async () => {
+        const { directory } = createClient();
+        expect(await directory.account("user_x")).toBeNull();
+      });
+
+      it("should throw any other Clerk failure", async () => {
+        const { directory } = createClient({ unavailable: ["user_down"] });
+        await expect(directory.account("user_down")).rejects.toThrow("Down");
       });
     });
 
@@ -562,6 +668,24 @@ describe("directory", () => {
         const { directory, calls } = createClient();
         await directory.delete("org_acme");
         expect(calls.deleted).toEqual(["org_acme"]);
+      });
+
+      it("should delete an account", async () => {
+        const { directory, calls } = createClient();
+        await directory.deleteAccount("user_a");
+        expect(calls.deletedUsers).toEqual(["user_a"]);
+      });
+
+      it("should treat an account Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.deleteAccount("user_a")).resolves.toBeUndefined();
+      });
+
+      it("should treat a team Clerk does not know as deleted", async () => {
+        const refusal = Object.assign(new Error("Not Found"), { status: 404 });
+        const { directory } = createClient({ refusal });
+        await expect(directory.delete("org_acme")).resolves.toBeUndefined();
       });
 
       it("should rename a team", async () => {

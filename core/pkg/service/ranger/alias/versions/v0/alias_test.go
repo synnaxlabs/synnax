@@ -19,9 +19,9 @@ import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/alias/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Alias", func() {
@@ -30,12 +30,6 @@ var _ = Describe("Alias", func() {
 			rng, ch := uuid.New(), channel.Key(65538)
 			Expect(v0.Alias{Range: rng, Channel: ch}.GorpKey()).
 				To(Equal(rng.String() + "---" + ch.String()))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Alias{}.SetOptions()).To(BeNil())
 		})
 	})
 })

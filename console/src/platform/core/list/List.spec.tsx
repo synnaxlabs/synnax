@@ -126,7 +126,7 @@ describe("Core List", () => {
     fireEvent.click(await screen.findByText("Refresh connection"));
     await waitFor(() => expect(screen.queryByText("Refresh connection")).toBeNull());
     // The address is the key, so a connection tells the session nothing new about it.
-    const cores = Session.Core.selectMany(store.getState());
+    const cores = Object.values(store.getState()[Session.Core.SLICE_NAME].cores);
     expect(cores).toHaveLength(1);
     expect(cores[0].key).toBe(ALPHA.key);
   });
@@ -187,7 +187,7 @@ describe("Core List", () => {
     );
     const addButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.pluto-icon--add"));
+      .find((b) => b.querySelector("svg.lyra-icon--add"));
     if (addButton == null) throw new Error("add button not found");
     fireEvent.click(addButton);
     await waitFor(() => {

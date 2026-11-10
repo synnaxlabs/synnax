@@ -34,7 +34,6 @@ export const ButtonTitle = ({
       size={TEXT_LEVEL_SIZES[level]}
       onClick={onClick}
       className={CSS.cls(CSS.B("header-button-title"), className)}
-      sharp
       {...rest}
     >
       {children}

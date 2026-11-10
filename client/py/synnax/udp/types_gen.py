@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from typing import override as _override
+
 from pydantic import BaseModel, Field
 
 from synnax import bus
@@ -40,6 +42,7 @@ class Properties(BaseModel):
 class ReadConfig(bus.ReadConfig, bus.PollConfig):
     """Configures a UDP read task. Each datagram is one frame."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -47,5 +50,6 @@ class ReadConfig(bus.ReadConfig, bus.PollConfig):
 class WriteConfig(bus.WriteConfig):
     """Configures a UDP write task. Each message is sent as one datagram."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

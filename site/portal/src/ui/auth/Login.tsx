@@ -11,6 +11,7 @@ import { Button } from "@synnaxlabs/lyra/button";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
@@ -28,6 +29,10 @@ import {
 import { start } from "@/ui/auth/session";
 import { type Clerk, useClerk } from "@/ui/clerk";
 import { useAction } from "@/ui/useAction";
+
+const path = deep.path<z.infer<typeof schema>>();
+
+const codePath = deep.path<z.infer<typeof codeSchema>>();
 
 const schema = z.object({
   email: z.email("Enter your email address"),
@@ -117,7 +122,7 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
       >
         <Form.Form<typeof codeSchema> {...codeMethods}>
           <Form.TextField
-            path="code"
+            path={codePath.code}
             label="Code"
             required={false}
             padHelpText={false}
@@ -164,19 +169,20 @@ export const Login = ({ target, invited }: LoginProps): ReactElement => {
       <OAuth mode="login" target={target} onError={setOAuthError} />
       <Form.Form<typeof schema> {...methods}>
         <Form.TextField
-          path="email"
+          path={path.email}
           label="Email"
           required={false}
           padHelpText={false}
           inputProps={{
             type: "email",
-            autoComplete: "email",
+            autoComplete: "username",
             autoFocus: invited == null,
-            disabled: invited != null,
+            // Password managers skip a disabled field.
+            readOnly: invited != null,
           }}
         />
         <Form.TextField
-          path="password"
+          path={path.password}
           label="Password"
           required={false}
           padHelpText={false}

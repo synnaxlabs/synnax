@@ -24,7 +24,7 @@ sequence press {
     }
     2 -> press_stage
     0 -> press_vlv_cmd
-    time.wait{duration=10s}
+    time.wait(duration=10s)
     stage vent {
         3 -> press_stage
         1 -> vent_vlv_cmd
@@ -90,15 +90,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     };
     const input = (label: string): Locator =>
       properties
-        .locator(".pluto-input__item")
+        .locator(".lyra-input__item")
         .filter({ hasText: new RegExp(`^${label}`) })
-        .locator("input")
+        .locator("input, textarea")
         .first();
     const fill = async (label: string, value: string): Promise<void> => {
       const target = input(label);
       await session.waitFor(target);
       await target.fill(value);
-      await target.press("Enter");
+      await target.blur();
       await session.settle(300);
     };
     const valve = async (
@@ -141,7 +141,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
         properties.getByRole("button", { name: "Add option" }).first(),
         { zoom: false },
       );
-    const options = properties.locator(".pluto-state-mapping-list .pluto-list__item");
+    const options = properties.locator(".pluto-state-mapping-list .lyra-list__item");
     for (const [i, name] of STAGES.entries()) {
       const nameInput = options.nth(i).locator("input").first();
       await session.waitFor(nameInput);

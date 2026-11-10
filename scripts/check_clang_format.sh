@@ -52,5 +52,6 @@ if echo "$files" \
     exit 0
 fi
 
-echo "Run 'scripts/clang_format.sh $path' to format the files."
+echo "Run 'scripts/fix.sh' to format the changed files, or"
+echo "'scripts/clang_format.sh $path' to format all files in $path."
 exit 1

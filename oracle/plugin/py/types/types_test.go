@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -53,6 +52,152 @@ var _ = Describe("Python Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				`and_: list[Where] | None = Field(default=None, alias="and")`,
+				`or_: list[Where] | None = Field(default=None, alias="or")`,
+				`not_: Where | None = Field(default=None, alias="not")`,
+				"Where.model_rebuild()",
+			)
+		})
+
+		It("Should forbid unknown keys only in a filter request", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			strict := `model_config = ConfigDict(populate_by_name=True, extra="forbid")`
+			ExpectContent(resp, "thing/types_gen.py").
+				ToContain(
+					"class Where(BaseModel):",
+					strict,
+					"class RetrieveRequest(BaseModel):",
+					`model_config = ConfigDict(extra="forbid")`,
+					"class Thing(BaseModel):\n    key: ",
+				).
+				ToPreserveOrder("class Where(BaseModel):", strict)
+			ExpectContent(resp, "filter/types_gen.py").ToContain(strict)
+		})
+
+		It("Should keep the defaults of a filter request", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			source := strings.Replace(
+				ThingFilter,
+				"name string",
+				"name string { @search }",
+				1,
+			)
+			resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types_gen.py").ToContain(
+				`search_term: str = ""`,
+				"limit: int | None = Field(default=None, ge=0, le=4294967295)",
+			)
+		})
+
+		Context("filter input", func() {
+			const thing = `
+				import "schemas/x/filter"
+
+				@py output "client/py/synnax/thing"
+
+				Span struct {
+					start int64
+				}
+				Thing struct {
+					key        uuid     { @key }
+					name       string
+					created_at int64
+					tags       string[]
+					active     bool
+				}
+			`
+
+			BeforeEach(func() { AddFilterSchema(loader) })
+
+			It("Should read each operator from a plain value or a list", func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				ExpectContent(resp, "filter/types_gen.py").ToContain(
+					"from x.filter import shorthand",
+					"    @model_validator(mode=\"before\")\n"+
+						"    @classmethod\n"+
+						"    def _read_shorthand(cls, value: Any) -> Any:\n"+
+						"        return shorthand.read_set(value, cls)",
+					"return shorthand.read_bool(value, cls)",
+					"return shorthand.read_contains(value, cls)",
+				)
+			})
+
+			It("Should declare the dict form and the input of each operator", func(
+				ctx SpecContext,
+			) {
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+				ExpectContent(resp, "filter/types_gen.py").ToContain(
+					"StringDict = TypedDict(\n"+
+						"    \"StringDict\",\n"+
+						"    {\"eq\": str, \"in\": list[str], \"contains\": str, "+
+						"\"starts_with\": str, \"regex\": str, "+
+						"\"case_insensitive\": bool},\n"+
+						"    total=False,\n)",
+					"type StringInput = str | list[str] | StringDict | String",
+					"class BoolDict(TypedDict, total=False):\n    eq: bool",
+					"type BoolInput = bool | BoolDict | Bool",
+					"{\"eq\": T, \"in\": list[T]},  # type: ignore[valid-type]",
+					"type SetInput[T] = T | list[T] | SetDict[T] | Set[T]",
+					"class ContainsDict(TypedDict, Generic[T], total=False):\n"+
+						"    any: list[T]",
+					"type ContainsInput[T] = T | list[T] | ContainsDict[T] | "+
+						"Contains[T]",
+				)
+			})
+
+			It("Should declare the partial record of a filter", func(ctx SpecContext) {
+				resp := MustGenerate(ctx, thing+`
+					Where filter Thing {
+						key
+						name
+						created_at
+						tags
+						active
+					}
+				`, "thing", loader, typesPlugin)
+				ExpectContent(resp, "thing/types_gen.py").
+					ToContain(
+						"WhereInput = TypedDict(\n    \"WhereInput\",\n    {" +
+							"\"and\": list[\"WhereInput\"], " +
+							"\"or\": list[\"WhereInput\"], " +
+							"\"not\": \"WhereInput\", " +
+							"\"key\": filter.SetInput[UUID], " +
+							"\"name\": filter.StringInput, " +
+							"\"created_at\": filter.OrderedInput[int], " +
+							"\"tags\": filter.ContainsInput[str], " +
+							"\"active\": filter.BoolInput},",
+					).
+					ToNotContain("field_validator")
+			})
+
+			It("Should read a typed list line from one value", func(ctx SpecContext) {
+				resp := MustGenerate(ctx, thing+`
+					Where filter Thing {
+						key
+						overlaps Span
+						spans    Span[]
+					}
+				`, "thing", loader, typesPlugin)
+				ExpectContent(resp, "thing/types_gen.py").ToContain(
+					"from x.filter import shorthand",
+					"    @field_validator(\"spans\", mode=\"before\")\n"+
+						"    @classmethod\n"+
+						"    def _read_lists(cls, value: Any) -> Any:\n"+
+						"        return shorthand.read_list(value)",
+					"\"overlaps\": Span, \"spans\": Span | list[Span]},",
+				)
+			})
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in py", func(ctx SpecContext) {
 				source := `
@@ -151,6 +296,87 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in Python", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/user"
+				@py output "out"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@py omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("key: int", "name: str", "rate: float").
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx,
+					schema("@py omit", "rate float64"),
+					"user",
+					loader,
+					typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Shape(BaseModel):`,
+						`key: int`,
+						`name: str`,
+						`secret: str`,
+						`rate: float`,
+					).
+					ToNotContain(`class Record`)
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@py omit", "-secret"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Shape(BaseModel):`, `name: str`).
+					ToNotContain(`secret`, `class Record`)
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").ToContain(`class Shape(Record):`)
+			})
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -162,7 +388,7 @@ var _ = Describe("Python Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -196,7 +422,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -216,6 +442,61 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		It(
+			"Should apply an exclusive lower bound in place of the implied one",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				Wave struct {
+					cycles    int32 @validate gt 0
+					frequency float64 @validate gt 0.5
+				}
+			`
+				table, diag := Analyze(ctx, source, "wave", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(
+					&plugin.Request{Resolutions: table},
+				))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`cycles: int = Field(gt=0, le=2147483647)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`frequency: float = Field(gt=0.500000)`,
+				))
+			},
+		)
+
+		It(
+			"Should emit native Field length constraints, which count code points",
+			func(ctx SpecContext) {
+				source := `
+				@py output "out"
+
+				User struct {
+					name string @validate {
+						min_length 2
+						max_length 64
+					}
+					alias string? @validate max_length 64
+				}
+			`
+				table, diag := Analyze(ctx, source, "user", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				resp := MustSucceed(typesPlugin.Generate(&plugin.Request{
+					Resolutions: table,
+				}))
+				content := string(resp.Files[0].Content)
+				Expect(content).To(ContainSubstring(
+					`name: str = Field(min_length=2, max_length=64)`,
+				))
+				Expect(content).To(ContainSubstring(
+					`alias: str | None = Field(default=None, max_length=64)`,
+				))
+			},
+		)
+
 		It("Should generate IntEnum for integer enums", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -230,7 +511,7 @@ var _ = Describe("Python Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -262,7 +543,7 @@ var _ = Describe("Python Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
+			table, diag := Analyze(ctx, source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -348,7 +629,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -377,7 +658,7 @@ var _ = Describe("Python Types Plugin", func() {
 					op OperationType
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -442,6 +723,34 @@ var _ = Describe("Python Types Plugin", func() {
 				Entry("any", "any", "JsonValue"),
 			)
 
+			It(
+				"Should write the default before bounds in every field",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Test struct {
+						stated int32 = 1 {
+							@validate min 0
+							@validate max 3
+						}
+						implied_min uint8 = 2 {
+							@validate max 3
+						}
+						implied_max int32 = 3 {
+							@validate min 1
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`stated: int = Field(default=1, ge=0, le=3)`,
+						`implied_min: int = Field(default=2, ge=0, le=3)`,
+						`implied_max: int = Field(default=3, ge=1, le=2147483647)`,
+					)
+				},
+			)
+
 			It("Should import Bytes from x.codec", func(ctx SpecContext) {
 				source := `
 					@py output "out"
@@ -476,6 +785,34 @@ var _ = Describe("Python Types Plugin", func() {
 						ToNotContain(`Any`)
 				},
 			)
+
+			It("Should require a bare any field", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						value any
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain("    value: JsonValue\n")
+			})
+
+			It("Should make an @py optional field optional", func(ctx SpecContext) {
+				source := `
+					@py output "out"
+
+					Test struct {
+						value    any    @py optional
+						required any
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+				ExpectContent(resp, "types_gen.py").ToContain(
+					"    value: JsonValue | None = None\n",
+					"    required: JsonValue\n",
+				)
+			})
 		})
 
 		It("Should handle optional key and password fields", func(ctx SpecContext) {
@@ -490,7 +827,7 @@ var _ = Describe("Python Types Plugin", func() {
 					last_name string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			table, diag := Analyze(ctx, source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -518,7 +855,7 @@ var _ = Describe("Python Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "device", loader)
+			table, diag := Analyze(ctx, source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -542,7 +879,7 @@ var _ = Describe("Python Types Plugin", func() {
 					actions string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
+			table, diag := Analyze(ctx, source, "policy", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -567,7 +904,7 @@ var _ = Describe("Python Types Plugin", func() {
 					retries int32 = 3
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			table, diag := Analyze(ctx, source, "config", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -780,7 +1117,7 @@ var _ = Describe("Python Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -877,7 +1214,7 @@ var _ = Describe("Python Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -994,7 +1331,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1028,7 +1365,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1037,12 +1374,13 @@ var _ = Describe("Python Types Plugin", func() {
 
 			resp := MustSucceed(typesPlugin.Generate(req))
 
-			content := string(resp.Files[0].Content)
-			// C should inherit from both A and B
-			Expect(content).To(ContainSubstring(`class C(A, B):`))
-			Expect(content).To(ContainSubstring(`c: bool`))
-			// shared field should not be present in C (omitted) Note: Python
-			// inheritance doesn't explicitly omit, but the field shouldn't be redefined
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`class C(BaseModel):`,
+				`a: str`,
+				`shared: str | None = Field(default=None, exclude=True)`,
+				`b: int = Field(ge=-2147483648, le=2147483647)`,
+				`c: bool`,
+			)
 		})
 
 		It(
@@ -1067,7 +1405,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c float32
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1099,7 +1437,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ripe bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+			table, diag := Analyze(ctx, source, "animals", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1126,7 +1464,7 @@ var _ = Describe("Python Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+			table, diag := Analyze(ctx, source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1186,9 +1524,9 @@ var _ = Describe("Python Types Plugin", func() {
 			})
 		})
 
-		Context("ontology with @py hand", func() {
+		Context("resource with @py hand", func() {
 			It(
-				"Should generate ontology_id even when the struct is omitted",
+				"Should generate resource_id even when the struct is omitted",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1199,22 +1537,23 @@ var _ = Describe("Python Types Plugin", func() {
 						key Key @key
 						name string
 						@py hand
-						@ontology type "policy"
+						@resource type "policy"
 					}
 				`
 					resp := MustGenerate(ctx, source, "policy", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
-							`ONTOLOGY_TYPE = ID(type="policy")`,
-							`def ontology_id(key: Key) -> ID:`,
+							`from synnax.resource import ID`,
+							`TYPE_RESOURCE_ID = ID(type="policy")`,
+							`def resource_id(key: Key) -> ID:`,
 						).
 						ToNotContain(`class Policy`)
 				},
 			)
 		})
 
-		Context("ontology on a union", func() {
-			It("Should generate ontology_id for a union", func(ctx SpecContext) {
+		Context("resource on a union", func() {
+			It("Should generate resource_id for a union", func(ctx SpecContext) {
 				source := `
 					@py output "out"
 
@@ -1231,21 +1570,21 @@ var _ = Describe("Python Types Plugin", func() {
 						second {
 							size int32
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 				resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 				ExpectContent(resp, "types_gen.py").
 					ToContain(
-						`ONTOLOGY_TYPE = ID(type="view")`,
-						`def ontology_id(key: Key) -> ID:`,
+						`TYPE_RESOURCE_ID = ID(type="view")`,
+						`def resource_id(key: Key) -> ID:`,
 					)
 			})
 		})
 
-		Context("ontology on a union with a split base", func() {
+		Context("resource on a union with a split base", func() {
 			It(
-				"Should generate ontology_id when the base has another output",
+				"Should generate resource_id when the base has another output",
 				func(ctx SpecContext) {
 					source := `
 					@py output "out"
@@ -1261,12 +1600,12 @@ var _ = Describe("Python Types Plugin", func() {
 						first {
 							name string
 						}
-						@ontology type "view"
+						@resource type "view"
 					}
 				`
 					resp := MustGenerate(ctx, source, "view", loader, typesPlugin)
 					ExpectContent(resp, "out/types_gen.py").
-						ToContain(`ONTOLOGY_TYPE = ID(type="view")`)
+						ToContain(`TYPE_RESOURCE_ID = ID(type="view")`)
 				},
 			)
 		})
@@ -1317,13 +1656,40 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				content := string(resp.Files[0].Content)
-				// Parent should have all fields
-				Expect(content).To(ContainSubstring(`class Parent(BaseModel):`))
-				// Child inherits from Parent but should set age to None
-				Expect(content).To(ContainSubstring(`class Child(Parent):`))
-				Expect(content).To(ContainSubstring(`email: str`))
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Child(BaseModel):`,
+						`age: int | None = Field(default=None, ge=-2147483648, le=2147483647, exclude=True)`,
+						`email: str`,
+					).
+					ToNotContain(`class Child(Parent):`)
 			})
+
+			It(
+				"Should keep inheritance when every omitted field has a default",
+				func(ctx SpecContext) {
+					source := `
+					@py output "out"
+
+					Parent struct {
+						name string
+						embedded bool = false
+						tags string[]
+					}
+
+					Child struct extends Parent {
+						-embedded
+						-tags
+					}
+				`
+					resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`class Child(Parent):`,
+						`embedded: bool = Field(default=False, exclude=True)`,
+						`tags: list[str] = Field(exclude=True, default_factory=list)`,
+					)
+				},
+			)
 
 			It("Should handle multiple field omissions", func(ctx SpecContext) {
 				source := `
@@ -1343,9 +1709,14 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				`
 				resp := MustGenerate(ctx, source, "test", loader, typesPlugin)
-				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`class Child(Parent):`))
-				Expect(content).To(ContainSubstring(`e: str`))
+				ExpectContent(resp, "types_gen.py").ToContain(
+					`class Child(BaseModel):`,
+					`a: str | None = Field(default=None, exclude=True)`,
+					`b: str`,
+					`c: str | None = Field(default=None, exclude=True)`,
+					`d: str`,
+					`e: str`,
+				)
 			})
 		})
 
@@ -1368,8 +1739,9 @@ var _ = Describe("Python Types Plugin", func() {
 					resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 					ExpectContent(resp, "types_gen.py").
 						ToContain(
+							`from typing import TypeAlias, override as _override`,
 							`class Channel(BaseModel):`,
-							`def __hash__(self) -> int:`,
+							"@_override\n    def __hash__(self) -> int:",
 							`return hash(self.key)`,
 						)
 				},
@@ -1656,6 +2028,323 @@ var _ = Describe("Python Types Plugin", func() {
 						ToNotContain(`Details[`)
 				},
 			)
+		})
+
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `color: Color`).
+						ToNotContain("class Color(")
+				})
+
+			It("Should reference a hand-written struct by its import alias",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "rgba"
+						}
+
+						Band struct {
+							rgba Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.color import rgba as rgba_`,
+							`rgba: rgba_`,
+						)
+				})
+
+			It("Should bind a hand-written type and a module of the same name apart",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+						@py output "client/py/synnax/status"
+
+						Info struct {
+							key uuid
+						}
+					`)
+					source := `
+						import "schemas/status"
+
+						@py output "client/py/synnax/task"
+
+						Label struct {
+							key uuid
+							@py hand
+							@py include "client/py/synnax/task/label"
+							@py name "status"
+						}
+
+						Config struct {
+							info  status.Info
+							label Label
+						}
+					`
+					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					ExpectContent(resp, "task/types_gen.py").ToContain(
+						`from synnax import status`,
+						`from synnax.task.label import status as status_`,
+						`info: status.Info`,
+						`label: status_`,
+					)
+				})
+
+			It("Should read an ancestor package through its generated module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc import types_gen`,
+						`arc_key: types_gen.Key`,
+					)
+				})
+
+			It("Should alias a hand-written ancestor type that a declaration shadows",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Key = string
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").ToContain(
+						`from synnax.arc.key import Key as Key_`,
+						`arc_key: Key_`,
+					)
+				})
+
+			It("Should read an ancestor package through the configured module name",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key = uuid
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					custom := types.New(types.Options{FileNamePattern: "models.py"})
+					resp := MustGenerate(ctx, source, "arc_task", loader, custom)
+					ExpectContent(resp, "arc/task/models.py").ToContain(
+						`from synnax.arc import models`,
+						`arc_key: models.Key`,
+					)
+				})
+
+			It("Should read a hand-written ancestor type from its include module",
+				func(ctx SpecContext) {
+					loader.Add("schemas/arc", `
+						@py output "client/py/synnax/arc"
+
+						Key struct {
+							value uuid
+							@py hand
+							@py include "client/py/synnax/arc/key"
+						}
+					`)
+					source := `
+						import "schemas/arc"
+
+						@py output "client/py/synnax/arc/task"
+
+						Config struct {
+							arc_key arc.Key
+						}
+					`
+					resp := MustGenerate(ctx, source, "arc_task", loader, typesPlugin)
+					ExpectContent(resp, "arc/task/types_gen.py").
+						ToContain(`from synnax.arc.key import Key`, `arc_key: Key`).
+						ToNotContain("from synnax import arc\n")
+				})
+
+			DescribeTable(
+				"Should bind a hand-written type apart from a generated import",
+				func(ctx SpecContext, name, imported, field string) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "` + name + `"
+						}
+
+						Band struct {
+							key   uuid
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						imported,
+						`from x.color.color import `+name+` as `+name+`_`,
+						field,
+						`color: `+name+`_`,
+					)
+				},
+				Entry("named like the uuid import", "UUID",
+					`from uuid import UUID`, `key: UUID`),
+				Entry("named like the pydantic base class", "BaseModel",
+					`from pydantic import BaseModel`, `class Band(BaseModel):`),
+			)
+
+			It("Should bind a hand-written type apart from a TypeVar of the same name",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Box struct<Color> {
+							value Color
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`from x.color.color import Color as Color_`,
+						`Color = TypeVar("Color")`,
+						`value: Color`,
+						`color: Color_`,
+					)
+				},
+			)
+
+			It("Should import the variant a hand-written union default names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Scale union on type {
+							none {}
+							linear {
+								slope float64
+							}
+							@py hand
+							@py include "x/py/x/color/scale"
+						}
+
+						Band struct {
+							scale  Scale = none
+							linear Scale = { type = "linear", slope = 2 }
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.scale import Scale`,
+							`from x.color.scale import NoneScale`,
+							`from x.color.scale import LinearScale`,
+							`default_factory=lambda: NoneScale(type="none")`,
+							`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+						)
+				})
+
+			It("Should import a hand-written struct that an alias names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Shade = Color
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `Shade`)
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						ContainSubstring(
+							"types with no generated Python declaration need a " +
+								"@py include module: color.Color",
+						),
+					))
+				})
 		})
 
 		Context("cross-namespace references", func() {
@@ -2453,6 +3142,107 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
 			ExpectContent(resp, "types_gen.py").ToContain(
 				`default_factory=lambda: NoneScale(type="none")`,
+			)
+		},
+	)
+
+	It(
+		"Should default a union-typed field from a struct literal to its variant",
+		func(ctx SpecContext) {
+			withDefault := source + `
+			Item struct { scale Scale = { type = "linear", slope = 2 } }
+		`
+			resp := MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			ExpectContent(resp, "types_gen.py").ToContain(
+				`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+			)
+		},
+	)
+
+	DescribeTable(
+		"Should panic on an invalid union default",
+		func(ctx SpecContext, literal, message string) {
+			withDefault := source + "\nItem struct { scale Scale = " + literal + " }\n"
+			Expect(func() {
+				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			}).To(PanicWith(ContainSubstring(message)))
+		},
+		Entry(
+			"without its discriminator",
+			"{ slope = 2 }",
+			"does not set its discriminator type",
+		),
+		Entry(
+			"with an unknown variant",
+			`{ type = "cubic" }`,
+			`names unknown variant "cubic"`,
+		),
+	)
+
+	It(
+		"Should alias a module import that an inline variant field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			source := `
+				import "schemas/status"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant {
+					tracked {
+						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that a flattened base field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			loader.Add("schemas/common", `
+				import "schemas/status"
+
+				@py output "client/py/synnax/common"
+
+				Base struct {
+					status status.Info
+					name   string
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant extends common.Base {
+					tracked {
+						-name
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
 			)
 		},
 	)

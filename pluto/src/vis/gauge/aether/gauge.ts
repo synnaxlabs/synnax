@@ -161,7 +161,7 @@ export class Gauge
     const { internal: i } = this;
     const upper2d = i.render.upper2d.applyScale(viewportScale);
     const draw2d = new Draw2D(upper2d, i.theme);
-    const value = i.telem.value();
+    const value = i.telem.value().data;
 
     const { lower, upper } = this.state.bounds;
     const valueNum = Number(value);

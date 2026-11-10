@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-#include <string>
+#pragma once
 
-#include "api.h"
+#include <memory>
+#include <set>
+#include <string>
+#include <unordered_map>
+
+#include "absl/log/log.h"
+
 #include "driver/errors/errors.h"
+#include "driver/labjack/ljm/api.h"
 
 namespace driver::labjack::ljm {
 static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
@@ -673,39 +680,95 @@ static const std::unordered_map<std::string, std::string> ERROR_DESCRIPTIONS = {
     {"FILE_IO_END_OF_CWD", "There are no more files in the current working directory."}
 };
 
+/// @brief an LJM error that a retry cannot fix, such as an invalid address.
 const x::errors::Error CRITICAL_ERROR = errors::CRITICAL_HARDWARE_ERROR.sub("labjack");
+/// @brief an LJM error that a retry or a new stream can clear.
 const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub(
     "labjack"
 );
-const x::errors::Error RECONNECT_FAILED = CRITICAL_ERROR.sub("LJME_RECONNECT_FAILED");
-const x::errors::Error NO_RESPONSE_BYTES_RECEIVED = CRITICAL_ERROR.sub(
-    "LJME_NO_RESPONSE_BYTES_RECEIVED"
-);
-const x::errors::Error STREAM_NOT_INITIALIZED = CRITICAL_ERROR.sub(
-    "LJME_STREAM_NOT_INITIALIZED"
-);
-const x::errors::Error SYNCHRONIZATION_TIMEOUT = CRITICAL_ERROR.sub(
-    "LJME_SYNCHRONIZATION_TIMEOUT"
-);
+/// @brief the connection to the device is lost. LJM reconnects the device handle on
+/// its own when the device comes back.
+const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
+const x::errors::Error STREAM_IS_ACTIVE = CRITICAL_ERROR.sub("STREAM_IS_ACTIVE");
+const x::errors::Error STREAM_NOT_RUNNING = CRITICAL_ERROR.sub("STREAM_NOT_RUNNING");
 const x::errors::Error LJME_AUTO_IPS_FILE_NOT_FOUND = CRITICAL_ERROR.sub(
     "LJME_AUTO_IPS_FILE_NOT_FOUND"
 );
-const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
-    TEMPORARY_ERROR.sub("unreachable"),
-    "The device is temporarily unreachable. The Driver will keep trying to reach it."
+const x::errors::Error TEMPERATURE_OUT_OF_RANGE = CRITICAL_ERROR.sub(
+    "LJME_TEMPERATURE_OUT_OF_RANGE"
+);
+const x::errors::Error VOLTAGE_OUT_OF_RANGE = CRITICAL_ERROR.sub(
+    "LJME_VOLTAGE_OUT_OF_RANGE"
 );
 
+/// @brief the message of every UNREACHABLE error.
+const std::string
+    UNREACHABLE_MESSAGE = "The Driver cannot reach the device. Check the "
+                          "USB cable or the network, and close other "
+                          "programs that use the device, such as Kipling.";
+
+/// @brief the LJM error codes of a lost connection.
+const std::set<int> UNREACHABLE_CODES = {
+    LJME_MBE10_GATEWAY_PATH_UNAVAILABLE,
+    LJME_MBE11_GATEWAY_TARGET_NO_RESPONSE,
+    LJME_DEVICE_NOT_OPEN,
+    LJME_STREAM_NOT_INITIALIZED,
+    LJME_DEVICE_DISCONNECTED,
+    LJME_DEVICE_NOT_FOUND,
+    LJME_DEVICE_CURRENTLY_CLAIMED_BY_ANOTHER_PROCESS,
+    LJME_CANNOT_CONNECT,
+    LJME_SOCKET_LEVEL_ERROR,
+    LJME_CANNOT_OPEN_DEVICE,
+    LJME_RECONNECT_FAILED,
+    LJME_CONNECTION_HAS_YIELDED_RECONNECT_FAILED,
+    LJME_USB_FAILURE,
+    LJME_NO_COMMAND_BYTES_SENT,
+    LJME_INCORRECT_NUM_COMMAND_BYTES_SENT,
+    LJME_NO_RESPONSE_BYTES_RECEIVED,
+    LJME_INCORRECT_NUM_RESPONSE_BYTES_RECEIVED,
+    LJME_SYNCHRONIZATION_TIMEOUT,
+};
+
+/// @brief the LJM error codes that a retry or a new stream can clear.
+const std::set<int> TEMPORARY_CODES = {
+    LJME_MBE5_ACKNOWLEDGE,
+    LJME_MBE6_SLAVE_DEVICE_BUSY,
+    LJME_INVALID_TRANSACTION_ID,
+    LJME_TRANSACTION_ID_ERR,
+    LJME_LJM_BUFFER_FULL,
+};
+
+/// @brief the names of device errors that stop a stream, which a new stream clears.
+const std::set<std::string> TEMPORARY_DEVICE_ERRORS = {
+    "STREAM_AUTO_RECOVER_END_OVERFLOW",
+    "STREAM_BUFFER_FULL",
+};
+
+/// @brief converts an LJM error code into an error.
+/// @returns NIL for success and for LJM warnings that leave the operation intact,
+/// UNREACHABLE for a lost connection, TEMPORARY_ERROR for an error that a retry can
+/// clear, and CRITICAL_ERROR otherwise.
 inline x::errors::Error
 parse_error(const std::shared_ptr<ljm::API> &ljm, const int err) {
-    if (err == 0) return x::errors::NIL;
-
+    if (err == LJME_NOERROR) return x::errors::NIL;
     char err_msg[LJM_MAX_NAME_SIZE];
     ljm->err_to_string(err, err_msg);
-
-    std::string description = "LabJack returned " + std::string(err_msg) + ".";
-    if (const auto it = ERROR_DESCRIPTIONS.find(err_msg);
-        it != ERROR_DESCRIPTIONS.end())
+    const std::string name(err_msg);
+    std::string description = "LabJack returned " + name + ".";
+    if (const auto it = ERROR_DESCRIPTIONS.find(name); it != ERROR_DESCRIPTIONS.end())
         description = it->second;
-    return x::errors::Error(CRITICAL_ERROR.sub(err_msg), description);
+    // Every warning but this one means the operation still ran. A read task reports a
+    // default calibration through device::Device::calibration_invalid.
+    if (err >= LJME_WARNINGS_BEGIN && err <= LJME_WARNINGS_END &&
+        err != LJME_FRAMES_OMITTED_DUE_TO_PACKET_SIZE) {
+        if (err != LJME_USING_DEFAULT_CALIBRATION)
+            LOG(WARNING) << "[labjack] " << name << ": " << description;
+        return x::errors::NIL;
+    }
+    if (UNREACHABLE_CODES.contains(err))
+        return x::errors::Error(UNREACHABLE.sub(name), UNREACHABLE_MESSAGE);
+    if (TEMPORARY_CODES.contains(err) || TEMPORARY_DEVICE_ERRORS.contains(name))
+        return x::errors::Error(TEMPORARY_ERROR.sub(name), description);
+    return x::errors::Error(CRITICAL_ERROR.sub(name), description);
 }
 }

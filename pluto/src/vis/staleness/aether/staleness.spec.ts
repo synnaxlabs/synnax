@@ -19,13 +19,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
-import { type telem } from "@/telem/aether";
+import { aetherTest } from "@/aether/testutil";
+import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
+const { mockUse } = vi.hoisted(() => ({ mockUse: vi.fn() }));
+
+// The stack mounts a synnax provider with no client. Skew specs swap in a client whose
+// connection reports one.
+vi.mock("@/synnax/aether", async (importOriginal) => {
+  const actual = await importOriginal<Record<string, unknown>>();
+  return { synnax: { ...(actual.synnax as object), use: mockUse } };
+});
+
 const createSource = (): telem.Source<unknown> => ({
-  value: () => null,
+  value: () => telem.success(null),
   onChange: () => () => {},
 });
 
@@ -105,8 +114,11 @@ const setup = ({
   sweepInterval = SWEEP_INTERVAL,
   timeouts = [5],
 }: SetupOptions = {}) => {
+  // The leaf's source is a plain object, so no telem provider is needed, and the skew
+  // specs' stub client has no feed for one to open.
   const stack = buildStack({
     registry: { [Leaf.TYPE]: Leaf },
+    telem: false,
     staleness: { sweepInterval },
   });
   const leaves = timeouts.map((stalenessTimeout, i) => {
@@ -138,7 +150,10 @@ const setup = ({
 describe("staleness", () => {
   let teardown: (() => void) | null = null;
 
-  beforeEach(() => vi.useFakeTimers());
+  beforeEach(() => {
+    vi.useFakeTimers();
+    mockUse.mockReturnValue(null);
+  });
   afterEach(() => {
     teardown?.();
     teardown = null;
@@ -389,7 +404,7 @@ describe("staleness", () => {
 
   describe("sample time", () => {
     const stamp = (leaf: Leaf, offset: CrudeTimeSpan): void => {
-      leaf.source.sampleTime = () => TimeStamp.now().add(offset);
+      leaf.source.value = () => telem.success(null, TimeStamp.now().add(offset));
     };
 
     it("should date the sample from its sample time", () => {
@@ -420,7 +435,7 @@ describe("staleness", () => {
 
     it("should read a sample without a time as arriving now", () => {
       const { leaf } = mount({ timeouts: [5] });
-      leaf.source.sampleTime = () => null;
+      leaf.source.value = () => telem.success(null);
       leaf.received();
       vi.advanceTimersByTime(4750);
       expect(leaf.transitions).toEqual([]);
@@ -438,14 +453,117 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should clear staleness when a live sample follows an old one", () => {
+    it("should date every arrival from its sample time", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      stamp(leaf, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1000);
+      stamp(leaf, TimeSpan.seconds(-10));
+      leaf.received();
+      expect(leaf.transitions).toEqual([true]);
+      expect(leaf.state.stale).toBe(true);
+    });
+
+    it("should turn a stale source live when a fresh sample arrives", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      leaf.source.sampleTime = () => null;
+      stamp(leaf, TimeSpan.ZERO);
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+  });
+
+  describe("clock skew", () => {
+    // Mounts a client whose connection reports `skew`.
+    const useSkew = (skew: TimeSpan): void => {
+      mockUse.mockReturnValue({
+        connection: { status: { details: { clockSkew: skew } } },
+      });
+    };
+
+    // Stamps the next sample `offset` from now, with the skew removed.
+    const stampSkewed = (leaf: Leaf, skew: TimeSpan, offset: TimeSpan): void => {
+      leaf.source.value = () =>
+        telem.success(null, TimeStamp.now().sub(skew).add(offset));
+    };
+
+    it("should not age a fresh sample under a positive skew", () => {
+      const skew = TimeSpan.seconds(10);
+      useSkew(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampSkewed(leaf, skew, TimeSpan.ZERO);
+      leaf.received();
+      vi.advanceTimersByTime(4750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should age an old sample under a negative skew", () => {
+      const skew = TimeSpan.seconds(-10);
+      useSkew(skew);
+      const { leaf } = mount({ timeouts: [5] });
+      stampSkewed(leaf, skew, TimeSpan.seconds(-3));
+      leaf.received();
+      vi.advanceTimersByTime(1750);
+      expect(leaf.transitions).toEqual([]);
+      vi.advanceTimersByTime(500);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    // The connection re-measures the skew on every check, with no provider update.
+    it("should read the skew measured after mount", () => {
+      const status = { details: { clockSkew: TimeSpan.ZERO } };
+      mockUse.mockReturnValue({ connection: { status } });
+      const { leaf } = mount({ timeouts: [5] });
+      const skew = TimeSpan.seconds(10);
+      status.details = { clockSkew: skew };
+      stampSkewed(leaf, skew, TimeSpan.ZERO);
+      leaf.received();
+      expect(leaf.transitions).toEqual([]);
+    });
+  });
+
+  describe("appended", () => {
+    const append = (leaf: Leaf, appended: number, time: TimeStamp): void => {
+      leaf.source.value = () => ({ ...telem.success(null, time), appended });
+    };
+
+    it("should not count a change that keeps the appended count", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      append(leaf, 1, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should count a change that grows the appended count", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      append(leaf, 1, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      expect(leaf.transitions).toEqual([]);
+    });
+
+    it("should not count a count that falls and returns to its greatest", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, time);
+      leaf.received();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
     });
   });
 

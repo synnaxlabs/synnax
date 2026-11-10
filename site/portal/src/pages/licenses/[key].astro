@@ -9,7 +9,7 @@
 // included in the file licenses/APL.txt.
 
 import Portal from "@/layouts/Portal.astro";
-import { licenseFor } from "@/access";
+import { isAdmin, licenseFor } from "@/access";
 import { failure, loadScoped } from "@/page";
 import { Page } from "@/ui/Page";
 import { Licenses } from "@/ui/licenses";
@@ -59,6 +59,7 @@ try {
             events={events}
             actors={actors}
             staff={session.staff}
+            admin={isAdmin(view.organization, session)}
             now={portal.now()}
         />
     )}

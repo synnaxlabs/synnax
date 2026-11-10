@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type access, status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
@@ -20,18 +20,13 @@ import { Access, Synnax, User } from "@synnaxlabs/pluto";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const FIRST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+const path = User.formPath;
+
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
   level: "h2",
   autoFocus: true,
-  placeholder: "Richard",
-  full: "x",
-};
-
-const LAST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
-  variant: "text",
-  level: "h2",
-  placeholder: "Feynman",
+  placeholder: "Richard Feynman",
   full: "x",
 };
 
@@ -59,29 +54,22 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
       <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
-            <Flex.Box x grow>
-              <Form.TextField
-                path="firstName"
-                label="First"
-                inputProps={FIRST_NAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path="lastName"
-                label="Last"
-                inputProps={LAST_NAME_INPUT_PROPS}
-              />
-            </Flex.Box>
             <Form.TextField
-              path="username"
+              path={path.name}
+              label="Name"
+              inputProps={NAME_INPUT_PROPS}
+            />
+            <Form.TextField
+              path={path.username}
               label="Username"
               inputProps={USERNAME_INPUT_PROPS}
             />
             <Form.TextField
-              path="password"
+              path={path.password}
               label="Password"
               inputProps={PASSWORD_INPUT_PROPS}
             />
-            <Form.Field<access.role.Key> path="role" label="Role">
+            <Form.Field path={path.role} label="Role">
               {({ value, onChange }) => (
                 <Access.Role.Select value={value} onChange={onChange} />
               )}
@@ -90,13 +78,13 @@ const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) =>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End>
           <Button.Button
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             trigger={Triggers.SAVE}
+            triggerIndicator
             variant="filled"
           >
             Register

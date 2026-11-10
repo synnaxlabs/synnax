@@ -444,25 +444,6 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// AtAlignment returns the value at the given alignment in the MultiSeries. It panics
-// when no sample sits at the alignment, including an alignment between two samples of a
-// series with an alignment multiple.
-func (ms MultiSeries) AtAlignment[T FixedSample](alignment Alignment) T {
-	for _, s := range ms.Series {
-		if !s.AlignmentBounds().Contains(alignment) {
-			continue
-		}
-		if offset := uint64(alignment - s.Alignment); offset%uint64(s.Multiple()) == 0 {
-			return s.ValueAt[T](int(offset / uint64(s.Multiple())))
-		}
-	}
-	panic(fmt.Sprintf(
-		"no sample at alignment %v in multi series with alignment bounds %v",
-		alignment,
-		ms.AlignmentBounds(),
-	))
-}
-
 // NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
 // The series are sorted by their alignment, and the data type of the series must be the
 // same. If the data types are different, a panic will occur.
@@ -507,28 +488,6 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	}
 	m.Series = append(m.Series, series)
 	return m
-}
-
-// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an
-// upper alignment bound greater than the given alignment. This is useful for filtering
-// out series that are not relevant to the given alignment.
-func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
-	if len(m.Series) == 0 {
-		return m
-	}
-	// Hot path optimization that does a quick check that the alignment of all series is
-	// above the filter threshold, so we don't need to re-allocate a new slice.
-	if m.Series[0].AlignmentBounds().Upper > a {
-		return m
-	}
-	if m.Series[len(m.Series)-1].AlignmentBounds().Upper < a {
-		return MultiSeries{}
-	}
-	return MultiSeries{
-		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
-			return s.AlignmentBounds().Upper > a
-		}),
-	}
 }
 
 // Len returns the aggregate length of all series in the MultiSeries.

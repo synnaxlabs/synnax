@@ -32,9 +32,8 @@ type ObservableTransformPublisher[V Value, T Value] struct {
 func (ts *ObservableTransformPublisher[V, T]) Flow(ctx signal.Context, opts ...Option) {
 	o := NewOptions(opts)
 	o.AttachClosables(ts.Out)
-	// Register the handler synchronously so that any goroutines it spawns (e.g.
-	// async observer handlers) exist before Flow returns. This prevents goroutine
-	// leak false positives in tests that snapshot baselines between setup and spec.
+	// Registering before Flow returns lets a value notified right after Flow reach the
+	// outlet.
 	remove := ts.OnChange(func(_ context.Context, v V) {
 		t, ok, err := ts.Transform(ctx, v)
 		if err != nil {
@@ -81,30 +80,4 @@ func NewObservableSubscriber[V Value]() *ObservableSubscriber[V] {
 	o := &ObservableSubscriber[V]{Observer: observe.New[V]()}
 	o.Sink = o.sink
 	return o
-}
-
-type GeneratorTransformObservable[V Value, T Value] struct {
-	UnarySink[V]
-	Generator GeneratorFunc[V, T]
-	observe.Observer[T]
-}
-
-func NewGeneratorTransformObservable[V, T Value](
-	f GeneratorFunc[V, T],
-) *GeneratorTransformObservable[V, T] {
-	o := &GeneratorTransformObservable[V, T]{
-		Generator: f,
-		Observer:  observe.New[T](),
-	}
-	o.Sink = o.sink
-	return o
-}
-
-func (o *GeneratorTransformObservable[V, T]) sink(ctx context.Context, v V) error {
-	t, ok, err := o.Generator(ctx, v)
-	if err != nil || !ok {
-		return err
-	}
-	o.NotifyGenerator(ctx, t)
-	return nil
 }

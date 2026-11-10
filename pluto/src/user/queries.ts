@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access, ontology, user } from "@synnaxlabs/client";
-import { array, uuid, verbs } from "@synnaxlabs/x";
+import { user } from "@synnaxlabs/client";
+import { array, deep, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
@@ -33,39 +33,24 @@ export type RetrieveQuery = {
   key: user.Key;
 };
 
-export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"> {}
+export interface RenameParams extends Pick<user.User, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
-    const { key, username } = data;
-    await client.users.changeUsername(key, username, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+  update: async ({ client, data }) => {
+    const { key, name } = data;
+    await client.users.rename(key, name);
     return data;
-  },
-});
-
-export type UseRetrieveGroupParams = Record<string, never>;
-
-export const { use: useGroupID } = Flux.createRetrieve<
-  UseRetrieveGroupParams,
-  ontology.ID | undefined
->({
-  name: "user group",
-  retrieve: async ({ client }) => {
-    const res = await client.ontology.children.retrieve({ ids: ontology.ROOT_ID });
-    return res.find((r) => r.name === "Users")?.id;
   },
 });
 
 export const formSchema = user.newZ.extend({
   password: z.string().min(1, "Password is required"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  role: access.role.keyZ,
+  name: z.string().min(1, "Name is required"),
 });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
 
 export type FormQuery = {
   key: user.Key;
@@ -73,8 +58,7 @@ export type FormQuery = {
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   username: "",
-  firstName: "",
-  lastName: "",
+  name: "",
   password: "",
   role: "",
 };
@@ -83,19 +67,8 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) => ({
-    ...(await client.users.retrieve(key)),
-    password: "",
-    role: "",
-  }),
   update: async ({ client, value }) => {
-    const v = value();
-    const createdUser = await client.users.create({ key: uuid.create(), ...v });
-    if (v.role == null) return;
-    await client.access.roles.assign({
-      user: createdUser.key,
-      role: v.role,
-    });
+    await client.users.create({ key: uuid.create(), ...value() });
   },
 });
 
@@ -110,16 +83,14 @@ export const { use, useResult, createResultSelector } = Flux.createRetrieve<
       : await client.users.retrieve(key),
   onChange: ({ client, query: { key } }, handler) =>
     key == null
-      ? client.users.current.onChange(handler)
-      : client.users.onChange(key, handler),
+      ? client.users.current.watch().onChange(handler)
+      : client.users.watch(key).onChange(handler),
   getCached: ({ client, query: { key } }) =>
-    key == null ? client.users.current.getCached() : client.users.getCached(key),
+    key == null
+      ? client.users.current.watch().getCached()
+      : client.users.watch(key).getCached(),
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);
 
-export const useResultUsername = createResultSelector(({ username }) => username);
-
-export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
-
-export const useResultLastName = createResultSelector(({ lastName }) => lastName);
+export const useResultName = createResultSelector(({ name }) => name);

@@ -13,8 +13,7 @@ package primitives
 
 import "github.com/synnaxlabs/oracle/plugin/primitives"
 
-// Mappings contains Python-specific primitive type mappings.
-var Mappings = map[string]primitives.Mapping{
+var mappings = map[string]primitives.Mapping{
 	"uuid": {
 		TargetType: "UUID",
 		Imports:    []primitives.Import{{Category: "uuid", Name: "UUID"}},
@@ -50,5 +49,5 @@ var Mappings = map[string]primitives.Mapping{
 
 // Mapper returns a primitives.Mapper for Python code generation.
 func Mapper() primitives.Mapper {
-	return primitives.NewMapper(Mappings, "Any")
+	return primitives.NewMapper(mappings, "Any")
 }

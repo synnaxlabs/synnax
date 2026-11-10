@@ -18,8 +18,7 @@ import dateutil
 import numpy as np
 import pandas as pd
 import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+from hypothesis import given, strategies as st
 from pydantic import ValidationError
 
 import x.telem as sy
@@ -28,6 +27,15 @@ from x.exceptions import ContiguityError
 _now = sy.TimeStamp.now()
 
 EST = dateutil.tz.gettz("EST")
+
+_COMPARISONS = (
+    operator.eq,
+    operator.ne,
+    operator.lt,
+    operator.le,
+    operator.gt,
+    operator.ge,
+)
 
 _INT64 = st.integers(min_value=-(2**63), max_value=2**63 - 1)
 _SPAN = st.integers(min_value=-(2**62), max_value=2**62)
@@ -163,7 +171,9 @@ class TestTimeStamp:
         assert ts >= sy.TimeSpan.MICROSECOND
 
     def test_after_eq_before(self) -> None:
-        """Should return true if the timestamp is after or equal to the given timestamp"""
+        """Should return true if the timestamp is after or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert not ts >= sy.TimeSpan.MICROSECOND
 
@@ -178,12 +188,16 @@ class TestTimeStamp:
         assert ts < sy.TimeSpan.MICROSECOND
 
     def test_before_eq_before(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert ts <= sy.TimeSpan.MICROSECOND
 
     def test_before_eq_after(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(1000)
         assert ts <= sy.TimeSpan.MICROSECOND
 
@@ -266,13 +280,17 @@ class TestTimeRange:
         assert tr.contains(sy.TimeStamp(0))
 
     def test_range_not_contains_range(self) -> None:
-        """Should return true if the ranges overlap but a smaller range is not contained"""
+        """Should return true if the ranges overlap but a smaller range is not
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
     def test_range_contains_range(self) -> None:
-        """Should return true if the ranges overlap and the smaller range is contained"""
+        """Should return true if the ranges overlap and the smaller range is
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 900)
         assert tr.contains(tr2)
@@ -360,6 +378,7 @@ class TestTimeSpan:
             (timedelta(microseconds=1000), 1000 * sy.TimeSpan.MICROSECOND),
             (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
             (np.timedelta64(1000, "us"), 1000 * sy.TimeSpan.MICROSECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
             (pd.Timedelta(1000, "ms"), 1000 * sy.TimeSpan.MILLISECOND),
             (sy.TimeSpan.MICROSECOND * 1000, sy.TimeSpan.MICROSECOND * 1000),
             (np.int64(1000), 1 * sy.TimeSpan.MICROSECOND),
@@ -481,12 +500,16 @@ class TestTimeSpan:
                 1 * sy.TimeSpan.SECOND,
                 1 * sy.TimeSpan.SECOND,
             ),
+            (np.int64(2), 2 * sy.TimeSpan.SECOND),
+            (np.float64(0.5), 500 * sy.TimeSpan.MILLISECOND),
+            (sy.Rate(2), 500 * sy.TimeSpan.MILLISECOND),
+            (timedelta(seconds=3), 3 * sy.TimeSpan.SECOND),
+            (sy.TimeStamp(1000), sy.TimeSpan.MICROSECOND),
         ],
     )
-    def test_from_seconds(self, span: object, expected: sy.TimeSpan) -> None:
+    def test_from_seconds(self, span: sy.CrudeTimeSpan, expected: sy.TimeSpan) -> None:
         """It should evaluate pure floats or integers as seconds"""
-        abc = sy.TimeSpan.from_seconds(1.0)
-        assert abc == sy.TimeSpan(1 * sy.TimeSpan.SECOND)
+        assert sy.TimeSpan.from_seconds(span) == expected
 
     @pytest.mark.parametrize(
         ("span", "expected"),
@@ -683,6 +706,10 @@ class TestRate:
         [
             (sy.TimeSpan.MILLISECOND, sy.Rate(1000)),
             (1000, sy.Rate(1000.0)),
+            (np.float64(10), sy.Rate(10)),
+            (np.float32(10), sy.Rate(10)),
+            (np.int64(10), sy.Rate(10)),
+            (np.uint8(10), sy.Rate(10)),
         ],
     )
     def test_construction(self, crude: sy.CrudeRate, expected: sy.Rate) -> None:
@@ -691,7 +718,7 @@ class TestRate:
     def test_invalid_init(self) -> None:
         """Should raise an exception if the rate is invalid"""
         with pytest.raises(TypeError):
-            sy.Rate(timedelta(seconds=1))  # type: ignore
+            sy.Rate(timedelta(seconds=1))  # type: ignore[arg-type]
 
     def test_sample_count(self) -> None:
         """Should return the number of samples"""
@@ -699,12 +726,15 @@ class TestRate:
 
     def test_byte_size(self) -> None:
         """Should return the number of bytes in the given span"""
-        assert sy.Rate(1.0).byte_size(5 * sy.TimeSpan.SECOND, sy.Density.BIT64) == 40
+        assert (
+            sy.Rate(1.0).byte_size(5 * sy.TimeSpan.SECOND, density=sy.Density.BIT64)
+            == 40
+        )
 
     def test_byte_span(self) -> None:
         """Should return the time span from a byte size"""
         assert (
-            sy.Rate(1.0).size_span(sy.Size(40), sy.Density.BIT64)
+            sy.Rate(1.0).size_span(sy.Size(40), density=sy.Density.BIT64)
             == 5 * sy.TimeSpan.SECOND
         )
 
@@ -729,9 +759,11 @@ class TestRate:
         assert sy.Rate(rate).span(count) == expected
 
     def test_byte_span_invalid(self) -> None:
-        """Should raise a contiguity error if the size is not a multiple of the density"""
+        """Should raise a contiguity error if the size is not a multiple of the
+        density
+        """
         with pytest.raises(ContiguityError):
-            sy.Rate(1.0).size_span(sy.Size(41), sy.Density.BIT64)
+            sy.Rate(1.0).size_span(sy.Size(41), density=sy.Density.BIT64)
 
     @given(st.floats(0, 1e9), st.floats(0, 1e9))
     def test_rate_and_rate(self, a: float, b: float) -> None:
@@ -776,6 +808,16 @@ class TestRate:
 
 
 @pytest.mark.telem
+class TestDensity:
+    @pytest.mark.parametrize("crude", [8, np.int64(8), np.uint8(8), sy.Density(8)])
+    def test_construction(self, crude: sy.CrudeDensity) -> None:
+        """Should build a density from an int or a NumPy integer"""
+        density = sy.Density(crude)
+        assert density == 8
+        assert type(density) is sy.Density
+
+
+@pytest.mark.telem
 class TestDataType:
     @pytest.mark.parametrize(
         ("crude", "expected"),
@@ -790,10 +832,24 @@ class TestDataType:
             (uuid.uuid4(), sy.DataType.UUID),
             (np.dtype("datetime64[ns]"), sy.DataType.TIMESTAMP),
             (np.datetime64, sy.DataType.TIMESTAMP),
+            (np.dtype("datetime64[us]"), sy.DataType.TIMESTAMP),
+            (np.dtype("<U3"), sy.DataType.STRING),
+            (np.array(["a", "bc"]).dtype, sy.DataType.STRING),
+            ([np.datetime64(1, "s")], sy.DataType.TIMESTAMP),
+            ([np.float32(1), np.float32(2)], sy.DataType.FLOAT32),
         ],
     )
     def test_construction(self, crude: sy.CrudeDataType, expected: sy.DataType) -> None:
         assert sy.DataType(crude) == expected
+
+    @pytest.mark.parametrize(
+        "crude",
+        [np.float16, np.dtype(np.float16), np.float16(1), [np.float16(1)]],
+    )
+    def test_construction_float16(self, crude: sy.CrudeDataType) -> None:
+        """Should reject float16 with an error that names the type"""
+        with pytest.raises(TypeError, match="float16"):
+            sy.DataType(crude)
 
     def test_string(self) -> None:
         """Should return the string representation of the data type"""
@@ -923,7 +979,7 @@ def test_convert_time_units(
     to: sy.TimeSpanUnits,
     expected: int | float,
 ) -> None:
-    assert sy.convert_time_units(data, from_, to)[0] == expected
+    assert sy.convert_time_units(data, _from=from_, to=to)[0] == expected
 
 
 @pytest.mark.telem
@@ -1092,19 +1148,19 @@ class TestAlignment:
 @pytest.mark.telem
 class TestSecondsLinspace:
     def test_basic(self) -> None:
-        result = sy.seconds_linspace(0, 3)
+        result = sy.seconds_linspace(0, count=3)
         assert len(result) == 3
         assert result[0] == 0
         assert result[1] == sy.TimeSpan.SECOND
         assert result[2] == 2 * sy.TimeSpan.SECOND
 
     def test_with_offset(self) -> None:
-        result = sy.seconds_linspace(5, 2)
+        result = sy.seconds_linspace(5, count=2)
         assert result[0] == 5 * sy.TimeSpan.SECOND
         assert result[1] == 6 * sy.TimeSpan.SECOND
 
     def test_empty(self) -> None:
-        assert sy.seconds_linspace(0, 0) == []
+        assert sy.seconds_linspace(0, count=0) == []
 
 
 @pytest.mark.telem
@@ -1223,6 +1279,50 @@ class TestTimeProperties:
         assert (span == other) == (value == other)
         if span == other:
             assert hash(span) == hash(other)
+
+    @given(_INT64, st.floats(allow_nan=False, allow_infinity=False))
+    def test_float_compare_matches_int(self, value: int, other: float) -> None:
+        """Should compare a timestamp and a span with a float as the equal int does"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            for op in _COMPARISONS:
+                assert op(t, other) == op(value, other)
+                assert op(t, np.float64(other)) == op(value, other)
+            if t == other:
+                assert hash(t) == hash(other)
+
+    def test_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it checks equality"""
+        assert sy.TimeSpan(1000) == np.timedelta64(1, "us")
+        assert sy.TimeSpan(1) != np.timedelta64(1, "us")
+
+    def test_stamp_compare_with_timedelta64(self) -> None:
+        """Should convert a timedelta64 by its unit before it compares a timestamp"""
+        assert sy.TimeStamp(1000) == np.timedelta64(1, "us")
+        assert sy.TimeStamp(1) != np.timedelta64(1, "us")
+
+    def test_ne_with_datetime(self) -> None:
+        """Should not differ from a datetime that it equals"""
+        d = datetime(2020, 1, 1, tzinfo=UTC)
+        assert sy.TimeStamp(d) == d
+        assert (sy.TimeStamp(d) != d) is False
+
+    def test_compare_with_longdouble(self) -> None:
+        """Should compare with a long double without rounding it to a float"""
+        wide = np.longdouble(2**53) + np.longdouble(1)
+        if int(wide) != 2**53 + 1:
+            pytest.skip("long double is not wider than float on this platform")
+        for t in (sy.TimeStamp(2**53 + 1), sy.TimeSpan(2**53 + 1)):
+            assert t == wide
+            assert t <= wide
+            assert not t > wide
+
+    @given(_INT64)
+    def test_numpy_number_eq(self, value: int) -> None:
+        """Should equal a NumPy number that holds the same value"""
+        for t in (sy.TimeStamp(value), sy.TimeSpan(value)):
+            assert t == np.int64(value)
+            if -(2**31) <= value < 2**31:
+                assert t == np.int32(value)
 
     @given(_STAMP, st.integers(min_value=2**63))
     def test_compare_with_out_of_range_int(self, value: int, big: int) -> None:

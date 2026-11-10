@@ -11,10 +11,15 @@ import random
 import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Literal
 
-from playwright.sync_api import Locator, Page, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    expect,
+)
 
 import synnax as sy
 from console.context_menu import ContextMenu
@@ -107,6 +112,18 @@ AriaRole = Literal[
 ]
 
 
+_SPAN_UNITS = {
+    "d": sy.TimeSpan.DAY,
+    "h": sy.TimeSpan.HOUR,
+    "min": sy.TimeSpan.MINUTE,
+    "s": sy.TimeSpan.SECOND,
+    "ms": sy.TimeSpan.MILLISECOND,
+    "μs": sy.TimeSpan.MICROSECOND,
+    "ns": sy.TimeSpan.NANOSECOND,
+}
+_SPAN_PART = re.compile(r"(\d+(?:\.\d+)?)(min|ms|μs|ns|d|h|s)")
+
+
 class LayoutClient:
     """
     Layout and UI primitives for Console automation.
@@ -115,21 +132,22 @@ class LayoutClient:
     (command palette, forms, keyboard, navigation) should go through this client.
     """
 
-    MODAL_SELECTOR = "div.pluto-dialog__dialog.pluto--modal.pluto--visible"
+    MODAL_SELECTOR = "div.lyra-dialog__dialog.lyra--modal.lyra--visible"
     # Text.Editable carries the class whether or not it is editing; the attribute is
     # what marks the element that currently takes keystrokes.
-    EDITABLE_SELECTOR = ".pluto-text--editable[contenteditable='true']"
+    EDITABLE_SELECTOR = ".lyra-text--editable[contenteditable='true']"
     # Focusing a tab collapses the mosaic to a single overlaid leaf instead of
     # opening a modal dialog.
     FOCUS_SELECTOR = ".pluto-panel-mosaic__overlaid-leaf"
     # Scoped to the mosaic: the top nav renders a second tab strip for panels.
     TAB_STRIP_SELECTOR = (
-        ".console-mosaic .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector"
+        ".console-mosaic .pluto-mosaic__leaf > .lyra-tabs > .lyra-tabs__selector"
     )
-    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .pluto-tabs__tab"
+    TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .lyra-tabs__tab"
 
-    def __init__(self, page: Page):
+    def __init__(self, *, page: Page, results_dir: Path):
         self.page = page
+        self.results_dir = results_dir
         self.ctx_menu = ContextMenu(self.page)
         self.notifications = NotificationsClient(self.page)
         self.tree = Tree(self)
@@ -138,20 +156,19 @@ class LayoutClient:
     def dialog(self) -> Locator:
         """The currently open dialog.
 
-        Closed dialogs unmount, except passthrough ones, which stay mounted at
-        opacity 0 and still expose their role; the open-state class excludes
-        them.
+        A dialog mounts hidden until its frame places it, and still exposes its role;
+        the open-state class excludes it until then.
         """
-        return self.page.locator("[role='dialog'].pluto--visible")
+        return self.page.locator("[role='dialog'].lyra--visible")
 
     def form_section(self, title: str) -> Locator:
         """The form section with the given title."""
-        header = self.page.locator(".pluto-form-section__header").get_by_text(
+        header = self.page.locator(".lyra-form-section__header").get_by_text(
             title, exact=True
         )
-        return self.page.locator(".pluto-form-section").filter(has=header)
+        return self.page.locator(".lyra-form-section").filter(has=header)
 
-    def command_palette(self, command: str, retries: int = 3) -> None:
+    def command_palette(self, command: str, *, retries: int = 3) -> None:
         """Execute a command via the command palette."""
         self._palette(
             query=command,
@@ -173,7 +190,7 @@ class LayoutClient:
             self.command_palette("Import components")
         fc_info.value.set_files(path)
 
-    def search_palette(self, query: str, retries: int = 3) -> None:
+    def search_palette(self, query: str, *, retries: int = 3) -> None:
         """Search for a resource via the command palette (without > prefix)."""
         self._palette(
             query=query,
@@ -192,7 +209,9 @@ class LayoutClient:
         error_prefix: str,
         retries: int,
     ) -> None:
-        """Internal palette implementation used by command_palette and search_palette."""
+        """Internal palette implementation used by command_palette and
+        search_palette.
+        """
         for attempt in range(retries):
             palette_btn = self.page.locator(".console-palette button").first
             palette_btn.wait_for(state="visible", timeout=5000)
@@ -291,33 +310,29 @@ class LayoutClient:
     def check_for_errors(self, match: str) -> bool:
         """Check notifications for a specific error.
 
-        Args:
-            match: Substring to search for in the notification message.
-
-        Returns:
-            True if a matching error was found, False otherwise.
+        :param match: Substring to search for in the notification message.
+        :returns: True if a matching error was found, False otherwise.
         """
         for notification in self.notifications.check():
-            message = notification.get("message", "")
-            if match.lower() in message.lower():
-                self.notifications.close(0)
+            if match.lower() in notification.message.lower():
+                self.notifications.close(notification_index=0)
                 return True
         return False
 
     # Resource toolbar toggles live in the left navbar's main content section. The
     # end section holds the Component toggle.
     _RESOURCE_NAV_ITEMS = (
-        ".pluto-navbar.pluto--location-left "
-        ".pluto-navbar__content:not(.pluto--end) button.console-main-nav__item"
+        ".lyra-navbar.lyra--location-left "
+        ".lyra-navbar__content:not(.lyra--end) button.console-main-nav__item"
     )
 
     def show_resource_toolbar(self, name: str) -> None:
         """Show a resource toolbar by its nav item's name (e.g. "Tasks")."""
         nav_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+            ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )
         item = self.page.get_by_role("menuitem", name=name, exact=True)
-        selected = "pluto--selected" in (item.get_attribute("class") or "")
+        selected = "lyra--selected" in (item.get_attribute("class") or "")
         if selected and nav_drawer.count() > 0 and nav_drawer.first.is_visible():
             return
         if not selected:
@@ -325,26 +340,28 @@ class LayoutClient:
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
-        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
+        """Close any open side nav drawer (left/right, not bottom visualization
+        toolbar).
+        """
         nav_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"
+            ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )
         if nav_drawer.count() == 0 or not nav_drawer.first.is_visible():
             return
         active_nav_btn = self.page.locator(
-            f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
+            f"{self._RESOURCE_NAV_ITEMS}.lyra--selected"
         ).first
         if active_nav_btn.count() == 0:
             return
         drawer_class = nav_drawer.first.get_attribute("class") or ""
-        is_expanded = "pluto--expanded" in drawer_class
+        is_expanded = "lyra--expanded" in drawer_class
         if is_expanded:
             # First click: collapse from expanded to anchored
             active_nav_btn.click()
 
             try:
                 self.page.locator(
-                    ".console-nav__drawer.pluto--visible.pluto--expanded:not(.pluto--location-bottom)"
+                    ".console-nav__drawer.lyra--visible.lyra--expanded:not(.lyra--location-bottom)"
                 ).wait_for(state="hidden", timeout=2000)
             except PlaywrightTimeoutError:
                 # Retry
@@ -352,12 +369,12 @@ class LayoutClient:
                 sy.sleep(0.2)
 
             anchored_drawer = self.page.locator(
-                ".console-nav__drawer.pluto--visible:not(.pluto--expanded):not(.pluto--location-bottom)"
+                ".console-nav__drawer.lyra--visible:not(.lyra--expanded):not(.lyra--location-bottom)"
             )
             if anchored_drawer.count() > 0 and anchored_drawer.first.is_visible():
                 # Re-find the selected button to close anchored drawer
                 selected_btn = self.page.locator(
-                    f"{self._RESOURCE_NAV_ITEMS}.pluto--selected"
+                    f"{self._RESOURCE_NAV_ITEMS}.lyra--selected"
                 ).first
                 if selected_btn.count() > 0:
                     selected_btn.click()
@@ -372,7 +389,7 @@ class LayoutClient:
         input_field = (
             self.page.locator(f"text={input_label}")
             .locator("..")
-            .locator("input")
+            .locator("input, textarea")
             .first
         )
         input_field.wait_for(state="attached", timeout=5000)
@@ -383,11 +400,22 @@ class LayoutClient:
         input_field = (
             self.page.locator(f"text={input_label}")
             .locator("..")
-            .locator("input")
+            .locator("input, textarea")
             .first
         )
         input_field.wait_for(state="attached", timeout=5000)
         return input_field.input_value(timeout=2000)
+
+    def get_time_span_field(self, input_label: str) -> sy.TimeSpan:
+        """Get the span a duration field shows, such as "2ms 300μs"."""
+        text = self.get_input_field(input_label)
+        span = sy.TimeSpan(0)
+        for part in text.split():
+            match = _SPAN_PART.fullmatch(part)
+            if match is None:
+                raise ValueError(f"{input_label} shows {text!r}, not a duration")
+            span += sy.TimeSpan(float(match[1]) * _SPAN_UNITS[match[2]])
+        return span
 
     def click_btn(self, button_label: str) -> None:
         """Click a button by label."""
@@ -439,15 +467,23 @@ class LayoutClient:
             .first
         )
 
+    def _dropdown_selection(self, dropdown_label: str) -> Locator:
+        # The trigger can also show content after the selection, such as a status badge.
+        return self._dropdown_button(dropdown_label).locator(
+            ":scope > .lyra-select__label"
+        )
+
     def get_dropdown_value(self, dropdown_label: str) -> str:
         """Get the current value of a dropdown by label."""
-        dropdown_button = self._dropdown_button(dropdown_label)
-        dropdown_button.wait_for(state="attached", timeout=5000)
-        return dropdown_button.inner_text().strip()
+        selection = self._dropdown_selection(dropdown_label)
+        selection.wait_for(state="attached", timeout=5000)
+        return selection.inner_text().strip()
 
     def wait_for_dropdown_value(self, dropdown_label: str, value: str) -> None:
         """Wait until a dropdown, found by label, shows the given value."""
-        expect(self._dropdown_button(dropdown_label)).to_have_text(value, timeout=5000)
+        expect(self._dropdown_selection(dropdown_label)).to_have_text(
+            value, timeout=5000
+        )
 
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""
@@ -460,12 +496,12 @@ class LayoutClient:
                 continue
             button.wait_for(state="attached", timeout=5000)
             class_name = button.get_attribute("class") or ""
-            if "pluto--selected" in class_name:
+            if "lyra--selected" in class_name:
                 return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
+    def select_labels(self, labels: list[str], *, scope: Locator | None = None) -> None:
         """Pick labels from a "Labels" dropdown.
 
         :param labels: The label names to select.
@@ -480,6 +516,7 @@ class LayoutClient:
     def select_from_dropdown(
         self,
         text: str,
+        *,
         placeholder: str | None = None,
         exact: bool = False,
         reopen: Callable[[], None] | None = None,
@@ -501,9 +538,9 @@ class LayoutClient:
             else generic
         )
         loaded = self.dialog.get_by_role("option").or_(
-            self.dialog.locator(".pluto-list__scroll--empty")
+            self.dialog.locator(".lyra-list__scroll--empty")
         )
-        loading = self.dialog.locator(".pluto-icon--loading")
+        loading = self.dialog.locator(".lyra-icon--loading")
 
         def apply_search(refill: bool = False) -> None:
             # The dropdown renders its search input and options together, so either
@@ -558,8 +595,7 @@ class LayoutClient:
     def click(self, selector: str | Locator) -> None:
         """Click an element by text selector or Locator.
 
-        Args:
-            selector: Either a text string to search for, or a Playwright Locator
+        :param selector: Either a text string to search for, or a Playwright Locator
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
@@ -573,8 +609,7 @@ class LayoutClient:
     def meta_click(self, selector: str | Locator) -> None:
         """Click an element with platform-appropriate modifier key held.
 
-        Args:
-            selector: Either a text string to search for, or a Playwright Locator
+        :param selector: Either a text string to search for, or a Playwright Locator
         """
         if isinstance(selector, str):
             element = self.page.get_by_text(selector, exact=True).first
@@ -595,11 +630,8 @@ class LayoutClient:
         TODO: This is a workaround for overlapping elements in the Console UI.
         Once the underlying z-index bug is fixed, this method should be removed.
 
-        Args:
-            element: The Playwright Locator to bring to front
-
-        Yields:
-            The same element, now with z-index set to 9999
+        :param element: The Playwright Locator to bring to front
+        :returns: A context that yields the same element, with z-index set to 9999
         """
         original_z_index = element.evaluate("el => el.style.zIndex || 'auto'")
         element.evaluate("el => el.style.zIndex = '9999'")
@@ -611,11 +643,8 @@ class LayoutClient:
     def get_tab(self, name: str) -> Locator:
         """Get a tab locator by its name.
 
-        Args:
-            name: The name/title of the tab to find
-
-        Returns:
-            Locator for the tab element
+        :param name: The name/title of the tab to find
+        :returns: Locator for the tab element
         """
         return (
             self.page.locator(self.TAB_SELECTOR)
@@ -684,19 +713,15 @@ class LayoutClient:
     def get_tombstone(self, name: str) -> Locator:
         """Get the tombstone a deleted resource's tab shows in place of content.
 
-        Args:
-            name: The name the resource had when it was deleted
-
-        Returns:
-            Locator for the tombstone element
+        :param name: The name the resource had when it was deleted
+        :returns: Locator for the tombstone element
         """
         return self.page.get_by_role("group", name=f"{name} was deleted", exact=True)
 
     def restore_tombstone(self, name: str) -> None:
         """Click Restore on a deleted resource's tombstone.
 
-        Args:
-            name: The name the resource had when it was deleted
+        :param name: The name the resource had when it was deleted
         """
         tombstone = self.get_tombstone(name)
         tombstone.get_by_role("button", name="Restore", exact=True).click()
@@ -704,8 +729,7 @@ class LayoutClient:
     def close_tombstone(self, name: str) -> None:
         """Click Close on a deleted resource's tombstone.
 
-        Args:
-            name: The name the resource had when it was deleted
+        :param name: The name the resource had when it was deleted
         """
         tombstone = self.get_tombstone(name)
         tombstone.get_by_role("button", name="Close", exact=True).click()
@@ -718,7 +742,7 @@ class LayoutClient:
     def create_panel(self) -> None:
         """Create a panel through the panel selector's add button."""
         add_btn = self.page.locator(
-            ".console-panel-selector button:has(.pluto-icon--add)"
+            ".console-panel-selector button:has(.lyra-icon--add)"
         ).first
         add_btn.wait_for(state="visible", timeout=5000)
         add_btn.click()
@@ -729,8 +753,7 @@ class LayoutClient:
     def wait_for_tab(self, name: str) -> None:
         """Wait for a tab to be visible.
 
-        Args:
-            name: The name/title of the tab to wait for.
+        :param name: The name/title of the tab to wait for.
         """
         self.get_tab(name).wait_for(state="visible", timeout=5000)
 
@@ -741,8 +764,7 @@ class LayoutClient:
         - Click close button (X)
         - Context menu -> Close
 
-        Args:
-            name: Name of the tab to close
+        :param name: Name of the tab to close
         """
         self.close_left_toolbar()
         tab = self.get_tab(name)
@@ -767,9 +789,8 @@ class LayoutClient:
         - Double-click on tab name
         - Context menu -> Rename
 
-        Args:
-            old_name: Current name of the tab
-            new_name: New name for the tab
+        :param old_name: Current name of the tab
+        :param new_name: New name for the tab
         """
         self.close_left_toolbar()
         tab = self.get_tab(old_name)
@@ -799,7 +820,7 @@ class LayoutClient:
         except PlaywrightTimeoutError:
             # Fallback to more general selector
             editable_text = tab.locator(
-                ".pluto-text--editable[contenteditable='true']"
+                ".lyra-text--editable[contenteditable='true']"
             ).first
             editable_text.wait_for(state="visible", timeout=2000)
 
@@ -812,8 +833,7 @@ class LayoutClient:
     def split_horizontal(self, tab_name: str) -> None:
         """Split a leaf horizontally via context menu.
 
-        Args:
-            tab_name: Name of the tab to split
+        :param tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
         self.ctx_menu.action(tab, "Split horizontally", exact=False)
@@ -821,8 +841,7 @@ class LayoutClient:
     def split_vertical(self, tab_name: str) -> None:
         """Split a leaf vertically via context menu.
 
-        Args:
-            tab_name: Name of the tab to split
+        :param tab_name: Name of the tab to split
         """
         tab = self.get_tab(tab_name)
         self.ctx_menu.action(tab, "Split vertically", exact=False)
@@ -830,8 +849,7 @@ class LayoutClient:
     def focus(self, tab_name: str) -> None:
         """Focus on a leaf (maximize it) via context menu.
 
-        Args:
-            tab_name: Name of the tab to focus
+        :param tab_name: Name of the tab to focus
         """
         self.close_left_toolbar()
         # Focus is a session action, not a panel write, so it must work on tabs
@@ -844,7 +862,7 @@ class LayoutClient:
     def show_visualization_toolbar(self) -> None:
         """Show the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() > 0 and bottom_drawer.is_visible():
             return
@@ -855,7 +873,7 @@ class LayoutClient:
     def hide_visualization_toolbar(self) -> None:
         """Hide the bottom Component toolbar via its nav toggle."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         if bottom_drawer.count() == 0 or not bottom_drawer.is_visible():
             return
@@ -866,11 +884,11 @@ class LayoutClient:
     def get_visualization_toolbar_title(self) -> str:
         """Get the title from the visualization toolbar header."""
         bottom_drawer = self.page.locator(
-            ".console-nav__drawer.pluto--location-bottom.pluto--visible"
+            ".console-nav__drawer.lyra--location-bottom.lyra--visible"
         )
         # Use combined selector to handle different page type structures
         header = bottom_drawer.locator(
-            "header .pluto-breadcrumb__segment, header .pluto-header__text"
+            "header .lyra-breadcrumb__segment, header .lyra-header__text"
         ).first
         header.wait_for(state="visible", timeout=5000)
         return header.inner_text().strip()
@@ -884,24 +902,21 @@ class LayoutClient:
     def wait_for_visible(self, locator: Locator) -> None:
         """Wait for a locator to become visible.
 
-        Args:
-            locator: The Playwright Locator to wait for.
+        :param locator: The Playwright Locator to wait for.
         """
         locator.wait_for(state="visible", timeout=5000)
 
     def wait_for_hidden(self, locator: Locator) -> None:
         """Wait for a locator to become hidden.
 
-        Args:
-            locator: The Playwright Locator to wait for.
+        :param locator: The Playwright Locator to wait for.
         """
         locator.wait_for(state="hidden", timeout=5000)
 
     def press_key(self, key: str) -> None:
         """Press a keyboard key.
 
-        Args:
-            key: The key to press (e.g., "Enter", "Escape", "ControlOrMeta+a").
+        :param key: The key to press (e.g., "Enter", "Escape", "ControlOrMeta+a").
         """
         self.page.keyboard.press(key)
 
@@ -931,52 +946,41 @@ class LayoutClient:
     def type_text(self, text: str) -> None:
         """Type text using the keyboard.
 
-        Args:
-            text: The text to type.
+        :param text: The text to type.
         """
         self.page.keyboard.type(text)
 
     def get_by_text(self, text: str, *, exact: bool = False) -> Locator:
         """Get a locator for an element containing the specified text.
 
-        Args:
-            text: The text to search for.
-            exact: If True, match the exact text. If False, match substring.
-
-        Returns:
-            A Playwright Locator for the element.
+        :param text: The text to search for.
+        :param exact: If True, match the exact text. If False, match substring.
+        :returns: A Playwright Locator for the element.
         """
         return self.page.get_by_text(text, exact=exact)
 
     def click_role(self, role: AriaRole, name: str, *, exact: bool = False) -> None:
         """Click on an element by its ARIA role and accessible name.
 
-        Args:
-            role: The ARIA role (e.g., "button", "checkbox", "textbox").
-            name: The accessible name of the element.
-            exact: If True, match the name exactly.
+        :param role: The ARIA role (e.g., "button", "checkbox", "textbox").
+        :param name: The accessible name of the element.
+        :param exact: If True, match the name exactly.
         """
         self.page.get_by_role(role, name=name, exact=exact).click()
 
     def locator(self, selector: str) -> Locator:
         """Create a locator for the given CSS selector.
 
-        Args:
-            selector: CSS selector string.
-
-        Returns:
-            A Playwright Locator for the element(s).
+        :param selector: CSS selector string.
+        :returns: A Playwright Locator for the element(s).
         """
         return self.page.locator(selector)
 
     def wait_for_selector_visible(self, selector: str) -> Locator:
         """Wait for a selector to become visible and return its locator.
 
-        Args:
-            selector: CSS selector string.
-
-        Returns:
-            A Playwright Locator for the visible element.
+        :param selector: CSS selector string.
+        :returns: A Playwright Locator for the visible element.
         """
         loc = self.page.locator(selector)
         loc.wait_for(state="visible", timeout=5000)
@@ -985,28 +989,48 @@ class LayoutClient:
     def wait_for_selector_hidden(self, selector: str) -> None:
         """Wait for a selector to become hidden.
 
-        Args:
-            selector: CSS selector string.
+        :param selector: CSS selector string.
         """
         self.page.locator(selector).wait_for(state="hidden", timeout=5000)
 
     def sleep(self, ms: int) -> None:
         """Wait for a specified number of milliseconds.
 
-        Args:
-            ms: The number of milliseconds to wait.
+        :param ms: The number of milliseconds to wait.
         """
         self.page.wait_for_timeout(ms)
 
     def read_clipboard(self) -> str:
         """Read text from the clipboard.
 
-        Returns:
-            The clipboard text.
+        :returns: The clipboard text.
         """
         return str(self.page.evaluate("navigator.clipboard.readText()"))
 
-    def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
+    def drag(self, source: Locator, target: Locator) -> None:
+        """Drag ``source`` and drop it on the center of ``target``.
+
+        Use this instead of ``Locator.drag_to``. When the first press of ``drag_to`` is
+        blocked, it presses again without a release, and the drag breaks.
+
+        :param source: The element to drag.
+        :param target: The element to drop onto.
+        """
+        # A hover retries until it reaches the source, and it never presses.
+        source.hover()
+        self.page.mouse.down()
+        target.wait_for(state="visible")
+        # A row scrolled out of its list still counts as visible.
+        target.scroll_into_view_if_needed()
+        box = target.bounding_box()
+        if box is None:
+            raise AssertionError("drag target has no bounding box")
+        x = box["x"] + box["width"] / 2
+        y = box["y"] + box["height"] / 2
+        self.page.mouse.move(x, y, steps=10)
+        self.page.mouse.up()
+
+    def drop_files(self, paths: list[str], *, target: Locator | None = None) -> None:
         """Drop OS files or directories onto ``target`` (default: the mosaic).
 
         Synthetic ``DataTransfer`` drops carry no file-system entries, so the
@@ -1049,12 +1073,12 @@ class LayoutClient:
         finally:
             cdp.detach()
 
-    def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
+    def show_toolbar(self, shortcut_key: str, *, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.
 
-        Args:
-            shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
-            item_prefix: The ID prefix of items in the panel (e.g., "rack:", "role:").
+        :param shortcut_key: The keyboard shortcut (e.g., "d", "u", "r").
+        :param item_prefix: The ID prefix of items in the panel (e.g., "rack:",
+            "role:").
         """
         items = self.page.locator(f"div[id^='{item_prefix}']")
         if items.count() > 0 and items.first.is_visible():
@@ -1070,26 +1094,28 @@ class LayoutClient:
                 if attempt == 2:
                     raise
 
-    def get_list_item(self, selector: str, name: str) -> Locator:
+    def get_list_item(self, selector: str, *, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
         return self.page.locator(selector).filter(has_text=name).first
 
-    def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
+    def deselect_all_items(
+        self, container: Locator | Page, *, item_selector: str
+    ) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
-            f"{item_selector}:has(input.pluto-input__checkbox-input:checked"
+            f"{item_selector}:has(input.lyra-input__checkbox-input:checked"
             ":not([aria-label='Favorite']))"
         )
         # Wait out each unchecking before the next. Clicking again while the row is
         # still checked re-selects the box that was just cleared.
         while (remaining := checked.count()) > 0:
             checked.first.locator(
-                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).dispatch_event("click")
             expect(checked).to_have_count(remaining - 1, timeout=5000)
 
     def select_items(
-        self, names: list[str], get_item_fn: Callable[[str], Locator]
+        self, names: list[str], *, get_item_fn: Callable[[str], Locator]
     ) -> Locator:
         """Select multiple items via their checkbox labels, return the last item."""
         last_item = None
@@ -1099,7 +1125,7 @@ class LayoutClient:
             # List items also carry a favorite checkbox; the unlabeled one is
             # the selection control.
             checkbox = item.locator(
-                ".pluto-input__checkbox:not(:has(input[aria-label='Favorite']))"
+                ".lyra-input__checkbox:not(:has(input[aria-label='Favorite']))"
             ).first
             if not checkbox.locator("input").is_checked():
                 checkbox.dispatch_event("click")
@@ -1108,7 +1134,7 @@ class LayoutClient:
         return last_item
 
     def ctrl_select_items(
-        self, names: list[str], get_item_fn: Callable[[str], Locator]
+        self, names: list[str], *, get_item_fn: Callable[[str], Locator]
     ) -> Locator:
         """Multi-select items via Ctrl+Click, return the last item."""
         first = get_item_fn(names[0])
@@ -1152,8 +1178,8 @@ class LayoutClient:
         Triggers "Rename" from the context menu, which turns the item's name into an
         editable text element, then types the new name and commits it.
 
-        Args:
-            item: The Locator for the element to rename. new_name: The new name to set.
+        :param item: The Locator for the element to rename.
+        :param new_name: The new name to set.
         """
         item.wait_for(state="visible", timeout=5000)
         self.ctx_menu.action(item, "Rename")
@@ -1163,12 +1189,11 @@ class LayoutClient:
         self.press_enter()
         editable.wait_for(state="hidden", timeout=5000)
 
-    def open_modal(self, command: str, selector: str) -> None:
+    def open_modal(self, command: str, *, selector: str) -> None:
         """Open a modal via command palette.
 
-        Args:
-            command: The command to execute in the palette.
-            selector: CSS selector for the modal to wait for.
+        :param command: The command to execute in the palette.
+        :param selector: CSS selector for the modal to wait for.
         """
         self.command_palette(command)
         self.page.locator(selector).wait_for(state="visible", timeout=5000)
@@ -1176,8 +1201,7 @@ class LayoutClient:
     def close_modal(self, selector: str) -> None:
         """Close a modal via close button.
 
-        Args:
-            selector: CSS selector for the modal to wait for hidden.
+        :param selector: CSS selector for the modal to wait for hidden.
         """
         close_btn = (
             self.page.locator(self.MODAL_SELECTOR)

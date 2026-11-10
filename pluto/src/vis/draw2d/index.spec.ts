@@ -174,13 +174,88 @@ describe("Draw2D", () => {
       return fake;
     };
 
-    // The fake's ink is 10 tall, so the baseline sits 5 below the position.
-    it("should drop the baseline half the ink height below the position", () => {
-      expect(draw().fillText).toHaveBeenCalledWith("50", 10, 25, undefined);
+    // The fake's capital letters are 8 tall, so the baseline sits 4 below the position.
+    it("should drop the baseline half the cap height below the position", () => {
+      expect(draw().fillText).toHaveBeenCalledWith("50", 10, 24, undefined);
     });
 
     it("should draw on the alphabetic baseline", () => {
       expect(draw().textBaseline).toEqual("alphabetic");
+    });
+
+    it("should center text with and without descenders on one baseline", () => {
+      const [d, fake] = create();
+      fake.measureText.mockImplementation((t) => ({
+        ...METRICS,
+        actualBoundingBoxDescent: /[gjpqy]/.test(t) ? 3 : 0,
+      }));
+      const center = (t: string) =>
+        d.text({
+          text: t,
+          position: xy.construct(10, 20),
+          level: "p",
+          align: "center",
+        });
+      center("gap");
+      center("Hat");
+      expect(fake.fillText.mock.calls.map(([, , y]) => y)).toEqual([24, 24]);
+    });
+  });
+
+  describe("wrap", () => {
+    const wrap = (text: string, width: number): string[] => {
+      const [d, fake] = create();
+      fake.measureText.mockImplementation((t) => ({ ...METRICS, width: t.length * 6 }));
+      return d.wrap({ text, width, level: "p" });
+    };
+
+    it("should break lines at spaces", () => {
+      expect(wrap("alpha beta gamma", 66)).toEqual(["alpha beta", "gamma"]);
+    });
+
+    it("should break a word wider than the line between letters", () => {
+      expect(wrap("abcdefghijkl", 30)).toEqual(["abcde", "fghij", "kl"]);
+    });
+
+    it("should keep text that fits on one line", () => {
+      expect(wrap("short", 66)).toEqual(["short"]);
+    });
+
+    it("should return one empty line for empty text", () => {
+      expect(wrap("", 66)).toEqual([""]);
+    });
+  });
+
+  describe("text cut at maxWidth", () => {
+    // The fake measures every text 24 wide.
+    it("should fade text wider than maxWidth at its end", () => {
+      const [d] = create();
+      const fillText = vi.spyOn(d.canvas, "fillText").mockImplementation(() => {});
+      d.text({
+        text: "wide",
+        position: xy.construct(10, 20),
+        level: "p",
+        maxWidth: 12,
+        fade: 4,
+      });
+      expect(fillText).toHaveBeenCalledWith("wide", 10, 20, undefined, {
+        fade: { end: 12, width: 4 },
+      });
+    });
+
+    it("should draw text that fits without a fade", () => {
+      const [d] = create();
+      const fillText = vi.spyOn(d.canvas, "fillText").mockImplementation(() => {});
+      d.text({
+        text: "wide",
+        position: xy.construct(10, 20),
+        level: "p",
+        maxWidth: 30,
+        fade: 4,
+      });
+      expect(fillText).toHaveBeenCalledWith("wide", 10, 20, undefined, {
+        useAtlas: undefined,
+      });
     });
   });
 

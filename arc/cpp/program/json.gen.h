@@ -29,12 +29,11 @@ inline Program Program::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Program::to_json() const {
-    x::json::json j;
-    for (const auto base = ::arc::ir::IR::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
-    for (const auto base = ::arc::compiler::Output::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::arc::ir::IR::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::arc::compiler::Output::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

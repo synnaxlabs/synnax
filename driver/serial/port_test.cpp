@@ -18,7 +18,7 @@
 #include "gtest/gtest.h"
 #include <termios.h>
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bus/testutil/contract.h"
 #include "driver/bus/transport.h"

@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot, type ontology, type panel, schematic } from "@synnaxlabs/client";
-import { createPanelParent, createTestClient } from "@synnaxlabs/client/testutil";
+import { lineplot, type panel, type resource, schematic } from "@synnaxlabs/client";
+import { createPanelProject, createTestClient } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Panel as PPanel } from "@synnaxlabs/pluto";
 import { uuid } from "@synnaxlabs/x";
@@ -32,14 +32,17 @@ const createTestPlot = async (): Promise<lineplot.LinePlot> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
   });
-  return await client.lineplots.create(project.key, { name: uniqueName("plot") });
+  return await client.lineplots.create({
+    project: project.key,
+    name: uniqueName("plot"),
+  });
 };
 
-// createFocusedPanel persists a panel whose only tab holds resource, and marks the
-// panel selected and the tab focused in the session store.
+// createFocusedPanel persists a panel whose only tab holds the resource id, and marks
+// the panel selected and the tab focused in the session store.
 const createFocusedPanel = async (
   store: TestStore,
-  resource: ontology.ID,
+  id: resource.ID,
 ): Promise<panel.Panel> => {
   const tabKey = uuid.create();
   const created = await client.panels.create({
@@ -47,9 +50,9 @@ const createFocusedPanel = async (
     name: uniqueName("panel"),
     root: {
       variant: "leaf",
-      tabs: [{ variant: "resource", key: tabKey, resource }],
+      tabs: [{ variant: "resource", key: tabKey, resource: id }],
     },
-    parent: await createPanelParent(client),
+    project: await createPanelProject(client),
   });
   store.dispatch(Session.Panel.select({ key: created.key, windowKey: MAIN_WINDOW }));
   store.dispatch(
@@ -82,7 +85,7 @@ describe("Range.useAddToActivePlot", () => {
     const range = await createTestRange(client);
     const plot = await createTestPlot();
     const { wrapper, store } = await createConsoleWrapper({ client });
-    const doc = await createFocusedPanel(store, lineplot.ontologyID(plot.key));
+    const doc = await createFocusedPanel(store, lineplot.resourceID(plot.key));
     const result = await renderAddToActivePlot(wrapper, doc.key);
     act(() => result.current.add([range.key]));
     await waitFor(() =>
@@ -92,7 +95,7 @@ describe("Range.useAddToActivePlot", () => {
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(range.key);
+      expect(ranges).toContainEqual({ variant: "key", key: range.key });
     });
   });
 
@@ -100,9 +103,13 @@ describe("Range.useAddToActivePlot", () => {
     const skipped = await createTestRange(client);
     const inactive = await createConsoleWrapper({ client });
     const otherPlot = await createTestPlot();
+    const sch = await client.schematics.create({
+      name: uniqueName("schematic"),
+      project: (await client.projects.create({ name: uniqueName("proj") })).key,
+    });
     const inactiveDoc = await createFocusedPanel(
       inactive.store,
-      schematic.ontologyID(uuid.create()),
+      schematic.resourceID(sch.key),
     );
     const skippedResult = await renderAddToActivePlot(
       inactive.wrapper,
@@ -115,7 +122,7 @@ describe("Range.useAddToActivePlot", () => {
     const active = await createConsoleWrapper({ client });
     const activeDoc = await createFocusedPanel(
       active.store,
-      lineplot.ontologyID(plot.key),
+      lineplot.resourceID(plot.key),
     );
     const addedResult = await renderAddToActivePlot(active.wrapper, activeDoc.key);
     act(() => addedResult.current.add([added.key]));
@@ -126,13 +133,13 @@ describe("Range.useAddToActivePlot", () => {
     );
     await waitFor(async () => {
       const { ranges } = await client.lineplots.retrieve(plot.key);
-      expect(ranges.x1).toContain(added.key);
+      expect(ranges).toContainEqual({ variant: "key", key: added.key });
     });
 
     expect(
       inactive.store.getState()[Session.Range.SLICE_NAME].ranges.map(({ key }) => key),
     ).not.toContain(skipped.key);
     const { ranges } = await client.lineplots.retrieve(otherPlot.key);
-    expect(ranges.x1).not.toContain(skipped.key);
+    expect(ranges).not.toContainEqual({ variant: "key", key: skipped.key });
   });
 });

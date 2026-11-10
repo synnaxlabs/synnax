@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Tree } from "@/platform/tree";
 
 describe("Provider", () => {
-  const channelItem = Tree.createItem({ type: "channel", icon: <Icon.Channel /> });
+  const channelItem = Tree.createItem({ icon: <Icon.Channel /> });
   const items: Tree.Items = { channel: channelItem };
 
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (

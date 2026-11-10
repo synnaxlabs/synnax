@@ -9,15 +9,16 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { SELECTABLES } from "@/app/selector/selectables";
+import { SECTIONS } from "@/app/selector/selectables";
 import { type Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
 const Selector = Base.create({
-  selectables: SELECTABLES,
+  sections: SECTIONS,
   icon: <Icon.Component />,
   tabTitle: "Create component",
   text: "Create component",
+  searchPlaceholder: "Search components",
 });
 
 export const TABS: Panel.Tabs = { [Base.TAB_TYPE]: Selector };

@@ -14,10 +14,12 @@ export { actions } from "@/actions";
 export { arc } from "@/arc";
 export type { Param } from "@/arc/types/types.gen";
 export { auth } from "@/auth";
+export { batch } from "@/batch";
 export { bus } from "@/bus";
 export { can } from "@/can";
 export { channel } from "@/channel";
-export { Channel, isCalculated } from "@/channel/client";
+export { Channel } from "@/channel/client";
+export { isCalculated } from "@/channel/payload";
 export {
   type ConnectOptions,
   default as Synnax,
@@ -31,9 +33,11 @@ export {
   AccessDeniedError,
   AuthError,
   ContiguityError,
+  ControlError,
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
+  InvalidTokenError,
   isConnectionError,
   LicenseError,
   LicenseFingerprintError,
@@ -44,8 +48,11 @@ export {
   PathError,
   QueryError,
   RouteError,
+  SessionEndedError,
   StaleError,
+  UnauthorizedError,
   UnexpectedError,
+  UnsupportedError,
   ValidationError,
 } from "@/errors";
 export { ethercat } from "@/ethercat";
@@ -55,6 +62,7 @@ export { group } from "@/group";
 export { http } from "@/http";
 export { icd } from "@/icd";
 export { imex } from "@/imex";
+export { kafka } from "@/kafka";
 export { label } from "@/label";
 export { labjack } from "@/labjack";
 export { library } from "@/library";
@@ -62,9 +70,9 @@ export { license } from "@/license";
 export { lineplot } from "@/lineplot";
 export { log } from "@/log";
 export { modbus } from "@/modbus";
+export { mqtt } from "@/mqtt";
 export { ni } from "@/ni";
 export { node } from "@/node";
-export { ontology } from "@/ontology";
 export { opcua } from "@/opcua";
 export { pagerduty } from "@/pagerduty";
 export { panel } from "@/panel";
@@ -72,6 +80,7 @@ export { project } from "@/project";
 export { query } from "@/query";
 export { rack } from "@/rack";
 export { ranger } from "@/ranger";
+export { resource } from "@/resource";
 export { schematic } from "@/schematic";
 export { serial } from "@/serial";
 export { status } from "@/status";

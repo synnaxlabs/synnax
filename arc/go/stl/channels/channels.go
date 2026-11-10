@@ -12,6 +12,7 @@ package channels
 import (
 	"context"
 	"slices"
+	"sort"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -89,32 +90,32 @@ type Host struct {
 	strings *strings.ProgramState
 }
 
-// NewHost registers the channels module's WASM host bindings with rt. cs
+// NewHost registers the channels module's WASM host bindings with rt. ps
 // is the channels ProgramState; stringState is the strings ProgramState
 // (used by the read_str / write_str bindings).
 func NewHost(
 	ctx context.Context,
 	rt wazero.Runtime,
-	cs *ProgramState,
+	ps *ProgramState,
 	stringState *strings.ProgramState,
 ) (*Host, error) {
-	h := &Host{state: cs, strings: stringState}
+	h := &Host{state: ps, strings: stringState}
 	if rt == nil {
 		return h, nil
 	}
 	builder := rt.NewHostModuleBuilder(Name)
-	builder = bindI32[uint8](builder, cs, "u8")
-	builder = bindI32[uint16](builder, cs, "u16")
-	builder = bindI32[uint32](builder, cs, "u32")
-	builder = bindI32[int8](builder, cs, "i8")
-	builder = bindI32[int16](builder, cs, "i16")
-	builder = bindI32[int32](builder, cs, "i32")
-	builder = bindI64[uint64](builder, cs, "u64")
-	builder = bindI64[int64](builder, cs, "i64")
-	builder = bindBool(builder, cs)
-	builder = bindF32(builder, cs)
-	builder = bindF64(builder, cs)
-	builder = bindStr(builder, cs, stringState)
+	builder = bindI32[uint8](builder, ps, "u8")
+	builder = bindI32[uint16](builder, ps, "u16")
+	builder = bindI32[uint32](builder, ps, "u32")
+	builder = bindI32[int8](builder, ps, "i8")
+	builder = bindI32[int16](builder, ps, "i16")
+	builder = bindI32[int32](builder, ps, "i32")
+	builder = bindI64[uint64](builder, ps, "u64")
+	builder = bindI64[int64](builder, ps, "i64")
+	builder = bindBool(builder, ps)
+	builder = bindF32(builder, ps)
+	builder = bindF64(builder, ps)
+	builder = bindStr(builder, ps, stringState)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -192,6 +193,36 @@ type source struct {
 	// channelIdx is the channel ref input's index; -1 when not alias-bound.
 	channelIdx    int
 	highWaterMark telem.Alignment
+	// entryStamp is the cycle stamp of the last Reset. Samples stamped earlier were
+	// taken before the stage was entered and are dropped.
+	entryStamp telem.TimeStamp
+}
+
+// tail returns the samples of s from index from to the end.
+func tail(s telem.Series, from int) telem.Series {
+	offset := int64(from) * int64(s.DataType.Density())
+	if s.DataType.IsVariable() {
+		offset = 0
+		for range from {
+			_, n := telem.UnmarshalVariableSample(s.Data[offset:])
+			offset += int64(n)
+		}
+	}
+	return telem.Series{
+		TimeRange:         s.TimeRange,
+		DataType:          s.DataType,
+		Data:              s.Data[offset:],
+		Alignment:         s.Alignment + telem.Alignment(uint32(from)*s.Multiple()),
+		AlignmentMultiple: s.AlignmentMultiple,
+	}
+}
+
+// firstAtOrAfter returns the index of the first stamp in time at or after stamp, or
+// time.Len() when every stamp is earlier.
+func firstAtOrAfter(time telem.Series, stamp telem.TimeStamp) int {
+	return sort.Search(int(time.Len()), func(i int) bool {
+		return time.ValueAt[telem.TimeStamp](i) >= stamp
+	})
 }
 
 func (s *source) Init(node.Context) {}
@@ -215,11 +246,12 @@ func (s *source) raiseWaterMark() {
 	}
 }
 
-// Reset advances the high water mark to the current channel alignment,
-// ensuring that when a stage is (re-)activated it only responds to
-// data that arrives after activation rather than stale pre-existing data.
+// Reset advances the high water mark to the current channel alignment and the entry
+// stamp to the current cycle, so a (re-)activated stage only responds to samples
+// taken and arriving after activation.
 func (s *source) Reset(ctx node.Context) {
 	s.State.Reset(ctx)
+	s.entryStamp = ctx.Now
 	if key := boundKey(s.State, s.channelIdx, s.key); key != s.currKey {
 		s.rebindTo(key)
 		return
@@ -266,6 +298,15 @@ func (s *source) Next(ctx node.Context) {
 				timeSeries.Data = timeSeries.Data[start : start+ser.Len()*density]
 				timeSeries.Alignment = ser.Alignment
 				timeSeries.TimeRange = ser.TimeRange
+			}
+			first := firstAtOrAfter(timeSeries, s.entryStamp)
+			if first == int(ser.Len()) {
+				s.highWaterMark = ab.Upper
+				continue
+			}
+			if first > 0 {
+				ser = tail(ser, first)
+				timeSeries = tail(timeSeries, first)
 			}
 		}
 		*s.Output(0) = ser
@@ -327,12 +368,12 @@ type i32Compatible interface {
 
 func bindI32[T i32Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -340,7 +381,7 @@ func bindI32[T i32Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, T(val))
+			appendFixedWriteSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
@@ -351,12 +392,12 @@ type i64Compatible interface {
 
 func bindI64[T i64Compatible](
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	suffix string,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint64 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -364,18 +405,18 @@ func bindI64[T i64Compatible](
 		}).Export("read_" + suffix)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val uint64) {
-			appendFixedWriteSample(cs, chID, T(val))
+			appendFixedWriteSample(ps, chID, T(val))
 		}).Export("write_" + suffix)
 	return builder
 }
 
 func bindBool(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -386,18 +427,18 @@ func bindBool(
 		}).Export("read_bool")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID, val uint32) {
-			appendFixedWriteSample(cs, chID, val != 0)
+			appendFixedWriteSample(ps, chID, val != 0)
 		}).Export("write_bool")
 	return builder
 }
 
 func bindF32(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float32 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -405,18 +446,18 @@ func bindF32(
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			cs.WriteChannelF32(chID, val)
+			appendFixedWriteSample(ps, chID, val)
 		}).Export("write_f32")
 	return builder
 }
 
 func bindF64(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) float64 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -424,19 +465,19 @@ func bindF64(
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			cs.WriteChannelF64(chID, val)
+			appendFixedWriteSample(ps, chID, val)
 		}).Export("write_f64")
 	return builder
 }
 
 func bindStr(
 	builder wazero.HostModuleBuilder,
-	cs *ProgramState,
+	ps *ProgramState,
 	ss *strings.ProgramState,
 ) wazero.HostModuleBuilder {
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32) uint32 {
-			series, ok := cs.ReadValue(chID)
+			series, ok := ps.ReadValue(chID)
 			if !ok || series.Len() == 0 {
 				return 0
 			}
@@ -452,7 +493,7 @@ func bindStr(
 			if !ok {
 				return
 			}
-			cs.writeValue(chID, telem.NewSeriesV(str))
+			ps.writeValue(chID, telem.NewSeriesV(str))
 		}).Export("write_str")
 	return builder
 }

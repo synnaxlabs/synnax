@@ -11,8 +11,10 @@ package cesium
 
 import (
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/index"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -40,7 +42,10 @@ func (db *DB) NewStreamIterator(cfg IteratorConfig) (StreamIterator, error) {
 }
 
 func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err error) {
-	var internal []*unary.Iterator
+	var (
+		internal []*unary.Iterator
+		cache    = index.NewCache()
+	)
 	defer func() {
 		if err == nil {
 			return
@@ -57,6 +62,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 				Bounds:        cfg.Bounds,
 				AutoChunkSize: cfg.AutoChunkSize,
 				Reduction:     cfg.Reduction,
+				Cache:         cache,
 			})
 			if iterErr != nil {
 				return nil, iterErr
@@ -65,7 +71,8 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 			continue
 		}
 		if vdb, ok := db.mu.dbs.virtual[key]; ok {
-			return nil, errors.Newf(
+			return nil, errors.Wrapf(
+				query.ErrUnsupported,
 				"cannot open iterator on virtual channel %v",
 				vdb.Channel,
 			)
@@ -75,6 +82,7 @@ func (db *DB) newStreamIterator(cfg IteratorConfig) (si *streamIterator, err err
 	_, limited := cfg.Reduction.Variant.(telem.LimitReduction)
 	return &streamIterator{
 		internal:  internal,
+		cache:     cache,
 		limited:   limited,
 		chunkSize: db.chunkSize,
 	}, nil

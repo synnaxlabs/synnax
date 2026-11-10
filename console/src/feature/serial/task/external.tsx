@@ -31,11 +31,11 @@ export const {
   useCreateRead,
   useCreateWrite,
   COMMANDS,
-  SELECTABLES,
+  INTEGRATION,
   FORMS,
 } = Bus.createTasks({
   prefix: "serial",
-  name: "serial",
+  name: "Serial",
   icon: <Icon.Connect />,
   readConfigZ: serial.readConfigZ,
   writeConfigZ: serial.writeConfigZ,

@@ -50,7 +50,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
   const label = (
     <>
       <Avatar.Avatar name={selected.name} size="small" />
-      <Text.Text level="p" weight={500} overflow="ellipsis">
+      <Text.Text level="p" weight={500} overflow="fade">
         {selected.name}
       </Text.Text>
       <KindTag kind={selected.kind} />
@@ -73,7 +73,7 @@ export const Scope = ({ options, selected }: ScopeProps): ReactElement => {
             {options.map((o) => (
               <Select.Item key={o.key} itemKey={o.key} className="portal-scope__item">
                 <Avatar.Avatar name={o.name} size="small" />
-                <Text.Text level="p" overflow="ellipsis">
+                <Text.Text level="p" overflow="fade">
                   {o.name}
                 </Text.Text>
                 <KindTag kind={o.kind} />

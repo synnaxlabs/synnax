@@ -9,7 +9,7 @@
   "ranges": { "x1": ["recent"], "x2": [] },
   "lines": [
     {
-      "key": "l1",
+      "key": "y1---x1---recent---0---1",
       "color": "#ff0000",
       "stroke_width": 2.5,
       "downsample": 1,

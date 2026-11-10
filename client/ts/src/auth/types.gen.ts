@@ -12,9 +12,9 @@
 import { telem, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { ontology } from "@/ontology";
+import { resource } from "@/resource";
 
-export const METHODS = ["password"] as const;
+export const METHODS = ["password", "api_key"] as const;
 export const methodZ = z.enum(METHODS);
 export type Method = z.infer<typeof methodZ>;
 
@@ -27,6 +27,13 @@ export const credentialsZ = z.object({
 });
 export interface Credentials extends z.infer<typeof credentialsZ> {}
 
+/** APIKeyCredentials is an API key presented at login. */
+export const apiKeyCredentialsZ = z.object({
+  /** key is the full API key, as it was shown at creation. */
+  key: z.string().min(1, "key is required"),
+});
+export interface APIKeyCredentials extends z.infer<typeof apiKeyCredentialsZ> {}
+
 export const sessionKeyZ = z.uuid();
 export type SessionKey = z.infer<typeof sessionKeyZ>;
 
@@ -36,17 +43,24 @@ export const passwordProofZ = credentialsZ.extend({
 });
 export interface PasswordProof extends z.infer<typeof passwordProofZ> {}
 
+/** APIKeyProof proves an API key. */
+export const apiKeyProofZ = apiKeyCredentialsZ.extend({
+  method: z.literal("api_key"),
+});
+export interface APIKeyProof extends z.infer<typeof apiKeyProofZ> {}
+
 /**
  * Proof is what a subject presents to log in. The method selects the authenticator that
  * checks it.
  */
-export const proofZ = z.discriminatedUnion("method", [passwordProofZ]);
-export type Proof = PasswordProof;
+export const proofZ = z.discriminatedUnion("method", [passwordProofZ, apiKeyProofZ]);
+export type Proof = PasswordProof | APIKeyProof;
 
 export const PROOF_SCHEMAS: {
   [K in Method]: z.ZodType<Extract<Proof, { method: K }>>;
 } = {
   password: passwordProofZ,
+  api_key: apiKeyProofZ,
 };
 
 /**
@@ -57,7 +71,7 @@ export const sessionZ = z.object({
   /** key is the unique identifier for this session. */
   key: sessionKeyZ.default(uuid.create),
   /** subject is the user or rack that logged in. */
-  subject: ontology.idZ,
+  subject: resource.idZ,
   /** credential is the key of the credential record the login matched. */
   credential: z.uuid(),
   /**

@@ -31,7 +31,7 @@ const PILL_BUTTON_PROPS = {
 const DEFAULT_BUTTON_PROPS = {
   variant: "text",
   bordered: false,
-  sharp: true,
+  rounded: "small",
 } as const satisfies Partial<Button.ButtonProps<"div">>;
 
 const CHIP_BUTTON_PROPS = {

@@ -11,19 +11,19 @@ package domain
 
 import "github.com/synnaxlabs/oracle/resolution"
 
-type Holder interface {
+type holder interface {
 	GetDomains() map[string]resolution.Domain
 }
 
-type TypeHolder struct{ T resolution.Type }
+type typeHolder struct{ T resolution.Type }
 
-func (h TypeHolder) GetDomains() map[string]resolution.Domain { return h.T.Domains }
+func (h typeHolder) GetDomains() map[string]resolution.Domain { return h.T.Domains }
 
-type FieldHolder struct{ F resolution.Field }
+type fieldHolder struct{ F resolution.Field }
 
-func (h FieldHolder) GetDomains() map[string]resolution.Domain { return h.F.Domains }
+func (h fieldHolder) GetDomains() map[string]resolution.Domain { return h.F.Domains }
 
-func GetString(h Holder, domainName, exprName string) string {
+func getString(h holder, domainName, exprName string) string {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {
 		return ""
@@ -39,18 +39,18 @@ func GetString(h Holder, domainName, exprName string) string {
 }
 
 func GetStringFromType(t resolution.Type, domainName, exprName string) string {
-	return GetString(TypeHolder{t}, domainName, exprName)
+	return getString(typeHolder{t}, domainName, exprName)
 }
 
 func GetStringFromField(f resolution.Field, domainName, exprName string) string {
-	return GetString(FieldHolder{f}, domainName, exprName)
+	return getString(fieldHolder{f}, domainName, exprName)
 }
 
-// GetAllStrings collects string values from ALL expressions with the given name.
+// getAllStrings collects string values from ALL expressions with the given name.
 // Unlike GetStrings which only finds the first matching expression, this function
 // finds all expressions with the name and collects all their string values.
 // This is useful for directives that can appear multiple times like @go field.
-func GetAllStrings(h Holder, domainName, exprName string) []string {
+func getAllStrings(h holder, domainName, exprName string) []string {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {
 		return nil
@@ -72,10 +72,10 @@ func GetAllStrings(h Holder, domainName, exprName string) []string {
 }
 
 func GetAllStringsFromType(t resolution.Type, domainName, exprName string) []string {
-	return GetAllStrings(TypeHolder{t}, domainName, exprName)
+	return getAllStrings(typeHolder{t}, domainName, exprName)
 }
 
-func HasExpr(h Holder, domainName, exprName string) bool {
+func hasExpr(h holder, domainName, exprName string) bool {
 	domain, ok := h.GetDomains()[domainName]
 	if !ok {
 		return false
@@ -85,11 +85,11 @@ func HasExpr(h Holder, domainName, exprName string) bool {
 }
 
 func HasExprFromType(t resolution.Type, domainName, exprName string) bool {
-	return HasExpr(TypeHolder{t}, domainName, exprName)
+	return hasExpr(typeHolder{t}, domainName, exprName)
 }
 
 func HasExprFromField(f resolution.Field, domainName, exprName string) bool {
-	return HasExpr(FieldHolder{f}, domainName, exprName)
+	return hasExpr(fieldHolder{f}, domainName, exprName)
 }
 
 func HasDomainFromType(t resolution.Type, domainName string) bool {

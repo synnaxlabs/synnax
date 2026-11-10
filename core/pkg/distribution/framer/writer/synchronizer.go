@@ -17,8 +17,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// Synchronizer is used to synchronize sequenced responses across multiple nodes.
-// Synchronizer assumes that a request sent to multiple nodes contains a sequence number
+// synchronizer merges the responses of the writer's storage and free branches into one
+// response per request. It assumes that each request carries a sequence number
 // incremented with every request.
 type synchronizer struct {
 	confluence.LinearTransform[Response, Response]
@@ -27,15 +27,15 @@ type synchronizer struct {
 		res     Response
 		counter int
 	}
-	nodeCount int
+	branchCount int
 }
 
 func newSynchronizer(
-	nodeCount int,
+	branchCount int,
 	ins alamos.Instrumentation,
 ) confluence.Segment[Response, Response] {
 	s := &synchronizer{}
-	s.nodeCount = nodeCount
+	s.branchCount = branchCount
 	s.Instrumentation = ins
 	s.Transform = s.sync
 	return s
@@ -67,9 +67,16 @@ func (s *synchronizer) sync(_ context.Context, res Response) (Response, bool, er
 	if res.Command == CommandCommit && res.End > s.cycle.res.End {
 		s.cycle.res.End = res.End
 	}
-	fulfilled := s.cycle.counter == s.nodeCount
+	if s.cycle.res.Err == nil {
+		s.cycle.res.Err = res.Err
+	}
+	// A commit that fails on one branch has no end, even if the other applied it.
+	if s.cycle.res.Err != nil {
+		s.cycle.res.End = 0
+	}
+	fulfilled := s.cycle.counter == s.branchCount
 	if fulfilled {
 		s.cycle.counter = 0
 	}
-	return res, fulfilled, nil
+	return s.cycle.res, fulfilled, nil
 }

@@ -190,10 +190,10 @@ def assert_no_new_samples(
 ) -> None:
     """Asserts that no message gets a sample for window. Samples already on their way
     get a second to arrive first."""
-    sy.sleep(1)
+    sy.sleep(1)  # noqa: TID251 lets samples in flight land
     samples.drain()
     before = [samples.count(b) for b in bounds]
-    sy.sleep(window)
+    sy.sleep(window)  # noqa: TID251 fixed quiet window
     samples.drain()
     after = [samples.count(b) for b in bounds]
     if after != before:
@@ -239,7 +239,6 @@ class BusCase(SimulatorCase):
         reason = self.unsupported()
         if reason is not None:
             self.skip(reason)
-            return
         super().setup()
         created = self.client.icds.create(
             name=f"{type(self).__name__} ICD", messages=self.create_messages()
@@ -429,7 +428,7 @@ class BusCase(SimulatorCase):
                 status = sy.task.Status.model_validate(raw)
             except ValidationError:
                 continue
-            if status.details is not None and status.details.task == self.task.key:
+            if status.owner == sy.task.resource_id(self.task.key):
                 yield status
 
     def assert_no_problems(self, streamer: sy.Streamer) -> None:

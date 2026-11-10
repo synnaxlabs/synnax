@@ -119,20 +119,6 @@ func (m *Module) ImportCount() uint32 {
 	return uint32(len(m.imports))
 }
 
-// Debug returns debug info about the module
-func (m *Module) Debug() (types, functions, exports int) {
-	return len(m.types), len(m.functions), len(m.exports)
-}
-
-// ImportNames returns the names of all imported functions in order.
-func (m *Module) ImportNames() []string {
-	names := make([]string, len(m.imports))
-	for i, imp := range m.imports {
-		names[i] = imp.Name
-	}
-	return names
-}
-
 // EnableMemory enables memory for the module
 func (m *Module) EnableMemory() {
 	m.memory = true
@@ -223,13 +209,17 @@ func (m *Module) writeFunctionSection() {
 	m.writeSection(SectionFunc, section.Bytes())
 }
 
+// MaxMemoryPages is the most 64 KiB pages that the linear memory of a module can grow
+// to.
+const MaxMemoryPages = 4096
+
 func (m *Module) writeMemorySection() {
 	var section bytes.Buffer
 	// Number of memories (1)
 	section.WriteByte(1)
-	// Memory limits (min 1 page, no max)
-	section.WriteByte(0)             // no max
-	writeUnsignedLEB128(&section, 1) // min 1 page
+	section.WriteByte(1) // limits carry a max
+	writeUnsignedLEB128(&section, 1)
+	writeUnsignedLEB128(&section, MaxMemoryPages)
 	m.writeSection(SectionMemory, section.Bytes())
 }
 

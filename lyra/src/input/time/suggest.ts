@@ -307,25 +307,43 @@ const normalizeDurationWords = (text: string): string => {
   return t;
 };
 
+const UNIT_NAMES = new Map<bigint, string>([
+  [TimeSpan.NANOSECOND.valueOf(), "nanoseconds"],
+  [TimeSpan.MICROSECOND.valueOf(), "microseconds"],
+  [TimeSpan.MILLISECOND.valueOf(), "milliseconds"],
+  [TimeSpan.SECOND.valueOf(), "seconds"],
+  [TimeSpan.MINUTE.valueOf(), "minutes"],
+  [TimeSpan.HOUR.valueOf(), "hours"],
+  [TimeSpan.DAY.valueOf(), "days"],
+]);
+
+const unitName = (unit: TimeSpan): string => {
+  const name = UNIT_NAMES.get(unit.valueOf());
+  if (name == null) throw new Error(`${unit.toString()} is not a unit of time`);
+  return name;
+};
+
 /**
  * Lists the ways the typed text can be read as a duration: the grammar's exact
  * reading (`2h 30m`, `1:30:00`, `90`), then natural language (`an hour and a half`,
  * `2 hours and 30 minutes`).
+ * @param unit - the unit of a bare number. Defaults to seconds.
  */
 export const suggestTimeSpans = (
   text: string,
   language: Language | null,
+  unit: TimeSpan = TimeSpan.SECOND,
 ): Suggestion<TimeSpan>[] => {
   const out: Suggestion<TimeSpan>[] = [];
   const trimmed = text.trim();
   if (trimmed.length === 0) return [];
-  const exact = parseTimeSpan(trimmed);
+  const exact = parseTimeSpan(trimmed, unit);
   if (exact != null) {
-    const reading = exact.kind === "seconds" ? "seconds" : "duration";
+    const reading = exact.kind === "number" ? unitName(unit) : "duration";
     out.push({ key: exact.value.valueOf().toString(), value: exact.value, reading });
   }
   const phrase = normalizeDurationWords(expandAbbreviations(trimmed));
-  const normalized = parseTimeSpan(phrase.replace(/\s*(and|,)\s*/g, " "))?.value;
+  const normalized = parseTimeSpan(phrase.replace(/\s*(and|,)\s*/g, " "), unit)?.value;
   if (normalized != null)
     out.push({
       key: normalized.valueOf().toString(),

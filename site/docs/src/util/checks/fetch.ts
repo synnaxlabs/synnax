@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CDN } from "@/components/media/cdn";
 import { type Context } from "@/util/checks/check";
 
 // Some hosts reject non-browser user agents outright.
@@ -55,15 +56,21 @@ interface Probe {
   // A connection-level failure (timeout, refused) rather than an HTTP status; these are
   // the slow failures the per-host circuit breaker counts.
   hung: boolean;
-  // A 4xx or a host that does not resolve proves the link dead. A 5xx or a dropped
-  // connection is the host's outage and proves nothing about the link.
+  // A 4xx or a host that does not resolve proves the link dead. A 5xx, a dropped
+  // connection, or a bot wall's 403 proves nothing about the link.
   dead: boolean;
 }
+
+// The CDN answers 403 for a missing object, so its 403 is no bot wall.
+const CDN_HOST = new URL(CDN.ROOT).host;
+
+const provesDead = (url: string, status: number): boolean =>
+  status < 500 && (status !== 403 || new URL(url).host === CDN_HOST);
 
 const failure = (url: string, last: number | string): Probe => ({
   reason: `${url}: ${describe(last)}`,
   hung: typeof last !== "number",
-  dead: typeof last === "number" ? last < 500 : last === "ENOTFOUND",
+  dead: typeof last === "number" ? provesDead(url, last) : last === "ENOTFOUND",
 });
 
 // A null body is a page that answered but cannot be verified (a 429): the link passes
@@ -114,7 +121,7 @@ const hasAnchor = (body: string, fragment: string): boolean =>
 const probe = async (url: string): Promise<Probe | null> => {
   // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links cannot
   // be verified either way. A 429 on any host proves nothing about the link.
-  const linkedin = new URL(url).host.endsWith("linkedin.com");
+  const linkedin = /(^|\.)linkedin\.com$/.test(new URL(url).hostname);
   const ok = (status: number): boolean =>
     status < 400 || status === 429 || (linkedin && status === 999);
   let last: number | string = 0;

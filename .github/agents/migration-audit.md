@@ -17,8 +17,8 @@ rules on version files and on when to mint a version are the main contract here.
 
 The Core, the Console, and the Driver release apart, so each has its own stable tag.
 Diff each product's code from its stable tag to the candidate
-(`git diff <stable>..<candidate>`). The Core tag covers the Core, Oracle, Gorp, Cesium,
-and Aspen. Look at:
+(`git diff <stable>..<candidate>`). The Core tag covers the Core, Oracle, Gorp, and
+Cesium. Look at:
 
 - **Oracle schemas** in `schemas/`. A version file that exists at the stable tag is
   frozen: any change to its stored bytes is a problem. A stored-shape change in a live
@@ -28,7 +28,7 @@ and Aspen. Look at:
   another service writes, and at migrations that run in the composition pass.
 - **Cesium**: `cesium/internal/meta`, `cesium/internal/migrate`, and the on-disk layout
   of the domain and index files.
-- **Aspen and KV**: key prefixes and the encoded values.
+- **KV**: key prefixes and the encoded values.
 - **Core and Driver config**: CLI flags, environment variables, config files, and the
   files the Driver keeps on disk.
 - **Console**: persisted state (`types/vN.ts` and `migrations.ts` files) and the import

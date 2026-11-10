@@ -9,10 +9,13 @@
 
 #pragma once
 
+#include <charconv>
 #include <cstdlib>
 #include <filesystem>
 #include <sstream>
+#include <stdexcept>
 #include <string>
+#include <system_error>
 #include <type_traits>
 #include <vector>
 
@@ -33,13 +36,20 @@ class Parser {
         if constexpr (std::is_same_v<T, bool>) {
             if (!default_value) return (value == "true" || value == "1");
             return !(value == "false" || value == "0");
-        }
-        if constexpr (std::is_same_v<T, std::string>) return value;
-        if constexpr (std::is_floating_point_v<T>)
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            return value;
+        } else if constexpr (std::is_floating_point_v<T>) {
             return static_cast<T>(std::stold(value));
-        if constexpr (std::is_unsigned_v<T>) return static_cast<T>(std::stoull(value));
-        if constexpr (std::is_integral_v<T>) return static_cast<T>(std::stoll(value));
-        throw std::runtime_error("Unsupported type");
+        } else if constexpr (std::is_integral_v<T>) {
+            T parsed{};
+            const char *end = value.data() + value.size();
+            const auto [ptr, ec] = std::from_chars(value.data(), end, parsed);
+            if (ec != std::errc{} || ptr != end)
+                throw std::invalid_argument("value is not an integer in range");
+            return parsed;
+        } else {
+            throw std::runtime_error("Unsupported type");
+        }
     }
 
 public:

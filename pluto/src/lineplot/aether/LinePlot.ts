@@ -123,6 +123,13 @@ export class LinePlot
     return this.axes.some((a) => a.fetching);
   }
 
+  // Lines record their loading state as they render, so it syncs after a render.
+  private syncLoading(): void {
+    const { loading, fetching } = this;
+    if (loading !== this.state.loading || fetching !== this.state.fetching)
+      this.setState((p) => ({ ...p, loading, fetching }));
+  }
+
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
     const p = { ...this.state, plot, canvases };
     this.axes.forEach((xAxis) => xAxis.render(p));
@@ -166,10 +173,9 @@ export class LinePlot
       ins.L.debug("deleted, skipping render", { key: this.key });
       return;
     }
-    const loading = this.loading;
-    if (loading !== this.state.loading) this.setState((p) => ({ ...p, loading }));
     if (!this.state.visible) {
       ins.L.debug("not visible, skipping render", { key: this.key });
+      this.syncLoading();
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
@@ -208,9 +214,7 @@ export class LinePlot
       removeCanvasScissor();
       removeGLScissor();
     }
-    // Lines start fetches while they render, so the state is read after it.
-    const fetching = this.fetching;
-    if (fetching !== this.state.fetching) this.setState((p) => ({ ...p, fetching }));
+    this.syncLoading();
     ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 

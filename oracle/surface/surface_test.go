@@ -15,14 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/surface"
 	"github.com/synnaxlabs/oracle/testutil"
 )
 
 func report(ctx context.Context, source string) string {
 	GinkgoHelper()
-	table, diag := analyzer.AnalyzeSource(
+	table, diag := testutil.Analyze(
 		ctx, source, "widget", testutil.NewMockFileLoader(),
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())
@@ -100,6 +99,39 @@ widget.Valve!Rename.name string
 `))
 		},
 	)
+
+	It("Should write the actions of a union", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Valve union on type {
+	open {}
+
+	action Rename {
+		name string
+	}
+}
+`)).To(ContainSubstring(`widget.Valve action Rename
+widget.Valve!Rename.name string
+`))
+	})
+
+	It("Should write an action that aliases a struct", func(ctx SpecContext) {
+		Expect(report(ctx, `
+Set struct {
+	path string[]
+}
+
+Valve struct {
+	key uuid
+
+	action Set = Set
+}
+`)).To(Equal(`widget.Set struct
+widget.Set.path Array<string>
+widget.Valve struct
+widget.Valve.key uuid
+widget.Valve action Set = widget.Set
+`))
+	})
 
 	It("Should write omitted fields and borrowed enums", func(ctx SpecContext) {
 		Expect(report(ctx, `

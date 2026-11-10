@@ -18,9 +18,9 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Log", func() {
@@ -28,12 +28,6 @@ var _ = Describe("Log", func() {
 		It("Should return the log's key", func() {
 			k := uuid.New()
 			Expect(v0.Log{Key: k}.GorpKey()).To(Equal(k))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Log{}.SetOptions()).To(BeNil())
 		})
 	})
 })

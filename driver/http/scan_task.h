@@ -140,8 +140,11 @@ private:
     };
 
     /// @brief sets the device status with fields derived from the device and task.
+    /// @param connected is true when the server answered, even with a failed health
+    /// check.
     void set_device_status(
         synnax::device::Device &dev,
+        bool connected,
         const std::string &variant,
         const std::string &message,
         const std::string &description = ""

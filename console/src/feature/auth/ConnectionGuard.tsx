@@ -9,7 +9,7 @@
 
 import "@/feature/auth/ConnectionGuard.css";
 
-import { AccessDeniedError, type connection } from "@synnaxlabs/client";
+import { type connection } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -59,11 +59,7 @@ const PermissionsFallback = ({
   retry,
   ...props
 }: Access.PermissionsFallbackProps): ReactElement => {
-  const { error } = props;
-  const logout = Session.useLogout();
-  // A denial is an expected state, not a crash, so it gets a calm surface.
-  if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
-    return <Denied retry={retry} />;
+  const logout = Core.useLogout();
   return (
     <Errors.Fallback {...props}>
       <Button.Button variant="outlined" onClick={logout}>
@@ -75,45 +71,6 @@ const PermissionsFallback = ({
         Retry
       </Button.Button>
     </Errors.Fallback>
-  );
-};
-
-interface DeniedProps {
-  retry: () => void;
-}
-
-const Denied = ({ retry }: DeniedProps): ReactElement => {
-  const logout = Session.useLogout();
-  const target = Session.Core.useSelectSelected();
-  const subject =
-    target != null && target.username !== "" ? ` for ${target.username}` : "";
-  return (
-    <Shell.Frame className={CSS.B("connection")} connection={target}>
-      <Flex.Box
-        y
-        align="center"
-        justify="center"
-        gap={8}
-        className={CSS.cls(CSS.BE("connection", "body"), CSS.M("revealed"))}
-      >
-        <Status.Orbital core={<PlatformShell.Mark />} />
-        <Status.Summary
-          variant="warning"
-          message="Console access denied"
-          description={`Check role permissions${subject}.`}
-        />
-        <Flex.Box x gap="small">
-          <Button.Button variant="outlined" onClick={logout}>
-            <Icon.Logout />
-            Log out
-          </Button.Button>
-          <Button.Button variant="filled" onClick={retry}>
-            <Icon.Refresh />
-            Retry
-          </Button.Button>
-        </Flex.Box>
-      </Flex.Box>
-    </Shell.Frame>
   );
 };
 
@@ -185,15 +142,17 @@ const Splash = ({ status }: SplashProps): ReactElement => {
 
 const Trouble = (): ReactElement => {
   const activeKey = Session.Core.useSelectSelectedKey();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const openConnect = Core.useConnectModal();
+  // A browser Console only talks to the Core that served it.
+  const editable = activeKey != null && Session.Runtime.ENGINE === "tauri";
   return (
     <Flex.Box y gap="large" full="x">
       <Connection.Target />
       <Flex.Box y gap="small" full="x">
         <Connection.Retry variant="filled" size="large" full="x" justify="center" />
         <Flex.Box x gap="small" full="x" className={CSS.BE("connection", "actions")}>
-          {activeKey != null && (
+          {editable && (
             <Button.Button
               variant="outlined"
               grow

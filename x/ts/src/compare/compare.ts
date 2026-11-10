@@ -15,9 +15,9 @@ export type Comparator<T> = (a: T, b: T) => number;
 
 /**
  * Creates the appropriate compare function for sorting the given primitive type.
- * @param v The primitive value to create a compare function for. This is used to
+ * @param v - The primitive value to create a compare function for. This is used to
  * determine the type of comparison to perform.
- * @param reverse Whether to reverse the sort order.
+ * @param reverse - Whether to reverse the sort order.
  */
 export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
   const t = primitive.isStringer(v) ? "stringer" : typeof v;
@@ -34,7 +34,10 @@ export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
       f = (a: T, b: T) => Number(a) - Number(b);
       break;
     case "bigint":
-      f = (a: T, b: T) => (BigInt(a as number) - BigInt(b as number) > 0n ? 1 : -1);
+      f = (a: T, b: T) => {
+        const d = BigInt(a as number) - BigInt(b as number);
+        return d > 0n ? 1 : d < 0n ? -1 : 0;
+      };
       break;
     case "boolean":
       f = (a: T, b: T) => Number(a) - Number(b);
@@ -51,9 +54,9 @@ export const newF = <T>(v: T, reverse: boolean = false): Comparator<T> => {
 
 /**
  * Creates a compare function that compares the field of the given object.
- * @param value The object to compare the field of. This is used to determine the type
+ * @param value - The object to compare the field of. This is used to determine the type
  * of comparison to perform.
- * @param reverse Whether to reverse the sort order.
+ * @param reverse - Whether to reverse the sort order.
  */
 export const newFieldF = <T>(
   key: keyof T,

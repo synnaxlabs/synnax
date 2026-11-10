@@ -11,15 +11,13 @@ package frame
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Frame is a record that maps channel keys to telemetry series. It wraps the base
-// telem.Frame type with channel.Key as the key type, providing distribution-specific
-// functionality for handling telemetry data across nodes.
+// telem.Frame type with channel.Key as the key type.
 type Frame struct{ telem.Frame[channel.Key] }
 
 // Append adds a new key-series pair to the frame and returns the updated frame. The key
@@ -45,34 +43,17 @@ func NewMulti(keys []channel.Key, series []telem.Series) Frame {
 // expected number of series is known.
 func Alloc(cap int) Frame { return Frame{telem.AllocFrame[channel.Key](cap)} }
 
-// SplitByLeaseholder splits the frame into multiple frames based on the leaseholder
-// node of each channel. Returns a map where each key is a node key and the value is a
-// frame containing all series for channels leased by that node.
-func (f Frame) SplitByLeaseholder() map[node.Key]Frame {
-	frames := make(map[node.Key]Frame)
-	for key, ser := range f.Entries() {
-		nodeKey := key.Lease()
-		frames[nodeKey] = frames[nodeKey].Append(key, ser)
-	}
-	return frames
-}
-
-// SplitByHost splits the frame into three frames based on the leaseholder of each
-// channel:
-//   - local: contains series for channels leased by the specified host
-//   - remote: contains series for channels leased by other hosts
-//   - free: contains series for channels that are not leased by any host
-func (f Frame) SplitByHost(host node.Key) (local, remote, free Frame) {
+// SplitFree splits the frame into the series of channels that have storage and the
+// series of free channels.
+func (f Frame) SplitFree() (stored, free Frame) {
 	for key, series := range f.Entries() {
-		if key.Lease() == host {
-			local = local.Append(key, series)
-		} else if key.Free() {
+		if key.Free() {
 			free = free.Append(key, series)
 		} else {
-			remote = remote.Append(key, series)
+			stored = stored.Append(key, series)
 		}
 	}
-	return local, remote, free
+	return stored, free
 }
 
 // Extend appends the keys and series from another frame to this frame.

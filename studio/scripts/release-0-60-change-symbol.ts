@@ -142,7 +142,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       if (k == null) throw new Error(`the stand has no channel "${name}"`);
       return k;
     };
-    await client.schematics.create(tpc.key, feed(key));
+    await client.schematics.create({ ...feed(key), project: tpc.key });
 
     await capture.login(session, world.project);
     await session.click(page.getByText("Operations", { exact: true }).first());
@@ -164,7 +164,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     const valve = page.locator(`.react-flow__node[data-id="${VALVE}"]`);
     const drawer = page
-      .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+      .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
       .first();
 
     // The valve and the left of the toolbar, where the change happens.
@@ -197,7 +197,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await session.click(change, { text: true });
     const group = drawer
-      .locator(".pluto-tabs__tab")
+      .locator(".lyra-tabs__tab")
       .filter({ hasText: "Valves" })
       .first();
     await session.waitFor(group);

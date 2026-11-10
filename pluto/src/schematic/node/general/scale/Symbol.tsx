@@ -10,10 +10,10 @@
 import "@/schematic/node/common/primitive/primitive.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { box, dimensions, location, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { Scale as BaseScale } from "@/schematic/node/common/scale";

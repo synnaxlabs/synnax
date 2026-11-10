@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drawer = page.locator(".console-nav__drawer").first();
   await drawer.getByText(RANGE, { exact: true }).first().click();
   await session.waitFor(
-    drawer.locator(".console-range-list-item.pluto--selected").first(),
+    drawer.locator(".console-range-list-item.lyra--selected").first(),
   );
   // Switching toolbars remounts the tree, so the project collapses again.
   await capture.openToolbar(session, "project");
@@ -78,7 +78,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(2800);
 };
 
-/** key extracts a resource's key from its tree item's ontology-id DOM id. */
+/** key extracts a resource's key from the resource ID in its tree item's DOM id. */
 const key = async (item: Locator): Promise<string> => {
   const id = await item.getAttribute("id");
   if (id == null) throw new Error("tree item carries no id");

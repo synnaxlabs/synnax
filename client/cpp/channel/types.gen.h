@@ -19,11 +19,14 @@
 #include <vector>
 
 #include "client/cpp/node/types.gen.h"
-#include "client/cpp/ontology/id.h"
+#include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
 #include "x/cpp/control/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/telem/types.gen.h"
 
 #include "core/pkg/api/channel/pb/channel.pb.h"
@@ -31,14 +34,21 @@
 
 namespace synnax::channel {
 
+struct Where;
+struct Cursor;
 struct Operation;
+struct Order;
 struct Channel;
+struct RetrieveRequest;
+struct RetrieveResponse;
 
 constexpr const char *OPERATION_TYPE_MIN = "min";
 constexpr const char *OPERATION_TYPE_MAX = "max";
 constexpr const char *OPERATION_TYPE_AVG = "avg";
 constexpr const char *OPERATION_TYPE_NONE = "none";
 constexpr const char *OPERATION_TYPE_DERIVATIVE = "derivative";
+
+constexpr const char *ORDER_FIELD_NAME = "name";
 
 /// @brief Key is a unique identifier for a channel in the Synnax database. Composed of
 /// a node key (first 12 bits) and a local key (last 20 bits), enabling distributed
@@ -48,6 +58,84 @@ using Key = std::uint32_t;
 using Name = std::string;
 
 using Status = ::synnax::status::Status<std::monostate>;
+
+/// @brief Where is a filter that selects channels.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief leaseholder selects by leaseholder.
+    ::x::filter::Field<::x::filter::Set<::synnax::node::Key>> leaseholder;
+    /// @brief data_type selects by data_type.
+    ::x::filter::Field<::x::filter::Set<::x::telem::DataType>> data_type;
+    /// @brief is_index selects by is_index.
+    ::x::filter::Field<::x::filter::Bool> is_index;
+    /// @brief internal selects by internal.
+    ::x::filter::Field<::x::filter::Bool> internal;
+    /// @brief virtual_ matches virtual channels that are not calculated, or every other
+    /// channel when false.
+    std::optional<bool> virtual_;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::channel::pb::Where;
+    [[nodiscard]] std::pair<::service::channel::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::channel::pb::Where &pb);
+};
+
+/// @brief Cursor is a position in an order of channels: the sort value and the key of a
+/// channel.
+struct Cursor {
+    /// @brief key is the key of the channel at the position.
+    Key key = 0;
+    /// @brief name is the name of the channel at the position, when the order sorts by
+    /// it.
+    std::optional<Name> name;
+
+    static Cursor parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::Cursor;
+    [[nodiscard]] std::pair<::api::channel::pb::Cursor, x::errors::Error>
+    to_proto() const;
+    static std::pair<Cursor, x::errors::Error>
+    from_proto(const ::api::channel::pb::Cursor &pb);
+};
 
 /// @brief Operation defines an aggregation operation applied to channel data.
 /// Operations calculate min, max, average, or derivative values over a time duration or
@@ -71,6 +159,23 @@ struct Operation {
     to_proto() const;
     static std::pair<Operation, x::errors::Error>
     from_proto(const ::service::channel::pb::Operation &pb);
+};
+
+/// @brief Order is a sort of channels.
+struct Order {
+    /// @brief field is the field to sort by. Records with equal values sort by key.
+    std::string field;
+    /// @brief descending sorts from the greatest value to the least.
+    bool descending = false;
+
+    static Order parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::Order;
+    [[nodiscard]] std::pair<::api::channel::pb::Order, x::errors::Error>
+    to_proto() const;
+    static std::pair<Order, x::errors::Error>
+    from_proto(const ::api::channel::pb::Order &pb);
 };
 
 /// @brief Channel is a logical collection of samples emitted by or representing values
@@ -126,9 +231,76 @@ struct Channel {
     from_proto(const ::api::channel::pb::Channel &pb);
 };
 
-const synnax::ontology::ID ONTOLOGY_TYPE("channel", "");
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the channels. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the channels strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
 
-inline synnax::ontology::ID ontology_id(const Key &key) {
-    return synnax::ontology::ID("channel", std::to_string(key));
+/// @brief RetrieveRequest is a request to retrieve channels.
+struct RetrieveRequest {
+    /// @brief where selects the channels to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the channels that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief order sorts the channels. An absent order sorts them by key.
+    std::optional<Order> order;
+    /// @brief after starts the channels strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most channels to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .order = options.order,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::channel::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::channel::pb::RetrieveRequest &pb);
+};
+
+/// @brief RetrieveResponse holds the channels a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief channels are the channels the request selects.
+    std::vector<Channel> channels;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::channel::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::channel::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::channel::pb::RetrieveResponse &pb);
+};
+
+const synnax::resource::ID TYPE_RESOURCE_ID("channel", "");
+
+inline synnax::resource::ID resource_id(const Key &key) {
+    return synnax::resource::ID("channel", std::to_string(key));
 }
 }

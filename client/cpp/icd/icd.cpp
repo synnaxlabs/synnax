@@ -25,34 +25,42 @@ Client::Client(
     retrieve_client(std::move(retrieve_client)),
     delete_client(std::move(delete_client)) {}
 
-std::pair<ICD, x::errors::Error> Client::retrieve(const Key &key) const {
-    auto req = grpc::icd::RetrieveRequest();
-    req.add_keys(key.to_string());
-    auto [res, err] = this->retrieve_client->send("/icd/retrieve", req);
-    if (err) return {ICD(), err};
-    if (res.icds_size() == 0)
-        return {ICD(), errors::not_found_error("ICD", "key " + key.to_string())};
-    auto [ic, proto_err] = ICD::from_proto(res.icds(0));
-    if (proto_err) return {ICD(), proto_err};
-    return {std::move(ic), x::errors::NIL};
+std::pair<ICD, x::errors::Error>
+Client::retrieve(const Key &key, const RetrieveOptions &options) const {
+    return this->retrieve(Where{.key = key}, x::filter::one, options);
 }
 
 std::pair<std::vector<ICD>, x::errors::Error>
-Client::retrieve(const std::vector<Key> &keys) const {
+Client::retrieve(const std::vector<Key> &keys, const RetrieveOptions &options) const {
     if (keys.empty()) return {std::vector<ICD>(), x::errors::NIL};
-    auto req = grpc::icd::RetrieveRequest();
-    for (const auto &k: keys)
-        req.add_keys(k.to_string());
-    auto [res, err] = this->retrieve_client->send("/icd/retrieve", req);
+    return this->retrieve(Where{.key = keys}, options);
+}
+
+std::pair<std::vector<ICD>, x::errors::Error>
+Client::retrieve(const Where &where, const RetrieveOptions &options) const {
+    auto [pb_req, pb_err] = RetrieveRequest::from(where, options).to_proto();
+    if (pb_err) return {std::vector<ICD>(), pb_err};
+    grpc::icd::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = this->retrieve_client->send("/icd/retrieve", grpc_req);
     if (err) return {std::vector<ICD>(), err};
-    std::vector<ICD> ics;
-    ics.reserve(res.icds_size());
-    for (const auto &pb: res.icds()) {
-        auto [ic, proto_err] = ICD::from_proto(pb);
-        if (proto_err) return {std::vector<ICD>(), proto_err};
-        ics.push_back(std::move(ic));
-    }
-    return {ics, x::errors::NIL};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {std::vector<ICD>(), proto_err};
+    return {std::move(decoded.icds), x::errors::NIL};
+}
+
+std::pair<ICD, x::errors::Error> Client::retrieve(
+    const Where &where,
+    x::filter::One,
+    const RetrieveOptions &options
+) const {
+    if (options.limit.has_value() || options.after.has_value())
+        return {ICD{}, errors::paged_one_error()};
+    auto [ics, err] = this->retrieve(where, options);
+    if (err) return {ICD{}, err};
+    if (const auto one_err = errors::check_one("ICD", where.to_json(), ics.size()))
+        return {ICD{}, one_err};
+    return {std::move(ics[0]), x::errors::NIL};
 }
 
 x::errors::Error Client::create(ICD &ic) const {

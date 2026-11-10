@@ -130,13 +130,13 @@ body {
     align-items: flex-start;
 }
 
-.feature-right .pluto-btn {
+.feature-right .lyra-btn {
     color: var(--pluto-gray-l8);
     text-decoration: none;
     margin-left: -2rem;
 }
 
-.feature-right .pluto-btn:hover {
+.feature-right .lyra-btn:hover {
     text-decoration: none;
 }
 

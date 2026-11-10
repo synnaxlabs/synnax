@@ -61,7 +61,8 @@ opcua_bool_time = client.channels.create(
 )
 
 # Create Synnax channels to store the my_bool_0 and my_bool_1 node data from the server.
-# These booleans are continuously updated with sequential square wave patterns by the OPC UA server.
+# These booleans are continuously updated with sequential square wave patterns by the
+# OPC UA server.
 my_bool_0 = client.channels.create(
     name="my_bool_0",
     index=opcua_bool_time.key,
@@ -77,7 +78,8 @@ my_bool_1 = client.channels.create(
 
 # Create the OPC UA Read Task
 # Using node IDs to reference the OPC UA boolean variables.
-# The server creates booleans with sequential square wave patterns offset by 0.2 seconds.
+# The server creates booleans with sequential square wave patterns offset by 0.2
+# seconds.
 tsk = sy.opcua.ReadTask(
     name="OPC UA Py - Read Task (Boolean)",
     device=dev.key,
@@ -112,18 +114,18 @@ print(f"{'Sample':<8} {'Timestamp':<12} {'my_bool_0':>12} {'my_bool_1':>12}")
 print("-" * 70)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run(), client.open_streamer(["my_bool_0", "my_bool_1"]) as streamer:
-        sample_count = 0
         start_time = sy.TimeStamp.now()
 
         while True:
             frame = streamer.read()
             # Print the latest values from each channel
-            if frame and "my_bool_0" in frame and len(frame["my_bool_0"]) > 0:
+            if "my_bool_0" in frame and len(frame["my_bool_0"]) > 0:
                 val0 = frame["my_bool_0"][-1]
                 val1 = frame["my_bool_1"][-1]
 

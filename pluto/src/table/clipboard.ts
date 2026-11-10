@@ -64,7 +64,7 @@ export const useClipboard = ({
   const selectedRef = useSyncedRef(selected ?? []);
 
   const getTable = (): table.Table | undefined => {
-    const cached = client?.tables.getCached(key);
+    const cached = client?.tables.watch(key).getCached();
     if (!query.isLive(cached)) return undefined;
     return cached;
   };

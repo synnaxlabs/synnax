@@ -11,9 +11,12 @@ import { type APIRoute } from "astro";
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { OPTIONS as handoffPreflight, POST as handoffRoute } from "@/pages/api/handoff";
 import { POST as activateRoute } from "@/pages/api/licenses/[key]/activate";
+import { POST as deleteRoute } from "@/pages/api/licenses/[key]/delete";
 import { POST as floatingRoute } from "@/pages/api/licenses/[key]/floating";
 import { POST as amendRoute } from "@/pages/api/licenses/[key]/index";
+import { POST as labelRoute } from "@/pages/api/licenses/[key]/label";
 import { POST as restoreRoute } from "@/pages/api/licenses/[key]/restore";
 import { POST as revokeRoute } from "@/pages/api/licenses/[key]/revoke";
 import { POST as issueRoute } from "@/pages/api/licenses/index";
@@ -27,9 +30,11 @@ import {
 } from "@/server/db/schema";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, type Team } from "@/server/directory";
+import { MAX_LABEL_LENGTH } from "@/server/license/limits";
 import { issued, restored, revoked } from "@/server/license/notice";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
 import { PER_ACTOR, PER_ORGANIZATION } from "@/server/ratelimit";
+import { refused } from "@/server/slack";
 import {
   body,
   type ContextArgs,
@@ -85,6 +90,9 @@ describe("license routes", () => {
 
   const call = async (route: APIRoute, args: ContextArgs = {}): Promise<Response> =>
     await route(createAPIContext(h.portal, args));
+
+  const collect = async (code: string): Promise<Response> =>
+    await call(handoffRoute, { headers: { authorization: `Bearer ${code}` } });
 
   const expectError = async (
     res: Response,
@@ -334,10 +342,11 @@ describe("license routes", () => {
           organization: ACME,
           label: "Test stand",
           nodes: 3,
+          channelsLimited: true,
           channels: 500,
           expiresAt: "2027-01-01",
         };
-        const res = await call(issueRoute, { body: values });
+        const res = await call(issueRoute, { body: Licenses.bodyOf(values) });
         expect(res.status).toBe(200);
         expect(await licenses()).toEqual([
           expect.objectContaining({
@@ -350,6 +359,20 @@ describe("license routes", () => {
             maxVersion: null,
           }),
         ]);
+      });
+
+      it("should drop the values the issue dialog does not use", async () => {
+        const values = {
+          ...Licenses.ZERO_TERMS,
+          organization: ACME,
+          label: "Test stand",
+          channels: 500,
+          expiresAt: "2027-01-01",
+          maxVersion: "0.62",
+        };
+        const res = await call(issueRoute, { body: Licenses.bodyOf(values) });
+        expect(res.status).toBe(200);
+        expect((await licenses())[0]).toMatchObject({ channels: 0, maxVersion: null });
       });
 
       it("should accept a posted form", async () => {
@@ -418,6 +441,15 @@ describe("license routes", () => {
       );
     });
 
+    it("should reject a label over the length limit", async () => {
+      h.signIn(STAFF);
+      await expectError(
+        await post({ ...TERMS, label: "x".repeat(MAX_LABEL_LENGTH + 1) }),
+        400,
+        `The label must be at most ${MAX_LABEL_LENGTH} characters`,
+      );
+    });
+
     it("should reject a maximum version that is not major.minor", async () => {
       h.signIn(STAFF);
       await expectError(
@@ -475,6 +507,10 @@ describe("license routes", () => {
       h.signIn(STAFF);
       const subscription = await createLicense(store, {
         organization: acme.key,
+        channels: 100,
+      });
+      const updates = await createLicense(store, {
+        organization: acme.key,
         maxVersion: "0.62",
       });
       const perpetual = await createLicense(store, {
@@ -483,24 +519,20 @@ describe("license routes", () => {
         expiresAt: null,
         maxVersion: "0.62",
       });
-      for (const unchanged of [subscription, perpetual]) {
+      const all = [subscription, updates, perpetual];
+      for (const unchanged of all) {
         const res = await call(amendRoute, {
           params: { key: unchanged.key },
-          body: Licenses.termsOf(unchanged),
+          body: Licenses.bodyOf(Licenses.termsOf(unchanged)),
         });
         expect(res.status).toBe(204);
       }
-      expect(await licenses()).toEqual(
-        expect.arrayContaining([subscription, perpetual]),
+      expect(await licenses()).toEqual(expect.arrayContaining(all));
+      expect(await events()).toEqual(
+        all.map((lic) =>
+          expect.objectContaining({ kind: "amend", license: lic.key, detail: {} }),
+        ),
       );
-      expect(await events()).toEqual([
-        expect.objectContaining({
-          kind: "amend",
-          license: subscription.key,
-          detail: {},
-        }),
-        expect.objectContaining({ kind: "amend", license: perpetual.key, detail: {} }),
-      ]);
     });
 
     it("should record what changed in the ledger", async () => {
@@ -523,6 +555,135 @@ describe("license routes", () => {
           },
         }),
       ]);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/label", () => {
+    const ADMIN = "user_admin";
+    let lic: License;
+
+    beforeEach(async () => {
+      addPerson(ADMIN, [ACME_ADMIN]);
+      lic = await createLicense(store, { organization: acme.key });
+    });
+
+    const post = async (label: string, key: string = lic.key): Promise<Response> =>
+      await call(labelRoute, { params: { key }, body: { label } });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post("Renamed rig"), 401, "Log in first");
+    });
+
+    it("should hide the license from a user outside the team", async () => {
+      h.signIn(OUTSIDER);
+      await expectError(await post("Renamed rig"), 404, "License not found");
+    });
+
+    it("should reject a team member who is not an admin", async () => {
+      h.signIn(MEMBER);
+      await expectError(
+        await post("Renamed rig"),
+        403,
+        "Only a team admin can rename a license",
+      );
+    });
+
+    it("should reject the owner of a personal license", async () => {
+      h.signIn(OUTSIDER);
+      const personal = await createOrganization(store, {
+        kind: "personal",
+        ownerUserID: OUTSIDER,
+      });
+      const owned = await createLicense(store, { organization: personal.key });
+      await expectError(
+        await post("Renamed rig", owned.key),
+        403,
+        "Only a team admin can rename a license",
+      );
+    });
+
+    it("should require a label", async () => {
+      h.signIn(ADMIN);
+      await expectError(await post("   "), 400, "Give the license a label");
+    });
+
+    it("should reject a label over the length limit", async () => {
+      h.signIn(ADMIN);
+      await expectError(
+        await post("x".repeat(MAX_LABEL_LENGTH + 1)),
+        400,
+        `The label must be at most ${MAX_LABEL_LENGTH} characters`,
+      );
+      expect(await licenses()).toEqual([lic]);
+    });
+
+    it("should accept a label at the length limit", async () => {
+      h.signIn(ADMIN);
+      const label = "x".repeat(MAX_LABEL_LENGTH);
+      expect((await post(label)).status).toBe(200);
+      expect((await licenses())[0].label).toBe(label);
+    });
+
+    it("should let a team admin rename and record the change", async () => {
+      h.signIn(ADMIN);
+      const res = await post("  Renamed rig  ");
+      expect(res.status).toBe(200);
+      expect(await body(res)).toMatchObject({
+        event: { kind: "amend", actor: ADMIN },
+        actor: ADMIN,
+      });
+      expect(await licenses()).toEqual([{ ...lic, label: "Renamed rig" }]);
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: "amend",
+          actor: ADMIN,
+          organization: acme.key,
+          license: lic.key,
+          detail: { label: { from: "Test rig", to: "Renamed rig" } },
+        }),
+      ]);
+    });
+
+    it("should let staff rename a license on a team they are not on", async () => {
+      h.signIn(STAFF);
+      expect((await post("Renamed rig")).status).toBe(200);
+      expect((await licenses())[0].label).toBe("Renamed rig");
+    });
+
+    it("should record nothing when the label does not change", async () => {
+      h.signIn(ADMIN);
+      expect(await body(await post(lic.label))).toEqual({ event: null, actor: ADMIN });
+      expect(await events()).toEqual([]);
+    });
+
+    it("should rename an expired license", async () => {
+      h.signIn(ADMIN);
+      const expired = await createLicense(store, {
+        organization: acme.key,
+        expiresAt: new Date("2020-01-01T00:00:00Z"),
+      });
+      expect((await post("Renamed rig", expired.key)).status).toBe(200);
+    });
+
+    it("should refuse a Desktop license", async () => {
+      h.signIn(STAFF);
+      const desktop = await createLicense(store, {
+        organization: acme.key,
+        edition: "desktop",
+      });
+      expect((await post("Renamed rig", desktop.key)).status).toBe(400);
+      expect((await licenses()).find((l) => l.key === desktop.key)?.label).toBe(
+        desktop.label,
+      );
+    });
+
+    it("should rename a revoked license", async () => {
+      h.signIn(ADMIN);
+      const revoked = await createLicense(store, {
+        organization: acme.key,
+        revokedAt: new Date("2026-09-02T00:00:00Z"),
+      });
+      expect((await post("Renamed rig", revoked.key)).status).toBe(200);
     });
   });
 
@@ -558,21 +719,21 @@ describe("license routes", () => {
       );
     });
 
-    it("should require at least one host hash", async () => {
+    it("should require a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: " " }),
         400,
-        "Paste at least one host hash",
+        "Enter the machine's fingerprint",
       );
     });
 
-    it("should reject text that is not a host hash", async () => {
+    it("should reject text that is not a fingerprint", async () => {
       h.signIn(MEMBER);
       await expectError(
         await post({ ...MACHINE, fingerprint: "xyz" }),
         400,
-        '"xyz" is not a host hash',
+        '"xyz" is not part of a fingerprint',
       );
     });
 
@@ -594,7 +755,7 @@ describe("license routes", () => {
       );
       const [act] = await store.query.select().from(activation);
       expect(answer.activation).toBe(act.key);
-      expect(answer.filename).toBe("Test-rig.lic");
+      expect(answer.filename).toBe("Test-rig-Test-stand.lic");
       expect(readKey(answer.key)).toEqual({
         jti: lic.key,
         iat: seconds(NOW),
@@ -634,6 +795,27 @@ describe("license routes", () => {
       ]);
     });
 
+    it("should hold the key for the Console that made the handoff code", async () => {
+      h.signIn(MEMBER);
+      const code = crypto.randomUUID();
+      const answer = await body<{ key: string }>(
+        await post({ ...MACHINE, handoff: code }),
+      );
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(await body(res)).toEqual({ key: answer.key });
+    });
+
+    it("should reject a damaged handoff code", async () => {
+      h.signIn(MEMBER);
+      await expectError(
+        await post({ ...MACHINE, handoff: "short" }),
+        400,
+        "The link from the Console is damaged. Open it again.",
+      );
+      expect(await store.query.select().from(activation)).toEqual([]);
+    });
+
     it("should let staff activate a license of any organization", async () => {
       h.signIn(STAFF);
       expect((await post(MACHINE)).status).toBe(200);
@@ -671,6 +853,25 @@ describe("license routes", () => {
           detail: { reason: "no_seats", fingerprint: [HASH_A] },
         }),
       ]);
+      expect(h.slack.posted).toEqual([
+        refused({
+          organization: acme,
+          license: lic,
+          reason: "no_seats",
+          actor: { name: MEMBER, email: `${MEMBER}@example.com` },
+        }),
+      ]);
+    });
+
+    it("should not post a refusal of a Synnax Labs user to Slack", async () => {
+      h.directory.people[STAFF].email = "em@synnaxlabs.com";
+      h.signIn(STAFF);
+      await store.query
+        .update(license)
+        .set({ revokedAt: NOW })
+        .where(eq(license.key, lic.key));
+      expect((await post(MACHINE)).status).toBe(400);
+      expect(h.slack.posted).toEqual([]);
     });
 
     it("should refuse a revoked license", async () => {
@@ -724,6 +925,56 @@ describe("license routes", () => {
         429,
         "Too many activations. Try again later.",
       );
+    });
+  });
+
+  describe("POST /api/handoff", () => {
+    const activateWith = async (code: string): Promise<string> => {
+      const lic = await createLicense(store, { organization: acme.key });
+      h.signIn(MEMBER);
+      const res = await call(activateRoute, {
+        params: { key: lic.key },
+        body: { fingerprint: HASH_A, name: "Test stand", handoff: code },
+      });
+      expect(res.status).toBe(200);
+      h.signIn(null);
+      return (await body<{ key: string }>(res)).key;
+    };
+
+    it("should hand the key over once, with no portal session", async () => {
+      const code = crypto.randomUUID();
+      const key = await activateWith(code);
+      const res = await collect(code);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+      expect(await body(res)).toEqual({ key });
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should answer 204 while it holds no key for the code", async () => {
+      await activateWith(crypto.randomUUID());
+      const res = await collect(crypto.randomUUID());
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should drop a key that nobody collects within an hour", async () => {
+      const code = crypto.randomUUID();
+      await activateWith(code);
+      h.portal.now = () => new Date(NOW.getTime() + 60 * 60 * 1000);
+      expect((await collect(code)).status).toBe(204);
+    });
+
+    it("should refuse a request without a bearer code", async () => {
+      const res = await call(handoffRoute);
+      expect(res.status).toBe(401);
+      expect(res.headers.get("access-control-allow-origin")).toBe("*");
+    });
+
+    it("should answer the preflight for any origin", async () => {
+      const res = await call(handoffPreflight, { method: "OPTIONS" });
+      expect(res.status).toBe(204);
+      expect(res.headers.get("access-control-allow-headers")).toBe("authorization");
     });
   });
 
@@ -859,6 +1110,74 @@ describe("license routes", () => {
       expect((await post()).status).toBe(204);
       await expectError(await post(), 400, "This license is already revoked");
       expect(h.mail.sent).toHaveLength(1);
+    });
+  });
+
+  describe("POST /api/licenses/[key]/delete", () => {
+    let lic: License;
+
+    beforeEach(async () => {
+      lic = await createLicense(store, { organization: acme.key });
+    });
+
+    const post = async (key: string = lic.key): Promise<Response> =>
+      await call(deleteRoute, { params: { key } });
+
+    const createEvent = async (licenseKey: string, activationKey?: string) =>
+      await store.query.insert(event).values({
+        at: NOW,
+        kind: "activate",
+        actor: MEMBER,
+        organization: acme.key,
+        license: licenseKey,
+        activation: activationKey,
+      });
+
+    it("should reject a visitor who is not logged in", async () => {
+      await expectError(await post(), 401, "Log in first");
+    });
+
+    it("should reject a member who is not staff", async () => {
+      h.signIn(MEMBER);
+      await expectError(await post(), 403, "Staff only");
+      expect(await licenses()).toHaveLength(1);
+    });
+
+    it("should answer 404 for an unknown license", async () => {
+      h.signIn(STAFF);
+      await expectError(await post(crypto.randomUUID()), 404, "License not found");
+    });
+
+    it("should delete the license, its machines, and its history", async () => {
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await createEvent(lic.key, act.key);
+      h.signIn(STAFF);
+      expect((await post()).status).toBe(204);
+      expect(await licenses()).toEqual([]);
+      expect(await store.query.select().from(activation)).toEqual([]);
+      expect(await events()).toEqual([]);
+    });
+
+    it("should keep the organization's other licenses and their history", async () => {
+      const other = await createLicense(store, { organization: acme.key });
+      await createActivation(store, { license: other.key, fingerprint: [HASH_B] });
+      await createEvent(other.key);
+      h.signIn(STAFF);
+      await post();
+      expect((await licenses()).map((l) => l.key)).toEqual([other.key]);
+      expect(await store.query.select().from(activation)).toHaveLength(1);
+      expect(await events()).toEqual([expect.objectContaining({ license: other.key })]);
+      expect(await store.query.select().from(organization)).toHaveLength(1);
+    });
+
+    it("should mail nobody", async () => {
+      addPerson("user_admin", [ACME_ADMIN]);
+      h.signIn(STAFF);
+      await post();
+      expect(h.mail.sent).toEqual([]);
     });
   });
 

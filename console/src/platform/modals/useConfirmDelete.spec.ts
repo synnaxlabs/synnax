@@ -21,6 +21,7 @@ import { useConfirmDelete } from "@/platform/modals/useConfirmDelete";
 interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
   type?: string;
+  plural?: string;
   title?: string;
   icon?: string;
   description?: string;
@@ -29,19 +30,20 @@ interface OpenConfirmParams {
 const openConfirm = async ({
   items,
   type = "Channel",
+  plural,
   title,
   icon,
   description,
 }: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
   await renderModalOpener(
-    () => useConfirmDelete({ type, title, icon, description }),
+    () => useConfirmDelete({ type, plural, title, icon, description }),
     [items],
   );
 
 // The header splits a dotted title into one breadcrumb segment per part, so the whole
 // string never appears as a single node.
 const headerText = (): string =>
-  document.querySelector(".pluto-modal__header .pluto-breadcrumb")?.textContent ?? "";
+  document.querySelector(".lyra-modal__header .lyra-breadcrumb")?.textContent ?? "";
 
 describe("useConfirmDelete", () => {
   it("should prompt with the resource name and resolve true when confirmed", async () => {
@@ -103,10 +105,11 @@ describe("useConfirmDelete", () => {
     await screen.findByText("Are you sure you want to delete 2 policies?");
   });
 
-  it("should keep the capitals of an acronym resource type", async () => {
+  it("should use the plural the caller gives", async () => {
     await openConfirm({
       items: [{ name: "a" }, { name: "b" }],
       type: "ICD",
+      plural: "ICDs",
       icon: "Library",
     });
     await screen.findByText("Are you sure you want to delete 2 ICDs?");

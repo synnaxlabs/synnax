@@ -117,11 +117,16 @@ class TestUp:
             "registry/synnax-preview:pr-12 --listen 0.0.0.0:9090 --insecure --mem "
             "--no-driver"
         )
+        assert docker[3] == "docker image prune --all --force"
         assert docker[-1] == (
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
         )
         assert host.site(12).read_text() == (
-            "pr-12.preview.example.com {\n\treverse_proxy synnax-pr-12:9090\n}\n"
+            "pr-12.preview.example.com {\n"
+            "\treverse_proxy synnax-pr-12:9090 {\n"
+            "\t\tstream_close_delay 1h\n"
+            "\t}\n"
+            "}\n"
         )
 
     def test_passes_license_to_core(self, host: Host) -> None:
@@ -162,6 +167,7 @@ class TestDown:
         assert host.docker() == [
             "docker rm --force synnax-pr-12",
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile",
+            "docker image prune --all --force",
         ]
         assert not host.site(12).exists()
 
@@ -180,9 +186,12 @@ class TestSweep:
         assert removed == ["docker rm --force synnax-pr-12"]
         assert not host.site(12).exists()
         assert host.site(13).exists()
-        assert host.docker()[-1] == (
-            "docker image prune --all --force --filter until=168h"
-        )
+
+    def test_prunes_images_without_expired(self, host: Host) -> None:
+        host.containers((13, int(time.time())))
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert host.docker()[-1] == "docker image prune --all --force"
 
 
 class TestArguments:

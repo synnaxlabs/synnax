@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology, type user } from "@synnaxlabs/client";
+import { access, query, resource } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -15,6 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Credential } from "@/platform/credential";
 import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
@@ -30,17 +31,15 @@ const useRename = ({
   },
   state: { getResource },
 }: Tree.ContextMenuProps): (() => void) => {
-  const beforeUpdate = async ({
-    data,
-  }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
-    const [username, renamed] = await Text.asyncEdit(
-      List.itemNameID(ontology.idToString(firstID)),
+  const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<User.RenameParams>) => {
+    const [name, renamed] = await Text.asyncEdit(
+      List.itemNameID(resource.idToString(firstID)),
     );
     if (!renamed) return false;
-    return { ...data, username };
+    return { ...data, name };
   };
   const { update } = User.useRename({ beforeUpdate });
-  return () => update({ key: firstID.key, username: getResource(firstID).name });
+  return () => update({ key: firstID.key, name: getResource(firstID).name });
 };
 
 const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
@@ -52,21 +51,29 @@ const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   };
 };
 
+const retrieve: Tree.Retrieve = async (c, key) => await c.users.retrieve({ key });
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    client,
     state,
     selection: { ids },
   } = props;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
+  const hasRoleUpdatePermission = Access.useUpdateGranted(access.role.TYPE_RESOURCE_ID);
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
+  const openCredentials = Credential.useModal();
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
-  const isNotCurrentUser = first != null && first.name !== client.params.username;
-  const isRootUser = first?.data?.root_user === true;
+  const { data: firstUser } = User.useResult(
+    singleResource ? { key: ids[0].key } : null,
+  );
+  const { data: currentKey } = User.useResultKey({});
+  const isNotCurrentUser = first != null && first.id.key !== currentKey;
+  const isRootUser = firstUser?.rootUser === true;
+  const isSelf = ids[0]?.key === currentKey;
 
   return (
     <ContextMenu.Menu>
@@ -74,9 +81,9 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
-            Change username
+            Rename
           </Menu.Item>
-          {!isRootUser && (
+          {!isRootUser && hasRoleUpdatePermission && (
             <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>
               <Icon.Role />
               Change role
@@ -84,8 +91,22 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
           )}
         </>
       )}
+      {singleResource && first != null && (hasUpdatePermission || isSelf) && (
+        <Menu.Item
+          itemKey="credentials"
+          onClick={() =>
+            openCredentials({ subject: ids[0], title: ["Credentials", first.name] })
+          }
+        >
+          <Icon.Lock />
+          Manage credentials
+        </Menu.Item>
+      )}
       <Menu.Divider />
-      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && <ContextMenu.DeleteItem onClick={handleDelete} />}
       <Menu.Divider />
@@ -95,12 +116,12 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
 };
 
 const TreeItem = Tree.createItem({
-  type: "user",
   icon: <Icon.User />,
   ContextMenu: TreeContextMenu,
-  hasChildren: false,
-  haulItems: ({ data }) =>
-    data == null ? [] : [User.createHaulItem(data as user.User)],
+  haulItems: ({ id }, client) => {
+    const u = client.users.watch(id.key).getCached();
+    return query.isLive(u) ? [User.createHaulItem(u)] : [];
+  },
 });
 
 export const TREE_ITEMS = { user: TreeItem } satisfies Tree.Items;

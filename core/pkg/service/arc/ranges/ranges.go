@@ -47,7 +47,7 @@ const (
 var createDoc = doc.New(
 	doc.Paragraph("Creates a range that starts now and stays \"In Progress\"."),
 	doc.Divider(),
-	doc.Code("arc", "range_key := trigger -> ranges.create{name=\"Terminal Count\"}"),
+	doc.Code("arc", "range_key := trigger -> ranges.create(name=\"Terminal Count\")"),
 	doc.Divider(),
 	doc.Paragraph("Outputs the range key; close the range later with ranges.end."),
 )
@@ -56,7 +56,7 @@ var createDoc = doc.New(
 var endDoc = doc.New(
 	doc.Paragraph("Sets the end bound of an existing range."),
 	doc.Divider(),
-	doc.Code("arc", "trigger -> ranges.end{key=range_key}"),
+	doc.Code("arc", "trigger -> ranges.end(key=range_key)"),
 	doc.Divider(),
 	doc.Paragraph("Sets the end to now. Outputs the range key."),
 )
@@ -278,7 +278,7 @@ func dispatchCreate(
 			)
 			return ""
 		}
-		r.Parent = &ranger.Range{Key: uid}
+		r.Parent = &uid
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
 		return rng.NewWriter(tx).Create(ctx, &r)
@@ -327,7 +327,10 @@ func dispatchEnd(
 		return ""
 	}
 	if err := db.WithTx(ctx, func(tx gorp.Tx) error {
-		return rng.NewWriter(tx).SetEnd(ctx, uid, telem.Now())
+		return rng.NewWriter(tx).Apply(ctx, uid, ranger.NewSetAction(ranger.SetPayload{
+			Path:  []string{"time_range", "end"},
+			Value: telem.Now(),
+		}))
 	}); err != nil {
 		report(ctx, status.VariantWarning, endFailed, err.Error())
 		return ""

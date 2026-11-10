@@ -17,15 +17,16 @@ import { binary, primitive } from "@synnaxlabs/x";
 
 import { Core } from "@/platform/core";
 import { Export } from "@/platform/export";
+import { formPath } from "@/platform/task/types";
 import { useKey } from "@/platform/task/useKey";
 import { Session } from "@/session";
 
 export const UtilityButtons = () => {
   const ctx = Form.useContext();
   const taskKey = useKey();
-  const getName = () => ctx.get<string>("name").value;
+  const getName = () => ctx.get(formPath.name).value;
   const export_ = Export.useResource();
-  const handleExport = () => taskKey != null && export_(task.ontologyID(taskKey));
+  const handleExport = () => taskKey != null && export_(task.resourceID(taskKey));
   const getTypeScriptCode = () =>
     `
       // Retrieve ${getName()}
@@ -37,13 +38,13 @@ export const UtilityButtons = () => {
       task = client.tasks.retrieve("${taskKey}")
       `;
   const getJSONConfig = () => {
-    const config = ctx.get("config").value;
+    const config = ctx.get(formPath.config).value;
     return binary.JSON_CODEC.encodeString(config);
   };
   const copyLink = Core.useCopyLinkToClipboard();
   const handleCopyLink = () => {
     if (taskKey == null) return;
-    copyLink({ name: getName(), ontologyID: task.ontologyID(taskKey) });
+    copyLink({ name: getName(), resourceID: task.resourceID(taskKey) });
   };
   const hasKey = !primitive.isZero(taskKey);
   return (

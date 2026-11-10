@@ -11,14 +11,11 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import icd as icd_
-from synnax import task
+from synnax import channel as channel_, device as device_, icd as icd_, task
 from x import telem
 
 CHECKSUM_NONE: Literal["none"] = "none"
@@ -88,7 +85,7 @@ class FixedFraming(BaseModel):
     """Gives every frame the same number of bytes."""
 
     type: Literal["fixed"] = "fixed"
-    length: int = Field(ge=1, le=65536, default=1)
+    length: int = Field(default=1, ge=1, le=65536)
 
 
 class SyncFraming(BaseModel):
@@ -104,7 +101,7 @@ class SyncFraming(BaseModel):
     length_adjustment: int = Field(default=0, ge=-2147483648, le=2147483647)
     checksum: Checksum = "none"
     checksum_byte_order: icd_.ByteOrder = "little_endian"
-    max_length: int = Field(le=65536, default=0, ge=0)
+    max_length: int = Field(default=0, ge=0, le=65536)
 
 
 class CobsFraming(BaseModel):
@@ -170,6 +167,7 @@ class ReadConfig(task.PersistConfig, icd_.Reference):
     raw: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     messages: list[ReadMessage] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -183,6 +181,7 @@ class WriteConfig(task.WriteConfig, icd_.Reference):
 
     messages: list[WriteMessage] = Field(default_factory=list)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -196,6 +195,7 @@ class StreamReadConfig(ReadConfig, PollConfig):
 
     framing: Framing = Field(default_factory=lambda: DelimiterFraming(type="delimiter"))
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -209,5 +209,6 @@ class StreamWriteConfig(WriteConfig):
 
     framing: Framing = Field(default_factory=lambda: DelimiterFraming(type="delimiter"))
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

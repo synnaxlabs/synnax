@@ -116,10 +116,6 @@ burst_test = client.ranges.retrieve(name="Oct 10 Burst Test")
 
 pressure = burst_test.tank_pressure.to_numpy()
 pressure = burst_test["tank_pressure"].to_numpy()
-
-# A regular expression matches channel names and aliases
-for ch in burst_test["^tank"]:
-    print(ch.name, ch.to_numpy().max())
 ```
 
   </Fragment>

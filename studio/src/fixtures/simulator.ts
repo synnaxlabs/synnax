@@ -14,11 +14,22 @@ import path from "node:path";
 import { portInUse } from "@/fixtures/core";
 
 const CLIENT_PY = path.resolve(import.meta.dirname, "../../../client/py");
+const CORE = path.resolve(import.meta.dirname, "../../../core");
+const KAFKA_MAIN = path.join(import.meta.dirname, "kafka/main.go");
 
 const READY_TIMEOUT_MS = 30_000;
 
+/** Long enough for the first `go run` of the Kafka broker to compile. */
+const KAFKA_READY_TIMEOUT_MS = 180_000;
+
+const STOP_TIMEOUT_MS = 10_000;
+
 /** The Python code that runs each server from `client/py/examples`. */
 const PROGRAMS = {
+  mqtt: (host: string, port: number) =>
+    "import asyncio\n" +
+    "from examples.mqtt_sim.server import run_server\n" +
+    `asyncio.run(run_server("${host}", ${port}))`,
   modbus: (host: string, port: number) =>
     "import asyncio\n" +
     "from examples.modbus.server import run_server\n" +
@@ -26,7 +37,11 @@ const PROGRAMS = {
   opcua: (host: string, port: number) =>
     "import asyncio\n" +
     "from examples.opcua.sim import run_server\n" +
-    `asyncio.run(run_server("opc.tcp://${host}:${port}"))`,
+    `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}"))`,
+  "opcua-encrypted": (host: string, port: number) =>
+    "import asyncio\n" +
+    "from examples.opcua.sim import run_server\n" +
+    `asyncio.run(run_server(endpoint="opc.tcp://${host}:${port}", encrypted=True))`,
   http: (host: string, port: number) =>
     "from examples.http_sim.server import run_server\n" +
     `run_server("${host}", ${port})`,
@@ -34,7 +49,7 @@ const PROGRAMS = {
 
 export interface SimulatorOptions {
   /** The protocol of the server. */
-  protocol: keyof typeof PROGRAMS;
+  protocol: keyof typeof PROGRAMS | "kafka";
   /** Port the server listens on. */
   port: number;
   /** Address the server listens on. Defaults to 127.0.0.1. */
@@ -49,7 +64,8 @@ export interface SimulatorFixture {
 /**
  * simulator runs a device server from the Python client examples, the same servers the
  * driver integration tests use, so the real Driver connects to it and reads its values.
- * Refuses to start if the port is in use.
+ * A Kafka server is the fake broker in `kafka/main.go`. Refuses to start if the port is
+ * in use.
  */
 export const simulator = async ({
   protocol,
@@ -59,25 +75,32 @@ export const simulator = async ({
   if (await portInUse(port)) throw new Error(`port ${port} is already in use`);
   const env = { ...process.env };
   delete env.VIRTUAL_ENV;
-  const proc = spawn("uv", ["run", "python", "-c", PROGRAMS[protocol](host, port)], {
-    cwd: CLIENT_PY,
-    env,
-    stdio: "ignore",
-    detached: true,
-  });
+  const [command, args, cwd]: [string, string[], string] =
+    protocol === "kafka"
+      ? ["go", ["run", KAFKA_MAIN, `--port=${port}`], CORE]
+      : ["uv", ["run", "python", "-c", PROGRAMS[protocol](host, port)], CLIENT_PY];
+  const proc = spawn(command, args, { cwd, env, stdio: "ignore", detached: true });
   const stop = async (): Promise<void> => {
     if (proc.exitCode != null || proc.pid == null) return;
-    // uv runs Python as a child, so signal the whole group.
+    // uv and go run their programs as children, so signal the whole group.
     process.kill(-proc.pid, "SIGTERM");
     await once(proc, "exit");
+    // `go run` exits before the broker it started closes its port.
+    const stopDeadline = Date.now() + STOP_TIMEOUT_MS;
+    while (await portInUse(port)) {
+      if (Date.now() > stopDeadline)
+        throw new Error(`${protocol} server did not close port ${port} in time`);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
   };
-  const deadline = Date.now() + READY_TIMEOUT_MS;
+  const deadline =
+    Date.now() + (protocol === "kafka" ? KAFKA_READY_TIMEOUT_MS : READY_TIMEOUT_MS);
   while (!(await portInUse(port))) {
     if (proc.exitCode != null)
       throw new Error(`${protocol} server exited with code ${proc.exitCode}`);
     if (Date.now() > deadline) {
       await stop();
-      throw new Error(`${protocol} server did not open port ${port} within 30s`);
+      throw new Error(`${protocol} server did not open port ${port} in time`);
     }
     await new Promise((resolve) => setTimeout(resolve, 200));
   }

@@ -208,43 +208,6 @@ class IndexedDBKV implements SugaredKV {
   }
 }
 
-/** An in-memory SugaredKV. Nothing survives a reload; for specs. */
-export class MemoryKV implements SugaredKV {
-  readonly store = new Map<string, unknown>();
-
-  async get<V>(key: string): Promise<V | null> {
-    return (this.store.get(key) as V) ?? null;
-  }
-
-  async set<V>(key: string, value: V): Promise<void> {
-    this.store.set(key, value);
-  }
-
-  async setMany(entries: Entry[]): Promise<void> {
-    entries.forEach(({ key, value }) => this.store.set(key, value));
-  }
-
-  async delete(key: string): Promise<void> {
-    await this.deleteMany([key]);
-  }
-
-  async deleteMany(keys: string[]): Promise<void> {
-    keys.forEach((key) => this.store.delete(key));
-  }
-
-  async length(): Promise<number> {
-    return this.store.size;
-  }
-
-  async keys(): Promise<string[]> {
-    return Array.from(this.store.keys());
-  }
-
-  async clear(): Promise<void> {
-    this.store.clear();
-  }
-}
-
 /**
  * @param name - The store's name. Tauri makes it a file in the app's local data
  * directory, which holds other stores; IndexedDB databases are already scoped to the

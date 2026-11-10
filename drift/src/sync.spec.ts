@@ -10,9 +10,9 @@
 import { deep } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { MockRuntime } from "@/mock";
 import { ZERO_SLICE_STATE } from "@/state";
 import { sync } from "@/sync";
+import { MockRuntime } from "@/testutil";
 import { type WindowProps, type WindowState } from "@/window";
 
 describe("sync", () => {

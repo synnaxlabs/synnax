@@ -50,11 +50,11 @@ func (f Framing) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (f *Framing) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "delimiter":
 		var v DelimiterFraming
 		if v.Delimiter, err = r.String(); err != nil {

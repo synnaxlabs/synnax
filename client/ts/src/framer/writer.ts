@@ -18,9 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { paramsZ } from "@/channel/payload";
-import { keyZ, nameZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 import { SynnaxError } from "@/errors";
 import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
@@ -60,7 +58,11 @@ const writerModeZ = z.enum(WriterMode).or(
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
-  /** start sets the starting timestamp for the first sample in the writer. */
+  /**
+   * start sets where the writer's control region begins. It defaults to the time the
+   * writer opens on the Core. A writer that writes data channels without their index
+   * needs a start, and it must be a sample of that index.
+   */
   start: TimeStamp.z.optional(),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
@@ -101,20 +103,20 @@ const baseWriterConfigZ = z.object({
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
-  keys: keyZ.array().optional(),
+  keys: channel.keyZ.array().optional(),
 });
 
 export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
 
 // Intermediate utility type to allow for the use of paramsZ in the writer config.
 const intermediateWriterConfigZ = baseWriterConfigZ.extend({
-  channels: paramsZ,
+  channels: channel.paramsZ,
 });
 
 /** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  paramsZ.transform((channels) =>
-    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
+  channel.paramsZ.transform((channels) =>
+    intermediateWriterConfigZ.parse({ channels }),
   ),
 );
 
@@ -134,13 +136,29 @@ const resZ = z.object({
   command: z.enum(WriterCommand),
   end: TimeStamp.z,
   err: errors.payloadZ.optional(),
+  authorized: z.boolean(),
 });
+
+/** The result of a commit. */
+export interface CommitResult {
+  /**
+   * The end of the committed time range. Zero if the commit lacked control or if the
+   * writer writes only virtual channels.
+   */
+  end: TimeStamp;
+  /**
+   * False if the writer lacked control of a channel with samples to commit, or if the
+   * Core refused a write since the last commit. Each refused write is reported at one
+   * commit only. The writer stays open so that it can regain control.
+   */
+  authorized: boolean;
+}
 
 const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(keyZ.or(nameZ), control.authorityZ),
-      keyZ.or(nameZ),
+      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
+      channel.keyZ.or(channel.nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
@@ -148,7 +166,7 @@ const authorityParamsZ = z
   .transform(([value, authority]) => {
     if (z.validate(control.authorityZ, value))
       return { keys: [], authorities: [value] };
-    if (z.validate(keyZ.or(nameZ), value)) {
+    if (z.validate(channel.keyZ.or(channel.nameZ), value)) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",
@@ -174,12 +192,12 @@ interface Response extends z.infer<typeof resZ> {}
  * {@link FrameClient#openWriter}, never directly. Prefer the frame client's write
  * method unless the volume warrants the streaming protocol.
  *
- * Opening fails when the start timestamp overlaps existing telemetry on any of the
- * channels. `write` is asynchronous, so a failure surfaces on a later call: once the
- * writer accumulates an error, every write and commit returns false until `error`
- * reads and clears it. `commit` blocks until the cluster has the frames written since
- * the last commit, and may be called repeatedly. Close in a `finally` block to release
- * resources; close throws any accumulated error.
+ * Opening fails when a given start overlaps existing telemetry on any of the channels.
+ * Without a start, an overlap fails the first write. `write` is asynchronous, so a
+ * failure surfaces on a later call: once the writer accumulates an error, every write
+ * and commit returns false until `error` reads and clears it. `commit` blocks until the
+ * cluster has the frames written since the last commit, and may be called repeatedly.
+ * Close in a `finally` block to release resources; close throws any accumulated error.
  */
 export class Writer {
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
@@ -246,7 +264,10 @@ export class Writer {
     if (this.stream.received()) return await this.close();
     const frame = await this.adapter.adapt(channelsOrData, series);
     try {
-      this.stream.send({ command: WriterCommand.Write, frame: frame.toPayload() });
+      await this.stream.send({
+        command: WriterCommand.Write,
+        frame: frame.toPayload(),
+      });
     } catch (err) {
       if (!EOF.matches(err)) throw errors.fromUnknown(err);
     }
@@ -275,13 +296,25 @@ export class Writer {
    * throws, the writer must be closed and re-opened to continue use.
    */
   async commit(): Promise<TimeStamp> {
+    return (await this.commitResult()).end;
+  }
+
+  /**
+   * Commits like `commit`, and also reports whether the Core refused data.
+   * @returns the result of the commit.
+   * @throws {WriterClosedError} if the writer was closed, by the caller or the Core,
+   * before the commit.
+   * @throws {EOF} if the Core ends the stream during the commit.
+   * @throws {ValidationError} if the Core rejects the commit.
+   */
+  async commitResult(): Promise<CommitResult> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
       await this.closeInternal(null);
-      return TimeStamp.ZERO;
+      throw new WriterClosedError();
     }
-    const res = await this.execute({ command: WriterCommand.Commit });
-    return res.end;
+    const { end, authorized } = await this.execute({ command: WriterCommand.Commit });
+    return { end, authorized };
   }
 
   /**
@@ -314,7 +347,7 @@ export class Writer {
 
   private async execute(req: WriteRequest): Promise<Response> {
     try {
-      this.stream.send(req);
+      await this.stream.send(req);
     } catch (err) {
       // A send failure is always EOF or StreamClosed, never WriterClosedError, so
       // closeInternal re-throws here and the receive loop below is reached only when

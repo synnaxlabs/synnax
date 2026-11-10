@@ -35,7 +35,7 @@ var _ = Describe("Variable-length channel", func() {
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
-				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+				indexDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -45,7 +45,7 @@ var _ = Describe("Variable-length channel", func() {
 						IsIndex:  true,
 					},
 				}))
-				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+				dataDB = MustOpen(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
 					MetaCodec: json.Codec,
 					Channel: channel.Channel{
@@ -57,10 +57,6 @@ var _ = Describe("Variable-length channel", func() {
 				}))
 				dataDB.SetIndex(indexDB.Index())
 			})
-			AfterAll(func() {
-				Expect(dataDB.Close()).To(Succeed())
-				Expect(indexDB.Close()).To(Succeed())
-			})
 
 			Describe("Write + Read", func() {
 				It("Should write and read string data", func(ctx SpecContext) {
@@ -71,8 +67,9 @@ var _ = Describe("Variable-length channel", func() {
 						telem.NewSeriesV("hello", "world", "foo"),
 					)).To(Succeed())
 					frame := MustSucceed(
-						dataDB.Read(
+						ReadUnary(
 							ctx,
+							dataDB,
 							(10 * telem.SecondTS).Range(13*telem.SecondTS),
 						),
 					)
@@ -106,8 +103,9 @@ var _ = Describe("Variable-length channel", func() {
 						unary.Write(ctx, jsonDB, 20*telem.SecondTS, jsonSeries),
 					).To(Succeed())
 					frame := MustSucceed(
-						jsonDB.Read(
+						ReadUnary(
 							ctx,
+							jsonDB,
 							(20 * telem.SecondTS).Range(22*telem.SecondTS),
 						),
 					)
@@ -138,8 +136,9 @@ var _ = Describe("Variable-length channel", func() {
 						telem.NewSeriesV([]byte{1, 2, 3}, []byte{4, 5}, []byte{6}),
 					)).To(Succeed())
 					frame := MustSucceed(
-						bytesDB.Read(
+						ReadUnary(
 							ctx,
+							bytesDB,
 							(30 * telem.SecondTS).Range(33*telem.SecondTS),
 						),
 					)
@@ -155,8 +154,9 @@ var _ = Describe("Variable-length channel", func() {
 						telem.NewSeriesV("", "nonempty", ""),
 					)).To(Succeed())
 					frame := MustSucceed(
-						dataDB.Read(
+						ReadUnary(
 							ctx,
+							dataDB,
 							(40 * telem.SecondTS).Range(43*telem.SecondTS),
 						),
 					)
@@ -175,8 +175,9 @@ var _ = Describe("Variable-length channel", func() {
 							telem.NewSeriesV("line1\nline2", "no newline"),
 						)).To(Succeed())
 						frame := MustSucceed(
-							dataDB.Read(
+							ReadUnary(
 								ctx,
+								dataDB,
 								(50 * telem.SecondTS).Range(52*telem.SecondTS),
 							),
 						)
@@ -204,7 +205,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -235,7 +236,11 @@ var _ = Describe("Variable-length channel", func() {
 						rec.Reset()
 						readEnd := indexSeries[sampleCount-1] + telem.SecondTS
 						frame := MustSucceed(
-							data.Read(ctx, indexSeries[0].Range(readEnd)),
+							ReadUnary(
+								ctx,
+								data,
+								indexSeries[0].Range(readEnd),
+							),
 						)
 						Expect(
 							frame.SeriesAt(0).Unmarshal[string](),
@@ -244,7 +249,7 @@ var _ = Describe("Variable-length channel", func() {
 						// A cache miss does one 4-byte ReadAt per sample to walk length
 						// prefixes, so the cache-hit path must do zero of them.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -307,7 +312,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(reopenIdx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						reopenData := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -324,7 +329,11 @@ var _ = Describe("Variable-length channel", func() {
 						rec.Reset()
 						readEnd := indexSeries[sampleCount-1] + telem.SecondTS
 						frame := MustSucceed(
-							reopenData.Read(ctx, indexSeries[0].Range(readEnd)),
+							ReadUnary(
+								ctx,
+								reopenData,
+								indexSeries[0].Range(readEnd),
+							),
 						)
 						Expect(
 							frame.SeriesAt(0).Unmarshal[string](),
@@ -334,7 +343,7 @@ var _ = Describe("Variable-length channel", func() {
 						// the recorder should see no 4-byte ReadAts even though the
 						// cache started empty.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -355,7 +364,7 @@ var _ = Describe("Variable-length channel", func() {
 							FileSize: 40 * telem.Byte,
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -393,9 +402,13 @@ var _ = Describe("Variable-length channel", func() {
 						MustSucceed(iw.Close())
 
 						rec.Reset()
-						frame := MustSucceed(data.Read(ctx,
-							(800 * telem.SecondTS).Range(806*telem.SecondTS),
-						))
+						frame := MustSucceed(
+							ReadUnary(
+								ctx,
+								data,
+								(800 * telem.SecondTS).Range(806*telem.SecondTS),
+							),
+						)
 						var got []string
 						for i := 0; i < frame.Count(); i++ {
 							got = append(
@@ -416,7 +429,7 @@ var _ = Describe("Variable-length channel", func() {
 						// rollover, so the read should not perform any length-prefix
 						// scans on either data file.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -436,7 +449,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -468,9 +481,13 @@ var _ = Describe("Variable-length channel", func() {
 						MustSucceed(iw.Close())
 
 						rec.Reset()
-						frame := MustSucceed(data.Read(ctx,
-							(1000 * telem.SecondTS).Range(1005*telem.SecondTS),
-						))
+						frame := MustSucceed(
+							ReadUnary(
+								ctx,
+								data,
+								(1000 * telem.SecondTS).Range(1005*telem.SecondTS),
+							),
+						)
 						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e"}))
 
@@ -478,7 +495,7 @@ var _ = Describe("Variable-length channel", func() {
 						// directly. A rebuild scan would emit one 4-byte ReadAt
 						// per sample.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -527,8 +544,9 @@ var _ = Describe("Variable-length channel", func() {
 						// First read populates the cache for this domain with
 						// sampleCount = 3, domainSize = bytes of "a","b","c".
 						first := MustSucceed(
-							data2.Read(
+							ReadUnary(
 								ctx,
+								data2,
 								(600 * telem.SecondTS).Range(603*telem.SecondTS),
 							),
 						)
@@ -548,8 +566,9 @@ var _ = Describe("Variable-length channel", func() {
 						// makes byteOffset return iter.Size() (end of the whole
 						// domain) and the read spills into the fifth sample.
 						sub := MustSucceed(
-							data2.Read(
+							ReadUnary(
 								ctx,
+								data2,
 								(600 * telem.SecondTS).Range(604*telem.SecondTS),
 							),
 						)
@@ -607,7 +626,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -654,9 +673,13 @@ var _ = Describe("Variable-length channel", func() {
 						MustSucceed(w1.Close())
 
 						rec.Reset()
-						frame := MustSucceed(data.Read(ctx,
-							(700 * telem.SecondTS).Range(705*telem.SecondTS),
-						))
+						frame := MustSucceed(
+							ReadUnary(
+								ctx,
+								data,
+								(700 * telem.SecondTS).Range(705*telem.SecondTS),
+							),
+						)
 						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e"}))
 
@@ -665,7 +688,7 @@ var _ = Describe("Variable-length channel", func() {
 						// is served entirely from cache.
 						var lengthPrefixReads int
 						for _, e := range rec.Events() {
-							if e.Op == xfs.OpReadAt && e.Length == 4 {
+							if e.Op == OpReadAt && e.Length == 4 {
 								lengthPrefixReads++
 							}
 						}
@@ -726,9 +749,13 @@ var _ = Describe("Variable-length channel", func() {
 						MustSucceed(w2.Close())
 						MustSucceed(w1.Close())
 
-						frame := MustSucceed(data.Read(ctx,
-							(800 * telem.SecondTS).Range(804*telem.SecondTS),
-						))
+						frame := MustSucceed(
+							ReadUnary(
+								ctx,
+								data,
+								(800 * telem.SecondTS).Range(804*telem.SecondTS),
+							),
+						)
 						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d"}))
 					},
@@ -791,9 +818,13 @@ var _ = Describe("Variable-length channel", func() {
 						MustSucceed(w1.Commit(ctx))
 						MustSucceed(w1.Close())
 
-						frame := MustSucceed(data.Read(ctx,
-							(900 * telem.SecondTS).Range(906*telem.SecondTS),
-						))
+						frame := MustSucceed(
+							ReadUnary(
+								ctx,
+								data,
+								(900 * telem.SecondTS).Range(906*telem.SecondTS),
+							),
+						)
 						Expect(frame.SeriesAt(0).Unmarshal[string]()).
 							To(Equal([]string{"a", "b", "c", "d", "e", "f"}))
 					},
@@ -897,8 +928,9 @@ var _ = Describe("Variable-length channel", func() {
 					).To(Succeed())
 
 					frame := MustSucceed(
-						dataDB.Read(
+						ReadUnary(
 							ctx,
+							dataDB,
 							(300 * telem.SecondTS).Range(305*telem.SecondTS),
 						),
 					)
@@ -943,8 +975,9 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(gcDB.GarbageCollect(ctx)).To(Succeed())
 
 					frame := MustSucceed(
-						gcDB.Read(
+						ReadUnary(
 							ctx,
+							gcDB,
 							(500 * telem.SecondTS).Range(505*telem.SecondTS),
 						),
 					)

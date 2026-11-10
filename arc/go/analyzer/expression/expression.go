@@ -12,7 +12,11 @@
 package expression
 
 import (
+	"math"
+
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/analyzer/codes"
+	"github.com/synnaxlabs/arc/analyzer/constraints"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/analyzer/units"
@@ -26,8 +30,43 @@ import (
 	"github.com/synnaxlabs/x/query"
 )
 
-func isBool(t basetypes.Type) bool    { return t.IsBool() }
-func isNumeric(t basetypes.Type) bool { return t.IsNumeric() }
+// operand is what an operator requires of its operands.
+type operand struct {
+	// accepts reports whether a type with a known kind fits.
+	accepts func(t basetypes.Type) bool
+	// bind constrains an unconstrained type variable, such as the element of an empty
+	// series literal, to fit, and reports whether it can. Nil accepts any variable.
+	bind func(
+		cs *constraints.System,
+		t basetypes.Type,
+		source antlr.ParserRuleContext,
+	) bool
+}
+
+var (
+	anyOperand     = operand{accepts: func(basetypes.Type) bool { return true }}
+	boolOperand    = operand{accepts: basetypes.Type.IsBool, bind: types.Bool}
+	numericOperand = operand{accepts: basetypes.Type.IsNumeric, bind: types.Numeric}
+	// A + of two untyped operands is numeric, which empty literals default to.
+	numericOrStringOperand = operand{
+		accepts: func(t basetypes.Type) bool {
+			return t.IsNumeric() || t.Kind == basetypes.KindString
+		},
+		bind: types.Numeric,
+	}
+)
+
+// fits reports whether t fits o. It binds an unconstrained type variable.
+func (o operand) fits(
+	cs *constraints.System,
+	t basetypes.Type,
+	source antlr.ParserRuleContext,
+) bool {
+	if t.Kind == basetypes.KindVariable && t.Constraint == nil {
+		return o.bind == nil || o.bind(cs, t, source)
+	}
+	return o.accepts(resolveConstraint(t))
+}
 
 // resolveConstraint replaces an unresolved constant's type variable with its
 // constraint so operand checks can classify it. Concrete types pass through.
@@ -36,12 +75,6 @@ func resolveConstraint(t basetypes.Type) basetypes.Type {
 		return *t.Constraint
 	}
 	return t
-}
-
-func isNumericOrString(
-	t basetypes.Type,
-) bool {
-	return t.IsNumeric() || t.Kind == basetypes.KindString
 }
 
 // tracksChannelRead reports whether reading resolved reads from a channel: a
@@ -59,18 +92,17 @@ func tracksChannelRead(resolved *symbol.Symbol) bool {
 		return false
 	}
 }
-func isAny(basetypes.Type) bool { return true }
 
 // getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
 // Returns (value, true) if successful, (0, false) otherwise.
-func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int64, bool) {
 	if node == nil {
 		return 0, false
 	}
 	var (
-		sign    = 1
-		current = node
+		sign    int64 = 1
+		current       = node
 	)
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
@@ -113,7 +145,7 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return sign * int(intVal), true
+	return sign * intVal, true
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.
@@ -185,7 +217,7 @@ func validateType[T, N antlr.ParserRuleContext](
 	items []T,
 	opName string,
 	infer func(ctx context.Context[T]) basetypes.Type,
-	check func(t basetypes.Type) bool,
+	want operand,
 ) {
 	if len(items) <= 1 {
 		return
@@ -197,8 +229,7 @@ func validateType[T, N antlr.ParserRuleContext](
 		return
 	}
 
-	resolvedFirst := resolveConstraint(firstType)
-	if resolvedFirst.Kind != basetypes.KindVariable && !check(resolvedFirst) {
+	if !want.fits(ctx.Constraints, firstType, items[0]) {
 		ctx.Diagnostics.Add(
 			diagnostics.Errorf(
 				ctx.AST,
@@ -230,6 +261,15 @@ func validateType[T, N antlr.ParserRuleContext](
 
 		if firstType.Kind == basetypes.KindVariable ||
 			nextType.Kind == basetypes.KindVariable {
+			if !want.fits(ctx.Constraints, nextType, items[i]) {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in %s operation",
+					nextType,
+					opName,
+				))
+				return
+			}
 			if err := ctx.Constraints.AddCompatible(
 				firstType,
 				nextType,
@@ -276,7 +316,7 @@ func analyzeLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) {
 		logicalAnds,
 		"or",
 		types.InferLogicalAnd,
-		func(t basetypes.Type) bool { return t.IsBool() },
+		boolOperand,
 	)
 }
 
@@ -285,7 +325,7 @@ func analyzeLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext])
 	for _, equality := range equalities {
 		analyzeEquality(ctx.Child(equality))
 	}
-	validateType(ctx, equalities, "and", types.InferEquality, isBool)
+	validateType(ctx, equalities, "and", types.InferEquality, boolOperand)
 }
 
 func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
@@ -298,8 +338,49 @@ func analyzeEquality(ctx context.Context[parser.IEqualityExpressionContext]) {
 		relExpressions,
 		getEqualityOperator(ctx.AST),
 		types.InferRelational,
-		isAny,
+		anyOperand,
 	)
+	checkNaNComparison(ctx, relExpressions, getEqualityOperator(ctx.AST))
+}
+
+// checkNaNComparison rejects a comparison with operator op that has the NaN constant as
+// one of the operands the compiler runs, the first two of a chain. Such a comparison
+// always has the same result. The error names the constant as the code wrote it, and
+// the module's is_nan when the module has one.
+func checkNaNComparison[T antlr.ParserRuleContext, O antlr.Tree](
+	ctx context.Context[T],
+	operands []O,
+	op string,
+) {
+	if len(operands) < 2 {
+		return
+	}
+	for _, operand := range operands[:2] {
+		if value, ok := ctx.FloatConstant(operand); !ok || !math.IsNaN(value) {
+			continue
+		}
+		primary, _ := parser.SoleOperand(operand)
+		qid := primary.QualifiedIdentifier()
+		head, _ := parser.QualifiedNameParts(qid)
+		check := "is_nan from the math module"
+		if module, err := ctx.Scope.Resolve(ctx, head); err == nil {
+			if _, err := module.Resolve(ctx, "is_nan"); err == nil {
+				check = head + ".is_nan"
+			}
+		}
+		if op == "!=" {
+			check = "not " + check
+		}
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"%s with %s is always %t, use %s instead",
+			op,
+			qid.GetText(),
+			op == "!=",
+			check,
+		).WithCode(codes.NaNComparison))
+		return
+	}
 }
 
 func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext]) {
@@ -312,8 +393,9 @@ func analyzeRelational(ctx context.Context[parser.IRelationalExpressionContext])
 		additives,
 		getRelationalOperator(ctx.AST),
 		types.InferAdditive,
-		isNumeric,
+		numericOperand,
 	)
+	checkNaNComparison(ctx, additives, getRelationalOperator(ctx.AST))
 }
 
 func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
@@ -323,13 +405,11 @@ func analyzeAdditive(ctx context.Context[parser.IAdditiveExpressionContext]) {
 	}
 	// Determine the operator - strings are only allowed for + (concatenation)
 	op := getAdditiveOperator(ctx.AST)
-	var check func(basetypes.Type) bool
+	want := numericOperand
 	if op == "+" {
-		check = isNumericOrString
-	} else {
-		check = isNumeric
+		want = numericOrStringOperand
 	}
-	validateType(ctx, mults, op, types.InferMultiplicative, check)
+	validateType(ctx, mults, op, types.InferMultiplicative, want)
 }
 
 func analyzeMultiplicative(
@@ -344,7 +424,7 @@ func analyzeMultiplicative(
 		unaries,
 		getMultiplicativeOperator(ctx.AST),
 		types.InferFromUnaryExpression,
-		isNumeric,
+		numericOperand,
 	)
 }
 
@@ -361,6 +441,16 @@ func analyzePower(ctx context.Context[parser.IPowerExpressionContext]) {
 		baseType := types.InferPostfix(ctx.Child(ctx.AST.PostfixExpression())).
 			Unwrap()
 		expType := types.InferFromUnaryExpression(ctx.Child(exponent)).Unwrap()
+		for _, t := range []basetypes.Type{baseType, expType} {
+			if t.IsValid() && !t.IsNumeric() {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"cannot use %s in ^ operation",
+					t,
+				))
+				return
+			}
+		}
 
 		if baseType.Unit != nil || expType.Unit != nil {
 			_, isLiteral := getSignedIntegerLiteral(exponent)
@@ -378,7 +468,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 		analyzeUnary(childCtx)
 		operandType := types.InferFromUnaryExpression(childCtx)
 		if ctx.AST.MINUS() != nil {
-			if !operandType.IsNumeric() {
+			if !types.Numeric(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
@@ -389,7 +479,7 @@ func analyzeUnary(ctx context.Context[parser.IUnaryExpressionContext]) {
 				return
 			}
 		} else if ctx.AST.NOT() != nil {
-			if !operandType.IsBool() {
+			if !types.Bool(ctx.Constraints, operandType, ctx.AST) {
 				ctx.Diagnostics.Add(
 					diagnostics.Errorf(
 						ctx.AST,
@@ -433,65 +523,88 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	primary := ctx.AST.PrimaryExpression()
 	head, tail := parser.PrimaryNameParts(primary)
 	funcName := parser.PrimaryName(primary)
-	if funcName != "" {
-		scope, err := ctx.ResolveQualified(head, tail)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
-			return
-		}
-		if scope.Kind == symbol.KindFunction {
-			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
-			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
-				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
-				return
-			}
-			if callerFn != nil && scope.Exec == symbol.ExecFlow {
-				ctx.Diagnostics.Add(diagnostics.Errorf(
-					ctx.AST,
-					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
-					funcName,
-					funcName,
-				))
-				return
-			}
-			if funcName != "len" && funcName != "series.len" {
-				if hasMultipleNamedOutputs(scope.Type) {
-					ctx.Diagnostics.Add(diagnostics.Errorf(
-						funcCalls[0],
-						"cannot call function %s: functions with multiple named outputs are not callable",
-						funcName,
-					))
-				} else {
-					AnalyzeCall(
-						ctx,
-						funcName,
-						scope.Type,
-						inputArguments(funcCalls[0]),
-						scope.AnalyzeArguments,
-						funcCalls[0],
-						"",
-					)
-				}
-			}
-			if callerFn != nil {
-				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
-				propagateChannelsWithArgMap(callerFn, scope, argChannels)
-				*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
-					Caller:      callerFn,
-					Callee:      scope,
-					CallSite:    ctx.AST,
-					ArgChannels: argChannels,
-				})
-			}
-		} else {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				funcCalls[0],
-				"cannot call non-function %s of type %s",
-				funcName,
-				scope.Type,
-			))
-		}
+	if funcName == "" {
+		return
 	}
+	scope, err := ctx.ResolveQualified(head, tail)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, primary))
+		return
+	}
+	if scope.Kind != symbol.KindFunction {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			funcCalls[0],
+			"cannot call non-function %s of type %s",
+			funcName,
+			scope.Type,
+		))
+		return
+	}
+	AnalyzeCallSite(
+		ctx,
+		scope,
+		funcName,
+		basetypes.Freshen(scope.Type, ctx.ScopedKey("call", funcCalls[0])),
+		symbol.CallArguments(funcCalls[0]),
+		funcCalls[0],
+	)
+}
+
+// AnalyzeCallSite checks a call to callee and records the call edge. fnType may be a
+// freshened copy of callee.Type.
+func AnalyzeCallSite[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	callee *symbol.Symbol,
+	funcName string,
+	fnType basetypes.Type,
+	args []symbol.Argument,
+	site antlr.ParserRuleContext,
+) {
+	callerFn, err := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	if callerFn != nil && callee.Exec == symbol.ExecFlow {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s()",
+			funcName,
+			funcName,
+		))
+		return
+	}
+	if funcName == "len" || funcName == "series.len" {
+		// len dispatches on its argument type at compile time, so only the names
+		// and arity are checked here.
+		bindArguments(
+			ctx,
+			funcName,
+			fnType,
+			args,
+			ir.FormatFunctionSignature(funcName, fnType),
+			"",
+		)
+	} else if hasMultipleNamedOutputs(fnType) {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			site,
+			"cannot call function %s: functions with multiple named outputs are not callable",
+			funcName,
+		))
+	} else {
+		AnalyzeCall(ctx, funcName, fnType, args, callee.AnalyzeArguments, site, "")
+	}
+	if callerFn == nil {
+		return
+	}
+	argChannels := buildArgChannels(ctx, callee, args)
+	propagateChannelsWithArgMap(callerFn, callee, argChannels)
+	*ctx.CallEdges = append(*ctx.CallEdges, context.CallEdge{
+		Caller:      callerFn,
+		Callee:      callee,
+		CallSite:    ctx.AST,
+		ArgChannels: argChannels,
+	})
 }
 
 // hasMultipleNamedOutputs reports whether t has multiple or non-default named outputs.
@@ -500,31 +613,9 @@ func hasMultipleNamedOutputs(t basetypes.Type) bool {
 	return len(t.Outputs) > 1 || (len(t.Outputs) == 1 && !hasDefault)
 }
 
-// inputArguments adapts the arguments in a call's parens `(...)` form into the
-// unified []symbol.Argument shape.
-func inputArguments(funcCall parser.IFunctionCallSuffixContext) []symbol.Argument {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	exprs := argList.AllExpression()
-	args := make([]symbol.Argument, len(exprs))
-	for i, expr := range exprs {
-		args[i] = symbol.Argument{Index: i, Expr: expr, AST: expr}
-	}
-	return args
-}
-
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
-	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
-		head, tail := parser.QualifiedNameParts(qid)
-		if _, err := ctx.ResolveQualified(head, tail); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		}
-		return
-	}
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Resolve(id.GetText())
+	if head, tail := parser.PrimaryNameParts(ctx.AST); head != "" {
+		resolved, err := ctx.ResolveQualified(head, tail)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
@@ -550,6 +641,12 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		if strTerm := parser.StringTerminal(lit); strTerm != nil {
 			AnalyzeFmtStrLiteral(ctx, strTerm)
 		}
+		if series := lit.SeriesLiteral(); series != nil &&
+			series.ExpressionList() != nil {
+			for _, element := range series.ExpressionList().AllExpression() {
+				Analyze(ctx.Child(element))
+			}
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
@@ -570,7 +667,11 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							"comparison explicitly, e.g. x != 0 or abs(x - 1) < 0.01"))
 					return
 				}
-				targetType, _ := types.InferFromTypeContext(typeCtx)
+				targetType, err := types.InferFromTypeContext(typeCtx)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, typeCtx))
+					return
+				}
 				if !isValidCast(sourceType, targetType) {
 					ctx.Diagnostics.Add(
 						diagnostics.Errorf(
@@ -580,6 +681,15 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 							targetType,
 						),
 					)
+					return
+				}
+				if _, ok := ctx.FloatConstant(expr); ok && targetType.IsInteger() {
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						ctx.AST,
+						"cannot cast %s to %s: NaN and infinity have no integer value",
+						expr.GetText(),
+						targetType,
+					))
 					return
 				}
 				if sourceType.Kind == basetypes.KindBool &&
@@ -599,22 +709,22 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 // input list) so the mapping is valid even when the callee hasn't been fully analyzed
 // yet (forward references). The param index is resolved to a symbol ID during
 // propagation, when all scopes are guaranteed to exist.
-func buildArgChannels(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func buildArgChannels[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	callee *symbol.Symbol,
-	funcCall parser.IFunctionCallSuffixContext,
+	args []symbol.Argument,
 ) map[int]context.ChannelMapping {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return nil
-	}
-	args := argList.AllExpression()
 	var argChannels map[int]context.ChannelMapping
-	for i, param := range callee.Type.Inputs {
-		if param.Type.Kind != basetypes.KindChan || i >= len(args) {
+	for _, arg := range args {
+		i := arg.Index
+		if arg.Name != "" {
+			i = callee.Type.Inputs.GetIndex(arg.Name)
+		}
+		if i < 0 || i >= len(callee.Type.Inputs) ||
+			callee.Type.Inputs[i].Type.Kind != basetypes.KindChan {
 			continue
 		}
-		channelID, channelName, ok := resolveChannelArg(ctx, args[i])
+		channelID, channelName, ok := resolveChannelArg(ctx, arg.Expr)
 		if !ok {
 			continue
 		}
@@ -630,15 +740,15 @@ func buildArgChannels(
 }
 
 // resolveChannelArg extracts the channel ID and name from an argument expression.
-func resolveChannelArg(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func resolveChannelArg[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	expr parser.IExpressionContext,
 ) (uint32, string, bool) {
-	primary := parser.GetPrimaryExpression(expr)
-	if primary == nil || primary.IDENTIFIER() == nil {
+	head, tail := parser.ExpressionNameParts(expr)
+	if head == "" {
 		return 0, "", false
 	}
-	sym, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
 	if err != nil || sym.Type.Kind != basetypes.KindChan {
 		return 0, "", false
 	}

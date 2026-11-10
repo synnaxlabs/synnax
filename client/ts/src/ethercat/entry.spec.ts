@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ethercat } from "@/ethercat";
+import { MultipleFoundError, NotFoundError } from "@/index";
 
 const EL1008_INPUTS: ethercat.PDOEntry[] = Array.from({ length: 8 }, (_, i) => ({
   name: "Input",
@@ -30,6 +30,13 @@ describe("pdoEntryZ", () => {
   it("should parse an entry with no PDO name", () => {
     const { pdoName: _, ...entry } = EL1008_INPUTS[0];
     expect(ethercat.pdoEntryZ.parse(entry)).toEqual(entry);
+  });
+});
+
+describe("formatHex", () => {
+  it("should pad the value to the digits and keep longer values whole", () => {
+    expect(ethercat.formatHex(0xfc, 4)).toBe("0x00FC");
+    expect(ethercat.formatHex(0x1000001, 4)).toBe("0x1000001");
   });
 });
 

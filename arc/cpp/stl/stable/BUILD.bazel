@@ -34,7 +34,7 @@ cc_test(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//x/cpp/mem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

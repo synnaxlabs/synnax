@@ -11,7 +11,6 @@ import "@/feature/bus/Form.css";
 
 import { bus, type icd, type task } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { type Icon } from "@synnaxlabs/lyra/icon";
 import { type FC } from "react";
 import { z } from "zod";
@@ -22,7 +21,7 @@ import { Messages } from "@/feature/bus/Messages";
 import { SelectICD } from "@/feature/bus/SelectICD";
 import { type Accepts, validateRead, validateWrite } from "@/feature/bus/types";
 import { type Command } from "@/platform/command";
-import { Selector } from "@/platform/selector";
+import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
 const statusDataZ = z
@@ -123,10 +122,6 @@ export const createTasks = <
     <>
       <SelectDevice />
       <SelectICD />
-      <Flex.Box x grow>
-        <Task.Fields.DataSaving />
-        <Task.Fields.AutoStart />
-      </Flex.Box>
     </>
   );
 
@@ -182,7 +177,6 @@ export const createTasks = <
     schemas: READ_SCHEMAS,
     deployConfigZ: applyChecks(readConfigZ, [validateRead, ...readChecks]),
     type: READ_TYPE,
-    getInitialValues: getReadInitialValues,
     onConfigure: configureRead,
   });
 
@@ -192,7 +186,6 @@ export const createTasks = <
     schemas: WRITE_SCHEMAS,
     deployConfigZ: applyChecks(writeConfigZ, [validateWrite, ...writeChecks]),
     type: WRITE_TYPE,
-    getInitialValues: getWriteInitialValues,
     onConfigure: configureWrite,
   });
 
@@ -218,20 +211,24 @@ export const createTasks = <
     }),
   ];
 
-  const SELECTABLES: Selector.Selectable[] = [
-    Selector.createSelectable({
+  const selectables: Selector.Selectable[] = [
+    {
       type: READ_TYPE,
       title: `${name} read task`,
+      label: "Read",
       icon,
       useOnSelect: useCreateRead,
-    }),
-    Selector.createSelectable({
+    },
+    {
       type: WRITE_TYPE,
       title: `${name} write task`,
+      label: "Write",
       icon,
       useOnSelect: useCreateWrite,
-    }),
+    },
   ];
+
+  const INTEGRATION: Task.Integration = { prefix, name, icon, selectables };
 
   const FORMS: Task.Forms = { [READ_TYPE]: Read, [WRITE_TYPE]: Write };
 
@@ -246,7 +243,7 @@ export const createTasks = <
     useCreateRead,
     useCreateWrite,
     COMMANDS,
-    SELECTABLES,
+    INTEGRATION,
     FORMS,
   };
 };

@@ -13,6 +13,7 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/arc/ir/versions/v0"
+	"github.com/synnaxlabs/arc/symbol"
 	types "github.com/synnaxlabs/arc/types/versions/v1"
 )
 
@@ -24,8 +25,11 @@ type Handle = v0.Handle
 type EdgeKind = v0.EdgeKind
 
 const (
+	// EdgeKindUnspecified has no kind set.
 	EdgeKindUnspecified EdgeKind = v0.EdgeKindUnspecified
-	EdgeKindContinuous  EdgeKind = v0.EdgeKindContinuous
+	// EdgeKindContinuous fires on every output of the source.
+	EdgeKindContinuous EdgeKind = v0.EdgeKindContinuous
+	// EdgeKindConditional fires only when the source output is truthy.
 	EdgeKindConditional EdgeKind = v0.EdgeKindConditional
 )
 
@@ -48,6 +52,7 @@ type Function struct {
 	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write declarations.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
+	Symbol   *symbol.Symbol `json:"-"`
 }
 
 // Functions is a collection of function definitions in an Arc module.

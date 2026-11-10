@@ -23,7 +23,7 @@ export interface SelectSingleProps
       Select.SingleProps<icd.Key, icd.ICD | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListParams<ListQuery, icd.Key, icd.ICD> {}
+    Omit<Flux.UseListParams<ListQuery, icd.ICD>, "name"> {}
 
 const ListItem = (props: List.ItemRenderProps<icd.Key>) => {
   const item = List.useItem<icd.Key, icd.ICD>(props.itemKey);
@@ -34,22 +34,18 @@ const listItemRenderProp = Component.renderProp(ListItem);
 
 /** Selects one ICD. */
 export const SelectSingle = ({
-  initialQuery,
+  query,
   filter,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
-    filter,
-  });
-  const { fetchMore, search } = List.usePager({ retrieve });
+  const { data, getItem, subscribe, status, more, search } = useList({ query, filter });
   return (
     <Select.Single<icd.Key, icd.ICD | undefined>
       resourceName="ICD"
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Library />}

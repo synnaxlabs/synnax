@@ -11,7 +11,6 @@ package serial
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -30,9 +29,6 @@ type ServiceConfig struct {
 	// DB is the database config records are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
-	// Resolver checks read and write configs against their ICD.
-	// [REQUIRED]
-	Resolver bus.Resolver
 	alamos.Instrumentation
 }
 
@@ -41,7 +37,6 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
-	c.Resolver = c.Resolver.Override(other.Resolver)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -50,9 +45,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("serial.service")
 	v.NotNil("db", c.DB)
-	v.Exec(
-		func() error { return validate.PathedError(c.Resolver.Validate(), "resolver") },
-	)
 	return v.Error()
 }
 
@@ -85,15 +77,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:               "serial_read",
 			Ladder:             versions.ReadConfigLadder,
 			SetEntryKey:        (*ReadConfig).SetKey,
+			PatchEntry:         (*ReadConfig).Patch,
+			HashEntry:          (*ReadConfig).HashContent,
+			References:         readConfigReferences(),
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
 			ValidateEntry:      (*ReadConfig).Validate,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
-				key uuid.UUID,
+				snap gorp.Snapshot,
 				c *ReadConfig,
 			) error {
-				return cfg.Resolver.StreamRead(ctx, tx, key, &c.StreamReadConfig)
+				return bus.ResolveStreamRead(ctx, snap, &c.StreamReadConfig)
 			},
 		},
 	); !ok(err, s.Read) {
@@ -106,15 +100,17 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:               "serial_write",
 			Ladder:             versions.WriteConfigLadder,
 			SetEntryKey:        (*WriteConfig).SetKey,
+			PatchEntry:         (*WriteConfig).Patch,
+			HashEntry:          (*WriteConfig).HashContent,
+			References:         writeConfigReferences(),
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
 			ValidateEntry:      (*WriteConfig).Validate,
 			ResolveEntry: func(
 				ctx context.Context,
-				tx gorp.Tx,
-				key uuid.UUID,
+				snap gorp.Snapshot,
 				c *WriteConfig,
 			) error {
-				return cfg.Resolver.StreamWrite(ctx, tx, key, &c.StreamWriteConfig)
+				return bus.ResolveStreamWrite(ctx, snap, &c.StreamWriteConfig)
 			},
 		},
 	); !ok(err, s.Write) {
@@ -127,6 +123,8 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Type:               "serial_scan",
 			Ladder:             versions.ScanConfigLadder,
 			SetEntryKey:        (*ScanConfig).SetKey,
+			PatchEntry:         (*ScanConfig).Patch,
+			HashEntry:          (*ScanConfig).HashContent,
 			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
 		},
 	); !ok(err, s.Scan) {

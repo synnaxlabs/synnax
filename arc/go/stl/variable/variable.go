@@ -10,10 +10,7 @@
 package variable
 
 import (
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -23,38 +20,20 @@ const (
 	statefulSymbolName = "stateful_variable"
 )
 
-// NewSymbols returns the Internal variable builtins emitted by := / $= lowering.
-func NewSymbols() []*symbol.Symbol {
-	mk := func(name string) *symbol.Symbol {
-		typeVar := types.Variable("T", nil)
-		return &symbol.Symbol{
-			Name:     name,
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecFlow,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
-				Inputs:  types.Params{{Name: "value", Type: typeVar}},
-			}),
-			Trigger: symbol.TriggerOnly,
-		}
-	}
-	return []*symbol.Symbol{mk(symbolName), mk(statefulSymbolName)}
-}
-
 // Host is the runtime factory for the variable builtin.
 type Host struct{}
 
 // NewHost constructs a variable Host.
 func NewHost() *Host { return &Host{} }
 
-// Create dispatches on shape: a value-carrying first input makes a register;
-// an edge-fed one an exprRead deref.
+// Create dispatches on shape: a `variable` whose first input has no value makes an
+// exprRead deref. Any other shape makes a register.
 func (*Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
-	if len(cfg.Node.Inputs) > 0 && cfg.Node.Inputs[0].Value == nil {
+	if cfg.Node.Type == symbolName && len(cfg.Node.Inputs) > 0 &&
+		cfg.Node.Inputs[0].Value == nil {
 		selIdx := -1
 		if idx, err := cfg.State.ResolveInput("sel"); err == nil {
 			selIdx = idx
@@ -74,7 +53,8 @@ func stampNow(ts *telem.Series, now telem.TimeStamp) {
 }
 
 // register holds what its variable is mapped to: a value, a channel key, or a
-// derivation index. Writes are last-wins; the unedged f0 holds the initial value.
+// derivation index. Writes are last-wins. f0 holds the initial value, edge-fed for a
+// computed `$=`.
 type register struct {
 	*node.State
 	stateful bool

@@ -30,19 +30,22 @@ import { CSS } from "@/platform/css";
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
+const path = Channel.calculatedFormPath;
+
 export interface CalculatedModalParams {
   channelKey?: channel.Key;
 }
 
-const BOOLEAN_QUERY: Partial<Channel.RetrieveMultipleQuery> = {
-  dataTypes: [DataType.BOOLEAN],
+const BOOLEAN_QUERY: Channel.ListQuery = {
+  where: { dataType: { eq: DataType.BOOLEAN } },
 };
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
   level: "h2",
   variant: "text",
-  placeholder: "Name",
+  placeholder: "Channel name",
+  "aria-label": "Channel name",
 };
 
 const EXTRA_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
@@ -67,27 +70,25 @@ const Calculated = ({
     },
   });
   const [createMore, setCreateMore] = useState(false);
-  const operationType = Form.useFieldValue<
-    channel.OperationType,
-    channel.OperationType,
-    typeof Channel.calculatedFormSchema
-  >("operations.0.type", {
+  const operationType = Form.useFieldValue(path.operations[0].type, {
     optional: true,
     ctx: form,
   });
-  const name = Form.useFieldValue<string, string, typeof Channel.calculatedFormSchema>(
-    "name",
-    { ctx: form },
-  );
+  const name = Form.useFieldValue(path.name, { ctx: form });
   return (
     <Modal.Frame className={CSS.B("channel", "edit", "calculated")}>
       <Modal.Header icon={<Icon.Channel />}>
         {isEdit ? `${name}.Edit` : "Channel.Create.Calculated"}
       </Modal.Header>
-      <Modal.Body justify="start" gap="large">
+      <Modal.Body justify="start">
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
-          <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
-          <Form.Field<string> path="expression" grow>
+          <Form.TextField
+            path={path.name}
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
+          <Form.Field path={path.expression} grow>
             {({ value, onChange }) => (
               <Flex.Box grow className={CSS.B("calculated", "editor")}>
                 <Code.Editor
@@ -103,10 +104,7 @@ const Calculated = ({
             )}
           </Form.Field>
           <Flex.Box x className={CSS.B("operations")} align="start">
-            <Form.Field<channel.OperationType>
-              path="operations.0.type"
-              label="Operation"
-            >
+            <Form.Field path={path.operations[0].type} label="Operation">
               {(p) => (
                 <Select.Buttons {...p}>
                   <Select.Item itemKey="none">None</Select.Item>
@@ -119,22 +117,22 @@ const Calculated = ({
             </Form.Field>
             {operationType !== "derivative" && operationType !== "none" && (
               <>
-                <Form.Field<TimeSpan>
-                  path="operations.0.duration"
+                <Form.Field
+                  path={path.operations[0].duration}
                   label="Window"
                   helpText="Resets the value after this duration. Zero disables the reset."
                   className={CSS.BE("operations", "window")}
                 >
                   {({ value, onChange }) => (
-                    <Input.Numeric
-                      value={new TimeSpan(value).seconds}
-                      onChange={(v) => onChange(TimeSpan.seconds(v))}
-                      endContent="s"
+                    <Input.TimeSpan
+                      inline
+                      value={Number(new TimeSpan(value).valueOf())}
+                      onChange={(ns) => onChange(new TimeSpan(ns))}
                     />
                   )}
                 </Form.Field>
-                <Form.Field<channel.Key>
-                  path="operations.0.resetChannel"
+                <Form.Field
+                  path={path.operations[0].resetChannel}
                   label="Reset channel"
                   helpText="Resets the calculation when this boolean channel is triggered."
                   grow
@@ -143,7 +141,7 @@ const Calculated = ({
                     <Channel.SelectSingle
                       value={value}
                       onChange={(v: channel.Key | undefined) => onChange(v ?? 0)}
-                      initialQuery={BOOLEAN_QUERY}
+                      query={BOOLEAN_QUERY}
                       grow
                       allowNone
                     />
@@ -156,11 +154,7 @@ const Calculated = ({
       </Modal.Body>
       <Modal.Footer>
         <Nav.Bar.Start>
-          {variant == "success" ? (
-            <Triggers.SaveHelpText action={isEdit ? "Save" : "Create"} />
-          ) : (
-            <Status.Summary status={stat} center={false} />
-          )}
+          {variant !== "success" && <Status.Summary status={stat} center={false} />}
         </Nav.Bar.Start>
         <Nav.Bar.End align="center" gap="large">
           {isEdit && (
@@ -173,6 +167,7 @@ const Calculated = ({
             <Button.Button
               status={status.keepVariants(variant, "loading")}
               trigger={Triggers.SAVE}
+              triggerIndicator
               variant="filled"
               onClick={() => save()}
             >

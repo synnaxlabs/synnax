@@ -82,7 +82,7 @@ func testIntPowInt[T types.Integer]() {
 	)
 }
 
-func testIntPowSigned[T types.Signed]() {
+func testIntPowSigned[T types.SignedInteger | types.Floating]() {
 	DescribeTable("Should correctly compute integer powers",
 		func(x, n, expected int) {
 			Expect(math.IntPow(T(x), n)).To(BeEquivalentTo(expected))

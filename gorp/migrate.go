@@ -86,6 +86,30 @@ func Migrate(ctx context.Context, cfg MigrateConfig) (err error) {
 	return tx.Commit(ctx)
 }
 
+// MovedMigration returns m for a namespace other than from, the namespace that ran m
+// before. It skips m on a DB that recorded m as applied in from.
+func MovedMigration(from string, m Migration) Migration {
+	return movedMigration{Migration: m, from: from}
+}
+
+type movedMigration struct {
+	Migration
+	from string
+}
+
+// Run implements Migration.
+func (m movedMigration) Run(
+	ctx context.Context,
+	tx Tx,
+	ins alamos.Instrumentation,
+) error {
+	applied, err := readAppliedMigrations(ctx, tx, m.from)
+	if err != nil || applied.Contains(m.Key()) {
+		return err
+	}
+	return m.Migration.Run(ctx, tx, ins)
+}
+
 // pendingMigrations returns the migrations whose keys are not in applied, in order.
 func pendingMigrations(
 	migrations []Migration,

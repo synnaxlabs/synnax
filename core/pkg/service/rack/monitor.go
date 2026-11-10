@@ -13,122 +13,236 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"strings"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
 
+// SuspectHandler copies the outage of a rack onto what the rack runs. When it returns
+// an error, the monitor calls it again with the same outage on the next health check.
+type SuspectHandler = func(ctx context.Context, outage Status) error
+
 type rackState struct {
-	lastUpdated    telem.TimeStamp
-	deadCheckCount int
+	lastUpdated telem.TimeStamp
+	// statusTime is the time on the last status seen since the Core started, or on the
+	// outage being written. A write that keeps it, such as a rename, is not a report
+	// from the rack.
+	statusTime telem.TimeStamp
+	// outage is set from the write of an outage until the Driver reports again, so each
+	// outage is written once.
+	outage *Status
+	// pending holds the keys of the handlers that have not copied the outage.
+	pending set.Set[int]
 }
 
 type monitor struct {
-	observe.Observer[Status]
 	shutdownRoutines         io.Closer
 	svc                      *Service
 	disconnectStatusObserver observe.Disconnect
 	alamos.Instrumentation
 	mu struct {
-		racks map[Key]rackState
+		racks       map[Key]rackState
+		handlers    map[int]SuspectHandler
+		nextHandler int
 		sync.Mutex
 	}
 }
 
+// onSuspect calls handler for each outage written after the call, until the returned
+// function removes it.
+func (m *monitor) onSuspect(handler SuspectHandler) observe.Disconnect {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	key := m.mu.nextHandler
+	m.mu.nextHandler++
+	m.mu.handlers[key] = handler
+	return func() {
+		m.mu.Lock()
+		defer m.mu.Unlock()
+		delete(m.mu.handlers, key)
+	}
+}
+
 func (m *monitor) Close() error {
-	// Shutdown background routines first to stop checkAlive from triggering
-	// new observer notifications, then disconnect the observer to avoid deadlock
+	// Shut down background routines first so checkAlive stops calling suspect handlers,
+	// then disconnect the status observer to avoid a deadlock.
 	err := m.shutdownRoutines.Close()
 	m.disconnectStatusObserver()
 	return err
 }
 
 func (m *monitor) checkAlive(ctx context.Context) error {
+	err := m.writeOutages(ctx)
+	m.copyOutages(ctx)
+	return err
+}
+
+func (m *monitor) writeOutages(ctx context.Context) error {
 	m.L.Debug("checking health of racks")
 	m.mu.Lock()
 	now := m.svc.Now()
-	var toAlert []Key
+	var stale []Key
 	for k, state := range m.mu.racks {
-		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
-			continue
-		}
-		state.deadCheckCount++
-		m.mu.racks[k] = state
-		if state.deadCheckCount == 1 ||
-			state.deadCheckCount%m.svc.AlertEveryNChecks == 0 {
-			toAlert = append(toAlert, k)
+		if m.outageStarted(state, now) {
+			stale = append(stale, k)
 		}
 	}
 	m.mu.Unlock()
 
-	if len(toAlert) == 0 {
+	if len(stale) == 0 {
 		return nil
 	}
-	racks := make([]Rack, 0, len(toAlert))
-	if err := m.svc.NewRetrieve().
-		Where(MatchKeys(toAlert...)).
-		Entries(&racks).
-		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+	racks := make([]Rack, 0, len(stale))
+	if err := m.svc.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return m.svc.NewRetrieve().
+			Where(MatchKeys(stale...)).
+			Entries(&racks).
+			Exec(ctx, snap)
+	}); errors.Skip(err, query.ErrNotFound) != nil {
 		return err
 	}
 
 	m.mu.Lock()
+	// A rack that is gone needs no health check.
+	for _, k := range stale {
+		if !slices.ContainsFunc(racks, func(r Rack) bool { return r.Key == k }) {
+			delete(m.mu.racks, k)
+		}
+	}
 	now = m.svc.Now()
-	var statuses []Status
+	var (
+		statuses    []Status
+		lastUpdated = make(map[Key]telem.TimeStamp, len(racks))
+		owners      = make([]Key, 0, len(racks))
+		statusTimes = make(map[Key]telem.TimeStamp, len(racks))
+	)
 	for _, r := range racks {
 		state := m.mu.racks[r.Key]
-		if telem.TimeSpan(now-state.lastUpdated) < m.svc.HealthCheckInterval {
+		if !m.outageStarted(state, now) {
 			continue
 		}
-		timeSinceAlive := telem.TimeSpan(now - state.lastUpdated)
-		stat := Status{
-			Key:     r.OntologyID().String(),
+		lastUpdated[r.Key] = state.lastUpdated
+		owners = append(owners, r.Key)
+		statusTimes[r.Key] = state.statusTime
+		// A rename can commit after the outage and notify first. Its older status time
+		// must already differ, so it counts as a report and the outage is written
+		// again.
+		state.statusTime = state.lastUpdated
+		m.mu.racks[r.Key] = state
+		statuses = append(statuses, Status{
+			Owner:   new(r.ResourceID()),
 			Name:    r.Name,
 			Variant: status.VariantWarning,
 			Time:    state.lastUpdated,
 			Message: "Driver not running",
 			Description: fmt.Sprintf(
-				"The Core has not heard from the Driver on %s for %s. Check that "+
-					"the Driver is running and can reach the Core.",
+				"The Core has not heard from the Driver on %s. Check that the "+
+					"Driver is running and can reach the Core.",
 				r.Name,
-				timeSinceAlive.Truncate(telem.Second),
 			),
-			Details: StatusDetails{Rack: r.Key},
-		}
+		})
 		m.L.Warn(
 			"driver not running",
 			zap.String("rack", r.Name),
-			zap.Stringer("time_since_alive", timeSinceAlive),
+			zap.Stringer("time_since_alive", telem.TimeSpan(now-state.lastUpdated)),
 		)
-		statuses = append(statuses, stat)
 	}
 	m.mu.Unlock()
 
 	if len(statuses) == 0 {
 		return nil
 	}
-	if err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	err := m.svc.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return m.svc.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
+	})
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if err != nil {
+		for k, statusTime := range statusTimes {
+			if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
+				state.statusTime = statusTime
+				m.mu.racks[k] = state
+			}
+		}
 		return err
 	}
-	for _, stat := range statuses {
-		m.Notify(ctx, stat)
+	for i, k := range owners {
+		// A Driver report that landed during the write starts a new period.
+		if state, ok := m.mu.racks[k]; ok && state.lastUpdated == lastUpdated[k] {
+			state.outage = &statuses[i]
+			state.pending = set.New(slices.Collect(maps.Keys(m.mu.handlers))...)
+			m.mu.racks[k] = state
+		}
 	}
 	return nil
+}
+
+// copyOutages calls each handler that has not copied the outage of a rack. A handler
+// that succeeds is not called again for that outage.
+func (m *monitor) copyOutages(ctx context.Context) {
+	type copyJob struct {
+		rack     Key
+		outage   Status
+		handlers map[int]SuspectHandler
+	}
+	m.mu.Lock()
+	var jobs []copyJob
+	for k, state := range m.mu.racks {
+		if len(state.pending) == 0 {
+			continue
+		}
+		job := copyJob{
+			rack:     k,
+			outage:   *state.outage,
+			handlers: make(map[int]SuspectHandler),
+		}
+		for h := range state.pending {
+			if handler, ok := m.mu.handlers[h]; ok {
+				job.handlers[h] = handler
+			} else {
+				state.pending.Remove(h)
+			}
+		}
+		jobs = append(jobs, job)
+	}
+	m.mu.Unlock()
+	for _, job := range jobs {
+		var copied []int
+		for h, handler := range job.handlers {
+			if err := handler(ctx, job.outage); err != nil {
+				m.L.Error(
+					"failed to copy rack outage",
+					zap.String("rack", job.outage.Name),
+					zap.Error(err),
+				)
+				continue
+			}
+			copied = append(copied, h)
+		}
+		m.mu.Lock()
+		m.mu.racks[job.rack].pending.Remove(copied...)
+		m.mu.Unlock()
+	}
+}
+
+// outageStarted returns true when a rack has been silent for a health check interval
+// and its outage is not yet written.
+func (m *monitor) outageStarted(state rackState, now telem.TimeStamp) bool {
+	return state.outage == nil &&
+		telem.TimeSpan(now-state.lastUpdated) >= m.svc.HealthCheckInterval
 }
 
 func (m *monitor) handleChange(
@@ -138,32 +252,28 @@ func (m *monitor) handleChange(
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	for ch := range t {
-		if !strings.HasPrefix(ch.Key, string(ontology.ResourceTypeRack)) {
+		owner := ch.Value.Owner
+		if ch.Kind == gorp.ChangeDelete || owner == nil ||
+			owner.Type != resource.TypeRack {
 			continue
 		}
-		key, err := parseKeyFromOntologyIDString(ch.Key)
+		key, err := KeyFromResourceID(*owner)
 		if err != nil {
-			m.L.Error("failed to decode status key", zap.Error(err))
+			m.L.Error("failed to decode status owner", zap.Error(err))
 			continue
 		}
-		if ch.Variant == xchange.VariantDelete {
-			delete(m.mu.racks, key)
-			continue
+		// The Core writes only warnings to rack statuses, so a warning does not show
+		// that the Driver is running.
+		alive := ch.Value.Variant == status.VariantSuccess ||
+			ch.Value.Variant == status.VariantInfo ||
+			ch.Value.Variant == status.VariantError
+		state, known := m.mu.racks[key]
+		if !known || (alive && ch.Value.Time != state.statusTime) {
+			state = rackState{lastUpdated: m.svc.Now()}
 		}
-		isHealthy := ch.Value.Variant == status.VariantSuccess ||
-			ch.Value.Variant == status.VariantInfo
-		if isHealthy || !lo.HasKey(m.mu.racks, key) {
-			m.mu.racks[key] = rackState{lastUpdated: m.svc.Now(), deadCheckCount: 0}
-		}
+		state.statusTime = ch.Value.Time
+		m.mu.racks[key] = state
 	}
-}
-
-func parseKeyFromOntologyIDString(s status.Key) (Key, error) {
-	id, err := ontology.ParseID(s)
-	if err != nil {
-		return 0, err
-	}
-	return KeyFromOntologyID(id)
 }
 
 // openMonitor watches the health of every stored rack. A rack that sends no status
@@ -175,19 +285,21 @@ func openMonitor(
 	svc *Service,
 ) (*monitor, error) {
 	var racks []Rack
-	if err := svc.NewRetrieve().Entries(&racks).Exec(ctx, nil); err != nil {
+	if err := svc.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
+		return svc.NewRetrieve().Entries(&racks).Exec(ctx, snap)
+	}); err != nil {
 		return nil, err
 	}
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
-		Observer:         observe.New[Status](),
 		Instrumentation:  ins,
 		svc:              svc,
 		shutdownRoutines: signal.NewHardShutdown(sCtx, cancel),
 	}
 	now := svc.Now()
 	s.mu.racks = make(map[Key]rackState, len(racks))
+	s.mu.handlers = make(map[int]SuspectHandler)
 	for _, r := range racks {
 		s.mu.racks[r.Key] = rackState{lastUpdated: now}
 	}

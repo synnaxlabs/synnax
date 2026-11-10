@@ -1,0 +1,69 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Merge groups cannot save caches and CI does not run on main, so main saves the browser
+# cache they restore. The daily run outlasts the 7-day eviction and follows apt updates.
+name: Warm - Browsers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - pnpm-lock.yaml
+      - .github/actions/setup-browsers/**
+      - .github/workflows/warm.browsers.yaml
+  schedule:
+    - cron: "0 9 * * *" # 9am UTC
+  workflow_dispatch:
+
+concurrency:
+  group: warm-browsers
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  warm:
+    name: Warm
+    runs-on: ubuntu-latest
+    # Nothing waits on this job, so it can outlast a slow mirror.
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up pnpm and Node.js
+        uses: ./.github/actions/setup-pnpm
+        with:
+          cache: "false"
+
+      - name: Install browsers
+        uses: ./.github/actions/setup-browsers
+        with:
+          package: pluto
+
+  # CI restores only the newest cache, so the older ones only evict others.
+  prune:
+    name: Prune older caches
+    needs: warm
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Delete older browser caches
+        env:
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh cache list --ref refs/heads/main --key browsers- --sort created_at \
+            --order desc --limit 100 --json id --jq '.[1:][].id' |
+            xargs -r -n1 gh cache delete

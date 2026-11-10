@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
@@ -39,7 +40,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -54,7 +55,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -68,10 +69,6 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
 				})
 
 				It(
@@ -120,12 +117,10 @@ var _ = Describe("Garbage Collection", func() {
 
 						By("Reading data from the channel")
 						frame := MustSucceed(
-							dataDB.Read(
-								ctx,
-								telem.TimeRange{
-									Start: 10 * telem.SecondTS,
-									End:   100 * telem.SecondTS,
-								},
+							testutil.ReadUnary(ctx, dataDB, telem.TimeRange{
+								Start: 10 * telem.SecondTS,
+								End:   100 * telem.SecondTS,
+							},
 							),
 						)
 						Expect(frame.Count()).To(Equal(6))
@@ -157,7 +152,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -171,7 +166,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -185,10 +180,6 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
 				})
 
 				Specify("Only some files GC", func(ctx SpecContext) {
@@ -341,7 +332,9 @@ var _ = Describe("Garbage Collection", func() {
 					).To(Succeed())
 
 					By("Asserting that the data is correct")
-					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+					f := MustSucceed(
+						testutil.ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+					)
 					Expect(f.Count()).To(Equal(5))
 
 					first := f.SeriesAt(0)
@@ -386,7 +379,7 @@ var _ = Describe("Garbage Collection", func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -401,7 +394,7 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataFS = MustSucceed(fs.Sub("data"))
-					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
+					dataDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -415,10 +408,6 @@ var _ = Describe("Garbage Collection", func() {
 						Instrumentation: PanicLogger(),
 					}))
 					dataDB.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(indexDB.Close()).To(Succeed())
-					Expect(dataDB.Close()).To(Succeed())
 				})
 
 				// Collection moves the surviving domains to the front of their file. A
@@ -492,7 +481,9 @@ var _ = Describe("Garbage Collection", func() {
 						<-collected
 
 						actual := make([]int64, 0, len(expected))
-						f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+						f := MustSucceed(
+							testutil.ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+						)
 						for series := range f.Series() {
 							actual = append(
 								actual,

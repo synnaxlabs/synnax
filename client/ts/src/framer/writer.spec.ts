@@ -7,18 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { EOF, type WebSocketClient } from "@synnaxlabs/freighter";
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
+import { channel } from "@/channel";
 import { UnauthorizedError, ValidationError } from "@/errors";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
+import { framer } from "@/framer";
+import { NotFoundError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,
   newIndexedPair,
+  randomSeries,
   secondsLinspace,
 } from "@/testutil";
-import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 
@@ -39,6 +42,29 @@ describe("Writer", () => {
         await writer.close();
       }
       expect(true).toBe(true);
+    });
+
+    test("write without a start", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const writer = await client.openWriter({ channels: [index, data] });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Series({ data: [1, 2, 3], dataType: data.dataType }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const fr = await client.read(TimeRange.MAX, [index.key, data.key]);
+      expect(fr.get(index.key).series[0].at(0)).toEqual(TimeStamp.seconds(1).valueOf());
+      expect(Array.from(fr.get(data.key).series[0])).toEqual([1, 2, 3]);
+    });
+
+    it("should parse a bare channel list into a config with no start", () => {
+      const cfg = framer.writerConfigZ.parse([1, 2]);
+      expect(cfg.channels).toEqual([1, 2]);
+      expect(cfg).not.toHaveProperty("start");
     });
 
     test("bool write and read round-trip", async () => {
@@ -66,9 +92,14 @@ describe("Writer", () => {
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({ start: TimeStamp.now(), channels });
-      await expect(
-        writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow('Channel "nonexistent_channel" not found');
+      const write = writer.write(
+        "nonexistent_channel",
+        randomSeries(10, DataType.FLOAT64),
+      );
+      await expect(write).rejects.toThrow(NotFoundError);
+      await expect(write).rejects.toThrow(
+        'Found no channel where name = "nonexistent_channel"',
+      );
       await writer.close();
     });
 
@@ -78,7 +109,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        mode: WriterMode.Persist,
+        mode: framer.WriterMode.Persist,
       });
       const [index, data] = channels;
       try {
@@ -126,7 +157,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        autoIndexPersistInterval: framer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
       const [index, data] = channels;
       try {
@@ -266,7 +297,7 @@ describe("Writer", () => {
       });
 
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start: TimeStamp.seconds(1),
         channels: [indexCh.key, dataCh.key],
       });
 
@@ -274,7 +305,7 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: new TimeStamp(i),
+            [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,
           });
         }
@@ -299,6 +330,93 @@ describe("Writer", () => {
         }),
       ).rejects.toThrow(UnauthorizedError);
       await w1.close();
+    });
+
+    test("commitResult reports a commit without control", async () => {
+      const channels = await newIndexedPair(client);
+      const [index, data] = channels;
+      const start = TimeStamp.seconds(5);
+      const frame = (second: number) => ({
+        [index.key]: secondsLinspace(second, 1),
+        [data.key]: randomSeries(1, data.dataType),
+      });
+      const low = await client.openWriter({
+        start,
+        channels,
+        authorities: 10,
+        enableAutoCommit: false,
+      });
+      try {
+        await low.write(frame(5));
+        // The acknowledged command orders the write before the next writer opens.
+        await low.setAuthority(10);
+        const high = await client.openWriter({ start, channels, authorities: 20 });
+        try {
+          const denied = await low.commitResult();
+          expect(denied.authorized).toBe(false);
+        } finally {
+          await high.close();
+        }
+        await low.write(frame(6));
+        const granted = await low.commitResult();
+        expect(granted.authorized).toBe(true);
+        expect(granted.end).toEqual(TimeStamp.seconds(6).add(1));
+      } finally {
+        await low.close();
+      }
+    });
+
+    describe("commitResult after the stream ends", () => {
+      const time = new channel.Channel({
+        key: 1,
+        name: "time",
+        dataType: DataType.TIMESTAMP,
+        isIndex: true,
+      });
+      // A transport whose stream the spec can end as the Core would.
+      const openEndable = async () => {
+        const state = { ended: false, queued: false, sendClosed: false };
+        const stream = {
+          send: () => {},
+          closeSend: () => {
+            state.sendClosed = true;
+          },
+          received: () => state.queued,
+          receive: async () => {
+            if (state.ended || state.queued || state.sendClosed) throw new EOF();
+            return {
+              command: framer.WriterCommand.Open,
+              end: TimeStamp.ZERO,
+              authorized: true,
+            };
+          },
+        };
+        const transport = { withCodec: () => transport, stream: async () => stream };
+        const writer = await framer.Writer._open(
+          async () => [time.payload],
+          transport as unknown as WebSocketClient,
+          { channels: [time.key] },
+        );
+        return { writer, state };
+      };
+
+      test("should throw EOF when the Core ends the stream during a commit", async () => {
+        const { writer, state } = await openEndable();
+        state.ended = true;
+        await expect(writer.commitResult()).rejects.toThrow(EOF);
+      });
+
+      test("should throw WriterClosedError when the Core ended the stream before", async () => {
+        const { writer, state } = await openEndable();
+        state.queued = true;
+        await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+      });
+
+      test("should throw WriterClosedError when the writer was closed", async () => {
+        const { writer } = await openEndable();
+        await writer.close();
+        await expect(writer.commitResult()).rejects.toThrow(framer.WriterClosedError);
+      });
     });
 
     test("setAuthority", async () => {

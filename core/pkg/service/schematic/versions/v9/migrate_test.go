@@ -27,9 +27,9 @@ import (
 	v9 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -896,10 +896,12 @@ var _ = Describe("MigrateSchematic", func() {
 })
 
 var _ = Describe("DecodeElementConfig", func() {
-	It("Should decode a payload naming a known variant", func() {
+	It("Should decode a payload naming a known variant over its defaults", func() {
+		var valve v9.ValveElementConfig
+		valve.SetDefaults()
 		Expect(MustSucceed(v9.DecodeElementConfig(msgpack.EncodedJSON{
 			"variant": "valve",
-		}))).To(Equal(v9.ElementConfig{Variant: v9.ValveElementConfig{}}))
+		}))).To(Equal(v9.ElementConfig{Variant: valve}))
 	})
 
 	// A null payload decodes to a nil variant without erroring, so the guard against it

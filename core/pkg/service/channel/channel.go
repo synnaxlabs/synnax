@@ -22,18 +22,13 @@ import (
 // leaseholder, and conversion to storage keys. Re-exported from [channel.Keys].
 type Keys = channel.Keys
 
-var (
-	// NewKey composes a Key from a leaseholder node key and a node-local LocalKey.
-	// Re-exported from [channel.NewKey].
-	NewKey = channel.NewKey
-	// KeysFromUint32 reinterprets a []uint32 as Keys without copying the underlying
-	// memory. Re-exported from [channel.KeysFromUint32].
-	KeysFromUint32 = channel.KeysFromUint32
-)
+// KeysFromUint32 reinterprets a []uint32 as Keys without copying the underlying
+// memory. Re-exported from [channel.KeysFromUint32].
+var KeysFromUint32 = channel.KeysFromUint32
 
 // ParseKey attempts to parse the string representation of a Key into a Key.
 func ParseKey(s string) (Key, error) {
-	k, err := strconv.Atoi(s)
+	k, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return Key(0), errors.Wrapf(
 			validate.ErrValidation, "%s is not a valid channel key", s,

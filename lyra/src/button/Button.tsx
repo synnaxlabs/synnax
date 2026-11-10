@@ -27,12 +27,17 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
+import { FOCUSABLE } from "@/util";
 
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
-/** The rest-state emphasis of the button chassis. */
-export type Variant = "filled" | "outlined" | "text";
+/**
+ * The rest-state emphasis of the button chassis. A glyph button never fills, so its
+ * icon alone shows hover and press. Use it for an action inside another control, such
+ * as a tab's close button.
+ */
+export type Variant = "filled" | "outlined" | "text" | "glyph" | "card";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -55,12 +60,14 @@ export interface ExtensionProps
   /** Swallows the click without calling onClick. Use for a button that is momentarily
    * inapplicable but must not read as disabled. */
   preventClick?: boolean;
-  /** Lets the click reach an ancestor's handler. Clicks stop at the button otherwise. */
+  /**
+   * Lets the click reach an ancestor's handler. Clicks stop at the button otherwise.
+   */
   propagateClick?: boolean;
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */
   onClickDelay?: number | TimeSpan;
-  /** Marks the button as a hidden action its pluto--reveals container shows. */
+  /** Marks the button as a hidden action its lyra--reveals container shows. */
   reveal?: boolean;
 }
 
@@ -88,9 +95,6 @@ const resolveTriggerIndicator = (
   if (triggerIndicator != null && triggerIndicator !== false) return triggerIndicator;
   return undefined;
 };
-
-const FOCUSABLE =
-  'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]';
 
 /**
  * The standard clickable. Renders as a `button` unless `el` names another
@@ -236,7 +240,9 @@ export const Button = <E extends ElementType = "button">(
     <Text.Text
       el={el}
       defaultEl={defaultEl}
-      direction="x"
+      direction={variant === "card" ? "y" : "x"}
+      align={variant === "card" ? "start" : undefined}
+      justify={variant === "card" ? "start" : undefined}
       className={CSS.cls(
         CSS.B(MODULE_CLASS),
         preventClick && CSS.BM(MODULE_CLASS, "prevent-click"),
@@ -258,11 +264,11 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant !== "text"}
+      bordered={variant === "filled" || variant === "outlined" || variant === "card"}
       level={level}
       variant={textVariant}
       square={square}
-      overflow="nowrap"
+      overflow={variant === "card" ? "wrap" : "nowrap"}
       status={status}
       href={href}
       draggable={draggable}

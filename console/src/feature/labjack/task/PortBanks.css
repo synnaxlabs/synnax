@@ -1,0 +1,21 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A column fits a full row of a bank: eight ports, as `groups` lays them out. */
+.console-labjack-port-banks {
+    display: grid;
+    grid-template-columns: repeat(
+        auto-fill,
+        calc(8 * var(--pluto-port-width) + 7 * var(--pluto-port-gap))
+    );
+    gap: 1.5rem 4rem;
+    align-items: start;
+}

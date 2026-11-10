@@ -11,7 +11,14 @@
 
 package v0
 
-import bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
+	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+)
 
 // Properties are the properties of a UDP device.
 type Properties struct {
@@ -39,6 +46,30 @@ type ReadConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
 	r.PollConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.PollConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // WriteConfig configures a UDP write task. Each message is sent as one datagram.

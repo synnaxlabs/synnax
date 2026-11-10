@@ -60,9 +60,17 @@ func (w *Writer) Write(frame Frame) (authorized bool, err error) {
 	return authorized, err
 }
 
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+// Commit makes the written samples available to reads and returns the end of the
+// commit. authorized is false if the writer lacks control of a channel with samples to
+// commit, and the end is then zero. authorized is also false if a write since the last
+// commit was refused for no control, but the commit applies and returns its end. The
+// writer stays open so that it can regain control.
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(WriterRequest{Command: WriterCommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 // SetAuthority is synchronous. Naming a data channel also moves its written index to
@@ -73,6 +81,27 @@ func (w *Writer) SetAuthority(cfg WriterConfig) error {
 		true,
 	)
 	return err
+}
+
+// EndDomain commits the writer, then ends the domains of the given indexes and of the
+// data channels they index. The next write to an index starts a new domain at its first
+// timestamp, which frees the time before that timestamp for another writer. Indexes the
+// writer does not write are ignored, and an index with no data keeps its domains.
+// EndDomain is synchronous. It returns false if another writer controls an index or one
+// of its data channels. The index then keeps its domain, and some of its data channels
+// may end theirs.
+func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
+	res, err := w.exec(
+		WriterRequest{
+			Config:  WriterConfig{Channels: indexes},
+			Command: WriterCommandEndDomain,
+		},
+		true,
+	)
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
 }
 
 func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {

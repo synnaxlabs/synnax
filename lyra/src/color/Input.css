@@ -10,16 +10,16 @@
  */
 
 /* A hex has a fixed length, so the box fits an 8-digit hex and never the form. */
-.pluto-color-input {
+.lyra-color-input {
     --pluto-control-width: fit-content;
 
     /* The swatch sits in the dialog frame, so the pack rounds the frame, not the
        swatch. */
-    & .pluto-color-swatch.pluto-btn {
+    & .lyra-color-swatch.lyra-btn {
         border-radius: inherit;
     }
 
-    & .pluto-input {
+    & .lyra-input {
         flex-grow: 0;
     }
 

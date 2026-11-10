@@ -9,8 +9,7 @@
 
 """Symbol Editor modal client for creating and editing custom symbols."""
 
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
 
 from console import color
 from console.layout import LayoutClient
@@ -63,8 +62,7 @@ class SymbolEditor:
         This must be called before setting the name or other properties,
         as the form only appears after an SVG is uploaded.
 
-        Args:
-            svg_path: Path to the SVG file to upload.
+        :param svg_path: Path to the SVG file to upload.
         """
         import os
 
@@ -101,15 +99,15 @@ class SymbolEditor:
 
                 if (!onContentsChange) throw new Error('onContentsChange not found');
                 onContentsChange(svgContent, properName);
-            }""",
+            }""",  # noqa: E501
             [svg_content, proper_name],
         )
         self.wait_for_form_visible()
 
     def _region_rows(self) -> Locator:
         """Locate the region rows (the only list items carrying color swatches)."""
-        return self.page.locator(".pluto-list__item").filter(
-            has=self.page.locator(".pluto-color-swatch")
+        return self.page.locator(".lyra-list__item").filter(
+            has=self.page.locator(".lyra-color-swatch")
         )
 
     def region_count(self) -> int:
@@ -128,7 +126,7 @@ class SymbolEditor:
         return (
             self._region_rows()
             .nth(region_index)
-            .locator(".pluto-color-swatch")
+            .locator(".lyra-color-swatch")
             .nth(swatch_index)
         )
 
@@ -136,40 +134,38 @@ class SymbolEditor:
         self, swatch_index: int, hex_color: str, region_index: int
     ) -> None:
         color.pick(
-            self.page, self._region_swatch(swatch_index, region_index), hex_color
+            self.page,
+            self._region_swatch(swatch_index, region_index),
+            hex_color=hex_color,
         )
 
-    def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
+    def set_region_stroke_color(self, hex_color: str, *, region_index: int = 0) -> None:
         """Set the stroke color for a region (the first swatch in the row).
 
-        Args:
-            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
-            region_index: Index of the region (0-based).
+        :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
+        :param region_index: Index of the region (0-based).
         """
         self._set_region_color(0, hex_color, region_index)
 
-    def set_region_fill_color(self, hex_color: str, region_index: int = 0) -> None:
+    def set_region_fill_color(self, hex_color: str, *, region_index: int = 0) -> None:
         """Set the fill color for a region (the second swatch in the row).
 
-        Args:
-            hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
-            region_index: Index of the region (0-based).
+        :param hex_color: Hex color string (e.g., "#FF0000" or "FF0000").
+        :param region_index: Index of the region (0-based).
         """
         self._set_region_color(1, hex_color, region_index)
 
-    def clear_region_fill_color(self, region_index: int = 0) -> None:
+    def clear_region_fill_color(self, *, region_index: int = 0) -> None:
         """Set the fill color for a region back to Auto, so the SVG's own fill paints.
 
-        Args:
-            region_index: Index of the region (0-based).
+        :param region_index: Index of the region (0-based).
         """
         color.pick_auto(self.page, self._region_swatch(1, region_index))
 
-    def get_region_fill_swatch_color(self, region_index: int = 0) -> str:
+    def get_region_fill_swatch_color(self, *, region_index: int = 0) -> str:
         """Return the color a region's fill swatch shows, e.g. "rgba(255, 0, 0, 1)".
 
-        Args:
-            region_index: Index of the region (0-based).
+        :param region_index: Index of the region (0-based).
         """
         swatch = self._region_swatch(1, region_index)
         return str(
@@ -179,21 +175,19 @@ class SymbolEditor:
     def get_preview_fill(self, selector: str) -> str:
         """Return the computed fill (e.g. "rgb(255, 0, 0)") of a rendered preview shape.
 
-        Args:
-            selector: A CSS selector resolved within the rendered preview SVG.
+        :param selector: A CSS selector resolved within the rendered preview SVG.
         """
         el = self.page.locator(f".console-preview svg {selector}").first
         el.wait_for(state="attached", timeout=5000)
         return str(el.evaluate("(el) => getComputedStyle(el).fill"))
 
     def assert_preview_fill(
-        self, selector: str, expected_rgb: str, timeout: int = 5000
+        self, selector: str, expected_rgb: str, *, timeout: int = 5000
     ) -> None:
         """Wait until a rendered preview shape resolves to the expected computed fill.
 
-        Args:
-            selector: A CSS selector resolved within the rendered preview SVG.
-            expected_rgb: The expected computed fill, e.g. "rgb(255, 0, 0)".
+        :param selector: A CSS selector resolved within the rendered preview SVG.
+        :param expected_rgb: The expected computed fill, e.g. "rgb(255, 0, 0)".
         """
         self.page.wait_for_function(
             """([sel, exp]) => {
@@ -204,7 +198,7 @@ class SymbolEditor:
             timeout=timeout,
         )
 
-    def assert_preview_width(self, expected: float, timeout: int = 5000) -> None:
+    def assert_preview_width(self, expected: float, *, timeout: int = 5000) -> None:
         """Wait until the rendered preview SVG reaches the expected width attribute."""
         self.page.wait_for_function(
             """(exp) => {
@@ -218,18 +212,17 @@ class SymbolEditor:
 
     def add_handle(self) -> None:
         """Add a new connection handle."""
-        handles_header = self.page.locator(".pluto-header").filter(has_text="Handles")
+        handles_header = self.page.locator(".lyra-header").filter(has_text="Handles")
         add_handle_btn = handles_header.locator("button").first
         add_handle_btn.click()
 
     def set_default_scale(self, scale_percent: int) -> None:
         """Set the default scale percentage for the symbol.
 
-        Args:
-            scale_percent: Scale percentage (e.g., 100 for 100%, 150 for 150%).
-                           Valid range is 5 to 1001.
+        :param scale_percent: Scale percentage (e.g., 100 for 100%, 150 for 150%). Valid
+            range is 5 to 1001.
         """
-        properties_header = self.page.locator(".pluto-header").filter(
+        properties_header = self.page.locator(".lyra-header").filter(
             has_text="Properties"
         )
         properties_section = properties_header.locator("..").locator("..")
@@ -241,8 +234,7 @@ class SymbolEditor:
     def set_state(self, state: str) -> None:
         """Set the symbol state type (Static or Actuator).
 
-        Args:
-            state: The state type - "Static" or "Actuator"
+        :param state: The state type - "Static" or "Actuator"
         """
         self.modal.get_by_role("button", name=state, exact=True).click()
 

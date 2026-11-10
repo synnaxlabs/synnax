@@ -16,6 +16,17 @@ import { useEnabledState, useToggleEnabled } from "@/feature/ethercat/device/que
 import { Task } from "@/feature/ethercat/task";
 import { Device } from "@/platform/device";
 
+interface ConfigureItemProps extends Pick<Device.ContextMenuItemsProps, "onConfigure"> {
+  deviceKey: device.Key;
+}
+
+const ConfigureItem = ({ deviceKey, onConfigure }: ConfigureItemProps) => (
+  <Menu.Item itemKey="ethercat.configure" onClick={() => onConfigure(deviceKey)}>
+    <Icon.Hardware />
+    Configure
+  </Menu.Item>
+);
+
 const TASK_CONTEXT_MENU_ITEMS = [
   Device.createTaskContextMenuItem({
     itemKey: "ethercat.readTask",
@@ -31,7 +42,7 @@ const TASK_CONTEXT_MENU_ITEMS = [
 
 export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
   const keys = props.selection.ids.map((id) => id.key);
-  const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(keys));
+  const hasUpdatePermission = Access.useUpdateGranted(device.resourceID(keys));
   const { update: toggleEnabled } = useToggleEnabled();
 
   const { allDisabled, allEnabled } = useEnabledState({ keys });
@@ -46,8 +57,9 @@ export const ContextMenuItems = (props: Device.ContextMenuItemsProps) => {
 
   return (
     <>
-      <Device.ConfigureMenuItem {...props} />
-      <Device.ChangeIdentifierMenuItem {...props} icon="Logo.EtherCAT" />
+      {hasUpdatePermission && keys.length === 1 && (
+        <ConfigureItem deviceKey={keys[0]} onConfigure={props.onConfigure} />
+      )}
       <Menu.Divider />
       <Device.TaskContextMenuItems {...props} items={TASK_CONTEXT_MENU_ITEMS} />
       <Menu.Divider />

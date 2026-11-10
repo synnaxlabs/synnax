@@ -12,7 +12,10 @@ package fs
 import (
 	"io"
 	"io/fs"
+	"os"
 	"path"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 type File interface {
@@ -44,7 +47,8 @@ type FS interface {
 	// Open opens a file according to the provided flag. The provided flag can be OR-ed
 	// in out of the flags in os, e.g. os.O_CREATE|os.O_WRONLY.
 	Open(name string, flag int) (File, error)
-	// Sub returns a new FS rooted at the given directory.
+	// Sub returns a new FS rooted at the given directory. It creates the directory and
+	// its parents when they do not exist.
 	Sub(string) (FS, error)
 	// List returns a list of files in the directory SORTED by file name.
 	List(string) ([]FileInfo, error)
@@ -87,4 +91,81 @@ func (s *subFS) Rename(oldName, newName string) error {
 
 func (s *subFS) Stat(name string) (FileInfo, error) {
 	return s.FS.Stat(path.Join(s.dir, name))
+}
+
+// CopyFile copies the file name in src to the same name in dst, replaces any file
+// there, and syncs the copy. The directory of name must exist in dst.
+func CopyFile(src, dst FS, name string) (err error) {
+	from, err := src.Open(name, os.O_RDONLY)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, from.Close()) }()
+	to, err := dst.Open(name, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Combine(err, to.Close()) }()
+	if _, err = io.Copy(to, from); err != nil {
+		return err
+	}
+	return to.Sync()
+}
+
+// CopyDir copies the directory name in src, with everything in it, to the same name in
+// dst. An empty name copies all of src.
+func CopyDir(src, dst FS, name string) error {
+	if _, err := dst.Sub(name); err != nil {
+		return err
+	}
+	infos, err := src.List(name)
+	if err != nil {
+		return err
+	}
+	for _, info := range infos {
+		child := path.Join(name, info.Name())
+		if info.IsDir() {
+			err = CopyDir(src, dst, child)
+		} else {
+			err = CopyFile(src, dst, child)
+		}
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ReadFile returns the contents of the file name in fsys. The error matches
+// os.ErrNotExist when there is no such file.
+func ReadFile(fsys FS, name string) (data []byte, err error) {
+	f, err := fsys.Open(name, os.O_RDONLY)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err = errors.Combine(err, f.Close()); err != nil {
+			data = nil
+		}
+	}()
+	return io.ReadAll(f)
+}
+
+// WriteFile replaces the file name in fsys with data through a temporary file and a
+// rename, so a crash of the process never leaves part of the file. It does not sync,
+// so a power loss can lose the write.
+func WriteFile(fsys FS, name string, data []byte) error {
+	tmp := name + ".tmp"
+	f, err := fsys.Open(tmp, os.O_CREATE|os.O_WRONLY|os.O_TRUNC)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(data)
+	if err = errors.Combine(err, f.Close()); err == nil {
+		err = fsys.Rename(tmp, name)
+	}
+	if err != nil {
+		return errors.Combine(err, fsys.Remove(tmp))
+	}
+	return nil
 }

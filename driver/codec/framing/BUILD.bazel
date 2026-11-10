@@ -38,7 +38,7 @@ cc_test(
     data = ["testdata/cobs.json"],
     deps = [
         ":framing",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
     ],

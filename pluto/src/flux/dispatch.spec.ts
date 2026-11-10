@@ -9,7 +9,7 @@
 
 import { actions, query, schematic } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { array, uuid } from "@synnaxlabs/x";
+import { array, destructor, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it, type Mock, vi } from "vitest";
 
@@ -47,20 +47,23 @@ const createHarness = (send: SendFn): Harness => {
   >({
     store: docs,
     onError,
+    onEpoch: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
+    send: async (_, actions) => {
+      await send(actions);
+      return [];
+    },
   });
-  const sendDispatch: actions.SendDispatch<schematic.Action> = async (actions) =>
-    await send(actions);
   const domain: Domain = {
     dispatch: async (key, actions, opts) =>
-      await controller.dispatch(key, array.toArray(actions), sendDispatch, opts),
-    undo: async (key) => await controller.undo(key, sendDispatch),
-    redo: async (key) => await controller.redo(key, sendDispatch),
+      await controller.dispatch(key, array.toArray(actions), opts),
+    undo: async (key) => await controller.undo(key),
+    redo: async (key) => await controller.redo(key),
     hasUndo: (key) => controller.hasUndo(key),
     hasRedo: (key) => controller.hasRedo(key),
     onUndoStateChange: (callback, key) => controller.onUndoStateChange(callback, key),
-    beginTransaction: (key, kind) => controller.transaction(key, sendDispatch, kind),
+    beginTransaction: (key, kind) => controller.transaction(key, kind),
   };
   return { domain, docs, controller };
 };
@@ -484,7 +487,7 @@ describe("Flux.createDispatch", () => {
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
-          actions: schematic.rename({ name: "renamed" }),
+          actions: schematic.set({ path: ["name"], value: "renamed" }),
         });
       });
       // Two distinct entries: one undo leaves canUndo true, a second clears it.
@@ -702,7 +705,8 @@ describe("Flux.createDispatch", () => {
       const proj = await client.projects.create({
         name: `dispatch_${uuid.create()}`,
       });
-      return await client.schematics.create(proj.key, {
+      return await client.schematics.create({
+        project: proj.key,
         name: `dispatch_live_${uuid.create()}`,
         nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
         edges: [],

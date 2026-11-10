@@ -16,7 +16,9 @@ import { CSSGridBuilder } from "@/css/grid";
 import { applyCSSVars, removeCSSVars } from "@/css/vars";
 import { type Theming } from "@/theming";
 
-const PREFIX = "pluto";
+const PREFIX = "lyra";
+// Custom properties keep the prefix of the theme tokens.
+const PROPERTY_PREFIX = "pluto";
 
 export const {
   /** @returns the class name for a block. */
@@ -31,9 +33,12 @@ export const {
   BM,
   /** @returns the class name for a modified element of the given block. */
   BEM,
+} = newBEM(PREFIX);
+
+export const {
   /** @returns the name of a custom property, including the leading dashes. */
   variable,
-} = newBEM(PREFIX);
+} = newBEM(PROPERTY_PREFIX);
 
 /** Joins class values into a single class name, dropping the falsy ones. */
 export const cls = (...classes: ClassValue[]): string => clsx(...classes);
@@ -63,6 +68,9 @@ export const bordered = (
 };
 
 export const noSelect = M("no-select");
+
+/** Derives --pluto-symbol-display from the element's --pluto-symbol-color. */
+export const symbolColored = B("symbol-colored");
 
 export const selected = (selected: boolean): string | false =>
   selected && M("selected");
@@ -98,11 +106,12 @@ export const colorVar = (
   value?: false | Theming.Shade | color.Crude,
 ): string | undefined => {
   if (value == null || value === false) return undefined;
-  if (typeof value === "number") return `var(--${PREFIX}-gray-l${value})`;
+  if (typeof value === "number") return `var(--${PROPERTY_PREFIX}-gray-l${value})`;
   return color.cssString(value);
 };
 
-export const levelSizeVar = (value: string): string => `var(--${PREFIX}-${value}-size)`;
+export const levelSizeVar = (value: string): string =>
+  `var(--${PROPERTY_PREFIX}-${value}-size)`;
 
 /**
  * A style object that also accepts CSS custom properties. Use it in place of

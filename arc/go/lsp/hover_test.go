@@ -46,7 +46,7 @@ var _ = Describe("Hover", func() {
 		},
 		Entry(
 			"func",
-			"func add(x i32, y i32) i32 {\n    return x + y\n}",
+			"func add() {x i32, y i32} i32 {\n    return x + y\n}",
 			uint32(2),
 			"func",
 			"Declares a function",
@@ -155,7 +155,7 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'set_authority' function", func(ctx SpecContext) {
-			content := "set_authority{value=255}"
+			content := "set_authority(value=255)"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -171,7 +171,7 @@ var _ = Describe("Hover", func() {
 		It(
 			"should provide hover for 'control.set_authority' function",
 			func(ctx SpecContext) {
-				content := "import control\n\ntrig -> control.set_authority{value=255}"
+				content := "import control\n\ntrig -> control.set_authority(value=255)"
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -192,8 +192,39 @@ var _ = Describe("Hover", func() {
 			},
 		)
 
+		It("should provide hover for 'math.is_nan'", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return math.is_nan(x)\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 18},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.is_nan"))
+			Expect(
+				HoverContents(hover),
+			).To(ContainSubstring("true if a float value is NaN"))
+		})
+
+		It("should provide hover for the 'math.inf' constant", func(ctx SpecContext) {
+			content := "import math\n\nfunc f() {x f64} bool {\n    return x < math.inf\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+				Position:     protocol.Position{Line: 3, Character: 22},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(HoverContents(hover)).To(ContainSubstring("#### math.inf"))
+			Expect(HoverContents(hover)).To(ContainSubstring("Constant"))
+			Expect(HoverContents(hover)).To(ContainSubstring("positive infinity"))
+		})
+
 		It("should provide hover for 'math.avg' function", func(ctx SpecContext) {
-			content := "import math\n\nsensor -> math.avg{} -> output"
+			content := "import math\n\nsensor -> math.avg() -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -203,11 +234,16 @@ var _ = Describe("Hover", func() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### math.avg"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring(
+					"func avg(duration i64 ns, count i64, reset bool) {input numeric} numeric",
+				),
+			)
 			Expect(HoverContents(hover)).To(ContainSubstring("running average"))
 		})
 
 		It("should provide hover for 'select' function", func(ctx SpecContext) {
-			content := "flag -> select{} -> output"
+			content := "flag -> select() -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -223,7 +259,7 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
-			content := "import stable\n\nsensor -> stable.for{duration=5s} -> output"
+			content := "import stable\n\nsensor -> stable.for(duration=5s) -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -272,7 +308,7 @@ var _ = Describe("Hover", func() {
 		)
 
 		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
-			content := "import time\n\ntime.interval{period=100ms} -> output"
+			content := "import time\n\ntime.interval(period=100ms) -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -293,7 +329,7 @@ var _ = Describe("Hover", func() {
 		It(
 			"should provide deprecation hover for bare 'interval' function",
 			func(ctx SpecContext) {
-				content := "interval{period=100ms}"
+				content := "interval(period=100ms)"
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -313,7 +349,7 @@ var _ = Describe("Hover", func() {
 		)
 
 		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
-			content := "import time\n\ntime.wait{duration=500ms} -> output"
+			content := "import time\n\ntime.wait(duration=500ms) -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -334,7 +370,7 @@ var _ = Describe("Hover", func() {
 		It(
 			"should provide deprecation hover for bare 'wait' function",
 			func(ctx SpecContext) {
-				content := "wait{duration=500ms}"
+				content := "wait(duration=500ms)"
 				OpenArcDocument(server, ctx, uri, content)
 
 				hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -353,7 +389,7 @@ var _ = Describe("Hover", func() {
 
 	Describe("User-Defined Symbols", func() {
 		It("should provide hover for user-defined functions", func(ctx SpecContext) {
-			content := `func add(x i32, y i32) i32 {
+			content := `func add() {x i32, y i32} i32 {
     return x + y
 }
 
@@ -382,7 +418,7 @@ func main() {
 		})
 
 		It("should provide hover for user-defined functions", func(ctx SpecContext) {
-			content := `func max{} (value f32) f32 {
+			content := `func max() {value f32} f32 {
     max_val $= value
     if (value > max_val) {
         max_val = value
@@ -401,14 +437,15 @@ func main() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### max"))
-			Expect(HoverContents(hover)).To(ContainSubstring("func max"))
-			Expect(HoverContents(hover)).To(ContainSubstring("value f32"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring("func max() {value f32} f32"),
+			)
 		})
 
 		It("should provide hover for stages with input", func(ctx SpecContext) {
-			content := `func threshold{
+			content := `func threshold(
     limit f64
-} (value f64) u8 {
+) {value f64} u8 {
     if (value > limit) {
         return u8(1)
     }
@@ -429,9 +466,9 @@ func main() {
 
 			Expect(hover).ToNot(BeNil())
 			Expect(HoverContents(hover)).To(ContainSubstring("#### threshold"))
-			Expect(HoverContents(hover)).To(ContainSubstring("func threshold"))
-			Expect(HoverContents(hover)).To(ContainSubstring("limit f64"))
-			Expect(HoverContents(hover)).To(ContainSubstring("value f64"))
+			Expect(HoverContents(hover)).To(
+				ContainSubstring("func threshold(limit f64) {value f64} u8"),
+			)
 		})
 
 		It("should provide hover for variables", func(ctx SpecContext) {
@@ -457,7 +494,7 @@ func main() {
 		})
 
 		It("should provide hover for stateful variables", func(ctx SpecContext) {
-			content := `func counter{} () u32 {
+			content := `func counter() u32 {
     count u32 $= 0
     count = count + 1
     return count
@@ -534,7 +571,7 @@ func main() {
 		})
 
 		It("should provide hover for function parameters", func(ctx SpecContext) {
-			content := `func multiply(x f64, y f64) f64 {
+			content := `func multiply() {x f64, y f64} f64 {
     return x * y
 }
 `
@@ -600,7 +637,7 @@ func main() {
 
 		It("should include single-line doc comment in hover", func(ctx SpecContext) {
 			content := `// Adds two numbers together
-func add(x i32, y i32) i32 {
+func add() {x i32, y i32} i32 {
     return x + y
 }`
 			OpenArcDocument(server, ctx, uri, content)
@@ -619,7 +656,7 @@ func add(x i32, y i32) i32 {
 
 		It("should include multi-line doc comment in hover", func(ctx SpecContext) {
 			content := `/* Computes the maximum of two values */
-func max(a i32, b i32) i32 {
+func max() {a i32, b i32} i32 {
     if a > b { return a }
     return b
 }`
@@ -642,7 +679,7 @@ func max(a i32, b i32) i32 {
 			func(ctx SpecContext) {
 				content := `// Threshold function
 // Returns 1 if value exceeds limit, 0 otherwise
-func threshold(value f64) u8 {
+func threshold() {value f64} u8 {
     return u8(0)
 }`
 				OpenArcDocument(server, ctx, uri, content)
@@ -668,7 +705,7 @@ func helper() i32 {
     return 0
 }
 
-func add(a i32, b i32) i32 {
+func add() {a i32, b i32} i32 {
     return a + b
 }`
 				OpenArcDocument(server, ctx, uri, content)
@@ -710,22 +747,22 @@ func add(a i32, b i32) i32 {
 			"x", "Variable"),
 		Entry(
 			"stateful variable",
-			"func counter{} () u32 {\n    count u32 $= 0\n    count = count + 1\n    return count\n}\n",
+			"func counter() u32 {\n    count u32 $= 0\n    count = count + 1\n    return count\n}\n",
 			uint32(2),
 			uint32(5),
 			"count",
 			"Stateful Variable",
 		),
-		Entry("input parameter",
-			"func multiply(x f64, y f64) f64 {\n    return x * y\n}\n",
+		Entry("trigger parameter",
+			"func multiply() {x f64, y f64} f64 {\n    return x * y\n}\n",
 			uint32(1), uint32(11),
 			"x", "Input Parameter"),
 		Entry("output parameter",
 			"func compute() result f64 {\n    result = 1.0\n}\n",
 			uint32(1), uint32(4),
 			"result", "Output Parameter"),
-		Entry("brace input parameter",
-			"func compute{k f64}() f64 {\n    return k\n}\n",
+		Entry("input parameter",
+			"func compute(k f64) f64 {\n    return k\n}\n",
 			uint32(1), uint32(11),
 			"k", "Input Parameter"),
 		Entry("module alias",
@@ -1013,7 +1050,7 @@ func add(a i32, b i32) i32 {
 		})
 
 		It("should tokenize input parameters as input type", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func myFunc(x f32) {}")
+			OpenArcDocument(server, ctx, uri, "func myFunc() {x f32} {}")
 			tokens := SemanticTokens(server, ctx, uri)
 			Expect(tokens).ToNot(BeNil())
 			foundInput := false
@@ -1061,7 +1098,7 @@ func add(a i32, b i32) i32 {
 					server,
 					ctx,
 					uri,
-					"func counter{} () u32 {\n    count u32 $= 0\n    return count\n}",
+					"func counter() u32 {\n    count u32 $= 0\n    return count\n}",
 				)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
@@ -1102,7 +1139,7 @@ func add(a i32, b i32) i32 {
 		It(
 			"should tokenize module prefix as variable in qualified calls",
 			func(ctx SpecContext) {
-				OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
+				OpenArcDocument(server, ctx, uri, "time.interval(period=100ms)")
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
 				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
@@ -1117,7 +1154,7 @@ func add(a i32, b i32) i32 {
 					server,
 					ctx,
 					uri,
-					"import time\n\ntime.interval{period=100ms} -> output",
+					"import time\n\ntime.interval(period=100ms) -> output",
 				)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())

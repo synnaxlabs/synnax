@@ -10,58 +10,13 @@
 package testutil
 
 import (
-	"fmt"
-	"math/rand/v2"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/x/telem"
 )
 
 var k atomic.Int64
 
 func GenerateChannelKey() cesium.ChannelKey {
 	return cesium.ChannelKey(k.Add(1))
-}
-
-func GenerateDataAndChannels(
-	numIndexChannels,
-	numDataChannels,
-	numSamplesPerDomain int,
-) (telem.Series, []cesium.Channel, []cesium.ChannelKey) {
-	var (
-		numTotalChannels = numIndexChannels + numDataChannels
-		channels         = make([]cesium.Channel, numTotalChannels)
-		channelKeys      = make([]cesium.ChannelKey, numTotalChannels)
-	)
-
-	for i := 1; i <= numTotalChannels; i++ {
-		var ch cesium.Channel
-		if i <= numIndexChannels {
-			ch = cesium.Channel{
-				Name:     fmt.Sprintf("index-%d", i),
-				Key:      cesium.ChannelKey(i),
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			}
-		} else if i <= numIndexChannels+numDataChannels {
-			correspondingIndexChannel := cesium.ChannelKey(i%numIndexChannels + 1)
-			ch = cesium.Channel{
-				Name:     fmt.Sprintf("data-%d", i),
-				Key:      cesium.ChannelKey(i),
-				Index:    correspondingIndexChannel,
-				DataType: telem.Int64T,
-			}
-		}
-
-		channelKeys[i-1] = cesium.ChannelKey(i)
-		channels[i-1] = ch
-	}
-
-	data := make([]int64, numSamplesPerDomain)
-	for i := range numSamplesPerDomain {
-		data[i] = rand.Int64()
-	}
-
-	return telem.NewSeries(data), channels, channelKeys
 }

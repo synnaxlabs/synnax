@@ -8,13 +8,14 @@
 #  included in the file licenses/APL.txt.
 
 import math
-from typing import Literal
 
 from playwright.sync_api import FloatRect
 
 import synnax as sy
 from console.case import ConsoleCase
 from console.schematic import (
+    AlignmentType,
+    DistributionType,
     Schematic,
     Setpoint,
     Symbol,
@@ -30,12 +31,9 @@ from console.schematic.symbol import (
     box_right,
     box_top,
 )
+from x.spatial import AngularDirection
 
 CHANNEL_NAME = "alignment_command_channel"
-
-AlignmentType = Literal["vertical", "horizontal", "left", "right", "top", "bottom"]
-DistributionType = Literal["horizontal", "vertical"]
-RotationType = Literal["clockwise", "counterclockwise"]
 
 ALIGNMENT_EXTRACTORS = {
     "left": box_left,
@@ -50,6 +48,7 @@ ALIGNMENT_EXTRACTORS = {
 def assert_alignment(
     symbols: list[Symbol],
     alignment: AlignmentType,
+    *,
     tolerance: float | None = None,
 ) -> None:
     """Assert that all symbols are aligned along the specified axis."""
@@ -79,6 +78,7 @@ def assert_alignment(
 def assert_distribution(
     symbols: list[Symbol],
     distribution: DistributionType,
+    *,
     tolerance: float | None = None,
 ) -> None:
     """Assert that symbols are evenly distributed along the specified axis."""
@@ -111,7 +111,8 @@ def assert_distribution(
                 f"Expected gap: {first_gap} (±{tolerance})\n"
                 f"Actual gap: {gap}\n"
                 f"Difference: {diff}\n"
-                f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'"
+                f"Gap between '{sorted_symbols[i].label}' and "
+                f"'{sorted_symbols[i + 1].label}'"
             )
         return
 
@@ -135,37 +136,40 @@ def assert_distribution(
             f"Expected gap: {first_gap} (±{tolerance})\n"
             f"Actual gap: {gap}\n"
             f"Difference: {diff}\n"
-            f"Gap between '{sorted_symbols[i].label}' and '{sorted_symbols[i + 1].label}'"
+            f"Gap between '{sorted_symbols[i].label}' and "
+            f"'{sorted_symbols[i + 1].label}'"
         )
 
 
 def assert_rotation(
     symbols: list[Symbol],
+    *,
     initial_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     group: bool = False,
     tolerance: float = 5.0,
 ) -> None:
     """Assert that symbols have been rotated correctly.
 
     For individual rotation (group=False):
-        - Verifies that symbol dimensions have changed (rotation affects visual appearance)
+        - Verifies that symbol dimensions have changed (rotation affects visual
+          appearance)
         - For symbols with rotation capability, the visual rotation should be apparent
 
     For group rotation (group=True):
         - Verifies that symbols have moved to new positions around the group center
-        - Checks that the spatial arrangement has changed according to 90-degree rotation
+        - Checks that the spatial arrangement has changed according to 90-degree
+          rotation
 
-    Args:
-        symbols: List of symbols that were rotated
-        initial_positions: List of Box objects before rotation (from symbol.position)
-        direction: The rotation direction ('clockwise' or 'counterclockwise')
-        group: If True, expects group rotation. If False, expects individual rotation.
-        tolerance: Maximum allowed difference in pixels for position comparisons (default: 3.0)
-
-    Raises:
-        ValueError: If the number of symbols doesn't match initial_positions
-        AssertionError: If rotation was not applied correctly
+    :param symbols: List of symbols that were rotated
+    :param initial_positions: List of Box objects before rotation (from symbol.position)
+    :param direction: The rotation direction ('clockwise' or 'counterclockwise')
+    :param group: If True, expects group rotation. If False, expects individual
+        rotation.
+    :param tolerance: Maximum allowed difference in pixels for position comparisons
+        (default: 3.0)
+    :raises ValueError: If the number of symbols doesn't match initial_positions
+    :raises AssertionError: If rotation was not applied correctly
     """
     if len(symbols) != len(initial_positions):
         raise ValueError(
@@ -184,7 +188,7 @@ def assert_rotation(
             symbols, initial_positions, current_positions, direction, tolerance
         )
     else:
-        _assert_individual_rotation_ordering(
+        _assert_individual_rotation_anchors(
             symbols, initial_positions, current_positions
         )
 
@@ -210,11 +214,16 @@ def _assert_individual_rotation_dimensions(
             height_diff = abs(current_pos["height"] - initial_pos["width"])
 
             assert width_diff <= tolerance and height_diff <= tolerance, (
-                f"Symbol {i} ({type(symbol).__name__}) dimensions not swapped after rotation!\n"
-                f"Initial: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
-                f"Current: width={current_pos['width']:.1f}, height={current_pos['height']:.1f}\n"
-                f"Expected: width={initial_pos['height']:.1f}, height={initial_pos['width']:.1f}\n"
-                f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
+                f"Symbol {i} ({type(symbol).__name__}) dimensions not swapped after "
+                "rotation!\n"
+                f"Initial: width={initial_pos['width']:.1f}, "
+                f"height={initial_pos['height']:.1f}\n"
+                f"Current: width={current_pos['width']:.1f}, "
+                f"height={current_pos['height']:.1f}\n"
+                f"Expected: width={initial_pos['height']:.1f}, "
+                f"height={initial_pos['width']:.1f}\n"
+                f"Difference: width_diff={width_diff:.1f}, "
+                f"height_diff={height_diff:.1f}\n"
                 f"Tolerance: {tolerance}px"
             )
         else:
@@ -223,75 +232,51 @@ def _assert_individual_rotation_dimensions(
             height_diff = abs(current_pos["height"] - initial_pos["height"])
 
             assert width_diff <= tolerance and height_diff <= tolerance, (
-                f"Symbol {i} ({type(symbol).__name__}) dimensions changed after rotation attempt!\n"
+                f"Symbol {i} ({type(symbol).__name__}) dimensions changed after "
+                "rotation attempt!\n"
                 f"This symbol type cannot be rotated.\n"
-                f"Initial: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
-                f"Current: width={current_pos['width']:.1f}, height={current_pos['height']:.1f}\n"
-                f"Expected: width={initial_pos['width']:.1f}, height={initial_pos['height']:.1f}\n"
-                f"Difference: width_diff={width_diff:.1f}, height_diff={height_diff:.1f}\n"
+                f"Initial: width={initial_pos['width']:.1f}, "
+                f"height={initial_pos['height']:.1f}\n"
+                f"Current: width={current_pos['width']:.1f}, "
+                f"height={current_pos['height']:.1f}\n"
+                f"Expected: width={initial_pos['width']:.1f}, "
+                f"height={initial_pos['height']:.1f}\n"
+                f"Difference: width_diff={width_diff:.1f}, "
+                f"height_diff={height_diff:.1f}\n"
                 f"Tolerance: {tolerance}px"
             )
 
 
-def _assert_individual_rotation_ordering(
+def _assert_individual_rotation_anchors(
     symbols: list[Symbol],
     initial_positions: list[FloatRect],
     current_positions: list[FloatRect],
 ) -> None:
-    """Assert that relative ordering is preserved after individual rotation.
+    """Assert that individual rotation leaves the top left of each symbol in place.
 
-    Only checks ordering for symbols that are clearly separated (>15px).
-    Symbols close together are allowed to swap due to center position shifts during rotation.
+    Rotation swaps width and height around that corner, so a symbol's center moves by
+    half the change in size. Centers can therefore change order, but corners cannot.
     """
-    ordering_separation_threshold = 15.0  # pixels
+    anchor_tolerance = 1.0  # pixels
 
-    def check_axis_ordering(alignment: AlignmentType) -> None:
-        extractor = ALIGNMENT_EXTRACTORS[alignment]
-        violations: list[dict[str, int | float]] = []
-        for i in range(len(symbols)):
-            for j in range(i + 1, len(symbols)):
-                initial_i_val = extractor(initial_positions[i])
-                initial_j_val = extractor(initial_positions[j])
-                current_i_val = extractor(current_positions[i])
-                current_j_val = extractor(current_positions[j])
-
-                initial_diff = initial_j_val - initial_i_val
-                current_diff = current_j_val - current_i_val
-
-                if abs(initial_diff) > ordering_separation_threshold and (
-                    (initial_diff > 0 and current_diff < 0)
-                    or (initial_diff < 0 and current_diff > 0)
-                ):
-                    violations.append(
-                        {
-                            "i": i,
-                            "j": j,
-                            "initial_i": initial_i_val,
-                            "initial_j": initial_j_val,
-                            "current_i": current_i_val,
-                            "current_j": current_j_val,
-                        }
-                    )
-
-        if violations:
-            msg = f"{alignment.capitalize()} ordering changed for well-separated symbols!\n"
-            for v in violations:
-                i_idx = int(v["i"])
-                j_idx = int(v["j"])
-                msg += f"  Symbols {i_idx} ({type(symbols[i_idx]).__name__}) and {j_idx} ({type(symbols[j_idx]).__name__}) swapped:\n"
-                msg += f"    Initial: {v['initial_i']:.1f} vs {v['initial_j']:.1f} (diff: {abs(float(v['initial_j']) - float(v['initial_i'])):.1f}px)\n"
-                msg += f"    Current: {v['current_i']:.1f} vs {v['current_j']:.1f} (diff: {abs(float(v['current_j']) - float(v['current_i'])):.1f}px)\n"
-            raise AssertionError(msg)
-
-    check_axis_ordering("horizontal")
-    check_axis_ordering("vertical")
+    for i, symbol in enumerate(symbols):
+        x_diff = abs(current_positions[i]["x"] - initial_positions[i]["x"])
+        y_diff = abs(current_positions[i]["y"] - initial_positions[i]["y"])
+        assert x_diff <= anchor_tolerance and y_diff <= anchor_tolerance, (
+            f"Symbol {i} ({type(symbol).__name__}) moved during rotation!\n"
+            f"Initial: x={initial_positions[i]['x']:.1f}, "
+            f"y={initial_positions[i]['y']:.1f}\n"
+            f"Current: x={current_positions[i]['x']:.1f}, "
+            f"y={current_positions[i]['y']:.1f}\n"
+            f"Tolerance: {anchor_tolerance}px"
+        )
 
 
 def _assert_group_rotation_transform(
     symbols: list[Symbol],
     initial_positions: list[FloatRect],
     current_positions: list[FloatRect],
-    direction: RotationType,
+    direction: AngularDirection,
     tolerance: float,
 ) -> None:
     """Assert that group rotation correctly transformed symbol positions.
@@ -337,7 +322,8 @@ def _assert_group_rotation_transform(
         angle_diff = abs(angular_displacement - expected_angle)
 
         assert angle_diff <= angular_tolerance, (
-            f"Symbol {i} ({type(symbols[i]).__name__}) not rotated correctly in group!\n"
+            f"Symbol {i} ({type(symbols[i]).__name__}) not rotated correctly in "
+            "group!\n"
             f"Direction: {direction}\n"
             f"Initial angle: {initial_angle:.1f}°\n"
             f"Current angle: {current_angle:.1f}°\n"
@@ -456,21 +442,41 @@ class Alignment(ConsoleCase):
         self.log("Rotate Individual Clockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "clockwise", group=False)
-        assert_rotation(symbols, initial_positions, "clockwise", group=False)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="clockwise",
+            group=False,
+        )
 
         self.log("Rotate Individual Counterclockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "counterclockwise", group=False)
-        assert_rotation(symbols, initial_positions, "counterclockwise", group=False)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="counterclockwise",
+            group=False,
+        )
 
         self.log("Rotate Group Clockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "clockwise", group=True)
-        assert_rotation(symbols, initial_positions, "clockwise", group=True)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="clockwise",
+            group=True,
+        )
 
         self.log("Rotate Group Counterclockwise")
         initial_positions = [symbol.position for symbol in symbols]
         schematic.rotate(symbols, "counterclockwise", group=True)
-        assert_rotation(symbols, initial_positions, "counterclockwise", group=True)
+        assert_rotation(
+            symbols,
+            initial_positions=initial_positions,
+            direction="counterclockwise",
+            group=True,
+        )
 
         schematic.screenshot()

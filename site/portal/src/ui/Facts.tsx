@@ -32,11 +32,11 @@ export const Fact = ({ label, value, code = false }: FactProps): ReactElement =>
       {label}
     </Text.Text>
     {code ? (
-      <Text.Text level="p" variant="code" color={10} overflow="ellipsis">
+      <Text.Text level="p" variant="code" color={10} overflow="fade">
         {value}
       </Text.Text>
     ) : (
-      <Text.Text level="h5" weight={500} color={11} overflow="ellipsis">
+      <Text.Text level="h5" weight={500} color={11} overflow="fade">
         {value}
       </Text.Text>
     )}

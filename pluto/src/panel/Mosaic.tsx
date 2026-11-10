@@ -12,7 +12,6 @@ import "@/panel/Mosaic.css";
 import { panel, query } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -24,6 +23,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type direction } from "@synnaxlabs/x";
 import { type DragEventHandler, memo, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
@@ -75,7 +75,7 @@ const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const key = Scope.use();
   const client = Synnax.use();
   const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
-    const cached = client?.panels.getCached(key);
+    const cached = client?.panels.watch(key).getCached();
     if (!query.isLive(cached)) return;
     const tab = panel.findTab(cached.root, tabKey);
     if (tab == null) return;
@@ -374,7 +374,7 @@ export const Mosaic = ({
       dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
       // Another client can close the tab mid-drag, leaving the move a no-op and
       // the key naming a tab this panel no longer holds.
-      const cached = client?.panels.getCached(key);
+      const cached = client?.panels.watch(key).getCached();
       if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
         onSelect?.(tabKey);
       return;

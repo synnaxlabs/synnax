@@ -9,6 +9,11 @@
 
 #pragma once
 
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "x/cpp/errors/errors.h"
 
 #include "driver/errors/errors.h"
@@ -26,6 +31,7 @@ const x::errors::Error DEVICE_DISCONNECTED_2 = CRITICAL_ERROR.sub("88709");
 const x::errors::Error ADC_CONVERSION_ERROR = CRITICAL_ERROR.sub("200019");
 const x::errors::Error RESOURCE_RESERVED = CRITICAL_ERROR.sub("201105");
 const x::errors::Error ROUTING_ERROR = CRITICAL_ERROR.sub("89130");
+const x::errors::Error ATTRIBUTE_NOT_SUPPORTED = CRITICAL_ERROR.sub("200197");
 const auto TEMPORARILY_UNREACHABLE = x::errors::Error(
     TEMPORARY_ERROR,
     "The device is temporarily unreachable. The Driver will keep trying to reach it."
@@ -2425,5 +2431,18 @@ public:
     x::errors::Error SetReadOverWrite(TaskHandle taskHandle, int32 data);
     x::errors::Error
     GetReadTotalSampPerChanAcquired(TaskHandle taskHandle, uInt64 *data);
+
+    /// @brief reads a string attribute of a device. A first call asks DAQmx for the
+    /// size, so the value is never cut.
+    std::pair<std::string, x::errors::Error>
+    GetDeviceAttributeString(const char deviceName[], int32 attribute);
+    /// @brief reads a float64 array attribute of a device, sized like
+    /// GetDeviceAttributeString.
+    std::pair<std::vector<float64>, x::errors::Error>
+    GetDeviceAttributeDoubleArray(const char deviceName[], int32 attribute);
+    /// @brief reads an int32 array attribute of a physical channel, sized like
+    /// GetDeviceAttributeString.
+    std::pair<std::vector<int32>, x::errors::Error>
+    GetPhysicalChanAttributeInt32Array(const char physicalChannel[], int32 attribute);
 };
 }

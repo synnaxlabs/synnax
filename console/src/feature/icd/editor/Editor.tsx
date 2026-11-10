@@ -18,6 +18,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, ICD, Library, Panel } from "@synnaxlabs/pluto";
+import { type deep } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Message } from "@/feature/icd/editor/Message";
@@ -28,13 +29,13 @@ import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 interface TitleProps {
-  path: string;
+  path: deep.Path<icd.Message>;
 }
 
 const Title = ({ path }: TitleProps): ReactElement | null => {
-  const name = Form.useFieldValue<string>(`${path}.name`, { optional: true });
+  const name = Form.useFieldValue(path.name, { optional: true });
   return (
-    <Text.Text weight={500} color={10} overflow="ellipsis">
+    <Text.Text weight={500} color={10} overflow="fade">
       {name}
     </Text.Text>
   );
@@ -46,12 +47,12 @@ interface BodyProps {
 }
 
 const Body = ({ selected, onSelect }: BodyProps): ReactElement => {
-  const { data } = Form.useFieldList<string, icd.Message>("messages");
+  const { data } = Form.useFieldList(ICD.formPath.messages);
   // Selected messages can vanish when a save or an import replaces the messages.
   const present = selected.filter((key) => data.includes(key));
   const shown = present.length > 0 ? present : data.slice(0, 1);
   const current = shown.at(0);
-  const path = current == null ? null : `messages.${current}`;
+  const path = current == null ? null : ICD.formPath.messages[current];
   return (
     <Task.Views.Panes
       listTitle="Messages"
@@ -99,7 +100,7 @@ interface ContentProps {
 const Content = ({ onReload }: ContentProps): ReactElement => {
   const { key } = Panel.useTabResource();
   const [selected, setSelected] = useState<string[]>([]);
-  const canEdit = Access.useUpdateGranted(icd.ontologyID(key));
+  const canEdit = Access.useUpdateGranted(icd.resourceID(key));
   const { form, save, variant, status } = ICD.useForm({
     query: { key },
     initialValues: { key, name: "", messages: [], hash: "" },
@@ -118,7 +119,7 @@ const Content = ({ onReload }: ContentProps): ReactElement => {
           gap="medium"
           className={CSS.BE("icd-editor", "header")}
         >
-          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
+          <Form.Field path={ICD.formPath.name} showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 variant="text"

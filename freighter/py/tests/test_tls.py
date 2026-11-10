@@ -27,7 +27,7 @@ from freighter import (
 )
 from x.codec import JSONCodec
 
-from .interface import Message
+from .interface import Message, create_registry
 
 
 class _EchoHandler(BaseHTTPRequestHandler):
@@ -75,7 +75,7 @@ def http_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
     server = HTTPServer(("localhost", 0), _EchoHandler)
     server.socket = server_ctx.wrap_socket(server.socket, server_side=True)
     threading.Thread(target=server.serve_forever, args=(0.01,), daemon=True).start()
-    yield URL("localhost", server.server_address[1])
+    yield URL(host="localhost", port=server.server_address[1])
     server.shutdown()
     server.server_close()
 
@@ -91,7 +91,7 @@ def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
         return await serve(_open_ack, "localhost", 0, ssl=server_ctx)
 
     server = asyncio.run_coroutine_threadsafe(start(), loop).result()
-    yield URL("localhost", next(iter(server.sockets)).getsockname()[1])
+    yield URL(host="localhost", port=next(iter(server.sockets)).getsockname()[1])
 
     async def stop() -> None:
         server.close()
@@ -102,18 +102,22 @@ def ws_url(server_ctx: ssl.SSLContext) -> Iterator[URL]:
 
 
 def _send(url: URL, ctx: ssl.SSLContext) -> Message:
-    client = HTTPClient(url, JSONCodec(), ssl_context=ctx)
+    client = HTTPClient(
+        url=url, codec=JSONCodec(), registry=create_registry(), ssl_context=ctx
+    )
     return client.send("/echo", Message(id=1, message="hi"), Message)
 
 
 def _stream(url: URL, ctx: ssl.SSLContext) -> None:
-    client = WebsocketClient(encoder=JSONCodec(), base_url=url, ssl_context=ctx)
+    client = WebsocketClient(
+        encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
+    )
     client.stream("/stream", Message, Message).close_send()
 
 
 async def _stream_async(url: URL, ctx: ssl.SSLContext) -> None:
     client = AsyncWebsocketClient(
-        encoder=JSONCodec(), base_url=url, ssl_context=ctx
+        encoder=JSONCodec(), registry=create_registry(), base_url=url, ssl_context=ctx
     ).with_codec(JSONCodec())
     await (await client.stream("/stream", Message, Message)).close_send()
 

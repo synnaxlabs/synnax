@@ -11,14 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -33,7 +31,7 @@ class RegisterValue(BaseModel):
             When absent, the device's word order applies.
     """
 
-    data_type: telem.DataType = telem.DataType("uint8")
+    data_type: telem.DataType = telem.DataType("uint16")
     bytes_swapped: bool | None = None
     words_swapped: bool | None = None
 
@@ -55,6 +53,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -76,6 +75,7 @@ class BaseWriteChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     address: int = Field(default=0, ge=0, le=65535)
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -83,8 +83,58 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures a Modbus scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RegisterBit(BaseModel):
+    """Addresses one bit of a 16-bit register.
+
+    Attributes:
+        bit: Is the bit index, from 0 (least significant) to 15.
+    """
+
+    bit: int = Field(default=0, ge=0, le=15)
+
+
+class RegisterString(BaseModel):
+    """Interprets consecutive 16-bit registers as a fixed-length string.
+
+    Attributes:
+        length: Is the number of characters, two to each register.
+        bytes_swapped: Is true when the two characters of each register are swapped.
+            When absent, the device's byte order applies.
+    """
+
+    length: int = Field(ge=1, le=250)
+    bytes_swapped: bool | None = None
+
+
+class CoilWriteChannel(BaseWriteChannel):
+    """Writes a single bit to a coil."""
+
+    type: Literal["coil"] = "coil"
+
+
+class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
+    """Writes a typed value to one or more holding registers."""
+
+    type: Literal["holding_register"] = "holding_register"
+
+
+class HoldingRegisterBitWriteChannel(BaseWriteChannel, RegisterBit):
+    """Writes one bit of a holding register."""
+
+    type: Literal["holding_register_bit"] = "holding_register_bit"
+
+
+# Is a single Modbus write channel. The type field selects the register space the
+# channel writes to and the fields that accompany it.
+WriteChannel = Annotated[
+    CoilWriteChannel | HoldingRegisterWriteChannel | HoldingRegisterBitWriteChannel,
+    Field(discriminator="type"),
+]
 
 
 class CoilReadChannel(BaseReadChannel):
@@ -103,14 +153,36 @@ class HoldingRegisterReadChannel(BaseReadChannel, RegisterValue):
     """Reads a typed value from one or more holding registers."""
 
     type: Literal["holding_register"] = "holding_register"
-    string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
 class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     """Reads a typed value from one or more input registers."""
 
     type: Literal["input_register"] = "input_register"
-    string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
+
+
+class HoldingRegisterStringReadChannel(BaseReadChannel, RegisterString):
+    """Reads a string from consecutive holding registers."""
+
+    type: Literal["holding_register_string"] = "holding_register_string"
+
+
+class InputRegisterStringReadChannel(BaseReadChannel, RegisterString):
+    """Reads a string from consecutive input registers."""
+
+    type: Literal["input_register_string"] = "input_register_string"
+
+
+class HoldingRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of a holding register."""
+
+    type: Literal["holding_register_bit"] = "holding_register_bit"
+
+
+class InputRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of an input register."""
+
+    type: Literal["input_register_bit"] = "input_register_bit"
 
 
 # Is a single Modbus read channel. The type field selects the register space the
@@ -119,29 +191,27 @@ ReadChannel = Annotated[
     CoilReadChannel
     | DiscreteInputReadChannel
     | HoldingRegisterReadChannel
-    | InputRegisterReadChannel,
+    | InputRegisterReadChannel
+    | HoldingRegisterStringReadChannel
+    | InputRegisterStringReadChannel
+    | HoldingRegisterBitReadChannel
+    | InputRegisterBitReadChannel,
     Field(discriminator="type"),
 ]
 
 
-class CoilWriteChannel(BaseWriteChannel):
-    """Writes a single bit to a coil."""
+class WriteConfig(task.WriteConfig):
+    """Configures a Modbus write task.
 
-    type: Literal["coil"] = "coil"
+    Attributes:
+        channels: Are the channels the task drives.
+    """
 
+    channels: list[WriteChannel] = Field(default_factory=list)
 
-class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
-    """Writes a typed value to one or more holding registers."""
-
-    type: Literal["holding_register"] = "holding_register"
-
-
-# Is a single Modbus write channel. The type field selects the register space the
-# channel writes to and the fields that accompany it.
-WriteChannel = Annotated[
-    CoilWriteChannel | HoldingRegisterWriteChannel,
-    Field(discriminator="type"),
-]
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
 
 
 class ReadConfig(task.ReadConfig):
@@ -155,18 +225,6 @@ class ReadConfig(task.ReadConfig):
     device: device_.Key = ""
     channels: list[ReadChannel] = Field(default_factory=list)
 
-    def __hash__(self) -> int:
-        return hash(self.key)
-
-
-class WriteConfig(task.WriteConfig):
-    """Configures a Modbus write task.
-
-    Attributes:
-        channels: Are the channels the task drives.
-    """
-
-    channels: list[WriteChannel] = Field(default_factory=list)
-
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

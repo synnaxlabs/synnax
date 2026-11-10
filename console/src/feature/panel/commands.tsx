@@ -42,7 +42,7 @@ const useOpenIconPicker = () => {
 const useCanChangeIcon = (): boolean => {
   const selected = Session.Panel.useSelectSelected();
   const canEdit = Access.useUpdateGranted(
-    panel.ontologyID(selected == null ? [] : [selected]),
+    panel.resourceID(selected == null ? [] : [selected]),
   );
   return selected != null && canEdit;
 };

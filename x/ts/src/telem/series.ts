@@ -27,6 +27,7 @@ import {
   type CrudeTimeStamp,
   DataType,
   isTelemValue,
+  type NumberArray,
   Size,
   type TelemValue,
   TimeRange,
@@ -43,11 +44,19 @@ interface GL {
   generation: number;
   prevBuffer: number;
   bufferUsage: GLBufferUsage;
+  /** The float32 copy of a bigint series, relative to offset. */
+  copy: Float32Array<ArrayBuffer> | null;
+  /** The number of samples converted into copy. */
+  copied: number;
+  offset: math.Numeric | null;
 }
 
 interface IterableIterator<T> extends Iterator<T>, Iterable<T> {}
 
-/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+/**
+ * Shortest decimal string that round-trips through f32 — JS analogue of Go's
+ * strconv.FormatFloat(_, 'g', -1, 32).
+ */
 const stringifyFloat32 = (value: number): string => {
   const f32 = Math.fround(value);
   if (!Number.isFinite(f32)) return f32.toString();
@@ -213,6 +222,10 @@ export class Series<T extends TelemValue = TelemValue>
   private cachedDataView?: TypedArray;
   /** The write position cachedDataView was built at. */
   private cachedDataViewWritePos: number = FULL_BUFFER;
+  /** Caches alignmentBounds, which only change with the write position. */
+  private cachedAlignmentBounds?: bounds.Bounds<bigint>;
+  /** The write position cachedAlignmentBounds was built at. */
+  private cachedAlignmentBoundsWritePos: number = FULL_BUFFER;
 
   /**
    * A zod schema that can be used to validate that a particular value
@@ -388,14 +401,17 @@ export class Series<T extends TelemValue = TelemValue>
       generation: 0,
       prevBuffer: 0,
       bufferUsage: glBufferUsage,
+      copy: null,
+      copied: 0,
+      offset: null,
     };
   }
 
   /**
    * Allocates a new series with a given capacity and data type.
-   * @param args.capacity the capacity of the series in samples. If the data type is of
-   * variable density (i.e. JSON, STRING, BYTES), this is the capacity in bytes.
-   * @param args.rest the rest of the arguments to pass to the series constructor.
+   * @param args.capacity - the capacity of the series in samples. If the data type is
+   * of variable density (i.e. JSON, STRING, BYTES), this is the capacity in bytes.
+   * @param args.rest - the rest of the arguments to pass to the series constructor.
    */
   static alloc({ capacity, dataType, ...rest }: SeriesAllocParams): Series {
     if (capacity === 0)
@@ -426,20 +442,21 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Releases a reference to this series. If the reference count to the series reaches
-   * 0 and the series has been buffered to the GPU, the series will be deleted from
-   * the GPU.
+   * Releases a reference to this series. When the reference count reaches 0, the series
+   * drops its GPU buffer and the float32 copy behind glData.
    */
   release(): void {
     this._refCount--;
-    if (this.refCount === 0 && this.gl.control != null)
-      this.maybeGarbageCollectGLBuffer(this.gl.control);
-    else if (this.refCount < 0)
+    if (this.refCount === 0) {
+      if (this.gl.control != null) this.maybeGarbageCollectGLBuffer(this.gl.control);
+      this.gl.copy = null;
+      this.gl.copied = 0;
+    } else if (this.refCount < 0)
       console.warn("cannot release a series with a negative reference count");
   }
 
   /**
-   * @param other the series to write to this series. The data type of the series
+   * @param other - the series to write to this series. The data type of the series
    * written must be the same as the data type of the series being written to.
    * @returns the number of samples written. If the entire series fits, this value is
    * equal to the length of the series being written.
@@ -527,8 +544,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns an array of the values in the series as strings.
-   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * Returns an array of the values in the series as strings. For variable length data
+   * types (like STRING or JSON), this decodes the underlying buffer.
    * @returns An array of string representations of the series values.
    */
   toStrings(): string[] {
@@ -591,8 +608,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * Returns the number of samples in this array.
-   * For variable length data types, this is calculated by scanning uint32 length prefixes.
+   * Returns the number of samples in this array. For variable length data types, this
+   * is calculated by scanning uint32 length prefixes.
    * @returns The number of samples in the series.
    */
   get length(): number {
@@ -626,10 +643,10 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Creates a new array with a different data type.
-   * @param sampleOffset an offset to apply to each sample. This can help with precision
-   * issues when converting between data types. WARNING: This method is expensive and
-   * copies the entire underlying array. There also may be untimely precision issues
-   * when converting between data types.
+   * @param sampleOffset - an offset to apply to each sample. This can help with
+   * precision issues when converting between data types. WARNING: This method is
+   * expensive and copies the entire underlying array. There also may be untimely
+   * precision issues when converting between data types.
    */
   convert(target: DataType, sampleOffset: math.Numeric = 0): Series {
     if (this.dataType.equals(target)) return this;
@@ -716,8 +733,8 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * @returns the ascending, disjoint [lower, upper) index ranges of the NaN and ±Infinity
-   * samples in the series.
+   * @returns the ascending, disjoint [lower, upper) index ranges of the NaN and
+   * ±Infinity samples in the series.
    */
   get nonFiniteRanges(): readonly Readonly<bounds.Bounds>[] {
     if (!this.dataType.isFloat) return EMPTY_RANGES;
@@ -803,13 +820,13 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * @returns the value at the given alignment.
-   * @param required throws an error if the value is not found.
+   * @param required - throws an error if the value is not found.
    */
   atAlignment(alignment: bigint, required: true): T;
 
   /**
    * @returns the value at the given alignment.
-   * @param required throws an error if the value is not found.
+   * @param required - throws an error if the value is not found.
    */
   atAlignment(alignment: bigint, required?: false): T | undefined;
 
@@ -824,13 +841,13 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * @returns the value at the given index.
-   * @param required throws an error if the value is not found.
+   * @param required - throws an error if the value is not found.
    */
   at(index: number, required: true): T;
 
   /**
    * @returns the value at the given index.
-   * @param required throws an error if the value is not found.
+   * @param required - throws an error if the value is not found.
    */
   at(index: number, required?: false): T | undefined;
 
@@ -941,9 +958,10 @@ export class Series<T extends TelemValue = TelemValue>
   }
 
   /**
-   * @returns the index of the first sample that is greater than or equal to the given value.
-   * The underlying array must be sorted. If it is not, the behavior of this method is undefined.
-   * @param value the value to search for.
+   * @returns the index of the first sample that is greater than or equal to the given
+   * value. The underlying array must be sorted. If it is not, the behavior of this
+   * method is undefined.
+   * @param value - the value to search for.
    */
   binarySearch(value: math.Numeric): number {
     let left = 0;
@@ -964,17 +982,14 @@ export class Series<T extends TelemValue = TelemValue>
    * should be called whenever a series has been previously buffered to the GPU and
    * then modified via calls to write(). The whole series uploads again when the
    * controller's context was restored after the last upload.
-   * @param control the buffer controller to update the buffer for. This controller
-   * should be the same controller previously passed to {@method acquire} or
-   * {@method updateGLBuffer}.
+   * @param control - the buffer controller to update the buffer for. This controller
+   * should be the same controller previously passed to {@method acquire} or {@method
+   * updateGLBuffer}.
    */
   updateGLBuffer(control: GLBufferController): void {
     this.gl.control = control;
-    if (
-      !this.dataType.equals(DataType.FLOAT32) &&
-      !this.dataType.equals(DataType.UINT8)
-    )
-      throw new Error("Only FLOAT32 and UINT8 arrays can be used in WebGL");
+    if (this.dataType.isVariable)
+      throw new Error("variable length series cannot be used in WebGL");
     // The restore of the context destroyed the buffer.
     if (this.gl.generation !== control.generation) {
       this.gl.buffer = null;
@@ -993,21 +1008,70 @@ export class Series<T extends TelemValue = TelemValue>
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.gl.buffer);
 
+    const { density } = this.glDataType;
     if (this.writePos !== FULL_BUFFER) {
       if (prevBuffer === 0)
-        gl.bufferData(gl.ARRAY_BUFFER, this.byteCapacity.valueOf(), gl.STATIC_DRAW);
-      const byteOffset = this.dataType.density.size(prevBuffer).valueOf();
-      const slice = this.underlyingData.slice(this.gl.prevBuffer, this.writePos);
-      gl.bufferSubData(gl.ARRAY_BUFFER, byteOffset, slice.buffer);
+        gl.bufferData(
+          gl.ARRAY_BUFFER,
+          density.size(this.capacity).valueOf(),
+          gl.STATIC_DRAW,
+        );
+      const byteOffset = density.size(prevBuffer).valueOf();
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        byteOffset,
+        this.glSlice(prevBuffer, this.writePos),
+      );
       this.gl.prevBuffer = this.writePos;
     } else {
       gl.bufferData(
         gl.ARRAY_BUFFER,
-        this.buffer,
+        this.glSlice(0, this.length),
         bufferUsage === "static" ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW,
       );
       this.gl.prevBuffer = FULL_BUFFER;
     }
+  }
+
+  /**
+   * @returns the data type of the series on the GPU: UINT8 for a UINT8 series, and
+   * FLOAT32 for every other numeric type.
+   */
+  get glDataType(): DataType {
+    return this.dataType.equals(DataType.UINT8) ? DataType.UINT8 : DataType.FLOAT32;
+  }
+
+  /**
+   * @returns the value that glData and the GPU buffer hold each sample relative to. A
+   * bigint series counts from its first sample, so its samples fit a float32.
+   */
+  get glOffset(): math.Numeric {
+    if (!this.dataType.usesBigInt || this.length === 0) return this.sampleOffset;
+    return (this.gl.offset ??= this.at(0, true) as math.Numeric);
+  }
+
+  /**
+   * @returns the samples relative to glOffset, as JS numbers. A bigint series keeps a
+   * float32 copy, which grows as the series is written and drops when the last
+   * reference is released. Every other series returns its own data.
+   */
+  get glData(): NumberArray {
+    if (!this.dataType.usesBigInt) return this.data as NumberArray;
+    const { length } = this;
+    const data = this.data as BigInt64Array | BigUint64Array;
+    const copy = (this.gl.copy ??= new Float32Array(this.capacity));
+    for (let i = this.gl.copied; i < length; i++) copy[i] = Number(data[i] - data[0]);
+    this.gl.copied = length;
+    return copy.subarray(0, length);
+  }
+
+  // Returns samples [start, end) as glDataType. Only a series of another data type
+  // allocates.
+  private glSlice(start: number, end: number): AllowSharedBufferSource {
+    const data = this.glData;
+    if (this.dataType.usesBigInt || this.dataType.equals(this.glDataType))
+      return data.subarray(start, end);
+    return new Float32Array(data.subarray(start, end));
   }
 
   /**
@@ -1062,13 +1126,23 @@ export class Series<T extends TelemValue = TelemValue>
    * occupied by the series in a group of series. This is typically used to order the
    * series within a channel's data. The lower bound is the alignment of the first
    * sample, and the upper bound is the alignment of the last sample + 1. The lower
-   * bound is inclusive, while the upper bound is exclusive.
+   * bound is inclusive, while the upper bound is exclusive. The bounds are frozen, and
+   * the same object returns until the series grows.
    */
   get alignmentBounds(): bounds.Bounds<bigint> {
-    return bounds.construct(
-      this.alignment,
-      this.alignment + BigInt(this.length) * this.alignmentMultiple,
-    );
+    if (
+      this.cachedAlignmentBounds == null ||
+      this.cachedAlignmentBoundsWritePos !== this.writePos
+    ) {
+      this.cachedAlignmentBounds = Object.freeze(
+        bounds.construct(
+          this.alignment,
+          this.alignment + BigInt(this.length) * this.alignmentMultiple,
+        ),
+      );
+      this.cachedAlignmentBoundsWritePos = this.writePos;
+    }
+    return this.cachedAlignmentBounds;
   }
 
   private maybeGarbageCollectGLBuffer(control: GLBufferController): void {
@@ -1108,8 +1182,8 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Returns a slice of the series from start to end.
-   * @param start The start index (inclusive).
-   * @param end The end index (exclusive).
+   * @param start - The start index (inclusive).
+   * @param end - The end index (exclusive).
    * @returns A new series containing the sliced data.
    */
   slice(start: number, end?: number): Series {
@@ -1119,8 +1193,8 @@ export class Series<T extends TelemValue = TelemValue>
   /**
    * Returns a subarray view of the series from start to end. Variable-density
    * series copy instead of viewing.
-   * @param start The start index (inclusive).
-   * @param end The end index (exclusive).
+   * @param start - The start index (inclusive).
+   * @param end - The end index (exclusive).
    * @returns A new series containing the subarray data.
    */
   sub(start: number, end?: number): Series {
@@ -1129,8 +1203,8 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Returns an iterator over a portion of the series.
-   * @param start The start index (inclusive).
-   * @param end The end index (exclusive).
+   * @param start - The start index (inclusive).
+   * @param end - The end index (exclusive).
    * @returns An iterator over the specified range.
    */
   subIterator(start: number, end?: number): Iterator<T> {
@@ -1250,7 +1324,10 @@ export class Series<T extends TelemValue = TelemValue>
   }
 }
 
-/** @returns true if a Series can be constructed from the given value, and false otherwise. */
+/**
+ * @returns true if a Series can be constructed from the given value, and false
+ * otherwise.
+ */
 export const isCrudeSeries = (value: unknown): value is CrudeSeries => {
   if (value == null) return false;
   if (Array.isArray(value)) return true;
@@ -1516,7 +1593,7 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
     } else {
       if (this.series.length !== 0 && series.series.length !== 0 && !dtsEqual)
         throw invalidDataTypeError();
-      this.series.push(...series.series);
+      series.series.forEach((s) => this.series.push(s));
     }
   }
 
@@ -1702,8 +1779,8 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
   }
 
   /**
-   * Returns an array of the values in the multi-series as strings.
-   * For variable length data types (like STRING or JSON), this decodes the underlying buffer.
+   * Returns an array of the values in the multi-series as strings. For variable length
+   * data types (like STRING or JSON), this decodes the underlying buffer.
    * @returns An array of string representations of the multi-series values.
    */
   toStrings(): string[] {

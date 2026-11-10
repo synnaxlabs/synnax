@@ -11,6 +11,7 @@
 import numpy as np
 
 import synnax as sy
+from framework.test_case import param
 from tests.latency.latency import Latency
 
 
@@ -56,8 +57,8 @@ class Abcd(Latency):
         self.configure(loop_rate=0.01, manual_timeout=15)
 
         # Get mode from matrix parameters
-        self.mode = self.params.get("mode")
-        if self.mode is None:
+        self.mode = param(self.params, "mode", "")
+        if not self.mode:
             raise ValueError("Missing required parameter 'mode' from matrix")
 
         if self.mode == "a":
@@ -94,10 +95,10 @@ class Abcd(Latency):
             self.subscribe("t_b")
 
         if self.mode == "d":
-            self.add_channel("d_ab", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_bc", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_cd", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_da", sy.DataType.FLOAT64, 0, False)
+            self.add_channel("d_ab", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_bc", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_cd", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_da", sy.DataType.FLOAT64, 0, append_name=False)
             self.subscribe(["t_a", "t_b", "t_c", "t_d"])
 
     def run(self) -> None:
@@ -147,11 +148,18 @@ class Abcd(Latency):
                 t_d = self.read_tlm("t_d")
                 if t_a is None or t_b is None or t_c is None or t_d is None:
                     continue
+                if not (
+                    isinstance(t_a, sy.TimeStamp)
+                    and isinstance(t_b, sy.TimeStamp)
+                    and isinstance(t_c, sy.TimeStamp)
+                    and isinstance(t_d, sy.TimeStamp)
+                ):
+                    self.fail("t_a, t_b, t_c, and t_d must hold TimeStamps")
 
-                d_ab = (t_a - t_b) / 1e9
-                d_bc = (t_b - t_c) / 1e9
-                d_cd = (t_c - t_d) / 1e9
-                d_da = -(t_d - t_a) / 1e9
+                d_ab = (t_a - t_b).seconds
+                d_bc = (t_b - t_c).seconds
+                d_cd = (t_c - t_d).seconds
+                d_da = (t_a - t_d).seconds
                 self.write_tlm("d_ab", d_ab)
                 self.write_tlm("d_bc", d_bc)
                 self.write_tlm("d_cd", d_cd)

@@ -67,6 +67,38 @@ describe("Hardware Task Types", () => {
       });
     });
 
+    describe("validateEnabledChannel", () => {
+      const enabledArrayZ = z.array(channelZ).check(Task.validateEnabledChannel);
+
+      it("should reject an empty list", () => {
+        const issues = enabledArrayZ.safeParse([]).error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            path: [],
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should reject a list whose channels are all disabled", () => {
+        const issues = enabledArrayZ.safeParse([{ ...ZERO_CHANNEL, disabled: true }])
+          .error?.issues;
+        expect(issues).toEqual([
+          expect.objectContaining({
+            message: "At least one enabled channel is required",
+          }),
+        ]);
+      });
+
+      it("should accept a list with one enabled channel", () => {
+        const channels = [
+          { disabled: true, key: "a" },
+          { disabled: false, key: "b" },
+        ];
+        expect(enabledArrayZ.safeParse(channels).success).toBe(true);
+      });
+    });
+
     describe("validateReadChannels", () => {
       it("should report errors for duplicate channel values", () => {
         const channels: z.infer<typeof readChannelZ>[] = [
@@ -328,6 +360,34 @@ describe("Hardware Task Types", () => {
             ),
           ).toBe(true);
       });
+
+      it("should accept channels that have no channel fields", () => {
+        const noChannelsArrayZ = z.array(channelZ).check(Task.validateWriteChannels);
+        const channels = [
+          { ...ZERO_CHANNEL, key: "channel1" },
+          { ...ZERO_CHANNEL, key: "channel2" },
+        ];
+        expect(noChannelsArrayZ.safeParse(channels).success).toBe(true);
+      });
+
+      it("should check channels with channel fields next to channels with none", () => {
+        const mixedArrayZ = z
+          .array(z.union([writeChannelZ, channelZ]))
+          .check(Task.validateWriteChannels);
+        const channels = [
+          { ...ZERO_CHANNEL, key: "generated" },
+          { ...ZERO_WRITE_CHANNEL, key: "channel1", cmdChannelName: "cmd" },
+          { ...ZERO_WRITE_CHANNEL, key: "channel2", cmdChannelName: "cmd" },
+        ];
+        const issues = mixedArrayZ.safeParse(channels).error?.issues;
+        expect(issues).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              message: "Name cmd is used for multiple channels",
+            }),
+          ]),
+        );
+      });
     });
   });
 
@@ -373,6 +433,33 @@ describe("Hardware Task Types", () => {
           "Stream rate must be less than or equal to the sample rate",
         );
       }
+    });
+  });
+
+  describe("firstPerPort", () => {
+    const ch = (key: string, port: string, disabled = false) => ({
+      key,
+      port,
+      disabled,
+    });
+    const portOf = (c: { port: string }) => c.port;
+
+    it("should keep the first channel on each port, in order", () => {
+      const channels = [ch("a", "p0"), ch("b", "p1"), ch("c", "p0")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual(["a", "b"]);
+    });
+
+    it("should prefer an enabled channel over an earlier disabled one", () => {
+      const channels = [ch("off", "p0", true), ch("on", "p0")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual(["on"]);
+    });
+
+    it("should keep a disabled channel alone on its port", () => {
+      const channels = [ch("off", "p0", true), ch("other", "p1")];
+      expect(Task.firstPerPort(channels, portOf).map((c) => c.key)).toEqual([
+        "other",
+        "off",
+      ]);
     });
   });
 });

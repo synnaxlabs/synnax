@@ -15,10 +15,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
+
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeICD }
 
 // Match reports false: ICDs have no Console-era file shape to recognize.
 func (*Service) Match(map[string]any) bool { return false }
@@ -31,13 +34,13 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 	_ imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	ic, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	if err = s.NewWriter(tx).Create(ctx, &ic); err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	return OntologyID(ic.Key), nil
+	return ic.ResourceID(), nil
 }

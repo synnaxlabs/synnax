@@ -16,7 +16,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
-import { createTestDevice } from "@/platform/device/testutil";
+import {
+  createTestDevice,
+  setTestDeviceStatus,
+  TEST_DEVICE_STATUS_MESSAGE,
+} from "@/platform/device/testutil";
 import { Errors } from "@/platform/errors";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
@@ -37,17 +41,24 @@ const HARDWARE: Device.Hardware = {
   icon: <Icon.Hardware />,
   make: "acme",
   scanType: "acme_scan",
+  location: { shape: "plain" },
   checks: [],
-  zeroProperties: { vendor: "acme" },
+  Configure: Device.createConfigure({
+    icon: <Icon.Hardware />,
+    zeroProperties: { vendor: "acme" },
+  }),
 };
+
+const Configure = Device.createConfigure({
+  icon: <Icon.Hardware />,
+  zeroProperties: {},
+});
 
 const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
   ({ deviceKey, close }) => (
-    <Device.Configure
+    <Configure
       deviceKey={deviceKey}
       close={close}
-      icon={<Icon.Hardware />}
-      initialProperties={{}}
       onCreateTask={onCreateTask}
       onBack={onBack}
     />
@@ -95,12 +106,7 @@ describe("device Configure", () => {
   it("should not render the form while the device has not been retrieved", async () => {
     await renderWithConsole(
       <Errors.SuspenseBoundary>
-        <Device.Configure
-          deviceKey={id.create()}
-          close={vi.fn()}
-          icon={<Icon.Hardware />}
-          initialProperties={{}}
-        />
+        <Configure deviceKey={id.create()} close={vi.fn()} />
       </Errors.SuspenseBoundary>,
       { onCaughtError: () => {} },
     );
@@ -124,6 +130,25 @@ describe("device Configure", () => {
     expect(screen.getByText(HINT)).toBeTruthy();
     const unchanged = await client.devices.retrieve(dev.key);
     expect(unchanged.configured).toBe(false);
+  });
+
+  it("should keep the status that the Driver reported on a rename", async () => {
+    const { dev } = await setup();
+    await setTestDeviceStatus(client, dev);
+    const newName = uniqueName("renamed_sensor");
+    fireEvent.change(nameInput(), { target: { value: newName } });
+    fireEvent.change(identifierInput(), { target: { value: "sensor_1" } });
+    await save();
+    await waitFor(async () => {
+      const { status } = await client.devices.retrieve({
+        key: dev.key,
+        includeStatus: true,
+      });
+      expect(status).toMatchObject({
+        name: newName,
+        message: TEST_DEVICE_STATUS_MESSAGE,
+      });
+    });
   });
 
   it("should configure the device with the edited name, identifier, and initial properties, then close", async () => {

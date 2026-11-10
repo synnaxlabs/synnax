@@ -7,22 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/lyra/context";
 import { type PropsWithChildren, type ReactElement } from "react";
 
+import { Context, type ContextMenus } from "@/platform/tree/context";
 import { type Items } from "@/platform/tree/item";
+import { CopyContextMenu, FallbackContextMenu } from "@/platform/tree/menu";
 
-const [Context, useContext] = context.create<Items>({
-  displayName: "Tree.Context",
-  providerName: "Tree.Provider",
-});
-
-export const useItems = (): Items => useContext("Tree.useItems");
+const FALLBACK_CONTEXT_MENUS: ContextMenus = {
+  root: FallbackContextMenu,
+  mixed: CopyContextMenu,
+};
 
 export interface ProviderProps extends PropsWithChildren {
   items: Items;
+  /**
+   * Defaults to a root menu that holds only the reload of the Console, and a mixed menu
+   * that adds Copy.
+   */
+  contextMenus?: ContextMenus;
 }
 
-export const Provider = ({ items, ...rest }: ProviderProps): ReactElement => (
-  <Context value={items} {...rest} />
+export const Provider = ({
+  items,
+  contextMenus = FALLBACK_CONTEXT_MENUS,
+  ...rest
+}: ProviderProps): ReactElement => (
+  <Context value={{ items, contextMenus }} {...rest} />
 );

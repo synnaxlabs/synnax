@@ -46,7 +46,7 @@ cc_test(
     deps = [
         ":codec",
         "//x/cpp/json",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "//x/cpp/uuid",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",

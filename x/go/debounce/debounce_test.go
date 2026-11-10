@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/debounce"
 	. "github.com/synnaxlabs/x/testutil"
 	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func noopCallback(context.Context) {}
@@ -49,7 +50,7 @@ var _ = Describe("Debounce", func() {
 			})
 			It("Should override Clock when the override is non-nil", func() {
 				base := debounce.Config{Clock: xtime.Real}
-				fake := &xtime.Fake{}
+				fake := &timetestutil.Clock{}
 				Expect(base.Override(debounce.Config{Clock: fake}).Clock).
 					To(Equal(xtime.Clock(fake)))
 			})
@@ -124,7 +125,7 @@ var _ = Describe("Debounce", func() {
 
 	Describe("Trigger", func() {
 		It("Should fire the callback once the delay has elapsed", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    5 * time.Millisecond,
@@ -139,7 +140,7 @@ var _ = Describe("Debounce", func() {
 		})
 
 		It("Should coalesce rapid triggers into a single invocation", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    20 * time.Millisecond,
@@ -157,7 +158,7 @@ var _ = Describe("Debounce", func() {
 		})
 
 		It("Should cancel in-flight work when re-triggered", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var (
 				once      sync.Once
 				started   = make(chan struct{})
@@ -183,7 +184,7 @@ var _ = Describe("Debounce", func() {
 
 	Describe("MaxDelay", func() {
 		It("Should clamp the delay when the cap would otherwise be exceeded", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    time.Hour,
@@ -201,7 +202,7 @@ var _ = Describe("Debounce", func() {
 		})
 
 		It("Should fire immediately when the cap is fully elapsed", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    time.Hour,
@@ -219,7 +220,7 @@ var _ = Describe("Debounce", func() {
 		It(
 			"Should not clamp the delay when only one trigger fits inside the cap",
 			func() {
-				clk := &xtime.Fake{}
+				clk := &timetestutil.Clock{}
 				var called atomic.Int32
 				d := MustSucceed(debounce.New(debounce.Config{
 					Delay:    5 * time.Millisecond,
@@ -237,7 +238,7 @@ var _ = Describe("Debounce", func() {
 
 	Describe("Stop", func() {
 		It("Should prevent a pending trigger from firing", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    20 * time.Millisecond,
@@ -251,7 +252,7 @@ var _ = Describe("Debounce", func() {
 		})
 
 		It("Should cancel in-flight work", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var (
 				once      sync.Once
 				started   = make(chan struct{})
@@ -283,7 +284,7 @@ var _ = Describe("Debounce", func() {
 		})
 
 		It("Should reset MaxDelay tracking so the next Trigger is not clamped", func() {
-			clk := &xtime.Fake{}
+			clk := &timetestutil.Clock{}
 			var called atomic.Int32
 			d := MustSucceed(debounce.New(debounce.Config{
 				Delay:    5 * time.Millisecond,

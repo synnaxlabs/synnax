@@ -33,11 +33,10 @@ export const ConnectFooter = ({
   onConnect,
   onBack,
 }: ConnectFooterProps): ReactElement => {
-  let summary: ReactElement;
+  let summary: ReactElement | null = null;
   if (reason != null) summary = <Status.Summary variant="warning" message={reason} />;
-  else if (variant === "success")
-    summary = <Triggers.SaveHelpText action="Connect" noBar />;
-  else summary = <Status.Summary variant={variant} message={message} />;
+  else if (variant !== "success")
+    summary = <Status.Summary variant={variant} message={message} />;
   return (
     <Modal.Footer>
       <Nav.Bar.Start gap="small">
@@ -55,6 +54,7 @@ export const ConnectFooter = ({
           onClick={onConnect}
           variant="filled"
           trigger={Triggers.SAVE}
+          triggerIndicator
           disabled={reason != null}
         >
           Connect

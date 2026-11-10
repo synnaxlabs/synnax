@@ -12,25 +12,34 @@
 package v0
 
 // Level is a typography level identifier shared across visualizations. Mirrors the
-// heading ladder (h1 through h5) plus paragraph (p) and small. Order is descending: h1
-// is the largest, small is the smallest.
+// heading ladder (h1 through h5) plus paragraph (p), small, and tiny. Order is
+// descending: h1 is the largest, tiny is the smallest.
 type Level string
 
 const (
-	LevelH1    Level = "h1"
-	LevelH2    Level = "h2"
-	LevelH3    Level = "h3"
-	LevelH4    Level = "h4"
-	LevelH5    Level = "h5"
-	LevelP     Level = "p"
+	// LevelH1 is the largest heading level.
+	LevelH1 Level = "h1"
+	// LevelH2 is the second heading level.
+	LevelH2 Level = "h2"
+	// LevelH3 is the third heading level.
+	LevelH3 Level = "h3"
+	// LevelH4 is the fourth heading level.
+	LevelH4 Level = "h4"
+	// LevelH5 is the smallest heading level.
+	LevelH5 Level = "h5"
+	// LevelP is the paragraph level.
+	LevelP Level = "p"
+	// LevelSmall is one step below the paragraph level.
 	LevelSmall Level = "small"
+	// LevelTiny is the smallest level.
+	LevelTiny Level = "tiny"
 )
 
 // IsValid reports whether l is one of the defined Level
 // values.
 func (l Level) IsValid() bool {
 	switch l {
-	case LevelH1, LevelH2, LevelH3, LevelH4, LevelH5, LevelP, LevelSmall:
+	case LevelH1, LevelH2, LevelH3, LevelH4, LevelH5, LevelP, LevelSmall, LevelTiny:
 		return true
 	default:
 		return false

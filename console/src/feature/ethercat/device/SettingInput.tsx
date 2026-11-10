@@ -1,0 +1,82 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Input } from "@synnaxlabs/lyra/input";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type ReactElement } from "react";
+
+import { type Field } from "@/feature/ethercat/device/settings";
+
+interface BaseProps {
+  field: Field;
+  /** Undefined shows the field as not set. */
+  value: number | undefined;
+  problem?: string;
+}
+
+interface RequiredProps extends BaseProps {
+  allowNone?: false;
+  onChange: (value: number) => void;
+}
+
+/** A field that the user can leave not set. onChange gets null when they clear it. */
+interface OptionalProps extends BaseProps {
+  allowNone: true;
+  onChange: (value: number | null) => void;
+}
+
+export type SettingInputProps = RequiredProps | OptionalProps;
+
+/** A select for a field with options, or a number input with its unit. */
+export const SettingInput = (props: SettingInputProps): ReactElement => {
+  const { field, value, problem, onChange } = props;
+  const status = problem == null ? undefined : "error";
+  const clear = props.allowNone === true ? () => props.onChange(null) : undefined;
+  return (
+    <Input.Item
+      label={field.name}
+      helpText={problem}
+      status={status}
+      padHelpText={false}
+    >
+      {field.options == null ? (
+        <Input.Numeric
+          value={value}
+          onChange={onChange}
+          onClear={clear}
+          endContent={field.unit === "" ? undefined : field.unit}
+          status={status}
+          aria-label={field.name}
+        />
+      ) : (
+        <Select.Simple<number>
+          value={value}
+          onChange={(next: number | null) =>
+            next == null ? clear?.() : onChange(next)
+          }
+          resourceName={field.name.toLowerCase()}
+          searchHidden
+          allowNone={clear != null}
+          triggerProps={{ status }}
+        >
+          {field.options.map(({ value, name }) => (
+            <Select.Item<number>
+              key={value}
+              itemKey={value}
+              label={name}
+              textValue={name}
+            >
+              {name}
+            </Select.Item>
+          ))}
+        </Select.Simple>
+      )}
+    </Input.Item>
+  );
+};

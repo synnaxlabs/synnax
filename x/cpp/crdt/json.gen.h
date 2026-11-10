@@ -27,7 +27,7 @@ inline ID ID::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ID::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["replica"] = this->replica;
     j["counter"] = this->counter;
     return j;
@@ -43,7 +43,7 @@ inline Insert Insert::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Insert::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["id"] = this->id.to_json();
     j["origin"] = this->origin.to_json();
     j["side"] = this->side;
@@ -58,7 +58,7 @@ inline Delete Delete::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Delete::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["id"] = this->id.to_json();
     return j;
 }

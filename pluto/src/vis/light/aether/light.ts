@@ -48,7 +48,7 @@ export class Light
   }
 
   private updateEnabledState(): void {
-    const nextEnabled = this.internal.source.value();
+    const nextEnabled = this.internal.source.value().data;
     if (nextEnabled !== this.state.enabled)
       this.setState((p) => ({ ...p, enabled: nextEnabled }));
   }

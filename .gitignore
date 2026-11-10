@@ -14,6 +14,7 @@
 node_modules/
 dist/
 coverage/
+.vitest/
 oracle/lsp/extensions/vscode/out/
 *.log
 *.local
@@ -101,6 +102,8 @@ integration/integration
 core/synnax
 core/pkg/driver/assets/*
 !core/pkg/driver/assets/.gitkeep
+core/pkg/console/update/*
+!core/pkg/console/update/.gitkeep
 console/src-tauri/release.tauri.conf.json
 
 # |||| PROFILING ||||
@@ -123,11 +126,11 @@ client/lv/**/builds/
 
 # |||| CLAUDE ||||
 
-# Ignore .claude/ contents but keep skills/ tracked so the project's Claude Code skills
-# ship with the repo. Excluding directory contents rather than the directory itself is
-# what lets the negation below re-include the subtree.
+# Ignore .claude/ contents but keep the skills link to .agents/skills/ tracked.
+# Excluding directory contents rather than the directory itself is what lets the
+# negation below re-include it.
 .claude/*
-!.claude/skills/
+!.claude/skills
 
 # |||| ORACLE ||||
 

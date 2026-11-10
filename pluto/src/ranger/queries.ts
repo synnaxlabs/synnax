@@ -7,28 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, ranger } from "@synnaxlabs/client";
-import { type List } from "@synnaxlabs/lyra/list";
-import { primitive, verbs } from "@synnaxlabs/x";
+import { label, ranger } from "@synnaxlabs/client";
+import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { Label } from "@/label";
-import { listDefinition, type ListQuery } from "@/ranger/aether/queries";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "range";
 const PLURAL_RESOURCE_NAME = "ranges";
 const KV_RESOURCE_NAME = "metadata";
 const PLURAL_KV_RESOURCE_NAME = "metadata";
-const PLURAL_CHILDREN_RESOURCE_NAME = "child ranges";
 const PARENT_RESOURCE_NAME = "parent range";
 
-export type RetrieveQuery = Pick<
-  ranger.RetrieveRequest,
-  "includeLabels" | "includeParent"
-> & {
+export type RetrieveQuery = {
   key: ranger.Key;
 };
 
@@ -42,45 +36,17 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => client?.ranges.onDelete((key) => onDelete(key)), [client]);
 };
 
-export type ListChildrenQuery = List.PagerParams & {
-  key?: ranger.Key;
-};
-
-export const useListChildren = Flux.createList<
-  ListChildrenQuery,
-  ranger.Key,
-  ranger.Range
->({
-  name: PLURAL_CHILDREN_RESOURCE_NAME,
-  retrieve: async ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return [];
-    return await client.ranges.children.retrieve({ key, limit, offset });
-  },
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChange: ({ client, query: { key, limit, offset } }, handler) => {
-    if (key == null) return () => {};
-    return client.ranges.children.onChange({ key, limit, offset }, handler);
-  },
-  getCached: ({ client, query: { key, limit, offset } }) => {
-    if (key == null) return undefined;
-    return client.ranges.children.getCached({ key, limit, offset });
-  },
-});
-
-export type RetrieveParentQuery = {
-  id: ontology.ID;
-};
-
 export const { use: useParent, useResult: useResultParent } = Flux.createRetrieve<
-  RetrieveParentQuery,
+  RetrieveQuery,
   ranger.Range | null
 >({
   name: PARENT_RESOURCE_NAME,
-  retrieve: async ({ client, query: { id } }) =>
-    await client.ranges.parent.retrieve(id),
-  onChange: ({ client, query: { id } }, handler) =>
-    client.ranges.parent.onChange(id, handler),
-  getCached: ({ client, query: { id } }) => client.ranges.parent.getCached(id),
+  retrieve: async ({ client, query: { key } }) =>
+    await client.ranges.parent.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    client.ranges.parent.watch(key).onChange(handler),
+  getCached: ({ client, query: { key } }) =>
+    client.ranges.parent.watch(key).getCached(),
 });
 
 export const { use, useEnsure, useTombstone, createSelector, useResult } =
@@ -88,8 +54,8 @@ export const { use, useEnsure, useTombstone, createSelector, useResult } =
     name: RESOURCE_NAME,
     retrieve: async ({ client, query: { key } }) => await client.ranges.retrieve(key),
     onChange: ({ client, query: { key } }, handler) =>
-      client.ranges.onChange(key, handler),
-    getCached: ({ client, query: { key } }) => client.ranges.getCached(key),
+      client.ranges.watch(key).onChange(handler),
+    getCached: ({ client, query: { key } }) => client.ranges.watch(key).getCached(),
   });
 
 export type RetrieveMultipleQuery = {
@@ -101,116 +67,104 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   ranger.Range[]
 >({
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query: { keys } }) => await client.ranges.retrieve(keys),
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.ranges.retrieve({ key: keys }),
   onChange: ({ client, query: { keys } }, handler) =>
-    client.ranges.onChange(keys, handler),
-  getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
+    client.ranges.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.ranges.watch(keys).getCached(),
 });
 
-export const formSchema = z.object({
+const timeRangeZ = z
+  .object({ start: z.number(), end: z.number() })
+  .refine(({ start, end }) => end >= start, {
+    error: "End time must be after start time",
+  });
+
+export const createFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z
-    .object({ start: z.number(), end: z.number() })
-    .refine(({ start, end }) => end >= start, {
-      error: "End time must be after start time",
-    }),
+  timeRange: timeRangeZ,
 });
 
-export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> => ({
-  ...range.payload,
-  timeRange: range.timeRange.numeric,
-  parent: range.parent?.key,
-  labels: range.labels?.map((l) => l.key) ?? [],
-});
+export const createFormPath = deep.path<z.infer<typeof createFormSchema>>();
 
-export type FormQuery = RetrieveQuery;
-
-const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   labels: [],
   parent: "",
   timeRange: { start: 0, end: 0 },
 };
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
+/** A form that creates a range when the caller saves it. */
+export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) =>
-    toFormValues(await client.ranges.retrieve(key)),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.ranges.getCached(key);
-    return query.isLive(cached) ? toFormValues(cached) : undefined;
-  },
+  schema: createFormSchema,
+  initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
-    const parentKey = value.parent;
     const rng = await client.ranges.create({
       ...value,
-      parent: primitive.isNonZero(parentKey) ? { key: parentKey } : undefined,
-    });
-    await Label.setLabelsFor({
-      client,
-      data: { id: rng.ontologyID, labels: value.labels },
+      parent: primitive.isNonZero(value.parent) ? value.parent : undefined,
     });
     reset({
       ...value,
       ...rng.payload,
       timeRange: rng.timeRange.numeric,
-      labels: value.labels,
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.ranges.onChange(key, (result) => {
-      if (query.isLive(result)) reset(toFormValues(result));
-      else if (query.Deleted.matches(result)) abandon();
-    }),
 });
 
-export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
-  Label.useResultLabelsOf(key == null ? null : { id: ranger.ontologyID(key) }).data;
-
-export { type ListQuery } from "@/ranger/aether/queries";
-
-export const useList = Flux.createList<ListQuery, ranger.Key, ranger.Range>({
-  ...listDefinition,
-  retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
-  onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
+export const formSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  timeRange: timeRangeZ,
 });
+
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
+/** A form over the name and time range of a cached range. */
+export const useForm = Flux.createDocumentForm<
+  ranger.Key,
+  ranger.Range,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  domain: (client) => client.ranges,
+  useEnsure,
+  toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
+});
+
+export const useLabels = (key: ranger.Key | null): label.Label[] | undefined => {
+  const labels = useResult(key == null ? null : { key }).data?.labels;
+  return Label.useResultMultiple(labels == null ? null : { keys: labels }).data;
+};
 
 export const metaDataFormSchema = z.object({
   pairs: z.array(z.object({ key: z.string(), value: z.string() })),
 });
 
-export type ListMetaDataQuery = {
+export type MetaDataQuery = {
   rangeKey: ranger.Key;
 };
 
-export const useListMetaData = Flux.createList<
-  ListMetaDataQuery,
-  string,
-  ranger.kv.Pair
+export const { useResult: useResultMetaData } = Flux.createRetrieve<
+  MetaDataQuery,
+  ranger.kv.Pair[]
 >({
   name: PLURAL_KV_RESOURCE_NAME,
   retrieve: async ({ client, query: { rangeKey } }) =>
     await client.ranges.kv.retrieve(rangeKey),
-  retrieveByKey: async ({ client, key, query: { rangeKey } }) => {
-    if (rangeKey == null) return undefined;
-    const kv = client.ranges.getKV(rangeKey);
-    const value = await kv.get(key);
-    return { key, value, range: rangeKey };
-  },
   onChange: ({ client, query: { rangeKey } }, handler) =>
-    client.ranges.kv.onChange(rangeKey, handler),
-  getCached: ({ client, query: { rangeKey } }) => client.ranges.kv.getCached(rangeKey),
+    client.ranges.kv.watch(rangeKey).onChange(handler),
+  getCached: ({ client, query: { rangeKey } }) =>
+    client.ranges.kv.watch(rangeKey).getCached(),
 });
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export type KVFormQuery = ListMetaDataQuery & { key: string };
+export const kvPairFormPath = deep.path<z.infer<typeof kvPairFormSchema>>();
 
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
@@ -218,7 +172,8 @@ const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   range: "",
 };
 
-export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchema>({
+/** A form that sets a new metadata pair on a range when it saves. */
+export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema>({
   name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
@@ -226,16 +181,9 @@ export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchem
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
   },
-  mountListeners: ({ client, query: { rangeKey, key }, abandon }) =>
-    client.ranges.kv.onChange(rangeKey, (result) => {
-      // An undefined answer is an invalidation, not a deletion.
-      if (result === undefined) return;
-      if (query.isLive(result) && result.some((pair) => pair.key === key)) return;
-      abandon();
-    }),
 });
 
-export interface DeleteKVParams extends ListMetaDataQuery {
+export interface DeleteKVParams extends MetaDataQuery {
   key: string;
 }
 
@@ -251,7 +199,7 @@ export const { useUpdate: useDeleteKV } = Flux.createUpdate<DeleteKVParams>({
   },
 });
 
-export interface SetKVParams extends ListMetaDataQuery, ranger.kv.Pair {}
+export interface SetKVParams extends MetaDataQuery, ranger.kv.Pair {}
 
 export const { useUpdate: useUpdateKV } = Flux.createUpdate<SetKVParams>({
   name: KV_RESOURCE_NAME,
@@ -289,11 +237,27 @@ export interface RenameParams extends Pick<ranger.Payload, "key" | "name"> {}
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.ranges.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.ranges.rename(key, name);
+    return data;
+  },
+});
+
+export interface SetTimeRangeParams {
+  key: ranger.Key;
+  timeRange: NumericTimeRange;
+}
+
+export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangeParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, timeRange } = data;
+    await client.ranges.dispatch(
+      key,
+      ranger.set({ path: ["timeRange"], value: timeRange }),
+    );
     return data;
   },
 });

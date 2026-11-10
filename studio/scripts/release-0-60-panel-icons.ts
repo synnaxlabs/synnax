@@ -62,11 +62,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await zoomPressures(session, 0.35);
 
     const pill = page
-      .locator(".console-panel-selector .pluto-tabs__tab")
+      .locator(".console-panel-selector .lyra-tabs__tab")
       .filter({ has: page.getByText(PICKED, { exact: true }) })
       .first();
     await session.rightClick(pill, { text: true });
-    const menu = page.locator(".pluto-menu-context").first();
+    const menu = page.locator(".lyra-menu-context").first();
     await session.waitFor(menu);
     await session.click(menu.getByText("Change icon", { exact: true }).first());
     await session.waitFor(page.locator(".console-panel-icon-picker").first());

@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from freighter import UnaryClient
 from freighter.transport import Empty
-from synnax.license import State as LicenseState
+from synnax import license as license_
 from synnax.util.send_required import send_required
 from x.telem import CrudeTimeSpan, TimeSpan, TimeStamp
 from x.telem.clock_skew import ClockSkewCalculator
@@ -40,14 +40,14 @@ class State:
     node_version: str = ""
     clock_skew: TimeSpan = dataclasses.field(default_factory=lambda: TimeSpan(0))
     clock_skew_exceeded: bool = False
-    license: LicenseState | None = None
+    license: license_.State | None = None
 
 
 class _CheckResponse(BaseModel):
     cluster_key: str = ""
     node_version: str = ""
     node_time: TimeStamp = TimeStamp(0)
-    license: LicenseState = "ok"
+    license: license_.State = "ok"
 
 
 def _parse_version(v: str) -> tuple[int, int] | None:
@@ -79,9 +79,24 @@ def _client_is_newer(client_version: str, node_version: str) -> bool:
 _TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/client/troubleshooting"
 
 
+def _create_embedded_version_warning(node_version: str, client_version: str) -> str:
+    pin = ".".join(node_version.split(".")[:2])
+    install = f'pip install "synnax~={pin}.0"'
+    fix = (
+        f"Update Synnax Desktop, or run {install}"
+        if _client_is_newer(client_version, node_version)
+        else f"Run {install}"
+    )
+    return (
+        f"Synnax Desktop runs Core version {node_version}, which does not match "
+        f"client version {client_version}. {fix}."
+    )
+
+
 def _create_version_warning(
     node_version: str | None,
     client_version: str,
+    *,
     client_is_newer: bool,
 ) -> str:
     to_upgrade = "Core" if client_is_newer else "client"
@@ -100,13 +115,21 @@ class Checker:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         poll_freq: CrudeTimeSpan = TimeSpan.SECOND * 30,
         client_version: str = "",
         name: str | None = None,
         clock_skew_threshold: CrudeTimeSpan = TimeSpan.SECOND,
+        embedded: bool = False,
     ) -> None:
+        """Checks the connection to the Core now, then on every poll.
+
+        :param embedded: Whether the Core is the one that Synnax Desktop runs, which
+            changes the advice of a version warning.
+        """
         self._client = client
+        self._embedded = embedded
         self._poll_freq = TimeSpan(poll_freq)
         self._client_version = client_version
         self._name = name
@@ -168,17 +191,25 @@ class Checker:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         _logger.warning(
-                            _create_version_warning(None, self._client_version, True)
+                            _create_version_warning(
+                                None, self._client_version, client_is_newer=True
+                            )
                         )
                         self._version_warned = True
                 elif not _versions_compatible(self._client_version, node_version):
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         _logger.warning(
-                            _create_version_warning(
+                            _create_embedded_version_warning(
+                                node_version, self._client_version
+                            )
+                            if self._embedded
+                            else _create_version_warning(
                                 node_version,
                                 self._client_version,
-                                _client_is_newer(self._client_version, node_version),
+                                client_is_newer=_client_is_newer(
+                                    self._client_version, node_version
+                                ),
                             )
                         )
                         self._version_warned = True

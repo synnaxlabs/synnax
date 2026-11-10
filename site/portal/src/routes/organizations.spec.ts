@@ -10,23 +10,33 @@
 import { type APIRoute } from "astro";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
+import { POST as deleteRoute } from "@/pages/api/organizations/[key]/delete";
 import { POST as revokeInvitationRoute } from "@/pages/api/organizations/[key]/invitations/[id]/revoke";
 import { POST as inviteRoute } from "@/pages/api/organizations/[key]/invite";
 import { POST as removeRoute } from "@/pages/api/organizations/[key]/members/[user]/remove";
 import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user]/role";
 import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
 import { POST as registerRoute } from "@/pages/api/organizations/index";
-import { event, invitation, type Organization, organization } from "@/server/db/schema";
+import {
+  activation,
+  event,
+  invitation,
+  license,
+  type Organization,
+  organization,
+} from "@/server/db/schema";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
-import { NOW } from "@/server/license/testutil";
+import { HASH_A, NOW } from "@/server/license/testutil";
 import { mirrorTeams } from "@/server/organization";
 import {
   body,
   type ContextArgs,
+  createActivation,
   createAPIContext,
   createHarness,
   createInvitation,
+  createLicense,
   createOrganization,
   type Harness,
   STAFF_ORG_ID,
@@ -682,6 +692,145 @@ describe("organization routes", () => {
       h.signIn(ADMIN);
       expect((await rename("Acme Rockets")).status).toBe(403);
       expect((await h.directory.team(ACME))?.name).toBe("Acme");
+    });
+  });
+
+  describe("POST /api/organizations/[key]/delete", () => {
+    const remove = async (key = acme.key) =>
+      await call(deleteRoute, {
+        params: { key },
+        path: `/api/organizations/${key}/delete`,
+      });
+
+    const createRecords = async (org: Organization): Promise<void> => {
+      const lic = await createLicense(store, { organization: org.key });
+      const act = await createActivation(store, {
+        license: lic.key,
+        fingerprint: [HASH_A],
+      });
+      await createInvitation(store, { organization: org.key, email: "cy@acme.com" });
+      await store.query.insert(event).values([
+        { at: NOW, kind: "register", actor: STAFF, organization: org.key },
+        {
+          at: NOW,
+          kind: "activate",
+          actor: MEMBER,
+          organization: org.key,
+          license: lic.key,
+          activation: act.key,
+        },
+      ]);
+    };
+
+    const counts = async () => ({
+      organizations: (await store.query.select().from(organization)).length,
+      licenses: (await store.query.select().from(license)).length,
+      activations: (await store.query.select().from(activation)).length,
+      invitations: (await invitations()).length,
+      events: (await events()).length,
+    });
+
+    it("should delete the team in Clerk and everything the portal holds", async () => {
+      await createRecords(acme);
+      h.signIn(STAFF);
+      expect((await remove()).status).toBe(204);
+      expect(await h.directory.team(ACME)).toBeNull();
+      expect(roleOf(ADMIN)).toBeUndefined();
+      expect(await counts()).toEqual({
+        organizations: 0,
+        licenses: 0,
+        activations: 0,
+        invitations: 0,
+        events: 0,
+      });
+    });
+
+    it("should keep the records of other teams", async () => {
+      h.directory.organizations.push({ clerkOrgID: "org_globex", name: "Globex" });
+      const globex = await createOrganization(store, {
+        kind: "team",
+        name: "Globex",
+        clerkOrgID: "org_globex",
+      });
+      await createRecords(acme);
+      await createRecords(globex);
+      h.signIn(STAFF);
+      await remove();
+      expect(await counts()).toEqual({
+        organizations: 1,
+        licenses: 1,
+        activations: 1,
+        invitations: 1,
+        events: 2,
+      });
+      expect(await h.directory.team("org_globex")).not.toBeNull();
+    });
+
+    it("should delete the records of a team Clerk already deleted", async () => {
+      await createRecords(acme);
+      await h.directory.delete(ACME);
+      h.signIn(STAFF);
+      expect((await remove()).status).toBe(204);
+      expect(await counts()).toEqual({
+        organizations: 0,
+        licenses: 0,
+        activations: 0,
+        invitations: 0,
+        events: 0,
+      });
+    });
+
+    it("should delete a team with no records", async () => {
+      h.signIn(STAFF);
+      expect((await remove()).status).toBe(204);
+      expect(await counts()).toMatchObject({ organizations: 0 });
+    });
+
+    it("should delete nothing when Clerk fails", async () => {
+      await createRecords(acme);
+      h.directory.delete = async () => {
+        throw new Error("clerk: down");
+      };
+      h.signIn(STAFF);
+      await expectError(await remove(), 500, "Internal error");
+      expect(await counts()).toEqual({
+        organizations: 1,
+        licenses: 1,
+        activations: 1,
+        invitations: 1,
+        events: 2,
+      });
+    });
+
+    it("should refuse to delete the staff team", async () => {
+      h.directory.organizations.push({ clerkOrgID: STAFF_ORG_ID, name: "Synnax Labs" });
+      const staff = await createOrganization(store, {
+        kind: "team",
+        name: "Synnax Labs",
+        clerkOrgID: STAFF_ORG_ID,
+      });
+      h.signIn(STAFF);
+      await expectError(
+        await remove(staff.key),
+        400,
+        "Synnax Labs is the staff team and cannot be deleted",
+      );
+      expect(await h.directory.team(STAFF_ORG_ID)).not.toBeNull();
+    });
+
+    it("should refuse a team admin who is not staff", async () => {
+      h.signIn(ADMIN);
+      await expectError(await remove(), 403, "Staff only");
+      expect(await h.directory.team(ACME)).not.toBeNull();
+    });
+
+    it("should answer 404 for a personal organization", async () => {
+      const personal = await createOrganization(store, {
+        kind: "personal",
+        ownerUserID: MEMBER,
+      });
+      h.signIn(STAFF);
+      await expectError(await remove(personal.key), 404, "Organization not found");
     });
   });
 });

@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Unpack
+
 """
 Simulator lifecycle mixin.
 
@@ -22,39 +24,14 @@ Usage:
         sim_classes = [OPCUASim, ModbusSim]
 """
 
-import os
-import subprocess
 from multiprocessing.process import BaseProcess
 
-import psutil
 from examples.simulators.device_sim import DeviceSim
 
 import synnax as sy
+from framework import resources
 from framework.hardware_case import HardwareCase
-from framework.models import DEFAULT_CONNECTION, SynnaxConnection
-
-
-def _listener_pids(port: int) -> list[int]:
-    try:
-        return [
-            conn.pid
-            for conn in psutil.net_connections(kind="tcp")
-            if conn.status == "LISTEN"
-            and conn.laddr
-            and conn.laddr.port == port
-            and conn.pid
-        ]
-    except psutil.AccessDenied:
-        # macOS hides other processes' sockets from non-root users.
-        try:
-            out = subprocess.run(
-                ["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
-                capture_output=True,
-                text=True,
-            ).stdout
-        except OSError:
-            return []
-        return [int(pid) for pid in out.split()]
+from framework.test_case import Config
 
 
 class SimulatorCase(HardwareCase):
@@ -68,16 +45,14 @@ class SimulatorCase(HardwareCase):
     sim: DeviceSim | None = None
     sims: dict[str, DeviceSim | None]
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
-    def __init__(
-        self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
-        *,
-        name: str,
-        **params: object,
-    ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+    @classmethod
+    def resources(cls) -> frozenset[str]:
+        sims = {resources.simulator(s.device_name) for s in cls.sim_classes}
+        return super().resources() | sims
+
+    def __init__(self, **kwargs: Unpack[Config]) -> None:
+        super().__init__(**kwargs)
         self.sims = {}
 
     def setup(self) -> None:
@@ -86,7 +61,6 @@ class SimulatorCase(HardwareCase):
             name = sim_cls.device_name
             existing = self.sims.get(name)
             sim = existing if existing is not None else sim_cls(rate=self.SAMPLE_RATE)
-            self._free_port(sim)
             sim.start()
             self.sims[name] = sim
             self._connect_device_for(sim_cls)
@@ -99,8 +73,7 @@ class SimulatorCase(HardwareCase):
     def start_simulator(self, device_name: str | None = None) -> None:
         """Start (or restart) a simulator.
 
-        Args:
-            device_name: Target a specific sim. When None, restarts the primary sim.
+        :param device_name: Target a specific sim. When None, restarts the primary sim.
         """
         target = device_name or self.device_name
         old_sim = self.sims.get(target)
@@ -114,13 +87,12 @@ class SimulatorCase(HardwareCase):
             self.sim = new_sim
 
     def cleanup_simulator(
-        self, log: bool = False, device_name: str | None = None
+        self, *, log: bool = False, device_name: str | None = None
     ) -> None:
         """Stop a simulator.
 
-        Args:
-            log: Whether to log cleanup.
-            device_name: Target a specific sim. When None, stops the primary sim.
+        :param log: Whether to log cleanup.
+        :param device_name: Target a specific sim. When None, stops the primary sim.
         """
         target = device_name or self.device_name
         sim = self.sims.get(target)
@@ -129,6 +101,11 @@ class SimulatorCase(HardwareCase):
             self.sims[target] = None
         if target == self.device_name:
             self.sim = None
+
+    @property
+    def rack_name(self) -> str:
+        """The name of the rack that holds the devices of the simulators."""
+        return self.options.driver_rack
 
     @property
     def simulator_process(self) -> BaseProcess | None:
@@ -149,20 +126,9 @@ class SimulatorCase(HardwareCase):
         finally:
             super().teardown()
 
-    def _free_port(self, sim: DeviceSim) -> None:
-        """Kill a stale process, usually left by a killed run, on the sim's port."""
-        for pid in _listener_pids(sim.port):
-            try:
-                proc = psutil.Process(pid)
-                proc.kill()
-                proc.wait(timeout=5)
-                self.log(f"Killed stale PID {pid} on port {sim.port}")
-            except (psutil.NoSuchProcess, psutil.AccessDenied) as e:
-                self.log(f"Could not kill PID {pid} on port {sim.port}: {e}")
-
     def _connect_device_for(self, sim_cls: type[DeviceSim]) -> None:
         """Get or create the hardware device for a given simulator class."""
-        rack = self.client.racks.retrieve(name=self.RACK_NAME)
+        rack = self.client.racks.retrieve(name=self.rack_name)
         device_instance = sim_cls.create_device(rack.key)
         try:
             existing = self.client.devices.retrieve(name=device_instance.name)

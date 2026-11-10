@@ -10,9 +10,9 @@
 import { type change } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { type ontology } from "@/ontology";
 import { type Alias } from "@/ranger/alias/types.gen";
 import { type Key } from "@/ranger/types.gen";
+import { type resource } from "@/resource";
 
 export const SET_CHANNEL_NAME = "sy_range_alias_set";
 export const DELETE_CHANNEL_NAME = "sy_range_alias_delete";
@@ -24,12 +24,12 @@ const SEPARATOR = "---";
 export const createKey = (alias: Pick<Alias, "range" | "channel">): string =>
   `${alias.range}${SEPARATOR}${alias.channel}`;
 
-export const ontologyID = (rangeKey: Key, channelKey: channel.Key): ontology.ID => ({
+export const resourceID = (rangeKey: Key, channelKey: channel.Key): resource.ID => ({
   type: "range-alias",
   key: createKey({ range: rangeKey, channel: channelKey }),
 });
 
-export const TYPE_ONTOLOGY_ID: ontology.ID = { type: "range-alias", key: "" };
+export const TYPE_RESOURCE_ID: resource.ID = { type: "range-alias", key: "" };
 
 export interface DecodedDeleteAliasChange {
   range: Key;

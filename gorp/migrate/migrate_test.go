@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap/zapcore"
 )
 
@@ -34,8 +34,7 @@ type entryV1 struct {
 	Data string `msgpack:"data" json:"data"`
 }
 
-func (e entryV1) GorpKey() int32    { return e.ID }
-func (e entryV1) SetOptions() []any { return nil }
+func (e entryV1) GorpKey() int32 { return e.ID }
 
 const testNamespace = "test"
 

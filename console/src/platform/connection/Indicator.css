@@ -20,11 +20,11 @@
         transform-origin: center;
     }
 
-    & .pluto-status-indicator__track {
+    & .lyra-status-indicator__track {
         animation: console-connection-ping 1.3s ease-out infinite;
     }
 
-    & .pluto-status-indicator__core {
+    & .lyra-status-indicator__core {
         animation: console-connection-beat 1.3s ease-in-out infinite;
     }
 

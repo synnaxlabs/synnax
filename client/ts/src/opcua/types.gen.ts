@@ -36,9 +36,39 @@ export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
+/** UnarySampling reads one sample per node at the sample rate. */
+export const unarySamplingZ = z.object({
+  type: z.literal("unary"),
+});
+export interface UnarySampling extends z.infer<typeof unarySamplingZ> {}
+
+/** ArraySampling reads an array of samples from each node on each read. */
+export const arraySamplingZ = z.object({
+  type: z.literal("array"),
+  /** size is the number of samples in each array the node returns. */
+  size: z.uint32().min(1).default(1),
+});
+export interface ArraySampling extends z.infer<typeof arraySamplingZ> {}
+
+export const SAMPLING_TYPES = ["unary", "array"] as const;
+export const samplingTypeZ = z.enum(SAMPLING_TYPES);
+export type SamplingType = z.infer<typeof samplingTypeZ>;
+
+/** Sampling selects how a read task samples its nodes. */
+export const samplingZ = z.discriminatedUnion("type", [unarySamplingZ, arraySamplingZ]);
+export type Sampling = UnarySampling | ArraySampling;
+
+export const SAMPLING_SCHEMAS: {
+  [K in SamplingType]: z.ZodType<Extract<Sampling, { type: K }>>;
+} = {
+  unary: unarySamplingZ,
+  array: arraySamplingZ,
+};
+
 export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   isIndex: z.boolean().default(false),
+  field: z.string().default(""),
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
@@ -53,9 +83,9 @@ export const readConfigZ = task.readConfigZ
     sampleRate: z.number().default(50),
     streamRate: z.number().default(25),
     device: device.keyZ.default(""),
-    arrayMode: z.boolean().default(false),
-    arraySize: z.int32().default(1),
+    sampling: samplingZ.prefault({ type: "unary" }),
     channels: readChannelZ.array().default(() => []),
+    nanFillEnabled: z.boolean().default(false),
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 

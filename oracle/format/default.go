@@ -25,9 +25,10 @@ package format
 // inverse output that never converges across syncs.
 //
 // Files with extensions not listed pass through with header only (or unchanged if the
-// extension is also unknown to the License formatter).
-func Default(repoRoot string) (*Registry, error) {
-	license, err := NewLicense(repoRoot)
+// extension is also unknown to the License formatter). New files get the license header
+// for year. See NewLicense for prior.
+func Default(repoRoot string, year int, prior []string) (*Registry, error) {
+	license, err := NewLicense(repoRoot, year, prior)
 	if err != nil {
 		return nil, err
 	}
@@ -39,15 +40,15 @@ func Default(repoRoot string) (*Registry, error) {
 	}
 	r.Register(".go", license)
 	r.Register(".go", NewGo())
-	prettier := NewPrettier()
-	eslint := NewESLint()
+	prettier := newPrettier()
+	eslint := newESLint()
 	for _, ext := range []string{".ts", ".tsx"} {
 		r.Register(ext, license)
 		r.Register(ext, eslint)
 		r.Register(ext, prettier)
 	}
 	r.Register(".py", license)
-	r.Register(".py", NewRuff())
+	r.Register(".py", newRuff())
 	r.Register(".proto", license)
 	r.Register(".proto", NewBufFormat())
 	return r, nil

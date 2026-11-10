@@ -11,12 +11,8 @@ package icd
 
 import (
 	"context"
-	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
@@ -31,40 +27,26 @@ type Use struct {
 	Fields []FieldKey
 }
 
-// Stamper records a task's use of an ICD. Task config stores call it on write, so it
-// reads ICDs straight from the database and needs no ICD Service, which opens after
-// the task service.
-type Stamper struct {
-	// DB is the database ICDs are stored in.
-	DB *gorp.DB
-	// Ontology relates the task to the ICD it uses.
-	Ontology *ontology.Ontology
-}
-
 // Stamp sets ref.ICDHash to the TaskHash of the given messages in the referenced ICD
-// and returns the ICD. A task uses at most one ICD, so Stamp replaces any ICD the task
-// used before. When ref has no ICD, Stamp clears ref.ICDHash, removes the ICD the task
-// used, and returns the zero ICD. It returns a validation error scoped to the "icd"
-// path when the ICD does not exist. The task's ontology resource must exist.
-func (s Stamper) Stamp(
+// and returns the ICD. When ref has no ICD, Stamp clears ref.ICDHash and returns the
+// zero ICD. It returns a validation error scoped to the "icd" path when the ICD does
+// not exist in snap. Task config stores call it on write, so it reads ICDs straight
+// from snap and needs no Service, which opens after the task service.
+func Stamp(
 	ctx context.Context,
-	tx gorp.Tx,
-	taskKey uuid.UUID,
+	snap gorp.Snapshot,
 	ref *Reference,
 	messages []MessageKey,
 ) (ICD, error) {
-	tx = gorp.OverrideTx(s.DB, tx)
-	w := s.Ontology.NewWriter(tx)
-	taskID := task.OntologyID(taskKey)
 	if ref.ICD == nil {
 		ref.ICDHash = ""
-		return ICD{}, library.Use(ctx, w, taskID, nil)
+		return ICD{}, nil
 	}
 	var ic ICD
 	if err := gorp.NewRetrieve[Key, ICD]().
 		Where(gorp.MatchKeys[Key, ICD](*ref.ICD)).
 		Entry(&ic).
-		Exec(ctx, tx); err != nil {
+		Exec(ctx, snap); err != nil {
 		if errors.Is(err, query.ErrNotFound) {
 			return ic, validate.PathedError(errors.Wrapf(
 				validate.ErrValidation, "ICD %s does not exist", *ref.ICD,
@@ -77,5 +59,5 @@ func (s Stamper) Stamp(
 		return ic, err
 	}
 	ref.ICDHash = hash
-	return ic, library.Use(ctx, w, taskID, new(ic.OntologyID()))
+	return ic, nil
 }

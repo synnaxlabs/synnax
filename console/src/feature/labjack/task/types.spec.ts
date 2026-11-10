@@ -70,43 +70,6 @@ describe("readConfigZ", () => {
     );
   });
 
-  it("should reject a configuration with duplicate ports", () => {
-    const configWithDuplicatePorts = {
-      device: "labjack",
-      channels: [
-        {
-          key: "1",
-          channel: 1,
-          disabled: false,
-          type: "analog",
-          name: "Test_AI_Channel_1",
-          port: "AIN0",
-          scale: { type: "none" },
-          range: 10,
-        },
-        {
-          key: "2",
-          channel: 2,
-          disabled: false,
-          type: "analog",
-          name: "Test_AI_Channel_2",
-          port: "AIN0", // Duplicate port
-          scale: { type: "none" },
-          range: 10,
-        },
-      ],
-      sampleRate: 1000,
-      streamRate: 500,
-    };
-
-    const result = deployReadConfigZ.safeParse(configWithDuplicatePorts);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.length).toBeGreaterThan(0);
-      expect(result.error.issues[0].message).toContain("has already been used");
-    }
-  });
-
   it("should reject a configuration with sampleRate exceeding the maximum", () => {
     const configWithInvalidSampleRate = {
       device: "labjack",
@@ -273,38 +236,6 @@ describe("writeConfigZ", () => {
     expect(writeConfigZ.validate(validConfig)).toBe(true);
   });
 
-  it("should reject a configuration with duplicate ports", () => {
-    const configWithDuplicatePorts = {
-      device: "labjack",
-      channels: [
-        {
-          key: "1",
-          disabled: false,
-          type: "analog",
-          port: "DAC0",
-          cmdChannel: 1,
-          stateChannel: 2,
-        },
-        {
-          key: "2",
-          disabled: false,
-          type: "analog",
-          port: "DAC0", // Duplicate port
-          cmdChannel: 3,
-          stateChannel: 4,
-        },
-      ],
-      stateRate: 1000,
-    };
-
-    const result = deployParse(configWithDuplicatePorts);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.length).toBeGreaterThan(0);
-      expect(result.error.issues[0].message).toContain("has already been used");
-    }
-  });
-
   it("should reject a configuration with duplicate command channels", () => {
     const configWithDuplicateCmdChannels = {
       device: "labjack",
@@ -440,5 +371,68 @@ describe("draft configs", () => {
         LabJack.Task.WRITE_SCHEMAS.config.parse({}),
       ),
     ).toBe(true);
+  });
+});
+
+describe("deploy configs", () => {
+  it.each([
+    ["read", LabJack.Task.READ_SCHEMAS.config, LabJack.Task.deployReadConfigZ],
+    ["write", LabJack.Task.WRITE_SCHEMAS.config, LabJack.Task.deployWriteConfigZ],
+  ])("should require an enabled channel to deploy a %s task", (_, draftZ, deployZ) => {
+    const issues = deployZ.safeParse(draftZ.parse({})).error?.issues;
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels"],
+        message: "At least one enabled channel is required",
+      }),
+    );
+  });
+});
+
+describe("deploy negative channels", () => {
+  const deploy = (port: string, negChan?: number) =>
+    LabJack.Task.deployReadConfigZ.safeParse({
+      device: "labjack",
+      sampleRate: 10,
+      streamRate: 5,
+      channels: [
+        {
+          ...LabJack.Task.createReadChannel("analog"),
+          key: "1",
+          channel: 1,
+          port,
+          negChan,
+        },
+      ],
+    });
+
+  it("should accept a port that reads against ground", () => {
+    expect(deploy("AIN3").success).toBe(true);
+  });
+
+  it("should accept a port against its pair", () => {
+    expect(deploy("AIN2", 3).success).toBe(true);
+  });
+
+  it("should refuse a negative channel above AIN127", () => {
+    expect(deploy("AIN2", 199).success).toBe(false);
+  });
+
+  it("should name the pair of a port that reads differentially", () => {
+    expect(deploy("AIN2", 5).error?.issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels", 0, "negChan"],
+        message: "Negative channel must be ground or AIN3",
+      }),
+    );
+  });
+
+  it("should refuse a differential reading on a port with no pair", () => {
+    expect(deploy("AIN3", 4).error?.issues).toContainEqual(
+      expect.objectContaining({
+        path: ["channels", 0, "negChan"],
+        message: "AIN3 can only read against ground",
+      }),
+    );
   });
 });

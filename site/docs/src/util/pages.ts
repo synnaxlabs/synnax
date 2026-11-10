@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { enabled } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
 interface Frontmatter {
@@ -16,7 +15,6 @@ interface Frontmatter {
   description?: string;
   /** An ISO 8601 date, set on blog posts. */
   published?: string;
-  flag?: string;
 }
 
 export interface Page {
@@ -40,10 +38,9 @@ const toRoute = (file: string): string =>
       .replace(/(^|\/)index$/, "$1"),
   );
 
-/** Every published MDX page. A page behind a flag is published while the flag is on. */
+/** Every published MDX page. */
 export const PAGES: Page[] = Object.entries(FRONTMATTER)
   .map(([file, frontmatter]) => ({ route: toRoute(file), ...frontmatter }))
-  .filter(({ flag }) => flag == null || enabled(flag))
   .map(({ route, title, heading, description, published }) => ({
     route,
     title: (heading ?? title).replace(/`/g, ""),
@@ -65,5 +62,6 @@ export const ROUTES: string[] = [
   ...PAGES.map(({ route }) => route),
   "/blog",
   "/privacy-policy",
+  "/reliability",
   "/terms-of-service",
 ].sort();

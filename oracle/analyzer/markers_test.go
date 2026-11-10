@@ -12,7 +12,6 @@ package analyzer_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,7 +30,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		table, diag := Analyze(ctx, source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 
 		typ := table.MustGet("x.Thing")
@@ -58,7 +57,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newType, ok := table.Get("x.New")
@@ -94,7 +93,7 @@ var _ = Describe("Create and Output markers", func() {
 		`
 		// A duplicate synthesized New would add a diagnostic, so a clean analysis
 		// proves the hand-written New was respected.
-		table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+		table, diag := Analyze(ctx, source, "x", loader)
 		Expect(diag.Ok()).To(BeTrue())
 		_, ok := table.Get("x.New")
 		Expect(ok).To(BeTrue())
@@ -117,7 +116,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			newTab, ok := table.Get("x.NewTab")
@@ -150,7 +149,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
 			Expect(form.Extends).To(HaveLen(1))
@@ -163,7 +162,7 @@ var _ = Describe("Create and Output markers", func() {
 	DescribeTable(
 		"Should give New to whichever of a struct and a namespace union comes first",
 		func(ctx SpecContext, source, newBase, unionNew string) {
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			form := MustBeOk(table.Get("x.New")).Form.(resolution.StructForm)
 			Expect(form.Extends[0].Name).To(Equal(newBase))
@@ -223,7 +222,7 @@ var _ = Describe("Create and Output markers", func() {
 				@create
 			}
 		`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			_, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())
@@ -249,7 +248,7 @@ var _ = Describe("Create and Output markers", func() {
 		`
 			// Both structs would target x.New; only one may be synthesized, otherwise
 			// the second table.Add collides and fails analysis.
-			table, diag := analyzer.AnalyzeSource(ctx, source, "x", loader)
+			table, diag := Analyze(ctx, source, "x", loader)
 			Expect(diag.Ok()).To(BeTrue())
 			newType, ok := table.Get("x.New")
 			Expect(ok).To(BeTrue())

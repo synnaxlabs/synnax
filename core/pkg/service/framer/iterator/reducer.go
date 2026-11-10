@@ -137,7 +137,7 @@ func (r *reducer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				if err := r.process(res); err != nil {
+				if err := r.process(ctx, res); err != nil {
 					return err
 				}
 			}
@@ -145,7 +145,7 @@ func (r *reducer) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	}, o.Signal...)
 }
 
-func (r *reducer) process(res Response) error {
+func (r *reducer) process(ctx context.Context, res Response) error {
 	if res.Variant == ResponseVariantData {
 		fr, err := r.reduce(res.Frame)
 		if err != nil {
@@ -153,20 +153,21 @@ func (r *reducer) process(res Response) error {
 		}
 		if fr.Count() > 0 {
 			res.Frame = fr
-			r.Out.Inlet() <- res
+			return signal.SendUnderContext(ctx, r.Out.Inlet(), res)
 		}
 		return nil
 	}
 	if len(r.waiting) > 0 {
-		r.Out.Inlet() <- Response{
+		if err := signal.SendUnderContext(ctx, r.Out.Inlet(), Response{
 			Variant: ResponseVariantData,
 			Command: res.Command,
 			SeqNum:  res.SeqNum,
 			Frame:   r.flush(),
+		}); err != nil {
+			return err
 		}
 	}
-	r.Out.Inlet() <- res
-	return nil
+	return signal.SendUnderContext(ctx, r.Out.Inlet(), res)
 }
 
 // reduce reduces the series of fr and returns the series that no longer wait.

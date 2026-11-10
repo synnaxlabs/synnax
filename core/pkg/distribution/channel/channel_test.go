@@ -108,16 +108,6 @@ var _ = Describe("Keys", func() {
 			Expect(keys.Storage()).To(Equal([]ts.ChannelKey{1, 2, 3}))
 		})
 	})
-	Describe("UniqueLeaseholders", func() {
-		It("Should return a slice of the unique node ids for a set of keys", func() {
-			ids := channel.Keys{
-				channel.NewKey(node.Key(1), 2),
-				channel.NewKey(node.Key(3), 4),
-				channel.NewKey(node.Key(1), 2),
-			}
-			Expect(ids.UniqueLeaseholders()).To(ConsistOf([]node.Key{1, 3}))
-		})
-	})
 	Describe("Contains", func() {
 		It("Should return true if the slice contains the given key", func() {
 			keys := channel.Keys{1, 2, 3}
@@ -160,16 +150,6 @@ var _ = Describe("Channel", func() {
 		It("Should return the channel's leaseholder", func() {
 			c := channel.Channel{Leaseholder: 7}
 			Expect(c.Lease()).To(Equal(node.Key(7)))
-		})
-	})
-	Describe("Free", func() {
-		It("Should return true when the channel is not leased to a node", func() {
-			c := channel.Channel{Leaseholder: node.KeyFree}
-			Expect(c.Free()).To(BeTrue())
-		})
-		It("Should return false when the channel is leased to a node", func() {
-			c := channel.Channel{Leaseholder: 1}
-			Expect(c.Free()).To(BeFalse())
 		})
 	})
 	Describe("String", func() {

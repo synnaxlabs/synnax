@@ -13,8 +13,8 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/internal/keyset"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // Filter is a composable query filter applied to entries during a
@@ -64,12 +64,12 @@ type resolved[K Key, E Entry[K]] struct {
 	eval evalFunc[K, E]
 }
 
-// resolveFilter is the signature for a deferred Filter resolver. It
-// produces the per-Exec resolution payload by reading committed index
-// state and merging any per-tx delta staged against tx.
+// resolveFilter is the signature for a deferred Filter resolver. It produces the
+// per-Exec resolution payload by reading committed index state and merging any per-tx
+// delta staged against snap.
 type resolveFilter[K Key, E Entry[K]] func(
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 ) (resolved[K, E], error)
 
 // present reports whether the filter carries any active constraint. A
@@ -98,10 +98,30 @@ func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter
 // primary key is in the given set. Compose with And or Or to intersect
 // or union with other filters (including index-backed ones).
 //
-// An empty keys argument produces a filter bounded by zero keys, which matches
+// A repeated key matches once, so results follow the order in which each key first
+// appears. An empty keys argument produces a filter bounded by zero keys, which matches
 // nothing.
 func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
+	if len(keys) > 1 {
+		keys = lo.Uniq(keys)
+	}
 	return Filter[K, E]{keys: keyset.Of(keys)}
+}
+
+// MatchKeysFunc returns a Filter that restricts results to the keys that f returns.
+// Exec, Count, and Exists each call f with the snapshot they read through, so under a
+// Tx, f can read state the transaction staged. A key with no entry is a non-match,
+// while a bare MatchKeys fails Exec with query.ErrNotFound.
+func MatchKeysFunc[K Key, E Entry[K]](f func(ctx Context) ([]K, error)) Filter[K, E] {
+	return Filter[K, E]{
+		resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			keys, err := f(newContext(ctx, snap))
+			if err != nil {
+				return resolved[K, E]{}, err
+			}
+			return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
+		},
+	}
 }
 
 // And returns a filter that matches when ALL children match. Each
@@ -147,8 +167,8 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 
 	if anyHasResolver(filters) {
-		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			materialized, err := materializeFilters(ctx, tx, filters)
+		f.resolve = func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			materialized, err := materializeFilters(ctx, snap, filters)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -206,8 +226,8 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	if anyHasResolver(filters) {
 		// Materialize the children fresh per Exec so concurrent Execs never share
 		// mutable child state.
-		f.resolve = func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-			materialized, err := materializeFilters(ctx, tx, filters)
+		f.resolve = func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+			materialized, err := materializeFilters(ctx, snap, filters)
 			if err != nil {
 				return resolved[K, E]{}, err
 			}
@@ -298,15 +318,11 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	// Resolver-backed child: defer eval construction until Exec so it
 	// can close over a fresh materialized copy of f. Sharing the
 	// captured f across Execs would race resolve's writes against
-	// concurrent eval reads. The construction-time eval is the
-	// sequential-scan fallback used when resolveFilter swallows
-	// ErrIndexInvalid: f.keys stays unbounded, so evalChild skips the keys
-	// check and dispatches to f's scan-fallback eval.
+	// concurrent eval reads.
 	if f.resolve != nil {
 		return Filter[K, E]{
-			eval: notEval(f),
-			resolve: func(ctx context.Context, tx Tx) (resolved[K, E], error) {
-				res, err := f.resolve(ctx, tx)
+			resolve: func(ctx context.Context, snap Snapshot) (resolved[K, E], error) {
+				res, err := f.resolve(ctx, snap)
 				if err != nil {
 					return resolved[K, E]{}, err
 				}
@@ -380,18 +396,14 @@ func anyHasResolver[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	return false
 }
 
-// materializeFilters returns a slice of filters with every resolver-child
-// materialized against the open tx. Eager children are copied through
-// unchanged. The returned slice is a fresh copy; the input is not
-// mutated. Resolver-returned eval overrides are installed on the copy
-// so Or / Not's per-call eval closures see the right predicate for
-// each child.
-//
-// A child whose index failed to populate is copied through unchanged, so its
-// scan-fallback eval applies while its siblings keep their resolved keys.
+// materializeFilters returns a slice of filters with every resolver-child materialized
+// against snap. Eager children are copied through unchanged. The returned slice is a
+// fresh copy; the input is not mutated. Resolver-returned eval overrides are installed
+// on the copy so Or / Not's per-call eval closures see the right predicate for each
+// child.
 func materializeFilters[K Key, E Entry[K]](
 	ctx context.Context,
-	tx Tx,
+	snap Snapshot,
 	filters []Filter[K, E],
 ) ([]Filter[K, E], error) {
 	out := make([]Filter[K, E], len(filters))
@@ -400,11 +412,7 @@ func materializeFilters[K Key, E Entry[K]](
 			out[i] = child
 			continue
 		}
-		res, err := child.resolve(ctx, tx)
-		if errors.Is(err, ErrIndexInvalid) {
-			out[i] = child
-			continue
-		}
+		res, err := child.resolve(ctx, snap)
 		if err != nil {
 			return nil, err
 		}

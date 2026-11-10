@@ -1,0 +1,30 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-modbus__order-glyph {
+    --console-modbus-order-color: var(--pluto-primary-z);
+
+    width: 5rem;
+    height: 2rem;
+    flex-shrink: 0;
+
+    & rect {
+        fill: color-mix(
+            in srgb,
+            var(--console-modbus-order-color) calc(90% - var(--rank) * 72%),
+            transparent
+        );
+    }
+}
+
+.console-modbus__order-glyph--device {
+    --console-modbus-order-color: var(--pluto-gray-l9);
+}

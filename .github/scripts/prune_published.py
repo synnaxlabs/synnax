@@ -56,7 +56,7 @@ def parse_name_version(filename: str) -> tuple[str, str]:
 
 
 @cache
-def published_files(name: str, version: str) -> frozenset[str]:
+def published_files(name: str, *, version: str) -> frozenset[str]:
     """Returns the file names already published on PyPI for the given release, or
     an empty set if the release does not exist."""
     url = f"https://pypi.org/pypi/{name}/{version}/json"
@@ -81,7 +81,7 @@ def main() -> None:
     dists = [p for p in dist_dir.iterdir() if p.name.endswith((".whl", ".tar.gz"))]
     for file in sorted(dists):
         name, version = parse_name_version(file.name)
-        if file.name in published_files(name, version):
+        if file.name in published_files(name, version=version):
             print(f"↷ {file.name} already on PyPI, pruning")
             file.unlink()
         else:

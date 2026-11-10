@@ -40,11 +40,9 @@ export const useClipboard = ({
     mime: MIME,
     edgeKey: (edge) => edge.key,
     getSnapshot: () => {
-      const cached = client?.arcs.getCached(key);
-      if (!query.isLive(cached)) return null;
-      const {
-        graph: { nodes, edges, inputs },
-      } = cached;
+      const cached = client?.arcs.watch(key).getCached();
+      if (!query.isLive(cached) || cached.source.mode !== "graph") return null;
+      const { nodes, edges, inputs } = cached.source.graph;
       return { nodes, edges, configs: inputs };
     },
     apply: ({ nodes, edges, remap }) => {

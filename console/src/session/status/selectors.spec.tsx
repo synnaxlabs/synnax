@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Status } from "@/session/status";
+import { createMinimalStore } from "@/testutil";
 
 const storeWith = (...actions: Status.Action[]) => {
-  const store = configureStore({ reducer: { [Status.SLICE_NAME]: Status.reducer } });
+  const store = createMinimalStore({
+    reducer: { [Status.SLICE_NAME]: Status.reducer },
+  });
   actions.forEach((action) => store.dispatch(action));
   return store;
 };

@@ -112,7 +112,7 @@ var _ = Describe("Stratify", func() {
 
 	Describe("Flat parallel scope", func() {
 		It("Should place a single source node in phase 0", func(ctx SpecContext) {
-			root := run(ctx, programOf([]ir.Member{ir.NodeMember("source")}, nil))
+			root := run(ctx, programOf([]ir.Member{{NodeKey: new("source")}}, nil))
 			Expect(totalMembers(root)).To(Equal(1))
 			Expect(stratumOf(root, "source")).To(Equal(0))
 		})
@@ -122,9 +122,9 @@ var _ = Describe("Stratify", func() {
 			func(ctx SpecContext) {
 				root := run(ctx, programOf(
 					[]ir.Member{
-						ir.NodeMember("a"),
-						ir.NodeMember("b"),
-						ir.NodeMember("c"),
+						{NodeKey: new("a")},
+						{NodeKey: new("b")},
+						{NodeKey: new("c")},
 					},
 					nil,
 				))
@@ -135,7 +135,7 @@ var _ = Describe("Stratify", func() {
 
 		It("Should chain two dependent nodes across phases", func(ctx SpecContext) {
 			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("sensor"), ir.NodeMember("process")},
+				[]ir.Member{{NodeKey: new("sensor")}, {NodeKey: new("process")}},
 				[]ir.Edge{edge("sensor", "process")},
 			))
 			Expect(stratumOf(root, "sensor")).To(Equal(0))
@@ -147,10 +147,10 @@ var _ = Describe("Stratify", func() {
 			func(ctx SpecContext) {
 				root := run(ctx, programOf(
 					[]ir.Member{
-						ir.NodeMember("a"),
-						ir.NodeMember("b"),
-						ir.NodeMember("c"),
-						ir.NodeMember("d"),
+						{NodeKey: new("a")},
+						{NodeKey: new("b")},
+						{NodeKey: new("c")},
+						{NodeKey: new("d")},
 					},
 					[]ir.Edge{edge("a", "b"), edge("b", "c"), edge("c", "d")},
 				))
@@ -166,9 +166,9 @@ var _ = Describe("Stratify", func() {
 			func(ctx SpecContext) {
 				root := run(ctx, programOf(
 					[]ir.Member{
-						ir.NodeMember("src"),
-						ir.NodeMember("a"),
-						ir.NodeMember("b"),
+						{NodeKey: new("src")},
+						{NodeKey: new("a")},
+						{NodeKey: new("b")},
 					},
 					[]ir.Edge{edge("src", "a"), edge("src", "b")},
 				))
@@ -185,10 +185,10 @@ var _ = Describe("Stratify", func() {
 			// middle hops.
 			root := run(ctx, programOf(
 				[]ir.Member{
-					ir.NodeMember("a"),
-					ir.NodeMember("b"),
-					ir.NodeMember("c"),
-					ir.NodeMember("d"),
+					{NodeKey: new("a")},
+					{NodeKey: new("b")},
+					{NodeKey: new("c")},
+					{NodeKey: new("d")},
 				},
 				[]ir.Edge{
 					edge("a", "b"),
@@ -207,7 +207,11 @@ var _ = Describe("Stratify", func() {
 			// a -> c; b -> c; c depends on both, lands after the deeper of
 			// the two sources (both at phase 0).
 			root := run(ctx, programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b"), ir.NodeMember("c")},
+				[]ir.Member{
+					{NodeKey: new("a")},
+					{NodeKey: new("b")},
+					{NodeKey: new("c")},
+				},
 				[]ir.Edge{edge("a", "c"), edge("b", "c")},
 			))
 			Expect(stratumOf(root, "c")).To(Equal(1))
@@ -219,7 +223,7 @@ var _ = Describe("Stratify", func() {
 				// Edges reference nodes not in the scope; they must not force
 				// any reordering.
 				root := run(ctx, programOf(
-					[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b")},
+					[]ir.Member{{NodeKey: new("a")}, {NodeKey: new("b")}},
 					[]ir.Edge{edge("ghost", "a"), edge("b", "phantom")},
 				))
 				Expect(root.Strata).To(HaveLen(1))
@@ -231,7 +235,7 @@ var _ = Describe("Stratify", func() {
 	Describe("Cycle detection", func() {
 		It("Should report a cycle between two members", func(ctx SpecContext) {
 			prog := programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b")},
+				[]ir.Member{{NodeKey: new("a")}, {NodeKey: new("b")}},
 				[]ir.Edge{edge("a", "b"), edge("b", "a")},
 			)
 			diag := &diagnostics.Diagnostics{}
@@ -242,7 +246,11 @@ var _ = Describe("Stratify", func() {
 
 		It("Should report a cycle across three members", func(ctx SpecContext) {
 			prog := programOf(
-				[]ir.Member{ir.NodeMember("a"), ir.NodeMember("b"), ir.NodeMember("c")},
+				[]ir.Member{
+					{NodeKey: new("a")},
+					{NodeKey: new("b")},
+					{NodeKey: new("c")},
+				},
 				[]ir.Edge{edge("a", "b"), edge("b", "c"), edge("c", "a")},
 			)
 			diag := &diagnostics.Diagnostics{}
@@ -263,12 +271,12 @@ var _ = Describe("Stratify", func() {
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
 					Strata: []ir.Members{{
-						ir.NodeMember("inner_a"),
-						ir.NodeMember("inner_b"),
+						ir.Member{NodeKey: new("inner_a")},
+						ir.Member{NodeKey: new("inner_b")},
 					}},
 				}
 				root := run(ctx, programOf(
-					[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(stage)},
+					[]ir.Member{{NodeKey: new("sensor")}, {Scope: new(stage)}},
 					[]ir.Edge{edge("sensor", "inner_a")},
 				))
 				Expect(stratumOf(root, "sensor")).To(Equal(0))
@@ -286,12 +294,12 @@ var _ = Describe("Stratify", func() {
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
 					Strata: []ir.Members{{
-						ir.NodeMember("a"),
-						ir.NodeMember("b"),
+						ir.Member{NodeKey: new("a")},
+						ir.Member{NodeKey: new("b")},
 					}},
 				}
 				prog := programOf(
-					[]ir.Member{ir.ScopeMember(inner)},
+					[]ir.Member{{Scope: new(inner)}},
 					[]ir.Edge{edge("a", "b")},
 				)
 				root := run(ctx, prog)
@@ -312,13 +320,13 @@ var _ = Describe("Stratify", func() {
 					Mode:     ir.ScopeModeSequential,
 					Liveness: ir.LivenessGated,
 					Steps: ir.Members{
-						ir.NodeMember("step_0"),
-						ir.NodeMember("step_1"),
-						ir.NodeMember("step_2"),
+						ir.Member{NodeKey: new("step_0")},
+						ir.Member{NodeKey: new("step_1")},
+						ir.Member{NodeKey: new("step_2")},
 					},
 				}
 				prog := programOf(
-					[]ir.Member{ir.ScopeMember(seq)},
+					[]ir.Member{{Scope: new(seq)}},
 					// Edges in reverse order; if stratifier naively tried to
 					// re-phase sequential scopes it would violate source order.
 					[]ir.Edge{edge("step_2", "step_0"), edge("step_1", "step_0")},
@@ -343,18 +351,18 @@ var _ = Describe("Stratify", func() {
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
 					Strata: []ir.Members{{
-						ir.NodeMember("n1"),
-						ir.NodeMember("n2"),
+						ir.Member{NodeKey: new("n1")},
+						ir.Member{NodeKey: new("n2")},
 					}},
 				}
 				seq := ir.Scope{
 					Key:      "seq",
 					Mode:     ir.ScopeModeSequential,
 					Liveness: ir.LivenessGated,
-					Steps:    ir.Members{ir.ScopeMember(parallelChild)},
+					Steps:    ir.Members{ir.Member{Scope: new(parallelChild)}},
 				}
 				prog := programOf(
-					[]ir.Member{ir.ScopeMember(seq)},
+					[]ir.Member{{Scope: new(seq)}},
 					[]ir.Edge{edge("n1", "n2")},
 				)
 				root := run(ctx, prog)
@@ -376,11 +384,11 @@ var _ = Describe("Stratify", func() {
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
 					Strata: []ir.Members{{
-						ir.NodeMember("deep"),
+						ir.Member{NodeKey: new("deep")},
 					}},
 				}
 				root := run(ctx, programOf(
-					[]ir.Member{ir.NodeMember("sensor"), ir.ScopeMember(inner)},
+					[]ir.Member{{NodeKey: new("sensor")}, {Scope: new(inner)}},
 					[]ir.Edge{edge("sensor", "deep")},
 				))
 				Expect(stratumOf(root, "sensor")).To(Equal(0))
@@ -403,8 +411,8 @@ var _ = Describe("Stratify", func() {
 						Mode:     ir.ScopeModeParallel,
 						Liveness: ir.LivenessAlways,
 						Strata: []ir.Members{
-							{ir.NodeMember("process")},
-							{ir.NodeMember("sensor")},
+							{ir.Member{NodeKey: new("process")}},
+							{ir.Member{NodeKey: new("sensor")}},
 						},
 					},
 				}
@@ -427,16 +435,16 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: outerHandle, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.NodeMember("inline_body")}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("inline_body")}}},
 				}
 				main := ir.Scope{
 					Key:      "main",
 					Mode:     ir.ScopeModeSequential,
 					Liveness: ir.LivenessGated,
-					Steps:    ir.Members{ir.NodeMember("outer_select")},
+					Steps:    ir.Members{ir.Member{NodeKey: new("outer_select")}},
 				}
 				root := run(ctx, programOf(
-					[]ir.Member{ir.ScopeMember(synth), ir.ScopeMember(main)},
+					[]ir.Member{{Scope: new(synth)}, {Scope: new(main)}},
 					nil,
 				))
 				Expect(stratumOf(root, "main")).To(Equal(0))
@@ -455,7 +463,7 @@ var _ = Describe("Stratify", func() {
 					Key:      "__inline_0",
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
-					Strata:   []ir.Members{{ir.NodeMember("inner_select")}},
+					Strata:   []ir.Members{{ir.Member{NodeKey: new("inner_select")}}},
 				}
 				inner := ir.Scope{
 					Key:      "__inline_1",
@@ -464,10 +472,10 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: innerHandle, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.NodeMember("inner_body")}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("inner_body")}}},
 				}
 				root := run(ctx, programOf(
-					[]ir.Member{ir.ScopeMember(inner), ir.ScopeMember(outer)},
+					[]ir.Member{{Scope: new(inner)}, {Scope: new(outer)}},
 					nil,
 				))
 				Expect(stratumOf(root, "__inline_0")).To(Equal(0))
@@ -488,7 +496,7 @@ var _ = Describe("Stratify", func() {
 					Key:      "__inline_0",
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessGated,
-					Strata:   []ir.Members{{ir.NodeMember("select_0")}},
+					Strata:   []ir.Members{{ir.Member{NodeKey: new("select_0")}}},
 				}
 				s1 := ir.Scope{
 					Key:      "__inline_1",
@@ -497,7 +505,7 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: h1, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.NodeMember("select_1")}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("select_1")}}},
 				}
 				s2 := ir.Scope{
 					Key:      "__inline_2",
@@ -506,7 +514,7 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: h2, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.NodeMember("select_2")}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("select_2")}}},
 				}
 				s3 := ir.Scope{
 					Key:      "__inline_3",
@@ -515,14 +523,14 @@ var _ = Describe("Stratify", func() {
 					Activations: []ir.Activation{
 						{On: h3, Kind: ir.EdgeKindConditional},
 					},
-					Strata: []ir.Members{{ir.NodeMember("innermost_body")}},
+					Strata: []ir.Members{{ir.Member{NodeKey: new("innermost_body")}}},
 				}
 				root := run(ctx, programOf(
 					[]ir.Member{
-						ir.ScopeMember(s3),
-						ir.ScopeMember(s2),
-						ir.ScopeMember(s1),
-						ir.ScopeMember(s0),
+						{Scope: new(s3)},
+						{Scope: new(s2)},
+						{Scope: new(s1)},
+						{Scope: new(s0)},
 					},
 					nil,
 				))
@@ -559,7 +567,11 @@ var _ = Describe("Constant dispatch floor", func() {
 					typed("c", "constant"),
 					typed("w", ""),
 				},
-				[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c"), ir.NodeMember("w")},
+				[]ir.Member{
+					{NodeKey: new("v")},
+					{NodeKey: new("c")},
+					{NodeKey: new("w")},
+				},
 				[]ir.Edge{edge("v", "c"), edge("c", "w")},
 			))
 			Expect(stratumOf(root, "v")).To(Equal(0))
@@ -573,7 +585,7 @@ var _ = Describe("Constant dispatch floor", func() {
 		func(ctx SpecContext) {
 			root := run(ctx, typedProgram(
 				[]ir.Node{typed("sv", "stateful_variable"), typed("c", "constant")},
-				[]ir.Member{ir.NodeMember("sv"), ir.NodeMember("c")},
+				[]ir.Member{{NodeKey: new("sv")}, {NodeKey: new("c")}},
 				[]ir.Edge{edge("sv", "c")},
 			))
 			Expect(stratumOf(root, "sv")).To(Equal(0))
@@ -584,7 +596,7 @@ var _ = Describe("Constant dispatch floor", func() {
 	It("Should keep an entry constant in stratum zero", func(ctx SpecContext) {
 		root := run(ctx, typedProgram(
 			[]ir.Node{typed("c", "constant")},
-			[]ir.Member{ir.NodeMember("c")},
+			[]ir.Member{{NodeKey: new("c")}},
 			nil,
 		))
 		Expect(stratumOf(root, "c")).To(Equal(0))
@@ -593,7 +605,7 @@ var _ = Describe("Constant dispatch floor", func() {
 	It("Should keep a variable-fed poller in stratum zero", func(ctx SpecContext) {
 		root := run(ctx, typedProgram(
 			[]ir.Node{typed("v", "variable"), typed("w", "")},
-			[]ir.Member{ir.NodeMember("v"), ir.NodeMember("w")},
+			[]ir.Member{{NodeKey: new("v")}, {NodeKey: new("w")}},
 			[]ir.Edge{edge("v", "w")},
 		))
 		Expect(stratumOf(root, "v")).To(Equal(0))
@@ -603,7 +615,7 @@ var _ = Describe("Constant dispatch floor", func() {
 	It("Should not order a write into a variable", func(ctx SpecContext) {
 		root := run(ctx, typedProgram(
 			[]ir.Node{typed("f", ""), typed("v", "variable")},
-			[]ir.Member{ir.NodeMember("f"), ir.NodeMember("v")},
+			[]ir.Member{{NodeKey: new("f")}, {NodeKey: new("v")}},
 			[]ir.Edge{edge("f", "v")},
 		))
 		Expect(stratumOf(root, "f")).To(Equal(0))
@@ -615,7 +627,7 @@ var _ = Describe("Constant dispatch floor", func() {
 		func(ctx SpecContext) {
 			root := run(ctx, typedProgram(
 				[]ir.Node{typed("v", "variable"), typed("c", "constant")},
-				[]ir.Member{ir.NodeMember("v"), ir.NodeMember("c")},
+				[]ir.Member{{NodeKey: new("v")}, {NodeKey: new("c")}},
 				[]ir.Edge{edge("v", "c"), edge("c", "v")},
 			))
 			Expect(stratumOf(root, "c")).To(Equal(1))
@@ -630,8 +642,8 @@ var _ = Describe("Constant dispatch floor", func() {
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessGated,
 				Strata: []ir.Members{{
-					ir.NodeMember("c"),
-					ir.NodeMember("w"),
+					ir.Member{NodeKey: new("c")},
+					ir.Member{NodeKey: new("w")},
 				}},
 			}
 			root := run(ctx, typedProgram(
@@ -640,7 +652,7 @@ var _ = Describe("Constant dispatch floor", func() {
 					typed("c", "constant"),
 					typed("w", ""),
 				},
-				[]ir.Member{ir.NodeMember("v"), ir.ScopeMember(stage)},
+				[]ir.Member{{NodeKey: new("v")}, {Scope: new(stage)}},
 				[]ir.Edge{edge("v", "c"), edge("c", "w")},
 			))
 			inner := stratumOf(root, "stage")
@@ -666,11 +678,11 @@ var _ = Describe("Constant dispatch floor", func() {
 				Key:      "stage",
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessGated,
-				Strata:   []ir.Members{{ir.NodeMember("c")}},
+				Strata:   []ir.Members{{ir.Member{NodeKey: new("c")}}},
 			}
 			root := run(ctx, typedProgram(
 				[]ir.Node{typed("timer", ""), typed("c", "constant")},
-				[]ir.Member{ir.NodeMember("timer"), ir.ScopeMember(stage)},
+				[]ir.Member{{NodeKey: new("timer")}, {Scope: new(stage)}},
 				[]ir.Edge{edge("timer", "c")},
 			))
 			var stageScope *ir.Scope
@@ -693,8 +705,10 @@ var _ = Describe("Constant dispatch floor", func() {
 				typed("c", "constant"), typed("w", ""),
 			},
 			[]ir.Member{
-				ir.NodeMember("src"), ir.NodeMember("mid"),
-				ir.NodeMember("c"), ir.NodeMember("w"),
+				{NodeKey: new("src")},
+				{NodeKey: new("mid")},
+				{NodeKey: new("c")},
+				{NodeKey: new("w")},
 			},
 			[]ir.Edge{edge("src", "mid"), edge("mid", "c"), edge("c", "w")},
 		))

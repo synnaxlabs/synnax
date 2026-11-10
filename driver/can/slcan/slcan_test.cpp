@@ -26,7 +26,7 @@
 #include <sys/ioctl.h>
 #include <unistd.h>
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/can/slcan/slcan.h"
 

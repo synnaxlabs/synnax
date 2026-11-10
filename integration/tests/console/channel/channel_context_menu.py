@@ -124,7 +124,7 @@ class ChannelContextMenu(ConsoleCase):
         rng = client.ranges.retrieve(name=range_name)
         try:
             rng[alias_name]
-        except sy.QueryError:
+        except sy.NotFoundError:
             pass
         else:
             raise AssertionError(
@@ -162,4 +162,4 @@ class ChannelContextMenu(ConsoleCase):
         link = self.console.channels.copy_link(self.shared_data)
 
         channel = self.client.channels.retrieve(self.shared_data)
-        assert_link_format(link, "channel", str(channel.key))
+        assert_link_format(link, resource_type="channel", resource_id=str(channel.key))

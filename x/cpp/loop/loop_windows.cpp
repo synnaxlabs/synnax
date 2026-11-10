@@ -43,7 +43,7 @@ void Timer::step() {
     // A negative due time is relative, in 100 ns units.
     LARGE_INTEGER due;
     due.QuadPart = -RESOLUTION.nanoseconds() / 100;
-    const HANDLE timer = this->impl_->timer;
+    const HANDLE timer = this->impl->timer;
     if (timer == nullptr ||
         !SetWaitableTimerEx(timer, &due, 0, nullptr, nullptr, nullptr, 0)) {
         std::this_thread::sleep_for(RESOLUTION.chrono());

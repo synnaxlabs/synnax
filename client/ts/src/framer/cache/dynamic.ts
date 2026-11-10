@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import {
-  DataType,
+  type DataType,
   math,
   MultiSeries,
   Series,
@@ -19,8 +19,6 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { IDENTITY_TRANSFORM, type Transform } from "@/framer/cache/transform";
-
 /** Response from a write to the {@link Dynamic} cache. */
 export interface WriteResponse {
   /** Series flushed because the write did not fit in the current buffer. */
@@ -29,24 +27,29 @@ export interface WriteResponse {
   allocated: MultiSeries;
 }
 
-/** Props for the {@link Dynamic} cache. */
+/** Props for the {@link Dynamic} buffer. */
 export interface DynamicProps {
   /**
-   * Sets the maximum size of the buffer that the cache will maintain before flushing
-   * data out to the caller.
+   * The samples each buffer holds, or a span that the measured write rate turns into a
+   * sample count.
    */
   dynamicBufferSize: number | TimeSpan;
-  /** Applied to every series before it enters a buffer. Defaults to identity. */
-  transform?: Transform;
   /** Used for logging. */
   instrumentation?: alamos.Instrumentation;
   /** Pulls the current time. */
   now?: () => TimeStamp;
+  /** Flushes every buffer as the same object, never as a right-sized copy. */
+  compactionDisabled?: boolean;
+  /**
+   * The most samples a buffer sized by a span holds.
+   * @default 1e6
+   */
+  maxBufferSize?: number;
 }
 
 // Bounds for dynamically calculated buffer sizes.
 const MIN_SIZE = 100;
-const MAX_SIZE = 1e6;
+const DEFAULT_MAX_SIZE = 1e6;
 // Size used until enough writes have arrived to estimate a rate.
 const DEF_SIZE = 1e4;
 const MAX_DEF_WRITES = 100;
@@ -83,9 +86,9 @@ const shouldCompact = (buffer: Series): boolean => {
 };
 
 /**
- * A cache for channel data that maintains a single, rolling Series as a buffer
- * for channel data. The buffer's data type is derived from the first written series,
- * so the cache needs no channel metadata.
+ * Grows written series in one leading buffer, and flushes it when a series does not fit
+ * or does not continue it. The buffer takes its data type from the first series
+ * written, so it needs no channel metadata.
  */
 export class Dynamic {
   private readonly props: Required<Omit<DynamicProps, "now">>;
@@ -99,16 +102,24 @@ export class Dynamic {
   private avgRate: number = 0;
   private timeOfLastWrite: TimeStamp;
   private totalWrites: number = 0;
+  /** The most samples the next buffer of a young run holds. */
+  private runSize = Infinity;
   private readonly now: () => TimeStamp;
 
   constructor(props: DynamicProps) {
     const {
       dynamicBufferSize,
-      transform = IDENTITY_TRANSFORM,
       instrumentation = alamos.NOOP,
       now = () => TimeStamp.now(),
+      compactionDisabled = false,
+      maxBufferSize = DEFAULT_MAX_SIZE,
     } = props;
-    this.props = { dynamicBufferSize, transform, instrumentation };
+    this.props = {
+      dynamicBufferSize,
+      instrumentation,
+      compactionDisabled,
+      maxBufferSize,
+    };
     this.now = now;
     this.timeOfLastWrite = this.now();
   }
@@ -163,21 +174,11 @@ export class Dynamic {
     source: Series,
   ): Series {
     this.counter++;
-    const dt = this.props.transform.resolveDataType(source.dataType);
-    // Bigint series narrowed to a non-bigint buffer store each value as a small delta
-    // off a per-buffer anchor to avoid losing precision. For timestamps, now() is
-    // close enough to the values being written. For int64 and uint64 the values can
-    // be anything, so the first sample we see is used as the anchor.
-    const narrowing = source.dataType.usesBigInt && !dt.usesBigInt;
-    let sampleOffset: math.Numeric = 0;
-    if (narrowing)
-      if (source.dataType.equals(DataType.TIMESTAMP)) sampleOffset = start.valueOf();
-      else if (source.length > 0) sampleOffset = BigInt(source.data[0].valueOf());
+    const { dataType } = source;
     return Series.alloc({
-      capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
-      dataType: dt,
+      capacity: dataType.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
+      dataType,
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
@@ -186,14 +187,14 @@ export class Dynamic {
 
   /**
    * @returns the sample capacity for a buffer that must hold the given series whole:
-   * the configured size, or the series' own size when that is larger.
+   * the configured size or a young run's smaller size, or the series' own size when
+   * that is larger.
    */
   private capacityFor(source: Series): number {
-    const dt = this.props.transform.resolveDataType(source.dataType);
-    const required = dt.isVariable
+    const required = source.dataType.isVariable
       ? Math.ceil(source.byteLength.valueOf() / VARIABLE_DT_MULTIPLIER)
       : source.length;
-    return Math.max(this.nextBufferSize(), required);
+    return Math.max(Math.min(this.nextBufferSize(), this.runSize), required);
   }
 
   // Unstamped series (virtual channels, writes without an in-frame index) fall back
@@ -207,8 +208,10 @@ export class Dynamic {
     source: Series,
     start: TimeStamp | null,
   ): Series {
+    const capacity = this.capacityFor(source);
+    this.runSize = Math.max(this.runSize, capacity * 2);
     this.curr = this.allocate(
-      this.capacityFor(source),
+      capacity,
       source.alignment,
       start ?? this.allocStart(source),
       source,
@@ -235,21 +238,25 @@ export class Dynamic {
    * it is collected, which is wasteful when an oversized series ended it early.
    */
   private compacted(buffer: Series, res: WriteResponse): Series {
-    // A buffer allocated during this same write has not reached its subscribers yet,
-    // so its reference count cannot yet report who is about to hold it.
-    if (!shouldCompact(buffer) || res.allocated.series.includes(buffer)) return buffer;
+    // A buffer allocated during this same write has not reached its holders yet, so its
+    // reference count cannot yet report who is about to hold it.
+    if (
+      this.props.compactionDisabled ||
+      !shouldCompact(buffer) ||
+      res.allocated.series.includes(buffer)
+    )
+      return buffer;
     return buffer.compact();
   }
 
   private _write(series: Series, res: WriteResponse): void {
-    const { transform, instrumentation: ins } = this.props;
-    if (this.curr != null) {
-      const resolved = transform.resolveDataType(series.dataType);
-      if (!this.curr.dataType.equals(resolved)) {
+    const { instrumentation: ins } = this.props;
+    if (this.curr != null)
+      if (!this.curr.dataType.equals(series.dataType)) {
         // The channel's data type changed (e.g. a calculated channel was reconfigured).
         ins.L.warn("buffer data type changed, resetting", {
           prev: this.curr.dataType.toString(),
-          next: resolved.toString(),
+          next: series.dataType.toString(),
         });
         this.flushCurr(res);
       } else if (series.alignment < this.curr.alignment) {
@@ -261,9 +268,8 @@ export class Dynamic {
         });
         this.flushCurr(res);
       }
-    }
+
     let curr = this.curr;
-    let trimmed = false;
     if (curr != null) {
       // overlap > 0: the incoming series steps back into samples the current buffer
       // already holds. overlap < 0: there is a gap between the buffer and the series.
@@ -273,33 +279,26 @@ export class Dynamic {
         // the cache with overlapping series. sub() is zero-copy.
         if (overlap >= series.length) return;
         series = series.sub(overlap);
-        trimmed = true;
       } else if (overlap < 0) {
         this.flushCurr(res);
         curr = null;
       }
     }
-    const convert = (buffer: Series): Series =>
-      transform.convert(series, buffer.sampleOffset);
     let rotationStart: TimeStamp | null = null;
-    if (curr != null) {
-      const converted = convert(curr);
+    if (curr != null)
       // A series never splits across two buffers. The timestamp where a split falls is
       // not in the data, so both sides would have to guess the boundary they share, and
       // a guess lands outside the data whenever samples are irregular.
-      if (fits(curr, converted)) curr.write(converted);
+      if (fits(curr, series)) curr.write(series);
       else {
-        const end = this.flushCurr(res);
-        // A trimmed series keeps the whole frame's start, which is earlier than the
-        // samples it still holds. Those samples begin where the buffer they were
-        // trimmed against ends, so the next buffer starts there.
-        if (trimmed) rotationStart = end;
+        // The next buffer holds the same run of samples, so it touches this one.
+        rotationStart = this.flushCurr(res);
         curr = null;
       }
-    }
+
     if (curr == null) {
       curr = this.allocCurr(res, series, rotationStart);
-      curr.write(convert(curr));
+      curr.write(series);
     }
     this.currDataEnd = series.timeRange.isZero ? null : series.timeRange.end;
     this.updateAvgRate(series);
@@ -317,11 +316,19 @@ export class Dynamic {
   }
 
   private nextBufferSize(): number {
-    const { dynamicBufferSize } = this.props;
+    const { dynamicBufferSize, maxBufferSize } = this.props;
     if (typeof dynamicBufferSize === "number") return dynamicBufferSize;
-    if (this.totalWrites < MAX_DEF_WRITES) return DEF_SIZE;
+    if (this.totalWrites < MAX_DEF_WRITES) return Math.min(DEF_SIZE, maxBufferSize);
     const size = math.roundToNearestMagnitude(this.avgRate * dynamicBufferSize.seconds);
-    return Math.round(Math.max(Math.min(size, MAX_SIZE), MIN_SIZE));
+    return Math.round(Math.min(Math.max(size, MIN_SIZE), maxBufferSize));
+  }
+
+  /**
+   * Starts a run of samples. The run's first buffer is small, and each buffer after it
+   * doubles up to the configured size, so a short run holds little memory.
+   */
+  startRun(): void {
+    this.runSize = MIN_SIZE;
   }
 
   /**

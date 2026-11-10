@@ -16,8 +16,8 @@ from synnax.telem import TimeRange
 
 
 class _Request(BaseModel):
-    keys: list[channel.Key] | tuple[channel.Key] | None = None
-    names: list[str] | tuple[str] | None = None
+    keys: list[channel.Key] | tuple[channel.Key, ...] | None = None
+    names: list[str] | tuple[str, ...] | None = None
     bounds: TimeRange
 
 
@@ -32,7 +32,9 @@ class Deleter:
     _client: UnaryClient
     instrumentation: Instrumentation
 
-    def __init__(self, client: UnaryClient, instrumentation: Instrumentation) -> None:
+    def __init__(
+        self, *, client: UnaryClient, instrumentation: Instrumentation
+    ) -> None:
         self._client = client
         self.instrumentation = instrumentation
 

@@ -2,10 +2,10 @@
 
 ## Modules
 
-`/core/` (server), `/aspen/` (distributed KV), `/cesium/` (time-series DB), `/gorp/`
-(typed KV tables), `/freighter/go/` + `/freighter/integration/` (transport + its test
-server), `/arc/go/` (Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema
-codegen CLI), `/x/go/` (shared utilities).
+`/core/` (server), `/cesium/` (time-series DB), `/gorp/` (typed KV tables),
+`/freighter/go/` + `/freighter/integration/` (transport + its test server), `/arc/go/`
+(Arc compiler), `/alamos/go/` (instrumentation), `/oracle/` (schema codegen CLI),
+`/x/go/` (shared utilities).
 
 Modules reference siblings via relative-path `replace` directives in each `go.mod`.
 `go.work` is gitignored but fine for local convenience.
@@ -13,6 +13,10 @@ Modules reference siblings via relative-path `replace` directives in each `go.mo
 ## Commands
 
 - Build: `cd <module> && go build ./...`
+- Exports: `cd x/go && go run ./cmd/exports ../../core ../../x/go ...` prints the
+  exported identifiers that no other package's non-test code uses. Unexport them, or
+  move a helper that other packages' tests need into a `testutil` package. Pass every
+  module that can import the package.
 - Test: **always `ginkgo`, never `go test`**. `ginkgo` (package), `ginkgo -r`
   (recursive), `ginkgo -v`, `ginkgo --focus "Name"`.
 
@@ -30,12 +34,12 @@ reproduce a Windows-only failure with `GOOS=windows CGO_ENABLED=0 golangci-lint 
 - Package names: lowercase, one word, singular (`channel`, `framer`, `writer`). When the
   natural name collides with a keyword, extend it (`ranger`, not `range`).
 - One file per concern inside a package: `service.go`, `writer.go`, `retrieve.go`,
-  `ontology.go`, `transport.go`. Tests co-located.
+  `resource.go`, `transport.go`. Tests co-located.
 - Exported names are contextual to the package: `channel.Service`, `channel.Key`,
   `channel.Writer` (see the root namespace rule). The core type may share the package
   name: `channel.Channel`.
 - `internal/` hides implementation packages consumers must not import
-  (`cesium/internal`, `aspen/internal`).
+  (`cesium/internal`).
 
 ## General rules
 
@@ -57,7 +61,8 @@ defer func() {
 
 `fmt.Errorf` is forbidden in all cases (including `%w`), as are the std `errors` package
 and third-party error packages. Use `errors.New(msg)`, `errors.Newf(format, ...)`,
-`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`.
+`errors.Wrap(err, msg)`, `errors.Wrapf(err, format, ...)`. The `depguard` and
+`forbidigo` linters enforce it.
 
 ### Rule 3: Sentinel errors for matchable conditions
 
@@ -241,7 +246,7 @@ different setup or assertions.
 `HaveOccurred()`, `Not(Succeed())`, `Not(BeNil())` on errors are forbidden — they pass
 when the code fails for the wrong reason. Always identify the error:
 `MatchError(sentinel)`, `MatchError(ContainSubstring("..."))`, or both via
-`SatisfyAll(...)`.
+`SatisfyAll(...)`. The `errmatch` linter enforces it.
 
 ### Rule 9: No export_test.go
 

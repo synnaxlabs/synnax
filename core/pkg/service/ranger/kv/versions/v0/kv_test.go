@@ -20,9 +20,9 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/kv/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Pair", func() {
@@ -34,9 +34,11 @@ var _ = Describe("Pair", func() {
 		})
 	})
 
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Pair{}.SetOptions()).To(BeNil())
+	Describe("GorpKeyRange", func() {
+		It("Should return the range of a key that GorpKey returns", func() {
+			rng := uuid.New()
+			key := v0.Pair{Range: rng, Key: "a<--->b"}.GorpKey()
+			Expect(v0.Pair{}.GorpKeyRange(key)).To(Equal(rng.String()))
 		})
 	})
 

@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler/resolve"
+	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -55,19 +56,22 @@ func monoMathAbs() *symbol.Symbol {
 
 var _ = Describe("Resolver", func() {
 	Describe("Finalize", func() {
-		It("Should assign an import index for a host-import reference", func() {
-			r := resolve.NewResolver()
-			w := wasm.NewWriter()
-			wID := r.TrackWriter(w)
-			target := monoMathAbs().FindChild("abs")
-			r.EmitCall(w, wID, target, target.Type)
+		It(
+			"Should assign an import index for a host-import reference",
+			func(ctx SpecContext) {
+				r := resolve.NewResolver()
+				w := wasm.NewWriter()
+				wID := r.TrackWriter(w)
+				target := monoMathAbs().FindChild("abs")
+				r.EmitCall(w, wID, target, target.Type)
 
-			m := wasm.NewModule()
-			patches := r.Finalize(m)
-			Expect(patches).To(HaveLen(1))
-			Expect(m.ImportCount()).To(Equal(uint32(1)))
-			Expect(m.ImportNames()).To(ConsistOf("abs"))
-		})
+				m := wasm.NewModule()
+				patches := r.Finalize(m)
+				Expect(patches).To(HaveLen(1))
+				Expect(m.ImportCount()).To(Equal(uint32(1)))
+				Expect(ImportNames(ctx, m)).To(ConsistOf("abs"))
+			},
+		)
 
 		It("Should map local refs to importCount + bodyIndex", func() {
 			r := resolve.NewResolver()
@@ -87,6 +91,29 @@ var _ = Describe("Resolver", func() {
 				values = append(values, v)
 			}
 			Expect(values).To(ConsistOf(uint32(0), uint32(1)))
+		})
+
+		It("Should map a user module's member to a local function", func() {
+			r := resolve.NewResolver()
+			w := wasm.NewWriter()
+			wID := r.TrackWriter(w)
+			mod := &symbol.Symbol{
+				Name:        "lib.m",
+				Kind:        symbol.KindModule,
+				UserDefined: true,
+			}
+			mod.AddChild(&symbol.Symbol{Name: "f", Kind: symbol.KindFunction})
+			f := mod.FindChild("f")
+			r.EmitCall(w, wID, f, types.Function(types.FunctionProperties{}))
+			r.RegisterLocal("lib.m.f", 3)
+
+			m := wasm.NewModule()
+			patches := r.Finalize(m)
+			Expect(m.ImportCount()).To(Equal(uint32(0)))
+			Expect(patches).To(HaveLen(1))
+			for _, v := range patches {
+				Expect(v).To(Equal(uint32(3)))
+			}
 		})
 
 		It("Should deduplicate imports with identical WASM coordinates", func() {
@@ -114,21 +141,24 @@ var _ = Describe("Resolver", func() {
 			Expect(m.ImportCount()).To(Equal(uint32(1)))
 		})
 
-		It("Should append a type suffix for polymorphic targets", func() {
-			r := resolve.NewResolver()
-			w := wasm.NewWriter()
-			wID := r.TrackWriter(w)
-			target := mathModuleWithAbs().FindChild("abs")
-			concrete := types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "x", Type: types.F64()}},
-				Outputs: types.Params{{Name: "result", Type: types.F64()}},
-			})
-			r.EmitCall(w, wID, target, concrete)
+		It(
+			"Should append a type suffix for polymorphic targets",
+			func(ctx SpecContext) {
+				r := resolve.NewResolver()
+				w := wasm.NewWriter()
+				wID := r.TrackWriter(w)
+				target := mathModuleWithAbs().FindChild("abs")
+				concrete := types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "x", Type: types.F64()}},
+					Outputs: types.Params{{Name: "result", Type: types.F64()}},
+				})
+				r.EmitCall(w, wID, target, concrete)
 
-			m := wasm.NewModule()
-			r.Finalize(m)
-			Expect(m.ImportNames()).To(ConsistOf("abs_f64"))
-		})
+				m := wasm.NewModule()
+				r.Finalize(m)
+				Expect(ImportNames(ctx, m)).To(ConsistOf("abs_f64"))
+			},
+		)
 	})
 })
 

@@ -86,11 +86,11 @@ func (rv Ref) EncodeOrc(w *orc.Writer) error {
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (rv *Ref) DecodeOrc(r *orc.Reader) error {
-	tag, err := r.String()
+	tag, err := r.StringBytes()
 	if err != nil {
 		return err
 	}
-	switch tag {
+	switch string(tag) {
 	case "key":
 		var v KeyRef
 		if _, err := r.Read(v.Key[:]); err != nil {

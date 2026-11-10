@@ -12,9 +12,14 @@
 package v0
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"reflect"
+
 	bus "github.com/synnaxlabs/synnax/pkg/service/bus/versions/v0"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
+	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // Backend is the driver library the Driver talks to a CAN adapter through.
@@ -71,6 +76,32 @@ func (p *Properties) ApplyDefaults() {
 	}
 }
 
+// SetDefaults sets every field that has a schema default to that default.
+func (p *Properties) SetDefaults() {
+	p.Backend = BackendSocketcan
+	p.Bitrate = 500000
+	p.DataBitrate = 2000000
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (p *Properties) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(p))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (p *Properties) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain Properties
+	if reflect.ValueOf(*p).IsZero() {
+		p.SetDefaults()
+	}
+	return dec.Decode((*plain)(p))
+}
+
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (p Properties) Validate() error {
@@ -97,4 +128,28 @@ type ScanConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (s *ScanConfig) ApplyDefaults() {
 	s.ScanConfig.ApplyDefaults()
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (s *ScanConfig) SetDefaults() {
+	s.ScanConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (s *ScanConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(s))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ScanConfig
+	if reflect.ValueOf(*s).IsZero() {
+		s.SetDefaults()
+	}
+	return dec.Decode((*plain)(s))
 }

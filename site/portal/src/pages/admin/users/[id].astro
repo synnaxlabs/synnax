@@ -1,0 +1,56 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import Admin from "@/layouts/Admin.astro";
+import { requireStaff } from "@/access";
+import { type Activity, failure, loadScoped, readActivity } from "@/page";
+import { Page } from "@/ui/Page";
+import { Admin as Console } from "@/ui/admin";
+import { type Detail, retrieve } from "@/server/user";
+
+const loaded = await loadScoped(Astro);
+if (loaded instanceof Response) return loaded;
+const { portal, session, organizations, scope } = loaded;
+
+let error: string | undefined;
+let detail: Detail | undefined;
+let activity: Activity | null = null;
+try {
+    requireStaff(session);
+    detail = await retrieve(
+        portal.store,
+        portal.directory,
+        Astro.params.id ?? "",
+        portal.now(),
+    );
+    if (detail.personal != null)
+        activity = await readActivity(portal, Astro.url, {
+            organization: detail.personal.key,
+        });
+} catch (err) {
+    const f = failure(err);
+    Astro.response.status = f.status;
+    error = f.message;
+    detail = undefined;
+}
+---
+
+<Admin
+    title={detail?.account.name ?? "User"}
+    session={session}
+    organizations={organizations}
+    scope={scope}
+>
+    {detail == null ? (
+        <Page title="User" error={error} />
+    ) : (
+        <Console.User client:load {...detail} activity={activity} now={portal.now()} />
+    )}
+</Admin>

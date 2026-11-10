@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-control-state.pluto--direction-x {
+.pluto-control-state.lyra--direction-x {
     padding: 0;
     max-width: 12rem;
 }
 
-.pluto-control-state.pluto--direction-y {
+.pluto-control-state.lyra--direction-y {
     padding: 0 1rem 1rem;
 }
 
@@ -25,51 +25,59 @@
     width: max-content;
     height: max-content;
     position: absolute;
+
     --offset: calc(2rem / 3);
+
     justify-content: center;
     align-items: center;
     outline: none;
     padding: 0.5rem;
 
-    &.pluto-haul-drop-region {
+    &.lyra-haul-drop-region {
         background: var(--haul-background);
         border-color: var(--haul-border-color);
         border-radius: var(--pluto-border-radius);
     }
+
     &.pluto-dragging-over {
         border-color: var(--pluto-primary-z);
     }
 
-    &.pluto--direction-y {
+    &.lyra--direction-y {
         min-width: 100%;
         min-height: 3rem;
     }
-    &.pluto--direction-x {
+
+    &.lyra--direction-x {
         min-width: 3rem;
         min-height: 100%;
     }
 
-    &.pluto--location-top {
+    &.lyra--location-top {
         top: 0;
         left: 50%;
         transform: translate(-50%, calc(-100% - var(--offset)));
     }
-    &.pluto--location-bottom {
+
+    &.lyra--location-bottom {
         bottom: 0;
         left: 50%;
         transform: translate(-50%, calc(100% + var(--offset)));
     }
-    &.pluto--location-left {
+
+    &.lyra--location-left {
         left: 0;
         top: 50%;
         transform: translate(calc(-100% - var(--offset)), -50%);
     }
-    &.pluto--location-right {
+
+    &.lyra--location-right {
         right: 0;
         top: 50%;
         transform: translate(calc(100% + var(--offset)), -50%);
     }
-    &.pluto--location-center {
+
+    &.lyra--location-center {
         left: 50%;
         top: 50%;
         transform: translate(-50%, -50%);
@@ -80,16 +88,21 @@
 
 .pluto-symbol__label {
     --offset: calc(2rem / 3);
+
     &:not(:focus) {
         -webkit-user-select: none;
         user-select: none;
     }
+
     pointer-events: none;
     overflow-wrap: break-word;
     width: max-content;
     height: max-content;
+    /* stylelint-disable-next-line declaration-no-important -- a label sits flush
+       whatever padding its style sets */
     padding: 0 !important;
-    &.pluto--direction-y {
+
+    &.lyra--direction-y {
         writing-mode: vertical-rl;
     }
 }
@@ -105,7 +118,7 @@
     }
 }
 
-.pluto-diagram.pluto--editable {
+.pluto-diagram.lyra--editable {
     .pluto-symbol__label {
         pointer-events: auto;
     }

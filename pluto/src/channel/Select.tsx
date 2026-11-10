@@ -11,7 +11,6 @@ import "@/channel/Select.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -20,6 +19,7 @@ import { type ReactElement } from "react";
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 
 const ListItem = ({
@@ -44,39 +44,45 @@ export interface SelectMultipleProps
       Select.MultipleProps<channel.Key, channel.Channel | undefined>,
       "resourceName" | "data" | "getItem" | "subscribe" | "children"
     >,
-    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
 
 const isChannel = (entry: unknown): entry is channel.Channel =>
   entry != null && typeof entry === "object" && "payload" in entry;
 
+// A selection with no channel, such as a fixed item, shows the select's own icon.
 const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
-  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
+  if (!isChannel(entry)) return undefined;
+  const Resolved = resolveIcon(entry.payload);
   return <Resolved />;
 };
 
-const TRIGGER_PROPS = {
+const TRIGGER_CLASS = CSS.BE("channel", "trigger");
+
+// A caller's trigger props add to the defaults, so the trigger keeps its icon and mark.
+const withDefaults = <P extends { className?: string }>(props?: P) => ({
   renderIcon: renderTriggerIcon,
-  className: CSS.BE("channel", "trigger"),
-};
+  ...props,
+  className: CSS.cls(TRIGGER_CLASS, props?.className),
+});
 
 export const SelectMultiple = ({
-  initialQuery,
+  query,
   filter,
+  triggerProps,
   ...rest
 }: SelectMultipleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+  const { data, getItem, subscribe, status, more, search } = useList({
+    query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Multiple<channel.Key, channel.Channel | undefined>
       haulType={HAUL_TYPE}
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       icon={<Icon.Channel />}
-      triggerProps={TRIGGER_PROPS}
+      triggerProps={withDefaults(triggerProps)}
       {...rest}
       resourceName="channel"
       data={data}
@@ -94,26 +100,26 @@ export interface SelectSingleProps
       Select.SingleProps<channel.Key, channel.Channel | undefined>,
       "data" | "getItem" | "subscribe" | "children" | "resourceName"
     >,
-    Flux.UseListParams<ListQuery, channel.Key, channel.Channel> {}
+    Omit<Flux.UseListParams<ListQuery, channel.Channel>, "name"> {}
 
 export const SelectSingle = ({
-  initialQuery,
+  query,
   filter,
+  triggerProps,
   ...rest
 }: SelectSingleProps): ReactElement => {
-  const { data, retrieve, getItem, subscribe, status } = useList({
-    initialQuery,
+  const { data, getItem, subscribe, status, more, search } = useList({
+    query,
     filter,
   });
-  const { fetchMore, search } = List.usePager({ retrieve });
   return (
     <Select.Single<channel.Key, channel.Channel | undefined>
-      onFetchMore={fetchMore}
+      onFetchMore={more}
       onSearch={search}
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
-      triggerProps={TRIGGER_PROPS}
+      triggerProps={withDefaults(triggerProps)}
       {...rest}
       data={data}
       getItem={getItem}

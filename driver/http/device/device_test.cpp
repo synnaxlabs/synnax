@@ -16,7 +16,7 @@
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/device/device.h"
 
@@ -339,7 +339,7 @@ TEST(RetrieveConnectionTest, SecureDefaultBaseURL) {
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
-        .key = "retrieve-conn-test-secure",
+        .key = make_unique_channel_name("retrieve-conn-test-secure"),
         .rack = r.key,
         .location = "192.168.1.100:8080",
         .make = "http",
@@ -359,7 +359,7 @@ TEST(RetrieveConnectionTest, InsecureBaseURL) {
     auto r = synnax::rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
     synnax::device::Device dev{
-        .key = "retrieve-conn-test-insecure",
+        .key = make_unique_channel_name("retrieve-conn-test-insecure"),
         .rack = r.key,
         .location = "10.0.0.1:9090",
         .make = "http",

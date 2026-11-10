@@ -18,7 +18,7 @@ const OpenInfoCommand = Command.create({
   key: "open_license_info",
   name: "Show license info",
   icon: <Icon.License />,
-  useVisible: () => Access.useRetrieveGranted(license.ONTOLOGY_ID),
+  useVisible: () => Access.useRetrieveGranted(license.RESOURCE_ID),
   useOnSelect: useInfoModal,
 });
 

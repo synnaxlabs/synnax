@@ -9,7 +9,7 @@
 
 import "@/platform/tree/item.css";
 
-import { ontology } from "@synnaxlabs/client";
+import { type resource, type Synnax } from "@synnaxlabs/client";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
@@ -18,12 +18,14 @@ import { Tree as Base } from "@synnaxlabs/lyra/tree";
 import { type FC, type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { type ContextMenu } from "@/platform/tree/types";
+import { type Children } from "@/platform/tree/children";
+import { MatchGroup, useHighlight } from "@/platform/tree/search";
+import { type ContextMenu, type Resource } from "@/platform/tree/types";
 
 // ItemProps are the props the Tree passes to a resource type's Item. The Item owns its
 // own icon and double-click behavior, so neither is threaded through here.
 export interface ItemProps extends Omit<Base.ItemProps<string>, "id" | "resource"> {
-  resource: ontology.Resource;
+  resource: Resource;
   loading: boolean;
 }
 
@@ -36,19 +38,63 @@ export interface ContentProps extends ItemProps {
 
 export interface Content extends FC<ContentProps> {}
 
-// Item renders a single resource row in the ontology tree. The component carries the
-// static, render-independent behavior for its resource type (children, drag, context
-// menu, visibility) as properties, read imperatively by the Tree.
-export interface Item extends FC<ItemProps> {
-  type: ontology.ResourceType;
-  hasChildren: boolean;
-  canDrop: Haul.CanDrop;
-  haulItems: (resource: ontology.Resource) => Haul.Item[];
-  ContextMenu?: ContextMenu;
-  visible?: (resource: ontology.Resource) => boolean;
+export interface CanDropProps extends Haul.DraggingState {
+  /** The root of the tree. */
+  root: resource.ID;
+  /** The resource the items would drop onto. */
+  destination: Resource;
+  /** The tree ancestors of the destination, nearest first, ending with the root. */
+  ancestors: resource.ID[];
+  /** The tree items the drop would move. */
+  moved: Dropped[];
 }
 
-export interface Items extends Partial<Record<ontology.ResourceType, Item>> {}
+/** Decides whether a node accepts the dragged items. */
+export interface CanDrop {
+  (props: CanDropProps): boolean;
+}
+
+export interface Dropped {
+  id: resource.ID;
+  /** The tree ancestors of the item, nearest first, ending with the tree root. */
+  ancestors: resource.ID[];
+}
+
+export interface DropProps {
+  client: Synnax;
+  destination: Resource;
+  items: Dropped[];
+}
+
+/** Moves the dropped items into a node. */
+export interface Drop {
+  (props: DropProps): Promise<void>;
+}
+
+/** Returns what a drag of the resource carries besides the resource itself. */
+export interface HaulItems {
+  (resource: Resource, client: Synnax): Haul.Item[];
+}
+
+/**
+ * Item renders one resource in the resource tree. The component carries the static
+ * behavior of its resource type (children, order, drag, context menu) as properties,
+ * which the Tree reads imperatively.
+ */
+export interface Item extends FC<ItemProps> {
+  hasChildren: boolean;
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder: boolean;
+  children?: Children;
+  canDrop: CanDrop;
+  drop?: Drop;
+  haulItems: HaulItems;
+  ContextMenu?: ContextMenu;
+  /** A deep link opens a resource of this type. */
+  linkable: boolean;
+}
+
+export interface Items extends Partial<Record<resource.Type, Item>> {}
 
 const DefaultRow = ({
   onDoubleClick,
@@ -56,43 +102,57 @@ const DefaultRow = ({
   icon,
   loading,
   ...rest
-}: ContentProps): ReactElement => (
-  <Base.Item {...rest} onDoubleClick={onDoubleClick}>
-    {icon}
-    <Text.MaybeEditable
-      id={List.itemNameID(ontology.idToString(resource.id))}
-      value={resource.name}
-      onChange
-      allowDoubleClick={false}
-      className={CSS.BE("tree-item", "name")}
-      overflow="fade"
-    />
-  </Base.Item>
-);
+}: ContentProps): ReactElement => {
+  const highlight = useHighlight();
+  return (
+    <Base.Item {...rest} onDoubleClick={onDoubleClick}>
+      {icon}
+      <Text.MaybeEditable
+        id={List.itemNameID(resource.key)}
+        value={resource.name}
+        onChange
+        allowDoubleClick={false}
+        className={CSS.BE("tree-item", "name")}
+        overflow="fade"
+        highlight={highlight}
+      />
+      <MatchGroup id={resource.id} />
+    </Base.Item>
+  );
+};
 
 const noop = (): void => {};
 
 export interface CreateItemParams {
-  type: ontology.ResourceType;
-  icon?: Icon.ReactElement | ((resource: ontology.Resource) => Icon.ReactElement);
-  useOnSelect?: () => (resource: ontology.Resource) => void;
+  icon?: Icon.ReactElement | ((resource: Resource) => Icon.ReactElement);
+  useOnSelect?: () => (resource: Resource) => void;
+  /** Lists the children of a node of this type. */
+  children?: Children;
+  /** Whether a node of this type expands. Defaults to whether it lists children. */
   hasChildren?: boolean;
-  canDrop?: Haul.CanDrop;
-  haulItems?: (resource: ontology.Resource) => Haul.Item[];
+  /** Whether nodes of this type show before the other children of their parent. */
+  folder?: boolean;
+  canDrop?: CanDrop;
+  /** Moves dropped items into a node of this type. Required when canDrop can pass. */
+  drop?: Drop;
+  haulItems?: HaulItems;
   ContextMenu?: ContextMenu;
-  visible?: (resource: ontology.Resource) => boolean;
+  /** A deep link opens a resource of this type. */
+  linkable?: boolean;
   Content?: Content;
 }
 
 export const createItem = ({
-  type,
   icon,
   useOnSelect = () => noop,
-  hasChildren = true,
+  children,
+  hasChildren = children != null,
+  folder = false,
   canDrop = () => false,
+  drop,
   haulItems = () => [],
   ContextMenu,
-  visible,
+  linkable = false,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -105,15 +165,17 @@ export const createItem = ({
     return <Row {...props} icon={resolvedIcon} onDoubleClick={handleDoubleClick} />;
   };
   const item = Component as Item;
-  item.type = type;
   item.hasChildren = hasChildren;
+  item.folder = folder;
+  item.children = children;
   item.canDrop = canDrop;
+  item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
-  item.visible = visible;
+  item.linkable = linkable;
   return item;
 };
 
 // DefaultItem is the fallback used for resource types with no registered Item: an
-// unadorned name row with expandable children and no drag or drop behavior.
-export const DefaultItem: Item = createItem({ type: "builtin" });
+// unadorned name row with no children and no drag or drop behavior.
+export const DefaultItem: Item = createItem({});

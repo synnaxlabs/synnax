@@ -11,6 +11,7 @@ import pytest
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.pagerduty
@@ -157,7 +158,9 @@ class TestPagerDutyAlertTask:
         assert alert["class"] == "db_error"
         assert "class_" not in alert
 
-    def test_create_and_retrieve_alert_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_alert_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that AlertTask can be created and retrieved from the database."""
         task = sy.pagerduty.AlertTask(
             name="test-pagerduty-alert",
@@ -171,6 +174,7 @@ class TestPagerDutyAlertTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created = client.tasks.create(
             name="test-pagerduty-alert",
             type="pagerduty_alert",
@@ -188,7 +192,9 @@ class TestPagerDutyAlertTask:
             assert retr.group == orig.group
             assert retr.class_ == orig.class_
 
-    def test_alert_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_alert_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original = sy.pagerduty.AlertTask(
             name="test-round-trip",
@@ -211,6 +217,7 @@ class TestPagerDutyAlertTask:
                 ),
             ],
         )
+        task_targets.attach(original.config)
         created = client.tasks.create(
             name="test-round-trip",
             type="pagerduty_alert",

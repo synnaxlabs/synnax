@@ -15,12 +15,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,34 +32,33 @@ func TestLegacy(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db       *gorp.DB
-	otg      *ontology.Ontology
-	groupSvc *group.Service
-	panelSvc *panel.Service
-	logSvc   *log.Service
-	imexSvc  *imex.Service
-	tx       gorp.Tx
+	db         *gorp.DB
+	groupSvc   *group.Service
+	panelSvc   *panel.Service
+	logSvc     *log.Service
+	imexSvc    *imex.Service
+	projectSvc *project.Service
+	tx         gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		db = node.DB
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		panelSvc = MustOpen(panel.OpenService(ctx, panel.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
+			DB: db,
 		}))
 		imexSvc = imex.NewService()
 		logSvc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
-			DB:       db,
-			Ontology: otg,
-			ImEx:     imexSvc,
+			DB:   db,
+			ImEx: imexSvc,
+		}))
+		projectSvc = MustOpen(project.OpenService(ctx, project.ServiceConfig{
+			DB: db,
 		}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })

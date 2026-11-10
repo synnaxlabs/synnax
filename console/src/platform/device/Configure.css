@@ -14,11 +14,12 @@
     overflow: hidden;
     width: 133rem;
 
-    .pluto-navbar {
-        .pluto--start {
+    .lyra-navbar {
+        .lyra--start {
             padding-left: 2rem;
         }
-        .pluto--end {
+
+        .lyra--end {
             padding-right: 2rem;
         }
     }

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/cesium/internal/virtual"
+	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/telem"
@@ -34,9 +35,8 @@ type (
 )
 
 var (
-	ErrDBClosed          = resource.NewClosedError("cesium.db")
-	ErrChannelNotFound   = channel.ErrNotFound
-	ZeroLeadingAlignment = alignment.ZeroLeading
+	ErrDBClosed        = resource.NewClosedError("cesium.db")
+	ErrChannelNotFound = channel.ErrNotFound
 )
 
 // Metrics contains statistics about the cesium database.
@@ -45,24 +45,21 @@ type Metrics struct {
 	DiskSize telem.Size
 }
 
-// LeadingAlignment returns an Alignment in the leading domain domainIdx, counted from
-// ZeroLeadingAlignment, with the provided sample index.
-func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return alignment.Leading(domainIdx, sampleIdx)
-}
-
-// NewAlignmentCounter returns an AlignmentCounter whose first domain follows
-// ZeroLeadingAlignment.
+// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
+// leading alignment.
 func NewAlignmentCounter() *AlignmentCounter {
 	return alignment.NewCounter(alignment.ZeroLeading)
 }
 
 type DB struct {
 	shutdown io.Closer
+	// removals tracks the background removals of deleted channel data.
+	removals sync.WaitGroup
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
 	controlUpdates observe.Observer[ControlUpdate]
+	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	mu             struct {
 		dbs struct {
@@ -73,7 +70,9 @@ type DB struct {
 	}
 }
 
-// Write writes the frame to database at the specified start time.
+// Write writes the frame to database at the specified start time. It returns
+// control.ErrUnauthorized if another writer controls a channel in the frame, and then
+// it may have committed only some of the channels.
 func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) error {
 	if db.closed.Load() {
 		return ErrDBClosed
@@ -90,10 +89,14 @@ func (db *DB) Write(ctx context.Context, start telem.TimeStamp, frame Frame) err
 	if _, err = w.Write(frame); err != nil {
 		return err
 	}
-	if _, err = w.Commit(); err != nil {
+	_, authorized, err := w.Commit()
+	if err != nil {
 		return err
 	}
-	return span.Error(w.Close())
+	if !authorized {
+		err = errors.Wrap(xcontrol.ErrUnauthorized, "another writer controls the frame")
+	}
+	return span.Error(errors.Combine(err, w.Close()))
 }
 
 // WriteSeries writes a series into the specified channel at the specified start time.
@@ -168,5 +171,6 @@ func (db *DB) Close() error {
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
+	db.removals.Wait()
 	return err
 }

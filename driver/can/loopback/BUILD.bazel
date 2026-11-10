@@ -24,7 +24,7 @@ cc_test(
     srcs = ["loopback_test.cpp"],
     deps = [
         ":loopback",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

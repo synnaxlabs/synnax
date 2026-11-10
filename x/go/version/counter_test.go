@@ -16,14 +16,6 @@ import (
 )
 
 var _ = Describe("Counter", func() {
-	Describe("Increment", func() {
-		It("should increment the counter", func() {
-			c := version.Counter(0)
-			c = c.Increment()
-			Expect(c).To(Equal(version.Counter(1)))
-		})
-	})
-
 	Describe("NewerThan", func() {
 		It("should correctly compare counters", func() {
 			c1 := version.Counter(5)

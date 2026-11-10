@@ -248,9 +248,11 @@ EOF
             touch "$(execpath lib/libwasmtime.a)"
         """,
         "@platforms//os:macos": """
-            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add the
-            # directories of rustup's cargo and Homebrew's cmake.
-            export PATH=~/.cargo/bin:/opt/homebrew/bin:$$PATH
+            # Actions get only /bin, /usr/bin, and /usr/local/bin on PATH. Add rustup's
+            # cargo and rustc, which rustup-init puts in ~/.cargo/bin and Homebrew keeps
+            # in its keg, and Homebrew's cmake.
+            export PATH=/opt/homebrew/opt/rustup/bin:/opt/homebrew/bin:$$PATH
+            export PATH=~/.cargo/bin:$$PATH
 
             # Build wasmtime
             cd vendor/wasmtime/wasmtime

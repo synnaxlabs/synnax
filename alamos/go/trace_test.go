@@ -24,7 +24,7 @@ var _ = Describe("Trace", func() {
 			cfg := alamos.TracingConfig{
 				OtelProvider:   otel.GetTracerProvider(),
 				OtelPropagator: otel.GetTextMapPropagator(),
-				Filter:         alamos.ThresholdEnvFilter(alamos.EnvironmentDebug),
+				Filter:         func(alamos.Environment, string) bool { return true },
 			}
 			tracer := MustSucceed(alamos.NewTracer(cfg))
 			Expect(tracer).ToNot(BeNil())

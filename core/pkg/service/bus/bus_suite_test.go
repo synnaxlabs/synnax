@@ -18,22 +18,19 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var (
-	db  *gorp.DB
-	otg *ontology.Ontology
-	tx  gorp.Tx
+	db *gorp.DB
+	tx gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
-		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	})
 	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )
@@ -89,16 +86,11 @@ func canMessage(
 	}
 }
 
-// createICD stores ic and defines the ontology resources of ic and the task.
-func createICD(ctx context.Context, ic *icd.ICD, task uuid.UUID) {
+// createICD stores ic under a new key.
+func createICD(ctx context.Context, ic *icd.ICD) {
 	GinkgoHelper()
 	ic.Key = uuid.New()
 	Expect(gorp.NewCreate[icd.Key, icd.ICD]().
 		Entry(ic).
 		Exec(ctx, tx)).To(Succeed())
-	Expect(otg.NewWriter(tx).DefineResources(
-		ctx,
-		icd.OntologyID(ic.Key),
-		ontology.ID{Type: ontology.ResourceTypeTask, Key: task.String()},
-	)).To(Succeed())
 }

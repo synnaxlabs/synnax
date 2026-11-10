@@ -11,14 +11,13 @@ package icd
 
 import (
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/access"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/api/bind"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -30,10 +29,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ICD *icd.Service
-	// RBAC enforces access control on every request.
-	//
-	// [REQUIRED]
-	RBAC *rbac.Service
 }
 
 var (
@@ -45,7 +40,6 @@ var (
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.ICD = override.Nil(c.ICD, other.ICD)
-	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
 
@@ -53,13 +47,11 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("api.icd")
 	v.NotNil("icd", c.ICD)
-	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
 
 // Service is the API for interface control documents.
 type Service struct {
-	access   *rbac.Service
 	internal *icd.Service
 }
 
@@ -69,7 +61,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{internal: cfg.ICD, access: cfg.RBAC}, nil
+	return &Service{internal: cfg.ICD}, nil
 }
 
 type (
@@ -92,64 +84,53 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
-	}); err != nil {
-		return CreateResponse{}, err
-	}
 	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.ICDs); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	SearchTerm string `json:"search_term" msgpack:"search_term"`
-	Keys       []Key  `json:"keys"        msgpack:"keys"`
-	Limit      int    `json:"limit"       msgpack:"limit"`
-	Offset     int    `json:"offset"      msgpack:"offset"`
+var _ bind.Named = RetrieveRequest{}
+
+// Named implements bind.Named. It returns the ICDs that the top level of Where selects
+// by key.
+func (r RetrieveRequest) Named() []resource.ID {
+	if r.Where == nil {
+		return nil
+	}
+	return bind.Keys(r.Where.Key, icd.ResourceID)
 }
 
-type RetrieveResponse struct {
-	ICDs []ICD `json:"icds" msgpack:"icds"`
-}
-
-// Retrieve retrieves ICDs by key or by a fuzzy search on their names.
+// Retrieve returns the ICDs that req selects and that the subject can retrieve.
 func (s *Service) Retrieve(
 	ctx context.Context,
+	snap bind.Snapshot,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit != 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset != 0 {
-		q = q.Offset(req.Offset)
-	}
-	if len(req.Keys) != 0 {
-		q = q.Where(icd.MatchKeys(req.Keys...))
-	}
-	var ics []ICD
-	if err := q.Entries(&ics).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := ApplyRetrieve(req, s.internal.NewRetrieve().Entries(&res.ICDs))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: icd.OntologyIDsFromICDs(ics),
-	}); err != nil {
+	if err = q.Where(bind.Filter(snap, icd.Match)).Exec(ctx, snap); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{ICDs: ics}, nil
+	return res, nil
 }
 
 type CheckRequest struct {
 	ICD ICD `json:"icd" msgpack:"icd"`
+}
+
+var _ bind.Named = CheckRequest{}
+
+// Named implements bind.Named. It returns the stored ICD that the request replaces, if
+// any.
+func (r CheckRequest) Named() []resource.ID {
+	if r.ICD.Key == uuid.Nil() {
+		return nil
+	}
+	return []resource.ID{r.ICD.ResourceID()}
 }
 
 type CheckResponse struct {
@@ -157,15 +138,12 @@ type CheckResponse struct {
 }
 
 // Check returns every problem that would stop an ICD from saving, without storing it.
-func (s *Service) Check(ctx context.Context, req CheckRequest) (CheckResponse, error) {
-	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionRetrieve,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeICD}},
-	}); err != nil {
-		return CheckResponse{}, err
-	}
-	problems, err := s.internal.NewWriter(nil).Check(ctx, req.ICD)
+func (s *Service) Check(
+	ctx context.Context,
+	snap bind.Snapshot,
+	req CheckRequest,
+) (CheckResponse, error) {
+	problems, err := s.internal.Check(ctx, snap, req.ICD)
 	if err != nil {
 		return CheckResponse{}, err
 	}
@@ -183,13 +161,6 @@ func (s *Service) Rename(
 	tx gorp.Tx,
 	req RenameRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{icd.OntologyID(req.Key)},
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
@@ -210,13 +181,6 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{icd.OntologyID(req.Key)},
-	}); err != nil {
-		return ImportResponse{}, err
-	}
 	ic, err := s.internal.NewWriter(tx).Import(ctx, req.Key, req.Format, req.Data)
 	if err != nil {
 		return ImportResponse{}, err
@@ -234,12 +198,5 @@ func (s *Service) Delete(
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionDelete,
-		Objects: icd.OntologyIDs(req.Keys),
-	}); err != nil {
-		return struct{}{}, err
-	}
 	return struct{}{}, s.internal.NewWriter(tx).Delete(ctx, req.Keys...)
 }

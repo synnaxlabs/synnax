@@ -12,6 +12,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from tests.json_value import arr, obj
+from tests.task_targets import TaskTargets
 
 
 @pytest.mark.ethercat
@@ -139,6 +140,39 @@ class TestEtherCATReadTask:
         )
         assert task.config.channels[0].key != ""
 
+    def test_entry_channel_scale_defaults_to_none(self) -> None:
+        """Should leave an entry channel unscaled unless a scale is given."""
+        ch = sy.ethercat.EntryReadChannel(
+            index=0x6000, sub_index=1, data_type=sy.DataType.INT16
+        )
+        assert isinstance(ch.scale, sy.task.NoneScale)
+
+    @pytest.mark.parametrize(
+        ("scale", "cls"),
+        [
+            ({"type": "linear", "slope": 2.5, "offset": -10}, sy.task.LinearScale),
+            (
+                {
+                    "type": "map",
+                    "pre_scaled_min": 4,
+                    "pre_scaled_max": 20,
+                    "scaled_min": 0,
+                    "scaled_max": 100,
+                },
+                sy.task.MapScale,
+            ),
+        ],
+    )
+    def test_entry_channel_scale_round_trip(
+        self, scale: dict[str, object], cls: type
+    ) -> None:
+        """Should parse each scale into the class named by its type and dump it back."""
+        ch = sy.ethercat.EntryReadChannel.model_validate(
+            {"index": 0x6000, "sub_index": 1, "data_type": "int16", "scale": scale}
+        )
+        assert isinstance(ch.scale, cls)
+        assert ch.model_dump()["scale"] == scale
+
     @pytest.mark.parametrize("field", ["index", "sub_index", "data_type"])
     def test_entry_channel_requires_address(self, field: str) -> None:
         """Should reject an entry channel without its full address and type."""
@@ -180,7 +214,9 @@ class TestEtherCATReadTask:
             with pytest.raises(ValidationError):
                 build()
 
-    def test_create_and_retrieve_read_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_read_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that ReadTask can be created and retrieved from the database."""
         task = sy.ethercat.ReadTask(
             name="test-ethercat-read-task",
@@ -207,6 +243,7 @@ class TestEtherCATReadTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-ethercat-read-task",
             type="ethercat_read",
@@ -337,7 +374,9 @@ class TestEtherCATWriteTask:
         )
         assert channel.state_channel == 0
 
-    def test_create_and_retrieve_write_task(self, client: sy.Synnax) -> None:
+    def test_create_and_retrieve_write_task(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that WriteTask can be created and retrieved from the database."""
         task = sy.ethercat.WriteTask(
             name="test-ethercat-write-task",
@@ -357,6 +396,7 @@ class TestEtherCATWriteTask:
                 ),
             ],
         )
+        task_targets.attach(task.config)
         created_task = client.tasks.create(
             name="test-ethercat-write-task",
             type="ethercat_write",
@@ -364,7 +404,9 @@ class TestEtherCATWriteTask:
         )
         sy.ethercat.WriteTask(created_task)
 
-    def test_write_task_serialization_round_trip(self, client: sy.Synnax) -> None:
+    def test_write_task_serialization_round_trip(
+        self, client: sy.Synnax, task_targets: TaskTargets
+    ) -> None:
         """Test that task can be serialized and deserialized correctly."""
         original_task = sy.ethercat.WriteTask(
             name="test-round-trip",
@@ -395,6 +437,7 @@ class TestEtherCATWriteTask:
                 ),
             ],
         )
+        task_targets.attach(original_task.config)
         created_task = client.tasks.create(
             name="test-round-trip",
             type="ethercat_write",
@@ -423,7 +466,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Servo Drive",
             network="eth0",
-            position=0,
+            position=1,
             vendor_id=0x00000002,
             product_code=0x12345678,
             revision=0x00010000,
@@ -465,7 +508,7 @@ class TestEtherCATDevice:
         # Verify properties
         props = created_device.properties
         assert props["network"] == "eth0"
-        assert props["position"] == 0
+        assert props["position"] == 1
         assert props["vendor_id"] == 0x00000002
         assert props["product_code"] == 0x12345678
         inputs = arr(props, "pdos", "inputs")
@@ -480,7 +523,7 @@ class TestEtherCATDevice:
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
         )
         assert device.key != ""
         assert len(device.key) > 0
@@ -494,12 +537,18 @@ class TestEtherCATDevice:
         )
         assert device.location == "enp3s0:5"
 
+    def test_device_default_position(self) -> None:
+        """Test that Device puts the slave at the first bus position by default."""
+        device = sy.ethercat.Device(name="Test Device", network="eth0")
+        assert device.properties["position"] == 1
+        assert device.location == "eth0:1"
+
     def test_device_omits_unset_pdo_names(self) -> None:
         """Test that Device leaves out the PDO name of an entry that has none."""
         device = sy.ethercat.Device(
             name="Test Device",
             network="eth0",
-            position=0,
+            position=1,
             input_pdos=[
                 sy.ethercat.PDOEntry(
                     name="Input",

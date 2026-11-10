@@ -14,15 +14,19 @@ import Synnax, { type SynnaxParams } from "@/client";
 import { TEST_CORE_ADDRESS } from "@/testutil/address";
 import { createSeverableProxy, type SeverableProxy } from "@/testutil/proxy";
 
+/** The root credentials of the test Core. */
+export const TEST_CREDENTIALS = { username: "synnax", password: "seldon" };
+
 export const TEST_CLIENT_PARAMS: SynnaxParams = {
   ...TEST_CORE_ADDRESS,
-  username: "synnax",
-  password: "seldon",
+  ...TEST_CREDENTIALS,
   retry: {
     maxRetries: 4,
     baseInterval: TimeSpan.seconds(1),
     scale: 1.5,
   },
+  // An exhausted budget still throws, so a retry that succeeds is not a failure.
+  onRetry: () => {},
 };
 
 // A hook registered mid-test is silently dropped by vitest, so per-client afterAll
@@ -99,6 +103,63 @@ export const recordResponses = (
     return await res;
   });
   return responses;
+};
+
+/**
+ * Holds each request to target until release is called, so the Core does not get it.
+ * Call it inside a test: the hold ends when that test finishes.
+ */
+export const holdRequests = (
+  client: Synnax,
+  target: string,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const released = Promise.withResolvers<void>();
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) await released.promise;
+    return await send(...args);
+  });
+  onTestFinished(() => {
+    released.resolve();
+    spy.mockRestore();
+  });
+  return { release: () => released.resolve() };
+};
+
+/** Rejects with error each request for which matches is true. Sends the others on. */
+export const rejectRequests = (
+  client: Synnax,
+  matches: (target: string, req: unknown) => boolean,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  return vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (matches(args[0], args[1])) throw error;
+    return await send(...args);
+  });
+};
+
+/**
+ * Fails each request to target with the error, so the Core does not get it. Call it
+ * inside a test: the failures end when that test finishes.
+ */
+export const failRequests = (
+  client: Synnax,
+  target: string,
+  error: Error,
+  field: "transport" = "transport",
+) => {
+  const { unary } = client[field];
+  const send = unary.send.bind(unary);
+  const spy = vi.spyOn(unary, "send").mockImplementation(async (...args) => {
+    if (args[0] === target) throw error;
+    return await send(...args);
+  });
+  onTestFinished(() => spy.mockRestore());
 };
 
 /**

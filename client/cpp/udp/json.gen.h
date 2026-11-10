@@ -31,7 +31,7 @@ inline Properties Properties::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Properties::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["port"] = this->port;
     j["remote_host"] = this->remote_host;
     j["remote_port"] = this->remote_port;
@@ -52,13 +52,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::bus::ReadConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
-    for (const auto base = ::synnax::bus::PollConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::bus::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::synnax::bus::PollConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -71,10 +69,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::bus::WriteConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::bus::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

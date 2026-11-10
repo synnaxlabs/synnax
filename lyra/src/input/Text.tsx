@@ -9,21 +9,27 @@
 
 import "@/input/Input.css";
 
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
-import { useCombinedRefs } from "@/hooks";
-import { useLabelledBy } from "@/input/Item";
+import { useCombinedRefs, useResize } from "@/hooks";
+import { ItemBoundary, useItemStatus, useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
-const DATE_INPUT_TYPES = new Set(["date", "time", "datetime-local"]);
+const NATIVE_PREVIEW_TYPES = new Set(["date", "time", "datetime-local", "password"]);
 
 export interface TextProps
   extends
@@ -52,10 +58,11 @@ export interface TextProps
  * @param props.value - The value of the input.
  * @param props.onChange - A function to call when the input value changes.
  * @param props.size - The size of the input: "small" | "medium" | "large".
- * @param props.selectOnFocus - Whether the input should select its contents when focused.
+ * @param props.selectOnFocus - Whether the input should select its contents when
+ * focused.
  * @param props.centerPlaceholder - Whether the placeholder should be centered.
- * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous value if
- * blurred while empty.
+ * @param props.resetOnBlurIfEmpty - Whether the input should reset to its previous
+ * value if blurred while empty.
  * @param props.onlyChangeOnBlur - If true, the input will only call `onChange` when the
  * user blurs the input or the user presses 'Enter'.
  * @param props.flush - Marks the input as its surface's sole keystroke target,
@@ -163,11 +170,30 @@ export const Text = ({
     e.stopPropagation();
   };
 
-  const combinedRef = useCombinedRefs(ref, internalRef);
+  // An input's text is no scroll container a CSS scroll timeline can watch, so the
+  // input measures itself to fade a cut value.
+  const [cut, setCut] = useState(false);
+  const measureCut = (el: HTMLElement | null): void => {
+    if (el != null && !area) setCut(el.scrollWidth > el.clientWidth);
+  };
+  const resizeRef = useResize<HTMLInputElement>((_, el) => measureCut(el));
+  useLayoutEffect(
+    () => measureCut(internalRef.current),
+    [value, tempValue, measureCut],
+  );
+
+  const combinedRef = useCombinedRefs(ref, internalRef, resizeRef);
 
   const inputStyle = { fontWeight: weight };
 
   const ariaLabelledBy = useLabelledBy(rest);
+  const itemStatus = useItemStatus({
+    status,
+    tooltip,
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
 
   const showPlaceholder =
     preview !== true &&
@@ -178,11 +204,12 @@ export const Text = ({
 
   if (tabIndex == null && preview) tabIndex = -1;
 
-  // A native date input formats its value for display, so a preview keeps the
-  // element. Every other type renders static text: an input cannot shrink to its
-  // content, which strands end content far from the value.
+  // A native date input formats its value for display, and a password input hides it,
+  // so a preview keeps the element. Every other type renders static text: an input
+  // cannot shrink to its content, which strands end content far from the value.
   const staticPreview =
-    preview === true && !DATE_INPUT_TYPES.has((rest as { type?: string }).type ?? "");
+    preview === true &&
+    !NATIVE_PREVIEW_TYPES.has((rest as { type?: string }).type ?? "");
 
   const outerProps: Flex.BoxProps = {
     style,
@@ -205,14 +232,14 @@ export const Text = ({
         flush && CSS.M("flush"),
         variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
-        status != null && CSS.M(status),
+        itemStatus.status != null && CSS.M(itemStatus.status),
         className,
       )}
       size={size}
       level={level}
       color={pColor}
       sharp={sharp}
-      status={status}
+      status={itemStatus.status}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
@@ -227,9 +254,9 @@ export const Text = ({
       textVariant={textVariant}
       preventClick={preventClick}
       onClickDelay={onClickDelay}
-      tooltip={tooltip}
+      tooltip={itemStatus.tooltip}
       tooltipLocation={tooltipLocation}
-      hideTooltip={hideTooltip}
+      hideTooltip={itemStatus.hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
       onMouseDown={handleFrameMouseDown}
@@ -267,6 +294,7 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
+          className={cut ? CSS.M("cut") : undefined}
           value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}
@@ -282,6 +310,8 @@ export const Text = ({
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}
           {...rest}
+          aria-invalid={itemStatus["aria-invalid"]}
+          aria-describedby={itemStatus["aria-describedby"]}
           aria-labelledby={ariaLabelledBy}
         />
       )}
@@ -299,7 +329,7 @@ export const Text = ({
   return (
     <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
       {baseInput}
-      {children}
+      <ItemBoundary>{children}</ItemBoundary>
     </Flex.Box>
   );
 };

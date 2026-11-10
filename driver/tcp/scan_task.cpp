@@ -41,21 +41,23 @@ Scanner::scan(const common::ScannerContext &ctx) {
         x::json::Parser parser{x::json::json(dev.properties)};
         const auto props = synnax::tcp::Properties::parse(parser);
         synnax::device::Status status{
-            .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = this->task.rack, .device = dev.key},
+            .details = {.rack = this->task.rack, .connected = true},
+            .owner = synnax::device::resource_id(dev.key),
         };
         if (!parser.ok()) {
             status.variant = synnax::status::VARIANT_WARNING;
             status.message = "Invalid device properties";
             status.description = parser.error().data;
+            status.details.connected = false;
         } else if (const auto err = this->reach(dev.key, props)) {
             status.variant = synnax::status::VARIANT_WARNING;
             status.message = "Failed to reach device";
             status.description = err.data;
+            status.details.connected = false;
         }
         dev.status = std::move(status);
         out.push_back(std::move(dev));

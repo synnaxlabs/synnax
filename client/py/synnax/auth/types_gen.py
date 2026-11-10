@@ -11,18 +11,20 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Annotated, Literal, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import ontology
+from synnax import resource
 from x import telem
 
 METHOD_PASSWORD: Literal["password"] = "password"
 
+METHOD_API_KEY: Literal["api_key"] = "api_key"
 
-Method = Literal["password"]
+
+Method = Literal["password", "api_key"]
 
 SessionKey: TypeAlias = UUID
 
@@ -39,6 +41,16 @@ class Credentials(BaseModel):
     password: str
 
 
+class APIKeyCredentials(BaseModel):
+    """Is an API key presented at login.
+
+    Attributes:
+        key: Is the full API key, as it was shown at creation.
+    """
+
+    key: str
+
+
 class Session(BaseModel):
     """Is a logged-in subject. It ends when it is revoked or when no request has used it
     for the idle timeout.
@@ -52,12 +64,13 @@ class Session(BaseModel):
     """
 
     key: SessionKey = Field(default_factory=uuid4)
-    subject: ontology.ID
+    subject: resource.ID
     credential: UUID
     last_active: telem.TimeStamp = Field(
         ge=-9223372036854775808, le=9223372036854775807
     )
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -68,9 +81,15 @@ class PasswordProof(Credentials):
     method: Literal["password"] = "password"
 
 
+class APIKeyProof(APIKeyCredentials):
+    """Proves an API key."""
+
+    method: Literal["api_key"] = "api_key"
+
+
 # Is what a subject presents to log in. The method selects the authenticator that
 # checks it.
 Proof = Annotated[
-    PasswordProof,
+    PasswordProof | APIKeyProof,
     Field(discriminator="method"),
 ]

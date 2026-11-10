@@ -9,6 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -17,6 +18,8 @@ import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { post, reload } from "@/ui/api";
 import { machineName } from "@/ui/format";
 import { Modal } from "@/ui/modal";
+
+const path = deep.path<z.infer<typeof schema>>();
 
 const schema = z.object({
   name: z.string().trim().min(1, "Name the machine").max(MAX_NAME_LENGTH, "Too long"),
@@ -60,7 +63,7 @@ const Content = ({ activation }: { activation: Activation }): ReactElement => {
       }}
     >
       <Form.TextField
-        path="name"
+        path={path.name}
         label="Name"
         inputProps={{ autoFocus: true, placeholder: "Test stand, site B" }}
       />

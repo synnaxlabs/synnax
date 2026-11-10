@@ -307,7 +307,7 @@ var completions = []completionInfo{
 		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
-		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
+		Insert:       "func ${1:name}($2) {$3} $4 {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryTopLevelKeyword,
@@ -407,7 +407,8 @@ func optStr(s string) protocol.Optional[string] {
 func (s *Server) Completion(
 	ctx context.Context,
 	params *protocol.CompletionParams,
-) (protocol.CompletionResult, error) {
+) (result protocol.CompletionResult, err error) {
+	defer s.recoverAnalysis(func(panicErr error) { result, err = nil, panicErr })
 	doc, ok := s.getDocument(params.TextDocument.URI)
 	if !ok {
 		return nil, nil
@@ -459,11 +460,12 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx == ContextImportPath {
-		return getImportPathCompletions(doc, prefix, pos, root)
+		return s.getImportPathCompletions(ctx, doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextInputParamName ||
-		completionCtx == ContextInputParamValue {
+	// A block document is a func body, so a call in it takes positional arguments.
+	if !doc.isBlock() && (completionCtx == ContextInputParamName ||
+		completionCtx == ContextInputParamValue) {
 		inputInfo := extractInputContext(doc.displayContent(), pos)
 		if inputInfo != nil {
 			if completionCtx == ContextInputParamName {
@@ -485,8 +487,7 @@ func (s *Server) getCompletionItems(
 		// plus flow statements and single invocations (per the grammar's
 		// `sequenceItem`). That allows channel references, flow / exec-both
 		// functions, constants, and module-qualified members alongside the
-		// stage keyword. ExecWASM-only functions are filtered out by the
-		// execFilter below.
+		// stage keyword.
 		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
@@ -523,12 +524,10 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation {
+		// A flow expression can call a WASM function, so only a func body filters.
 		var execFilter symbol.ExecContext
-		switch nesting {
-		case NestingFunction:
+		if nesting == NestingFunction {
 			execFilter = symbol.ExecWASM
-		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
-			execFilter = symbol.ExecFlow
 		}
 		moduleName, memberPrefix, qualified := strings.CutLast(prefix, ".")
 		startChar := pos.Character - uint32(len(prefix))
@@ -540,20 +539,24 @@ func (s *Server) getCompletionItems(
 			// analyzed (e.g. mid-typing "math.").
 			var mod *symbol.Symbol
 			if scopeAtCursor := doc.findScopeAtPosition(pos); scopeAtCursor != nil {
-				mod, _ = scopeAtCursor.Resolve(
+				if m, err := scopeAtCursor.Resolve(
 					ctx,
 					moduleName,
 					symbol.IncludeInternal,
 					symbol.WithoutUsageTracking,
-				)
+				); err == nil {
+					mod = m
+				}
 			}
 			if mod == nil && root != nil {
-				mod, _ = root.Resolve(
+				if m, err := root.Resolve(
 					ctx,
 					moduleName,
 					symbol.IncludeInternal,
 					symbol.WithoutUsageTracking,
-				)
+				); err == nil {
+					mod = m
+				}
 			}
 			// Resolve returns the alias for `import time as t`; follow Target
 			// to reach the module body for member enumeration. Aliased
@@ -570,7 +573,8 @@ func (s *Server) getCompletionItems(
 					importEdit = buildAutoImportEdit(doc, mod.Name)
 				}
 				for _, sym := range mod.Children() {
-					if sym.Kind != symbol.KindFunction || sym.Internal {
+					if sym.Internal || (mod.UserDefined && !sym.Exported) ||
+						(sym.Kind != symbol.KindFunction && sym.Kind != symbol.KindConstant) {
 						continue
 					}
 					if !sym.Exec.Compatible(execFilter) {
@@ -594,7 +598,7 @@ func (s *Server) getCompletionItems(
 						NewText: qualifiedName,
 					}
 					item.AdditionalTextEdits = importEdit
-					applyInvocationSuffix(&item, sym.Kind, execFilter)
+					applyInvocationSuffix(&item, sym.Kind)
 					items = append(items, item)
 				}
 			}
@@ -618,7 +622,7 @@ func (s *Server) getCompletionItems(
 								sym.Name,
 							)
 						}
-						applyInvocationSuffix(&item, sym.Kind, execFilter)
+						applyInvocationSuffix(&item, sym.Kind)
 						items = append(items, item)
 					}
 				}
@@ -673,6 +677,9 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 	} else {
 		kind = protocol.CompletionItemKindVariable
 	}
+	if sym.Kind == symbol.KindConstant {
+		kind = protocol.CompletionItemKindConstant
+	}
 	return protocol.CompletionItem{
 		Label:  sym.Name,
 		Kind:   kind,
@@ -680,11 +687,10 @@ func symbolCompletionItem(sym *symbol.Symbol) protocol.CompletionItem {
 	}
 }
 
-// getImportPathCompletions returns the modules reachable from doc's
-// scope chain, surfaced as Module completion items. Used when the cursor
-// sits in the module-name slot of an `import` statement, where only
-// module names are valid suggestions.
-func getImportPathCompletions(
+// getImportPathCompletions returns the modules in doc's scope chain and the user
+// module paths that start with prefix. Used in the module-name slot of an `import`.
+func (s *Server) getImportPathCompletions(
+	ctx context.Context,
 	doc *Document,
 	prefix string,
 	pos protocol.Position,
@@ -699,8 +705,8 @@ func getImportPathCompletions(
 	}
 	var items []protocol.CompletionItem
 	seen := make(set.Set[string])
-	for s := scope; s != nil; s = s.Parent {
-		for _, child := range s.Children() {
+	for sc := scope; sc != nil; sc = sc.Parent {
+		for _, child := range sc.Children() {
 			if child.Kind != symbol.KindModule || child.Internal {
 				continue
 			}
@@ -717,6 +723,31 @@ func getImportPathCompletions(
 				Detail: protocol.NewOptional("module"),
 			})
 		}
+	}
+	if root == nil || root.ModuleResolver() == nil {
+		return items
+	}
+	modules, err := root.ModuleResolver().Search(ctx, prefix)
+	if err != nil {
+		s.cfg.L.Error("failed to search modules", zap.Error(err))
+		return items
+	}
+	// A path holds dots, which the client does not count as part of the word, so
+	// each item replaces the whole typed prefix.
+	start := protocol.Position{
+		Line:      pos.Line,
+		Character: pos.Character - uint32(len(prefix)),
+	}
+	for _, m := range modules {
+		items = append(items, protocol.CompletionItem{
+			Label:  m.Name,
+			Kind:   protocol.CompletionItemKindModule,
+			Detail: protocol.NewOptional("module"),
+			TextEdit: &protocol.TextEdit{
+				Range:   protocol.Range{Start: start, End: pos},
+				NewText: m.Name,
+			},
+		})
 	}
 	return items
 }
@@ -805,24 +836,15 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 	return b.String(), i
 }
 
-// applyInvocationSuffix appends an invocation snippet — `($0)` in an
-// imperative/WASM context, `{$0}` in a flow context — to a function
-// completion item so the cursor lands inside ready to receive arguments
-// or inputs. No-op for non-function kinds, which insert their bare name.
-// The suffix is appended to TextEdit.NewText when set, otherwise to
-// InsertText (falling back to Label when InsertText is empty).
-func applyInvocationSuffix(
-	item *protocol.CompletionItem,
-	kind symbol.Kind,
-	execFilter symbol.ExecContext,
-) {
+// applyInvocationSuffix appends a `($0)` snippet to a function completion item so
+// the cursor lands inside the parens. No-op for non-function kinds, which insert
+// their bare name. The suffix is appended to TextEdit.NewText when set, otherwise
+// to InsertText (falling back to Label when InsertText is empty).
+func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 	if kind != symbol.KindFunction {
 		return
 	}
-	suffix := "{$0}"
-	if execFilter == symbol.ExecWASM {
-		suffix = "($0)"
-	}
+	suffix := "($0)"
 	if edit, ok := item.TextEdit.(*protocol.TextEdit); ok {
 		edit.NewText += suffix
 	} else {
@@ -901,7 +923,15 @@ func buildAutoImportEditFromSnapshot(
 			if child.Name == moduleName {
 				return nil
 			}
-			existingNames = append(existingNames, child.Name)
+			item, ok := child.AST.(parser.IImportItemContext)
+			if !ok {
+				continue
+			}
+			entry := item.ImportPath().GetText()
+			if item.AS() != nil {
+				entry += " as " + item.IDENTIFIER().GetText()
+			}
+			existingNames = append(existingNames, entry)
 			parent, ok := child.AST.GetParent().(antlr.ParserRuleContext)
 			if !ok || seenStmts.Contains(parent) {
 				continue
@@ -1012,7 +1042,7 @@ func appendModuleMemberCompletions(
 				if !imported {
 					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name)
 				}
-				applyInvocationSuffix(&item, member.Kind, execFilter)
+				applyInvocationSuffix(&item, member.Kind)
 				items = append(items, item)
 			}
 		}

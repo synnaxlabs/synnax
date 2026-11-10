@@ -45,13 +45,20 @@ export interface ColorValue {
   fallback: color.Crude;
 }
 
+/** One element's config before and after an edit. */
+export interface Update<C> {
+  key: string;
+  base: C;
+  next: C;
+}
+
 export interface SelectionArgs<C extends { variant: string }> {
   /** The editable configs, by element key. */
   configs: Map<string, C>;
   /** The fields each variant declares, from fieldsByVariant. */
   fields: Map<string, Set<string>>;
-  /** Called with every changed config, by element key. Never called empty. */
-  onChange: (updates: Array<[string, C]>) => void;
+  /** Called with every changed config. Never called empty. */
+  onChange: (updates: Array<Update<C>>) => void;
 }
 
 /** Reads and writes one field across every selected element that declares it. */
@@ -95,15 +102,16 @@ export const selection = <C extends { variant: string }>({
     Array.from(configs).filter(([, config]) => declares(config, field));
   const read = <V>(config: C, field: string): V | undefined =>
     (config as record.Unknown)[field] as V | undefined;
-  const apply = (updates: Array<[string, C]>): void => {
+  const apply = (updates: Array<Update<C>>): void => {
     if (updates.length > 0) onChange(updates);
   };
   const update: Selection<C>["update"] = (field, fn) =>
     apply(
-      withField(field).map(([key, config]) => [
+      withField(field).map(([key, base]) => ({
         key,
-        patch(config, [[field, fn(read(config, field))]]),
-      ]),
+        base,
+        next: patch(base, [[field, fn(read(base, field))]]),
+      })),
     );
   return {
     has: (field) => withField(field).length > 0,
@@ -123,15 +131,10 @@ export const selection = <C extends { variant: string }>({
         Array.from(
           Map.groupBy(refs, (r) => r.key),
           ([key, group]) => {
-            const config = configs.get(key);
-            if (config == null) throw new Error(`[multiedit] - no config for ${key}`);
-            return [
-              key,
-              patch(
-                config,
-                group.map((r) => [r.path, value]),
-              ),
-            ];
+            const base = configs.get(key);
+            if (base == null) throw new Error(`[multiedit] - no config for ${key}`);
+            const entries = group.map((r): [string, unknown] => [r.path, value]);
+            return { key, base, next: patch(base, entries) };
           },
         ),
       ),

@@ -74,7 +74,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(run);
     await run.click({ button: "right" });
     await page
-      .locator(".pluto-menu-context")
+      .locator(".lyra-menu-context")
       .getByText("Favorite", { exact: true })
       .click();
     await session.settle(500);
@@ -112,7 +112,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.settle(1500);
     const start = diagram.getByRole("button", { name: "Start Sequence" }).first();
     await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
+      page.locator(".console-controls button:has(svg.lyra-icon--circle)").first(),
     );
     await session.settle(800);
     await session.moveTo({ x: 820, y: 700 });

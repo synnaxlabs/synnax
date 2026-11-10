@@ -28,6 +28,7 @@ cc_library(
         "//driver/errors",
         "//driver/task",
         "//x/cpp/breaker",
+        "//x/cpp/errors",
         "//x/cpp/thread",
         "@nlohmann_json//:json",
     ],
@@ -43,10 +44,12 @@ cc_test(
     deps = [
         "//client/cpp/errors",
         "//driver/pipeline",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
+        "//x/cpp/defer",
         "//x/cpp/sync",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
         "@googletest//:gtest_main",
     ],
 )

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -67,7 +67,31 @@ describe("Range.useResolveMultiple", () => {
           variant: "persisted",
           key: created.key,
           name: created.name,
-          timeRange: created.timeRange.numeric,
+          timeRange: created.timeRange,
+        },
+      ]),
+    );
+  });
+
+  it("should keep the exact bounds of a Core range", async () => {
+    // A float64 holds this start only to the nearest 256 ns.
+    const start = new TimeStamp(TimeStamp.now().valueOf() + 1n);
+    const end = start.add(TimeSpan.seconds(10));
+    const created = await client.ranges.create({
+      name: uniqueRangeName(),
+      timeRange: new TimeRange(start, end),
+    });
+    const { result } = await renderResolveMultiple(
+      Session.Range.fromClient(created.payload),
+      [created.key],
+    );
+    await waitFor(() =>
+      expect(result.current).toEqual([
+        {
+          variant: "persisted",
+          key: created.key,
+          name: created.name,
+          timeRange: new TimeRange(start, end),
         },
       ]),
     );
@@ -94,6 +118,54 @@ describe("Range.useResolveMultiple", () => {
       [created.key],
     );
     await waitFor(() => expect(result.current).toEqual([]));
+  });
+
+  // A line plot can hold a Core range that is not in the viewer's session, for example
+  // a plot another user made.
+  it("should resolve a Core range the session does not hold", async () => {
+    const created = await createTestRange(client);
+    const { result } = await renderResolveMultiple([], [created.key]);
+    await waitFor(() =>
+      expect(result.current).toEqual([
+        {
+          variant: "persisted",
+          key: created.key,
+          name: created.name,
+          timeRange: created.timeRange,
+        },
+      ]),
+    );
+  });
+
+  it("should resolve the Core ranges it can when another is gone", async () => {
+    const created = await createTestRange(client);
+    const deleted = await createTestRange(client);
+    await client.ranges.delete(deleted.key);
+    const { result } = await renderResolveMultiple(
+      Session.Range.fromClient(created.payload),
+      [created.key, deleted.key],
+    );
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([created.key]),
+    );
+  });
+
+  // A line plot's custom range has the key "custom", which is not a range key.
+  it("should resolve Core ranges beside a key that is not a range key", async () => {
+    const created = await createTestRange(client);
+    const { result } = await renderResolveMultiple([], ["custom", created.key]);
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([created.key]),
+    );
+  });
+
+  it("should put a range the session does not hold after the session's", async () => {
+    const outside = await createTestRange(client);
+    const local = createLocal();
+    const { result } = await renderResolveMultiple([local], [outside.key, local.key]);
+    await waitFor(() =>
+      expect(result.current.map(({ key }) => key)).toEqual([local.key, outside.key]),
+    );
   });
 
   it("should keep the session's order", async () => {

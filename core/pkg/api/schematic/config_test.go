@@ -13,14 +13,12 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apischematic "github.com/synnaxlabs/synnax/pkg/api/schematic"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apischematic.ServiceConfig {
 		return apischematic.ServiceConfig{
-			RBAC:      &rbac.Service{},
 			Schematic: &schematic.Service{},
 		}
 	}
@@ -38,11 +36,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
-				"rbac",
-				func(c *apischematic.ServiceConfig) { c.RBAC = nil },
-				"rbac: must be non-nil",
-			),
-			Entry(
 				"schematic",
 				func(c *apischematic.ServiceConfig) { c.Schematic = nil },
 				"schematic: must be non-nil",
@@ -54,14 +47,12 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apischematic.ServiceConfig{}.Override(cfg)
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Schematic).To(BeIdenticalTo(cfg.Schematic))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apischematic.ServiceConfig{})
-			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.Schematic).To(BeIdenticalTo(cfg.Schematic))
 		})
 	})

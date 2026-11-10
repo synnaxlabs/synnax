@@ -80,7 +80,9 @@ func BenchmarkSearch(b *testing.B) {
 						idx := newBenchIndex(makeNames(count))
 						b.ReportAllocs()
 						for b.Loop() {
-							idx.Search(query.term, limit)
+							idx.Search(
+								search.Query[int]{Term: query.term, Limit: limit},
+							)
 						}
 					},
 				)
@@ -98,7 +100,7 @@ func BenchmarkSmallIndex(b *testing.B) {
 		idx.Set(1, "Node 1")
 		idx.Set(2, "Node 2")
 		idx.Set(3, "Node 3")
-		idx.Search("node 1", 100)
+		idx.Search(search.Query[int]{Term: "node 1", Limit: 100})
 	}
 }
 
@@ -110,7 +112,7 @@ func BenchmarkSearchAfterGC(b *testing.B) {
 		runtime.GC()
 		runtime.GC()
 		b.StartTimer()
-		idx.Search("sensor", 100)
+		idx.Search(search.Query[int]{Term: "sensor", Limit: 100})
 	}
 }
 
@@ -147,7 +149,7 @@ func BenchmarkSearchLongTerm(b *testing.B) {
 	term := strings.Repeat("sensor 12 ", 100000)
 	b.ReportAllocs()
 	for b.Loop() {
-		idx.Search(term, 100)
+		idx.Search(search.Query[int]{Term: term, Limit: 100})
 	}
 }
 
@@ -157,7 +159,7 @@ func BenchmarkSearchMiss(b *testing.B) {
 			idx := newBenchIndex(makeNames(count))
 			b.ReportAllocs()
 			for b.Loop() {
-				idx.Search("xyznonexistent qqq", 0)
+				idx.Search(search.Query[int]{Term: "xyznonexistent qqq"})
 			}
 		})
 	}

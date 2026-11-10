@@ -21,7 +21,7 @@ const Main = (): ReactElement => (
   <Pluto.Provider
     connParams={{
       host: "localhost",
-      port: 9090,
+      port: CORE_PORT,
       secure: false,
       username: "synnax",
       password: "seldon",

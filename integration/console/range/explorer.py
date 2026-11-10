@@ -25,11 +25,13 @@ class Explorer(Surface):
     # fetch before it counts as fully paged in.
     SCROLL_SETTLE = 1500 * sy.TimeSpan.MILLISECOND
 
-    def __init__(self, layout: LayoutClient, toolbar: Toolbar):
+    def __init__(self, *, layout: LayoutClient, toolbar: Toolbar):
         super().__init__(layout)
         self.toolbar = toolbar
         self.views = ViewsClient(
-            layout, self.SEARCH_INPUT_PLACEHOLDER, self.STATIC_VIEW_NAME
+            layout=layout,
+            search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
+            static_view_name=self.STATIC_VIEW_NAME,
         )
 
     def open(self) -> None:
@@ -164,7 +166,7 @@ class Explorer(Surface):
 
     def _select_many(self, names: list[str]) -> Locator:
         """Select multiple explorer ranges via their checkbox labels."""
-        return self.layout.select_items(names, self.get_item)
+        return self.layout.select_items(names, get_item_fn=self.get_item)
 
     def favorite_many(self, names: list[str]) -> None:
         """Favorite multiple ranges via multi-select context menu in the

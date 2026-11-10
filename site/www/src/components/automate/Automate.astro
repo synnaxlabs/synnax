@@ -182,6 +182,7 @@ const codeHtmls = EXAMPLES.map((example) => highlight(example.code));
         100% {
             opacity: 1;
         }
+
         50% {
             opacity: 0.6;
         }
@@ -209,8 +210,8 @@ const codeHtmls = EXAMPLES.map((example) => highlight(example.code));
         border: var(--pluto-border);
         border-radius: 2rem;
         box-shadow:
-            inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
-            0 4px 24px -4px rgba(0, 0, 0, 0.25);
+            inset 0 1px 0 0 rgb(255 255 255 / 3%),
+            0 4px 24px -4px rgb(0 0 0 / 25%);
     }
 
     .automate-bento-card .automate-bento-description {
@@ -310,19 +311,18 @@ const codeHtmls = EXAMPLES.map((example) => highlight(example.code));
 
     .automate-bento-graphic {
         width: 70%;
-        align-self: center;
-        justify-self: center;
+        place-self: center center;
         position: relative;
         z-index: 1;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .automate-bento {
             grid-template-columns: repeat(2, 1fr);
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .automate-bento {
             grid-template-columns: 1fr;
             grid-template-rows: auto;

@@ -22,6 +22,10 @@ import (
 
 type Status = calculation.Status
 
+// Report saves st for the calculation of the channel with the given key and returns
+// true when it saved st.
+type Report = func(ctx context.Context, key channel.Key, st Status) bool
+
 type Group []*Calculator
 
 func (g Group) ReadFrom() channel.Keys {
@@ -42,20 +46,20 @@ func (g Group) WriteTo() channel.Keys {
 	return keys.Slice()
 }
 
+// Next runs every calculator in the group on input. It reports an error status for each
+// calculator whose step fails. After a failed step, it reports a success status on each
+// clean step with output until report saves the success.
 func (g Group) Next(
 	ctx context.Context,
 	input framer.Frame,
-) (output framer.Frame, changed bool, statuses []Status) {
-	var (
-		changedLocal bool
-		err          error
-	)
+	report Report,
+) (output framer.Frame, changed bool) {
 	output = input.ShallowCopy()
 	for _, c := range g {
-		output, changedLocal, err = c.Next(ctx, output, output)
+		next, changedLocal, err := c.Next(ctx, output, output)
 		if err != nil {
-			statuses = append(statuses, Status{
-				Key:         c.Channel().Key().String(),
+			c.failed = true
+			report(ctx, c.Channel().Key(), Status{
 				Name:        c.Channel().Name,
 				Variant:     status.VariantError,
 				Message:     "Failed to run calculation",
@@ -63,11 +67,20 @@ func (g Group) Next(
 			})
 			continue
 		}
-		if changedLocal {
-			changed = changedLocal
+		output = next
+		if !changedLocal {
+			continue
+		}
+		changed = true
+		if c.failed {
+			c.failed = !report(ctx, c.Channel().Key(), Status{
+				Name:    c.Channel().Name,
+				Variant: status.VariantSuccess,
+				Message: "Calculation running",
+			})
 		}
 	}
-	return output, changed, statuses
+	return output, changed
 }
 
 func (g Group) Close() error {

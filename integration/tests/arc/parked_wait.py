@@ -20,15 +20,15 @@ authority 200
 sequence main {
     hold := i64 ns(0s)
     stage parked {
-        time.wait{duration=hold} -> pw_done
-        time.wait{1s} -> pw_alive
-        time.wait{2s} => reenter
+        time.wait(duration=hold) -> pw_done
+        time.wait(1s) -> pw_alive
+        time.wait(2s) => reenter
     }
     stage reenter {
-        time.wait{10ms} -> sequence {
+        time.wait(10ms) -> sequence {
             hold = i64 ns(100ms)
         }
-        time.wait{50ms} => parked
+        time.wait(50ms) => parked
     }
 }
 pw_start_cmd => main
@@ -49,8 +49,8 @@ class ParkedWait(ArcCase):
     subscribe_channels = ["pw_done", "pw_alive"]
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "pw_done", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "pw_alive", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "pw_done", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "pw_alive", data_type=sy.DataType.UINT8)
         super().setup()
 
     def status(self) -> sy.task.Status | None:
@@ -61,13 +61,17 @@ class ParkedWait(ArcCase):
         return task.status
 
     def verify_sequence_execution(self) -> None:
-        timer = sy.Timer()
-        while (status := self.status()) is None or status.variant != "warning":
+        def warning() -> sy.task.Status | None:
+            status = self.status()
             if status is not None and status.variant == "error":
                 self.fail(f"the task reports an error: {status.message}")
-            if timer.elapsed() > 5 * sy.TimeSpan.SECOND:
-                self.fail("the task reports no warning for the zero wait duration")
-            sy.sleep(0.05)
+            if status is None or status.variant != "warning":
+                return None
+            return status
+
+        status = sy.poll(warning, timeout=5, interval=0.05)
+        if status is None:
+            self.fail("the task reports no warning for the zero wait duration")
         if status.message != "Node failed":
             self.fail(f"the warning message is {status.message!r}, not 'Node failed'")
         if WARNING_MESSAGE not in status.description:

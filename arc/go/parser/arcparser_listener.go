@@ -58,9 +58,6 @@ type ArcParserListener interface {
 	// EnterNamedOutput is called when entering the namedOutput production.
 	EnterNamedOutput(c *NamedOutputContext)
 
-	// EnterInputBlock is called when entering the inputBlock production.
-	EnterInputBlock(c *InputBlockContext)
-
 	// EnterInputList is called when entering the inputList production.
 	EnterInputList(c *InputListContext)
 
@@ -123,9 +120,6 @@ type ArcParserListener interface {
 
 	// EnterAnonymousInputValues is called when entering the anonymousInputValues production.
 	EnterAnonymousInputValues(c *AnonymousInputValuesContext)
-
-	// EnterArguments is called when entering the arguments production.
-	EnterArguments(c *ArgumentsContext)
 
 	// EnterArgumentList is called when entering the argumentList production.
 	EnterArgumentList(c *ArgumentListContext)
@@ -298,9 +292,6 @@ type ArcParserListener interface {
 	// ExitNamedOutput is called when exiting the namedOutput production.
 	ExitNamedOutput(c *NamedOutputContext)
 
-	// ExitInputBlock is called when exiting the inputBlock production.
-	ExitInputBlock(c *InputBlockContext)
-
 	// ExitInputList is called when exiting the inputList production.
 	ExitInputList(c *InputListContext)
 
@@ -363,9 +354,6 @@ type ArcParserListener interface {
 
 	// ExitAnonymousInputValues is called when exiting the anonymousInputValues production.
 	ExitAnonymousInputValues(c *AnonymousInputValuesContext)
-
-	// ExitArguments is called when exiting the arguments production.
-	ExitArguments(c *ArgumentsContext)
 
 	// ExitArgumentList is called when exiting the argumentList production.
 	ExitArgumentList(c *ArgumentListContext)

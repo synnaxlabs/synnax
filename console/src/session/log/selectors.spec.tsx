@@ -18,10 +18,11 @@ import { createSliceStore, inWindow } from "@/session/window/testutil";
 
 const KEY = "log-1";
 
-const customState = Log.stateZ.parse({
+const customState: Log.State = {
   hold: true,
+  position: "",
   toolbar: { selectedTab: "properties" },
-});
+};
 
 const storeWith = (slice: Log.SliceState) =>
   createSliceStore({
@@ -48,20 +49,6 @@ const createCustomStore = () =>
   storeWith({ version: 0, windows: inWindow({ [KEY]: customState }) });
 
 describe("log selector hooks", () => {
-  it("should resolve the key from the surrounding scope", () => {
-    const { result } = renderHook(() => Log.useSelectState(), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current).toEqual(customState);
-  });
-
-  it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Log.useSelectState({ key: "absent" }), {
-      wrapper: wrapperFor(createCustomStore(), KEY),
-    });
-    expect(result.current).toEqual(Log.ZERO_STATE);
-  });
-
   it("should read the active toolbar tab", () => {
     const { result } = renderHook(() => Log.useSelectSelectedToolbarTab(), {
       wrapper: wrapperFor(createCustomStore(), KEY),
@@ -83,6 +70,13 @@ describe("log selector hooks", () => {
     expect(result.current).toBe(false);
   });
 
+  it("should default the position to empty for a log with no stored state", () => {
+    const { result } = renderHook(() => Log.useSelectPosition({ key: "absent" }), {
+      wrapper: wrapperFor(createCustomStore(), KEY),
+    });
+    expect(result.current).toBe("");
+  });
+
   it("should track hold across dispatches", () => {
     const store = storeWith(Log.ZERO_SLICE_STATE);
     const { result } = renderHook(() => Log.useSelectHold(), {
@@ -98,28 +92,5 @@ describe("log selector hooks", () => {
       store.dispatch(Log.setHold({ key: KEY, hold: false }));
     });
     expect(result.current).toBe(false);
-  });
-});
-
-describe("log getters", () => {
-  it("should let an explicit key override the scope", () => {
-    const { result } = renderHook(() => Log.useGetState(), {
-      wrapper: wrapperFor(createCustomStore(), "absent"),
-    });
-    expect(result.current({ key: KEY })).toEqual(customState);
-  });
-
-  it("should read a log's state on demand across dispatches", () => {
-    const store = storeWith(Log.ZERO_SLICE_STATE);
-    const { result } = renderHook(() => Log.useGetState(), {
-      wrapper: wrapperFor(store, KEY),
-    });
-    const get = result.current;
-    expect(get()).toEqual(Log.ZERO_STATE);
-    act(() => {
-      store.dispatch(Log.create({ key: KEY }));
-      store.dispatch(Log.setSelectedToolbarTab({ key: KEY, tab: "properties" }));
-    });
-    expect(get().toolbar.selectedTab).toBe("properties");
   });
 });

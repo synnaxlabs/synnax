@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
+#include <limits>
 #include <map>
 #include <memory>
 // Disable GCC 13 false positive warning in <regex> header
@@ -23,13 +25,16 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/breaker/breaker.h"
 #include "x/cpp/defer/defer.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
+#include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
-#include "driver/http/mock/server.h"
+#include "driver/http/testutil/server.h"
 #include "driver/http/write_task.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::http {
 using ::synnax::http::GeneratedWriteField;
@@ -69,13 +74,74 @@ make_sink(WriteTaskConfig &cfg, const std::string &base_url) {
 
 /// @brief helper to count requests matching a given path.
 size_t count_requests_for_path(
-    const std::vector<mock::ReceivedRequest> &reqs,
+    const std::vector<testutil::ReceivedRequest> &reqs,
     const std::string &path
 ) {
     size_t count = 0;
     for (const auto &r: reqs)
         if (r.path == path) count++;
     return count;
+}
+
+/// @brief config for one POST endpoint that writes channel 1 to /value as json_type.
+WriteTaskConfig single_endpoint_cfg(const std::string &json_type) {
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    WriteEndpoint ep;
+    ep.method = "POST";
+    ep.path = "/api/control";
+    ep.channel.pointer = "/value";
+    ep.channel.json_type = json_type;
+    ep.channel.channel = 1;
+    cfg.endpoints = {ep};
+    cfg.cmd_keys = {1};
+    cfg.cmd_names = {{1, "valve_cmd"}};
+    return cfg;
+}
+
+/// @brief asserts that the sink sends no request for invalid, warns with a
+/// description that names the channel and value_text, then sends valid.
+void assert_invalid_value_skipped(
+    const std::string &json_type,
+    const double invalid,
+    const std::string &value_text,
+    const double valid,
+    const x::json::json &expected
+) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg(json_type);
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame bad;
+    bad.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector<double>{invalid})
+    );
+    ASSERT_NIL(sink->write(bad));
+    const auto warning = sink->take_warning();
+    EXPECT_EQ(warning.message, "Skipped invalid command");
+    EXPECT_NE(warning.description.find("valve_cmd"), std::string::npos);
+    EXPECT_NE(warning.description.find(value_text), std::string::npos);
+    EXPECT_EQ(server.received_requests().size(), 0);
+
+    x::telem::Frame good;
+    good.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{valid}));
+    ASSERT_NIL(sink->write(good));
+    EXPECT_TRUE(sink->take_warning().empty());
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(x::json::json::parse(reqs[0].body)["value"], expected);
 }
 }
 
@@ -400,8 +466,8 @@ TEST(HTTPWriteTask, ParseConfigDuplicateQueryParamErrors) {
 
 /// @brief it should POST a numeric channel value to the server.
 TEST(HTTPWriteTask, POSTNumericValue) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -444,8 +510,8 @@ TEST(HTTPWriteTask, POSTNumericValue) {
 
 /// @brief it should PUT a string channel value to the server.
 TEST(HTTPWriteTask, PUTStringValue) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::PUT,
                 .path = "/api/setpoint",
@@ -486,8 +552,8 @@ TEST(HTTPWriteTask, PUTStringValue) {
 
 /// @brief it should send a bare primitive body when channel pointer is root.
 TEST(HTTPWriteTask, BarePrimitiveBody) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::PUT,
                 .path = "/api/setpoint",
@@ -527,8 +593,8 @@ TEST(HTTPWriteTask, BarePrimitiveBody) {
 
 /// @brief it should include static fields in the request body.
 TEST(HTTPWriteTask, StaticFields) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -574,8 +640,8 @@ TEST(HTTPWriteTask, StaticFields) {
 
 /// @brief it should include a generated UUID field.
 TEST(HTTPWriteTask, GeneratedUUIDField) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -623,8 +689,8 @@ TEST(HTTPWriteTask, GeneratedUUIDField) {
 
 /// @brief it should return an error on 4xx responses.
 TEST(HTTPWriteTask, Error4xxResponse) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -661,8 +727,8 @@ TEST(HTTPWriteTask, Error4xxResponse) {
 
 /// @brief it should return a temporary error on 5xx responses.
 TEST(HTTPWriteTask, Error5xxResponse) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -699,8 +765,8 @@ TEST(HTTPWriteTask, Error5xxResponse) {
 
 /// @brief it should fire multiple endpoints independently.
 TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -757,8 +823,8 @@ TEST(HTTPWriteTask, MultipleEndpointsFireIndependently) {
 /// @brief it should send requests to multiple endpoints in parallel when a single
 /// frame contains commands for all of them.
 TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -853,8 +919,8 @@ TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
 /// @brief when one endpoint in a parallel batch returns an error, the write should
 /// still return that error with the failing endpoint's details.
 TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -917,8 +983,8 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
 /// @brief when multiple endpoints in a parallel batch return errors, the combined
 /// error should contain details from all failing endpoints.
 TEST(HTTPWriteTask, ParallelBatchAllFailures) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -983,8 +1049,8 @@ TEST(HTTPWriteTask, ParallelBatchAllFailures) {
 /// @brief it should use only the last sample value when a series has multiple
 /// samples (last write wins).
 TEST(HTTPWriteTask, LastWriteWins) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1028,8 +1094,8 @@ TEST(HTTPWriteTask, LastWriteWins) {
 
 /// @brief it should handle sequential writes correctly.
 TEST(HTTPWriteTask, SequentialSends) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1076,8 +1142,8 @@ TEST(HTTPWriteTask, SequentialSends) {
 
 /// @brief it should recover from a temporary error and continue writing.
 TEST(HTTPWriteTask, RecoverFromError) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1141,11 +1207,10 @@ TEST(HTTPWriteTask, RecoverFromError) {
     EXPECT_NEAR(body["value"].get<double>(), 30.0, 0.001);
 }
 
-/// @brief it should return an error when a string value cannot be converted to a JSON
-/// number.
+/// @brief it should warn when a string value cannot be converted to a JSON number.
 TEST(HTTPWriteTask, BadConversionStringToNumber) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1170,6 +1235,7 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
 
     cfg.endpoints = {ep};
     cfg.cmd_keys = {1};
+    cfg.cmd_names = {{1, "cmd"}};
 
     auto [sink, processor] = make_sink(cfg, server.base_url());
 
@@ -1179,17 +1245,168 @@ TEST(HTTPWriteTask, BadConversionStringToNumber) {
         x::telem::Series(std::string("not a number"))
     );
 
-    auto err = sink->write(frame);
-    ASSERT_OCCURRED_AS(err, x::json::CONVERSION_ERROR);
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_EQ(sink->take_warning().message, "Skipped invalid command");
 
     // No request should have been sent.
     EXPECT_EQ(server.received_requests().size(), 0);
 }
 
+/// @brief it should not send NaN to a JSON number field.
+TEST(HTTPWriteTask, NaNToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        std::numeric_limits<double>::quiet_NaN(),
+        "NaN",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send positive infinity to a JSON number field.
+TEST(HTTPWriteTask, InfinityToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        std::numeric_limits<double>::infinity(),
+        "Infinity",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send negative infinity to a JSON number field.
+TEST(HTTPWriteTask, NegativeInfinityToNumberNotSent) {
+    assert_invalid_value_skipped(
+        "number",
+        -std::numeric_limits<double>::infinity(),
+        "-Infinity",
+        1.5,
+        1.5
+    );
+}
+
+/// @brief it should not send NaN to a JSON boolean field.
+TEST(HTTPWriteTask, NaNToBooleanNotSent) {
+    assert_invalid_value_skipped(
+        "boolean",
+        std::numeric_limits<double>::quiet_NaN(),
+        "NaN",
+        1,
+        true
+    );
+}
+
+/// @brief it should send the other endpoints in a frame when one value is NaN.
+TEST(HTTPWriteTask, NaNSkipsOnlyItsEndpoint) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/other",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg("number");
+    auto other = cfg.endpoints[0];
+    other.path = "/api/other";
+    other.channel.channel = 2;
+    cfg.endpoints.push_back(other);
+    cfg.cmd_keys.push_back(2);
+    cfg.cmd_names[2] = "other_cmd";
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector{std::numeric_limits<double>::quiet_NaN()})
+    );
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector{2.5}));
+    ASSERT_NIL(sink->write(frame));
+    EXPECT_NE(sink->take_warning().description.find("valve_cmd"), std::string::npos);
+    const auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 1);
+    EXPECT_EQ(reqs[0].path, "/api/other");
+}
+
+/// @brief it should report a NaN command as a task warning and keep running.
+TEST(HTTPWriteTask, NaNReportsWarningAndKeepsRunning) {
+    testutil::Server server(
+        testutil::ServerConfig{
+            .routes = {{
+                .method = Method::POST,
+                .path = "/api/control",
+                .status_code = 200,
+                .response_body = R"({"status":"ok"})",
+            }},
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+    auto cfg = single_endpoint_cfg("number");
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame bad;
+    bad.emplace(
+        synnax::channel::Key(1),
+        x::telem::Series(std::vector{std::numeric_limits<double>::quiet_NaN()})
+    );
+    reads->push_back(std::move(bad));
+    x::telem::Frame good;
+    good.emplace(synnax::channel::Key(1), x::telem::Series(std::vector{3.5}));
+    reads->push_back(std::move(good));
+
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    // A breaker wait would outlast the timeout below, so the test fails if the skipped
+    // command engages the breaker.
+    common::WriteTask write_task(
+        task,
+        ctx,
+        x::breaker::Config{.name = "test", .base_interval = 30 * x::telem::SECOND},
+        std::move(sink),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        pipeline::testutil::simple_streamer_factory({1}, reads)
+    );
+    ASSERT_TRUE(write_task.start("start"));
+
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] { return server.received_requests().size(); },
+        size_t(1),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_EQ(x::json::json::parse(server.received_requests()[0].body)["value"], 3.5);
+    const auto statuses = ctx->snapshot();
+    const auto warning = std::ranges::find_if(statuses, [](const auto &s) {
+        return s.variant == synnax::status::VARIANT_WARNING;
+    });
+    ASSERT_NE(warning, statuses.end());
+    EXPECT_EQ(warning->message, "Skipped invalid command");
+    EXPECT_NE(warning->description.find("valve_cmd"), std::string::npos);
+    EXPECT_NE(warning->description.find("NaN"), std::string::npos);
+    ASSERT_EVENTUALLY_EQ_F_WITH_TIMEOUT(
+        [&] {
+            const auto statuses = ctx->snapshot();
+            return statuses.empty() ? "" : statuses.back().message;
+        },
+        std::string("Task running"),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    EXPECT_TRUE(ctx->snapshot().back().details.running);
+    ASSERT_TRUE(write_task.stop("stop", true));
+}
+
 /// @brief it should PATCH with a boolean channel value.
 TEST(HTTPWriteTask, PATCHBooleanValue) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::PATCH,
                 .path = "/api/config",
@@ -1231,8 +1448,8 @@ TEST(HTTPWriteTask, PATCHBooleanValue) {
 /// @brief it should format a TIMESTAMP channel value as ISO 8601 when time_format
 /// is unset.
 TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1278,8 +1495,8 @@ TEST(HTTPWriteTask, TimeFormatDefaultsToISO8601) {
 /// @brief it should format a TIMESTAMP channel value as unix seconds when
 /// time_format is set.
 TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1326,8 +1543,8 @@ TEST(HTTPWriteTask, TimeFormatUnixSeconds) {
 
 /// @brief it should include a generated timestamp field formatted as ISO8601.
 TEST(HTTPWriteTask, GeneratedTimestampField) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1378,8 +1595,8 @@ TEST(HTTPWriteTask, GeneratedTimestampField) {
 
 /// @brief it should construct deeply nested JSON bodies from pointers correctly.
 TEST(HTTPWriteTask, DeeplyNestedPointer) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/data",
@@ -1438,8 +1655,8 @@ TEST(HTTPWriteTask, DeeplyNestedPointer) {
 
 /// @brief it should map a numeric channel value to a string label via enum_values.
 TEST(HTTPWriteTask, EnumMappingNumericToString) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1485,8 +1702,8 @@ TEST(HTTPWriteTask, EnumMappingNumericToString) {
 /// @brief when the channel value doesn't match any enum entry, the normal conversion
 /// should be used as a fallback.
 TEST(HTTPWriteTask, EnumMappingUnmatchedFallsThrough) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1575,8 +1792,8 @@ TEST(HTTPWriteTask, ParseConfigEnumWithNonStringType) {
 
 /// @brief it should skip disabled endpoints and only send to enabled ones.
 TEST(HTTPWriteTask, DisabledEndpointSkipped) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -1638,8 +1855,8 @@ TEST(HTTPWriteTask, DisabledEndpointSkipped) {
 
 /// @brief it should include per-endpoint headers in the HTTP request.
 TEST(HTTPWriteTask, EndpointHeaders) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1682,8 +1899,8 @@ TEST(HTTPWriteTask, EndpointHeaders) {
 
 /// @brief it should include per-endpoint query parameters in the HTTP request URL.
 TEST(HTTPWriteTask, EndpointQueryParams) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {{
                 .method = Method::POST,
                 .path = "/api/control",
@@ -1733,8 +1950,8 @@ TEST(HTTPWriteTask, EndpointQueryParams) {
 /// @brief when one endpoint always succeeds and another fails then succeeds, only the
 /// failing endpoint should be retried.
 TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -1792,8 +2009,8 @@ TEST(HTTPWriteTask, PartialSuccessRetryOnly) {
 /// @brief when all endpoints fail with temporary errors and no progress is made, retry
 /// should stop after one round.
 TEST(HTTPWriteTask, NoProgressStopsRetry) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -1850,8 +2067,8 @@ TEST(HTTPWriteTask, NoProgressStopsRetry) {
 /// @brief progress-driven retry across multiple rounds: C always succeeds, A fails
 /// once, B fails twice. Each round makes progress until all resolve.
 TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -1925,8 +2142,8 @@ TEST(HTTPWriteTask, ProgressDrivenMultipleRounds) {
 /// @brief a critical error (400) on one endpoint should not prevent temporary failures
 /// on other endpoints from being retried.
 TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,
@@ -1985,8 +2202,8 @@ TEST(HTTPWriteTask, CriticalErrorDoesNotPreventTemporaryRetry) {
 
 /// @brief when all endpoints return critical errors, no retry should occur.
 TEST(HTTPWriteTask, AllCriticalNoRetry) {
-    mock::Server server(
-        mock::ServerConfig{
+    testutil::Server server(
+        testutil::ServerConfig{
             .routes = {
                 {
                     .method = Method::POST,

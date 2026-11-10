@@ -11,8 +11,7 @@ package keywords
 
 import "github.com/synnaxlabs/x/set"
 
-// Reserved contains all Python reserved keywords.
-var Reserved = set.New(
+var reserved = set.New(
 	"False", "None", "True", "and", "as",
 	"assert", "async", "await", "break", "class",
 	"continue", "def", "del", "elif", "else",
@@ -25,7 +24,7 @@ var Reserved = set.New(
 // Escape appends an underscore suffix to names that collide with Python reserved
 // keywords.
 func Escape(name string) string {
-	if Reserved.Contains(name) {
+	if reserved.Contains(name) {
 		return name + "_"
 	}
 	return name

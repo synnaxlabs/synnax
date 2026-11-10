@@ -319,7 +319,13 @@ export const ungroupActions = (
       resolveUngrouped(m, targets, configs, new Set()),
     );
     if (!compare.arraysEqual(next, config.members))
-      actions.push(schematic.setConfig({ key, config: { ...config, members: next } }));
+      actions.push(
+        ...schematic.setChanged({
+          key,
+          base: config,
+          next: { ...config, members: next },
+        }),
+      );
   }
   const freed: string[] = [];
   for (const key of targets) {

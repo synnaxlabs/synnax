@@ -14,7 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/icd/types.gen.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/codec/errors.h"

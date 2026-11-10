@@ -3,6 +3,9 @@
   "type": "module",
   "private": true,
   "exports": {
+    "./Analytics.astro": "./src/Analytics.astro",
+    "./analytics": "./src/analytics.ts",
+    "./consent": "./src/consent.ts",
     "./Drawer.astro": "./src/Drawer.astro",
     "./Footer.astro": "./src/Footer.astro",
     "./Head.astro": "./src/Head.astro",
@@ -14,15 +17,15 @@
     "./integration": "./src/integration.ts",
     "./shiki": "./src/shiki.ts",
     "./sitemap": "./src/sitemap.ts",
-    "./integrations/*": "./src/integrations/*"
+    "./integrations/*": "./src/integrations/*",
+    "./routes/consent": "./src/routes/consent.ts"
   },
   "scripts": {
     "check-types": "astro check",
-    "lint": "eslint",
-    "fix": "eslint --fix",
+    "lint": "eslint && stylelint \"src/**/*.{css,astro}\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.{css,astro}\"",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
-    "stylelint": "stylelint \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage"
   },

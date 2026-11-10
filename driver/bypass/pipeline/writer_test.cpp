@@ -11,17 +11,17 @@
 
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bypass/pipeline/writer.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::bypass::pipeline {
 TEST(WriterTest, PublishesToBusAndForwardsToCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     x::telem::Frame frame;
@@ -36,7 +36,7 @@ TEST(WriterTest, PublishesToBusAndForwardsToCore) {
 TEST(WriterTest, WritesWithNoSubscribers) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     x::telem::Frame frame;
@@ -48,7 +48,7 @@ TEST(WriterTest, WritesWithNoSubscribers) {
 TEST(WriterTest, LateSubscriberReceivesFrames) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     auto sub = bus->subscribe({1});
@@ -63,7 +63,7 @@ TEST(WriterTest, LateSubscriberReceivesFrames) {
 TEST(WriterTest, DelegatesSetAuthority) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ::driver::pipeline::Authorities auth{.keys = {1}, .authorities = {200}};
@@ -74,7 +74,7 @@ TEST(WriterTest, DelegatesSetAuthority) {
 TEST(WriterTest, DelegatesClose) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_NIL(writer->close());
@@ -83,7 +83,7 @@ TEST(WriterTest, DelegatesClose) {
 TEST(WriterTest, PropagatesOpenError) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
@@ -94,7 +94,7 @@ TEST(WriterTest, PropagatesOpenError) {
 TEST(WriterTest, InjectsGroupIntoWriterConfig) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 77);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_EQ(mock_factory->config.subject.group, 77);
@@ -103,7 +103,7 @@ TEST(WriterTest, InjectsGroupIntoWriterConfig) {
 TEST(WriterTest, DoesNotOverrideExistingGroup) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 77);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -115,7 +115,7 @@ TEST(WriterTest, DoesNotOverrideExistingGroup) {
 TEST(WriterTest, DoesNotInjectGroupWhenZero) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1}}));
     ASSERT_EQ(mock_factory->config.subject.group, 0);
@@ -124,7 +124,7 @@ TEST(WriterTest, DoesNotInjectGroupWhenZero) {
 TEST(WriterTest, SetAuthorityIncreaseUpdatesMirror) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
@@ -141,7 +141,7 @@ TEST(WriterTest, SetAuthorityDecreaseDoesNotUpdateMirror) {
     const x::control::Subject arc{"arc", "arc-1"};
     const x::control::Subject op{"operator", "op-1"};
     states->apply_increase(op, 1, 200);
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -155,7 +155,7 @@ TEST(WriterTest, SetAuthorityDecreaseDoesNotUpdateMirror) {
 TEST(WriterTest, SetAuthorityGlobalKeysExpandsToWriterChannels) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2, 3},
@@ -176,7 +176,7 @@ TEST(WriterTest, SetAuthorityIncreaseEndToEnd) {
     states->apply_increase(hotfire, 1, 200);
 
     auto mock_writer_factory = std::make_shared<
-        ::driver::pipeline::mock::WriterFactory>();
+        ::driver::pipeline::testutil::WriterFactory>();
     WriterFactory writer_factory(mock_writer_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(writer_factory.open_writer({
         .channels = {1},
@@ -206,7 +206,7 @@ TEST(WriterTest, WriteFiltersUnauthorizedChannelsFromBus) {
     const x::control::Subject other{"other", "other-1"};
     states->apply_increase(other, 1, 200);
     auto sub = bus->subscribe({1, 2});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1, 2},
@@ -230,7 +230,7 @@ TEST(WriterTest, WritePublishesNothingToBusWhenFullyUnauthorized) {
     const x::control::Subject other{"other", "other-1"};
     states->apply_increase(other, 1, 200);
     auto sub = bus->subscribe({1});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -248,7 +248,7 @@ TEST(WriterTest, WriteStillPublishesWhenNoAuthorityState) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({
         .channels = {1},
@@ -269,7 +269,7 @@ TEST(WriterTest, WriteFilterEndToEnd) {
     const x::control::Subject abort_sub{"abort", "abort-1"};
 
     auto sub = bus->subscribe({1});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
 
     auto hf_writer = ASSERT_NIL_P(factory.open_writer({
@@ -308,7 +308,7 @@ TEST(WriterTest, WriteErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
     auto sub = bus->subscribe({1});
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{},
@@ -327,7 +327,7 @@ TEST(WriterTest, WriteErrorPropagatesFromCore) {
 TEST(WriterTest, CloseErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{freighter::UNREACHABLE}
@@ -340,7 +340,7 @@ TEST(WriterTest, CloseErrorPropagatesFromCore) {
 TEST(WriterTest, SetAuthorityErrorPropagatesFromCore) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>(
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{},
@@ -364,7 +364,7 @@ TEST(WriterTest, SetAuthorityErrorPropagatesFromCore) {
 TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
     ASSERT_OCCURRED_AS(
@@ -377,7 +377,7 @@ TEST(WriterTest, SetAuthorityRejectsMismatchedSizes) {
 TEST(WriterTest, SetAuthoritySingleAuthorityBroadcast) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2, 3}}));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2, 3}, .authorities = {200}}));
@@ -387,7 +387,7 @@ TEST(WriterTest, SetAuthoritySingleAuthorityBroadcast) {
 TEST(WriterTest, SetAuthorityMatchingSizes) {
     auto bus = std::make_shared<Bus>();
     auto states = std::make_shared<control::States>();
-    auto mock_factory = std::make_shared<::driver::pipeline::mock::WriterFactory>();
+    auto mock_factory = std::make_shared<::driver::pipeline::testutil::WriterFactory>();
     WriterFactory factory(mock_factory, bus, states, 0);
     auto writer = ASSERT_NIL_P(factory.open_writer({.channels = {1, 2}}));
     ASSERT_NIL(writer->set_authority({.keys = {1, 2}, .authorities = {100, 200}}));

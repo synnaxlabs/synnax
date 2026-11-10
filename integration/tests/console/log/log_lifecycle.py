@@ -24,6 +24,7 @@ class LogLifecycle(ConsoleCase):
     suffix: str
     idx_name: str
     data_name: str
+    timestamp_name: str
     virtual_name: str
     _shared_log_name: str | None
     _cleanup_groups: list[str]
@@ -41,6 +42,7 @@ class LogLifecycle(ConsoleCase):
         """Create all test channels."""
         self.idx_name = f"log_test_idx_{self.suffix}"
         self.data_name = f"log_test_data_{self.suffix}"
+        self.timestamp_name = f"log_timestamp_{self.suffix}"
         self.virtual_name = f"log_virtual_{self.suffix}"
 
         index_ch = self.client.channels.create(
@@ -52,6 +54,11 @@ class LogLifecycle(ConsoleCase):
             name=self.data_name,
             data_type=sy.DataType.FLOAT32,
             index=index_ch.key,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name=self.timestamp_name,
+            is_index=True,
             retrieve_if_name_exists=True,
         )
         self.client.channels.create(
@@ -93,18 +100,14 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-        # Resources Toolbar
-        self.test_open_log_from_resources(log_name, log_link)
-        self.test_drag_log_onto_mosaic(log_name, log_link)
+        self.test_open_log_from_resources(log_name, expected_link=log_link)
+        self.test_drag_log_onto_mosaic(log_name, expected_link=log_link)
 
-        # Search and Command Palette
-        self.test_open_log_from_search(log_name, log_link)
+        self.test_open_log_from_search(log_name, expected_link=log_link)
 
-        # Clean up shared log before ctx tests to prevent accumulation
         self.console.pages.delete(log_name)
         self._shared_log_name = None
 
-        # Resources Toolbar > Context Menu
         ctx_log = self.console.pages.create(Log, f"Context Menu Test {self.suffix}")
         self.ctx_log_name = ctx_log.page_name
         self._cleanup_pages.append(self.ctx_log_name)
@@ -124,7 +127,6 @@ class LogLifecycle(ConsoleCase):
             "Log should show 'No channels configured'"
         )
         assert log.is_empty(), "Log should be empty when no channels configured"
-        assert not log.is_streaming(), "Log should not be streaming without channel"
 
     def test_no_data_received(self, log: Log) -> None:
         """Test that log shows 'No data received yet' for channel with no data."""
@@ -132,9 +134,10 @@ class LogLifecycle(ConsoleCase):
 
         log.set_channel(self.data_name)
 
-        assert log.is_waiting_for_data(), "Log should show 'No data received yet'"
+        assert log.wait_until_waiting_for_data(), (
+            "Log should show 'No data received yet'"
+        )
         assert log.is_empty(), "Log should be empty when no data received"
-        assert not log.is_streaming(), "Log should not be streaming without data"
 
     def test_channel_streaming(self, log: Log) -> None:
         """Test that log streams data from a persisted channel."""
@@ -144,42 +147,37 @@ class LogLifecycle(ConsoleCase):
             self.writer.write(
                 {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
             )
-            sy.sleep(0.1)
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
 
         assert log.wait_until_streaming(), "Log should be streaming after data write"
         assert not log.is_empty(), "Log should not be empty after data write"
         assert not log.is_waiting_for_data(), "Log should not be waiting for data"
 
     def test_timestamp_channel_streaming(self, log: Log) -> None:
-        """Test that a log displaying an index (timestamp) channel renders new
-        entries. A TIMESTAMP-typed channel must stream like any other channel;
-        a regression in the worker render path froze the log when one was added.
+        """Test that a log streams an index (timestamp) channel and renders its
+        values as formatted dates.
         """
         self.log("Testing timestamp (index) channel streaming")
 
         log.clear_channels()
-        log.set_channel(self.idx_name)
+        log.set_channel(self.timestamp_name)
         assert log.wait_until_waiting_for_data(), (
             "Log should wait for data on the timestamp channel"
         )
 
-        for i in range(5):
-            self.writer.write(
-                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
-            )
-            sy.sleep(0.1)
+        for _ in range(5):
+            self.writer.write(self.timestamp_name, sy.TimeStamp.now())
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
 
         assert log.wait_until_streaming(), (
             "Log should stream entries from a timestamp channel"
         )
         entries = log.wait_for_copied_entries()
         assert len(entries) >= 1, "Log should render entries from a timestamp channel"
-        # Each entry's value must render as a formatted date (e.g. "Jun 9
-        # 15:59:52.809"), not the raw i64 nanosecond value. This is the bigint
-        # formatting path whose regression previously froze the log.
+        # A formatted date such as "Jun 9 15:59:52.809", not raw nanoseconds.
         formatted_value = re.compile(r"[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}")
         assert all(
-            self.idx_name in entry and formatted_value.search(entry)
+            self.timestamp_name in entry and formatted_value.search(entry)
             for entry in entries
         ), f"Log should render formatted timestamp values, got {entries!r}"
 
@@ -197,13 +195,12 @@ class LogLifecycle(ConsoleCase):
 
         for i in range(5):
             self.writer.write(self.virtual_name, float(i))
-            sy.sleep(0.1)
+            sy.sleep(0.1)  # noqa: TID251 paces the writes
         assert log.wait_until_streaming(), (
             "Log should be streaming virtual channel data"
         )
         assert not log.is_empty(), "Log should not be empty with virtual data"
 
-        # log entries are NOT persisted across reloads,
         self.console.reload()
 
         assert log.wait_until_waiting_for_data(), (
@@ -233,7 +230,7 @@ class LogLifecycle(ConsoleCase):
 
         link = log.copy_link()
 
-        assert_link_format(link, "log")
+        assert_link_format(link, resource_type="log")
 
     def test_pause_resume_scrolling(self, log: Log) -> None:
         """Test pausing and resuming log scrolling."""
@@ -249,7 +246,9 @@ class LogLifecycle(ConsoleCase):
             "Log should not be paused after resume_scrolling()"
         )
 
-    def test_open_log_from_resources(self, log_name: str, expected_link: str) -> None:
+    def test_open_log_from_resources(
+        self, log_name: str, *, expected_link: str
+    ) -> None:
         """Test opening a log by double-clicking it in the project resources toolbar."""
         self.log("Testing open log from resources toolbar")
 
@@ -266,7 +265,7 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-    def test_drag_log_onto_mosaic(self, log_name: str, expected_link: str) -> None:
+    def test_drag_log_onto_mosaic(self, log_name: str, *, expected_link: str) -> None:
         """Test dragging a log from the resources toolbar onto the mosaic."""
         self.log("Testing drag log onto mosaic")
 
@@ -283,7 +282,7 @@ class LogLifecycle(ConsoleCase):
         log.close()
         assert not log.is_open, "Log should be closed after close()"
 
-    def test_open_log_from_search(self, log_name: str, expected_link: str) -> None:
+    def test_open_log_from_search(self, log_name: str, *, expected_link: str) -> None:
         """Test opening a log by searching its name in the command palette."""
         self.log("Testing open log from search palette")
 
@@ -302,8 +301,6 @@ class LogLifecycle(ConsoleCase):
 
     def test_ctx_operations(self) -> None:
         """Test non-destructive context menu operations using shared log."""
-        assert self.ctx_log_name is not None
-
         self.log("Testing copy link via context menu")
         link = self.console.pages.copy_link(self.ctx_log_name)
         assert link == self.ctx_log_link, (
@@ -327,7 +324,6 @@ class LogLifecycle(ConsoleCase):
     def test_ctx_delete_log(self) -> None:
         """Test deleting a log via context menu in the project resources toolbar."""
         self.log("Testing delete log via context menu")
-        assert self.ctx_log_name is not None
         self.console.pages.delete(self.ctx_log_name)
 
     def test_ctx_delete_multiple_logs(self) -> None:

@@ -16,21 +16,21 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Check", func() {
 	var (
 		db     kv.DB
-		signer svcmock.Signer
+		signer svctestutil.Signer
 	)
 	BeforeEach(func() {
 		db = DeferClose(memkv.New())
-		signer = svcmock.NewSigner()
+		signer = svctestutil.NewSigner()
 	})
 	openLicense := func(
 		ctx SpecContext,
@@ -45,16 +45,16 @@ var _ = Describe("Check", func() {
 	check := func(ctx SpecContext, lic *license.Service) connectivity.CheckResponse {
 		GinkgoHelper()
 		svc := MustSucceed(connectivity.NewService(connectivity.ServiceConfig{
-			Cluster: node.Cluster,
-			License: lic,
+			Identity: node.Identity,
+			License:  lic,
 		}))
 		return MustSucceed(svc.Check(ctx, struct{}{}))
 	}
 
 	It("Should describe the Core", func(ctx SpecContext) {
 		res := check(ctx, openLicense(ctx))
-		Expect(res.ClusterKey).To(Equal(node.Cluster.Key().String()))
-		Expect(res.NodeKey).To(Equal(node.Cluster.HostKey()))
+		Expect(res.ClusterKey).To(Equal(node.Identity.Key.String()))
+		Expect(res.NodeKey).To(Equal(node.Identity.HostKey))
 		Expect(res.NodeVersion).To(Equal(version.Get()))
 	})
 
@@ -64,14 +64,14 @@ var _ = Describe("Check", func() {
 
 	It("Should report an active license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Key: signer.Sign(svcmock.NewLicense()),
+			Key: signer.Sign(svctestutil.NewLicense()),
 		})
 		Expect(check(ctx, lic).License).To(Equal(license.StateOk))
 	})
 
 	It("Should report an expired license", func(ctx SpecContext) {
 		lic := openLicense(ctx, license.ServiceConfig{
-			Key: signer.Sign(svcmock.NewLicense()),
+			Key: signer.Sign(svctestutil.NewLicense()),
 		})
 		Expect(lic.Close()).To(Succeed())
 		later := time.Now().AddDate(60, 0, 0)

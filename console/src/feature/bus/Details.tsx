@@ -18,12 +18,13 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { type DetailsProps } from "@/feature/bus/Messages";
 import { commandChannelName, fieldChannelName, indexName } from "@/feature/bus/names";
+import { CONFIG_PATH, READ_PATH, WRITE_PATH } from "@/feature/bus/types";
 import { CSS } from "@/platform/css";
 import { Task } from "@/platform/task";
 
 /** @returns the name of the device the form's config names, or "" until it loads. */
 const useDeviceName = (): string => {
-  const key = Form.useFieldValue<string>("config.device");
+  const key = Form.useFieldValue(CONFIG_PATH.device);
   const { data } = Device.useResult(primitive.isNonZero(key) ? { key } : null);
   return data?.name ?? "";
 };
@@ -39,12 +40,12 @@ const ChannelLabel = ({ channel, planned }: ChannelLabelProps): ReactElement => 
   const { data: name } = Channel.useResultName(channel === 0 ? null : { key: channel });
   if (channel !== 0)
     return (
-      <Text.Text level="small" color={10} overflow="ellipsis">
+      <Text.Text level="small" color={10} overflow="fade">
         {name ?? ""}
       </Text.Text>
     );
   return (
-    <Text.Text level="small" color={8} overflow="ellipsis">
+    <Text.Text level="small" color={8} overflow="fade">
       {planned === "" ? "Select a device" : `Creates ${planned}`}
     </Text.Text>
   );
@@ -113,9 +114,10 @@ const FieldList = <B extends bus.WriteField>({
 };
 
 /** Shows the channels a read task writes a message's fields to. */
-export const ReadDetails = ({ path, definition }: DetailsProps): ReactElement => {
+export const ReadDetails = ({ index, definition }: DetailsProps): ReactElement => {
   const device = useDeviceName();
-  const fields = Form.useFieldValue<bus.ReadField[]>(`${path}.fields`);
+  const path = READ_PATH.messages[index].fields;
+  const fields = Form.useFieldValue(path);
   const plan = (name: string) => (device === "" ? "" : name);
   const indexes = new Map<string, channel.Key>();
   fields.forEach((f) => {
@@ -134,7 +136,7 @@ export const ReadDetails = ({ path, definition }: DetailsProps): ReactElement =>
         </Form.Section>
       )}
       <Form.Section title="Fields">
-        <Form.Field<bus.ReadField[]> path={`${path}.fields`} showLabel={false}>
+        <Form.Field path={path} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
               definition={definition}
@@ -156,7 +158,7 @@ export const ReadDetails = ({ path, definition }: DetailsProps): ReactElement =>
 };
 
 /** Maps the fields a write task sends to command channels. */
-export const WriteDetails = ({ path, definition }: DetailsProps): ReactElement => {
+export const WriteDetails = ({ index, definition }: DetailsProps): ReactElement => {
   const device = useDeviceName();
   const isPreview = Task.useIsPreview();
   const period =
@@ -167,7 +169,7 @@ export const WriteDetails = ({ path, definition }: DetailsProps): ReactElement =
         <Text.Text level="small" color={8}>
           {`Sent ${period}. A field that is not checked is sent as zero.`}
         </Text.Text>
-        <Form.Field<bus.WriteField[]> path={`${path}.fields`} showLabel={false}>
+        <Form.Field path={WRITE_PATH.messages[index].fields} showLabel={false}>
           {({ value, onChange }) => (
             <FieldList
               definition={definition}

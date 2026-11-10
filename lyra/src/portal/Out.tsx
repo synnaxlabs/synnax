@@ -132,12 +132,15 @@ export const Out = ({
       // appendChild moves an element that is already in the document, so
       // claiming the content automatically releases its previous host.
       if (el != null) hostEl.appendChild(el);
+      registry.notifyHosted(itemKey);
     };
     attach();
     const unsubscribe = registry.subscribe(attach, itemKey);
     return () => {
       unsubscribe();
-      if (hosted?.parentNode === hostEl) hosted.remove();
+      if (hosted?.parentNode !== hostEl) return;
+      hosted.remove();
+      registry.notifyHosted(itemKey);
     };
   }, [registry, itemKey]);
   return <div ref={host} {...rest} />;

@@ -28,7 +28,7 @@ inline Label Label::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Label::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["key"] = this->key.to_json();
     j["name"] = this->name;
     j["color"] = this->color.to_json();

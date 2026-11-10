@@ -21,7 +21,7 @@ export * from "@/feature/lineplot/search";
 export * from "@/feature/lineplot/tree";
 export * from "@/platform/lineplot/external";
 
-const TAB_TYPE = lineplot.TYPE_ONTOLOGY_ID.type;
+const TAB_TYPE = lineplot.TYPE_RESOURCE_ID.type;
 
 export const SELECTABLES: Selector.Selectable[] = [Selectable];
 
@@ -35,8 +35,16 @@ const TAB: Panel.Tab = {
     <Icon.LinePlot />,
   ),
   restore: async ({ client, project, resource }) => {
-    const corpse = query.requireCorpse(client.lineplots.getCached(resource.key));
-    await client.lineplots.create(project, corpse);
+    const corpse = query.requireCorpse(
+      client.lineplots.watch(resource.key).getCached(),
+    );
+    // A restored record comes back in the project, as its range or group may be gone.
+    await client.lineplots.create({
+      ...corpse,
+      project,
+      range: undefined,
+      group: undefined,
+    });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
   Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),

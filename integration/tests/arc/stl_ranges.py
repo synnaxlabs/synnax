@@ -15,6 +15,7 @@ from tests.arc.arc import ArcCase
 
 DONE = "ranges_done"
 FLOW_PARENT_KEY_OUT = "flow_parent_key_out"
+COMPUTED_KEY_OUT = "computed_key_out"
 
 # ranges.end sets the end to now, so end ~= start instead of TimeStampMax.
 END_NOW_TOLERANCE = 200 * sy.TimeSpan.MILLISECOND
@@ -29,7 +30,7 @@ import ranges
 import time
 
 // ───────────────────────── Func Context ──────────────────────────
-func range_test{}() {
+func range_test() {
     // Create with End
     key_val := ranges.create("RangeFunc_Create_End")
     ranges.end(key_val)
@@ -62,25 +63,25 @@ func range_test{}() {
     bad_color := "not-a-" + "color"
     ranges.create("RangeFunc_BadColor", "", bad_color)
 }
-start_stl_ranges_cmd -> range_test{}
+start_stl_ranges_cmd -> range_test()
 
 // ───────────────────────── Flow Context ──────────────────────────
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Create"}
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_Create")
 
 // RGB
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_1", color="rgb(255, 0, 0)"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_2", color="rgb(0, 255, 0)"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGB_3", color="rgb(0, 0, 255)"}
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGB_1", color="rgb(255, 0, 0)")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGB_2", color="rgb(0, 255, 0)")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGB_3", color="rgb(0, 0, 255)")
 
 // RGBA
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_1", color="rgba(255, 0, 0, 0.5)"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_2", color="rgba(0, 255, 0, 0.25)"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_RGBA_3", color="rgba(0, 0, 255, 0.75)"}
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_1", color="rgba(255, 0, 0, 0.5)")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_2", color="rgba(0, 255, 0, 0.25)")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_RGBA_3", color="rgba(0, 0, 255, 0.75)")
 
 // Hex
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_1", color="#112233"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_2", color="#44aa66"}
-start_stl_ranges_cmd -> ranges.create{name="RangeFlow_Hex_3", color="#ddeeff"}
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_Hex_1", color="#112233")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_Hex_2", color="#44aa66")
+start_stl_ranges_cmd -> ranges.create(name="RangeFlow_Hex_3", color="#ddeeff")
 
 // ──────────────── Flow Variable Use  ─────────────────
 start_stl_ranges_cmd => flow_capture_seq
@@ -89,20 +90,20 @@ sequence flow_capture_seq {
     fp_key str := ""
 
     stage create_parent {
-        1 -> ranges.create{name="RangeFlow_Parent"} -> fp_key
+        1 -> ranges.create(name="RangeFlow_Parent") -> fp_key
         fp_key -> flow_parent_key_out // For verification
-        time.wait{100ms} -> next
+        time.wait(100ms) -> next
     }
     stage create_children {
-        1 -> ranges.create{name="RangeFlow_Child", parent=fp_key, color="rgb(10, 20, 30)"}
-        1 -> ranges.create{name="RangeFlow_Child_NoColor", parent=fp_key}
-        time.wait{100ms} -> next
+        1 -> ranges.create(name="RangeFlow_Child", parent=fp_key, color="rgb(10, 20, 30)")
+        1 -> ranges.create(name="RangeFlow_Child_NoColor", parent=fp_key)
+        time.wait(100ms) -> next
     }
     sequence wrap_up {
-        1 -> ranges.end{key=fp_key}
+        1 -> ranges.end(key=fp_key)
 
         // End signal
-        time.wait{100ms} -> 1 -> ranges_done
+        time.wait(100ms) -> 1 -> ranges_done
     }
 }
 
@@ -111,11 +112,19 @@ start_stl_ranges_cmd => one_shot_seq
 
 sequence one_shot_seq {
     stage spin {
-        ranges.create{name="RangeOneShot"}
+        ranges.create(name="RangeOneShot")
         range_one_shot_tick -> range_one_shot_echo // For verification
     }
 }
-"""
+
+// ──────────────────── Computed Key Variable ─────────────────────
+start_stl_ranges_cmd => computed_key_seq
+
+sequence computed_key_seq {
+    ck_key := ranges.create("RangeFlow_Computed")
+    ck_key -> computed_key_out // For verification
+}
+"""  # noqa: E501
 
 
 class Case(NamedTuple):
@@ -162,6 +171,7 @@ CASES: list[Case] = [
     Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Child_NoColor", None, False),
     Case("RangeOneShot", None, False),
+    Case("RangeFlow_Computed", None, False),
 ]
 
 # Each Arc-created parent range and the children its captured key must parent.
@@ -181,14 +191,28 @@ class StlRanges(ArcCase):
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
     start_cmd_channel = "start_stl_ranges_cmd"
-    subscribe_channels = [DONE, FLOW_PARENT_KEY_OUT, "range_one_shot_echo"]
+    subscribe_channels = [
+        DONE,
+        FLOW_PARENT_KEY_OUT,
+        "range_one_shot_echo",
+        COMPUTED_KEY_OUT,
+    ]
     collect_task_status = True
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, DONE, sy.DataType.UINT8)
-        create_virtual_channel(self.client, FLOW_PARENT_KEY_OUT, sy.DataType.STRING)
-        create_virtual_channel(self.client, "range_one_shot_tick", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "range_one_shot_echo", sy.DataType.UINT8)
+        create_virtual_channel(self.client, DONE, data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, FLOW_PARENT_KEY_OUT, data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "range_one_shot_tick", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, "range_one_shot_echo", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, COMPUTED_KEY_OUT, data_type=sy.DataType.STRING
+        )
         # A leftover row from a prior run would break the one-shot count.
         leftover = self.client.ranges.retrieve(names=["RangeOneShot"])
         if leftover:
@@ -223,8 +247,13 @@ class StlRanges(ArcCase):
             self._verify_range(case, found[case.name], self._before, after)
 
         self._verify_parents(found)
+        self._verify_computed_key(found)
         self._verify_invalid_color_rejected()
         self._verify_entry_one_shot()
+
+    def _verify_computed_key(self, found: dict[str, sy.Range]) -> None:
+        # A computed := initializer holds the key the create returned.
+        self.wait_for_eq(COMPUTED_KEY_OUT, str(found["RangeFlow_Computed"].key))
 
     def _verify_entry_one_shot(self) -> None:
         self.log("Driving extra passes: the untriggered create must not fire again")
@@ -251,13 +280,11 @@ class StlRanges(ArcCase):
         self.wait_for_eq(FLOW_PARENT_KEY_OUT, str(found["RangeFlow_Parent"].key))
         for parent_name, child_names in CHILDREN_BY_PARENT.items():
             parent = found[parent_name]
-            children = self.client.ontology.retrieve_children(parent.ontology_id)
-            keys = {res.key for res in children}
             for name in child_names:
-                if str(found[name].key) not in keys:
+                if found[name].parent != parent.key:
                     self.fail(
                         f"{name} not parented under {parent_name}; "
-                        f"parent's children = {keys}"
+                        f"its parent is {found[name].parent}"
                     )
 
     def _verify_range(

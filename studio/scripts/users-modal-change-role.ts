@@ -50,7 +50,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(400);
   await session.type("Engineer");
   const option = page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ hasText: "Engineer" })
     .first();
   await session.waitFor(option);

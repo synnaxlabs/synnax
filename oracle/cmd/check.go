@@ -13,7 +13,9 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"time"
 
+	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/check"
@@ -78,29 +80,17 @@ Examples:
 	// one.
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		err := runCheck(cmd, args)
-		if err == nil {
-			return nil
-		}
-		// Gate failures already rendered via check.Render; suppress the duplicate. Any
-		// other error (no schemas, repo not Git, render failure) is unexpected and gets
-		// printed once here so the user sees what went wrong.
-		if _, ok := err.(*exitCodeError); !ok {
-			printError(err.Error())
-		}
-		return err
-	}
+	cmd.RunE = runCheck
 	return cmd
 }
 
 func runCheck(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
-	gates, _ := cmd.Flags().GetStringSlice(checkGatesFlag)
-	outputFormat, _ := cmd.Flags().GetString(checkFormatFlag)
-	includeDiffs, _ := cmd.Flags().GetBool(checkDiffFlag)
-	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
+	gates := lo.Must(cmd.Flags().GetStringSlice(checkGatesFlag))
+	outputFormat := lo.Must(cmd.Flags().GetString(checkFormatFlag))
+	includeDiffs := lo.Must(cmd.Flags().GetBool(checkDiffFlag))
+	warningsAsErrors := lo.Must(cmd.Flags().GetBool(checkWarningsAsErrorsFlag))
 	verbose := viper.GetBool(verboseFlag)
 
 	if outputFormat != string(check.FormatText) &&
@@ -204,7 +194,7 @@ func buildCheckers(
 }
 
 func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
-	return format.Default(repoRoot)
+	return format.Default(repoRoot, time.Now().Year(), nil)
 }
 
 func loadCheckCache(repoRoot string) *format.Cache {

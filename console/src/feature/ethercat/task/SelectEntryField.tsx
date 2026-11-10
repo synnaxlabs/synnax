@@ -11,7 +11,7 @@ import { ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { primitive } from "@synnaxlabs/x";
+import { type deep, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { type z } from "zod";
 
@@ -25,11 +25,11 @@ import {
   getUnresolvedMessage,
   hasEntry,
   type PDOType,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 
 export interface SelectEntryFieldProps {
-  path: string;
+  path: deep.Target<Channel>;
   pdoType: PDOType;
   schema: z.ZodType<EntryChannel>;
 }
@@ -39,11 +39,11 @@ export const SelectEntryField = ({
   pdoType,
   schema,
 }: SelectEntryFieldProps): ReactElement => {
-  const ch = PForm.useFieldValue<Channel>(path);
+  const ch = PForm.useFieldValue(path);
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  const entries = uniqueEntries(slave?.properties.pdos[pdoType] ?? []);
+  const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
   const emptyContent = primitive.isZero(ch.device)
     ? "Select a slave device first."
     : `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
@@ -56,7 +56,7 @@ export const SelectEntryField = ({
         }
       : {};
   return (
-    <PForm.Field<Channel> path={path} label="Entry" grow {...unresolvedProps}>
+    <PForm.Field path={path} label="Entry" grow {...unresolvedProps}>
       {({ value, onChange }) => (
         <Select.Simple<string>
           value={hasEntry(value) ? addressKey(value) : ""}

@@ -43,8 +43,8 @@ const withWorkspace = (): ConsolePreloadedState => ({
 });
 
 const WORKSPACE = ".console-main__workspace";
-const RAIL = ".console-nav__bar.pluto--location-left";
-const TOP_BAR = ".console-nav__bar.pluto--location-top";
+const RAIL = ".console-nav__bar.lyra--location-left";
+const TOP_BAR = ".console-nav__bar.lyra--location-top";
 
 const renderPrimary = async (engine: "web" | "tauri"): Promise<HTMLElement> => {
   mocks.engine = engine;

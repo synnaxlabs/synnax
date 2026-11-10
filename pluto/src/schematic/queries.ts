@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, type project, query, schematic } from "@synnaxlabs/client";
-import { array, compare, uuid, verbs } from "@synnaxlabs/x";
+import { type project, query, type ranger, schematic } from "@synnaxlabs/client";
+import { array, compare, verbs } from "@synnaxlabs/x";
 
 import { Flux } from "@/flux";
 import { Edge } from "@/schematic/edge";
-import { type ElementConfig } from "@/schematic/element";
+import { type ElementConfig, elementConfigZ } from "@/schematic/element";
 import { Group } from "@/schematic/group";
 import { Scope } from "@/schematic/scope";
 import { Synnax } from "@/synnax";
 
 const RESOURCE_NAME = "schematic";
+const PLURAL_RESOURCE_NAME = "schematics";
 
 export type RetrieveQuery = schematic.RetrieveSingleParams;
 
@@ -27,10 +28,27 @@ export const { use, useEnsure, useTombstone, createSelector } = Flux.createRetri
   schematic.Schematic
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.schematics.retrieve(query),
-  onChange: ({ client, query }, handler) => client.schematics.onChange(query, handler),
-  getCached: ({ client, query }) => client.schematics.getCached(query),
+  retrieve: async ({ client, query }) => await client.schematics.retrieve(query.key),
+  onChange: ({ client, query }, handler) =>
+    client.schematics.watch(query.key).onChange(handler),
+  getCached: ({ client, query }) => client.schematics.watch(query.key).getCached(),
   awaitCreation: true,
+});
+
+export type RetrieveMultipleQuery = {
+  keys: schematic.Key[];
+};
+
+export const { use: useMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  schematic.Schematic[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  retrieve: async ({ client, query: { keys } }) =>
+    await client.schematics.retrieve(keys),
+  onChange: ({ client, query: { keys } }, handler) =>
+    client.schematics.watch(keys).onChange(handler),
+  getCached: ({ client, query: { keys } }) => client.schematics.watch(keys).getCached(),
 });
 
 export interface KeyParams {
@@ -58,6 +76,25 @@ export const useElementConfig = Scope.bindHook(
     ({ configs }, { elKey }) => configs[elKey] as ElementConfig | undefined,
   ),
 );
+
+const useDocumentConfigForm = Flux.createDocumentForm<
+  schematic.Key,
+  schematic.Schematic,
+  typeof elementConfigZ,
+  ConfigParams
+>({
+  name: "schematic element",
+  schema: elementConfigZ,
+  domain: (client) => client.schematics,
+  useEnsure,
+  toValues: ({ configs }, { elKey }) => configs[elKey],
+  pathOf: ({ elKey }) => ["configs", elKey],
+});
+
+const useConfigFormBase = (query: ConfigParams) => useDocumentConfigForm({ query });
+
+/** A form over one element's config in the cached schematic. */
+export const useConfigForm = Scope.bindHook(useConfigFormBase);
 
 export interface ConfigsParams extends KeyParams {
   keys: string[];
@@ -118,7 +155,7 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateParams extends schematic.New {
-  project?: project.Key;
+  project: project.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -128,7 +165,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: verbs.CREATE,
   update: async ({ client, data, onOptimisticComplete }) =>
-    await client.schematics.create(data.project ?? uuid.ZERO, data, {
+    await client.schematics.create(data, {
       onOptimistic: async ([optimistic]) => await onOptimisticComplete(optimistic),
     }),
 });
@@ -137,25 +174,25 @@ export interface SnapshotPair extends Pick<schematic.Schematic, "key" | "name"> 
 
 export interface SnapshotParams {
   schematics: SnapshotPair | SnapshotPair[];
-  parentID: ontology.ID;
+  range: ranger.Key;
 }
 
 export const { useUpdate: useSnapshot } = Flux.createUpdate<SnapshotParams>({
   name: RESOURCE_NAME,
   verbs: verbs.SNAPSHOT,
   update: async ({ client, data }) => {
-    const { schematics, parentID } = data;
-    const ids = await Promise.all(
-      array.toArray(schematics).map(async (s) => {
-        const newSchematic = await client.schematics.copy({
-          key: s.key,
-          name: `${s.name} (Snapshot)`,
-          snapshot: true,
-        });
-        return schematic.ontologyID(newSchematic.key);
-      }),
+    const { schematics, range } = data;
+    await Promise.all(
+      array.toArray(schematics).map(
+        async (s) =>
+          await client.schematics.copy({
+            key: s.key,
+            name: `${s.name} (Snapshot)`,
+            snapshot: true,
+            range,
+          }),
+      ),
     );
-    await client.ontology.addChildren(parentID, ...ids);
     return data;
   },
 });
@@ -182,9 +219,10 @@ const augmentWithEdgeSegments = (
   const extra = updates.flatMap((u) => {
     const existing = current.configs[u.key];
     if (existing == null || !("segments" in existing)) return [];
-    return schematic.setConfig({
+    return schematic.setChanged({
       key: u.key,
-      config: { ...existing, segments: u.segments },
+      base: existing,
+      next: { ...existing, segments: u.segments },
     });
   });
   return [...actions, ...extra];
@@ -242,11 +280,9 @@ export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> 
 export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
-  update: async ({ client, data, onOptimisticComplete }) => {
+  update: async ({ client, data }) => {
     const { key, name } = data;
-    await client.schematics.rename(key, name, {
-      onOptimistic: async () => await onOptimisticComplete(data),
-    });
+    await client.schematics.rename(key, name);
     return data;
   },
 });
@@ -261,7 +297,7 @@ export const useGroup = (): ((selected: readonly string[]) => string[] | null) =
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.createActions({
       selected,
@@ -284,7 +320,7 @@ export const useUngroup = (): ((selected: readonly string[]) => string[] | null)
   const client = Synnax.use();
   const dispatch = useSingleDispatch();
   return (selected) => {
-    const s = client?.schematics.getCached({ key });
+    const s = client?.schematics.watch({ key }).getCached();
     if (!query.isLive(s)) return null;
     const result = Group.ungroupActions(selected, s.configs);
     if (result == null) return null;

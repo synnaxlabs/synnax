@@ -9,15 +9,13 @@
 
 import { type ranger } from "@synnaxlabs/client";
 
-import { type flux } from "@/flux/aether";
+import { flux } from "@/flux/aether";
 
 const PLURAL_RESOURCE_NAME = "ranges";
 
-export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
+export type ListQuery = ranger.RetrieveMultipleParams;
 
 export const listDefinition: flux.Definition<ListQuery, ranger.Range[]> = {
   name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
-  onChange: ({ client, query }, handler) => client.ranges.onChange(query, handler),
-  getCached: ({ client, query }) => client.ranges.getCached(query),
+  ...flux.listReads(({ client, query }) => client.ranges.watch(query)),
 };

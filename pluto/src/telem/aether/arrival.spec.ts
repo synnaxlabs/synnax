@@ -7,71 +7,49 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, DataType, type framer } from "@synnaxlabs/client";
-import { id, MultiSeries, Series, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { SyntheticCore } from "@synnaxlabs/client/testutil";
+import { Rate, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createFactory } from "@/telem/aether/factory";
 import { sourcePipeline } from "@/telem/aether/pipeline";
-import { type Client, streamChannelValue } from "@/telem/aether/remote";
+import { streamChannelValue } from "@/telem/aether/remote";
 import { type BooleanSource } from "@/telem/aether/telem";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { withinBounds } from "@/telem/aether/transformers";
 
-class MockClient implements Client {
-  now = (): TimeStamp => TimeStamp.now();
-  key = id.create();
-  streamHandler: framer.StreamHandler | null = null;
-  streamF = vi.fn();
-  channel = new channel.Channel({
-    key: 65537,
-    name: "virtual",
-    dataType: DataType.UINT8,
-    isIndex: false,
-  });
-  channels = { retrieve: async (): Promise<channel.Channel> => this.channel };
-  feed = {
-    readLatest: async (): Promise<MultiSeries> => new MultiSeries([]),
-    readTile: async (): Promise<MultiSeries> => new MultiSeries([]),
-    read: async (): Promise<MultiSeries> => new MultiSeries([]),
-    stream: (
-      handler: framer.StreamHandler,
-      keys: channel.Key[],
-    ): framer.Subscription => {
-      this.streamHandler = handler;
-      this.streamF(handler, keys);
-      // The streamer delivers the cached leading buffers synchronously at
-      // registration. A channel that has never written yields an empty series per key.
-      handler(new Map(keys.map((k) => [k, new MultiSeries([])])));
-      return telemTest.mockSubscription(() => {});
-    },
-  };
-}
+const START = TimeStamp.seconds(1_000_000);
 
-// The source a light, valve, or switch ships with.
-const booleanSource = (key: channel.Key) =>
-  sourcePipeline("boolean", {
-    connections: [{ from: "valueStream", to: "threshold" }],
-    segments: {
-      valueStream: streamChannelValue({ channel: key }),
-      threshold: withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
-    },
-    outlet: "threshold",
-  });
-
-const setup = async () => {
-  const c = new MockClient();
-  const source = createFactory(c).create(booleanSource(c.channel.key)) as BooleanSource;
-  const handler = vi.fn();
-  source.onChange(handler);
-  source.value();
-  await expect.poll(() => c.streamF.mock.calls.length > 0).toBe(true);
-  return { c, source, handler };
-};
-
-// Staleness counts arrivals, so a boolean symbol pointed at a channel with no data must
-// not see one. Anything it sees here turns the symbol stale one timeout later.
 describe("boolean symbol source on a channel with no data", () => {
+  const closers: (() => Promise<void>)[] = [];
+  afterEach(async () => {
+    await Promise.all(closers.splice(0).map(async (close) => await close()));
+  });
+
+  // The Core has written nothing. Its first sample, sin(2), falls inside the bounds.
+  const setup = async () => {
+    const core = new SyntheticCore({ rate: Rate.hz(1000), start: START, now: START });
+    const client = telemTest.createClient(core);
+    const source = createFactory(client).create(
+      sourcePipeline("boolean", {
+        connections: [{ from: "valueStream", to: "threshold" }],
+        segments: {
+          valueStream: streamChannelValue({ channel: core.data[0].key }),
+          threshold: withinBounds({ trueBound: { lower: 0.9, upper: 1.1 } }),
+        },
+        outlet: "threshold",
+      }),
+    ) as BooleanSource;
+    closers.push(async () => {
+      source.cleanup?.();
+      await client.feed.close();
+    });
+    const handler = vi.fn();
+    source.onChange(handler);
+    await expect.poll(() => source.value().status.variant).toBe("success");
+    return { core, source, handler };
+  };
+
   it("should not report an arrival when the stream registers", async () => {
     const { handler } = await setup();
     expect(handler).not.toHaveBeenCalled();
@@ -79,17 +57,13 @@ describe("boolean symbol source on a channel with no data", () => {
 
   it("should still read as empty after the stream registers", async () => {
     const { source } = await setup();
-    expect(source.value()).toBe(false);
+    expect(source.value().data).toBe(false);
   });
 
   it("should report an arrival once real data lands", async () => {
-    const { c, source, handler } = await setup();
-    c.streamHandler?.(
-      new Map([
-        [c.channel.key, new MultiSeries([new Series({ data: new Uint8Array([1]) })])],
-      ]),
-    );
-    expect(handler).toHaveBeenCalledTimes(1);
-    expect(source.value()).toBe(true);
+    const { core, source, handler } = await setup();
+    core.advance(TimeSpan.milliseconds(1));
+    await expect.poll(() => handler.mock.calls.length).toBe(1);
+    expect(source.value().data).toBe(true);
   });
 });

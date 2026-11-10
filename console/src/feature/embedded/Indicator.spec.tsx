@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -18,7 +18,8 @@ import {
   mockSupervisor,
 } from "@/feature/embedded/testutil";
 
-const { host, port, username, password } = TEST_CLIENT_PARAMS;
+const { host, port } = TEST_CLIENT_PARAMS;
+const { username, password } = TEST_CREDENTIALS;
 
 describe("Embedded.Indicator", () => {
   afterEach(clearSupervisor);

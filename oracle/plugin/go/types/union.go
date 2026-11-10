@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -37,10 +38,14 @@ type unionData struct {
 	Doc string
 	// InterfaceName is the sealed variant interface (e.g. "ScaleVariant").
 	InterfaceName string
+	// InterfaceDoc is the documentation comment of InterfaceName.
+	InterfaceDoc string
 	// Marker is the unexported sealing method (e.g. "isScaleVariant").
 	Marker string
 	// DiscType is the discriminator type (e.g. "ScaleType", or the borrowed enum).
 	DiscType string
+	// DiscDoc is the documentation comment of a discriminator type the union declares.
+	DiscDoc string
 	// BorrowsEnum reports that DiscType is a declared enum, so the union emits no
 	// discriminator type or constants of its own.
 	BorrowsEnum bool
@@ -54,6 +59,14 @@ type unionData struct {
 	// NeedsValidate reports that at least one variant carries a Validate method, so the
 	// wrapper emits one that dispatches on the active variant.
 	NeedsValidate bool
+	// Base is the struct every variant embeds (e.g. "BaseAIChannel"), set only when
+	// resolver.SharedBase finds one. The wrapper then emits Base and SetBase.
+	Base string
+	// BaseField is the selector of Base's embedded field in each variant.
+	BaseField string
+	// TagMethod is the method that returns the tag of the active variant, or empty
+	// when the union has none.
+	TagMethod string
 }
 
 // unionVariantData is the template view of one variant of a discriminated union.
@@ -62,6 +75,8 @@ type unionVariantData struct {
 	TypeName string
 	// ConstName is the discriminator constant (e.g. "ScaleTypeLinear").
 	ConstName string
+	// ConstDoc is the documentation comment of ConstName.
+	ConstDoc string
 	// Value is the discriminator string value (e.g. "linear").
 	Value string
 	// Doc is the rendered per-variant documentation comment, if any.
@@ -90,13 +105,61 @@ type unionVariantData struct {
 	// DefaultGroups is the variant's inline fields grouped by `@default group`, each
 	// filled as a unit.
 	DefaultGroups []defaultGroupData
+	// SetSteps and SetFills are the nested SetDefaults calls and the assignments of
+	// the variant's SetDefaults. The wrapper decodes a variant over them.
+	SetSteps []recurseStepData
+	SetFills []defaultFillData
 	// NeedsApplyDefaults and NeedsValidate report whether the variant emits the
 	// respective method.
 	NeedsApplyDefaults bool
 	NeedsValidate      bool
 }
 
-func processUnion(entry resolution.Type, data *templateData) unionData {
+// HasGroups reports whether a variant of the union has a `@default group`.
+func (u unionData) HasGroups() bool {
+	for _, v := range u.Variants {
+		if v.SetDefaultsView().HasGroups() {
+			return true
+		}
+	}
+	return false
+}
+
+// SetDefaultsView returns the view of the variant's SetDefaults method.
+func (v unionVariantData) SetDefaultsView() setDefaultsView {
+	return setDefaultsView{
+		Receiver: v.Receiver,
+		Name:     v.TypeName,
+		Steps:    v.SetSteps,
+		Fills:    v.SetFills,
+		Groups:   v.DefaultGroups,
+	}
+}
+
+// interfaceDoc returns the documentation comment of a union's variant interface.
+func interfaceDoc(union string) string {
+	return fmt.Sprintf("is implemented by every %s variant.", union)
+}
+
+// discDoc returns the documentation comment of a union's discriminator type.
+func discDoc(union, discJSONName string) string {
+	return fmt.Sprintf(
+		"is the %q value that selects a variant of %s.",
+		discJSONName,
+		union,
+	)
+}
+
+// constDoc returns the documentation comment of a variant's discriminator constant:
+// the variant's own documentation, or a description of the variant it selects.
+func constDoc(variantDoc, variantType string) string {
+	if variantDoc != "" {
+		return variantDoc
+	}
+	return fmt.Sprintf("selects the %s variant.", variantType)
+}
+
+func processUnion(entry resolution.Type, data *templateData) (unionData, error) {
 	form := entry.Form.(resolution.UnionForm)
 	// Use the raw schema name (with @go name override) so the wrapper matches
 	// resolver.GetTypeName, which union-typed fields resolve through.
@@ -107,14 +170,18 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	data.AddExternal("encoding/json/v2")
 	data.AddExternal("encoding/json/jsontext")
 	data.AddExternal("github.com/synnaxlabs/x/errors")
+	data.AddExternal(validateImportPath)
 
+	discName := casing.FieldSnake(form.Discriminator)
 	ud := unionData{
 		Name:          name,
 		Doc:           doc.Get(entry.Domains),
 		InterfaceName: name + "Variant",
+		InterfaceDoc:  interfaceDoc(name),
 		Marker:        "is" + name + "Variant",
 		DiscType:      name + "Type",
-		DiscJSONName:  casing.FieldSnake(form.Discriminator),
+		DiscDoc:       discDoc(name, discName),
+		DiscJSONName:  discName,
 	}
 	constName := func(v resolution.UnionVariant) string {
 		return casing.VariantConstName(name, v.Name)
@@ -154,6 +221,35 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		return out
 	}
 	baseEmbeds := embedBases(form.Extends)
+	if base, ok := resolver.SharedBase(form, "go", data.table); ok {
+		parent, resolved := base.Resolve(data.table)
+		if !resolved {
+			panic(fmt.Sprintf("union %s extends unresolved base %s", name, base.Name))
+		}
+		ud.Base = resolveExtendsType(base, parent, data)
+		ud.BaseField = embedFieldName(ud.Base)
+	}
+	if method, ok := naming.UnionTagMethod(form); ok {
+		ud.TagMethod = method
+	}
+	// The tag getter shares a method set with the methods that every union declares.
+	methods := set.New(
+		"MarshalJSONTo",
+		"UnmarshalJSONFrom",
+		"ApplyDefaults",
+		"SetDefaults",
+		"Validate",
+	)
+	if ud.Base != "" {
+		methods.Add("Base", "SetBase")
+	}
+	if methods.Contains(ud.TagMethod) {
+		return unionData{}, errors.Newf(
+			"%s: the getter for the discriminator %s has the name of another union "+
+				"method; rename the discriminator",
+			entry.QualifiedName, form.Discriminator,
+		)
+	}
 
 	for _, v := range form.Variants {
 		vd := unionVariantData{
@@ -162,12 +258,13 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
+		vd.ConstDoc = constDoc(vd.Doc, vd.TypeName)
 		embeds := append([]embeddedType{}, baseEmbeds...)
 		var inlineFields []resolution.Field
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
-				inherited, declared := resolver.VariantBases(form, v, data.table)
+				inherited, declared := resolver.VariantBases(form, v, "go", data.table)
 				embeds = embedBases(inherited)
 				inlineFields = append(slices.Clone(declared), pform.Fields...)
 				// A field that only restates an inherited default keeps the
@@ -176,24 +273,29 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 					inherited, pform.Fields, data.table,
 				)
 				for _, f := range inlineFields {
+					if err := checkHeldEmbedded(vd.TypeName, f, data); err != nil {
+						return unionData{}, err
+					}
 					if !defaultOnly.Contains(f.Name) {
 						vd.Fields = append(vd.Fields, processField(f, data))
 					}
+					fd := data.forField(f)
 					if defaultGroupName(f) == "" {
-						vd.DefaultFills = append(
-							vd.DefaultFills,
-							goDefaultFills(f, data)...,
-						)
+						fills := goDefaultFills(f, fd)
+						if defaultOnly.Contains(f.Name) {
+							fills = overrideFills(f, fd)
+						}
+						vd.DefaultFills = append(vd.DefaultFills, fills...)
 					}
-					if validateSkip(f, data) {
+					if validateSkip(f, fd) {
 						continue
 					}
-					if chk, ok := goEnumCheck(f, data); ok {
+					if chk, ok := goEnumCheck(f, fd); ok {
 						vd.EnumChecks = append(vd.EnumChecks, chk)
 					}
 					vd.ConstraintChecks = append(
 						vd.ConstraintChecks,
-						goConstraintChecks(f, data)...,
+						goConstraintChecks(f, fd)...,
 					)
 				}
 				vd.DefaultGroups = goDefaultGroups(inlineFields, data)
@@ -217,6 +319,9 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 			defaultsHasOwn,
 			neverSkip,
 		)
+		vd.SetSteps = setDefaultsSteps(embeds, inlineFields, data)
+		vd.SetFills = setFills(vd.DefaultFills)
+		vd.DefaultFills = applyFills(vd.DefaultFills)
 		vd.ValidateRecurse = embedRecurseSteps(
 			embeds,
 			inlineFields,
@@ -246,7 +351,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 	if ud.NeedsValidate {
 		data.AddExternal(validateImportPath)
 	}
-	return ud
+	return ud, nil
 }
 
 // embeddedType pairs an embedded type reference with its rendered Go type, so the
@@ -279,10 +384,11 @@ func embedRecurseSteps(
 		}
 	}
 	for _, f := range inlineFields {
-		if skip(f, data) {
+		fd := data.forField(f)
+		if skip(f, fd) {
 			continue
 		}
-		if step, ok := goRecurseStep(f, data, hasOwn, skip); ok {
+		if step, ok := goRecurseStep(f, fd, hasOwn, skip); ok {
 			steps = append(steps, step)
 		}
 	}

@@ -23,6 +23,7 @@ import {
   type NumberSinkSpec,
   type NumberSource,
   type NumberSourceSpec,
+  type Result,
   type SeriesSource,
   type SeriesSourceSpec,
   type Spec,
@@ -30,6 +31,7 @@ import {
   type StringSink,
   type StringSinkSpec,
   type StringSourceSpec,
+  success,
   type Telem,
 } from "@/telem/aether/telem";
 
@@ -66,8 +68,8 @@ export const noopNumericSinkSpec: NumberSinkSpec = {
 class NoopBooleanSource extends Noop implements BooleanSource {
   static readonly TYPE = "noop-boolean-source";
 
-  value(): boolean {
-    return false;
+  value(): Result<boolean> {
+    return success(false);
   }
 }
 
@@ -81,8 +83,8 @@ export const noopBooleanSourceSpec: BooleanSourceSpec = {
 class NumericSource extends Noop implements NumberSource {
   static readonly TYPE = "noop-numeric-source";
 
-  value(): number {
-    return 0;
+  value(): Result<number> {
+    return success(0);
   }
 }
 
@@ -109,8 +111,8 @@ export const noopStringSinkSpec: StringSinkSpec = {
 class StringSource extends Noop implements StringSource {
   static readonly TYPE = "noop-string-source";
 
-  value(): string {
-    return "";
+  value(): Result<string> {
+    return success("");
   }
 }
 
@@ -124,13 +126,15 @@ export const noopStringSourceSpec: StringSourceSpec = {
 class StatusSource extends Noop implements StatusSource {
   static readonly TYPE = "noop-status-source";
 
-  value(): status.Status<z.ZodNever> {
-    return status.create({
-      key: "noop",
-      name: "noop",
-      variant: "disabled",
-      message: "unknown",
-    });
+  value(): Result<status.Status<z.ZodNever>> {
+    return success(
+      status.create({
+        key: "noop",
+        name: "noop",
+        variant: "disabled",
+        message: "unknown",
+      }),
+    );
   }
 }
 
@@ -144,8 +148,8 @@ export const noopStatusSourceSpec: StatusSourceSpec = {
 class NoopColorSource extends Noop implements ColorSource {
   static readonly TYPE = "noop-color-source";
 
-  value(): color.Color {
-    return color.ZERO;
+  value(): Result<color.Color> {
+    return success(color.ZERO);
   }
 }
 
@@ -159,8 +163,8 @@ export const noopColorSourceSpec: ColorSourceSpec = {
 class NoopSeries extends Noop implements SeriesSource {
   static readonly TYPE = "noop-series";
 
-  value(): [bounds.Bounds, MultiSeries] {
-    return [bounds.INVALID, new MultiSeries([])];
+  value(): Result<[bounds.Bounds, MultiSeries]> {
+    return success([bounds.INVALID, new MultiSeries([])]);
   }
 }
 

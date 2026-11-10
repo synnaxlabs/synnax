@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { combineReducers } from "@reduxjs/toolkit";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { describe, expect, it } from "vitest";
 
 import { Nav } from "@/session/nav";
+import { createMinimalStore } from "@/testutil";
 
 const rootReducer = combineReducers({
   [Nav.SLICE_NAME]: Nav.reducer,
@@ -22,7 +23,7 @@ const rootReducer = combineReducers({
 // run dispatches the actions through a store wired with the inject-key middleware, so
 // actions without an explicit windowKey resolve to the active window (MAIN_WINDOW).
 const run = (...actions: Nav.Action[]) => {
-  const store = configureStore({
+  const store = createMinimalStore({
     reducer: rootReducer,
     middleware: (getDefault) => getDefault().concat(Nav.MIDDLEWARE),
   });

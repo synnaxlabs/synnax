@@ -39,7 +39,7 @@ inline ReadField ReadField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["field"] = this->field.to_json();
     j["channel"] = this->channel;
     j["index"] = this->index;
@@ -58,7 +58,7 @@ inline ReadMessage ReadMessage::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadMessage::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["message"] = this->message.to_json();
     j["disabled"] = this->disabled;
     j["fields"] = x::json::to_array(this->fields);
@@ -76,7 +76,7 @@ inline WriteField WriteField::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteField::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["field"] = this->field.to_json();
     j["channel"] = this->channel;
     return j;
@@ -94,7 +94,7 @@ inline WriteMessage WriteMessage::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteMessage::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["message"] = this->message.to_json();
     j["disabled"] = this->disabled;
     j["fields"] = x::json::to_array(this->fields);
@@ -119,13 +119,12 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::task::PersistConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
-    for (const auto base = ::synnax::icd::Reference::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::PersistConfig::to_json();
+        parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::synnax::icd::Reference::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["raw"] = this->raw;
     j["messages"] = x::json::to_array(this->messages);
@@ -148,13 +147,11 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::task::WriteConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
-    for (const auto base = ::synnax::icd::Reference::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::synnax::icd::Reference::to_json(); parent.is_object())
+        j.update(parent);
     j["messages"] = x::json::to_array(this->messages);
     return j;
 }
@@ -170,7 +167,7 @@ inline PollConfig PollConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json PollConfig::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["rate"] = this->rate;
     j["timeout"] = this->timeout.nanoseconds();
     return j;
@@ -186,11 +183,9 @@ inline StreamReadConfig StreamReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StreamReadConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ReadConfig::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
-    for (const auto base = PollConfig::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ReadConfig::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = PollConfig::to_json(); parent.is_object()) j.update(parent);
     j["framing"] = ::synnax::bus::to_json(this->framing);
     return j;
 }
@@ -204,9 +199,9 @@ inline StreamWriteConfig StreamWriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json StreamWriteConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = WriteConfig::to_json(); const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["framing"] = ::synnax::bus::to_json(this->framing);
     return j;
 }
@@ -219,7 +214,7 @@ inline DelimiterFraming DelimiterFraming::parse(x::json::Parser parser) {
 }
 
 inline x::json::json DelimiterFraming::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["delimiter"] = this->delimiter;
     j["type"] = this->type;
     return j;
@@ -233,7 +228,7 @@ inline FixedFraming FixedFraming::parse(x::json::Parser parser) {
 }
 
 inline x::json::json FixedFraming::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["length"] = this->length;
     j["type"] = this->type;
     return j;
@@ -257,7 +252,7 @@ inline SyncFraming SyncFraming::parse(x::json::Parser parser) {
 }
 
 inline x::json::json SyncFraming::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["sync"] = this->sync;
     j["length_offset"] = this->length_offset;
     j["length_size"] = this->length_size;
@@ -277,7 +272,7 @@ inline CobsFraming CobsFraming::parse(x::json::Parser parser) {
 }
 
 inline x::json::json CobsFraming::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["type"] = this->type;
     return j;
 }
@@ -289,7 +284,7 @@ inline SlipFraming SlipFraming::parse(x::json::Parser parser) {
 }
 
 inline x::json::json SlipFraming::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["type"] = this->type;
     return j;
 }

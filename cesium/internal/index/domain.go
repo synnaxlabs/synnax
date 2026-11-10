@@ -11,7 +11,6 @@ package index
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
@@ -61,10 +60,15 @@ func byteSize(sampleCount int64) telem.Size {
 func (i *Domain) Distance(
 	ctx context.Context,
 	tr telem.TimeRange,
-	continuous ContinuousPolicy,
+	continuous continuousPolicy,
 ) (approx DistanceApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "distance")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() {
+		if err != nil {
+			approx = DistanceApproximation{}
+		}
+		err = span.EndWith(err, ErrDiscontinuous)
+	}()
 
 	iter := i.DB.OpenIterator(domain.IteratorConfig{Bounds: tr})
 	defer func() { err = errors.Combine(err, iter.Close()) }()
@@ -73,7 +77,7 @@ func (i *Domain) Distance(
 		// If the domain with the given time range doesn't exist in the database, then
 		// no data exists for that time range, so it's impossible to approximate a
 		// distance.
-		err = NewDiscontinuousTRError(tr)
+		err = newDiscontinuousTRError(tr)
 		return approx, err
 	}
 
@@ -90,7 +94,7 @@ func (i *Domain) Distance(
 	// discontinuous, and we return early if the user doesn't want discontinuous
 	// results.
 	if !effectiveDomainTR.ContainsRange(tr) && continuous {
-		err = NewDiscontinuousTRError(tr)
+		err = newDiscontinuousTRError(tr)
 		return approx, err
 	}
 
@@ -129,7 +133,7 @@ func (i *Domain) Distance(
 		effectiveDomainTR.End != tr.End {
 		// Otherwise, unless the effective domain contains the end of the time range
 		// the distance is discontinuous
-		err = NewDiscontinuousTRError(tr)
+		err = newDiscontinuousTRError(tr)
 		return approx, err
 	}
 
@@ -149,7 +153,7 @@ func (i *Domain) Distance(
 		if !iter.Next() ||
 			(continuous && !effectiveDomainTR.ContainsRange(iter.TimeRange())) {
 			if continuous {
-				err = NewDiscontinuousTRError(tr)
+				err = newDiscontinuousTRError(tr)
 				return approx, err
 			}
 			approx.Approximation = Between(
@@ -203,6 +207,11 @@ func (i *Domain) AppendSegments(
 	if start >= end {
 		return dst, nil
 	}
+	defer func() {
+		if err != nil {
+			segments = nil
+		}
+	}()
 	iter := i.DB.OpenIterator(domain.IterRange(ts.SpanRange(telem.TimeSpanMax)))
 	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekFirst(ctx) {
@@ -230,9 +239,47 @@ func (i *Domain) AppendSegments(
 		}
 		prevEnd := iter.TimeRange().End
 		if !iter.Next() || iter.TimeRange().Start != prevEnd {
-			return nil, NewDiscontinuousOffsetError(end, base)
+			return nil, newDiscontinuousOffsetError(end, base)
 		}
 	}
+}
+
+// Coverage walks the run of continuous domains that holds tr.Start. When the run
+// reaches tr.End, Coverage stops there. It returns the end of the domain that reaches
+// tr.End and a count of zero, and it does not read the index from disk. Otherwise, it
+// returns the end of the run and the number of samples in the run at or after tr.Start.
+// It returns zero values when no domain holds tr.Start.
+func (i *Domain) Coverage(
+	ctx context.Context,
+	tr telem.TimeRange,
+) (end telem.TimeStamp, count int64, err error) {
+	iter := i.DB.OpenIterator(domain.IterRange(tr.Start.SpanRange(telem.TimeSpanMax)))
+	defer func() {
+		if err = errors.Combine(err, iter.Close()); err != nil {
+			end, count = 0, 0
+		}
+	}()
+	if !iter.SeekFirst(ctx) || !iter.TimeRange().ContainsStamp(tr.Start) {
+		return 0, 0, nil
+	}
+	first := iter.TimeRange().Start
+	for {
+		if end = iter.TimeRange().End; tr.End <= end {
+			return end, 0, nil
+		}
+		count += sampleCount(iter.Size())
+		if !iter.Next() || iter.TimeRange().Start != end {
+			break
+		}
+	}
+	if tr.Start > first && iter.SeekFirst(ctx) {
+		var pos int64
+		if pos, err = i.position(ctx, iter, tr.Start); err != nil {
+			return 0, 0, err
+		}
+		count -= pos
+	}
+	return end, count, nil
 }
 
 // position returns the position in the current domain of iter of the first sample at or
@@ -263,7 +310,12 @@ func (i *Domain) Stamp(
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "stamp")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() {
+		if err != nil {
+			approx = TimeStampApproximation{}
+		}
+		err = span.EndWith(err, ErrDiscontinuous)
+	}()
 	if offset == 0 {
 		approx, err = i.zeroStamp(ctx, ref)
 	} else if offset < 0 {
@@ -350,6 +402,9 @@ func (i *Domain) zeroStamp(
 	}
 	defer func() { err = errors.Combine(err, r.Close()) }()
 	startApprox, err := i.search(ref, r)
+	if err != nil {
+		return approx, err
+	}
 	readStamp := newStampReader()
 	if !startApprox.Exact() {
 		approx.Upper, err = readStamp(r, byteSize(startApprox.Upper))
@@ -378,7 +433,7 @@ func (i *Domain) forwardStamp(
 
 	if !effectiveDomainBounds.ContainsStamp(ref) ||
 		(continuous && offset >= effectiveDomainLen) {
-		err = NewDiscontinuousOffsetError(offset, effectiveDomainLen)
+		err = newDiscontinuousOffsetError(offset, effectiveDomainLen)
 		return approx, err
 	}
 
@@ -410,7 +465,7 @@ func (i *Domain) forwardStamp(
 	if continuous {
 		if (startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen) ||
 			(!startApprox.Exact() && startApprox.Lower+offset >= effectiveDomainLen-1) {
-			err = NewDiscontinuousOffsetError(
+			err = newDiscontinuousOffsetError(
 				startApprox.Upper+offset,
 				effectiveDomainLen,
 			)
@@ -423,7 +478,7 @@ func (i *Domain) forwardStamp(
 		for {
 			if !iter.Next() {
 				if continuous {
-					err = NewDiscontinuousOffsetError(endOffset, effectiveDomainLen)
+					err = newDiscontinuousOffsetError(endOffset, effectiveDomainLen)
 					return approx, err
 				}
 				approx = Between(iter.TimeRange().End, telem.TimeStampMax)
@@ -512,7 +567,7 @@ func (i *Domain) backwardStamp(
 	continuous bool,
 ) (approx TimeStampApproximation, err error) {
 	ctx, span := i.T.Bench(ctx, "backward_stamp")
-	defer func() { _ = span.EndWith(err, ErrDiscontinuous) }()
+	defer func() { err = span.EndWith(err, ErrDiscontinuous) }()
 	absOffset := -offset
 
 	iter := i.DB.OpenIterator(domain.IterRange(telem.TimeStamp(0).Range(ref + 1)))
@@ -531,7 +586,7 @@ func (i *Domain) backwardStamp(
 
 	if (!effectiveDomainBounds.ContainsStamp(ref)) ||
 		(continuous && absOffset >= effectiveDomainLen) {
-		err = NewDiscontinuousOffsetError(offset, effectiveDomainLen)
+		err = newDiscontinuousOffsetError(offset, effectiveDomainLen)
 		return approx, err
 	}
 
@@ -561,7 +616,7 @@ func (i *Domain) backwardStamp(
 	// If they are not exact, and the lower bound is the first sample, then the upper
 	// bound must be discontinuous as well.
 	if continuous && endOffset+startApprox.Span() > effectiveDomainLen {
-		err = NewDiscontinuousOffsetError(endOffset, 0)
+		err = newDiscontinuousOffsetError(endOffset, 0)
 		return approx, err
 	}
 
@@ -572,7 +627,7 @@ func (i *Domain) backwardStamp(
 		for {
 			if !iter.Prev() {
 				if continuous {
-					err = NewDiscontinuousOffsetError(endOffset, domainLen)
+					err = newDiscontinuousOffsetError(endOffset, domainLen)
 					return approx, err
 				}
 				approx = Between(telem.TimeStampMin, iter.TimeRange().Start)
@@ -693,11 +748,4 @@ func newStampReader() func(r io.ReaderAt, offset telem.Size) (telem.TimeStamp, e
 		}
 		return unsafe.CastBytes[telem.TimeStamp](buf)
 	}
-}
-
-// Info returns the key and name of the channel of the index. If the database is
-// domain-indexed, the information of the domain channel is returned. If the database
-// is rate-based (i.e. self-indexing), the channel itself is returned.
-func (i *Domain) Info() string {
-	return fmt.Sprintf("domain index: %v", i.Channel)
 }

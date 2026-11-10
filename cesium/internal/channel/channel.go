@@ -22,17 +22,17 @@ import (
 // second channel under a key already in use is an error.
 type Key = uint32
 
-// Version is the format of the files stored in a channel. A channel opened at a lower
+// version is the format of the files stored in a channel. A channel opened at a lower
 // version is migrated up in memory; its metadata file moves to the current version the
 // next time it is written.
-type Version = uint8
+type version = uint8
 
 const (
-	Version1 Version = 1
-	Version2 Version = 2
+	Version1 version = 1
+	Version2 version = 2
 	// Version3 renames the metadata's is_index member, which earlier versions stored
 	// under the Go field name.
-	Version3       Version = 3
+	Version3       version = 3
 	VersionCurrent         = Version3
 )
 
@@ -79,7 +79,7 @@ type Channel struct {
 	// Version specifies the format of files stored in this channel.
 	//
 	// [OPTIONAL]
-	Version Version `json:"version" msgpack:"version"`
+	Version version `json:"version" msgpack:"version"`
 }
 
 // String implements fmt.Stringer to return nicely formatted channel info.

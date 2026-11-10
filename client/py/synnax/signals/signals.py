@@ -14,6 +14,7 @@ from dataclasses import dataclass
 
 from synnax import channel, framer
 from synnax.state import Latest, State
+from x.params import deprecate_positional
 
 
 @dataclass
@@ -29,15 +30,17 @@ class Registry:
     _frame_client: framer.Client
     _channel_retriever: channel.Retriever
 
-    def __init__(self, frame_client: framer.Client, channels: channel.Retriever):
+    def __init__(self, *, frame_client: framer.Client, channels: channel.Retriever):
         self._handlers = []
         self._channels = []
         self._frame_client = frame_client
         self._channel_retriever = channels
 
+    @deprecate_positional("filter_f")
     def on(
         self,
         channels: channel.Params,
+        *,
         filter_f: Callable[[Latest], bool],
     ) -> Callable[[Callable[[Latest], None]], Callable[[Latest], None]]:
         """Registers the decorated function to run when filter_f passes.

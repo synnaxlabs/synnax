@@ -7,30 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package framer
+package framer_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
-	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/user"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
 )
 
 var (
+	db            *gorp.DB
 	channelSvc    *svcchannel.Service
 	apiChannelSvc *channel.Service
+	transport     api.Transport
+	bindable      fgrpc.BindableTransport
+	conn          *fgrpc.ClientConn
 )
 
 func TestFramer(t *testing.T) {
@@ -40,61 +43,25 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-	}))
-	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	channelSvc = MustOpen(svcchannel.OpenService(ctx, svcchannel.ServiceConfig{
-		Channel:      node.Channel,
-		DB:           node.DB,
-		HostProvider: node.Cluster,
-		Ontology:     otg,
-		Group:        groupSvc,
-		Status:       statusSvc,
-	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-	}))
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		User:     userSvc,
-	}))
-	rangerSvc := MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
-		DB:       node.DB,
-		Ontology: otg,
-		Group:    groupSvc,
-		Label:    labelSvc,
-	}))
-	aliasSvc := MustOpen(alias.OpenService(ctx, alias.ServiceConfig{
-		DB:              node.DB,
-		Ontology:        otg,
-		Channel:         channelSvc,
-		ParentRetriever: rangerSvc,
-	}))
+	node := testutil.NewNode(ctx)
+	db = node.DB
+	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
+	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
-		RBAC:    rbacSvc,
-		Channel: channelSvc,
-		Ranger:  rangerSvc,
-		Alias:   aliasSvc,
-		Status:  statusSvc,
+		DB:      db,
+		RBAC:    svc.RBAC,
+		Channel: svc.Channel,
+		Status:  svc.Status,
+		Alias:   svc.Alias,
 	}))
+	var pool *fgrpc.Pool
+	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
+		bindable = grpcframer.New(&transport, apiChannelSvc)
+		bindable.BindTo(reg)
+		pool = p
+	})
+	conn = MustSucceed(pool.Acquire(addr))
+	DeferCleanup(conn.Release)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

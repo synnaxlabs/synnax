@@ -142,15 +142,14 @@ var _ = Describe("Channel", Ordered, func() {
 						key := cesium.ChannelKey(1)
 						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
-						err := subDB.CreateChannel(
+						Expect(subDB.CreateChannel(
 							ctx,
 							cesium.Channel{
 								Key:      key,
 								DataType: telem.TimestampT,
 								IsIndex:  true,
 							},
-						)
-						Expect(err).To(MatchError(cesium.ErrDBClosed))
+						)).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -252,7 +251,12 @@ var _ = Describe("Channel", Ordered, func() {
 							DataType: telem.StringT,
 						},
 					)).To(Succeed())
-					Expect(db.RenameChannel(ctx, data, "renamed")).To(Succeed())
+					Expect(
+						db.RenameChannels(
+							ctx,
+							map[cesium.ChannelKey]string{data: "renamed"},
+						),
+					).To(Succeed())
 					ch := MustSucceed(db.RetrieveChannel(ctx, data))
 					Expect(ch.Name).To(Equal("renamed"))
 				})
@@ -319,7 +323,12 @@ var _ = Describe("Channel", Ordered, func() {
 							),
 						)
 
-						Expect(db.RenameChannel(ctx, key, "laplace")).To(Succeed())
+						Expect(
+							db.RenameChannels(
+								ctx,
+								map[cesium.ChannelKey]string{key: "laplace"},
+							),
+						).To(Succeed())
 						series2 := telem.NewSeriesSecondsTSV(20, 21, 22)
 						MustSucceed(
 							w.Write(
@@ -349,7 +358,7 @@ var _ = Describe("Channel", Ordered, func() {
 						MustSucceed(meta.Read(buf))
 						Expect(meta.Close()).To(Succeed())
 
-						Expect(json.Codec.Decode(ctx, buf, &newCh)).To(Succeed())
+						Expect(json.Codec.Decode(buf, &newCh)).To(Succeed())
 						Expect(newCh.Name).To(Equal("laplace"))
 					},
 				)
@@ -422,7 +431,10 @@ var _ = Describe("Channel", Ordered, func() {
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
 					Expect(
-						db.RenameChannel(ctx, key, "new_name"),
+						db.RenameChannels(
+							ctx,
+							map[cesium.ChannelKey]string{key: "new_name"},
+						),
 					).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})

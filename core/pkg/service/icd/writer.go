@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/library"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -26,14 +25,18 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// reader reads ICDs and the tasks that use them through a snapshot.
+type reader struct {
+	snap  gorp.Snapshot
+	table *Table
+	tasks *task.Service
+	uses  func(config msgpack.EncodedJSON) ([]Use, error)
+}
+
 // Writer creates, updates, and deletes ICDs within a transaction.
 type Writer struct {
-	tx        gorp.Tx
-	otg       *ontology.Ontology
-	otgWriter ontology.Writer
-	table     *gorp.Table[Key, ICD]
-	tasks     *task.Service
-	uses      func(config msgpack.EncodedJSON) ([]Use, error)
+	reader
+	tx gorp.Tx
 }
 
 // Create creates the ICD, or replaces it when an ICD with its key exists. A replacement
@@ -41,8 +44,8 @@ type Writer struct {
 // wrapping library.ErrStale. Create assigns keys to the ICD, its messages, and their
 // fields where absent, and sets Hash to the hash of the stored ICD. It returns a
 // path-scoped validation error for each problem Check finds, and when a replacement
-// drops a message or field that a task uses. Each task whose used messages change is
-// rewritten, so its config carries their new hash.
+// drops a message or field that a task uses. Each task that is not a snapshot and whose
+// used messages change gets their new hash in its config.
 func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	var prev *ICD
 	if ic.Key != uuid.Nil() {
@@ -68,22 +71,21 @@ func (w Writer) Create(ctx context.Context, ic *ICD) error {
 	if ic.Hash, err = Hash(*ic); err != nil {
 		return err
 	}
-	var stale []task.Task
+	var stale []staleTask
 	if prev != nil && prev.Hash != ic.Hash {
 		if stale, err = w.staleTasks(ctx, *prev, *ic); err != nil {
 			return err
 		}
 	}
-	if err = w.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
+	if err = w.table.table.NewCreate().Entry(ic).Exec(ctx, w.tx); err != nil {
 		return err
 	}
-	if prev == nil {
-		return w.otgWriter.DefineResources(ctx, ic.OntologyID())
-	}
 	tw := w.tasks.NewWriter(w.tx)
-	for i := range stale {
-		stale[i].Status = nil
-		if err = tw.Create(ctx, &stale[i]); err != nil {
+	for _, t := range stale {
+		if _, err = tw.Apply(ctx, t.key, task.NewSetAction(task.SetPayload{
+			Path:  []string{"config", "icd_hash"},
+			Value: t.hash,
+		})); err != nil {
 			return err
 		}
 	}
@@ -100,22 +102,22 @@ func (w Writer) CreateMany(ctx context.Context, ics *[]ICD) error {
 	return nil
 }
 
-// Check returns every problem Create would reject ic for, without storing it: each
+// check returns every problem Create would reject ic for, without storing it: each
 // problem the package-level Check finds, and each message or field that a task uses and
 // ic lacks.
-func (w Writer) Check(ctx context.Context, ic ICD) (library.Problems, error) {
+func (r reader) check(ctx context.Context, ic ICD) (library.Problems, error) {
 	problems := Check(ic)
 	if ic.Key == uuid.Nil() {
 		return problems, nil
 	}
-	prev, err := w.retrieve(ctx, ic.Key)
+	prev, err := r.retrieve(ctx, ic.Key)
 	if errors.Is(err, query.ErrNotFound) {
 		return problems, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	users, err := w.users(ctx, prev)
+	users, err := r.users(ctx, prev)
 	if err != nil {
 		return nil, err
 	}
@@ -165,31 +167,23 @@ func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 		return err
 	}
 	ic.Name = name
-	return w.table.NewCreate().Entry(&ic).Exec(ctx, w.tx)
+	return w.table.table.NewCreate().Entry(&ic).Exec(ctx, w.tx)
 }
 
-// Delete deletes the ICDs with the given keys. Delete is idempotent. It returns an
-// error wrapping validate.ErrValidation when a task uses one of the ICDs.
+// Delete deletes the ICDs with the given keys. Delete is idempotent. It returns a
+// gorp.RestrictError when a task uses one of the ICDs.
 func (w Writer) Delete(ctx context.Context, keys ...Key) error {
-	for _, key := range keys {
-		if err := library.CheckUnused(ctx, w.tx, w.otg, OntologyID(key)); err != nil {
-			return err
-		}
-	}
-	if err := w.table.NewDelete().
+	return w.table.table.NewDelete().
 		Where(gorp.MatchKeys[Key, ICD](keys...)).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	return w.otgWriter.DeleteResources(ctx, OntologyIDs(keys)...)
+		Exec(ctx, w.tx)
 }
 
-func (w Writer) retrieve(ctx context.Context, key Key) (ICD, error) {
+func (r reader) retrieve(ctx context.Context, key Key) (ICD, error) {
 	var ic ICD
-	err := w.table.NewRetrieve().
+	err := r.table.table.NewRetrieve().
 		Where(gorp.MatchKeys[Key, ICD](key)).
 		Entry(&ic).
-		Exec(ctx, w.tx)
+		Exec(ctx, r.snap)
 	return ic, err
 }
 
@@ -200,25 +194,21 @@ type user struct {
 }
 
 // users returns each task that uses ic.
-func (w Writer) users(ctx context.Context, ic ICD) ([]user, error) {
-	resources, err := library.Users(ctx, w.tx, w.otg, ic.OntologyID())
-	if err != nil || len(resources) == 0 {
-		return nil, err
-	}
-	keys, err := task.KeysFromOntologyIDs(ontology.ResourceIDs(resources))
-	if err != nil {
+func (r reader) users(ctx context.Context, ic ICD) ([]user, error) {
+	keys, err := r.table.taskKeys(ctx, r.snap, ic.Key)
+	if err != nil || len(keys) == 0 {
 		return nil, err
 	}
 	var tasks []task.Task
-	if err = w.tasks.NewRetrieve().
+	if err = r.tasks.NewRetrieve().
 		Where(task.MatchKeys(keys...)).
 		Entries(&tasks).
-		Exec(ctx, w.tx); err != nil {
+		Exec(ctx, r.snap); err != nil {
 		return nil, err
 	}
 	users := make([]user, len(tasks))
 	for i, t := range tasks {
-		uses, err := w.uses(t.Config)
+		uses, err := r.uses(t.Config)
 		if err != nil {
 			return nil, err
 		}
@@ -267,10 +257,16 @@ func (u user) missing(prev, next ICD) library.Problems {
 	return problems
 }
 
-// staleTasks returns the tasks that use next whose stamped hash no longer matches the
-// messages they use. It returns a path-scoped validation error for each message or
-// field a task uses and next lacks.
-func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, error) {
+// staleTask is a task whose stamped hash no longer matches the messages it uses.
+type staleTask struct {
+	key  task.Key
+	hash string
+}
+
+// staleTasks returns the tasks that use next, are not snapshots, and whose stamped hash
+// no longer matches the messages they use, each with the hash it needs. It returns a
+// path-scoped validation error for each message or field a task uses and next lacks.
+func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]staleTask, error) {
 	users, err := w.users(ctx, next)
 	if err != nil {
 		return nil, err
@@ -282,8 +278,11 @@ func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, er
 	if err = missing.Err(); err != nil {
 		return nil, err
 	}
-	var stale []task.Task
+	var stale []staleTask
 	for _, u := range users {
+		if u.task.Snapshot {
+			continue
+		}
 		var ref Reference
 		if err = u.task.Config.Unmarshal(&ref); err != nil {
 			return nil, err
@@ -297,7 +296,7 @@ func (w Writer) staleTasks(ctx context.Context, prev, next ICD) ([]task.Task, er
 			return nil, err
 		}
 		if hash != ref.ICDHash {
-			stale = append(stale, u.task)
+			stale = append(stale, staleTask{key: u.task.Key, hash: hash})
 		}
 	}
 	return stale, nil

@@ -26,6 +26,8 @@ Note: Thermocouple streaming is slower than standard analog inputs due to the
       required cold junction compensation calculations.
 """
 
+import numpy as np
+
 import synnax as sy
 
 # We've logged in via the command-line interface, so there's no need to provide
@@ -76,7 +78,6 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="C",  # Celsius
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
         # K-type thermocouple on AIN2 with device CJC in Fahrenheit
         sy.labjack.ThermocoupleReadChannel(
@@ -87,7 +88,6 @@ tsk = sy.labjack.ReadTask(
             cjc_slope=1.0,  # Device temp sensor
             cjc_offset=0.0,  # Device temp sensor
             units="F",  # Fahrenheit
-            neg_chan=199,  # 199 = single-ended (GND)
         ),
     ],
 )
@@ -110,30 +110,27 @@ print(f"{'Sample':<10} {'Time (s)':<10} {'TC0 (°C)':>12} {'TC1 (°F)':>12}")
 print("-" * 70)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["thermocouple_0", "thermocouple_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest values from both channels
-                if (
-                    frame
-                    and "thermocouple_0" in frame
-                    and len(frame["thermocouple_0"]) > 0
-                ):
-                    temp_c = frame["thermocouple_0"][-1]
-                    temp_f = frame["thermocouple_1"][-1]
+                if "thermocouple_0" in frame and len(frame["thermocouple_0"]) > 0:
+                    temp_c = frame["thermocouple_0"].as_(np.float32)[-1]
+                    temp_f = frame["thermocouple_1"].as_(np.float32)[-1]
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
 
                     sample_count += 1
                     print(
-                        f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} {temp_f:>12.1f}",
+                        f"{sample_count:<10} {elapsed:<10.1f} {temp_c:>12.1f} "
+                        f"{temp_f:>12.1f}",
                         end="\r",
                         flush=True,
                     )

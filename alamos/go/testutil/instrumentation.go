@@ -14,13 +14,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"uuid"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/testutil"
 	"github.com/uptrace/uptrace-go/uptrace"
@@ -52,7 +53,7 @@ func (c InstrumentationConfig) Override(
 	return c
 }
 
-var DefaultInstrumentationConfig = InstrumentationConfig{
+var defaultInstrumentationConfig = InstrumentationConfig{
 	Trace:  new(false),
 	Log:    new(false),
 	Report: new(false),
@@ -64,10 +65,11 @@ const devDSN = "http://synnax_dev@localhost:14317/2"
 
 func newTracer(serviceName string) *alamos.Tracer {
 	ginkgo.GinkgoHelper()
+	commit := testutil.MustSucceed(exec.Command("git", "rev-parse", "HEAD").Output())
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
-		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
+		uptrace.WithServiceVersion(strings.TrimSpace(string(commit))),
 	)
 	return testutil.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),
@@ -94,19 +96,20 @@ func newReports() *alamos.Reporter {
 // within a Ginkgo node (a spec, BeforeEach, BeforeAll, BeforeSuite, etc.).
 func Instrumentation(key string, cfgs ...InstrumentationConfig) alamos.Instrumentation {
 	ginkgo.GinkgoHelper()
-	cfg, err := config.New(DefaultInstrumentationConfig, cfgs...)
+	cfg, err := config.New(defaultInstrumentationConfig, cfgs...)
 	if err != nil {
 		zap.S().Fatal(err)
 	}
 	var options []alamos.Option
 	if *cfg.Trace {
 		options = append(options, alamos.WithTracer(newTracer(serviceName())))
-		// uptrace.Shutdown flushes buffered spans and metrics to the dev collector
-		// (devDSN) as it stops the SDK. That collector is not running during tests, so
-		// the flush fails with a connection error — but the SDK's background goroutines
-		// stop regardless, which is all this cleanup needs. Drop the upload error so a
-		// clean teardown does not fail the suite.
-		ginkgo.DeferCleanup(func(ctx context.Context) { _ = uptrace.Shutdown(ctx) })
+		// The dev collector does not run during tests, so the final flush fails. The
+		// SDK still stops, which is all this cleanup needs.
+		ginkgo.DeferCleanup(func(ctx context.Context) {
+			if err := uptrace.Shutdown(ctx); err != nil {
+				ginkgo.GinkgoWriter.Printf("failed to flush telemetry: %v\n", err)
+			}
+		})
 	}
 	if *cfg.Log {
 		options = append(options, alamos.WithLogger(newLogger()))

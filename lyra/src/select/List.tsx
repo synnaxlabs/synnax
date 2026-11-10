@@ -11,7 +11,7 @@ import { type ReactNode } from "react";
 
 import { List as BaseList } from "@/list";
 import { useVisibleCount } from "@/select/registry";
-import { useClosed } from "@/select/scope";
+import { ListContext, useClosed } from "@/select/scope";
 
 /* Height the list may take, leaving the search input its share of the dialog's cap in
    Dialog.css. Rows are only ever whole, so this is a budget rather than a limit. */
@@ -35,8 +35,11 @@ export interface ListProps extends Omit<BaseList.ScrollProps, "itemCount"> {}
  * block inside it scroll together; anything outside it stays pinned. By default it
  * sizes itself to the whole rows that fit the dialog, so its growth animates.
  */
-export const List = (props: ListProps): ReactNode =>
-  useClosed() ? props.children : <OpenList {...props} />;
+export const List = (props: ListProps): ReactNode => (
+  <ListContext value>
+    {useClosed() ? props.children : <OpenList {...props} />}
+  </ListContext>
+);
 
 const OpenList = ({
   children,

@@ -11,22 +11,22 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
 
-import { BreadcrumbShowcase } from "./BreadcrumbShowcase";
-import { ButtonShowcase } from "./ButtonShowcase";
-import { DISPLAY, PADDING_STYLE } from "./constants";
-import { DisplaySelector } from "./DisplaySelector";
-import { DividerShowcase } from "./DividerShowcase";
-import { FlexShowcase } from "./FlexShowcase";
-import { HeaderShowcase } from "./HeaderShowcase";
-import { InputShowcase } from "./InputShowcase";
-import { MenuShowcase } from "./MenuShowcase";
-import { NoteShowcase } from "./NoteShowcase";
-import { PreviewShowcase } from "./PreviewShowcase";
-import { SchematicStyleShowcase } from "./SchematicStyleShowcase";
-import { SelectShowcase } from "./SelectShowcase";
-import { TabsShowcase } from "./TabsShowcase";
-import { TagShowcase } from "./TagShowcase";
-import { TextShowcase } from "./TextShowcase";
+import { BreadcrumbShowcase } from "@/showcase/BreadcrumbShowcase";
+import { ButtonShowcase } from "@/showcase/ButtonShowcase";
+import { DISPLAY, PADDING_STYLE } from "@/showcase/constants";
+import { DisplaySelector } from "@/showcase/DisplaySelector";
+import { DividerShowcase } from "@/showcase/DividerShowcase";
+import { FlexShowcase } from "@/showcase/FlexShowcase";
+import { HeaderShowcase } from "@/showcase/HeaderShowcase";
+import { InputShowcase } from "@/showcase/InputShowcase";
+import { MenuShowcase } from "@/showcase/MenuShowcase";
+import { NoteShowcase } from "@/showcase/NoteShowcase";
+import { PreviewShowcase } from "@/showcase/PreviewShowcase";
+import { SchematicStyleShowcase } from "@/showcase/SchematicStyleShowcase";
+import { SelectShowcase } from "@/showcase/SelectShowcase";
+import { TabsShowcase } from "@/showcase/TabsShowcase";
+import { TagShowcase } from "@/showcase/TagShowcase";
+import { TextShowcase } from "@/showcase/TextShowcase";
 
 const ShowcaseSection = ({
   title,

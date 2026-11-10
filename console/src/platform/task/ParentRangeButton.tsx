@@ -9,29 +9,27 @@
 
 import "@/platform/task/ParentRangeButton.css";
 
-import { ranger, task } from "@synnaxlabs/client";
+import { ranger, type task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Ranger } from "@synnaxlabs/pluto";
+import { Ranger, Task as PTask } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
 import { useKey } from "@/platform/task/useKey";
 
-interface InternalProps {
-  taskKey: task.Key;
+interface RangeLinkProps {
+  rangeKey: ranger.Key;
 }
 
-const Internal = ({ taskKey }: InternalProps) => {
-  const parent = Ranger.useParent({ id: task.ontologyID(taskKey) });
+const RangeLink = ({ rangeKey }: RangeLinkProps) => {
+  const { name } = Ranger.use({ key: rangeKey });
   const openTab = Panel.useOpenTab();
-  if (parent == null) return null;
-  const { key, name } = parent;
   const handleClick = () =>
-    openTab({ variant: "resource", resource: ranger.ontologyID(key) });
+    openTab({ variant: "resource", resource: ranger.resourceID(rangeKey) });
   return (
     <Flex.Box x align="center" gap="small">
       <Text.Text>Snapshotted to</Text.Text>
@@ -46,6 +44,18 @@ const Internal = ({ taskKey }: InternalProps) => {
       </Button.Button>
     </Flex.Box>
   );
+};
+
+interface InternalProps {
+  taskKey: task.Key;
+}
+
+const Internal = ({ taskKey }: InternalProps) => {
+  const query = { key: taskKey };
+  PTask.useEnsure(query);
+  const range = PTask.useRange(query);
+  if (range == null) return null;
+  return <RangeLink rangeKey={range} />;
 };
 
 export const ParentRangeButton = () => {

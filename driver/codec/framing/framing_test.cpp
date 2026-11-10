@@ -19,7 +19,7 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/bus/types.gen.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/codec/framing/checksum.h"
 #include "driver/codec/framing/framing.h"

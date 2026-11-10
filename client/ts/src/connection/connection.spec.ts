@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context, type UnaryClient, Unreachable } from "@synnaxlabs/freighter";
+import {
+  type Context,
+  type Middleware,
+  type UnaryClient,
+  Unreachable,
+} from "@synnaxlabs/freighter";
 import { type breaker, observe, TimeSpan, TimeStamp, url } from "@synnaxlabs/x";
-import { assert, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { auth } from "@/auth";
 import { connection } from "@/connection";
-import { modeFor, sendCheck } from "@/connection/client";
-import {
-  createInitialStatus,
-  type Event,
-  materialChange,
-  reduce,
-} from "@/connection/status";
+import { advance, createInitialStatus, type Event, reduce } from "@/connection/status";
 import {
   AccessDeniedError,
   AuthError,
   DisconnectedError,
   ExpiredLicenseError,
   MissingLicenseError,
-} from "@/errors";
+} from "@/index";
 import { license } from "@/license";
 import { query } from "@/query";
-import { TEST_CLIENT_PARAMS } from "@/testutil";
+import { TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
 
 const liveUnary = (): UnaryClient => {
@@ -40,7 +39,7 @@ const liveUnary = (): UnaryClient => {
       port: Number(TEST_CLIENT_PARAMS.port),
     }),
   );
-  const client = new auth.Client(transport.unary, TEST_CLIENT_PARAMS);
+  const client = new auth.Client(transport.unary, { credentials: TEST_CREDENTIALS });
   transport.use(client.middleware());
   return transport.unary;
 };
@@ -99,6 +98,65 @@ const createScriptedUnary = ({
   };
 };
 
+interface Core060 {
+  /** Whether the Core was upgraded to the client's version. */
+  upgraded: boolean;
+  /** Whether the Core stopped answering. */
+  down?: boolean;
+}
+
+/**
+ * A Core 0.60 that answers a login and a check with the shapes it sends. Responses
+ * parse after the middleware runs, as in an HTTP client. Once `core.upgraded` is set,
+ * it answers checks as a Core of the client's version.
+ */
+const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient => {
+  const responses: Record<string, unknown> = {
+    "/auth/session/create": {
+      token: "token",
+      session: {
+        key: "6f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        subject: { type: "user", key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff" },
+        credential: "8f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        lastActive: TimeStamp.now().valueOf(),
+      },
+      user: {
+        key: "7f9619ff-8b86-4011-b42d-00cf4fc964ff",
+        username: "synnax",
+        firstName: "",
+        lastName: "",
+        rootUser: true,
+      },
+    },
+    "/connectivity/check": {
+      clusterKey: "core-060",
+      nodeVersion: "0.60.1",
+      nodeKey: 1,
+      nodeTime: TimeStamp.now().valueOf(),
+      license: "ok",
+    },
+  };
+  const middleware: Middleware[] = [];
+  const run = async (ctx: Context, i: number): Promise<Context> =>
+    i === middleware.length
+      ? ctx
+      : await middleware[i](ctx, async (next) => await run(next, i + 1));
+  return {
+    use: (...mw) => middleware.push(...mw),
+    send: async (target, _req, _reqZ, resZ, params = {}) => {
+      if (core.down === true) throw new Unreachable({ message: "server down" });
+      if (core.upgraded)
+        return resZ.parse({
+          ...(responses["/connectivity/check"] as object),
+          nodeVersion: __VERSION__,
+          nodeTime: TimeStamp.now().valueOf(),
+        });
+      await run({ target, role: "client", protocol: "http", params }, 0);
+      return resZ.parse(responses[target]);
+    },
+  };
+};
+
 const FAST_RETRY: breaker.Config = { baseInterval: TimeSpan.milliseconds(1), scale: 1 };
 
 const createConfig = (
@@ -115,6 +173,7 @@ const createConfig = (
 const createInfo = (overrides: Partial<connection.Info> = {}): connection.Info => ({
   clusterKey: "test-cluster",
   nodeVersion: __VERSION__,
+  nodeKey: 1,
   clockSkew: TimeSpan.ZERO,
   roundTrip: TimeSpan.ZERO,
   license: "ok",
@@ -151,30 +210,7 @@ const sleep = async (span: TimeSpan): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, span.milliseconds));
 
 describe("connection", () => {
-  describe("sendCheck", () => {
-    it("should check the cluster", async () => {
-      const info = await sendCheck(liveUnary());
-      expect(z.validate(z.uuid(), info.clusterKey)).toBe(true);
-      expect(info.nodeVersion).not.toEqual("");
-    });
-
-    it("should fold a check into a connected status", async () => {
-      const config = createConfig();
-      const info = await sendCheck(liveUnary());
-      const status = apply(config, { type: "check.success", info });
-      expect(status.variant).toEqual("success");
-      expect(status.details.authenticated).toBe(true);
-      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
-    });
-
-    it("should pull the server and client versions", async () => {
-      const config = createConfig();
-      const info = await sendCheck(liveUnary());
-      const status = apply(config, { type: "check.success", info });
-      expect(status.details.clientServerCompatible).toBe(true);
-      expect(status.details.clientVersion).toBe(__VERSION__);
-    });
-
+  describe("version compatibility", () => {
     // A Core built without an injected version reports 0.0.0, which pairs with
     // anything, so the mismatch cases carry their own node version.
     it("should adjust status if the server is too old", () => {
@@ -192,6 +228,13 @@ describe("connection", () => {
       expect(status.details.clientServerCompatible).toBe(false);
     });
 
+    it("should treat a Core on another patch as compatible", () => {
+      const config = createConfig({ clientVersion: "1.2.0" });
+      const info = createInfo({ nodeVersion: "1.2.3" });
+      const status = apply(config, { type: "check.success", info });
+      expect(status.details.clientServerCompatible).toBe(true);
+    });
+
     it("should treat a 0.0 build on either side as compatible", () => {
       const config = createConfig({ clientVersion: "0.0.0" });
       const info = createInfo({ nodeVersion: "50000.0.0" });
@@ -202,10 +245,6 @@ describe("connection", () => {
         info: { ...info, nodeVersion: "0.0.0-abc1234" },
       });
       expect(status.details.clientServerCompatible).toBe(true);
-    });
-
-    it("should propagate transport failures", async () => {
-      await expect(sendCheck(failingUnary())).rejects.toThrow(Unreachable);
     });
   });
 
@@ -249,25 +288,26 @@ describe("connection", () => {
   });
 
   describe("clock skew", () => {
-    it("should detect clock skew exceeding threshold", async () => {
-      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
+    it("should detect and warn about clock skew exceeding threshold", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const unary = mockUnary(() => TimeStamp.now().add(TimeSpan.hours(1)));
-      const status = apply(config, {
-        type: "check.success",
-        info: await sendCheck(unary),
-      });
+      const client = createClient(unary, { clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = await client.connect(TimeSpan.seconds(5));
       expect(status.details.clockSkewExceeded).toBe(true);
       expect(status.details.clockSkew.valueOf()).not.toBe(0n);
+      await client.close();
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("excessive clock skew"),
+      );
+      warn.mockRestore();
     });
 
     it("should not flag skew within threshold", async () => {
-      const config = createConfig({ clockSkewThreshold: TimeSpan.seconds(1) });
       const unary = mockUnary(() => TimeStamp.now());
-      const status = apply(config, {
-        type: "check.success",
-        info: await sendCheck(unary),
-      });
+      const client = createClient(unary, { clockSkewThreshold: TimeSpan.seconds(1) });
+      const status = await client.connect(TimeSpan.seconds(5));
       expect(status.details.clockSkewExceeded).toBe(false);
+      await client.close();
     });
 
     it("should not flag skew within half the round trip", () => {
@@ -505,6 +545,30 @@ describe("connection", () => {
       expect(reasonOf(replaced)).toBeUndefined();
     });
 
+    it("should store the session key on auth success", () => {
+      const status = apply(createConfig(), { type: "auth.success", session: "a" });
+      expect(status.details.authenticated).toBe(true);
+      expect(status.details.session).toEqual("a");
+    });
+
+    it("should clear the session key on auth failure", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.success", session: "a" },
+        { type: "auth.failure", error: new AuthError("session ended") },
+      );
+      expect(status.details.session).toBeUndefined();
+    });
+
+    it("should clear the session key when credentials are replaced", () => {
+      const status = apply(
+        createConfig(),
+        { type: "auth.success", session: "a" },
+        { type: "credentials.replaced" },
+      );
+      expect(status.details.session).toBeUndefined();
+    });
+
     it("should treat an auth error from the check as an auth failure", () => {
       const status = apply(createConfig(), {
         type: "check.failure",
@@ -524,7 +588,6 @@ describe("connection", () => {
       expect(status.details.license).toEqual("missing");
       expect(status.details.authenticated).toBe(true);
       expect(MissingLicenseError.matches(status.details.error)).toBe(true);
-      expect(modeFor(status)).toEqual("checking");
     });
 
     it("should report an expired license with its own error", () => {
@@ -686,88 +749,130 @@ describe("connection", () => {
     });
   });
 
-  describe("materialChange", () => {
+  describe("advance", () => {
     const config = createConfig();
-    const base = apply(config, { type: "check.success", info: createInfo() });
-    assert(base.variant === "success");
-    const withStatus = (
-      changes: Partial<connection.NonErrorStatus>,
-    ): connection.Status => ({
-      ...base,
-      ...changes,
+    const stale = (status: connection.Status): connection.Status => ({
+      ...status,
+      time: TimeStamp.ZERO,
     });
-    const withDetails = (
-      changes: Partial<connection.StatusDetails>,
-    ): connection.Status => ({
-      ...base,
-      details: { ...base.details, ...changes },
-    });
-    const asError = (
-      reason: Exclude<connection.Reason, "unlicensed">,
-    ): connection.Status => ({
-      ...base,
-      variant: "error",
-      details: { ...base.details, reason },
+    const base = stale(apply(config, { type: "check.success", info: createInfo() }));
+    const authenticated = stale(
+      apply(
+        config,
+        { type: "check.success", info: createInfo() },
+        { type: "auth.success", session: "a" },
+      ),
+    );
+    const nextAt = TimeStamp.now();
+    const scheduled = stale(
+      apply(config, { type: "retry.scheduled", attempt: 1, nextAt }),
+    );
+
+    const expectQuiet = (prev: connection.Status, event: Event): connection.Status => {
+      const [next, changed] = advance(prev, event, config);
+      expect(changed).toBe(false);
+      expect(next.time).toBe(prev.time);
+      return next;
+    };
+
+    it("should not notify on repeated identical checks", () => {
+      expectQuiet(base, { type: "check.success", info: createInfo() });
     });
 
-    it("should ignore the timestamp", () => {
-      const next = withStatus({ time: TimeStamp.now().add(TimeSpan.hours(1)) });
-      expect(materialChange(base, next)).toBe(false);
+    it("should not notify on a repeat of the same session", () => {
+      expectQuiet(authenticated, { type: "auth.success", session: "a" });
     });
 
     it("should ignore raw clock skew jitter", () => {
-      const next = withDetails({ clockSkew: TimeSpan.milliseconds(7) });
-      expect(materialChange(base, next)).toBe(false);
-    });
-
-    it("should not notify on repeated identical checks", () => {
-      const again = reduce(base, { type: "check.success", info: createInfo() }, config);
-      expect(materialChange(base, again)).toBe(false);
+      const info = createInfo({ clockSkew: TimeSpan.milliseconds(7) });
+      const next = expectQuiet(base, { type: "check.success", info });
+      expect(next.details.clockSkew).toEqual(TimeSpan.milliseconds(7));
     });
 
     it("should ignore error identity churn", () => {
-      const a = withDetails({ error: new Unreachable({ message: "down" }) });
-      const b = withDetails({ error: new Unreachable({ message: "down" }) });
-      expect(materialChange(a, b)).toBe(false);
+      const failure = (attempt: number): Event => ({
+        type: "check.failure",
+        error: new Unreachable({ message: "down" }),
+        attempt,
+      });
+      expectQuiet(stale(apply(config, failure(1))), failure(2));
     });
 
     it("should ignore value-equal timestamps in retry", () => {
-      const nextAt = TimeStamp.now();
-      const a = withDetails({ retry: { attempt: 1, nextAt } });
-      const b = withDetails({ retry: { attempt: 1, nextAt: new TimeStamp(nextAt) } });
-      expect(materialChange(a, b)).toBe(false);
+      expectQuiet(scheduled, {
+        type: "retry.scheduled",
+        attempt: 1,
+        nextAt: new TimeStamp(nextAt),
+      });
     });
 
-    it("should notify on every other field", () => {
-      const nextAt = TimeStamp.now();
-      const flips: [string, connection.Status][] = [
-        ["variant", withStatus({ variant: "loading" })],
-        ["message", withStatus({ message: "other" })],
-        ["description", withStatus({ description: "other" })],
-        ["error", withDetails({ error: new Error("appeared") })],
-        ["authenticated", withDetails({ authenticated: false })],
-        ["streamLive", withDetails({ streamLive: true })],
-        ["epoch", withDetails({ epoch: 7 })],
-        ["clusterKey", withDetails({ clusterKey: "other-cluster" })],
-        ["clientVersion", withDetails({ clientVersion: "9.9.9" })],
-        ["nodeVersion", withDetails({ nodeVersion: "9.9.9" })],
-        ["clientServerCompatible", withDetails({ clientServerCompatible: false })],
-        ["clockSkewExceeded", withDetails({ clockSkewExceeded: true })],
-        ["retry", withDetails({ retry: { attempt: 1, nextAt } })],
+    it("should notify and stamp the time on every material change", () => {
+      const unreachable = stale(
+        apply(
+          config,
+          { type: "check.failure", error: new Error("down"), attempt: 1 },
+          { type: "retry.exhausted" },
+        ),
+      );
+      const changes: [string, connection.Status, Event][] = [
+        ["variant", base, { type: "stream.drop" }],
+        ["checking", base, { type: "check.started" }],
+        ["streamLive", base, { type: "stream.live" }],
+        ["streamDenied", base, { type: "stream.denied" }],
+        ["authenticated", base, { type: "credentials.replaced" }],
+        ["session", authenticated, { type: "auth.success", session: "b" }],
+        ["epoch", base, { type: "epoch.advanced", epoch: 7 }],
+        [
+          "clusterKey",
+          base,
+          { type: "check.success", info: createInfo({ clusterKey: "other" }) },
+        ],
+        [
+          "nodeVersion",
+          base,
+          { type: "check.success", info: createInfo({ nodeVersion: "9.9.9" }) },
+        ],
+        [
+          "clockSkewExceeded",
+          base,
+          {
+            type: "check.success",
+            info: createInfo({ clockSkew: TimeSpan.hours(1) }),
+          },
+        ],
+        [
+          "license",
+          base,
+          { type: "check.success", info: createInfo({ license: "missing" }) },
+        ],
+        [
+          "error",
+          stale(apply(config)),
+          { type: "check.failure", error: new Error("appeared"), attempt: 1 },
+        ],
+        [
+          "reason",
+          unreachable,
+          { type: "auth.failure", error: new AuthError("bad password") },
+        ],
+        ["nodeKey", base, { type: "check.success", info: createInfo({ nodeKey: 2 }) }],
+        ["retry", base, { type: "retry.scheduled", attempt: 1, nextAt }],
+        ["retry.attempt", scheduled, { type: "retry.scheduled", attempt: 2, nextAt }],
+        [
+          "retry.nextAt",
+          scheduled,
+          {
+            type: "retry.scheduled",
+            attempt: 1,
+            nextAt: nextAt.add(TimeSpan.seconds(5)),
+          },
+        ],
       ];
-      flips.forEach(([field, next]) =>
-        expect(materialChange(base, next), field).toBe(true),
-      );
-      expect(materialChange(asError("auth"), asError("unreachable")), "reason").toBe(
-        true,
-      );
-      const scheduled = withDetails({ retry: { attempt: 1, nextAt } });
-      const bumped = withDetails({ retry: { attempt: 2, nextAt } });
-      expect(materialChange(scheduled, bumped), "retry.attempt").toBe(true);
-      const delayed = withDetails({
-        retry: { attempt: 1, nextAt: nextAt.add(TimeSpan.seconds(5)) },
+      changes.forEach(([field, prev, event]) => {
+        const [next, changed] = advance(prev, event, config);
+        expect(changed, field).toBe(true);
+        expect(next.time.after(prev.time), field).toBe(true);
       });
-      expect(materialChange(scheduled, delayed), "retry.nextAt").toBe(true);
     });
 
     // forces every new Details field to be classified as material or excluded
@@ -775,12 +880,14 @@ describe("connection", () => {
       const classified = [
         "error",
         "authenticated",
+        "session",
         "streamLive",
         "streamDenied",
         "epoch",
         "clusterKey",
         "clientVersion",
         "nodeVersion",
+        "nodeKey",
         "clientServerCompatible",
         "clockSkew",
         "clockSkewExceeded",
@@ -788,30 +895,15 @@ describe("connection", () => {
         "checking",
         "license",
       ];
-      expect(Object.keys(base.details).sort()).toEqual([...classified].sort());
-      expect(Object.keys(asError("auth").details).sort()).toEqual(
+      const authError = reduce(
+        authenticated,
+        { type: "auth.failure", error: new AuthError("bad password") },
+        config,
+      );
+      expect(Object.keys(authenticated.details).sort()).toEqual([...classified].sort());
+      expect(Object.keys(authError.details).sort()).toEqual(
         [...classified, "reason"].sort(),
       );
-    });
-  });
-
-  describe("modeFor", () => {
-    it("should map variants onto check modes", () => {
-      const config = createConfig();
-      const initial = createInitialStatus(config);
-      const asError = (
-        reason: Exclude<connection.Reason, "unlicensed">,
-      ): connection.Status => ({
-        ...initial,
-        variant: "error",
-        details: { ...initial.details, reason },
-      });
-      expect(modeFor(initial)).toEqual("checking");
-      expect(modeFor({ ...initial, variant: "success" })).toEqual("heartbeat");
-      expect(modeFor({ ...initial, variant: "warning" })).toEqual("heartbeat");
-      expect(modeFor(asError("unreachable"))).toEqual("checking");
-      expect(modeFor(asError("auth"))).toEqual("idle");
-      expect(modeFor({ ...initial, variant: "disabled" })).toEqual("idle");
     });
   });
 
@@ -820,12 +912,18 @@ describe("connection", () => {
       const client = createClient(liveUnary());
       const status = await client.connect(TimeSpan.seconds(5));
       expect(status.variant).toEqual("success");
+      expect(status.details.authenticated).toBe(true);
+      expect(z.validate(z.uuid(), status.details.clusterKey)).toBe(true);
+      expect(status.details.nodeVersion).not.toEqual("");
+      expect(status.details.nodeKey).toBe(1);
+      expect(status.details.clientVersion).toBe(__VERSION__);
+      expect(status.details.clientServerCompatible).toBe(true);
       await client.close();
     });
 
     it("should escalate to error(unreachable) after the escalation budget", async () => {
       const client = createClient(failingUnary(), { escalateAfter: 2 });
-      await expect(client.connect(TimeSpan.seconds(5))).rejects.toThrow();
+      await expect(client.connect(TimeSpan.seconds(5))).rejects.toThrow(Unreachable);
       expect(client.status.variant).toEqual("error");
       expect(reasonOf(client.status)).toEqual("unreachable");
       await client.close();
@@ -913,6 +1011,180 @@ describe("connection", () => {
       expect(send.mock.calls.length).toBe(calls);
     });
 
+    it("should report a Core on another minor whose login fails to parse", async () => {
+      const unary = createCore060Unary();
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary() });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("incompatible");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
+      await client.close();
+    });
+
+    it("should report an incompatible Core again after new credentials", async () => {
+      const unary = createCore060Unary();
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary() });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      client.notify({ type: "credentials.replaced" });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("incompatible");
+      await client.close();
+    });
+
+    it("should lift the incompatible error once the Core is upgraded", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary(core) });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      core.upgraded = true;
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "success",
+      );
+      expect(status.details.nodeVersion).toBe(__VERSION__);
+      expect(status.details.clientServerCompatible).toBe(true);
+      await client.close();
+    });
+
+    it("should reconnect when an incompatible Core stops answering", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const client = createClient(unary, { tokenless: createCore060Unary(core) });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      core.down = true;
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "loading",
+      );
+      expect(status.message).toBe("Reconnecting");
+      expect(status.details.nodeVersion).toBe("0.60.1");
+      expect(status.details.clientServerCompatible).toBe(false);
+      await client.close();
+    });
+
+    it("should count a downed incompatible Core from its first failure", async () => {
+      const core: Core060 = { upgraded: false };
+      const unary = createCore060Unary(core);
+      const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+      unary.use(authClient.middleware());
+      const send = vi.spyOn(unary, "send");
+      const client = createClient(unary, {
+        escalateAfter: 4,
+        tokenless: createCore060Unary(core),
+      });
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "incompatible",
+      );
+      await expect.poll(() => send.mock.calls.length).toBeGreaterThan(8);
+      core.down = true;
+      const calls = send.mock.calls.length;
+      await observe.until(
+        client,
+        () => client.status,
+        (s) => reasonOf(s) === "unreachable",
+      );
+      expect(send.mock.calls.length - calls).toBeGreaterThanOrEqual(4);
+      await client.close();
+    });
+
+    it("should not check without auth when the Core is unreachable", async () => {
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(failingUnary(), { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(tokenless.send).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should not check without auth when the login is rejected", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new AuthError("bad password")),
+        use: vi.fn(),
+      };
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, { tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("auth");
+      expect(tokenless.send).not.toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should report the failed check when the Core is compatible", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new Error("bad response")),
+        use: vi.fn(),
+      };
+      const tokenless = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(status.details.error?.message).toBe("bad response");
+      expect(tokenless.send).toHaveBeenCalled();
+      await client.close();
+    });
+
+    it("should report the failed check when the check without auth fails", async () => {
+      const unary: UnaryClient = {
+        send: vi.fn().mockRejectedValue(new Error("bad response")),
+        use: vi.fn(),
+      };
+      const tokenless = failingUnary();
+      const client = createClient(unary, { escalateAfter: 2, tokenless });
+      const status = await observe.until(
+        client,
+        () => client.status,
+        (s) => s.variant === "error",
+      );
+      expect(reasonOf(status)).toBe("unreachable");
+      expect(status.details.error?.message).toBe("bad response");
+      expect(tokenless.send).toHaveBeenCalled();
+      await client.close();
+    });
+
     it("should idle rather than check while parked on an auth error", async () => {
       const unary = mockUnary(() => TimeStamp.now());
       const client = createClient(unary);
@@ -972,7 +1244,7 @@ describe("connection", () => {
       const send = unary.send as ReturnType<typeof vi.fn>;
       while (send.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
       // the stream opens behind the auth middleware, so a login lands first
-      client.notify({ type: "auth.success" });
+      client.notify({ type: "auth.success", session: "session" });
       client.notify({ type: "stream.live" });
       expect(client.status.variant).toEqual("success");
       // the check issued before the stream came up fails late: it was aimed

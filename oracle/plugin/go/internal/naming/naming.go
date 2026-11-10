@@ -14,6 +14,7 @@ package naming
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -24,9 +25,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// IsScreamingCase returns true if s is all uppercase letters (possibly with
-// underscores).
-func IsScreamingCase(s string) bool {
+func isScreamingCase(s string) bool {
 	if s == "" {
 		return false
 	}
@@ -50,45 +49,32 @@ var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Icd", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp",
+	"Ui", "Uid", "Uri", "Url", "Utc", "Utf", "Uuid", "Vm", "Xml", "Xmpp",
 	"Xss", "Xy",
 }
 
-// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions (e.g.
-// "id" → "ID", "sticky_xy" → "StickyXY"). Routes through casing.TypePascal so
-// PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep their
-// boundaries instead of collapsing to SetXchannel / Urlvalue.
+// pascalWord matches one word of a PascalCase identifier.
+var pascalWord = regexp.MustCompile(`[A-Z][a-z]*`)
+
+// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions for
+// whole words (e.g. "id" → "ID", "sticky_xy" → "StickyXY", "slave" → "Slave"). Routes
+// through casing.TypePascal so PascalCase inputs with adjacent capitals (SetXChannel,
+// URLValue) keep their boundaries instead of collapsing to SetXchannel / Urlvalue.
 func ToPascalCase(s string) string {
-	if IsScreamingCase(s) {
+	if isScreamingCase(s) {
 		return s
 	}
 	result := casing.TypePascal(s)
-	for _, acr := range goAcronyms {
-		result = replaceWord(result, acr)
-	}
-	return result
-}
-
-// replaceWord uppercases each occurrence of acr in s that forms a whole PascalCase word
-// or its plural, so "UserId" becomes "UserID" and "Ids" becomes "IDs" while
-// "Identifier" stays intact.
-func replaceWord(s, acr string) string {
-	var b strings.Builder
-	for {
-		i := strings.Index(s, acr)
-		if i < 0 {
-			b.WriteString(s)
-			return b.String()
+	return pascalWord.ReplaceAllStringFunc(result, func(word string) string {
+		if slices.Contains(goAcronyms, word) {
+			return strings.ToUpper(word)
 		}
-		end := i + len(acr)
-		b.WriteString(s[:i])
-		if !isWordEnd(s, end) {
-			b.WriteString(acr)
-		} else {
-			b.WriteString(strings.ToUpper(acr))
+		if singular, ok := strings.CutSuffix(word, "s"); ok &&
+			slices.Contains(goAcronyms, singular) {
+			return strings.ToUpper(singular) + "s"
 		}
-		s = s[end:]
-	}
+		return word
+	})
 }
 
 // GetFieldName returns the Go field name for a schema field. It checks for a @go name
@@ -168,7 +154,7 @@ func DerivePackageAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
 	if parent == "types" || parent == "versions" || parent == "migrations" ||
-		parent == "legacy" {
+		(parent == "legacy" && majorVersion.MatchString(base)) {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
 		return keywords.Escape(grandparent)
 	}
@@ -185,7 +171,7 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 	base := filepath.Base(outputPath)
 	parent := filepath.Base(filepath.Dir(outputPath))
 	if parent == "types" || parent == "versions" || parent == "migrations" ||
-		parent == "legacy" {
+		(parent == "legacy" && majorVersion.MatchString(base)) {
 		grandparent := filepath.Base(filepath.Dir(filepath.Dir(outputPath)))
 		return grandparent + base
 	}
@@ -193,15 +179,6 @@ func DeriveVersionedAlias(outputPath, currentPackage string) string {
 		return parent + base
 	}
 	return base
-}
-
-// isWordEnd reports whether a PascalCase word ending at i ends there, or ends one later
-// with a plural "s".
-func isWordEnd(s string, i int) bool {
-	if i < len(s) && s[i] == 's' {
-		i++
-	}
-	return i >= len(s) || !unicode.IsLower(rune(s[i]))
 }
 
 // VersionAliases returns the import aliases for the version packages

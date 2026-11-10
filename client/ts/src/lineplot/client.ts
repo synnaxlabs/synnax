@@ -8,16 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
+import { group } from "@/group";
 import { createOf, kindOf, reduceAll } from "@/lineplot/actions";
 import {
   type Action,
   dispatchReqZ,
-  rename as renameAction,
+  dispatchResZ,
   scopedActionZ,
+  set,
 } from "@/lineplot/actions.gen";
 import {
   type Key,
@@ -25,9 +27,19 @@ import {
   type LinePlot,
   linePlotZ,
   type New,
-  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
 } from "@/lineplot/types.gen";
-import { type ontology } from "@/ontology";
+import {
+  compareCursors,
+  cursor,
+  type Lines,
+  LIST_FIELDS,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+} from "@/lineplot/where.gen";
 import { project } from "@/project";
 import { query } from "@/query";
 
@@ -36,42 +48,31 @@ export const DELETE_CHANNEL_NAME = "sy_lineplot_delete";
 
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
-  ignoreNotFoundError: z.boolean().optional(),
+const LINES: Lines = { ...group.MEMBER_LINES, ...project.OWNER_LINES };
+
+const retrieveMultiParamsZ = z.union([
+  query.keysRequestZ(keyZ),
+  filter.requestInputZ(
+    retrieveRequestZ,
+    retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+  ),
+]);
+
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
+
+const createReqZ = z.object({
+  dispatchKey: z.string(),
+  linePlots: linePlotZ.array(),
 });
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ linePlots: linePlotZ.array().default(() => []) });
-
-const createReqZ = z.object({ project: project.keyZ, linePlots: linePlotZ.array() });
 const createResZ = z.object({ linePlots: linePlotZ.array() });
 
 const emptyResZ = z.object({});
 
-/**
- * Client-side matching for a request: exact for the requested key set, the
- * only field a request carries.
- */
-const requestFilter = (req: RetrieveRequest): ((p: LinePlot) => boolean) => {
-  const keySet = new Set(req.keys);
-  return (p) => keySet.has(p.key);
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<
@@ -81,6 +82,13 @@ export class Client extends query.Retriever<
 > {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, LinePlot>;
+  /**
+   * Builds requests that move line plots between groups. A move into a group of another
+   * project also moves the line plot into that project.
+   */
+  readonly setGroupRequest: group.MoveRequest<Key>;
+  /** Builds requests that move line plots out of their group and into a project. */
+  readonly setProjectRequest: project.MoveRequest<Key>;
   private readonly dispatcher: actions.Controller<Key, LinePlot, Action>;
 
   constructor(cfg: ClientConfig) {
@@ -90,14 +98,16 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, LinePlot>({
       name: "line plots",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, LinePlot, Action>({
       store,
+      listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
+      send: actions.sender(cfg.unary, "/lineplot/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
       createOf,
     });
@@ -106,28 +116,34 @@ export class Client extends query.Retriever<
       name: "line plot",
       table: store,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (plot, req) => requestFilter(req)(plot),
+        matches: (plot, req) => matches(LINES, plot, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
       },
     });
     this.cfg = cfg;
     this.store = store;
+    this.setGroupRequest = project.createGroupMoveRequest(
+      "/lineplot/dispatch",
+      store,
+      dispatchResZ,
+      reduceAll,
+    );
+    this.setProjectRequest = project.createMoveRequest(
+      "/lineplot/dispatch",
+      (keys, to) => project.moveCached(store, keys, to),
+    );
     this.dispatcher = dispatcher;
   }
 
+  async create(linePlot: New, opts?: query.WriteOptions<LinePlot[]>): Promise<LinePlot>;
   async create(
-    project: project.Key,
-    linePlot: New,
-    opts?: query.WriteOptions<LinePlot[]>,
-  ): Promise<LinePlot>;
-  async create(
-    project: project.Key,
     linePlots: New[],
     opts?: query.WriteOptions<LinePlot[]>,
   ): Promise<LinePlot[]>;
   async create(
-    project: project.Key,
     linePlots: New | New[],
     opts: query.WriteOptions<LinePlot[]> = {},
   ): Promise<LinePlot | LinePlot[]> {
@@ -139,28 +155,23 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/lineplot/create",
-          { project, linePlots: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/lineplot/create",
+              { dispatchKey, linePlots: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.linePlots);
     return isMany ? res.linePlots : res.linePlots[0];
   }
 
-  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
-    await query.optimistic({
-      rollbacks: rename(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () => await this.sendDispatch(key, "", [renameAction({ name })]),
-    });
-    rename();
+  async rename(key: Key, name: string): Promise<void> {
+    await this.dispatcher.send(key, [set({ path: ["name"], value: name })]);
   }
 
   /**
@@ -173,12 +184,7 @@ export class Client extends query.Retriever<
     actions: Action | Action[],
     opts: actions.Options<LinePlot, Action> = {},
   ): Promise<boolean> {
-    return await this.dispatcher.dispatch(
-      key,
-      array.toArray(actions),
-      this.dispatchSender(key),
-      opts,
-    );
+    return await this.dispatcher.dispatch(key, array.toArray(actions), opts);
   }
 
   /**
@@ -186,7 +192,7 @@ export class Client extends query.Retriever<
    * nothing is undoable.
    */
   async undo(key: Key): Promise<boolean> {
-    return await this.dispatcher.undo(key, this.dispatchSender(key));
+    return await this.dispatcher.undo(key);
   }
 
   /**
@@ -194,7 +200,7 @@ export class Client extends query.Retriever<
    * nothing is redoable.
    */
   async redo(key: Key): Promise<boolean> {
-    return await this.dispatcher.redo(key, this.dispatchSender(key));
+    return await this.dispatcher.redo(key);
   }
 
   /** Whether the line plot has a live undo entry. */
@@ -217,33 +223,12 @@ export class Client extends query.Retriever<
 
   /** Stages actions committed atomically as one undoable entry. */
   beginTransaction(key: Key, kind?: string): actions.Transaction<Action> {
-    return this.dispatcher.transaction(key, this.dispatchSender(key), kind);
-  }
-
-  private dispatchSender(key: Key): actions.SendDispatch<Action> {
-    return async (actions, dispatchKey) =>
-      await this.sendDispatch(key, dispatchKey, actions);
-  }
-
-  private async sendDispatch(
-    key: Key,
-    dispatchKey: string,
-    actions: Action[],
-  ): Promise<void> {
-    await this.cfg.unary.send(
-      "/lineplot/dispatch",
-      { key, dispatchKey, actions },
-      dispatchReqZ,
-      emptyResZ,
-    );
+    return this.dispatcher.transaction(key, kind);
   }
 
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteRelationships(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -265,12 +250,12 @@ export class Client extends query.Retriever<
     });
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<LinePlot[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<LinePlot[]> {
     const res = await this.cfg.unary.send(
       "/lineplot/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.linePlots;
   }

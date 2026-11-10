@@ -15,7 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { SubcategorySection } from "./SubcategorySection";
+import { SubcategorySection } from "@/showcase/SubcategorySection";
 
 export interface InputShowcaseTextProps extends optional.Optional<
   Input.TextProps,

@@ -15,54 +15,45 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
-	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// saveReport saves every status a Group reports.
+func saveReport(context.Context, channel.Key, calculator.Status) bool { return true }
+
 var _ = Describe("Calculator", Ordered, func() {
 	var (
-		channelSvc    *channel.Service
-		channelWriter channel.Writer
+		db         *gorp.DB
+		channelSvc *channel.Service
 	)
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
-		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-		}))
-		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
+		node := testutil.NewNode(ctx)
+		db = node.DB
+		MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB: node.DB,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB:       node.DB,
-			Ontology: otg,
-			Group:    groupSvc,
-			Label:    labelSvc,
+			DB: node.DB,
 		}))
 		channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-			Channel:      node.Channel,
-			DB:           node.DB,
-			HostProvider: node.Cluster,
-			Ontology:     otg,
-			Group:        groupSvc,
-			Status:       statusSvc,
+			Channel: node.Channel,
+			DB:      node.DB,
+			HostKey: node.Identity.HostKey,
+			Status:  statusSvc,
 		}))
-		channelWriter = channelSvc.NewWriter(nil)
 	})
 
 	open := func(
@@ -73,7 +64,9 @@ var _ = Describe("Calculator", Ordered, func() {
 	) *calculator.Calculator {
 		GinkgoHelper()
 		if indexes != nil {
-			Expect(channelWriter.CreateMany(ctx, indexes)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, indexes)
+			})).To(Succeed())
 		}
 		if bases != nil {
 			for i, channel := range *bases {
@@ -87,10 +80,14 @@ var _ = Describe("Calculator", Ordered, func() {
 				channel.LocalIndex = (*indexes)[toGet].LocalKey
 				(*bases)[i] = channel
 			}
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 		}
-		Expect(channelWriter.Create(ctx, calc)).To(Succeed())
-		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return channelSvc.NewWriter(tx).Create(ctx, calc)
+		})).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 			ChannelService: channelSvc,
 			Channel:        *calc,
 		}))
@@ -971,13 +968,17 @@ var _ = Describe("Calculator", Ordered, func() {
 					DataType: telem.Uint8T,
 					Virtual:  true,
 				}
-				Expect(channelWriter.Create(ctx, &reset)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &reset)
+				})).To(Succeed())
 				base := []channel.Channel{{
 					Name:     UniqueChannelName(),
 					DataType: telem.Int64T,
 					Virtual:  true,
 				}}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
 				calc := channel.Channel{
 					Name:       UniqueChannelName(),
 					DataType:   telem.Int64T,
@@ -987,8 +988,10 @@ var _ = Describe("Calculator", Ordered, func() {
 						{Type: "max", ResetChannel: reset.Key()},
 					},
 				}
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				Expect(compiler.Compile(ctx, compiler.Config{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				})).Error().To(MatchError(ContainSubstring("type mismatch")))
@@ -1172,8 +1175,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					[]channel.Key{idx[0].Key(), b1[0].Key(), b2[0].Key()},
 					[]telem.Series{i, d1, d2},
 				)
-				output, changed, statuses := g.Next(ctx, fr)
-				Expect(statuses).To(BeEmpty())
+				output, changed := g.Next(ctx, fr, saveReport)
 				Expect(changed).To(BeTrue())
 				Expect(output.Len()).To(BeNumerically(">", 0))
 				Expect(output.Get(c1.Key()).Series).ToNot(BeEmpty())
@@ -1186,6 +1188,126 @@ var _ = Describe("Calculator", Ordered, func() {
 				).To(telem.MatchSeriesDataV[int64](10, 20))
 			},
 		)
+
+		Describe("Statuses", func() {
+			var (
+				base  []channel.Channel
+				calc  channel.Channel
+				g     calculator.Group
+				step  uint32
+				saved bool
+			)
+			BeforeEach(func(ctx SpecContext) {
+				base = []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				calc = channel.Channel{
+					Name:       UniqueChannelName(),
+					DataType:   telem.Int64T,
+					Virtual:    true,
+					Expression: fmt.Sprintf("return 100 / %s", base[0].Name),
+				}
+				g = calculator.Group{open(ctx, nil, &base, &calc)}
+				step = 0
+				saved = true
+			})
+			// next runs a step on v and returns the statuses it reports, which are
+			// saved when saved is true.
+			next := func(ctx context.Context, v int64) []calculator.Status {
+				GinkgoHelper()
+				d := telem.NewSeriesV[int64](v)
+				d.Alignment = telem.NewAlignment(0, step)
+				step++
+				var reported []calculator.Status
+				g.Next(ctx, frame.NewUnary(base[0].Key(), d), func(
+					_ context.Context,
+					key channel.Key,
+					st calculator.Status,
+				) bool {
+					Expect(key).To(Equal(calc.Key()))
+					reported = append(reported, st)
+					return saved
+				})
+				return reported
+			}
+			errorStatus := func() types.GomegaMatcher {
+				return ConsistOf(SatisfyAll(
+					HaveField("Name", calc.Name),
+					HaveField("Variant", status.VariantError),
+					HaveField("Message", "Failed to run calculation"),
+					HaveField(
+						"Description",
+						ContainSubstring("integer divide by zero"),
+					),
+				))
+			}
+			successStatus := func() types.GomegaMatcher {
+				return ConsistOf(calculator.Status{
+					Name:    calc.Name,
+					Variant: status.VariantSuccess,
+					Message: "Calculation running",
+				})
+			}
+
+			It(
+				"Should report nothing on clean steps after opening",
+				func(ctx SpecContext) {
+					Expect(next(ctx, 5)).To(BeEmpty())
+					Expect(next(ctx, 4)).To(BeEmpty())
+				},
+			)
+
+			It("Should report an error on each failing step", func(ctx SpecContext) {
+				Expect(next(ctx, 0)).To(errorStatus())
+				Expect(next(ctx, 0)).To(errorStatus())
+			})
+
+			It(
+				"Should report a success on the first clean step after a failure",
+				func(ctx SpecContext) {
+					Expect(next(ctx, 5)).To(BeEmpty())
+					Expect(next(ctx, 0)).To(errorStatus())
+					Expect(next(ctx, 5)).To(successStatus())
+					Expect(next(ctx, 4)).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Should report the success again after a failed save",
+				func(ctx SpecContext) {
+					Expect(next(ctx, 0)).To(errorStatus())
+					saved = false
+					Expect(next(ctx, 5)).To(successStatus())
+					saved = true
+					Expect(next(ctx, 5)).To(successStatus())
+					Expect(next(ctx, 4)).To(BeEmpty())
+				},
+			)
+
+			It(
+				"Should keep the frame of earlier calculators when one fails",
+				func(ctx SpecContext) {
+					doubled := channel.Channel{
+						Name:       UniqueChannelName(),
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: fmt.Sprintf("return %s * 2", base[0].Name),
+					}
+					g = append(g, open(ctx, nil, nil, &doubled))
+					output, changed := g.Next(
+						ctx,
+						frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](0)),
+						saveReport,
+					)
+					Expect(changed).To(BeTrue())
+					Expect(output.Get(base[0].Key()).Series).To(HaveLen(1))
+					Expect(output.Get(doubled.Key()).Series[0]).
+						To(telem.MatchSeriesDataV[int64](0))
+				},
+			)
+		})
 
 		It("Should close all calculators", func(ctx SpecContext) {
 			idx := []channel.Channel{
@@ -1238,8 +1360,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				d1 := telem.NewSeriesV[int64](10, 20)
 				d1.Alignment = telem.NewAlignment(0, uint32(i*2))
 				fr := frame.NewMulti([]channel.Key{b1[0].Key()}, []telem.Series{d1})
-				output, changed, statuses := g.Next(ctx, fr)
-				Expect(statuses).To(BeEmpty())
+				output, changed := g.Next(ctx, fr, saveReport)
 				Expect(changed).To(BeTrue())
 				Expect(output.Len()).To(BeNumerically(">", 0))
 				Expect(output.Get(c1.Key()).Series).ToNot(BeEmpty())
@@ -1254,6 +1375,40 @@ var _ = Describe("Calculator", Ordered, func() {
 		})
 	})
 
+	Describe("Errors", func() {
+		It("Should return the error a node reports", func(ctx SpecContext) {
+			base := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calc := channel.Channel{
+				Name:       UniqueChannelName(),
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: fmt.Sprintf("return 100 / %s", base[0].Name),
+			}
+			c := open(ctx, nil, &base, &calc)
+			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](0))
+			Expect(c.Next(ctx, fr, frame.NewUnary(
+				base[0].Key(),
+				telem.NewSeriesV[int64](1),
+			))).Error().To(MatchError(HavePrefix(
+				"WASM execution failed in node calculation at sample 0/1: " +
+					"wasm error: integer divide by zero",
+			)))
+			d := telem.NewSeriesV[int64](5)
+			d.Alignment = telem.NewAlignment(0, 1)
+			of, changed := MustSucceed2(c.Next(
+				ctx,
+				frame.NewUnary(base[0].Key(), d),
+				frame.Frame{},
+			))
+			Expect(changed).To(BeTrue())
+			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+		})
+	})
+
 	Describe("Leading Literal Type Coercion", func() {
 		openWithInferredType := func(
 			ctx context.Context,
@@ -1261,14 +1416,18 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc *channel.Channel,
 		) *calculator.Calculator {
 			GinkgoHelper()
-			Expect(channelWriter.CreateMany(ctx, bases)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, bases)
+			})).To(Succeed())
 			res := MustSucceed(
-				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(nil)).
+				channel.NewCalculationAnalyzer(channelSvc.NewArcSymbolResolver(db)).
 					Analyze(ctx, *calc),
 			)
 			calc.DataType = res.ChanDataType
-			Expect(channelWriter.Create(ctx, calc)).To(Succeed())
-			mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, calc)
+			})).To(Succeed())
+			mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 				ChannelService: channelSvc,
 				Channel:        *calc,
 			}))
@@ -1370,9 +1529,13 @@ var _ = Describe("Calculator", Ordered, func() {
 					Virtual:    true,
 					Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
 				}
-				Expect(channelWriter.CreateMany(ctx, &base)).To(Succeed())
-				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).CreateMany(ctx, &base)
+				})).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				mod := MustSucceed(compiler.Compile(ctx, db, compiler.Config{
 					ChannelService: channelSvc,
 					Channel:        calc,
 				}))

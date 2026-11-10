@@ -44,7 +44,7 @@ var _ = Describe("Base", func() {
 
 		It("Should panic when setting the base of a field with no encoding", func() {
 			Expect(func() { (&v0.TextField{}).SetBase(v0.BaseField{}) }).
-				To(PanicWith(MatchError("text field has no encoding: <nil>")))
+				To(PanicWith(MatchError("TextField: cannot set the base of variant <nil>")))
 		})
 	})
 

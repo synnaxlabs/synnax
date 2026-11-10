@@ -21,6 +21,7 @@ import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
+import { checkInUse } from "@/platform/notifications/testutil";
 import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -99,37 +100,21 @@ describe("device/notifications", () => {
     });
   });
 
-  describe("NOTIFICATIONS", () => {
-    it("suppresses a routine loading status for a device", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "loading",
-        message: "Device connecting",
-      });
-      expect(screen.queryByText("Device connecting")).toBeNull();
+  describe("NOTIFICATION_RULE", () => {
+    it("should hold a configured device in use", async () => {
+      const dev = await createTestDevice(client, { configured: true });
+      expect(await checkInUse(client, Device.NOTIFICATION_RULE, dev.key)).toBe(true);
     });
 
-    it("suppresses a routine success status for a device", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "success",
-        message: "Device connected",
-      });
-      expect(screen.queryByText("Device connected")).toBeNull();
+    it("should not hold a device that is not configured in use", async () => {
+      const dev = await createTestDevice(client, { configured: false });
+      expect(await checkInUse(client, Device.NOTIFICATION_RULE, dev.key)).toBe(false);
     });
 
-    it("does not suppress a device error status", async () => {
-      await addStatus({
-        key: "device:1",
-        variant: "error",
-        message: "Device disconnected",
-      });
-      expect(screen.getByText("Device disconnected")).toBeTruthy();
-    });
-
-    it("does not suppress a routine status for a non-device key", async () => {
-      await addStatus({ key: "rack:1", variant: "success", message: "Rack ok" });
-      expect(screen.getByText("Rack ok")).toBeTruthy();
+    it("should not hold a device that no longer exists in use", async () => {
+      expect(
+        await checkInUse(client, Device.NOTIFICATION_RULE, uniqueName("device")),
+      ).toBe(false);
     });
   });
 });

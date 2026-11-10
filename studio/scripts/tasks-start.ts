@@ -73,7 +73,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.zoom(form.locator(".console-task-controls").first(), 1.5);
     await session.hold(1200);
 
-    await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+    await session.click(form.locator("button:has(svg.lyra-icon--play)").first());
     session.endZoom();
     await session.waitFor(form.getByText("Started task").first());
     await session.hold(3000);

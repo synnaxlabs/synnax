@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -19,19 +20,15 @@ import { Label } from "@/schematic/node/common/label";
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
-interface InputTelemFormProps {
-  path: string;
-}
+
+const path = deep.path<schematic.InputNodeConfig>();
 
 export const colorFallbacks = {
   fillColor: Form.primaryFallback,
 } satisfies ColorFallbacks;
 
-const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
-  const { value, onChange } =
-    Base.useField<
-      Pick<schematic.InputNodeConfig, "commandChannel" | "control" | "disabled">
-    >(path);
+const InputTelemForm = (): ReactElement => {
+  const { value, onChange } = Base.useField(path);
   const handleSinkChange = (v: channel.Key | null): void => {
     const commandChannel = v ?? 0;
     onChange({
@@ -67,13 +64,13 @@ export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     <Tabs.Content itemKey="style">
       <Base.Sections x>
         <Base.Section title="Label">
-          <Label.Form path="label" />
+          <Label.Form path={path.label} />
         </Base.Section>
         <Base.Section title="Appearance">
           <Form.FillField fallback={colorFallbacks.fillColor} />
           <Form.SizeField />
           <Base.NumericField
-            path="inlineSize"
+            path={path.inlineSize}
             label="Width"
             padHelpText={false}
             inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
@@ -82,7 +79,7 @@ export const InputForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       </Base.Sections>
     </Tabs.Content>
     <Tabs.Content itemKey="control">
-      <InputTelemForm path="" />
+      <InputTelemForm />
     </Tabs.Content>
   </Properties.Tabs>
 );

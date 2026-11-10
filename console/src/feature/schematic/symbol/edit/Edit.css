@@ -11,7 +11,7 @@
 
 /* Fixed dimensions matching the original symbol-create window (1200x800). The 2-class
  * selector overrides pluto's global modal min-width floor, which is wider than 1200px. */
-.pluto-modal.console-schematic__symbol-create-layout {
+.lyra-modal.console-schematic__symbol-create-layout {
     min-width: 0;
     width: 1200px;
     height: 800px;
@@ -19,10 +19,6 @@
 
 .console-schematic__symbol-create-layout {
     overflow: hidden;
-
-    .console-schematic__create-symbol-content {
-        padding: 2rem;
-    }
 
     .console-schematic__sidebar {
         box-shadow: var(--pluto-shadow-overlay);
@@ -40,7 +36,7 @@
         padding: 0 2rem;
     }
 
-    .pluto-modal__body {
+    .lyra-modal__body {
         padding: 2rem;
         overflow: hidden;
         max-height: 100%;
@@ -109,10 +105,6 @@
 
         &:hover {
             transform: scale(1.1) translate(-50%, -50%);
-        }
-
-        &.console--dragging {
-            cursor: grabbing;
         }
     }
 

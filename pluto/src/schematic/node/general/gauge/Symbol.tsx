@@ -10,10 +10,10 @@
 import "@/schematic/node/common/primitive/primitive.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { box, dimensions, type text, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -28,6 +28,7 @@ const GAUGE_DIMENSIONS: Record<text.Level, dimensions.Dimensions> = {
   h5: dimensions.construct(100),
   p: dimensions.construct(85),
   small: dimensions.construct(80),
+  tiny: dimensions.construct(75),
 };
 
 const DEFAULT_DIMENSIONS = dimensions.construct(100);

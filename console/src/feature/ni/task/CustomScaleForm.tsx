@@ -13,8 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
-import { TableScaleForm } from "@/feature/ni/task/TableScaleForm";
+import { createTypeFields } from "@/feature/ni/task/createTypeFields";
 import {
   createScale,
   type Scale,
@@ -24,22 +23,8 @@ import {
 } from "@/feature/ni/task/types";
 import { Task } from "@/platform/task";
 
-const SelectCustomScaleTypeField = Form.buildSelectField<ScaleType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Custom scaling",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>(path).value;
-      if (prevType === value) return;
-      const next = createScale(value);
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>(parentPath).value;
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-        type: next.type,
-      });
-    },
-  },
+const SelectType = Form.buildSelectField<ScaleType>({
+  fieldProps: { label: "Custom scaling" },
   inputProps: {
     resourceName: "scale type",
     children: (
@@ -101,7 +86,6 @@ const UNIT_SYMBOLS = {
 } as const satisfies Record<Units, string>;
 
 const UnitsField = Form.buildSelectField<Units>({
-  fieldKey: "units",
   fieldProps: { label: "Units" },
   inputProps: {
     resourceName: "units",
@@ -110,75 +94,90 @@ const UnitsField = Form.buildSelectField<Units>({
   },
 });
 
-export interface CustomScaleFormProps {
-  prefix: string;
+export interface CustomScaleSectionProps {
+  path: deep.Target<{ key: string; customScale?: Scale }>;
+}
+type Variant<K extends ScaleType> = Extract<Scale, { type: K }>;
+interface ScaleProps<K extends ScaleType> {
+  path: deep.Path<Variant<K>>;
 }
 
-const CustomScaleUnitsFields = ({ prefix }: { prefix: string }) => (
+const CustomScaleUnitsFields = ({
+  path,
+}: {
+  path: deep.Path<{ preScaledUnits: Units; scaledUnits: string }>;
+}) => (
   <>
-    <UnitsField fieldKey="preScaledUnits" label="Prescaled units" path={prefix} />
-    <Form.TextField fieldKey="scaledUnits" label="Scaled units" path={prefix} />
+    <UnitsField label="Prescaled units" path={path.preScaledUnits} />
+    <Form.TextField label="Scaled units" path={path.scaledUnits} />
   </>
 );
 
-const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  linear: ({ prefix }) => (
+const SCALE_FORMS: { [K in ScaleType]: FC<ScaleProps<K>> } = {
+  linear: ({ path }) => (
     <>
-      <CustomScaleUnitsFields prefix={prefix} />
-      <Form.NumericField fieldKey="slope" label="Slope" path={prefix} />
-      <Form.NumericField fieldKey="yIntercept" label="Y-intercept" path={prefix} />
+      <CustomScaleUnitsFields path={path} />
+      <Form.NumericField label="Slope" path={path.slope} />
+      <Form.NumericField label="Y-intercept" path={path.yIntercept} />
     </>
   ),
-  map: ({ prefix }) => (
+  map: ({ path }) => (
     <>
-      <CustomScaleUnitsFields prefix={prefix} />
-      <Form.NumericField fieldKey="preScaledMin" label="Pre-scaled min" path={prefix} />
-      <Form.NumericField fieldKey="preScaledMax" label="Pre-scaled max" path={prefix} />
-      <Form.NumericField fieldKey="scaledMin" label="Scaled min" path={prefix} />
-      <Form.NumericField fieldKey="scaledMax" label="Scaled max" path={prefix} />
+      <CustomScaleUnitsFields path={path} />
+      <Form.NumericField label="Pre-scaled min" path={path.preScaledMin} />
+      <Form.NumericField label="Pre-scaled max" path={path.preScaledMax} />
+      <Form.NumericField label="Scaled min" path={path.scaledMin} />
+      <Form.NumericField label="Scaled max" path={path.scaledMax} />
     </>
   ),
-  polynomial: ({ prefix }) => (
+  polynomial: ({ path }) => (
     <>
-      <CustomScaleUnitsFields prefix={prefix} />
-      <CoefficientsField
-        path={`${prefix}.forwardCoeffs`}
-        label="Forward coefficients"
-      />
-      <CoefficientsField
-        path={`${prefix}.reverseCoeffs`}
-        label="Reverse coefficients"
-      />
+      <CustomScaleUnitsFields path={path} />
+      <Task.CoefficientsField path={path.forwardCoeffs} label="Forward coefficients" />
+      <Task.CoefficientsField path={path.reverseCoeffs} label="Reverse coefficients" />
     </>
   ),
-  table: ({ prefix }) => (
+  table: ({ path }) => (
     <>
-      <CustomScaleUnitsFields prefix={prefix} />
-      <TableScaleForm prefix={prefix} />
+      <CustomScaleUnitsFields path={path} />
+      <Task.TableScaleForm path={path} />
     </>
   ),
   none: () => null,
 };
 
-const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
-  const path = `${prefix}.customScale`;
-  const type = Form.useFieldValue<ScaleType>(`${path}.type`);
-  const FormComponent = SCALE_FORMS[type];
+const ScaleFields = createTypeFields<Scale>(SCALE_FORMS);
+
+const CustomScaleForm = ({ path }: { path: deep.Path<Scale> }) => {
+  const type = Form.useFieldValue(path.type);
   return (
     <>
-      <SelectCustomScaleTypeField path={path} />
-      <FormComponent prefix={path} />
+      <SelectType
+        path={path.type}
+        onChange={(value, { get, set }) => {
+          const prevType = get(path.type).value;
+          if (prevType === value) return;
+          const next = createScale(value);
+          const prevParent = get(path).value;
+          set(path, {
+            ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
+            type: next.type,
+          } as Scale);
+        }}
+      />
+      <ScaleFields type={type} path={path} />
     </>
   );
 };
 
 /** The Scale section, or nothing for a channel type without a custom scale. */
-export const CustomScaleSection = ({ prefix }: CustomScaleFormProps) => {
-  const scale = Form.useFieldValue<Scale>(`${prefix}.customScale`, { optional: true });
+export const CustomScaleSection = ({ path }: CustomScaleSectionProps) => {
+  const { customScale } = deep.widen(path);
+  const scale = Form.useFieldValue(customScale, { optional: true });
   if (scale == null) return null;
   return (
     <Form.Section title="Scale">
-      <CustomScaleForm prefix={prefix} />
+      <CustomScaleForm path={deep.present(customScale)} />
     </Form.Section>
   );
 };

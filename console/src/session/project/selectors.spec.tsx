@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
 import { act, renderHook } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/session/project";
+import { createMinimalStore } from "@/testutil";
 
 const selected = "00000000-0000-0000-0000-000000000001";
 const other = "00000000-0000-0000-0000-000000000002";
@@ -24,7 +24,7 @@ const withSelected = {
 const withoutSelected = { [Project.SLICE_NAME]: Project.ZERO_SLICE_STATE };
 
 const createStore = () =>
-  configureStore({ reducer: { [Project.SLICE_NAME]: Project.reducer } });
+  createMinimalStore({ reducer: { [Project.SLICE_NAME]: Project.reducer } });
 
 const createWrapper = (
   store: ReturnType<typeof createStore>,
@@ -67,31 +67,6 @@ describe("project selectors", () => {
         store.dispatch(Project.select(other));
       });
       expect(get()).toEqual(other);
-    });
-
-    it("should read the optional selected project without throwing when unset", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Project.useGetOptionalSelected(), {
-        wrapper: createWrapper(store),
-      });
-      expect(result.current()).toBeUndefined();
-      act(() => {
-        store.dispatch(Project.select(selected));
-      });
-      expect(result.current()).toEqual(selected);
-    });
-
-    it("should report whether any project is selected on demand", () => {
-      const store = createStore();
-      const { result } = renderHook(() => Project.useGetIsAnySelected(), {
-        wrapper: createWrapper(store),
-      });
-      const get = result.current;
-      expect(get()).toBe(false);
-      act(() => {
-        store.dispatch(Project.select(selected));
-      });
-      expect(get()).toBe(true);
     });
   });
 });

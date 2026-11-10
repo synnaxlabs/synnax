@@ -15,13 +15,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp/internal/index"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 // keys returns the keys that s matches for term under scope, closest match first.
 func keys(s *index.Search[*scope, int], scope *scope, term string) []int {
 	GinkgoHelper()
-	return MustSucceed(s.Get(scope, term, 0)).Keys
+	return MustSucceed(s.Get(scope, search.Query[int]{Term: term})).Keys
 }
 
 var _ = Describe("Search", func() {
@@ -68,7 +69,10 @@ var _ = Describe("Search", func() {
 			insert(1, []string{"valve"})
 			finish(errLoad)
 			Expect(failed.Wait(ctx)).To(MatchError(errLoad))
-			Expect(failed.Get(nil, "valve", 0)).Error().To(MatchError(errLoad))
+			Expect(
+				failed.Get(nil, search.Query[int]{Term: "valve"}),
+			).Error().
+				To(MatchError(errLoad))
 		})
 	})
 
@@ -80,7 +84,11 @@ var _ = Describe("Search", func() {
 		})
 
 		It("Should keep the closest keys up to the limit", func() {
-			Expect(MustSucceed(s.Get(nil, "pressure", 1)).Keys).To(Equal([]int{1}))
+			Expect(
+				MustSucceed(
+					s.Get(nil, search.Query[int]{Term: "pressure", Limit: 1}),
+				).Keys,
+			).To(Equal([]int{1}))
 		})
 
 		It("Should remove a deleted key", func() {
@@ -124,7 +132,11 @@ var _ = Describe("Search", func() {
 			func(limit int, expected []int) {
 				s.Stage(txn, 4, []string{"pressure inlet feed"})
 				s.Stage(txn, 5, []string{"pressures"})
-				Expect(MustSucceed(s.Get(txn, "pressure", limit)).Keys).
+				Expect(
+					MustSucceed(
+						s.Get(txn, search.Query[int]{Term: "pressure", Limit: limit}),
+					).Keys,
+				).
 					To(Equal(expected))
 			},
 			Entry("only committed keys", 2, []int{1, 2}),

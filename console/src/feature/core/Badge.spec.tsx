@@ -10,7 +10,14 @@
 import { connection } from "@synnaxlabs/client";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mocks = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "web" }));
+
+vi.mock("@/session/runtime/runtime", async (importOriginal) => {
+  const { mockRuntimeEngine } = await import("@/testutil/runtime");
+  return await mockRuntimeEngine(importOriginal, mocks);
+});
 
 import { Core } from "@/feature/core";
 import { clickCoreBadge, hoverCoreBadge } from "@/feature/core/testutil";
@@ -43,6 +50,10 @@ const UNREACHABLE: connection.Status = {
 };
 
 describe("Core.Badge", () => {
+  beforeEach(() => {
+    mocks.engine = "web";
+  });
+
   it("should report disconnected when no Core connection exists", async () => {
     const { container } = await renderWithConsole(<Core.Badge />);
     hoverCoreBadge(container);
@@ -83,11 +94,11 @@ describe("Core.Badge", () => {
     expect(await screen.findByText("synnax")).toBeTruthy();
   });
 
-  it("should fall back to the Core username in the trigger when no user is loaded", async () => {
+  it("should never show the Core username in the trigger", async () => {
     await renderWithConsole(<Core.Badge />, {
       preloadedState: createStateWithUser("Core-user"),
     });
-    expect(screen.getByText("Core-user")).toBeTruthy();
+    expect(screen.queryByText("Core-user")).toBeNull();
   });
 
   it("should open the diagnostics dialog on click", async () => {
@@ -106,10 +117,12 @@ describe("Core.Badge", () => {
     clickCoreBadge(container);
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Connected");
-    expect(within(dialog).getByText(/^Core v/)).toBeTruthy();
+    // The stream can report the connection before the check reports the version.
+    expect(await within(dialog).findByText(/^Core v/)).toBeTruthy();
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {
+    mocks.engine = "tauri";
     const { wrapper } = await createConsoleWrapper({
       client: null,
       preloadedState: createStateWithUser("Core-user"),
@@ -127,6 +140,15 @@ describe("Core.Badge", () => {
     // than in create mode.
     expect(await screen.findByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.queryByText("Log out")).toBeNull();
+  });
+
+  it("should not offer to edit the connection in a browser", async () => {
+    const { container } = await renderWithConsole(<Core.Badge />, {
+      preloadedState: createStateWithUser("Core-user"),
+    });
+    clickCoreBadge(container);
+    await screen.findByText("Log out");
+    expect(screen.queryByLabelText("Edit connection")).toBeNull();
   });
 
   it("should log out of the active Core when Log out is clicked", async () => {

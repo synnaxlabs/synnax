@@ -10,6 +10,7 @@ import { Fragment } from "react";
 import { Channel } from "@/components/channel";
 import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -33,12 +34,18 @@ addresses. For example, an EL2004 names all four outputs `Output`, at `0x7000:01
 `0x7010:01`, `0x7020:01`, and `0x7030:01`.
 
 The data type of a channel must be a number type of the same size as its entry, in whole
-bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`.
+bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`. An entry under 8 bits
+holds an unsigned value with either type, so its stop value on an EL2004 is 0 or 1.
 
 All modules in a task must be on the same port. The network cycles at least as fast as
-the **Execution rate**, so a higher rate sends new commands to the modules sooner. When
-the task stops, its outputs go to zero, unless another running write task commanded
-them. See
+the **Execution rate**, so a higher rate sends new commands to the modules sooner.
+
+When the task stops, the Driver sends the **Stop value** of each channel to the modules
+before they leave the operational state. While other tasks keep the network running, the
+entry holds its stop value until a task commands it. After the modules leave the
+operational state, each module sets its outputs to its own safe value, which is often 0.
+An integer entry needs a whole number that fits it, from -9007199254740991
+to 9007199254740991. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
 <Divider.Divider x />
@@ -52,12 +59,16 @@ every frame.
 <Client.Tabs>
   <Fragment slot="console">
 
-1. In the devices toolbar, right-click a module and select **Create write task**.
+1. In the devices toolbar, right-click a module and select **Create write task**. The
+   task opens with one empty channel.
 2. Set **Execution rate** and **State update rate**.
-3. Click **Add channel**, then select the module in **Slave device**. A new channel
-   starts with the module of the last channel.
+3. Select the empty channel, then select the module in **Slave device**.
 4. Select an entry in **Entry**. **Data type** then shows the type of the entry.
 5. Click <Icon.Play /> (**Start**).
+
+To add every output of the module at once, right-click the channel and select **Add
+every output of** _module name_. To add one channel, click **Add channel**. A new
+channel starts with the module of the last channel.
 
 The Console creates a command channel and a state channel for each output. It names them
 after the identifier of the module and the name of the entry. If the module has more
@@ -66,6 +77,14 @@ module gives no PDO name. For a module with the identifier `do1` and no PDO name
 `Output` entry at `0x7000:01` gives `do1_Output_7000_01_cmd`,
 `do1_Output_7000_01_cmd_time`, and `do1_Output_7000_01_state`, with the index
 `do1_state_time`.
+
+When you start the task, the Console uses channels that already exist where it can. It
+uses a state index named `<identifier>_state_time`, and a command index named
+`<command name>_cmd_time` for a command channel with the default name. It also uses a
+channel with the default name that a deleted device left, when the channel has the same
+index and no other module writes to it. It never reuses a command channel with a name
+that you chose. Otherwise, a channel name that is in use stops the deploy with an
+[error](#troubleshooting).
 
 <Video id="hardware/ethercat/write-task" />
 
@@ -171,12 +190,14 @@ argument.
 
 ## Task options
 
-| Console label     | Python field           | Default | Notes                                                     |
-| ----------------- | ---------------------- | ------- | --------------------------------------------------------- |
-| Execution rate    | `execution_rate`       | 1000 Hz | The lowest rate of the network on the port. Up to 10 kHz. |
-| State update rate | `state_rate`           | 25 Hz   | How often the task writes the state channels.             |
-| Data saving       | `data_saving_disabled` | On      | See [data saving](/reference/hardware/tasks#data-saving). |
-| Auto start        | `auto_start`           | Off     | Starts the task each time the Driver starts.              |
+| Setting                                           | Default | Notes                                                     |
+| ------------------------------------------------- | ------- | --------------------------------------------------------- |
+| Execution rate <small>`execution_rate`</small>    | 1000 Hz | The lowest rate of the network on the port. Up to 10 kHz. |
+| State update rate <small>`state_rate`</small>     | 25 Hz   | How often the task writes the state channels.             |
+| Data saving <small>`data_saving_disabled`</small> | On      | See [data saving](/reference/hardware/tasks#data-saving). |
+| Auto start <small>`auto_start`</small>            | Off     | Starts the task each time the Driver starts.              |
+
+TypeScript uses the same fields in camel case, such as `executionRate`.
 
 <Divider.Divider x />
 
@@ -196,10 +217,11 @@ the Console label of a setting, with its Python field under it.
 
 Writes one output entry at its CoE address.
 
-| Setting                                   | Default | Notes                                        |
-| ----------------------------------------- | ------- | -------------------------------------------- |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x7000:01`.        |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
+| Setting                                   | Default | Notes                                          |
+| ----------------------------------------- | ------- | ---------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x7000:01`.          |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.   |
+| Stop value <small>`stop_value`</small>    | 0       | The value the entry takes when the task stops. |
 
 </Channel.Type>
 
@@ -213,37 +235,138 @@ A task from an earlier release can also hold an `unresolved` channel
 
 ## Troubleshooting
 
-### A channel from an earlier release has no entry
+<Problem.List>
+
+<Problem.Item message={"... matches more than one output entry ..."} id="a-channel-from-an-earlier-release-has-no-entry">
+<Problem.Cause>
 
 Earlier releases could select an entry by its name. If the module has more than one
 entry with that name, or none, the upgrade cannot find the address of the entry. The
-Console marks the channel with an error, and the task does not start. The error reads
-"... matches more than one output entry ..." or "... matches no output entry ...".
+Console marks the channel, and the task does not start. The error can also read "...
+matches no output entry ...".
+
+</Problem.Cause>
+<Problem.Fix>
 
 Select an entry for the channel in **Entry**. The first entry in the list with that name
 is the one that the task wrote before, and it keeps the old channels.
 
-### "All slaves must be on the same network"
+</Problem.Fix>
+</Problem.Item>
 
-The task uses modules on two ports. Create one task for each port.
+<Problem.Item message={["Found no device with key ...", "A channel on slave ... has no entry. Pick an entry."]}>
+<Problem.Cause>
 
-### "Slave ... has no output entry at ..."
+A channel has no module or no entry selected, such as the empty channel that the task
+opens with.
 
-The module has no output entry at the address of the channel. Select an entry from the
-list again. In code, use an address that the Console lists, or find the entry by its
-name.
+</Problem.Cause>
+<Problem.Fix>
 
-### "Data type ... does not fit entry ..."
+Select the module in **Slave device** and an entry in **Entry**, or remove the channel.
 
-The data type of the channel has a different size from the entry. Select a number type
-of the same size, such as `uint8` for a 1-bit output. From code, the Driver reports
-"data type ... is ... but entry ... holds ...".
+</Problem.Fix>
+</Problem.Item>
 
-### "More than one channel uses entry ..."
+<Problem.Item message={"Slave ... has no output entry at ..."}>
+<Problem.Cause>
 
-Two channels of the task use the same entry. Select a different entry for one of them.
-From code, the Driver reports "another channel already uses entry ...".
+The module has no output entry at the address of the channel.
 
-For other problems, see
-[Configure an EtherCAT device](/reference/hardware/ethercat/configure-device#troubleshooting)
-and [Troubleshoot hardware](/reference/hardware/troubleshooting).
+</Problem.Cause>
+<Problem.Fix>
+
+Select an entry from the list again. In code, use an address that the Console lists, or
+find the entry by its name.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Data type ... does not fit entry ...", "data type ... is ... but entry ... holds ..."]}>
+<Problem.Cause>
+
+The data type of the channel has a different size from the entry. The Console shows the
+first message, and the Driver shows the second for a task from code.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a number type of the same size, such as `uint8` for a 1-bit output.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"data type float32 needs a 32 bit entry, but entry ... holds ... bits. Pick an integer type."}>
+<Problem.Cause>
+
+A float data type is on an output entry with fewer bits than the type.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select an integer type of the same size as the entry.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"stop value ... does not fit entry ... on slave .... Pick ..."}>
+<Problem.Cause>
+
+The **Stop value** of a channel is out of range for its entry, or it is not a whole
+number for an integer entry. The message gives the range that fits.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set a **Stop value** in the range that the message gives.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["More than one channel uses entry ...", "another channel already uses entry ..."]}>
+<Problem.Cause>
+
+Two channels of the task use the same entry.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Select a different entry for one of them.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["A channel named ... already exists. Give the channel another name.", "Channel ... holds ... data, not ..."]}>
+<Problem.Cause>
+
+The name of a new channel is in use by a channel that the Console cannot use for this
+entry, or by a channel with another data type.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set another name for the channel, or delete the old channel so that the task can create
+it again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={["Slave ... uses the index channel ...", "A channel named ... already exists and is not an index"]}>
+<Problem.Cause>
+
+The state index name `<identifier>_state_time` belongs to another module, or to a
+channel that is not an index.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Change the [identifier](/reference/hardware/devices#identifiers) of the module.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For errors that stop every task on a port, such as `failed to reach SAFE-OP` or
+`no EtherCAT slaves found on ...`, see
+[Troubleshoot EtherCAT](/reference/hardware/ethercat/troubleshooting).

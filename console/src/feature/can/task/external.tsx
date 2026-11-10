@@ -24,7 +24,7 @@ export const {
   useCreateRead,
   useCreateWrite,
   COMMANDS,
-  SELECTABLES,
+  INTEGRATION,
   FORMS,
 } = Bus.createTasks({
   prefix: "can",

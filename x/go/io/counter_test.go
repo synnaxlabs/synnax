@@ -7,19 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package io
+package io_test
 
 import (
+	stdio "io"
 	"os"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/io"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+// eofFile returns io.EOF with every read that reaches the end of the file, as the
+// io.ReaderAt contract allows.
+type eofFile struct{ xfs.File }
+
+func (f eofFile) ReadAt(p []byte, off int64) (int, error) {
+	n, err := f.File.ReadAt(p, off)
+	if err == nil {
+		err = stdio.EOF
+	}
+	return n, err
+}
 
 var _ = Describe("Counter", func() {
 	for fsName, openFS := range FileSystems {
@@ -31,7 +45,7 @@ var _ = Describe("Counter", func() {
 					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
 				)
 
-				c := MustSucceed(NewInt32Counter(f))
+				c := MustSucceed(io.NewInt32Counter(f))
 				Expect(c.Value()).To(Equal(int32(0)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -40,7 +54,38 @@ var _ = Describe("Counter", func() {
 					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
 				)
 				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
-				c := MustSucceed(NewInt32Counter(f))
+				c := MustSucceed(io.NewInt32Counter(f))
+				Expect(c.Value()).To(Equal(int32(277)))
+				Expect(f.Close()).To(Succeed())
+			})
+			It("Should read a full value that arrives with io.EOF", func() {
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
+				c := MustSucceed(io.NewInt32Counter(eofFile{File: f}))
+				Expect(c.Value()).To(Equal(int32(277)))
+				Expect(f.Close()).To(Succeed())
+			})
+			It("Should fail to open a counter from a torn file", func() {
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1})).To(Equal(2))
+				Expect(io.NewInt32Counter(f)).Error().
+					To(MatchError(stdio.ErrUnexpectedEOF))
+				Expect(f.Close()).To(Succeed())
+			})
+			It("Should keep its value when a write fails", func() {
+				f := MustSucceed(
+					fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR),
+				)
+				Expect(f.Write([]byte{0x15, 0x1, 0x0, 0x0})).To(Equal(4))
+				Expect(f.Close()).To(Succeed())
+				faulty := WrapFaultyFS(fs, WithFailWriteAt("counterfile"))
+				f = MustSucceed(faulty.Open("counterfile", os.O_RDWR))
+				c := MustSucceed(io.NewInt32Counter(f))
+				Expect(c.Add(1)).Error().To(MatchError(ErrFault))
 				Expect(c.Value()).To(Equal(int32(277)))
 				Expect(f.Close()).To(Succeed())
 			})
@@ -49,12 +94,12 @@ var _ = Describe("Counter", func() {
 					keys = make([]int32, 1000)
 					wg   = sync.WaitGroup{}
 					f    xfs.File
-					c    *Int32Counter
+					c    *io.Int32Counter
 				)
 
 				f = MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
 
-				c = MustSucceed(NewInt32Counter(f))
+				c = MustSucceed(io.NewInt32Counter(f))
 
 				wg.Add(1000)
 				for i := range 1000 {

@@ -341,7 +341,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await client.projects.retrieve({ searchTerm: capture.PROJECT })
     ).find((p) => p.name === capture.PROJECT);
     if (project == null) throw new Error(`no project named "${capture.PROJECT}"`);
-    const { key } = await client.schematics.create(project.key, feed(ch));
+    const { key } = await client.schematics.create({
+      ...feed(ch),
+      project: project.key,
+    });
     await capture.searchPalette(session, NAME);
     await session.waitFor(mosaicTab(session, NAME));
     const setpoint = page

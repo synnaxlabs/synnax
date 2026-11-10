@@ -12,6 +12,7 @@ import "@/platform/device/Find.css";
 import {
   type device,
   DisconnectedError,
+  NotFoundError,
   type rack,
   task,
   TimeSpan,
@@ -30,7 +31,7 @@ import { Device as PDevice, Rack, Synnax, Task } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
-import { Configure } from "@/platform/device/Configure";
+import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
 import { isRunning } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
@@ -112,12 +113,9 @@ const ScannerState = ({
             onClick={() =>
               handleError(async () => {
                 if (client == null) throw new DisconnectedError();
-                // Never write the status back: the Driver owns it.
-                await client.tasks.create({
-                  ...scanner.payload,
-                  config: { ...scanner.config, disabled: false },
-                  status: undefined,
-                });
+                const set = task.set({ path: ["config", "disabled"], value: false });
+                if (!(await client.tasks.dispatch(scanner.key, set)))
+                  throw new NotFoundError(`Task ${scanner.key} is not cached`);
               }, "Failed to turn on scanning")
             }
           >
@@ -126,12 +124,13 @@ const ScannerState = ({
         }
       />
     );
-  if (scanner.status?.variant === "error")
+  const scanStatus = scanner.status;
+  if (scanStatus?.variant === "error" || scanStatus?.variant === "warning")
     return (
       <State
-        variant="error"
-        message={scanner.status.message}
-        description={scanner.status.description}
+        variant={scanStatus.variant}
+        message={scanStatus.message}
+        description={scanStatus.description}
       />
     );
   return null;
@@ -150,7 +149,6 @@ interface DeviceItemProps {
 
 const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
   <Pane.Item>
-    <PDevice.StatusIndicator status={d.status} />
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
@@ -176,6 +174,7 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
         Configure
       </Button.Button>
     )}
+    <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
   </Pane.Item>
 );
 
@@ -265,11 +264,14 @@ export const Find = ({
 }: FindProps): ReactElement => {
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
+  const running = allRacks?.some(isRunning) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
-  const scanners = Task.useResultMultiple({ types: [scanType] }).data;
-  const found = (PDevice.useResultMultiple({ makes: [make] }).data ?? [])
+  const scanners = Task.useResultMultiple({ where: { type: { eq: scanType } } }).data;
+  const found = (
+    PDevice.useResultMultiple({ where: { make: { eq: make } } }).data ?? []
+  )
     .filter(
       (d) => racks?.some((r) => r.key === d.rack) === true && (filter?.(d) ?? true),
     )
@@ -295,7 +297,7 @@ export const Find = ({
     setScanning(false);
   };
   return (
-    <Modal.Frame className={CSS.B("device-find")}>
+    <ConnectFrame className={CSS.B("device-find")}>
       <Modal.Header icon={icon}>{["Device", "Connect", title]}</Modal.Header>
       <Modal.Body gap="large" justify="start">
         {racks?.length === 0 && (
@@ -308,14 +310,16 @@ export const Find = ({
             >
               <Icon.Tile>{icon}</Icon.Tile>
               <Text.Text level="p" weight={500} color={11}>
-                {scope == null
-                  ? `No Driver has ${name} enabled`
-                  : `${scope.name} does not have ${name} enabled`}
+                {scope != null
+                  ? `${scope.name} does not have ${name} enabled`
+                  : running
+                    ? `Your Driver is running, but ${name} is off`
+                    : "No Driver is running"}
               </Text.Text>
               <Text.Text level="small" color={9}>
-                {scope == null
-                  ? "Start the Synnax Driver on the computer the hardware connects to."
-                  : `The Driver runs ${name} when its configuration enables it and its computer supports it.`}
+                {scope != null || running
+                  ? `${name} is off when the Driver configuration disables it, or when the Driver's computer cannot run it. See the checks below.`
+                  : "Start the Synnax Driver on the computer the hardware connects to."}
               </Text.Text>
             </Flex.Box>
           </Pane.Pane>
@@ -353,7 +357,7 @@ export const Find = ({
           </Button.Button>
         </Nav.Bar.End>
       </Modal.Footer>
-    </Modal.Frame>
+    </ConnectFrame>
   );
 };
 
@@ -367,11 +371,10 @@ const FindModal = ({
   const [configuring, setConfiguring] = useState<device.Key | null>(null);
   if (configuring == null)
     return <Find hardware={hardware} filter={filter} onConfigure={setConfiguring} />;
+  const { Configure } = hardware;
   return (
     <Configure
       deviceKey={configuring}
-      icon={hardware.icon}
-      initialProperties={hardware.zeroProperties}
       onBack={() => setConfiguring(null)}
       close={() => close(configuring)}
     />

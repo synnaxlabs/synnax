@@ -87,7 +87,7 @@ class CANWrite(CANCase):
         sim = self.simulator(CANFrameSim)
         with self.statuses() as statuses:
             with self.task.run():
-                sy.sleep(QUIET_WINDOW)
+                sy.sleep(QUIET_WINDOW)  # noqa: TID251 fixed quiet window
                 if sim.received():
                     raise AssertionError(
                         f"Expected no frames before any command, got {sim.received()}"
@@ -108,9 +108,9 @@ class CANWrite(CANCase):
                         timeout=HEARTBEAT_WINDOW,
                     )
             self.assert_no_problems(statuses)
-        sy.sleep(QUIET_WINDOW)
+        sy.sleep(QUIET_WINDOW)  # noqa: TID251 fixed quiet window
         stopped = len(sim.received())
-        sy.sleep(QUIET_WINDOW)
+        sy.sleep(QUIET_WINDOW)  # noqa: TID251 fixed quiet window
         if len(sim.received()) != stopped:
             raise AssertionError(
                 f"Expected no frames after the task stopped, got "

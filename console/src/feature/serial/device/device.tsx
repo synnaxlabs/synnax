@@ -12,10 +12,13 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as LyraSelect } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Bus } from "@/feature/bus";
 import { Task } from "@/platform/task";
+
+const PATH = deep.path<{ properties: serial.Properties }>().properties;
 
 const PARITY_NAMES = {
   none: "None",
@@ -37,17 +40,14 @@ const FLOW_CONTROL_NAMES = {
   software: "Software",
 } as const satisfies Record<serial.FlowControl, string>;
 
-const DATA_BITS = [5, 6, 7, 8] as const;
-type DataBits = (typeof DATA_BITS)[number];
+const DATA_BITS = [5, 6, 7, 8];
 
 const ParityField = Form.buildSelectField<serial.Parity>({
-  fieldKey: "parity",
   fieldProps: { label: "Parity" },
   inputProps: { resourceName: "parity", children: Task.selectItems(PARITY_NAMES) },
 });
 
 const StopBitsField = Form.buildSelectField<serial.StopBits>({
-  fieldKey: "stopBits",
   fieldProps: { label: "Stop bits" },
   inputProps: {
     resourceName: "stop bits",
@@ -56,7 +56,6 @@ const StopBitsField = Form.buildSelectField<serial.StopBits>({
 });
 
 const FlowControlField = Form.buildSelectField<serial.FlowControl>({
-  fieldKey: "flowControl",
   fieldProps: { label: "Flow control" },
   inputProps: {
     resourceName: "flow control",
@@ -64,14 +63,13 @@ const FlowControlField = Form.buildSelectField<serial.FlowControl>({
   },
 });
 
-const DataBitsField = Form.buildSelectField<DataBits>({
-  fieldKey: "dataBits",
+const DataBitsField = Form.buildSelectField<number>({
   fieldProps: { label: "Data bits" },
   inputProps: {
     resourceName: "data bits",
     // Numeric keys, so the items cannot come from a name record.
     children: DATA_BITS.map((bits) => (
-      <LyraSelect.Item<DataBits> key={bits} itemKey={bits}>
+      <LyraSelect.Item<number> key={bits} itemKey={bits}>
         {bits.toString()}
       </LyraSelect.Item>
     )),
@@ -85,24 +83,24 @@ const Properties = (): ReactElement => (
   <>
     <Flex.Box x>
       <Form.TextField
-        path="properties.port"
+        path={PATH.port}
         label="Port"
         grow
         inputProps={PORT_INPUT_PROPS}
       />
       <Form.NumericField
-        path="properties.baudRate"
+        path={PATH.baudRate}
         label="Baud rate"
         inputProps={BAUD_RATE_INPUT_PROPS}
       />
     </Flex.Box>
     <Flex.Box x>
-      <DataBitsField path="properties" />
-      <ParityField path="properties" />
-      <StopBitsField path="properties" />
-      <FlowControlField path="properties" />
+      <DataBitsField path={PATH.dataBits} />
+      <ParityField path={PATH.parity} />
+      <StopBitsField path={PATH.stopBits} />
+      <FlowControlField path={PATH.flowControl} />
     </Flex.Box>
-    <Form.SwitchField path="properties.rs485" label="RS-485" />
+    <Form.SwitchField path={PATH.rs485} label="RS-485" />
   </>
 );
 
@@ -114,6 +112,8 @@ export const { MAKE, useConnectModal, Select, COMMANDS, NETWORK } = Bus.createDe
   icon: <Icon.Connect />,
   properties: serial.propertiesZ,
   integration: "serial",
+  scanType: "serial_scan",
+  location: { shape: "plain" },
   Properties,
   getModel: () => "Serial port",
   required: { port: "Port is required" },

@@ -13,7 +13,9 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { ICD } from "@synnaxlabs/pluto";
 import { type ReactElement, useSyncExternalStore } from "react";
 
-const PATH = "config.icd";
+import { CONFIG_PATH } from "@/feature/bus/types";
+
+const PATH = CONFIG_PATH.icd;
 
 /**
  * Picks the ICD a task reads its messages from. A new task has none. Changing it
@@ -21,17 +23,17 @@ const PATH = "config.icd";
  */
 export const SelectICD = (): ReactElement => {
   const { set, bind, getStatuses, mode } = Form.useContext();
-  const value = Form.useFieldValue<icd.Key>(PATH, { optional: true });
+  const value = Form.useFieldValue(PATH, { optional: true });
   // A form keeps no field state for an absent value, so the status that configure sets
   // on a missing ICD is only in the form's statuses.
   const status = useSyncExternalStore(bind, () =>
-    getStatuses().find((s) => s.key === PATH),
+    getStatuses().find((s) => s.key === String(PATH)),
   );
   const preview = mode === "preview";
   const handleChange = (next: icd.Key | null) => {
     if (next === value) return;
     set(PATH, next ?? undefined);
-    set("config.messages", []);
+    set(CONFIG_PATH.messages, []);
   };
   return (
     <Input.Item

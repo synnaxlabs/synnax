@@ -15,8 +15,11 @@ cc_library(
     hdrs = ["slave.h"],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/ethercat/dc",
         "//driver/ethercat/pdo",
+        "//driver/ethercat/telem",
         "//x/cpp/json",
+        "//x/cpp/telem",
     ],
 )
 
@@ -25,6 +28,7 @@ cc_test(
     srcs = ["slave_test.cpp"],
     deps = [
         ":slave",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

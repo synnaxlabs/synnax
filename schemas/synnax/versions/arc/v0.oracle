@@ -17,8 +17,12 @@ Key = uuid {
 }
 
 Mode enum {
-    text  = "text"
-    graph = "graph"
+    text  = "text" {
+        @doc value "stores the module as Arc source text."
+    }
+    graph = "graph" {
+        @doc value "stores the module as a visual dataflow graph."
+    }
 
     @doc value """
         specifies whether an Arc module uses text-based or graph-based representation.

@@ -44,6 +44,10 @@ type seriesMatcher struct {
 // - Data contents (unless excluded)
 // - Alignment and AlignmentMultiple (unless excluded)
 func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
+	return newSeriesMatcher(expected, opts...)
+}
+
+func newSeriesMatcher(expected Series, opts ...SeriesMatcherOption) *seriesMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
 		excludedFields: make(set.Set[string]),
@@ -94,24 +98,25 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 			actual,
 		)
 	}
+	return m.matches(actualSeries), nil
+}
+
+func (m *seriesMatcher) matches(actual Series) bool {
 	if !m.excludedFields.Contains("DataType") &&
-		actualSeries.DataType != m.expected.DataType {
-		return false, nil
+		actual.DataType != m.expected.DataType {
+		return false
 	}
 	if !m.excludedFields.Contains("TimeRange") &&
-		actualSeries.TimeRange != m.expected.TimeRange {
-		return false, nil
+		actual.TimeRange != m.expected.TimeRange {
+		return false
 	}
 	if !m.excludedFields.Contains("Alignment") &&
-		(actualSeries.Alignment != m.expected.Alignment ||
-			actualSeries.Multiple() != m.expected.Multiple()) {
-		return false, nil
+		(actual.Alignment != m.expected.Alignment ||
+			actual.Multiple() != m.expected.Multiple()) {
+		return false
 	}
-	if !m.excludedFields.Contains("Data") &&
-		!bytes.Equal(actualSeries.Data, m.expected.Data) {
-		return false, nil
-	}
-	return true, nil
+	return m.excludedFields.Contains("Data") ||
+		bytes.Equal(actual.Data, m.expected.Data)
 }
 
 func (m *seriesMatcher) FailureMessage(actual any) string {
@@ -228,12 +233,9 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 			return false, nil
 		}
 		for i, s := range decodedSeries.Series {
-			matched, err := MatchSeries(
-				originalSeries.Series[i],
-				m.matchSeriesOpts...,
-			).Match(s)
-			if !matched || err != nil {
-				return matched, err
+			if !newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...).
+				matches(s) {
+				return false, nil
 			}
 		}
 	}
@@ -253,10 +255,9 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
-			success, _ := m.Match(s)
-			if !success {
-				return m.FailureMessage(s)
+			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			if !sm.matches(s) {
+				return sm.FailureMessage(s)
 			}
 		}
 	}
@@ -279,9 +280,8 @@ func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
 		decodedSeries := actualFrame.Get(k)
 		originalSeries := m.expected.Get(k)
 		for i, s := range decodedSeries.Series {
-			m := MatchSeries(originalSeries.Series[i], m.matchSeriesOpts...)
-			success, _ := m.Match(s)
-			if success {
+			sm := newSeriesMatcher(originalSeries.Series[i], m.matchSeriesOpts...)
+			if sm.matches(s) {
 				return fmt.Sprintf("Frames match for key %v", k)
 			}
 		}

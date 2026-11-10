@@ -11,6 +11,8 @@ package resolution
 
 import (
 	"maps"
+	"slices"
+	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
@@ -28,6 +30,98 @@ type Type struct {
 	// payloads) that resolve like any other type but are excluded from
 	// standalone code generation.
 	Synthetic bool
+	// Filter is the filter definition the type was declared as, or nil. Form holds
+	// the struct the definition expands into.
+	Filter *Filter
+}
+
+// RetrieveKey returns the key type that a `@retrieve key` expression declares on typ,
+// whose key is computed instead of stored in a field.
+func RetrieveKey(typ Type) (TypeRef, bool) {
+	dom, ok := typ.Domains["retrieve"]
+	if !ok {
+		return TypeRef{}, false
+	}
+	expr, ok := dom.Expressions.Find("key")
+	if !ok || len(expr.Values) == 0 {
+		return TypeRef{}, false
+	}
+	name := expr.Values[0].StringValue
+	if !strings.Contains(name, ".") && !IsPrimitive(name) {
+		name = typ.Namespace + "." + name
+	}
+	return TypeRef{Name: name}, true
+}
+
+// FilterNamespace is the namespace of the operator types that a filter's bare lines
+// expand to.
+const FilterNamespace = "filter"
+
+// The qualified names of the operator types that a filter's bare lines expand to.
+const (
+	OperatorSet      = FilterNamespace + ".Set"
+	OperatorOrdered  = FilterNamespace + ".Ordered"
+	OperatorContains = FilterNamespace + ".Contains"
+	OperatorString   = FilterNamespace + ".String"
+	OperatorBool     = FilterNamespace + ".Bool"
+)
+
+var operatorMembers = map[string][]string{
+	OperatorSet:      {"eq", "in"},
+	OperatorOrdered:  {"eq", "in", "gt", "gte", "lt", "lte"},
+	OperatorContains: {"any"},
+	OperatorString: {
+		"eq",
+		"in",
+		"contains",
+		"starts_with",
+		"regex",
+		"case_insensitive",
+	},
+	OperatorBool: {"eq"},
+}
+
+// OperatorMembers returns the members that the interpreters of the operator type op
+// check, where op is a qualified name such as OperatorSet. It returns false when op is
+// not an operator type.
+func OperatorMembers(op string) ([]string, bool) {
+	members, ok := operatorMembers[op]
+	return members, ok
+}
+
+// InFilterRequest reports whether typ is part of a filter request: a filter, the
+// request derived from one, or an operator type of the filter schema. Clients decode
+// these strictly, since a tree matched with an unknown key ignores the key.
+func InFilterRequest(typ Type, table *Table) bool {
+	if typ.Filter != nil || typ.Namespace == FilterNamespace {
+		return true
+	}
+	return slices.ContainsFunc(table.StructTypes(), func(t Type) bool {
+		return t.Filter != nil && t.Filter.Request == typ.QualifiedName
+	})
+}
+
+// Filter is a filter definition: the lines a filter tree over Target can set.
+type Filter struct {
+	// Target is the struct or union the filter selects.
+	Target TypeRef
+	// Lines are the lines as declared. A bare line has no type and names a field of the
+	// target. A typed line names a hand-written matcher that takes its type.
+	Lines []Field
+	// Request and Response are the qualified names of the derived retrieve request and
+	// response, or empty when the analyzer derived none.
+	Request, Response string
+}
+
+// Actions returns the actions of a struct or union type, and nil for any other form.
+func (t Type) Actions() []Action {
+	switch form := t.Form.(type) {
+	case StructForm:
+		return form.Actions
+	case UnionForm:
+		return form.Actions
+	}
+	return nil
 }
 
 type TypeForm interface {
@@ -47,15 +141,11 @@ func (StructForm) typeForm() {}
 
 func (f StructForm) IsGeneric() bool { return len(f.TypeParams) > 0 }
 
-func (f StructForm) TypeParam(name string) (TypeParam, bool) {
-	return lo.Find(f.TypeParams, func(tp TypeParam) bool { return tp.Name == name })
-}
-
 func (f StructForm) Field(name string) (Field, bool) {
 	return lo.Find(f.Fields, func(fld Field) bool { return fld.Name == name })
 }
 
-func (f StructForm) IsFieldOmitted(name string) bool {
+func (f StructForm) isFieldOmitted(name string) bool {
 	return lo.Contains(f.OmittedFields, name)
 }
 
@@ -76,9 +166,6 @@ type EnumForm struct {
 }
 
 func (EnumForm) typeForm() {}
-
-// IsExtension reports whether the enum extends one or more other enums.
-func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
 
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.
@@ -106,6 +193,8 @@ type UnionForm struct {
 	// Included names the unions this union takes the variants of. The analyzer
 	// moves them out of Extends, which readers take as struct bases.
 	Included []TypeRef
+	// Actions are the wire mutations declared in the union body.
+	Actions []Action
 }
 
 func (UnionForm) typeForm() {}
@@ -147,10 +236,6 @@ func (AliasForm) typeForm() {}
 
 func (f AliasForm) IsGeneric() bool { return len(f.TypeParams) > 0 }
 
-func (f AliasForm) TypeParam(name string) (TypeParam, bool) {
-	return lo.Find(f.TypeParams, func(tp TypeParam) bool { return tp.Name == name })
-}
-
 type PrimitiveForm struct {
 	Name string
 }
@@ -176,7 +261,15 @@ type Action struct {
 	// payload. The analyzer resolves these and prepends the inherited fields to
 	// Fields, so by code-generation time Fields already holds the unified list.
 	Extends []TypeRef
+	// Alias names the struct that an `action Name = Struct` declaration uses as its
+	// payload. Fields is then empty, and the analyzer copies the struct's doc into
+	// Domains when the action declares no doc of its own. The zero TypeRef means the
+	// action declares its own payload.
+	Alias TypeRef
 }
+
+// IsAlias reports whether the action uses an existing struct as its payload.
+func (a Action) IsAlias() bool { return a.Alias.Name != "" }
 
 type Field struct {
 	AST     any
@@ -471,6 +564,40 @@ func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
 	return out
 }
 
+// RecordFields returns the fields every record of typ holds: the fields of a struct, or
+// the fields of a union's bases and the tag of a union that borrows its enum. A field
+// typed by a type parameter with a default takes the default. It returns false when typ
+// is neither a struct nor a union.
+func RecordFields(typ Type, table *Table) ([]Field, bool) {
+	var fields []Field
+	switch form := typ.Form.(type) {
+	case StructForm:
+		fields = slices.Clone(UnifiedFields(typ, table))
+	case UnionForm:
+		for _, ext := range form.Extends {
+			if base, _, ok := Dealias(ext, table); ok {
+				fields = append(fields, UnifiedFields(base, table)...)
+			}
+		}
+		// The tag of an unnamed enum has no type to give the field.
+		if form.BorrowsEnum() {
+			fields = append(fields, Field{Name: form.Discriminator, Type: form.Enum})
+		}
+	default:
+		return nil, false
+	}
+	defaults := make(map[string]TypeRef)
+	for _, p := range TypeParams(typ.Form) {
+		if p.Default != nil {
+			defaults[p.Name] = *p.Default
+		}
+	}
+	for i := range fields {
+		fields[i].Type = SubstituteTypeRef(fields[i].Type, defaults)
+	}
+	return fields, true
+}
+
 func UnifiedFields(typ Type, table *Table) []Field {
 	form, ok := typ.Form.(StructForm)
 	if !ok {
@@ -504,7 +631,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 		// Copy parent fields before modifying to avoid mutating the table
 		parentFieldsOrig := UnifiedFields(parent, table)
 		for _, pf := range parentFieldsOrig {
-			if form.IsFieldOmitted(pf.Name) {
+			if form.isFieldOmitted(pf.Name) {
 				continue
 			}
 			if seenFields.Contains(pf.Name) {

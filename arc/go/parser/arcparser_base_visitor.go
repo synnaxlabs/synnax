@@ -72,10 +72,6 @@ func (v *BaseArcParserVisitor) VisitNamedOutput(ctx *NamedOutputContext) interfa
 	return v.VisitChildren(ctx)
 }
 
-func (v *BaseArcParserVisitor) VisitInputBlock(ctx *InputBlockContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
 func (v *BaseArcParserVisitor) VisitInputList(ctx *InputListContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -157,10 +153,6 @@ func (v *BaseArcParserVisitor) VisitNamedInputValue(ctx *NamedInputValueContext)
 }
 
 func (v *BaseArcParserVisitor) VisitAnonymousInputValues(ctx *AnonymousInputValuesContext) interface{} {
-	return v.VisitChildren(ctx)
-}
-
-func (v *BaseArcParserVisitor) VisitArguments(ctx *ArgumentsContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

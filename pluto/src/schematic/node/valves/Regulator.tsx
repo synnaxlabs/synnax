@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -43,7 +43,7 @@ export const Regulator = ({
       <Handle.Handle
         location="top"
         orientation={orientation}
-        left={50.9091}
+        left={50.5682}
         top={12.5}
         id="3"
       />

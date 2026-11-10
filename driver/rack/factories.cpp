@@ -9,69 +9,99 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/os/os.h"
+
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-
 #include "driver/arc/arc.h"
 #include "driver/can/backends/backends.h"
 #include "driver/can/factory.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
+#include "driver/modbus/names.h"
+#include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
 #include "driver/serial/serial.h"
 #include "driver/tcp/tcp.h"
 #include "driver/udp/udp.h"
+#include "driver/version/version.h"
 
 namespace driver::rack {
-using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
-
 bool Config::integration_enabled(const std::string &i) const {
     return std::ranges::find(integrations, i) != integrations.end();
 }
 
-template<typename F>
-void configure_integration(
-    const Config &config,
-    FactoryList &factories,
-    const std::string &integration_name,
-    F factory_creator
-) {
-    if (!config.integration_enabled(integration_name)) {
-        VLOG(1) << "[" << integration_name << "] integration disabled";
+void configure_opcua(const Config &config, FactoryList &factories) {
+    configure_integration(config, factories, opcua::INTEGRATION_NAME, [&config]() {
+        auto [host, _] = x::os::get_hostname();
+        return std::make_unique<opcua::Factory>(
+            std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
+                .dir = config.state_dir / OPCUA_STATE_DIR / "pki",
+                .host = host,
+            })
+        );
+    });
+}
+
+constexpr auto MISMATCH_DESCRIPTION = "Install the Driver release that matches the "
+                                      "Core, then restart the Driver.";
+
+std::string mismatch_message(const std::string &core_version) {
+    return "Driver " + std::string(SYNNAX_DRIVER_VERSION) + " cannot work with Core " +
+           core_version;
+}
+
+/// @brief adds the rack status, which reports an error when the Core runs another
+/// minor.
+void configure_state(const Config &config, FactoryList &factories) {
+    if (!config.incompatible_core_version) {
+        factories.push_back(std::make_unique<status::Factory>());
         return;
     }
-    VLOG(1) << "[" << integration_name << "] integration enabled";
-    factories.push_back(factory_creator());
+    const auto message = mismatch_message(*config.incompatible_core_version);
+    LOG(ERROR) << message << ". " << MISMATCH_DESCRIPTION;
+    factories.push_back(
+        std::make_unique<status::Factory>(status::Health{
+            .variant = synnax::status::VARIANT_ERROR,
+            .message = message,
+            .description = MISMATCH_DESCRIPTION,
+        })
+    );
 }
 
-void configure_opcua(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opcua::INTEGRATION_NAME, []() {
-        return std::make_unique<opcua::Factory>();
-    });
+void configure_mismatch(
+    const std::string &core_version,
+    const std::string &integration_name,
+    FactoryList &factories
+) {
+    // A task can still hold the running status that an earlier Driver wrote.
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            integration_name,
+            mismatch_message(core_version) + ". " + MISMATCH_DESCRIPTION,
+            "",
+            true
+        )
+    );
 }
 
-void configure_ni(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, ni::INTEGRATION_NAME, [&config]() {
-        return ni::Factory::create(config.timing);
-    });
+#ifdef SYNNAX_NILINUXRT
+void configure_modbus(const Config &, FactoryList &factories) {
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            modbus::INTEGRATION_NAME,
+            "Modbus tasks do not run on NI Linux RT. Connect the device from a Driver on "
+            "Windows, macOS, or Linux."
+        )
+    );
 }
-
-void configure_labjack(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, labjack::INTEGRATION_NAME, [&config]() {
-        return labjack::Factory::create(config.timing);
-    });
-}
-
-void configure_state(FactoryList &factories) {
-    factories.push_back(std::make_unique<status::Factory>());
-}
-
-#ifndef SYNNAX_NILINUXRT
+#else
 void configure_modbus(const Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<modbus::Factory>());
+    configure_integration(config, factories, modbus::INTEGRATION_NAME, []() {
+        return std::make_unique<modbus::Factory>();
+    });
 }
 #endif
 
@@ -88,13 +118,21 @@ void configure_arc(
 void configure_ethercat(
     const Config &config,
     FactoryList &factories,
+    const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<x::thread::rt::Manager> &rt_manager
 ) {
     configure_integration(
         config,
         factories,
         ethercat::INTEGRATION_NAME,
-        [&rt_manager]() { return std::make_unique<ethercat::Factory>(rt_manager); }
+        [&config, &client, &rt_manager]() {
+            return std::make_unique<ethercat::Factory>(
+                client,
+                config.rack.key,
+                rt_manager,
+                config.manager.op_timeout
+            );
+        }
     );
 }
 
@@ -128,23 +166,23 @@ void configure_udp(const Config &config, FactoryList &factories) {
     });
 }
 
-std::unique_ptr<task::Factory>
-Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) const {
+std::unique_ptr<task::Factory> Config::new_factory(
+    const std::shared_ptr<synnax::Synnax> &client,
+    const std::shared_ptr<x::thread::rt::Manager> &rt_manager
+) const {
     FactoryList factories;
-    configure_state(factories);
+    configure_state(*this, factories);
     configure_opcua(*this, factories);
     configure_ni(*this, factories);
     configure_labjack(*this, factories);
     configure_arc(*this, factories, rt_manager);
-    configure_ethercat(*this, factories, rt_manager);
+    configure_ethercat(*this, factories, client, rt_manager);
     configure_http(*this, factories);
     configure_can(*this, factories);
     configure_serial(*this, factories);
     configure_tcp(*this, factories);
     configure_udp(*this, factories);
-#ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
-#endif
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }
 }

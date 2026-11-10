@@ -13,7 +13,8 @@ import { type Code } from "@/code";
 // `string.quoted.*.arc` scope suppresses the popup inside `{...}`. Matches an
 // f/rf/fr-prefixed string with an unclosed `{` at the caret; lookbehind and
 // lookahead reject the `{` halves of a `{{` literal-brace escape.
-const PLACEHOLDER_RE = /(?:rf|fr|f)["`](?:\\.|[^"`])*(?<!\{)\{(?!\{)[^}]*$/;
+const PLACEHOLDER_RE =
+  /(?:rf|fr|f)["`](?:\\[^{]|\\(?=\{)|[^"`\\])*(?<!\{)\{(?!\{)[^}]*$/;
 const WORD_CHAR_RE = /^\w$/;
 
 export const shouldTriggerSuggestion = (

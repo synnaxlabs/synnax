@@ -7,17 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  icd,
-  type ontology,
-  PathError,
-  query,
-  ValidationError,
-} from "@synnaxlabs/client";
-import { errors, verbs } from "@synnaxlabs/x";
+import { icd, PathError, query, type task, ValidationError } from "@synnaxlabs/client";
+import { deep, errors, verbs } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Flux } from "@/flux";
+import { flux } from "@/flux/aether";
 import { markProblems, toFormPath } from "@/library/problems";
 
 const RESOURCE_NAME = "ICD";
@@ -37,26 +32,20 @@ export const { use, useResult, useEnsure, useTombstone, createSelector } =
   Flux.createRetrieve<RetrieveQuery, icd.ICD>({
     name: RESOURCE_NAME,
     retrieve: async ({ client, query }) => await client.icds.retrieve(query),
-    onChange: ({ client, query }, handler) => client.icds.onChange(query, handler),
-    getCached: ({ client, query }) => client.icds.getCached(query),
+    onChange: ({ client, query }, handler) =>
+      client.icds.watch(query).onChange(handler),
+    getCached: ({ client, query }) => client.icds.watch(query).getCached(),
     awaitCreation: true,
   });
 
 export const useName = createSelector(({ name }) => name);
 
-export type ListQuery = Pick<
-  icd.RetrieveRequest,
-  "keys" | "searchTerm" | "offset" | "limit"
->;
+export type ListQuery = icd.RetrieveMultipleParams;
 
-export const useList = Flux.createList<ListQuery, icd.Key, icd.ICD>({
-  name: PLURAL_RESOURCE_NAME,
-  retrieve: async ({ client, query }) => await client.icds.retrieve(query),
-  retrieveByKey: async ({ client, key }) => await client.icds.retrieve({ key }),
-  onChange: ({ client, query }, handler) => client.icds.onChange(query, handler),
-  onChangeByKey: ({ client, key }, handler) => client.icds.onChange({ key }, handler),
-  getCached: ({ client, query }) => client.icds.getCached(query),
-});
+export const useList = (
+  params: Omit<Flux.UseListParams<ListQuery, icd.ICD>, "name"> = {},
+): Flux.UseListReturn<icd.Key, icd.ICD> =>
+  Flux.useList((client) => client.icds, { ...params, name: PLURAL_RESOURCE_NAME });
 
 export interface CreateParams extends icd.New {}
 
@@ -111,6 +100,8 @@ export const { useUpdate: useImport } = Flux.createUpdate<ImportParams, icd.ICD>
 
 export const formSchema = icd.icdZ;
 
+export const formPath = deep.path<z.infer<typeof formSchema>>();
+
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   key: "",
   name: "",
@@ -131,7 +122,7 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   initialValues: ZERO_FORM_VALUES,
   retrieve: async ({ client, query: { key } }) => await client.icds.retrieve({ key }),
   getCached: ({ client, query: { key } }) => {
-    const cached = client.icds.getCached({ key });
+    const cached = client.icds.watch({ key }).getCached();
     return query.isLive(cached) ? cached : undefined;
   },
   update: async ({ client, value, reset, setFieldStatus }) => {
@@ -147,7 +138,11 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
     } catch (e) {
       if (PathError.matchExact(e)) {
         const path = toFormPath(e.path.join("."), current);
-        setFieldStatus(path, { key: path, variant: "error", message: e.error.message });
+        setFieldStatus(path, {
+          key: String(path),
+          variant: "error",
+          message: e.error.message,
+        });
       }
       throw errors.fromUnknown(e);
     }
@@ -155,26 +150,18 @@ export const useForm = Flux.createForm<RetrieveQuery, typeof formSchema>({
   // The editor has no name field, so a rename made elsewhere must reach the form before
   // a save writes the old name back.
   mountListeners: ({ client, query: { key }, set }) =>
-    client.icds.onChange({ key }, (result) => {
-      if (query.isLive(result)) set("name", result.name);
+    client.icds.watch({ key }).onChange((result) => {
+      if (query.isLive(result)) set(formPath.name, result.name);
     }),
-});
-
-const tasksParams = (key: icd.Key) => ({
-  ids: icd.ontologyID(key),
-  types: ["task" as const],
 });
 
 /** Retrieves the tasks that use an ICD. */
 export const { use: useTasks, useResult: useTasksResult } = Flux.createRetrieve<
   RetrieveQuery,
-  ontology.Resource[]
+  task.Task[]
 >({
   name: "ICD tasks",
-  retrieve: async ({ client, query: { key } }) =>
-    await client.ontology.users.retrieve(tasksParams(key)),
-  onChange: ({ client, query: { key } }, handler) =>
-    client.ontology.users.onChange(tasksParams(key), handler),
-  getCached: ({ client, query: { key } }) =>
-    client.ontology.users.getCached(tasksParams(key)),
+  ...flux.listReads(({ client, query: { key } }) =>
+    client.tasks.watch({ where: { icds: [key] } }),
+  ),
 });

@@ -14,7 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
 	. "github.com/synnaxlabs/x/testutil"
+)
+
+var (
+	host    = node.Node{Key: 1, Address: "localhost:9090"}
+	testSvc *node.Service
 )
 
 func TestNode(t *testing.T) {
@@ -23,3 +29,8 @@ func TestNode(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+	testSvc = MustSucceed(node.NewService(node.ServiceConfig{Host: host}))
+})

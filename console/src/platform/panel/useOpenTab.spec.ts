@@ -14,7 +14,7 @@ import {
   RoleClients,
 } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -33,6 +33,15 @@ import {
 } from "@/testutil";
 
 const client = createTestClient();
+
+const createRangeID = async () => {
+  const start = TimeStamp.now();
+  const { key } = await client.ranges.create({
+    name: uniqueName("range"),
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
+  });
+  return ranger.resourceID(key);
+};
 const roles = new RoleClients(client);
 
 let projectKey: string | undefined;
@@ -129,7 +138,7 @@ describe("Panel.useOpenTab", () => {
 
     it("focuses the existing tab when the resource already backs one", async () => {
       const seedTabKey = uuid.create();
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = await createRangeID();
       const existing = await createServerPanel(client, {
         variant: "leaf",
         tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -240,7 +249,7 @@ describe("Panel.useOpenTab", () => {
       });
       await primePanel(wrapper, existing.key);
       const { result } = renderHook(() => Panel.useOpenTab(), { wrapper });
-      const resource = ranger.ontologyID(uuid.create());
+      const resource = await createRangeID();
       await act(async () => {
         result.current({ variant: "resource", resource });
       });
@@ -384,7 +393,7 @@ describe("Panel.useOpenTabs", () => {
 
   it("opens the rest of the batch when one tab's resource is already open", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = await createRangeID();
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -409,7 +418,7 @@ describe("Panel.useOpenTabs", () => {
   // skips it, so focus has to resolve to the tab already holding the resource.
   it("focuses the tab already holding the resource when the batch ends on a duplicate", async () => {
     const seedTabKey = uuid.create();
-    const resource = ranger.ontologyID(uuid.create());
+    const resource = await createRangeID();
     const existing = await createServerPanel(client, {
       variant: "leaf",
       tabs: [{ variant: "resource", key: seedTabKey, resource }],
@@ -470,8 +479,8 @@ describe("Panel.useCanOpenTab", () => {
 
   it("should fall back to the create grant when no panel is in scope", async () => {
     const creator = await createTestClientWithGrants(client, {
-      retrieve: [panel.TYPE_ONTOLOGY_ID, project.TYPE_ONTOLOGY_ID],
-      create: [panel.TYPE_ONTOLOGY_ID],
+      retrieve: [panel.TYPE_RESOURCE_ID, project.TYPE_RESOURCE_ID],
+      create: [panel.TYPE_RESOURCE_ID],
     });
     const { result } = await renderCan(creator);
     await waitFor(() => expect(result.current.open).toBe(true));

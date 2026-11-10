@@ -89,8 +89,8 @@ export type CrudeFrame =
  * A horizontal frame typically has a single array (in which case, it's also 'square'),
  * although it can have multiple series if all the series are continuous in time.
  *
- * - Vertical frames are strongly aligned and have on or more channels, but ONLY a single
- * array per channel. Synnax requires that all frames written to the database are
+ * - Vertical frames are strongly aligned and have one or more channels, but ONLY a
+ * single array per channel. Synnax requires that all frames written to the database are
  * vertical.
  *
  * - Square frames are both horizontal and vertical. Only a frame with a single channel
@@ -111,7 +111,7 @@ export class Frame {
     }
 
     if (columnsOrData instanceof Map) {
-      columnsOrData.forEach((v, k) => this.push(k, ...array.toArray(v)));
+      columnsOrData.forEach((v, k) => array.toArray(v).forEach((s) => this.push(k, s)));
       return;
     }
 
@@ -129,8 +129,8 @@ export class Frame {
       } else
         Object.entries(columnsOrData).forEach(([k, v]) => {
           const key = parseInt(k, 10);
-          if (!isNaN(key)) return this.push(key, ...array.toArray(v));
-          this.push(k, ...array.toArray(v));
+          const col = isNaN(key) ? k : key;
+          array.toArray(v).forEach((s) => this.push(col, s));
         });
       return;
     }
@@ -173,16 +173,16 @@ export class Frame {
   }
 
   /**
-   * @returns the unique channel keys if the frame is keyed by channel key, and throws an
-   * error otherwise.
+   * @returns the unique channel keys if the frame is keyed by channel key, and throws
+   * an error otherwise.
    */
   get uniqueKeys(): channel.Key[] {
     return unique.unique(this.keys);
   }
 
   /**
-   * @returns the channel names if the frame is keyed by channel name, and throws an error
-   * otherwise.
+   * @returns the channel names if the frame is keyed by channel name, and throws an
+   * error otherwise.
    */
   get names(): string[] {
     if (this.colType === "key") throw new UnexpectedError("colType is not name");
@@ -190,8 +190,8 @@ export class Frame {
   }
 
   /**
-   * @returns the unique channel names if the frame is keyed by channel name, and throws an
-   * otherwise.
+   * @returns the unique channel names if the frame is keyed by channel name, and throws
+   * an error otherwise.
    */
   get uniqueNames(): string[] {
     return unique.unique(this.names);
@@ -229,8 +229,8 @@ export class Frame {
   }
 
   /**
-   * @returns true if the frame is square. Square frames are both horizontal and vertical.
-   * Only a frame with a single channel and array can be square.
+   * @returns true if the frame is square. Square frames are both horizontal and
+   * vertical. Only a frame with a single channel and array can be square.
    */
   get isSquare(): boolean {
     return this.isHorizontal && this.isVertical;
@@ -251,8 +251,12 @@ export class Frame {
   timeRange(col?: channel.Key | channel.Name): TimeRange {
     if (col == null) {
       if (this.columns.length === 0) return TimeRange.ZERO;
-      const start = TimeStamp.min(...this.series.map((a) => a.timeRange.start));
-      const end = TimeStamp.max(...this.series.map((a) => a.timeRange.end));
+      let start = TimeStamp.MAX;
+      let end = TimeStamp.MIN;
+      for (const { timeRange } of this.series) {
+        if (timeRange.start.before(start)) start = timeRange.start;
+        if (timeRange.end.after(end)) end = timeRange.end;
+      }
       return new TimeRange(start, end);
     }
     const group = this.get(col);
@@ -270,13 +274,13 @@ export class Frame {
 
   /**
    * @returns lazy series matching the given channel key or name.
-   * @param key the channel key or name.
+   * @param key - the channel key or name.
    */
   get(key: channel.Key | channel.Name): MultiSeries;
 
   /**
    * @returns a frame with the given channel keys or names.
-   * @param keys the channel keys or names.
+   * @param keys - the channel keys or names.
    */
   get(keys: channel.Key[] | channel.Name[]): Frame;
 
@@ -300,23 +304,25 @@ export class Frame {
         keyOrFrame.colType !== this.colType
       )
         throw new ValidationError("keyVariant must match");
-      this.series.push(...keyOrFrame.series);
-      (this.columns as channel.Key[]).push(...(keyOrFrame.columns as channel.Key[]));
-    } else {
-      this.series.push(...v);
-      if (typeof keyOrFrame === "string" && this.colType === "key")
-        throw new ValidationError("keyVariant must match");
-      else if (typeof keyOrFrame !== "string" && this.colType === "name")
-        throw new ValidationError("keyVariant must match");
-      (this.columns as channel.Key[]).push(
-        ...(Array.from({ length: v.length }, () => keyOrFrame) as channel.Key[]),
-      );
+      keyOrFrame.series.forEach((s, i) => {
+        this.series.push(s);
+        (this.columns as channel.Key[]).push(keyOrFrame.columns[i] as channel.Key);
+      });
+      return;
     }
+    if (typeof keyOrFrame === "string" && this.colType === "key")
+      throw new ValidationError("keyVariant must match");
+    else if (typeof keyOrFrame !== "string" && this.colType === "name")
+      throw new ValidationError("keyVariant must match");
+    v.forEach((s) => {
+      this.series.push(s);
+      (this.columns as channel.Key[]).push(keyOrFrame as channel.Key);
+    });
   }
 
   /**
-   * @returns a shallow copy of this frame containing all series in the current frame and the
-   * provided frame.
+   * @returns a shallow copy of this frame containing all series in the current frame
+   * and the provided frame.
    */
   concat(frame: Frame): Frame {
     return new Frame([...this.columns, ...frame.columns] as channel.Key[], [
@@ -327,7 +333,7 @@ export class Frame {
 
   /**
    * @returns true if the frame contains the provided channel key or name.
-   * @param channel the channel key or name to check.
+   * @param channel - the channel key or name to check.
    */
   has(channel: channel.Key | channel.Name): boolean {
     if (typeof channel === "string" && this.colType === "key") return false;
@@ -337,7 +343,7 @@ export class Frame {
 
   /**
    * @returns a new frame containing the mapped output of the provided function.
-   * @param fn a function that takes a channel key and series and returns a boolean.
+   * @param fn - a function that takes a channel key and series and returns a boolean.
    */
   map(
     fn: (
@@ -368,7 +374,7 @@ export class Frame {
 
   /**
    * Iterates over all series in the current frame.
-   * @param fn a function that takes a channel key and series.
+   * @param fn - a function that takes a channel key and series.
    */
   forEach(fn: (k: channel.Key | channel.Name, arr: Series, i: number) => void): void {
     this.columns.forEach((k, i) => {
@@ -379,7 +385,7 @@ export class Frame {
 
   /**
    * Iterates over all unique columns in the frame.
-   * @param fn a function that takes a channel key, multi-series, and index.
+   * @param fn - a function that takes a channel key, multi-series, and index.
    */
   forEachUnique(
     fn: (k: channel.Key | channel.Name, ms: MultiSeries, i: number) => void,
@@ -408,7 +414,7 @@ export class Frame {
   /**
    * @returns a new frame containing all series in the current frame that pass
    * the provided filter function.
-   * @param fn a function that takes a channel key and series and returns a boolean.
+   * @param fn - a function that takes a channel key and series and returns a boolean.
    */
   filter(
     fn: (k: channel.Key | channel.Name, arr: Series, i: number) => boolean,
@@ -487,10 +493,13 @@ export const seriesFromPayload = (series: SeriesPayload): Series => {
 };
 
 /** Reduces a {@link Series} to its wire form. */
-export const seriesToPayload = (series: Series): SeriesPayload => ({
-  timeRange: series.timeRange,
-  dataType: series.dataType,
-  data: new Uint8Array(series.data.buffer),
-  alignment: series.alignment,
-  alignmentMultiple: series.alignmentMultiple,
-});
+export const seriesToPayload = (series: Series): SeriesPayload => {
+  const { data } = series;
+  return {
+    timeRange: series.timeRange,
+    dataType: series.dataType,
+    data: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+    alignment: series.alignment,
+    alignmentMultiple: series.alignmentMultiple,
+  };
+};

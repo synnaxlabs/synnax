@@ -10,4 +10,3 @@
 export * from "@/platform/fs/DropZone";
 export * from "@/platform/fs/entries";
 export * from "@/platform/fs/InputFile";
-export * from "@/platform/fs/InputPath";

@@ -7,8 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from abc import abstractmethod
-from typing import Any, TypeVar
+from collections.abc import Callable
+from typing import Concatenate, ParamSpec, TypeVar
 
 from playwright.sync_api import Locator
 
@@ -22,6 +22,7 @@ from console.task_page import TaskPage
 # Union type for all NI channel types
 NIChannel = Analog | Counter
 _NIChannelT = TypeVar("_NIChannelT", bound=NIChannel)
+_P = ParamSpec("_P")
 
 
 class NITask(TaskPage):
@@ -33,55 +34,29 @@ class NITask(TaskPage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize an NITask page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
-    @abstractmethod
-    def add_channel(
-        self,
-        name: str,
-        chan_type: str,
-        device: str,
-        dev_name: str | None = None,
-        **kwargs: Any,
-    ) -> NIChannel:
-        """
-        Add a channel to the task.
-
-        Subclasses must implement this method to validate the channel type
-        and instantiate the appropriate channel class.
-
-        Args:
-            name: Channel name
-            chan_type: Channel type string for UI selection
-            device: Device identifier
-            dev_name: Optional device name
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
-        """
-        ...
-
     def _open_new_device_dropdown(self) -> None:
-        """Add a channel row, select it, and open its device dropdown."""
-        idx = len(self.channels)
-        self.add_channel_row()
-        self.layout.page.locator(".pluto-list__item").nth(idx).click()
+        """Select the next channel row and open its device dropdown."""
+        idx = self.next_channel_row()
+        self.layout.page.locator(".lyra-list__item").nth(idx).click()
         self.layout.click_btn("Device")
 
     def connect_device(self) -> None:
-        """Add a channel row and open the find view from the "Connect NI hardware"
-        action of its device dropdown. The device configured there becomes the device
-        of the row. The page does not track the row as a channel."""
+        """Open the find view from the "Connect NI hardware" action of the device
+        dropdown of the next channel row. The device configured there becomes the
+        device of the row. The page does not track the row as a channel."""
         self._open_new_device_dropdown()
         self.layout.dialog.get_by_text("Connect NI hardware", exact=True).click(
             timeout=5000
@@ -90,26 +65,24 @@ class NITask(TaskPage):
             state="visible", timeout=5000
         )
 
-    def _add_channel_helper(
+    def _add_channel(
         self,
         name: str,
+        chan_type: Callable[Concatenate[LayoutClient, str, str, _P], _NIChannelT],
         device: str,
         dev_name: str | None,
-        channel_class: type[_NIChannelT],
-        **kwargs: Any,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
     ) -> _NIChannelT:
-        """
-        Helper method for adding a channel with common UI automation logic.
+        """Add a channel row to the task and configure it.
 
-        Args:
-            name: Channel name
-            device: Device identifier
-            dev_name: Optional device name
-            channel_class: Channel class to instantiate
-            **kwargs: Additional channel-specific configuration
-
-        Returns:
-            The created channel instance
+        :param name: The channel name.
+        :param chan_type: The channel class to instantiate.
+        :param device: The device identifier.
+        :param dev_name: The device name. Defaults to the first 12 characters of name.
+        :param args: Channel-specific configuration.
+        :param kwargs: Channel-specific configuration.
+        :returns: The created channel.
         """
         layout = self.layout
 
@@ -124,14 +97,17 @@ class NITask(TaskPage):
         if configured:
             modal = layout.page.locator(layout.MODAL_SELECTOR)
             fill_configure(
-                modal, layout.notifications, name=dev_name, identifier=dev_name
+                modal,
+                notifications=layout.notifications,
+                name=dev_name,
+                identifier=dev_name,
             )
             modal.wait_for(state="hidden", timeout=5000)
             # Configuring renames the device, and the field shows the new name late.
             layout.wait_for_dropdown_value("Device", dev_name)
 
         # Create channel using provided class
-        channel = channel_class(layout=self.layout, name=name, device=device, **kwargs)
+        channel = chan_type(self.layout, name, device, *args, **kwargs)
 
         self.channels.append(channel)
         self.channels_by_name.append(name)
@@ -141,16 +117,13 @@ class NITask(TaskPage):
         """
         Assert a channel form is set correctly
 
-        Args:
-            name: Channel name or list of channel names to assert
-
-        Returns: None
+        :param name: Channel name or list of channel names to assert
         """
         names = [name] if isinstance(name, str) else name
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            self.layout.page.locator(".pluto-list__item").nth(idx).click()
+            self.layout.page.locator(".lyra-list__item").nth(idx).click()
             channel = self.channels[idx]
             sy.sleep(0.3)
             channel.assert_form()

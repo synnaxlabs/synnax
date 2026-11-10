@@ -12,12 +12,14 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { formatEscaped, parseEscaped } from "@/feature/bus/escape";
 import { Task } from "@/platform/task";
 
-const PATH = "config.framing";
+const PATH = deep.path<{ config: { framing: bus.Framing } }>().config.framing;
+const SYNC = deep.variant(PATH, "type", "sync");
 
 const TYPE_NAMES = {
   delimiter: "Delimiter",
@@ -39,8 +41,7 @@ const CHECKSUM_NAMES = {
   crc32: "CRC-32",
 } as const satisfies Record<bus.Checksum, string>;
 
-const LENGTH_SIZES = [1, 2, 4] as const;
-type LengthSize = (typeof LENGTH_SIZES)[number];
+const LENGTH_SIZES = [1, 2, 4];
 
 const TypeField = Form.buildSelectField<bus.FramingType>({
   fieldProps: {
@@ -59,19 +60,17 @@ const ByteOrderField = Form.buildSelectField<icd.ByteOrder>({
 });
 
 const ChecksumField = Form.buildSelectField<bus.Checksum>({
-  fieldKey: "checksum",
   fieldProps: { label: "Checksum" },
   inputProps: { resourceName: "checksum", children: Task.selectItems(CHECKSUM_NAMES) },
 });
 
-const LengthSizeField = Form.buildSelectField<LengthSize>({
-  fieldKey: "lengthSize",
+const LengthSizeField = Form.buildSelectField<number>({
   fieldProps: { label: "Length size" },
   inputProps: {
     resourceName: "length size",
     // Numeric keys, so the items cannot come from a name record.
     children: LENGTH_SIZES.map((size) => (
-      <Select.Item<LengthSize> key={size} itemKey={size}>
+      <Select.Item<number> key={size} itemKey={size}>
         {size === 1 ? "1 byte" : `${size} bytes`}
       </Select.Item>
     )),
@@ -82,7 +81,10 @@ const DELIMITER_INPUT_PROPS = { placeholder: "\\n", onlyChangeOnBlur: true } as 
 
 /** Edits the delimiter as escaped text, so a newline reads as \n. */
 const DelimiterField = (): ReactElement => (
-  <Form.Field<string> path={`${PATH}.delimiter`} label="Delimiter">
+  <Form.Field
+    path={deep.variant(PATH, "type", "delimiter").delimiter}
+    label="Delimiter"
+  >
     {({ value, onChange, ...rest }) => (
       <Input.Text
         {...rest}
@@ -97,24 +99,17 @@ const DelimiterField = (): ReactElement => (
 const SYNC_INPUT_PROPS = { placeholder: "AA55" } as const;
 
 const SyncFields = (): ReactElement => {
-  const checksum = Form.useFieldValue<bus.Checksum>(`${PATH}.checksum`);
+  const checksum = Form.useFieldValue(SYNC.checksum);
   return (
     <>
-      <Form.TextField
-        path={`${PATH}.sync`}
-        label="Sync"
-        inputProps={SYNC_INPUT_PROPS}
-      />
-      <Form.NumericField path={`${PATH}.lengthOffset`} label="Length offset" />
-      <LengthSizeField path={PATH} />
-      <ByteOrderField path={`${PATH}.byteOrder`} label="Length byte order" />
-      <Form.NumericField path={`${PATH}.lengthAdjustment`} label="Length adjustment" />
-      <ChecksumField path={PATH} />
+      <Form.TextField path={SYNC.sync} label="Sync" inputProps={SYNC_INPUT_PROPS} />
+      <Form.NumericField path={SYNC.lengthOffset} label="Length offset" />
+      <LengthSizeField path={SYNC.lengthSize} />
+      <ByteOrderField path={SYNC.byteOrder} label="Length byte order" />
+      <Form.NumericField path={SYNC.lengthAdjustment} label="Length adjustment" />
+      <ChecksumField path={SYNC.checksum} />
       {checksum !== "none" && (
-        <ByteOrderField
-          path={`${PATH}.checksumByteOrder`}
-          label="Checksum byte order"
-        />
+        <ByteOrderField path={SYNC.checksumByteOrder} label="Checksum byte order" />
       )}
     </>
   );
@@ -122,12 +117,17 @@ const SyncFields = (): ReactElement => {
 
 /** Edits how a byte stream task splits its stream into messages. */
 export const Framing = (): ReactElement => {
-  const type = Form.useFieldValue<bus.FramingType>(`${PATH}.type`);
+  const type = Form.useFieldValue(PATH.type);
   return (
     <Flex.Box x wrap>
-      <TypeField path={`${PATH}.type`} />
+      <TypeField path={PATH.type} />
       {type === "delimiter" && <DelimiterField />}
-      {type === "fixed" && <Form.NumericField path={`${PATH}.length`} label="Length" />}
+      {type === "fixed" && (
+        <Form.NumericField
+          path={deep.variant(PATH, "type", "fixed").length}
+          label="Length"
+        />
+      )}
       {type === "sync" && <SyncFields />}
     </Flex.Box>
   );

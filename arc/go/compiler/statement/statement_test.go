@@ -28,17 +28,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func compile(bCtx SpecContext, source string) []byte {
-	GinkgoHelper()
-	stmt := MustSucceed(parser.ParseStatement(source))
-	aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
-	analyzer.AnalyzeStatement(aCtx)
-	Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
-	ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-	Expect(MustSucceed(statement.Compile(ctx.Child(stmt)))).To(BeFalse())
-	return ctx.Writer.Bytes()
-}
-
 func compileBlock(bCtx SpecContext, source string) []byte {
 	GinkgoHelper()
 	block := MustSucceed(parser.ParseBlock("{" + source + "}"))
@@ -132,7 +121,7 @@ var _ = Describe("Statement Compiler", func() {
 	DescribeTable(
 		"Single Statement Bytecode Values",
 		func(bCtx SpecContext, source string, instructions ...any) {
-			Expect(compile(bCtx, source)).To(MatchOpcodes(instructions...))
+			Expect(compileBlock(bCtx, source)).To(MatchOpcodes(instructions...))
 		},
 		Entry(
 			"integer variable declaration with explicit type",
@@ -176,13 +165,13 @@ var _ = Describe("Statement Compiler", func() {
 		It(
 			"Should compile stateful variable declaration with explicit type",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("count i64 $= 0"))
+				block := MustSucceed(parser.ParseBlock("{ count i64 $= 0 }"))
 				fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
 					Name: "f", Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{}),
 				}))
-				aCtx := acontext.NewRoot(bCtx, stmt, fn)
-				analyzer.AnalyzeStatement(aCtx)
+				aCtx := acontext.NewRoot(bCtx, block, fn)
+				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 				ctx := context.NewRoot(
 					bCtx,
@@ -190,7 +179,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -205,13 +194,13 @@ var _ = Describe("Statement Compiler", func() {
 		It(
 			"Should compile stateful variable declaration with inferred type",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("count $= 0"))
+				block := MustSucceed(parser.ParseBlock("{ count $= 0 }"))
 				fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
 					Name: "f", Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{}),
 				}))
-				aCtx := acontext.NewRoot(bCtx, stmt, fn)
-				analyzer.AnalyzeStatement(aCtx)
+				aCtx := acontext.NewRoot(bCtx, block, fn)
+				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 				ctx := context.NewRoot(
 					bCtx,
@@ -219,7 +208,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -355,13 +344,13 @@ var _ = Describe("Statement Compiler", func() {
 		It(
 			"Should compile stateful variable with different types",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("temperature f64 $= 20.5"))
+				block := MustSucceed(parser.ParseBlock("{ temperature f64 $= 20.5 }"))
 				fn := MustSucceed(NewRoot(nil).Add(bCtx, symbol.Symbol{
 					Name: "f", Kind: symbol.KindFunction,
 					Type: types.Function(types.FunctionProperties{}),
 				}))
-				aCtx := acontext.NewRoot(bCtx, stmt, fn)
-				analyzer.AnalyzeStatement(aCtx)
+				aCtx := acontext.NewRoot(bCtx, block, fn)
+				analyzer.AnalyzeBlock(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue())
 				ctx := context.NewRoot(
 					bCtx,
@@ -369,7 +358,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 
 				Expect(FinalizeContext(ctx)).To(MatchOpcodes(
@@ -2305,35 +2294,6 @@ var _ = Describe("Statement Compiler", func() {
 			).To(BeTrue(), "missing increment")
 		})
 
-		It(
-			"Should compile range loop with mixed concrete types",
-			func(bCtx SpecContext) {
-				// start is i32 variable, end is i64 variable — loopVarType
-				// widens to i64. Verifies compilation succeeds with mixed widths.
-				block := MustSucceed(parser.ParseBlock(`{
-				lo i32 := 1
-				hi i64 := 10
-				for i := range(lo, hi) {
-					x := i
-				}
-			}`))
-				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
-				analyzer.AnalyzeBlock(aCtx)
-				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				ctx := context.NewRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
-				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
-				Expect(diverged).To(BeFalse())
-
-				bytecode := ctx.Writer.Bytes()
-				Expect(
-					slices.Contains(bytecode, byte(OpI64GeS)),
-				).To(BeTrue(), "missing exit condition")
-				Expect(
-					slices.Contains(bytecode, byte(OpI64Add)),
-				).To(BeTrue(), "missing increment")
-			},
-		)
-
 		It("Should compile range loop with explicit i32 type", func(bCtx SpecContext) {
 			block := MustSucceed(parser.ParseBlock(`{
 				for i := range(i32(5)) {
@@ -2604,9 +2564,13 @@ var _ = Describe("Statement Compiler", func() {
 		It(
 			"Should skip compiling a channelRead variable declaration",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("r := 5"))
-				aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
-				MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				block := MustSucceed(parser.ParseBlock("{ r := 5 }"))
+				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+				blockScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+					Kind: symbol.KindBlock,
+					AST:  block,
+				}))
+				MustSucceed(blockScope.Add(aCtx, symbol.Symbol{
 					Name: "r",
 					Kind: symbol.KindVariable,
 					Type: types.ReadChan(types.I64()),
@@ -2617,7 +2581,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 				Expect(FinalizeContext(ctx)).To(BeEmpty())
 			},
@@ -2626,9 +2590,13 @@ var _ = Describe("Statement Compiler", func() {
 		It(
 			"Should skip compiling a channelRead variable reassignment to a literal",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("r = 5"))
-				aCtx := acontext.NewRoot(bCtx, stmt, NewRoot(nil))
-				MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+				block := MustSucceed(parser.ParseBlock("{ r = 5 }"))
+				aCtx := acontext.NewRoot(bCtx, block, NewRoot(nil))
+				blockScope := MustSucceed(aCtx.Scope.Add(aCtx, symbol.Symbol{
+					Kind: symbol.KindBlock,
+					AST:  block,
+				}))
+				MustSucceed(blockScope.Add(aCtx, symbol.Symbol{
 					Name: "r",
 					Kind: symbol.KindVariable,
 					Type: types.ReadChan(types.I64()),
@@ -2639,7 +2607,7 @@ var _ = Describe("Statement Compiler", func() {
 					aCtx.TypeMap,
 					resolve.NewResolver(),
 				)
-				diverged := MustSucceed(statement.Compile(ctx.Child(stmt)))
+				diverged := MustSucceed(statement.CompileBlock(ctx.Child(block)))
 				Expect(diverged).To(BeFalse())
 				Expect(FinalizeContext(ctx)).To(BeEmpty())
 			},

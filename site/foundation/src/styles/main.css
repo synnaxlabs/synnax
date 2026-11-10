@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-@layer reset, pluto, base;
+@layer reset, lyra, base;
 
 @import url("./reset.css") layer(reset);
 @import url("@fontsource/geist-mono/latin-500.css");
-@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
-@import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/base.css") layer(lyra.base);
+@import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(lyra.base);
 @import url("@synnaxlabs/site-common/base.css") layer(base);
 @import url("./page.css") layer(base);
 @import url("./editorial.css") layer(base);

@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -45,7 +46,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				)
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
-					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
+					indexDB = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("index")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -57,7 +58,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("data")),
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -69,10 +70,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					db.SetIndex(indexDB.Index())
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
-					Expect(indexDB.Close()).To(Succeed())
 				})
 
 				Describe("Happy Path", func() {
@@ -183,7 +180,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(
 							iter.View(),
 						).To(Equal((9*telem.SecondTS + 1).SpanRange(5 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(5)))
+						Expect(iter.Value().Len()).To(Equal(int64(5)))
 						Expect(iter.Prev(ctx, 1*telem.Second)).To(BeFalse())
 						Expect(iter.Close()).To(Succeed())
 					})
@@ -386,11 +383,11 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(
 							iter.View(),
 						).To(Equal((10 * telem.SecondTS).SpanRange(3 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(3)))
+						Expect(iter.Value().Len()).To(Equal(int64(3)))
 						Expect(iter.Next(ctx, 4*telem.Second)).To(BeTrue())
-						Expect(iter.Len()).To(Equal(int64(2)))
+						Expect(iter.Value().Len()).To(Equal(int64(2)))
 						Expect(iter.Next(ctx, 1*telem.Second)).To(BeFalse())
-						Expect(iter.Len()).To(Equal(int64(0)))
+						Expect(iter.Value().Len()).To(Equal(int64(0)))
 						Expect(iter.Close()).To(Succeed())
 					})
 					Specify("Multi Time Range", func(ctx SpecContext) {
@@ -441,17 +438,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						Expect(
 							iter.View(),
 						).To(Equal((10 * telem.SecondTS).SpanRange(3 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(3)))
+						Expect(iter.Value().Len()).To(Equal(int64(3)))
 						Expect(iter.Next(ctx, 10*telem.Second)).To(BeTrue())
 						Expect(
 							iter.View(),
 						).To(Equal((13 * telem.SecondTS).SpanRange(10 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(6)))
+						Expect(iter.Value().Len()).To(Equal(int64(6)))
 						Expect(iter.Next(ctx, 10*telem.Second)).To(BeTrue())
 						Expect(
 							iter.View(),
 						).To(Equal((23 * telem.SecondTS).SpanRange(10 * telem.Second)))
-						Expect(iter.Len()).To(Equal(int64(3)))
+						Expect(iter.Value().Len()).To(Equal(int64(3)))
 						Expect(iter.Close()).To(Succeed())
 					})
 					Describe("Auto Span", func() {
@@ -525,13 +522,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(1)))
+								Expect(iter.Value().Len()).To(Equal(int64(1)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							},
@@ -574,13 +571,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							},
@@ -618,9 +615,9 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							}))
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().Len()).To(Equal(int64(1)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(iter.Close()).To(Succeed())
 						})
@@ -663,12 +660,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((12 * telem.SecondTS).SpanRange(2 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
 							Expect(
 								iter.View(),
 							).To(Equal((14 * telem.SecondTS).SpanRange(1 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().Len()).To(Equal(int64(1)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 							Expect(
 								iter.View(),
@@ -682,12 +679,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((13 * telem.SecondTS).SpanRange(2 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(iter.Prev(ctx, 3*telem.Second)).To(BeTrue())
 							Expect(
 								iter.View(),
 							).To(Equal((12 * telem.SecondTS).Range(13 * telem.SecondTS)))
-							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().Len()).To(Equal(int64(1)))
 							Expect(
 								iter.Value().SeriesAt(0).Data,
 							).To(Equal([]byte{3, 0, 0, 0, 0, 0, 0, 0}))
@@ -764,7 +761,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((10 * telem.SecondTS).SpanRange(2 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(
 								iter.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](5, 6))
@@ -772,7 +769,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((12 * telem.SecondTS).SpanRange(2 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(
 								iter.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](7, 8))
@@ -783,12 +780,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((11 * telem.SecondTS).SpanRange(3 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().Len()).To(Equal(int64(3)))
 							Expect(iter.Prev(ctx, 10*telem.Second)).To(BeTrue())
 							Expect(
 								iter.View(),
 							).To(Equal((10 * telem.SecondTS).SpanRange(1 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().Len()).To(Equal(int64(1)))
 
 							Expect(iter.Close()).To(Succeed())
 						})
@@ -867,7 +864,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.Value().SeriesAt(0).Data,
 							).To(Equal([]byte{4, 0, 0, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0}))
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 
 							Expect(iter.SeekLE(ctx, 0*telem.SecondTS)).To(BeFalse())
@@ -883,7 +880,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							Expect(
 								iter.View(),
 							).To(Equal((10 * telem.SecondTS).SpanRange(1 * telem.Second)))
-							Expect(iter.Len()).To(Equal(int64(1)))
+							Expect(iter.Value().Len()).To(Equal(int64(1)))
 							Expect(
 								iter.Value().SeriesAt(0).Data,
 							).To(Equal([]byte{1, 0, 0, 0, 0, 0, 0, 0}))
@@ -960,15 +957,15 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							},
@@ -1025,13 +1022,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekFirst(ctx)).To(BeTrue())
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(iter.Next(ctx, unary.AutoSpan)).To(BeFalse())
 								Expect(iter.Close()).To(Succeed())
 							},
@@ -1071,17 +1068,17 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							}))
 							Expect(iter.SeekLast(ctx)).To(BeTrue())
 							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().Len()).To(Equal(int64(3)))
 							Expect(
 								iter.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](6, 7, 8))
 							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(3)))
+							Expect(iter.Value().Len()).To(Equal(int64(3)))
 							Expect(
 								iter.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](3, 4, 5))
 							Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(2)))
+							Expect(iter.Value().Len()).To(Equal(int64(2)))
 							Expect(
 								iter.Value().SeriesAt(0),
 							).To(telem.MatchSeriesDataV[int64](1, 2))
@@ -1141,12 +1138,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekLast(ctx)).To(BeTrue())
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](9, 10, 11))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](6))
@@ -1154,12 +1151,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									iter.Value().SeriesAt(1),
 								).To(telem.MatchSeriesDataV[int64](7, 8))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](3, 4, 5))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(2)))
+								Expect(iter.Value().Len()).To(Equal(int64(2)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](1, 2))
@@ -1220,12 +1217,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekLast(ctx)).To(BeTrue())
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](9, 10, 11))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](6))
@@ -1233,7 +1230,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 									iter.Value().SeriesAt(1),
 								).To(telem.MatchSeriesDataV[int64](7, 8))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](3, 4, 5))
@@ -1278,12 +1275,12 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 								)
 								Expect(iter.SeekLast(ctx)).To(BeTrue())
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(3)))
+								Expect(iter.Value().Len()).To(Equal(int64(3)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](4, 5, 6))
 								Expect(iter.Prev(ctx, unary.AutoSpan)).To(BeTrue())
-								Expect(iter.Len()).To(Equal(int64(1)))
+								Expect(iter.Value().Len()).To(Equal(int64(1)))
 								Expect(
 									iter.Value().SeriesAt(0),
 								).To(telem.MatchSeriesDataV[int64](3))
@@ -1318,7 +1315,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							}))
 							Expect(iter.SeekFirst(ctx)).To(BeTrue())
 							Expect(iter.Next(ctx, unary.AutoSpan)).To(BeTrue())
-							Expect(iter.Len()).To(Equal(int64(5)))
+							Expect(iter.Value().Len()).To(Equal(int64(5)))
 							Expect(iter.Close()).To(Succeed())
 						})
 						Describe("Regression tests: discontinuity", func() {
@@ -2034,7 +2031,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							faulty.SetOptions(WithFailReadAt())
 							prefix := fmt.Sprintf("channel [Wild]<%d>:", data)
 							Expect(
-								db.Read(ctx, telem.TimeRangeMax),
+								ReadUnary(ctx, db, telem.TimeRangeMax),
 							).Error().
 								To(SatisfyAll(
 									MatchError(ErrFault),
@@ -2222,7 +2219,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							var (
 								iKey     = GenerateChannelKey()
 								dbKey    = GenerateChannelKey()
-								indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+								indexDB2 = MustOpen(unary.Open(ctx, unary.Config{
 									FS:        MustSucceed(fs.Sub("index")),
 									MetaCodec: json.Codec,
 									Channel: channel.Channel{
@@ -2330,7 +2327,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						)
 						BeforeEach(func(ctx SpecContext) {
 							iKey = GenerateChannelKey()
-							indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
+							indexDB2 = MustOpen(unary.Open(ctx, unary.Config{
 								FS:        MustSucceed(fs.Sub("index3")),
 								MetaCodec: json.Codec,
 								Channel: channel.Channel{
@@ -2375,7 +2372,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 							MustSucceed(w.Commit(ctx))
 							MustSucceed(w.Close())
 						})
-						AfterEach(func() { Expect(indexDB2.Close()).To(Succeed()) })
 						// The following regression test is used to assert that upon
 						// reading the second auto-span in a domain that begins with an
 						// inexact start (cut off), the iterator behaves properly. The
@@ -2490,7 +2486,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 				BeforeEach(func(ctx SpecContext) {
 					fs = openFS()
 					key = GenerateChannelKey()
-					db = MustSucceed(unary.Open(ctx, unary.Config{
+					db = MustOpen(unary.Open(ctx, unary.Config{
 						FS:        fs,
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -2501,9 +2497,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 						},
 						Instrumentation: PanicLogger(),
 					}))
-				})
-				AfterEach(func() {
-					Expect(db.Close()).To(Succeed())
 				})
 				It(
 					"Should not allow operations on a closed iterator",
@@ -3217,4 +3210,92 @@ var _ = Describe("Chunked Iteration", func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Iterator cache", func() {
+	var (
+		rec       *Recorder
+		dataDBs   [2]*unary.DB
+		indexKey  uint32 = 1
+		bounds           = (2 * telem.SecondTS).Range(5 * telem.SecondTS)
+		indexRead        = func() int {
+			GinkgoHelper()
+			n := rec.Count(MatchOp(OpReadAt))
+			rec.Reset()
+			return n
+		}
+	)
+	BeforeEach(func(ctx SpecContext) {
+		mem := fs.NewMem()
+		rec = NewRecorder(MustSucceed(mem.Sub("index")))
+		indexDB := MustOpen(unary.Open(ctx, unary.Config{
+			FS:        rec,
+			MetaCodec: json.Codec,
+			Channel: channel.Channel{
+				Name:     "Ada",
+				Key:      indexKey,
+				DataType: telem.TimestampT,
+				IsIndex:  true,
+				Index:    indexKey,
+			},
+			Instrumentation: PanicLogger(),
+		}))
+		Expect(unary.Write(
+			ctx,
+			indexDB,
+			1*telem.SecondTS,
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5, 6),
+		)).To(Succeed())
+		for i := range dataDBs {
+			key := indexKey + 1 + uint32(i)
+			dataDBs[i] = MustOpen(unary.Open(ctx, unary.Config{
+				FS:        MustSucceed(mem.Sub(fmt.Sprintf("data_%d", key))),
+				MetaCodec: json.Codec,
+				Channel: channel.Channel{
+					Name:     fmt.Sprintf("Grace_%d", key),
+					Key:      key,
+					DataType: telem.Int64T,
+					Index:    indexKey,
+				},
+				Instrumentation: PanicLogger(),
+			}))
+			dataDBs[i].SetIndex(indexDB.Index())
+			Expect(unary.Write(
+				ctx,
+				dataDBs[i],
+				1*telem.SecondTS,
+				telem.NewSeriesV[int64](1, 2, 3, 4, 5, 6),
+			)).To(Succeed())
+		}
+		rec.Reset()
+	})
+
+	// read reads bounds from the data channel at i, and returns the index reads it
+	// made.
+	read := func(ctx SpecContext, i int, cache *index.Cache) int {
+		GinkgoHelper()
+		iter := MustSucceed(dataDBs[i].OpenIterator(unary.IteratorConfig{
+			Bounds: bounds,
+			Cache:  cache,
+		}))
+		Expect(iter.SeekFirst(ctx)).To(BeTrue())
+		Expect(iter.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
+		Expect(iter.Value().SeriesAt(0)).To(telem.MatchSeriesDataV[int64](2, 3, 4))
+		Expect(iter.Close()).To(Succeed())
+		return indexRead()
+	}
+
+	It("Should resolve the lookups of a shared index once", func(ctx SpecContext) {
+		cache := index.NewCache()
+		Expect(read(ctx, 0, cache)).To(BeNumerically(">", 0))
+		Expect(read(ctx, 1, cache)).To(BeZero())
+	})
+
+	It(
+		"Should read the index for each iterator without a cache",
+		func(ctx SpecContext) {
+			Expect(read(ctx, 0, nil)).To(BeNumerically(">", 0))
+			Expect(read(ctx, 1, nil)).To(BeNumerically(">", 0))
+		},
+	)
 })

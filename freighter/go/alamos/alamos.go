@@ -58,8 +58,7 @@ func (cfg Config) Override(other Config) Config {
 
 var _ config.Config[Config] = Config{}
 
-// DefaultConfig is the default configuration for the tracing middleware.
-var DefaultConfig = Config{
+var defaultConfig = Config{
 	Level:             alamos.EnvironmentProd,
 	EnableTracing:     new(true),
 	EnablePropagation: new(true),
@@ -69,7 +68,7 @@ var DefaultConfig = Config{
 // Middleware adds traces and logs to incoming and outgoing requests and ensures
 // that they are propagated across the network.
 func Middleware(configs ...Config) (freighter.Middleware, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +100,7 @@ func Middleware(configs ...Config) (freighter.Middleware, error) {
 		}
 
 		if *cfg.EnableTracing {
-			_ = span.EndWith(err)
+			err = span.EndWith(err)
 		}
 
 		return oCtx, err

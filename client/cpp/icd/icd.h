@@ -21,7 +21,9 @@
 #include "client/cpp/icd/types.gen.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/field.h"
 
+#include "core/pkg/api/icd/pb/icd.pb.h"
 #include "core/pkg/transport/grpc/icd/icd.pb.h"
 
 namespace synnax::icd {
@@ -30,7 +32,7 @@ using CreateClient = freighter::
     UnaryClient<grpc::icd::CreateRequest, grpc::icd::CreateResponse>;
 
 using RetrieveClient = freighter::
-    UnaryClient<grpc::icd::RetrieveRequest, grpc::icd::RetrieveResponse>;
+    UnaryClient<grpc::icd::RetrieveRequest, ::api::icd::pb::RetrieveResponse>;
 
 using DeleteClient = freighter::
     UnaryClient<grpc::icd::DeleteRequest, google::protobuf::Empty>;
@@ -44,14 +46,41 @@ public:
         std::unique_ptr<DeleteClient> delete_client
     );
 
-    /// @brief Retrieves an ICD by its key.
+    /// @brief retrieves the ICD with the given key.
+    /// @param key the key of the ICD.
+    /// @param options the options of the retrieve.
+    /// @returns the ICD, and an error that matches NOT_FOUND when no ICD has the key.
     [[nodiscard]]
-    std::pair<ICD, x::errors::Error> retrieve(const Key &key) const;
+    std::pair<ICD, x::errors::Error>
+    retrieve(const Key &key, const RetrieveOptions &options = {}) const;
 
-    /// @brief Retrieves multiple ICDs by their keys.
+    /// @brief retrieves the ICDs with the given keys.
+    /// @param keys the keys of the ICDs.
+    /// @param options the options of the retrieve.
+    /// @returns the ICDs for the keys that exist, and an error if one occurred.
     [[nodiscard]]
     std::pair<std::vector<ICD>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys) const;
+    retrieve(const std::vector<Key> &keys, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the ICDs that where selects.
+    /// @param where the filter that the ICDs match. An empty filter matches all ICDs.
+    /// @param options the options of the retrieve.
+    [[nodiscard]]
+    std::pair<std::vector<ICD>, x::errors::Error>
+    retrieve(const Where &where, const RetrieveOptions &options = {}) const;
+
+    /// @brief retrieves the one ICD that where selects.
+    /// @param where the filter that the ICD matches.
+    /// @param options the options of the retrieve.
+    /// @returns the ICD, and an error that matches NOT_FOUND when no ICD matches,
+    /// MULTIPLE_RESULTS when more than one does, or VALIDATION when options set a limit
+    /// or a cursor.
+    [[nodiscard]]
+    std::pair<ICD, x::errors::Error> retrieve(
+        const Where &where,
+        x::filter::One,
+        const RetrieveOptions &options = {}
+    ) const;
 
     /// @brief Creates the ICD, or replaces the ICD that has its key. A replacement must
     /// carry the hash of the ICD as it was read. Sets the keys and the hash the Core

@@ -10,6 +10,7 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
@@ -18,6 +19,8 @@ import { type User, useUser } from "@/ui/clerk";
 import { Fact, Facts } from "@/ui/Facts";
 import { Modal } from "@/ui/modal";
 import { Page, Section } from "@/ui/Page";
+
+const path = deep.path<z.infer<typeof profileSchema>>();
 
 export interface SettingsProps {
   name: string;
@@ -81,11 +84,11 @@ const EditProfileContent = ({ user }: EditProfileDialogProps): ReactElement => {
       }}
     >
       <Form.TextField
-        path="firstName"
+        path={path.firstName}
         label="First name"
         inputProps={{ autoFocus: true }}
       />
-      <Form.TextField path="lastName" label="Last name" />
+      <Form.TextField path={path.lastName} label="Last name" />
     </Modal.Form>
   );
 };

@@ -30,7 +30,7 @@ const Item = ({ invitation, team }: Invited): ReactElement => {
   return (
     <Row columns={COLUMNS}>
       <Flex.Box y gap="tiny" className="portal-list__stack">
-        <Text.Text level="p" weight={500} overflow="ellipsis">
+        <Text.Text level="p" weight={500} overflow="fade">
           {team.name}
         </Text.Text>
         {join.error != null && (

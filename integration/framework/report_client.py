@@ -8,13 +8,34 @@
 #  included in the file licenses/APL.txt.
 
 import threading
-from collections.abc import Callable
-from typing import Any, TextIO
+from typing import TextIO, TypedDict
 
 import synnax as sy
 from framework.config_client import TestDefinition
-from framework.models import STATUS, SYMBOLS, Test
+from framework.models import STATUS, SYMBOLS, Log, Test
 from framework.test_case import TestCase
+
+
+class ActiveTest(TypedDict):
+    name: str
+    elapsed_time: float
+
+
+class Result(TypedDict):
+    name: str
+    status: int
+    duration: float | None
+    error: str | None
+
+
+class Progress(TypedDict):
+    """The progress of a test run."""
+
+    is_running: bool
+    total_tests: int
+    completed_tests: int
+    active_tests: list[ActiveTest]
+    results: list[Result]
 
 
 class ReportClient:
@@ -22,6 +43,7 @@ class ReportClient:
 
     def __init__(
         self,
+        *,
         tests: list[Test],
         tests_lock: threading.Lock,
         test_definitions: list[TestDefinition],
@@ -29,7 +51,7 @@ class ReportClient:
             tuple[TestDefinition, TestCase, sy.Range | None, threading.Thread]
         ],
         active_tests_lock: threading.Lock,
-        log: Callable[[str, bool], None],
+        log: Log,
     ) -> None:
         self._tests = tests
         self._tests_lock = tests_lock
@@ -45,8 +67,8 @@ class ReportClient:
                 return {
                     "total": 0,
                     "passed": 0,
-                    "skipped": 0,
                     "flaky": 0,
+                    "skipped": 0,
                     "failed": 0,
                     "killed": 0,
                     "timeout": 0,
@@ -54,8 +76,8 @@ class ReportClient:
                 }
 
             passed = sum(1 for r in self._tests if r.status == STATUS.PASSED)
-            skipped = sum(1 for r in self._tests if r.status == STATUS.SKIPPED)
             flaky = sum(1 for r in self._tests if r.status == STATUS.FLAKY)
+            skipped = sum(1 for r in self._tests if r.status == STATUS.SKIPPED)
             failed = sum(1 for r in self._tests if r.status == STATUS.FAILED)
             killed = sum(1 for r in self._tests if r.status == STATUS.KILLED)
             timeout = sum(1 for r in self._tests if r.status == STATUS.TIMEOUT)
@@ -64,18 +86,18 @@ class ReportClient:
             return {
                 "total": len(self._tests),
                 "passed": passed,
-                "skipped": skipped,
                 "flaky": flaky,
+                "skipped": skipped,
                 "failed": failed,
                 "killed": killed,
                 "timeout": timeout,
                 "total_failed": total_failed,
             }
 
-    def get_current_status(self, is_running: bool) -> dict[str, Any]:
+    def get_current_status(self, *, is_running: bool) -> Progress:
         """Get the current status of test execution."""
         with self._active_tests_lock:
-            active_snapshot = [
+            active_snapshot: list[ActiveTest] = [
                 {
                     "name": test_instance.__class__.__name__,
                     "elapsed_time": (
@@ -90,7 +112,7 @@ class ReportClient:
 
         with self._tests_lock:
             completed = len(self._tests)
-            results = [
+            results: list[Result] = [
                 {
                     "name": result.test_name,
                     "status": result.status.value,
@@ -123,7 +145,7 @@ class ReportClient:
 
         stats = self.get_statistics()
 
-        self._log("\n" + "=" * 60, False)
+        self._log("\n" + "=" * 60, use_name=False)
         for test in tests_snapshot:
             if test.range is not None and test.range.time_range.end != sy.TimeStamp.MAX:
                 duration = (
@@ -138,37 +160,37 @@ class ReportClient:
             display_name = (
                 "/".join(case_parts[1:]) if len(case_parts) > 1 else str(test)
             )
-            self._log(f"{status_symbol} {display_name}{duration_str}", False)
+            self._log(f"{status_symbol} {display_name}{duration_str}", use_name=False)
             if test.skip_reason:
-                self._log(f"SKIPPED: {test.skip_reason}", False)
+                self._log(f"SKIPPED: {test.skip_reason}", use_name=False)
             if test.error_message:
-                self._log(f"ERROR: {test.error_message}", True)
+                self._log(f"ERROR: {test.error_message}")
 
-        self._log("=" * 60, False)
-        self._log("TEST EXECUTION SUMMARY", False)
+        self._log("=" * 60, use_name=False)
+        self._log("TEST EXECUTION SUMMARY", use_name=False)
 
-        self._log("=" * 60, False)
-        self._log(f"Total tests: {stats['total']}", False)
+        self._log("=" * 60, use_name=False)
+        self._log(f"Total tests: {stats['total']}", use_name=False)
         if conductor_range is not None:
             test_time_secs = (
                 sy.TimeStamp.now() - conductor_range.time_range.start
             ) / sy.TimeSpan.SECOND
             minutes = int(test_time_secs // 60)
             seconds = int(test_time_secs % 60)
-            self._log(f"Total time: {minutes}m {seconds}s", False)
-        self._log(f"Passed: {stats['passed']}", False)
-        if stats["skipped"] > 0:
-            self._log(f"Skipped: {stats['skipped']} (unsupported on this host)", False)
+            self._log(f"Total time: {minutes}m {seconds}s", use_name=False)
+        self._log(f"Passed: {stats['passed']}", use_name=False)
         if stats["flaky"] > 0:
-            self._log(f"Flaky: {stats['flaky']} (passed on retry)", False)
+            self._log(f"Flaky: {stats['flaky']} (passed on retry)", use_name=False)
+        if stats["skipped"] > 0:
+            self._log(f"Skipped: {stats['skipped']}", use_name=False)
         self._log(
             f"Failed: {stats['total_failed']} "
             f"(includes {stats['failed']} failed, "
             f"{stats['killed']} killed, {stats['timeout']} timeout)",
-            False,
+            use_name=False,
         )
-        self._log("=" * 60, False)
-        self._log("\n", False)
+        self._log("=" * 60, use_name=False)
+        self._log("\n", use_name=False)
 
     def report_to_github(self, out: TextIO, step_summary: TextIO | None) -> None:
         """Reports each skipped test to GitHub Actions as a notice on the run and as a
@@ -192,7 +214,8 @@ class ReportClient:
             for t in skipped
         )
         step_summary.write(
-            f"### Skipped integration tests\n\n| Test | Reason |\n| --- | --- |\n{rows}\n"
+            "### Skipped integration tests\n\n"
+            f"| Test | Reason |\n| --- | --- |\n{rows}\n"
         )
 
 

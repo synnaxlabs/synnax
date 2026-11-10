@@ -125,14 +125,14 @@ of a 1 ms interval to a channel, and you plot the channel.
    ```arc channels="loop_spacing_us" bodies="spacing_us"
    import time
 
-   func spacing_us(t i64 ns) f64 {
+   func spacing_us() {t i64 ns} f64 {
        prev $= t
        d := t - prev
        prev = t
        return f64(d) / 1000.0
    }
 
-   time.interval{period=1ms} -> time.now{} -> spacing_us{} -> loop_spacing_us
+   time.interval(period=1ms) -> time.now() -> spacing_us() -> loop_spacing_us
    ```
 
 3. Select a Driver and a performance level, then click **Start**.

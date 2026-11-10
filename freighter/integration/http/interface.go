@@ -18,29 +18,24 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-type Message struct {
+type message struct {
 	Message string `json:"message" msgpack:"message"`
 	ID      int    `json:"id"      msgpack:"id"`
 }
 
-type (
-	Server       = freighter.StreamServer[Message, Message]
-	Client       = freighter.StreamClient[Message, Message]
-	ServerStream = freighter.ServerStream[Message, Message]
-	ClientStream = freighter.ClientStream[Message, Message]
-)
+type serverStream = freighter.ServerStream[message, message]
 
-type TestError struct {
+type testError struct {
 	Message string
 	Code    int
 }
 
-func (t TestError) Error() string {
+func (t testError) Error() string {
 	return t.Message
 }
 
 func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
-	var errTest TestError
+	var errTest testError
 	ok := errors.As(err, &errTest)
 	if !ok {
 		return errors.Payload{}, false
@@ -63,7 +58,7 @@ func decodeTestError(_ context.Context, pld errors.Payload) (error, bool) {
 	if err != nil {
 		return err, true
 	}
-	return TestError{
+	return testError{
 		Code:    code,
 		Message: parts[1],
 	}, true

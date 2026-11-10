@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { access } from "@synnaxlabs/client";
+import { access, type Synnax, user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access, User } from "@synnaxlabs/pluto";
@@ -23,29 +23,34 @@ const useDelete = Tree.createUseDelete({
 
 const useRename = Tree.createUseRename({
   useUpdate: Access.Role.useRename,
-  ontologyID: access.role.ontologyID,
+  resourceID: access.role.resourceID,
   convertKey: String,
 });
+
+const retrieve: Tree.Retrieve = async (c, key) =>
+  await c.access.roles.retrieve({ key });
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
-    state,
   } = props;
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const hasUpdatePermission = Access.useUpdateGranted(ids);
   const handleDelete = useDelete(props);
   const handleRename = useRename(props);
   const singleResource = ids.length === 1;
-  const resources = Tree.useResources(state, ids);
-  const hasInternal = resources.some((r) => r.data?.internal === true);
+  const roles = Access.Role.useMultiple({ keys: ids.map(({ key }) => key) });
+  const hasInternal = roles.some((r) => r.internal === true);
   return (
     <ContextMenu.Menu>
       {singleResource && hasUpdatePermission && !hasInternal && (
         <ContextMenu.RenameItem onClick={handleRename} />
       )}
       <Menu.Divider />
-      {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <Tree.CopyPropertiesContextMenuItem {...props} retrieve={retrieve} />
+      )}
       <Menu.Divider />
       {hasDeletePermission && !hasInternal && (
         <ContextMenu.DeleteItem onClick={handleDelete} />
@@ -61,18 +66,28 @@ const ROLE_ICONS: Record<string, Icon.ReactElement> = {
   Engineer: <Icon.Safety />,
   Operator: <Icon.Control />,
   Viewer: <Icon.Visible />,
-  Host: <Icon.TerminalOutline />,
+  Driver: <Icon.Rack />,
 };
 
+/** Lists the top level of the role tree: every role. */
+export const listTreeRoot = (client: Synnax): Tree.Source[] => [
+  Tree.createSource(client.access.roles, {}, Tree.toResource("role")),
+];
+
 const TreeItem = Tree.createItem({
-  type: "role",
   icon: ({ name }) => ROLE_ICONS[name] ?? <Icon.Role />,
   ContextMenu: TreeContextMenu,
-  hasChildren: true,
-  canDrop: ({ items }) => {
-    const users = User.filterHaulItems(items);
-    return users.length === items.length && users.every(({ data }) => !data.rootUser);
-  },
+  children: ({ client, id }) => [
+    Tree.createSource(client.users, { roles: [id.key] }, Tree.toResource("user")),
+  ],
+  drop: async ({ client, destination, items }) =>
+    await client.users.setRole(
+      items.map(({ id }) => id.key),
+      destination.id.key,
+    ),
+  canDrop: ({ items, moved }) =>
+    moved.every(({ id }) => id.type === user.TYPE_RESOURCE_ID.type) &&
+    User.filterHaulItems(items).every(({ data }) => !data.rootUser),
 });
 
 export const TREE_ITEMS = { role: TreeItem } satisfies Tree.Items;

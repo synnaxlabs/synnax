@@ -8,25 +8,40 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, filter, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type ICD, icdZ, type Key, keyZ, type New, ontologyID } from "@/icd/types.gen";
+import {
+  type ICD,
+  icdZ,
+  type Key,
+  keyZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+} from "@/icd/types.gen";
+import {
+  compareCursors,
+  cursor,
+  matches,
+  retrieveInputZ,
+  serverComputed,
+  shortcutZ,
+} from "@/icd/where.gen";
 import { library } from "@/library";
-import { type ontology } from "@/ontology";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_icd_set";
 export const DELETE_CHANNEL_NAME = "sy_icd_delete";
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
+const retrieveMultiParamsZ = filter.requestInputZ(
+  retrieveRequestZ,
+  retrieveInputZ(retrieveRequestZ.omit({ where: true }).shape),
+);
+
+/** Everything a multi-ICD retrieval can filter on. */
+export type RetrieveMultipleParams = query.RequestInput<typeof retrieveMultiParamsZ>;
 
 const createReqZ = z.object({ icds: icdZ.array() });
 const createResZ = z.object({ icds: icdZ.array() });
@@ -34,7 +49,6 @@ const checkReqZ = z.object({ icd: icdZ });
 const checkResZ = z.object({ problems: library.problemZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
-const retrieveResZ = z.object({ icds: icdZ.array().default(() => []) });
 const emptyResZ = z.object({});
 
 /** The file formats an interface control document is imported from. */
@@ -56,19 +70,9 @@ const encodeBase64 = (data: Uint8Array): string => {
   return btoa(binary);
 };
 
-/**
- * Client-side matching for a request: key sets. Server-computed shapes (search,
- * limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((i: ICD) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (i) => keySet == null || keySet.has(i.key);
-};
-
 export interface ClientConfig {
   unary: UnaryClient;
   cache: query.Cache;
-  ontology: ontology.Client;
 }
 
 export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, ICD> {
@@ -79,7 +83,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     const { cache } = cfg;
     const store = cache.createTable<Key, ICD>({
       name: "icds",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, icdZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -88,10 +92,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     super(cache, {
       name: "icd",
       table: store,
+      shortcut: shortcutZ,
       request: {
+        list: { cursor, compare: compareCursors },
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (icd, req) => requestFilter(req)(icd),
+        matches: (icd, req) => matches(icd, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -172,10 +179,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
   }
 
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
-    const rename = () => [
-      query.partialUpdate(this.store, key, { name }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), name),
-    ];
+    const rename = () => [query.partialUpdate(this.store, key, { name })];
     await query.optimistic({
       rollbacks: rename(),
       onOptimistic: opts.onOptimistic,
@@ -191,10 +195,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
    */
   async delete(keys: Key | Key[], opts: query.WriteOptions = {}): Promise<void> {
     const keysArr = array.toArray(keys);
-    const drop = () => [
-      this.cfg.ontology.cache.deleteResources(ontologyID(keysArr)),
-      this.store.delete(keysArr),
-    ];
+    const drop = () => [this.store.delete(keysArr)];
     await query.optimistic({
       rollbacks: drop(),
       onOptimistic: opts.onOptimistic,
@@ -213,8 +214,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, IC
     const res = await this.cfg.unary.send(
       "/icd/retrieve",
       req,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.icds;
   }

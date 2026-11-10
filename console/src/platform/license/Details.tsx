@@ -56,7 +56,7 @@ interface RowProps {
 const Row = ({ name, value }: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label>{name}</Description.Label>
-    <Description.Value overflow="ellipsis">{value}</Description.Value>
+    <Description.Value overflow="fade">{value}</Description.Value>
   </Description.Item>
 );
 
@@ -96,7 +96,7 @@ const Account = (): ReactElement | null => {
   if (email == null) return null;
   return (
     <Flex.Box x justify="between" align="center" gap="large">
-      <Text.Text level="small" color={10} overflow="ellipsis">
+      <Text.Text level="small" color={10} overflow="fade">
         Logged in as {email}
       </Text.Text>
       <Button.Button variant="text" size="small" href={ACCOUNT_URL} target="_blank">
@@ -112,14 +112,14 @@ const Account = (): ReactElement | null => {
  * nothing when the user may not read the license.
  */
 export const Summary = (): ReactElement | null =>
-  Access.useRetrieveGranted(license.ONTOLOGY_ID) ? <GrantedSummary /> : null;
+  Access.useRetrieveGranted(license.RESOURCE_ID) ? <GrantedSummary /> : null;
 
 /**
  * The account the machine is linked to, and the license in full, for the version info
  * modal. The license shows only when the user may read it.
  */
 export const Details = (): ReactElement => {
-  const granted = Access.useRetrieveGranted(license.ONTOLOGY_ID);
+  const granted = Access.useRetrieveGranted(license.RESOURCE_ID);
   return (
     <Flex.Box y gap="small" className={CSS.B("license")}>
       <Account />

@@ -12,7 +12,7 @@ package cesium
 import (
 	"context"
 	"fmt"
-	"strconv"
+	"strings"
 	"sync/atomic"
 
 	"github.com/synnaxlabs/cesium/internal/channel"
@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -50,9 +51,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 		options:        o,
 		closed:         &atomic.Bool{},
 		controlUpdates: observe.New[ControlUpdate](),
+		historyChanges: observe.New[HistoryChange](),
 	}
 	db.mu.dbs.unary = make(map[channel.Key]unary.DB, len(info))
 	db.mu.dbs.virtual = make(map[channel.Key]virtual.DB, len(info))
+	var detached []string
 	for _, i := range info {
 		if !i.IsDir() {
 			db.L.Warn(fmt.Sprintf(
@@ -61,7 +64,11 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			))
 			continue
 		}
-		key, err := strconv.Atoi(i.Name())
+		if strings.Contains(i.Name(), deletedDirInfix) {
+			detached = append(detached, i.Name())
+			continue
+		}
+		key, err := dirNameToKey(i.Name())
 		if err != nil {
 			db.L.Error(fmt.Sprintf(
 				"failed parsing existing folder <%s> to channel key",
@@ -72,7 +79,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 			continue
 		}
 
-		if err = db.openVirtualOrUnary(ctx, Channel{Key: ChannelKey(key)}); err != nil {
+		if err = db.openVirtualOrUnary(ctx, Channel{Key: key}); err != nil {
 			return nil, err
 		}
 	}
@@ -81,6 +88,7 @@ func Open(ctx context.Context, dirname string, opts ...Option) (*DB, error) {
 	db.relay = openRelay(sCtx, o)
 	db.startGC(sCtx, o)
 	db.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	db.removeDirs(detached...)
 	return db, nil
 }
 
@@ -101,7 +109,7 @@ func (db *DB) openVirtual(ctx context.Context, ch Channel, fs fs.FS) error {
 	return nil
 }
 
-func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
+func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) (err error) {
 	if _, isOpen := db.mu.dbs.unary[ch.Key]; isOpen {
 		return nil
 	}
@@ -112,10 +120,18 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 		Instrumentation: db.Instrumentation,
 		FileSize:        db.fileSize,
 		GCThreshold:     db.gcCfg.Threshold,
+		OnHistoryChange: func(ctx context.Context, tr telem.TimeRange) {
+			db.historyChanges.Notify(ctx, HistoryChange{Key: ch.Key, TimeRange: tr})
+		},
 	})
 	if err != nil {
 		return err
 	}
+	defer func() {
+		if err != nil {
+			err = errors.Combine(err, u.Close())
+		}
+	}()
 	// For non-index channels, resolve the index DB. The index DB is always a
 	// fixed-density unary DB (index channels are TimestampT with IsIndex=true).
 	if u.Channel().Index != 0 && !u.Channel().IsIndex {
@@ -135,6 +151,9 @@ func (db *DB) openUnary(ctx context.Context, ch Channel, fs fs.FS) error {
 			}
 		}
 		u.SetIndex(idxDB.Index())
+		if err = u.TruncateToIndex(ctx); err != nil {
+			return err
+		}
 	}
 	db.mu.dbs.unary[ch.Key] = *u
 	return nil

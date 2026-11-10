@@ -13,23 +13,20 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
 var _ gorp.Entry[Key] = User{}
 
-// OntologyID returns a unique identifier for the user for use within a resource
+// ResourceID returns a unique identifier for the user for use within a resource
 // ontology.
-func (u User) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeUser, Key: u.Key.String()}
+func (u User) ResourceID() resource.ID {
+	return resource.ID{Type: resource.TypeUser, Key: u.Key.String()}
 }
 
 // GorpKey implements gorp.Entry.
 func (u User) GorpKey() Key { return u.Key }
-
-// SetOptions implements gorp.Entry.
-func (User) SetOptions() []any { return nil }
 
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
 // MessagePack field names (e.g. "Key", "Username") and new lowercase field names for

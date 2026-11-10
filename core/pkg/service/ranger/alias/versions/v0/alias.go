@@ -23,6 +23,3 @@ var _ gorp.Entry[string] = Alias{}
 func (a Alias) GorpKey() string {
 	return fmt.Sprintf("%s%s%s", a.Range, keySeparator, a.Channel)
 }
-
-// SetOptions implements gorp.Entry.
-func (Alias) SetOptions() []any { return nil }

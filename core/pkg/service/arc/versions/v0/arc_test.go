@@ -19,9 +19,9 @@ import (
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v0"
 	xmsgpack "github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
@@ -70,12 +70,6 @@ var _ = Describe("Arc", func() {
 		It("Should return the Arc's key", func() {
 			k := uuid.New()
 			Expect(v0.Arc{Key: k}.GorpKey()).To(Equal(k))
-		})
-	})
-
-	Describe("SetOptions", func() {
-		It("Should return no options", func() {
-			Expect(v0.Arc{}.SetOptions()).To(BeNil())
 		})
 	})
 })
@@ -128,7 +122,7 @@ var _ = Describe("Graph", func() {
 				"00a45a6f6f6dca00000000a36b6579c41096e1d792008a4905a3bc5c9fc103cdda",
 		))
 		var a v0.Arc
-		Expect(xmsgpack.Codec.Decode(ctx, stored, &a)).To(Succeed())
+		Expect(xmsgpack.Codec.Decode(stored, &a)).To(Succeed())
 		Expect(a.Name).To(Equal("graph arc"))
 		Expect(a.Graph.Nodes).To(HaveLen(2))
 		Expect(a.Graph.Nodes[0]).To(And(

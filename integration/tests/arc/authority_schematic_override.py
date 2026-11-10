@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -25,15 +25,15 @@ start_seq_cmd => main
 
 sequence main {
     stage pressurize {
-        control.set_authority{value=210, channel=press_vlv_cmd}
+        control.set_authority(value=210, channel=press_vlv_cmd)
         1 -> press_vlv_cmd
         seq_close_cmd => depressurize
-        wait{100ms} => pressurize
+        wait(100ms) => pressurize
     }
     stage depressurize {
-        control.set_authority{value=210, channel=press_vlv_cmd}
+        control.set_authority(value=210, channel=press_vlv_cmd)
         0 -> press_vlv_cmd
-        wait{100ms} => depressurize
+        wait(100ms) => depressurize
     }
 }
 """
@@ -51,12 +51,14 @@ class AuthoritySchematicOverride(ArcCase, ConsoleCase):
     start_cmd_channel = "start_seq_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self._schematic: Schematic | None = None
         self._schematic_controlled = False
-        create_virtual_channel(self.client, "seq_close_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "seq_close_cmd", data_type=sy.DataType.UINT8
+        )
         super().setup()
         self.set_manual_timeout(120)
 

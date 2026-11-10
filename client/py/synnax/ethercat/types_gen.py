@@ -11,14 +11,12 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override as _override
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel as channel_
-from synnax import device as device_
-from synnax import task
+from synnax import channel as channel_, device as device_, task
 from x import telem
 
 
@@ -39,6 +37,7 @@ class BaseReadChannel(BaseModel):
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -66,6 +65,7 @@ class BaseWriteChannel(BaseModel):
     state_channel_name: str = ""
     device: device_.Key = ""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -73,8 +73,28 @@ class BaseWriteChannel(BaseModel):
 class ScanConfig(task.ScanConfig):
     """Configures an EtherCAT scan task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class StartupParameter(BaseModel):
+    """Is a CoE object that the Driver writes to a slave in PRE-OP, before the slave
+    moves to SAFE-OP.
+
+    Attributes:
+        index: Is the CoE object dictionary index of the object.
+        sub_index: Is the CoE object dictionary sub-index of the object.
+        data_type: Is the data type of the object, which sets the size of the write.
+        value: Is the value written to the object.
+        name: Is what the parameter sets, for display.
+    """
+
+    index: int = Field(ge=0, le=65535)
+    sub_index: int = Field(ge=0, le=255)
+    data_type: telem.DataType
+    value: float
+    name: str = ""
 
 
 class EntryReadChannel(BaseReadChannel):
@@ -84,6 +104,7 @@ class EntryReadChannel(BaseReadChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    scale: task.Scale = Field(default_factory=lambda: task.NoneScale(type="none"))
 
 
 class UnresolvedReadChannel(BaseReadChannel):
@@ -110,6 +131,7 @@ class EntryWriteChannel(BaseWriteChannel):
     index: int = Field(ge=0, le=65535)
     sub_index: int = Field(ge=0, le=255)
     data_type: telem.DataType
+    stop_value: float = 0
 
 
 class UnresolvedWriteChannel(BaseWriteChannel):
@@ -129,18 +151,16 @@ WriteChannel = Annotated[
 ]
 
 
-class ReadConfig(task.ReadConfig):
-    """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
-    slave; all slaves must share one network interface.
+class SlaveStartupParameters(BaseModel):
+    """Holds the startup parameters that a read task writes to one slave.
 
     Attributes:
-        channels: Are the channels the task acquires.
+        device: Is the key of the slave device the parameters are written to.
+        parameters: Are the parameters written to the slave, in order.
     """
 
-    channels: list[ReadChannel] = Field(default_factory=list)
-
-    def __hash__(self) -> int:
-        return hash(self.key)
+    device: device_.Key = ""
+    parameters: list[StartupParameter] = Field(default_factory=list)
 
 
 class WriteConfig(task.PersistConfig):
@@ -157,5 +177,23 @@ class WriteConfig(task.PersistConfig):
     execution_rate: telem.Rate = telem.Rate(1000)
     channels: list[WriteChannel] = Field(default_factory=list)
 
+    @_override
+    def __hash__(self) -> int:
+        return hash(self.key)
+
+
+class ReadConfig(task.ReadConfig):
+    """Configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+    slave; all slaves must share one network interface.
+
+    Attributes:
+        channels: Are the channels the task acquires.
+        startup_parameters: Are the startup parameters the task writes to its slaves.
+    """
+
+    channels: list[ReadChannel] = Field(default_factory=list)
+    startup_parameters: list[SlaveStartupParameters] = Field(default_factory=list)
+
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

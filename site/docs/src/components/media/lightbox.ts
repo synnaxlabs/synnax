@@ -13,7 +13,9 @@ type Media = HTMLImageElement | HTMLVideoElement;
 
 interface Expanded {
   media: Media;
-  /** The element that moved into the lightbox: the media, or a themed image's picture. */
+  /**
+   * The element that moved into the lightbox: the media, or a themed image's picture.
+   */
   moved: Element;
   /** The hidden copy that holds the media's place on the page. */
   placeholder: Element;
@@ -110,7 +112,7 @@ export const start = (): void => {
     if (!scrubber.matches(":active")) scrubber.value = String(position);
     query<HTMLElement>(
       root,
-      ".docs-lightbox__scrubber .pluto-progress-bar",
+      ".docs-lightbox__scrubber .lyra-progress-bar",
     ).style.width = `${Number(scrubber.value) * 100}%`;
     query(root, ".docs-lightbox__time").textContent =
       `${clock(video.currentTime)} / ${clock(video.duration)}`;

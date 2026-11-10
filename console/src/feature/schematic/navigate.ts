@@ -49,7 +49,7 @@ export const useHandleNodeClickAction = (schematicKey: string): NodeClickHandler
   return (nodeId: string, dblClick: boolean) => {
     const ui = getSchematic({ key: schematicKey });
     if (ui == null || ui.editable || client == null) return;
-    const cached = client.schematics.getCached(schematicKey);
+    const cached = client.schematics.watch(schematicKey).getCached();
     const config = query.isLive(cached) ? cached.configs?.[nodeId] : undefined;
     if (config?.variant !== "off_page_reference") return;
     const { page } = config;

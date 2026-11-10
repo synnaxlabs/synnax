@@ -9,6 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-modbus-connect {
-    width: 155rem;
+/* With the 4rem gap of the modal body, this matches the spacing of one grid. */
+.console-modbus-connect__sections + .console-modbus-connect__sections {
+    margin-top: 3.5rem;
 }

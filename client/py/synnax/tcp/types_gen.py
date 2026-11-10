@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from typing import override as _override
+
 from pydantic import BaseModel, Field
 
 from synnax import bus, task
@@ -31,6 +33,7 @@ class Properties(BaseModel):
 class ReadConfig(bus.StreamReadConfig):
     """Configures a TCP read task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -38,6 +41,7 @@ class ReadConfig(bus.StreamReadConfig):
 class WriteConfig(bus.StreamWriteConfig):
     """Configures a TCP write task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -45,5 +49,6 @@ class WriteConfig(bus.StreamWriteConfig):
 class ScanConfig(task.ScanConfig):
     """Configures the scan task that checks each TCP device is reachable."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

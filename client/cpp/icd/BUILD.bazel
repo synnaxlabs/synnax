@@ -21,10 +21,12 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp/errors",
-        "//client/cpp/ontology",
+        "//client/cpp/resource",
+        "//core/pkg/api/icd:icd_grpc",
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/pb",
         "//x/cpp/telem",
@@ -40,7 +42,7 @@ cc_test(
         ":icd",
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

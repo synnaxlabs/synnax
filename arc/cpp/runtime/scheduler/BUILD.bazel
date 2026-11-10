@@ -64,7 +64,7 @@ cc_test(
         "//arc/cpp/stl/time",
         "//x/cpp/errors",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

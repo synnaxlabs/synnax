@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, panel, TimeRange, TimeSpan } from "@synnaxlabs/client";
+import { panel, type resource, TimeRange, TimeSpan } from "@synnaxlabs/client";
 import { type Locator } from "playwright";
 
 import { capture, type fixtures } from "@/index";
@@ -58,10 +58,10 @@ export const startColdflow = async (
   await capture.closeToolbar(session);
   await session.settle(500);
   const arcTab = page
-    .locator(".console-mosaic .pluto-tabs__tab")
+    .locator(".console-mosaic .lyra-tabs__tab")
     .filter({ hasText: "Ox Coldflow" })
     .first();
-  const bar = await fuel.locator(".pluto-tabs__selector").first().boundingBox();
+  const bar = await fuel.locator(".lyra-tabs__selector").first().boundingBox();
   if (bar == null) throw new Error("the fuel plot's tab bar is not on screen");
   await session.drag(arcTab, { x: bar.x + bar.width * 0.5, y: bar.y + bar.height / 2 });
   await session.settle(1500);
@@ -106,18 +106,19 @@ export interface Layout {
 export const operationsLayout = async (
   client: ReturnType<typeof fixtures.connect>,
 ): Promise<Layout> => {
-  const resources = await client.ontology.retrieve({
-    types: ["panel", "lineplot", "schematic", "table", "log"],
-  });
-  const id = (name: string): ontology.ID => {
-    const resource = resources.find((r) => r.name === name);
-    if (resource == null) throw new Error(`the TPC world has no "${name}"`);
-    return resource.id;
+  const id = async (name: string): Promise<resource.ID> => {
+    const found = await client.resources.search({
+      searchTerm: name,
+      types: ["panel", "lineplot", "schematic", "table", "log"],
+    });
+    const match = found.find((r) => r.name === name);
+    if (match == null) throw new Error(`the TPC world has no "${name}"`);
+    return match.id;
   };
-  const key = id(PANEL).key;
+  const { key } = await id(PANEL);
   const leaf = async (name: string): Promise<{ tab: string; path: number }> => {
     const { root } = await client.panels.retrieve(key);
-    const tab = panel.findTabByResource(root, id(name));
+    const tab = panel.findTabByResource(root, await id(name));
     const path = tab == null ? undefined : panel.tabLeafPath(root, tab.key);
     if (tab == null || path == null) throw new Error(`${PANEL} has no "${name}" tab`);
     return { tab: tab.key, path };
@@ -144,7 +145,7 @@ export const operationsLayout = async (
 export const openOperator = async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   const drawer = page
-    .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+    .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
     .first();
   // The legend switch shows only while editing, and taking control ends editing.
   await session.click(page.getByText(PANEL, { exact: true }).first());

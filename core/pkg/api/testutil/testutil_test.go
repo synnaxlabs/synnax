@@ -16,12 +16,20 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 var _ = Describe("AuthedCtx", func() {
 	It("Should install the user as the request subject", func(ctx SpecContext) {
-		u := user.User{Key: uuid.New(), Username: "author"}
-		Expect(auth.GetSubject(AuthedCtx(ctx, u))).To(Equal(u.OntologyID()))
+		u := user.User{Key: uuid.New(), Name: "author"}
+		Expect(auth.GetSubject(AuthedCtx(ctx, u))).To(Equal(u.ResourceID()))
+	})
+})
+
+var _ = Describe("SubjectCtx", func() {
+	It("Should install the subject as the request subject", func(ctx SpecContext) {
+		subject := rack.NewKey(1, 2).ResourceID()
+		Expect(auth.GetSubject(SubjectCtx(ctx, subject))).To(Equal(subject))
 	})
 })

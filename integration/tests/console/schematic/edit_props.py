@@ -9,8 +9,7 @@
 
 import synnax as sy
 from console.case import ConsoleCase
-from console.schematic import Button, Symbol, Value
-from console.schematic.schematic import PropertyDict, Schematic
+from console.schematic import Button, Properties, Schematic, Symbol, Value
 
 CHANNEL_NAME = "button_cmd"
 INDEX_NAME = "button_idx"
@@ -31,19 +30,24 @@ EDGE_VARIANTS = [
 
 
 def assert_properties(
-    schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
+    schematic: Schematic,
+    *,
+    control_authority: int = 1,
+    show_control_legend: bool = True,
 ) -> None:
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
     assert props["control_authority"] == control_authority, (
-        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
+        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: "
+        f"{control_authority}"
     )
     assert props["show_control_legend"] == show_control_legend, (
-        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, "
+        f"Expected: {show_control_legend}"
     )
 
 
-def assert_symbol_properties(symbol: Symbol, expected_props: PropertyDict) -> None:
+def assert_symbol_properties(symbol: Symbol, expected_props: Properties) -> None:
     """Assert the symbol properties match expected values."""
     actual_props = symbol.get_properties()
     assert actual_props == expected_props, (
@@ -103,7 +107,7 @@ class EditProps(ConsoleCase):
         assert schematic.get_control_status() is True, (
             "Control status mismatch! Expected: True"
         )
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 
@@ -118,7 +122,7 @@ class EditProps(ConsoleCase):
         )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert schematic.control_legend_visible is False, (
+        assert schematic.control_legend_visible() is False, (
             "Control legend should not be visible"
         )
 
@@ -134,7 +138,7 @@ class EditProps(ConsoleCase):
         value = schematic.create_symbol(
             Value(label=f"{self.name}_uptime", channel_name=f"{self.name}_uptime")
         )
-        default_props: PropertyDict = {
+        default_props: Properties = {
             "channel": f"{self.name}_uptime",
             "notation": "standard",
             "precision": 2,
@@ -145,7 +149,7 @@ class EditProps(ConsoleCase):
         assert_symbol_properties(value, default_props)
 
         self.log("1.2 Edited")
-        expected_edited_props: PropertyDict = {
+        expected_edited_props: Properties = {
             "channel": f"{self.name}_time",
             "notation": "scientific",
             "precision": 4,
@@ -165,7 +169,7 @@ class EditProps(ConsoleCase):
         value.delete()
 
         self.log("1.3 Non-Default")
-        non_default_props: PropertyDict = {
+        non_default_props: Properties = {
             "channel": f"{self.name}_state",
             "notation": "engineering",
             "precision": 7,
@@ -195,11 +199,11 @@ class EditProps(ConsoleCase):
             Button(label=CHANNEL_NAME, channel_name=CHANNEL_NAME)
         )
 
-        expected_default_props: PropertyDict = {
+        expected_default_props: Properties = {
             "channel": CHANNEL_NAME,
             "activation_delay": 0,
             "show_control_chip": True,
-            "mode": "Fire",
+            "mode": "fire",
         }
         assert_symbol_properties(button, expected_default_props)
 
@@ -207,24 +211,24 @@ class EditProps(ConsoleCase):
         button.set_properties(
             channel_name=CHANNEL_NAME,
             show_control_chip=False,
-            mode="Momentary",
+            mode="momentary",
         )
         # Momentary hides the activation delay field: the hold is the
         # actuation, so no delay applies and the property is not read back.
-        expected_edited_props: PropertyDict = {
+        expected_edited_props: Properties = {
             "channel": CHANNEL_NAME,
             "show_control_chip": False,
-            "mode": "Momentary",
+            "mode": "momentary",
         }
         assert_symbol_properties(button, expected_edited_props)
         button.delete()
 
         self.log("2.3 Non-Default")
-        non_default_props: PropertyDict = {
+        non_default_props: Properties = {
             "channel": CHANNEL_NAME,
             "activation_delay": 2.3,
             "show_control_chip": True,
-            "mode": "Pulse",
+            "mode": "pulse",
         }
         non_default_button = schematic.create_symbol(
             Button(
@@ -232,7 +236,7 @@ class EditProps(ConsoleCase):
                 channel_name=CHANNEL_NAME,
                 activation_delay=2.3,
                 show_control_chip=True,
-                mode="Pulse",
+                mode="pulse",
             )
         )
         assert_symbol_properties(non_default_button, non_default_props)
@@ -251,13 +255,23 @@ class EditProps(ConsoleCase):
         )
         target.move(delta_x=200, delta_y=0)
 
-        schematic.connect_symbols(source, "right", target, "left")
+        schematic.connect_symbols(
+            source_symbol=source,
+            source_handle="right",
+            target_symbol=target,
+            target_handle="left",
+        )
         assert schematic.get_edge_count() == 1, (
             f"Expected one edge after connecting, got {schematic.get_edge_count()}"
         )
 
         self.log("3.1 Default")
-        schematic.select_edge(source, "right", target, "left")
+        schematic.select_edge(
+            source_symbol=source,
+            source_handle="right",
+            target_symbol=target,
+            target_handle="left",
+        )
         default_variant = schematic.get_edge_variant()
         assert default_variant == "Pipe", (
             f"Default edge variant mismatch! Actual: {default_variant}, Expected: Pipe"
@@ -265,7 +279,12 @@ class EditProps(ConsoleCase):
 
         for variant in EDGE_VARIANTS:
             self.log(f"3.2 Switch to {variant}")
-            schematic.select_edge(source, "right", target, "left")
+            schematic.select_edge(
+                source_symbol=source,
+                source_handle="right",
+                target_symbol=target,
+                target_handle="left",
+            )
             schematic.set_edge_variant(variant)
 
             # A variant whose key is missing from the registry throws during render

@@ -9,6 +9,7 @@
 
 from asyncio import AbstractEventLoop, events, tasks
 from threading import Thread
+from typing import override
 
 
 def _cancel_all_tasks(loop: AbstractEventLoop) -> None:
@@ -40,6 +41,7 @@ class AsyncThread(Thread):
     def __init__(self) -> None:
         super().__init__()
 
+    @override
     def run(self) -> None:
         self.loop = events.new_event_loop()
         try:

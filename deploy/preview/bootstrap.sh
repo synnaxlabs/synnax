@@ -38,7 +38,7 @@ chmod +x /usr/local/bin/preview
 
 docker network create preview
 docker run --detach --name caddy --network preview --restart unless-stopped \
-    --publish 80:80 --publish 443:443 \
+    --publish 443:443 \
     --volume /etc/caddy:/etc/caddy:ro --volume caddy_data:/data \
     caddy:2.10
 

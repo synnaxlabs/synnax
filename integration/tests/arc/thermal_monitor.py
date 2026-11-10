@@ -19,7 +19,9 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-from examples.simulators import ThermalSimDAQ
+from itertools import pairwise
+
+from examples.simulators import SimDAQ, ThermalSimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
@@ -27,7 +29,7 @@ from tests.arc.arc import ArcCase
 from x.telem import to_float
 
 ARC_SOURCE = """
-func count_heater_cycles(heater_on u8) i64 {
+func count_heater_cycles() {heater_on u8} i64 {
     prev u8 $= 0
     count i64 $= 0
     if heater_on == 1 and prev == 0 {
@@ -37,7 +39,7 @@ func count_heater_cycles(heater_on u8) i64 {
     return count
 }
 
-func track_peak_temp(current f32) f32 {
+func track_peak_temp() {current f32} f32 {
     peak f32 $= 0.0
     if current > peak {
         peak = current
@@ -45,16 +47,16 @@ func track_peak_temp(current f32) f32 {
     return peak
 }
 
-func calc_temp_error{setpoint f32} (measured f32) f32 {
+func calc_temp_error(setpoint f32) {measured f32} f32 {
     return measured - setpoint
 }
 
 start_monitor_cmd => monitor
 abort_cmd => abort
 
-heater_cmd -> count_heater_cycles{} -> cycle_count
-temp_sensor -> track_peak_temp{} -> peak_temp
-temp_sensor -> calc_temp_error{50.0} -> temp_error
+heater_cmd -> count_heater_cycles() -> cycle_count
+temp_sensor -> track_peak_temp() -> peak_temp
+temp_sensor -> calc_temp_error(50.0) -> temp_error
 
 sequence monitor {
     stage heating {
@@ -94,22 +96,28 @@ class ThermalMonitor(ArcCase):
         "alarm_active",
         "end_thermal_test_cmd",
     ]
-    sim_daq_class = ThermalSimDAQ
+    sim_daq_class: type[SimDAQ] | None = ThermalSimDAQ
+    _started_at: sy.TimeStamp
 
     def setup(self) -> None:
         self._create_additional_channels()
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "cycle_count", sy.DataType.INT64)
-        create_indexed_pair(self.client, "peak_temp", sy.DataType.FLOAT32)
-        create_indexed_pair(self.client, "temp_error", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "abort_cmd", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "cycle_count", data_type=sy.DataType.INT64)
+        create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
+        create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)
+
+    def run(self) -> None:
+        self._started_at = sy.TimeStamp.now()
+        super().run()
 
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()
         self._verify_stateful_variables()
         self._verify_abort_transition()
+        self._verify_cycle_count_matches_edges()
 
     def _verify_thermal_cycling(self) -> None:
         self.log("Verifying thermal cycling behavior...")
@@ -131,16 +139,16 @@ class ThermalMonitor(ArcCase):
     def _verify_stateful_variables(self) -> None:
         self.log("Verifying stateful variable behavior...")
 
-        self.wait_for_ge("cycle_count", 2, timeout=0)
+        self.wait_for_ge("cycle_count", 2)
         self.log(f"Cycle count: {self.read_tlm('cycle_count')}")
 
-        self.wait_for_gt("peak_temp", 55, timeout=0)
+        self.wait_for_gt("peak_temp", 55)
         self.log(f"Peak temperature tracked: {self.read_tlm('peak_temp'):.1f}")
 
+        self.wait_for_gt("temp_error", 1)
         raw_error = self.read_tlm("temp_error")
-        if raw_error is None or isinstance(raw_error, str):
+        if raw_error is None:
             self.fail(f"temp_error is {raw_error!r}")
-            return
         temp_error = float(raw_error)
         # temp_error derives from a temp_sensor sample the runtime saw one
         # pipeline latency before this read, and the sim ramps tens of degrees
@@ -152,7 +160,6 @@ class ThermalMonitor(ArcCase):
         )
         if len(recent) == 0:
             self.fail("no recent temp_sensor samples to verify temp_error against")
-            return
         closest = min(abs(temp_error - (to_float(s) - 50.0)) for s in recent)
         self.log(
             f"Temp error: {temp_error:.1f} (closest window mismatch {closest:.2f})"
@@ -180,3 +187,16 @@ class ThermalMonitor(ArcCase):
         self.log("Abort sequence confirmed: heater OFF, alarm ACTIVE")
 
         self.writer.write("force_overheat_cmd", 0)
+
+    def _verify_cycle_count_matches_edges(self) -> None:
+        """Fail if the runtime missed a rising edge of heater_cmd. The abort ended the
+        heater loop, so the stored edge count is final. The wait covers an edge whose
+        count is still in flight.
+        """
+        stored = self.client.read(
+            sy.TimeRange(self._started_at, sy.TimeStamp.now()), "heater_cmd"
+        )
+        samples = [0.0, *(to_float(s) for s in stored)]
+        edges = sum(prev == 0 and cur == 1 for prev, cur in pairwise(samples))
+        self.log(f"Stored heater_cmd rising edges: {edges}")
+        self.wait_for_eq("cycle_count", edges)

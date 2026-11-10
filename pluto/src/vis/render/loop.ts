@@ -39,9 +39,9 @@ export interface Request {
   priority: Priority;
   /**
    * A list of canvases that the component is requesting to render to. This provides
-   * information to cleanup functions about which canvases to clear. The component should
-   * ONLY render to these canvases, otherwise the cleanup function may unnecessarily
-   * clear canvases that should persist.
+   * information to cleanup functions about which canvases to clear. The component
+   * should ONLY render to these canvases, otherwise the cleanup function may
+   * unnecessarily clear canvases that should persist.
    */
   canvases: CanvasVariant[];
   /**

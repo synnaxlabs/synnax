@@ -11,13 +11,12 @@ import { type icd } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
-import { type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Fields } from "@/feature/icd/editor/Fields";
 import { FormattedField, parseInteger } from "@/feature/icd/editor/FormattedField";
 import { Identifier, IdentifierFields } from "@/feature/icd/editor/Identifier";
-import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
 import { CSS } from "@/platform/css";
 
 const createPayload = (format: icd.PayloadType): icd.Payload => {
@@ -41,21 +40,20 @@ const parsePeriod = (text: string): TimeSpan | null => {
 const parseText = (text: string): string => text;
 
 interface FieldsStatusProps {
-  /** The form path of the message payload. */
-  path: string;
+  /** The form path of the message's fields. */
+  path: deep.Target<unknown>;
 }
 
 /** Shows a problem with the fields of the message as a whole. */
 const FieldsStatus = ({ path }: FieldsStatusProps): ReactElement | null => {
-  const fieldsPath = `${path}.fields`;
-  const status = useNestedStatus(fieldsPath, (key) => key === fieldsPath);
+  const status = Form.useStatuses(path).find(({ key }) => key === String(path));
   if (status == null) return null;
   return <Input.HelpText variant={status.variant}>{status.message}</Input.HelpText>;
 };
 
 export interface MessageProps {
   /** The form path of the message. */
-  path: string;
+  path: deep.Path<icd.Message>;
 }
 
 /**
@@ -63,16 +61,18 @@ export interface MessageProps {
  * switch replaces the payload with an empty one of the new format.
  */
 export const Message = ({ path }: MessageProps): ReactElement => {
-  const payloadPath = `${path}.payload`;
+  const { payload } = path;
+  const binary = deep.variant(payload, "format", "binary");
+  const text = deep.variant(payload, "format", "text");
   const { set } = Form.useContext();
-  const format = Form.useFieldValue<icd.PayloadType>(`${payloadPath}.format`);
+  const format = Form.useFieldValue(payload.format);
   const handleFormatChange = (next: icd.PayloadType) => {
-    if (next !== format) set(payloadPath, createPayload(next));
+    if (next !== format) set(payload, createPayload(next));
   };
   return (
     <Form.Sections className={CSS.BE("icd-editor", "details")}>
       <Form.Section title="Message" className={CSS.BE("icd-editor", "pairs")}>
-        <Form.TextField path={`${path}.name`} label="Name" />
+        <Form.TextField path={path.name} label="Name" />
         <Input.Item label="Format" padHelpText>
           <Select.Buttons<icd.PayloadType> value={format} onChange={handleFormatChange}>
             <Select.Item<icd.PayloadType> itemKey="binary">Binary</Select.Item>
@@ -80,7 +80,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
           </Select.Buttons>
         </Input.Item>
         <FormattedField<CrudeTimeSpan>
-          path={`${path}.period`}
+          path={path.period}
           label="Send period"
           placeholder="On change"
           unit="ms"
@@ -89,7 +89,7 @@ export const Message = ({ path }: MessageProps): ReactElement => {
           parse={parsePeriod}
         />
         <FormattedField<string>
-          path={`${path}.query`}
+          path={path.query}
           label="Poll request"
           placeholder="None"
           optional
@@ -100,9 +100,9 @@ export const Message = ({ path }: MessageProps): ReactElement => {
       <Form.Section title="Frame" className={CSS.BE("icd-editor", "pairs")}>
         {format === "binary" ? (
           <>
-            <Identifier path={payloadPath} />
+            <Identifier path={binary} />
             <FormattedField<number>
-              path={`${payloadPath}.length`}
+              path={binary.length}
               label="Length"
               placeholder="Variable"
               unit="bytes"
@@ -110,28 +110,28 @@ export const Message = ({ path }: MessageProps): ReactElement => {
               format={String}
               parse={parseInteger}
             />
-            <IdentifierFields path={payloadPath} />
+            <IdentifierFields path={binary} />
           </>
         ) : (
           <>
-            <Form.TextField path={`${payloadPath}.prefix`} label="Prefix" />
-            <Form.TextField path={`${payloadPath}.delimiter`} label="Delimiter" />
+            <Form.TextField path={text.prefix} label="Prefix" />
+            <Form.TextField path={text.delimiter} label="Delimiter" />
           </>
         )}
       </Form.Section>
       {format === "binary" ? (
         <Form.Section title="Fields">
-          <Fields path={payloadPath} encoding="binary" />
-          <FieldsStatus path={payloadPath} />
+          <Fields path={payload.fields} encoding="binary" />
+          <FieldsStatus path={payload.fields} />
         </Form.Section>
       ) : (
         <>
           <Form.Section title="Delimited fields">
-            <Fields path={payloadPath} encoding="delimited" />
+            <Fields path={payload.fields} encoding="delimited" />
           </Form.Section>
           <Form.Section title="Tagged fields">
-            <Fields path={payloadPath} encoding="tagged" />
-            <FieldsStatus path={payloadPath} />
+            <Fields path={payload.fields} encoding="tagged" />
+            <FieldsStatus path={payload.fields} />
           </Form.Section>
         </>
       )}

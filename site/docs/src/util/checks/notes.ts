@@ -53,14 +53,14 @@ export const notes = (fullCrawl: boolean): Check => {
       const failures: string[] = [];
       for (const m of html.matchAll(DIV_OPEN)) {
         const classes = (m[1] ?? m[2]).split(/\s+/);
-        if (!classes.includes("pluto-note")) continue;
+        if (!classes.includes("lyra-note")) continue;
         seen += 1;
         const body = noteBody(html, (m.index ?? 0) + m[0].length);
         const needle = needleOf(body);
         const where = needle === "" ? route : locate(route, needle);
         const variant = classes
-          .filter((c) => c.startsWith("pluto--"))
-          .map((c) => c.slice("pluto--".length))
+          .filter((c) => c.startsWith("lyra--"))
+          .map((c) => c.slice("lyra--".length))
           .find((v) => VARIANTS.includes(v));
         if (variant == null)
           failures.push(`${where} - note variant is not one of ${VARIANTS.join(", ")}`);

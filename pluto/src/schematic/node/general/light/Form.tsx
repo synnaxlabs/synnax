@@ -11,6 +11,7 @@ import { type channel, type schematic } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
@@ -22,10 +23,10 @@ import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
 import { Staleness } from "@/vis/staleness";
 
-type LightTelemFormT = Pick<schematic.LightNodeConfig, "channel" | "threshold">;
+const path = deep.path<schematic.LightNodeConfig>();
 
-const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Base.useField<LightTelemFormT>(path);
+const LightTelemForm = (): ReactElement => {
+  const { value, onChange } = Base.useField(path);
   const threshold = value.threshold ?? Telem.DEFAULT_THRESHOLD;
 
   const handleSourceChange = (v: channel.Key | null): void =>
@@ -66,25 +67,22 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
 
 const StyleForm = (): ReactElement => {
   // An absent on color paints the stroke color.
-  const strokeColor = Base.useFieldValue<schematic.LightNodeConfig["strokeColor"]>(
-    "strokeColor",
-    { optional: true },
-  );
+  const strokeColor = Base.useFieldValue(path.strokeColor, { optional: true });
   return (
     <Base.Sections x>
       <Base.Section title="Label">
-        <Label.Form path="label" />
+        <Label.Form path={path.label} />
       </Base.Section>
       <Base.Section title="Appearance">
-        <Form.ColorField path="strokeColor" label="Stroke" />
+        <Form.ColorField path={path.strokeColor} label="Stroke" />
         <Form.ColorField
-          path="onColor"
+          path={path.onColor}
           label="On"
           fallback={(theme) => strokeColor ?? Form.defaultFallback(theme)}
         />
-        <Form.ScaleField path="scale" />
+        <Form.ScaleField path={path.scale} />
       </Base.Section>
-      <Orientation.Section path="" />
+      <Orientation.Section path={path} />
     </Base.Sections>
   );
 };
@@ -95,7 +93,7 @@ export const LightForm = ({ tab, onTabChange }: FormProps): ReactElement => (
       <StyleForm />
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
-      <LightTelemForm path="" />
+      <LightTelemForm />
     </Tabs.Content>
   </Properties.Tabs>
 );

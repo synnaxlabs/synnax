@@ -20,6 +20,7 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::ni {
@@ -33,6 +34,9 @@ struct DIChannel;
 struct DOChannel;
 struct WriteConfig;
 struct ScanConfig;
+struct CounterPort;
+struct DigitalPort;
+struct CommandedAOChannel;
 struct DigitalReadConfig;
 struct DigitalWriteConfig;
 struct BridgePolynomial;
@@ -41,10 +45,13 @@ struct TwoPointLin;
 struct CurrentExcitation;
 struct VoltageExcitation;
 struct Terminal;
+struct AnalogInputPort;
+struct AnalogOutputPort;
 struct Bridge;
 struct Resistance;
 struct ZIndex;
 struct CustomScale;
+struct Hardware;
 struct AnalogReadConfig;
 struct CounterReadConfig;
 struct AnalogWriteConfig;
@@ -254,7 +261,7 @@ struct BaseAIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
     /// @brief device is the key of the device the channel belongs to.
     ::synnax::device::Key device = "";
 
@@ -273,7 +280,7 @@ struct BaseCIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical counter the channel uses.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
     /// @brief device is the key of the device the counter belongs to.
     ::synnax::device::Key device = "";
 
@@ -287,16 +294,8 @@ struct BaseAOChannel {
     std::string key;
     /// @brief disabled is true when the channel is excluded from the task.
     bool disabled = false;
-    /// @brief cmd_channel is the Synnax channel commands are read from.
-    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
-    /// @brief state_channel is the Synnax channel the output state is written to.
-    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
-    /// @brief cmd_channel_name is the human-readable name of the command channel.
-    std::string cmd_channel_name = "";
-    /// @brief state_channel_name is the human-readable name of the state channel.
-    std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
 
     static BaseAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -313,9 +312,9 @@ struct DIChannel {
     /// @brief channel is the Synnax channel that raw samples are written to.
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief port is the physical port the channel reads from.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
     /// @brief line is the digital line within the port the channel reads from.
-    std::int32_t line = 0;
+    std::uint8_t line = 0;
 
     static DIChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -336,9 +335,9 @@ struct DOChannel {
     /// @brief state_channel_name is the human-readable name of the state channel.
     std::string state_channel_name = "";
     /// @brief port is the physical port the channel writes to.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
     /// @brief line is the digital line within the port the channel writes to.
-    std::int32_t line = 0;
+    std::uint8_t line = 0;
 
     static DOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -356,11 +355,51 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
 
 /// @brief ScanConfig configures the NI device scanner task.
 struct ScanConfig : public ::synnax::task::ScanConfig {
-    /// @brief ignored_models are regex patterns matching the device models the scan
-    /// skips.
-    std::vector<std::string> ignored_models = {"^cRIO.*", "^nown.*"};
 
     static ScanConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CounterPort is a counter of an NI device.
+struct CounterPort {
+    /// @brief port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+    std::uint16_t port = 0;
+    /// @brief types are the channel types that the counter accepts, such as
+    /// ci_frequency.
+    std::vector<std::string> types = {};
+
+    static CounterPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief DigitalPort is a digital port of an NI device.
+struct DigitalPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 0 for port0.
+    std::uint16_t port = 0;
+    /// @brief lines is the number of lines in the port.
+    std::uint8_t lines = 0;
+    /// @brief input is true when the port reads digital input.
+    bool input = false;
+    /// @brief output is true when the port writes digital output.
+    bool output = false;
+
+    static DigitalPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CommandedAOChannel carries the command and state channels of a commanded
+/// analog output.
+struct CommandedAOChannel {
+    /// @brief cmd_channel is the Synnax channel commands are read from.
+    ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
+    /// @brief state_channel is the Synnax channel the output state is written to.
+    ::synnax::channel::Key state_channel = ::synnax::channel::Key(0);
+    /// @brief cmd_channel_name is the human-readable name of the command channel.
+    std::string cmd_channel_name = "";
+    /// @brief state_channel_name is the human-readable name of the state channel.
+    std::string state_channel_name = "";
+
+    static CommandedAOChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -386,7 +425,7 @@ struct ConstValCJC {
 struct ChanCJC {
     std::string source = "chan";
     /// @brief port is the port of the channel that measures the reference.
-    std::int32_t port = 0;
+    std::uint32_t port = 0;
 
     static ChanCJC parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -582,6 +621,40 @@ struct Terminal {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief AnalogInputPort is an analog input port of an NI device.
+struct AnalogInputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 3 for ai3.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief default_terminal_config is the terminal configuration that Cfg_Default
+    /// gives on the port. The value Cfg_Default means that the Driver did not read it.
+    /// DAQmx always reads back a real configuration.
+    std::string default_terminal_config = TERMINAL_CONFIG_CFG_DEFAULT;
+    /// @brief types are the channel types that the port accepts, such as ai_voltage.
+    std::vector<std::string> types = {};
+    /// @brief negative is the port that a differential channel on this port uses as its
+    /// negative input. 0 means that the port has no pair. Port 0 is never a negative
+    /// port.
+    std::uint16_t negative = 0;
+
+    static AnalogInputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief AnalogOutputPort is an analog output port of an NI device.
+struct AnalogOutputPort {
+    /// @brief port is the number in the DAQmx name of the port, such as 1 for ao1.
+    std::uint16_t port = 0;
+    /// @brief terminal_configs are the terminal configurations that the port accepts.
+    std::vector<std::string> terminal_configs = {};
+    /// @brief types are the channel types that the port accepts, such as ao_voltage.
+    std::vector<std::string> types = {};
+
+    static AnalogOutputPort parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief Bridge configures the wiring and nominal resistance of a bridge-based sensor.
 struct Bridge {
     /// @brief bridge_config selects the physical bridge wiring.
@@ -626,6 +699,53 @@ struct CustomScale {
     Scale custom_scale = NoneScale{};
 
     static CustomScale parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Hardware is what the Driver reads from DAQmx about the ports, rates, and
+/// ranges of an NI device. The Driver stores it in the device properties under
+/// hardware.
+struct Hardware {
+    /// @brief analog_inputs are the analog input ports of the device.
+    std::vector<AnalogInputPort> analog_inputs = {};
+    /// @brief analog_outputs are the analog output ports of the device.
+    std::vector<AnalogOutputPort> analog_outputs = {};
+    /// @brief counter_inputs are the counters of the device that read input.
+    std::vector<CounterPort> counter_inputs = {};
+    /// @brief counter_outputs are the counters of the device that write output.
+    std::vector<CounterPort> counter_outputs = {};
+    /// @brief digital_ports are the digital ports of the device.
+    std::vector<DigitalPort> digital_ports = {};
+    /// @brief terminals are the terminals of the device, such as PFI0, without the
+    /// device name.
+    std::vector<std::string> terminals = {};
+    /// @brief ai_min_rate is the lowest analog input sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ai_min_rate = ::x::telem::Rate(0);
+    /// @brief ai_max_single_channel_rate is the highest analog input sample rate of one
+    /// channel, in Hz. 0 means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_single_channel_rate = ::x::telem::Rate(0);
+    /// @brief ai_max_multi_channel_rate is the highest analog input sample rate of the
+    /// device, in Hz. A task with several channels divides it by the channel count. 0
+    /// means that the device does not support the attribute.
+    ::x::telem::Rate ai_max_multi_channel_rate = ::x::telem::Rate(0);
+    /// @brief ao_max_rate is the highest analog output sample rate, in Hz. 0 means that
+    /// the device does not support the attribute.
+    ::x::telem::Rate ao_max_rate = ::x::telem::Rate(0);
+    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
+    /// @brief ai_current_ranges are the analog input current ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_current_ranges = {};
+    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_voltage_ranges = {};
+    /// @brief ao_current_ranges are the analog output current ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_current_ranges = {};
+
+    static Hardware parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -1181,7 +1301,7 @@ struct CIFrequencyChannel : public BaseCIChannel, public CustomScale, public Min
     /// seconds.
     double meas_time = 0.000006;
     /// @brief divisor is the counter divisor for large-range measurement.
-    std::int32_t divisor = 4;
+    std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
@@ -1202,7 +1322,7 @@ struct CIEdgeCountChannel : public BaseCIChannel {
     /// @brief count_direction selects the direction the counter counts.
     std::string count_direction = CI_COUNT_DIRECTION_COUNT_UP;
     /// @brief initial_count is the value the counter starts at.
-    double initial_count = 0;
+    std::uint32_t initial_count = 0;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
@@ -1223,7 +1343,7 @@ struct CIPeriodChannel : public BaseCIChannel, public CustomScale, public MinMax
     /// seconds.
     double meas_time = 0.001000;
     /// @brief divisor is the counter divisor for large-range measurement.
-    std::int32_t divisor = 4;
+    std::uint32_t divisor = 4;
     /// @brief terminal is the terminal the counter signal is wired to.
     std::string terminal = "";
 
@@ -1336,7 +1456,7 @@ struct CIVelocityAngularChannel : public BaseCIChannel,
     /// @brief decoding_type selects the encoder decoding type.
     std::string decoding_type = CI_DECODING_TYPE_X_4;
     /// @brief pulses_per_rev is the number of encoder pulses per revolution.
-    double pulses_per_rev = 24;
+    std::uint32_t pulses_per_rev = 24;
     /// @brief terminal_a is the terminal for encoder channel A.
     std::string terminal_a = "";
     /// @brief terminal_b is the terminal for encoder channel B.
@@ -1383,7 +1503,7 @@ struct CIPositionAngularChannel : public BaseCIChannel,
     /// @brief decoding_type selects the encoder decoding type.
     std::string decoding_type = CI_DECODING_TYPE_X_4;
     /// @brief pulses_per_rev is the number of encoder pulses per revolution.
-    double pulses_per_rev = 24;
+    std::uint32_t pulses_per_rev = 24;
     /// @brief initial_angle is the angle the encoder starts at.
     double initial_angle = 0;
     /// @brief terminal_a is the terminal for encoder channel A.
@@ -1430,15 +1550,24 @@ using CIChannel = std::variant<
 CIChannel parse_ci_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const CIChannel &value);
 
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseCIChannel &base(const CIChannel &value) {
+    return std::visit([](const auto &v) -> const BaseCIChannel & { return v; }, value);
+}
+
 /// @brief AOCurrentChannel drives a current output.
-struct AOCurrentChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOCurrentChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_current";
 
     static AOCurrentChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief AOFuncGenChannel drives a function-generator output.
+/// @brief AOFuncGenChannel generates a waveform from task start to task stop, with no
+/// commands.
 struct AOFuncGenChannel : public BaseAOChannel {
     std::string type = "ao_func_gen";
     /// @brief wave_type selects the waveform to generate.
@@ -1455,7 +1584,10 @@ struct AOFuncGenChannel : public BaseAOChannel {
 };
 
 /// @brief AOVoltageChannel drives a voltage output.
-struct AOVoltageChannel : public BaseAOChannel, public MinMaxVal, public CustomScale {
+struct AOVoltageChannel : public BaseAOChannel,
+                          public MinMaxVal,
+                          public CustomScale,
+                          public CommandedAOChannel {
     std::string type = "ao_voltage";
 
     static AOVoltageChannel parse(x::json::Parser parser);
@@ -1468,6 +1600,11 @@ using AOChannel = std::variant<AOCurrentChannel, AOFuncGenChannel, AOVoltageChan
 
 AOChannel parse_ao_channel(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const AOChannel &value);
+
+/// @brief returns the fields every variant of the union shares.
+[[nodiscard]] inline const BaseAOChannel &base(const AOChannel &value) {
+    return std::visit([](const auto &v) -> const BaseAOChannel & { return v; }, value);
+}
 
 /// @brief AnalogReadConfig configures an NI analog read task. Each channel carries its
 /// own device.

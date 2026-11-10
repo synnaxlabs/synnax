@@ -16,6 +16,7 @@ import os
 import tempfile
 import threading
 import time
+from typing import override
 
 from flask import Flask, Response, jsonify, request
 
@@ -446,9 +447,11 @@ class HTTPSim(DeviceSim):
     port = 8081
     device_name = "HTTP Test Server"
 
+    @override
     async def _run_server(self) -> None:
         await asyncio.to_thread(run_server, self.host, self.port)
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> http.Device:
         return http.Device(
@@ -472,11 +475,13 @@ class HTTPSlowSim(HTTPSim):
     delay_ms = 20
     max_concurrent_requests = 3
 
+    @override
     async def _run_server(self) -> None:
         await asyncio.to_thread(
             run_server, self.host, self.port, delay_ms=self.delay_ms
         )
 
+    @override
     @staticmethod
     def create_device(rack_key: int) -> http.Device:
         return http.Device(
@@ -494,6 +499,7 @@ class HTTPSlowSim(HTTPSim):
 def run_server(
     host: str = "127.0.0.1",
     port: int = 8081,
+    *,
     https: bool = False,
     auth: str = "none",
     delay_ms: int = 0,
@@ -505,15 +511,7 @@ def run_server(
     print(f"Starting {'HTTPS' if https else 'HTTP'} mock server on {host}:{port}")
     if auth != "none":
         print(f"Auth middleware: {auth}")
-        if auth == "basic":
-            print(
-                f"  Credentials: {AUTH_CREDENTIALS['username']}"
-                f":{AUTH_CREDENTIALS['password']}"
-            )
-        elif auth == "bearer":
-            print(f"  Token: {AUTH_CREDENTIALS['token']}")
-        elif auth == "api-key":
-            print(f"  API Key: {AUTH_CREDENTIALS['api_key']}")
+        print("  Credentials: see --help for the defaults and the flags to set them")
     if delay_ms > 0:
         print(f"Response delay: {delay_ms} ms")
     print()

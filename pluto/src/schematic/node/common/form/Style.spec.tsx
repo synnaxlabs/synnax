@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Form as Base } from "@synnaxlabs/lyra/form";
-import { color } from "@synnaxlabs/x";
+import { color, deep } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type ReactElement, useImperativeHandle } from "react";
 import { assert, describe, expect, it } from "vitest";
@@ -27,6 +27,8 @@ const schema = z.object({
   stateOverrides: z.array(z.unknown()).optional(),
 });
 type Values = z.infer<typeof schema>;
+
+const path = deep.path<Values>();
 
 const VALUES: Values = {
   label: Label.configZ.parse({ label: "Valve" }),
@@ -48,7 +50,7 @@ const SynnaxWrapper = createSynnaxWrapper({ client: null });
 const Host = ({ values, ref }: HostProps): ReactElement => {
   const methods = Base.use({ values, schema });
   useImperativeHandle(ref, () => ({
-    get: () => methods.get<color.Crude>("strokeColor", { optional: true })?.value,
+    get: () => methods.get(path.strokeColor, { optional: true })?.value,
   }));
   return (
     <SynnaxWrapper>

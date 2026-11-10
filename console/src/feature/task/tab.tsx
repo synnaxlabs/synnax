@@ -16,8 +16,10 @@ import { cloneElement } from "react";
 import { CAN } from "@/feature/can";
 import { EtherCAT } from "@/feature/ethercat";
 import { HTTP } from "@/feature/http";
+import { Kafka } from "@/feature/kafka";
 import { LabJack } from "@/feature/labjack";
 import { Modbus } from "@/feature/modbus";
+import { MQTT } from "@/feature/mqtt";
 import { NI } from "@/feature/ni";
 import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
@@ -32,8 +34,10 @@ import { type Task } from "@/platform/task";
 const FORMS: Task.Forms = {
   ...EtherCAT.Task.FORMS,
   ...HTTP.Task.FORMS,
+  ...Kafka.Task.FORMS,
   ...LabJack.Task.FORMS,
   ...Modbus.Task.FORMS,
+  ...MQTT.Task.FORMS,
   ...NI.Task.FORMS,
   ...OPCUA.Task.FORMS,
   ...PagerDuty.Task.FORMS,
@@ -62,7 +66,7 @@ const Content: Panel.Content = () => {
   return <Form taskKey={key} />;
 };
 
-const Name: Panel.TabName = ({ allowRename = true }) => {
+const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
   const tabKey = PPanel.useTabKey();
   const resource = PPanel.useTabResource();
   const { key } = resource;
@@ -77,8 +81,10 @@ const Name: Panel.TabName = ({ allowRename = true }) => {
       <Text.MaybeEditable
         id={Panel.tabNameID(tabKey)}
         value={name}
+        overflow="fade"
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
+        {...rest}
       />
     </>
   );
@@ -95,7 +101,7 @@ export const TAB: Panel.Tab = {
   Name,
   Icon,
   restore: async ({ client, resource }) => {
-    const corpse = query.requireCorpse(client.tasks.getCached(resource.key));
+    const corpse = query.requireCorpse(client.tasks.watch(resource.key).getCached());
     // The status goes with the instance, not the row: a restored task has
     // nothing running, so core seeds it as never deployed.
     await client.tasks.create({ ...corpse.payload, status: undefined });

@@ -10,11 +10,14 @@
 package index_test
 
 import (
+	"sync/atomic"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -31,13 +34,10 @@ var _ = Describe("Domain", func() {
 			)
 			BeforeEach(func() {
 				fs = openFS()
-				db = MustSucceed(
+				db = MustOpen(
 					domain.Open(domain.Config{FS: fs, Instrumentation: PanicLogger()}),
 				)
 				idx = &index.Domain{DB: db}
-			})
-			AfterEach(func() {
-				Expect(db.Close()).To(Succeed())
 			})
 			// openRolledOver opens a domain DB whose file size holds 3 timestamps, so a
 			// commit past it rolls over into an effectively contiguous domain. It holds
@@ -59,7 +59,7 @@ var _ = Describe("Domain", func() {
 				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
 				Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
-				Expect(domain.Write(
+				Expect(testutil.WriteDomain(
 					ctx,
 					db,
 					(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
@@ -71,7 +71,7 @@ var _ = Describe("Domain", func() {
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -179,7 +179,7 @@ var _ = Describe("Domain", func() {
 
 				Context("Discontinuous", func() {
 					BeforeEach(func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -195,13 +195,13 @@ var _ = Describe("Domain", func() {
 								20,
 							).Data,
 						)).To(Succeed())
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
 							telem.NewSeriesSecondsTSV(25, 26, 28, 30).Data,
 						)).To(Succeed())
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
@@ -350,13 +350,13 @@ var _ = Describe("Domain", func() {
 
 			Describe("EndAfter", func() {
 				BeforeEach(func(ctx SpecContext) {
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(1 * telem.SecondTS).Range(5*telem.SecondTS+1),
 						telem.NewSeriesSecondsTSV(1, 2, 3, 5).Data,
 					)).To(Succeed())
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
@@ -424,7 +424,7 @@ var _ = Describe("Domain", func() {
 				)
 				Context("Equal timestamps", func() {
 					BeforeEach(func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(19 * telem.SecondTS).Range(21*telem.SecondTS+1),
@@ -617,11 +617,79 @@ var _ = Describe("Domain", func() {
 				)
 			})
 
+			Describe("Coverage", func() {
+				var rolledOver *index.Domain
+				BeforeEach(func(ctx SpecContext) {
+					rolledOver = &index.Domain{DB: openRolledOver(ctx)}
+				})
+				DescribeTable(
+					"Counting the samples of a run",
+					func(
+						ctx SpecContext,
+						tr telem.TimeRange,
+						expectedEnd telem.TimeStamp,
+						expectedCount int64,
+					) {
+						end, count := MustSucceed2(rolledOver.Coverage(ctx, tr))
+						Expect(end).To(Equal(expectedEnd))
+						Expect(count).To(Equal(expectedCount))
+					},
+					Entry("Should count a run from the start of a domain",
+						(10*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(10),
+					),
+					Entry("Should count a run from partway through a domain",
+						(16*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(8),
+					),
+					Entry("Should count from the first sample after an inexact stamp",
+						(12*telem.SecondTS).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(8),
+					),
+					Entry("Should count a run from a domain that begins at the stamp",
+						(17*telem.SecondTS+1).Range(40*telem.SecondTS),
+						26*telem.SecondTS+1, int64(6),
+					),
+					Entry("Should stop counting at a gap between domains",
+						(30*telem.SecondTS).Range(40*telem.SecondTS),
+						33*telem.SecondTS+1, int64(3),
+					),
+					Entry(
+						"Should stop at the first domain when it reaches the range end",
+						(12*telem.SecondTS).Range(14*telem.SecondTS),
+						17*telem.SecondTS+1,
+						int64(0),
+					),
+					Entry("Should stop at a later domain that reaches the range end",
+						(12*telem.SecondTS).Range(20*telem.SecondTS),
+						22*telem.SecondTS+1, int64(0),
+					),
+					Entry("Should stop at a domain that ends with the range",
+						(12*telem.SecondTS).Range(26*telem.SecondTS+1),
+						26*telem.SecondTS+1, int64(0),
+					),
+					Entry("Should return zero values for a range that starts in a gap",
+						(28*telem.SecondTS).Range(40*telem.SecondTS),
+						telem.TimeStamp(0), int64(0),
+					),
+					Entry(
+						"Should return zero values for a range that starts at a run end",
+						(26*telem.SecondTS+1).Range(40*telem.SecondTS),
+						telem.TimeStamp(0),
+						int64(0),
+					),
+					Entry("Should return zero values for a range after every domain",
+						(40*telem.SecondTS).Range(50*telem.SecondTS),
+						telem.TimeStamp(0), int64(0),
+					),
+				)
+			})
+
 			Describe("Stamp", func() {
 				Context("Forward", func() {
 					Context("Continuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
@@ -704,7 +772,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -720,14 +788,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -742,7 +810,7 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
@@ -873,7 +941,7 @@ var _ = Describe("Domain", func() {
 					Specify(
 						"Quasi-Continuous Without Ending Domain",
 						func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -889,14 +957,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -914,22 +982,26 @@ var _ = Describe("Domain", func() {
 							Expect(
 								MustSucceed(idx.Stamp(ctx, 25*telem.SecondTS, 8, true)),
 							).To(Equal(index.Exactly(35 * telem.SecondTS)))
-							_, err := idx.Stamp(ctx, 25*telem.SecondTS, 9, true)
-							Expect(err).To(MatchError(index.ErrDiscontinuous))
+							Expect(
+								idx.Stamp(ctx, 25*telem.SecondTS, 9, true),
+							).Error().
+								To(MatchError(index.ErrDiscontinuous))
 							approx := MustSucceed(
 								idx.Stamp(ctx, 24*telem.SecondTS, 8, true),
 							)
 							Expect(
 								approx,
 							).To(Equal(index.Between(34*telem.SecondTS, 35*telem.SecondTS)))
-							_, err = idx.Stamp(ctx, 24*telem.SecondTS, 9, true)
-							Expect(err).To(MatchError(index.ErrDiscontinuous))
+							Expect(
+								idx.Stamp(ctx, 24*telem.SecondTS, 9, true),
+							).Error().
+								To(MatchError(index.ErrDiscontinuous))
 						},
 					)
 
 					Context("Discontinuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -945,7 +1017,7 @@ var _ = Describe("Domain", func() {
 									20,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
@@ -963,7 +1035,7 @@ var _ = Describe("Domain", func() {
 									40,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
@@ -1033,7 +1105,7 @@ var _ = Describe("Domain", func() {
 				Context("Backward", func() {
 					Context("Continuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -1098,7 +1170,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -1114,14 +1186,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -1136,7 +1208,7 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
@@ -1266,7 +1338,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Discontinuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -1282,7 +1354,7 @@ var _ = Describe("Domain", func() {
 									20,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
@@ -1300,7 +1372,7 @@ var _ = Describe("Domain", func() {
 									40,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
@@ -1381,4 +1453,78 @@ var _ = Describe("Domain", func() {
 			})
 		})
 	}
+})
+
+// failReadFS fails only the ReadAt of a data file whose number is failAt, counting from
+// one.
+type failReadFS struct {
+	xfs.FS
+	reads  atomic.Int64
+	failAt int64
+}
+
+func (fs *failReadFS) Open(name string, flag int) (xfs.File, error) {
+	f, err := fs.FS.Open(name, flag)
+	if err != nil || name == "index.domain" {
+		return f, err
+	}
+	return &failReadFile{File: f, fs: fs}, nil
+}
+
+type failReadFile struct {
+	xfs.File
+	fs *failReadFS
+}
+
+func (f *failReadFile) ReadAt(p []byte, off int64) (int, error) {
+	if f.fs.reads.Add(1) == f.fs.failAt {
+		return 0, ErrFault
+	}
+	return f.File.ReadAt(p, off)
+}
+
+var _ = Describe("Domain lookup errors", func() {
+	var (
+		fs  *failReadFS
+		idx *index.Domain
+	)
+	BeforeEach(func(ctx SpecContext) {
+		fs = &failReadFS{FS: MustSucceed(xfs.NewMem().Sub("index"))}
+		db := MustOpen(domain.Open(domain.Config{
+			FS:              fs,
+			Instrumentation: PanicLogger(),
+		}))
+		Expect(testutil.WriteDomain(
+			ctx,
+			db,
+			(1 * telem.SecondTS).Range(2*telem.SecondTS+1),
+			telem.NewSeriesSecondsTSV(1, 2).Data,
+		)).To(Succeed())
+		idx = &index.Domain{DB: db}
+		fs.reads.Store(0)
+	})
+
+	It("Should return a zero distance when a read fails", func(ctx SpecContext) {
+		fs.failAt = 2
+		Expect(idx.Distance(
+			ctx,
+			(1 * telem.SecondTS).Range(2*telem.SecondTS+1),
+			index.MustBeContinuous,
+		)).Error().To(MatchError(ErrFault))
+	})
+
+	It("Should return a zero stamp when a read fails", func(ctx SpecContext) {
+		fs.failAt = 3
+		Expect(idx.Stamp(ctx, 1*telem.SecondTS, 1, index.MustBeContinuous)).
+			Error().To(MatchError(ErrFault))
+	})
+
+	It(
+		"Should return the error of a failed search for a zero offset",
+		func(ctx SpecContext) {
+			fs.failAt = 1
+			Expect(idx.Stamp(ctx, 1*telem.SecondTS, 0, index.MustBeContinuous)).
+				Error().To(MatchError(ErrFault))
+		},
+	)
 })

@@ -14,13 +14,18 @@ from synnax import (
     can,
     ethercat,
     http,
+    kafka,
     labjack,
     license,
+    lineplot,
+    log,
     modbus,
+    mqtt,
     ni,
     node,
     opcua,
     pagerduty,
+    resource,
     serial,
     status,
     tcp,
@@ -50,6 +55,7 @@ from synnax.exceptions import (
     ExpiredToken,
     InvalidLicense,
     InvalidToken,
+    LicenseEditionMismatch,
     LicenseError,
     LicenseFingerprintMismatch,
     LicenseLimitExceeded,
@@ -67,19 +73,27 @@ from synnax.exceptions import (
 )
 from synnax.framer import (
     AUTO_SPAN,
+    CommitResult,
     Frame,
     Iterator,
     Streamer,
     Writer,
+    WriterClosed,
     WriterMode,
 )
 from synnax.icd import ICD
+from synnax.label import Label
+from synnax.lineplot import LinePlot
+from synnax.log import Log
 from synnax.options import Options
+from synnax.panel import Panel
 from synnax.project import Project
 from synnax.rack import Rack
 from synnax.ranger import Range
+from synnax.schematic import Schematic
 from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.table import Table
 from synnax.task import Task
 from synnax.telem import (
     Aggregation,
@@ -91,6 +105,7 @@ from synnax.telem import (
     CrudeDataType,
     CrudeDensity,
     CrudeRate,
+    CrudeSeries,
     CrudeTimeSpan,
     CrudeTimeStamp,
     DataType,
@@ -99,6 +114,7 @@ from synnax.telem import (
     MultiSeries,
     Rate,
     Reduction,
+    SampleValue,
     Series,
     Size,
     StrideReduction,
@@ -112,9 +128,9 @@ from synnax.telem import (
 from synnax.timing import Loop, Timer, poll, sleep
 from synnax.user.payload import User
 from synnax.view import View
-from x import color
+from x import color, filter as filter
 from x.color import Color
-from x.exceptions import ContiguityError
+from x.exceptions import ContiguityError, Error
 
 __version__ = _version("synnax")
 
@@ -131,6 +147,7 @@ __all__ = [
     "Bounds",
     "Channel",
     "Color",
+    "CommitResult",
     "ConfigurationError",
     "ContiguityError",
     "ControlError",
@@ -140,12 +157,14 @@ __all__ = [
     "CrudeDataType",
     "CrudeDensity",
     "CrudeRate",
+    "CrudeSeries",
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
     "Density",
     "Device",
     "Edge",
+    "Error",
     "ExpiredLicense",
     "ExpiredToken",
     "Frame",
@@ -156,16 +175,21 @@ __all__ = [
     "InvalidLicense",
     "InvalidToken",
     "Iterator",
+    "Label",
+    "LicenseEditionMismatch",
     "LicenseError",
     "LicenseFingerprintMismatch",
     "LicenseLimitExceeded",
     "LimitReduction",
+    "LinePlot",
+    "Log",
     "Loop",
     "MissingLicense",
     "MultiSeries",
     "MultipleFoundError",
     "NotFoundError",
     "Options",
+    "Panel",
     "PathError",
     "Policy",
     "Position",
@@ -177,6 +201,8 @@ __all__ = [
     "Reduction",
     "Role",
     "RouteError",
+    "SampleValue",
+    "Schematic",
     "Series",
     "SessionEnded",
     "Size",
@@ -185,6 +211,7 @@ __all__ = [
     "Streamer",
     "StrideReduction",
     "Synnax",
+    "Table",
     "Task",
     "Text",
     "TimeRange",
@@ -198,6 +225,7 @@ __all__ = [
     "ValidationError",
     "View",
     "Writer",
+    "WriterClosed",
     "WriterMode",
     "bus",
     "can",
@@ -207,15 +235,20 @@ __all__ = [
     "ethercat",
     "group",
     "http",
+    "kafka",
+    "label",
     "labjack",
     "license",
+    "lineplot",
+    "log",
     "modbus",
+    "mqtt",
     "ni",
     "node",
-    "ontology",
     "opcua",
     "pagerduty",
     "poll",
+    "resource",
     "serial",
     "sleep",
     "status",

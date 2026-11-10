@@ -58,11 +58,17 @@ export const use = <S, A extends Action>(
     );
     const reconcile = async (): Promise<void> => {
       const gen = generation;
+      // a client change, a cold reset, or a closed client ends the pass, and its
+      // results, failures included, no longer describe the Core
+      const ended = (): boolean =>
+        gen !== generation || client.connection.status.variant === "disabled";
       for (const synchronizer of entriesRef.current) {
         if (synchronizer.reconcile == null) continue;
+        if (ended()) return;
         try {
           await synchronizer.reconcile(params);
         } catch (err) {
+          if (ended()) return;
           console.error(`${synchronizer.name} reconcile failed`, err);
         }
       }

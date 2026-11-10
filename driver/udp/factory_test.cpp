@@ -20,7 +20,7 @@
 #include "gtest/gtest.h"
 
 #include "client/cpp/udp/json.gen.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bus/testutil/core.h"
 #include "driver/bus/testutil/testutil.h"

@@ -9,7 +9,8 @@
 
 import { capture } from "@/index";
 
-import { selectItem, switchFor } from "./common/channel-dialog";
+import { kindButton, selectItem } from "./common/channel-dialog";
+import { openProject } from "./common/desktop";
 import { controls, editor } from "./common/sample";
 
 export const desktop = true;
@@ -25,7 +26,7 @@ func step() {
     ramp = value
 }
 
-time.interval{period=100ms} -> step{}
+time.interval(period=100ms) -> step()
 `;
 
 /** Presentation speed of typed text: the tutorial plays at speed. */
@@ -35,20 +36,6 @@ const type = async (session: capture.CaptureSession, text: string): Promise<void
   session.setSpeed(TYPE_SPEED);
   await session.type(text);
   session.setSpeed(1);
-};
-
-/** openProject creates an empty project from the projects screen of Synnax Desktop. */
-const openProject = async (session: capture.CaptureSession): Promise<void> => {
-  const { page } = session;
-  const create = page.getByText("New project").first();
-  await session.waitFor(create, 1800);
-  await create.click();
-  const name = page.locator(capture.MODAL).getByPlaceholder("Name").first();
-  await session.waitFor(name);
-  await name.fill("My project");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-  await session.waitFor(page.locator(".console-palette button"), 1800);
-  await capture.clearPanel(session);
 };
 
 /**
@@ -73,7 +60,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.zoom(modal);
   await session.click(name);
   await type(session, "ramp_time");
-  await session.click(switchFor(modal, "Is index"));
+  await session.click(kindButton(modal, "Index"));
   await session.hold(400);
   await capture.clickButton(session, "Create");
   session.endZoom();
@@ -86,7 +73,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(name);
   await type(session, "ramp");
   await session.click(
-    modal.locator(".pluto-dialog__trigger").filter({ hasText: "float32" }).first(),
+    modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
   await session.waitFor(page.getByPlaceholder("Search data types...").first());
   await session.hold(300);
@@ -109,12 +96,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.zoom(modal, 1.6);
   await session.click(name);
   await type(session, "Ramp");
-  await session.click(
-    modal
-      .locator(".console-arc-create-modal__mode-select-button")
-      .filter({ hasText: "Text" })
-      .first(),
-  );
   await session.hold(400);
   await capture.clickButton(session, "Create");
   session.endZoom();
@@ -128,7 +109,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.paste(PROGRAM);
   await session.hold(1500);
   const rack = controls(page).locator(".console-rack-select").first();
-  const play = controls(page).locator("button:has(svg.pluto-icon--play)");
+  const play = controls(page).locator("button:has(svg.lyra-icon--play)");
   await session.zoom([rack, play], 1.8);
   await session.click(rack);
   await selectItem(session, "Node 1");
@@ -145,13 +126,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.press("v");
   await session.waitFor(page.locator("label").filter({ hasText: "Y1" }).first());
   await session.hold(400);
-  const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
   await capture.zoomCenter(session, drawer, 1.4);
   await capture.addChannels(session, "Y1", ["ramp"], { search: "ramp" });
-  // A new plot starts on Rolling 30s, so the tutorial only checks it.
-  await session.moveTo(drawer.getByText("Rolling 30s", { exact: true }).first(), {
-    text: true,
-  });
+  // A new plot starts on a rolling 30s window, so the tutorial only checks it.
+  const rolling = drawer
+    .locator(".lyra-tag")
+    .filter({ has: page.locator(".console-range-select__live-icon") })
+    .first();
+  await session.moveTo(rolling.getByText("30s", { exact: true }), { text: true });
   await session.hold(1200);
   session.endZoom();
   await session.moveTo(capture.PARK);
@@ -171,7 +154,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await page.keyboard.up("Alt");
   await session.hold(500);
   await session.rightClick(at(0.6, 0.5));
-  const menu = page.locator(".pluto-menu-context").first();
+  const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await session.hold(400);
   await session.click(

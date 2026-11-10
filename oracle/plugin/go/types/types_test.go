@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/oracle/versions"
 	gotesterrors "github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestGoTypes(t *testing.T) {
@@ -94,6 +95,18 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			ExpectContent(resp, "thing/types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should keep a wire-omitted field out of JSON and msgpack", func(
 				ctx SpecContext,
@@ -158,7 +171,7 @@ var _ = Describe("Go Types Plugin", func() {
 					tags string[]
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+				table, diag := Analyze(ctx, source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -190,7 +203,7 @@ var _ = Describe("Go Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+					table, diag := Analyze(ctx, source, "ranger", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -218,7 +231,7 @@ var _ = Describe("Go Types Plugin", func() {
 					CPU_ID uint32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -303,7 +316,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -330,7 +343,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -356,7 +369,7 @@ var _ = Describe("Go Types Plugin", func() {
 					key uuid
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -387,7 +400,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -409,7 +422,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Empty struct {
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "empty", loader)
+				table, diag := Analyze(ctx, source, "empty", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -435,7 +448,7 @@ var _ = Describe("Go Types Plugin", func() {
 					count int32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
+					table, diag := Analyze(ctx, source, "simple", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -469,7 +482,7 @@ var _ = Describe("Go Types Plugin", func() {
 					first_name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -510,7 +523,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -546,7 +559,7 @@ var _ = Describe("Go Types Plugin", func() {
 					rtd_type RTDType
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+					table, diag := Analyze(ctx, source, "ni", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -582,7 +595,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -618,7 +631,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "indicates a compass direction."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "direction", loader)
+				table, diag := Analyze(ctx, source, "direction", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -646,7 +659,7 @@ var _ = Describe("Go Types Plugin", func() {
 						error = "error"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					resp := MustSucceed(
@@ -680,7 +693,7 @@ var _ = Describe("Go Types Plugin", func() {
 						high = 2
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -718,7 +731,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AxisKey enum extends XAxisKey, YAxisKey {}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -751,7 +764,7 @@ var _ = Describe("Go Types Plugin", func() {
 					counts map<string, int32>
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -778,7 +791,7 @@ var _ = Describe("Go Types Plugin", func() {
 					label string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -809,7 +822,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -842,7 +855,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -916,7 +929,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			DescribeTable(
 				"Should reject a type that ToAny cannot convert",
 				func(ctx SpecContext, source, msg string) {
-					table, diag := analyzer.AnalyzeSource(ctx, source, "box", loader)
+					table, diag := Analyze(ctx, source, "box", loader)
 					Expect(diag.Ok()).To(BeTrue(), diag.String())
 					req := &plugin.Request{Resolutions: table}
 					Expect(goPlugin.Generate(req)).Error().To(MatchError(
@@ -1023,7 +1036,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Alias = Original
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "alias", loader)
+				table, diag := Analyze(ctx, source, "alias", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1043,7 +1056,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 
 				Stratum = string[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				table, diag := Analyze(ctx, source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1068,7 +1081,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					@doc value "is a numeric value representing control authority."
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"control",
@@ -1098,7 +1111,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					@doc value "is the unique identifier for the label."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "label", loader)
+				table, diag := Analyze(ctx, source, "label", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1133,7 +1146,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					address Address
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1172,7 +1185,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					status status.Status
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1224,7 +1237,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					variant status.Variant
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1266,7 +1279,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1305,7 +1318,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1376,6 +1389,87 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					Expect(content).To(ContainSubstring(`Name string`))
 				},
 			)
+
+			Context("parent omitted in Go", func() {
+				schema := func(parentDomain, childBody string) string {
+					return `
+				@go output "core/user"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+				}
+
+				It(
+					"Should declare an inline variant's inherited fields",
+					func(ctx SpecContext) {
+						source := `
+						@go output "core/pkg/service/auth"
+						
+
+						Record struct {
+							key  uint32
+							name string
+							@go omit
+						}
+
+						Chan union on type {
+							ai extends Record {
+								rate float64
+							}
+						}
+					`
+						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						ExpectContent(resp, "types.gen.go").
+							ToContain("Key uint32", "Name string", "Rate float64").
+							ToNotContain("Record")
+					},
+				)
+
+				It("Should declare the inherited fields", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx,
+						schema("@go omit", "rate float64"),
+						"user",
+						loader,
+						goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Shape struct {",
+							"Key uint32",
+							"Name string",
+							"Secret string",
+							"Rate float64",
+						).
+						ToNotContain("type Record struct", "\tRecord\n")
+				})
+
+				It("Should leave out a removed field", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("@go omit", "-secret"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {", "Name string").
+						ToNotContain("Secret", "type Record struct")
+				})
+
+				It("Should embed a parent that generates", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("", "rate float64"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {\n\tRecord\n")
+				})
+			})
 
 			It(
 				"Should flatten when two parents promote one name",
@@ -1541,7 +1635,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "child", loader)
+					table, diag := Analyze(ctx, source, "child", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1587,7 +1681,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1619,7 +1713,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1657,7 +1751,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1700,7 +1794,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1745,7 +1839,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					ripe bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+				table, diag := Analyze(ctx, source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1772,7 +1866,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					mango bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+				table, diag := Analyze(ctx, source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1804,7 +1898,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					age int32?
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1840,7 +1934,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					counts int32[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1868,7 +1962,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					settings map<string, string>?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1895,7 +1989,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 					blob bytes
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+					table, diag := Analyze(ctx, source, "config", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1941,7 +2035,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						targetKey string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -1989,7 +2083,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						axis_3_label string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -2033,7 +2127,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						details Details
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+					table, diag := Analyze(ctx, source, "rack", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2063,7 +2157,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				table, diag := Analyze(ctx, source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -2104,7 +2198,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						name string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
+					table, diag := Analyze(ctx, source, "module", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2149,7 +2243,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						metadata string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2254,7 +2348,7 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 						@go imports "github.com/synnaxlabs/synnax/arc/go/types"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2289,6 +2383,40 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 		})
 
 		Context("enum starts-at-one optimization", func() {
+			It("Should render the doc of each int enum value", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+						running = 2
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").
+					ToContain("// StatusPending is a task that has not started.\n\tStatusPending")
+			})
+
+			It(
+				"Should render the doc of a single int enum value",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/task"
+
+					Status enum {
+						pending = 1 {
+							@doc value "is a task that has not started."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("// StatusPending is a task that has not started.\nconst StatusPending")
+				},
+			)
+
 			It(
 				"Should use iota+1 for enums starting at 1 with sequential values",
 				func(ctx SpecContext) {
@@ -2667,7 +2795,7 @@ Rack struct extends status.BaseConfig {
 			)
 
 			It(
-				"Should keep pinned and live imports of one dependency apart when persisted and transient declarations mix",
+				"Should resolve persisted and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2718,16 +2846,16 @@ Snapshot struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							`statusv1 "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
-							`"github.com/synnaxlabs/synnax/core/status"`,
-							"Embedded statusv1.Status",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
+							"Embedded status.Status",
 							"Latest status.Status",
-						)
+						).
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 
 			It(
-				"Should resolve omitted fields and transient declarations against the latest version",
+				"Should resolve omitted fields and transient declarations against the pinned version",
 				func(ctx SpecContext) {
 					resp := chainGenerate(ctx, goPlugin, map[string]string{
 						"schemas/synnax/status.oracle": `
@@ -2762,7 +2890,7 @@ Rack struct {
 }
 `,
 						"schemas/synnax/versions/rack/v2.oracle": `
-import "schemas/synnax/status"
+import "schemas/synnax/versions/status/v1"
 
 Alias = status.Status
 
@@ -2778,13 +2906,11 @@ Rack struct {
 					ExpectContent(resp, "core/rack/versions/v2/types.gen.go").
 						ToBeValidGoSource().
 						ToContain(
-							// The omitted field and the alias it references are
-							// memory-only, so they track the dependency root.
-							`"github.com/synnaxlabs/synnax/core/status"`+"\n",
+							`status "github.com/synnaxlabs/synnax/core/status/versions/v1"`,
 							"type Alias = status.Status",
 							"Status *Alias",
 						).
-						ToNotContain("core/status/versions/v1")
+						ToNotContain(`"github.com/synnaxlabs/synnax/core/status"` + "\n")
 				},
 			)
 
@@ -2845,6 +2971,9 @@ Entry struct {
 							"type ScaleType = versions.ScaleType",
 							"type LinearScale = versions.LinearScale",
 							"LinearScaleType ScaleType = versions.LinearScaleType",
+							"// ScaleVariant is implemented by every Scale variant.",
+							`// ScaleType is the "type" value that selects a variant of Scale.`,
+							"// LinearScaleType selects the LinearScale variant.",
 						)
 				},
 			)
@@ -3031,6 +3160,107 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate a method for the tag",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			View union on type extends Base {
+				first { size int32 }
+				second { count int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case FirstView:
+		return FirstViewType
+	case SecondView:
+		return SecondViewType
+	}
+	return ""
+}`,
+				)
+		},
+	)
+
+	It(
+		"Should generate no method for a base that a variant drops a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				name string
+				size int32
+			}
+
+			View union on type extends Base {
+				first { -size }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u View) Type() ViewType").
+				ToNotContain("func (u View) Base() Base")
+		},
+	)
+
+	It(
+		"Should generate no tag method that collides with the Variant field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			Config union on variant extends Base {
+				first { size int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u Config) Base() Base").
+				ToNotContain("func (u Config) Variant()")
+		},
+	)
+
+	DescribeTable(
+		"Should reject a union getter that has the name of another union method",
+		func(ctx SpecContext, source, msg string) {
+			table, diag := Analyze(ctx, source, "view", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(
+				"failed to generate out: view.Shape: " + msg,
+			))
+		},
+		Entry("when the tag getter has the name of the base getter", `
+			@go output "out"
+
+			Detail struct { name string }
+
+			Shape union on base extends Detail {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator base has the name of another union "+
+			"method; rename the discriminator"),
+		Entry("when the tag getter has the name of a method every union declares", `
+			@go output "out"
+
+			Shape union on validate {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator validate has the name of another union "+
+			"method; rename the discriminator"),
+	)
+
+	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
 			source := `
@@ -3046,6 +3276,58 @@ var _ = Describe("Go Union Generation", func() {
 			ExpectContent(resp, "types.gen.go").
 				ToContain(`type ScaleType string`, "\nconst LinearScaleType ScaleType = \"linear\"\n").
 				ToNotContain("const (\n\tLinearScaleType")
+		},
+	)
+
+	It(
+		"Should document the exported union declarations and not the marker",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+			NoneParams struct {}
+
+			Scale union on kind {
+				linear LinearParams {
+					@doc value "scales a value along a line."
+				}
+				none NoneParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`// ScaleType is the "kind" value that selects a variant of Scale.`,
+					"// LinearScaleType scales a value along a line.",
+					"// NoneScaleType selects the NoneScale variant.",
+					"// ScaleVariant is implemented by every Scale variant.",
+				).
+				ToNotContain("// isScaleVariant")
+		},
+	)
+
+	It(
+		"Should wrap an unknown discriminator in a validation error",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			LinearParams struct { slope float64 }
+
+			Scale union on type {
+				linear LinearParams
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					`"github.com/synnaxlabs/x/validate"`,
+					"validate.ErrValidation,",
+					`"Scale: unknown type %q",`,
+				)
 		},
 	)
 
@@ -3100,10 +3382,10 @@ var _ = Describe("Go Union Generation", func() {
 					`case LinearScale:`,
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
-					`Type ScaleType `+"`"+`json:"type"`+"`",
 					`case LinearScaleType:`,
-					`var v LinearScale`,
-					`u.Variant = v`,
+					`json.RejectUnknownMembers(false)`,
+					"LinearScale\n\t\t}",
+					`u.Variant = v.LinearScale`,
 				)
 		},
 	)
@@ -3267,6 +3549,121 @@ var _ = Describe("Go Union Generation", func() {
 					`VoltageFields`,
 				)
 		},
+	)
+
+	It(
+		"Should generate Base and SetBase for a union whose variants share one base",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			VoltageFields struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage VoltageFields
+				ai_current { units string }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() BaseAIChan {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\treturn variant.BaseAIChan\n"+
+						"\t}\n"+
+						"\treturn BaseAIChan{}\n"+
+						"}",
+					"func (u *AIChannel) SetBase(base BaseAIChan) {\n"+
+						"\tswitch variant := u.Variant.(type) {\n"+
+						"\tcase AIVoltageChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tcase AICurrentChannel:\n"+
+						"\t\tvariant.BaseAIChan = base\n"+
+						"\t\tu.Variant = variant\n"+
+						"\tdefault:\n"+
+						"\t\tpanic(errors.Newf(\"AIChannel: cannot set the base of "+
+						"variant %T\", variant))\n"+
+						"\t}\n"+
+						"}",
+				)
+		},
+	)
+
+	It(
+		"Should qualify the Base return type of a base from another namespace",
+		func(ctx SpecContext) {
+			loader.Add("schemas/common", `
+			@go output "core/common"
+
+			BaseAIChan struct { port int32 }
+		`)
+			source := `
+			import "schemas/common"
+
+			@go output "core/ni"
+
+			AIChannel union on type extends common.BaseAIChan {
+				ai_voltage { minVal float64 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "ni/types.gen.go").
+				ToContain(
+					"func (u AIChannel) Base() common.BaseAIChan {",
+					"\t\treturn variant.BaseAIChan\n",
+					"\treturn common.BaseAIChan{}\n",
+					"func (u *AIChannel) SetBase(base common.BaseAIChan) {",
+					"\t\tvariant.BaseAIChan = base\n",
+				)
+		},
+	)
+
+	DescribeTable(
+		"Should not generate Base or SetBase without one base every variant shares",
+		func(ctx SpecContext, source string) {
+			resp := MustGenerate(ctx, source, "ni", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("type AIChannel struct {").
+				ToNotContain(") Base() ", ") SetBase(")
+		},
+		Entry("no base", `
+			@go output "out"
+
+			AIChannel union on type {
+				ai_voltage { minVal float64 }
+			}
+		`),
+		Entry("two bases", `
+			@go output "out"
+
+			BaseAIChan struct { port int32 }
+			Range struct { minVal float64 }
+
+			AIChannel union on type extends BaseAIChan, Range {
+				ai_voltage {}
+			}
+		`),
+		Entry("a variant that omits a base field", `
+			@go output "out"
+
+			BaseAIChan struct {
+				port int32
+				enabled bool
+			}
+
+			AIChannel union on type extends BaseAIChan {
+				ai_voltage { minVal float64 }
+				ai_temp_builtin {
+					-port
+					units string
+				}
+			}
+		`),
 	)
 
 	It(
@@ -3451,18 +3848,27 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
-		var v rtLinearScale
+		var v struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.rtLinearScale
 	default:
-		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
+		return gotesterrors.Wrapf(
+			validate.ErrValidation,
+			"rtScale: unknown type %q",
+			disc.Type,
+		)
 	}
 	return nil
 }
@@ -3533,6 +3939,33 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
 		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
+	})
+
+	It("Should decode a union when unknown members are rejected", func() {
+		data := []byte(`{"type":"linear","slope":2}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(Succeed())
+		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
+	})
+
+	DescribeTable("Should reject an invalid discriminator as a validation error",
+		func(data, value string) {
+			var out rtScale
+			Expect(json.Unmarshal([]byte(data), &out)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("rtScale: unknown type "+value)),
+			))
+		},
+		Entry("unknown", `{"type":"bogus"}`, `"bogus"`),
+		Entry("missing", `{"slope":2}`, `""`),
+	)
+
+	It("Should reject an unknown member of a union variant", func() {
+		data := []byte(`{"type":"linear","slope":2,"offset":1}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(MatchError(ContainSubstring(`unknown object member name "offset"`)))
 	})
 })
 

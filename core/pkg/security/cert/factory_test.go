@@ -10,17 +10,30 @@
 package cert_test
 
 import (
+	"crypto/rand"
 	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"math/big"
 	"os"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/x/address"
+	xpem "github.com/synnaxlabs/x/encoding/pem"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+func writePEM(fs xfs.FS, p string, b *pem.Block) {
+	GinkgoHelper()
+	file := MustSucceed(fs.Open(p, os.O_CREATE|os.O_WRONLY|os.O_TRUNC))
+	Expect(xpem.Write(file, b)).To(Succeed())
+	Expect(file.Close()).To(Succeed())
+}
 
 var _ = Describe("Factory", func() {
 	var fs xfs.FS
@@ -31,7 +44,7 @@ var _ = Describe("Factory", func() {
 		It("Should generate a CA and a key", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			c, k := MustSucceed2(f.Loader.LoadCAPair())
@@ -43,16 +56,20 @@ var _ = Describe("Factory", func() {
 		It("Should not allow key reuse by default", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
-			Expect(f.CreateCAPair()).ToNot(Succeed())
+			Expect(
+				f.CreateCAPair(),
+			).To(MatchError(ContainSubstring(
+				"already exists, but reuse is not allowed",
+			)))
 		})
 		It("Should reuse the CA and key if they already exist", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:            fs,
 				AllowKeyReuse: new(true),
-				KeySize:       mock.SmallKeySize,
+				KeySize:       testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateCAPair()).To(Succeed())
@@ -63,7 +80,7 @@ var _ = Describe("Factory", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
 				Hosts:   []address.Address{"synnaxlabs.com"},
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
@@ -76,7 +93,7 @@ var _ = Describe("Factory", func() {
 		It("Should fail to generate a node cert and key if no CA is present", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateNodePair()).
 				Error().To(MatchError(ContainSubstring("CA certificate not found")))
@@ -84,7 +101,7 @@ var _ = Describe("Factory", func() {
 		It("Should fail is no hosts are provided", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).
@@ -97,7 +114,7 @@ var _ = Describe("Factory", func() {
 			return MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
 				Hosts:   hosts,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 		}
 		serialOf := func(f *cert.Factory) string {
@@ -165,7 +182,9 @@ var _ = Describe("Factory", func() {
 			before := serialOf(f)
 			Expect(fs.Remove("/usr/local/synnax/certs/ca.key")).To(Succeed())
 			moved := newFactory("new.synnaxlabs.com")
-			Expect(moved.CreateNodePairIfStale()).ToNot(Succeed())
+			Expect(
+				moved.CreateNodePairIfStale(),
+			).To(MatchError(ContainSubstring("CA certificate not found")))
 			Expect(serialOf(f)).To(Equal(before))
 			c, _ := MustSucceed2(f.Loader.LoadNodePair())
 			Expect(c.DNSNames).To(ConsistOf("old.synnaxlabs.com"))
@@ -176,7 +195,9 @@ var _ = Describe("Factory", func() {
 			Expect(f.CreateNodePairIfStale()).To(Succeed())
 			Expect(fs.Remove("/usr/local/synnax/certs/ca.key")).To(Succeed())
 			moved := newFactory("new.synnaxlabs.com")
-			Expect(moved.CreateNodePairIfStale()).ToNot(Succeed())
+			Expect(
+				moved.CreateNodePairIfStale(),
+			).To(MatchError(ContainSubstring("CA certificate not found")))
 			Expect(fs.Remove("/usr/local/synnax/certs/ca.crt")).To(Succeed())
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(moved.CreateNodePairIfStale()).To(Succeed())
@@ -194,6 +215,72 @@ var _ = Describe("Factory", func() {
 			Expect(caAfter.SerialNumber).To(Equal(caBefore.SerialNumber))
 			c, _ := MustSucceed2(grown.Loader.LoadNodePair())
 			Expect(c.AuthorityKeyId).To(Equal(caAfter.SubjectKeyId))
+		})
+		It("Should replace a certificate whose subject matches the CA's", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			ca, caKey := MustSucceed2(f.Loader.LoadCAPair())
+			nodeKey := MustSucceed(
+				f.Config().KeyAlgorithm.GenerateKey(testutil.SmallKeySize),
+			)
+			b := MustSucceed(x509.CreateCertificate(rand.Reader, &x509.Certificate{
+				SerialNumber: big.NewInt(1),
+				Subject:      pkix.Name{CommonName: "Synnax CA"},
+				NotBefore:    time.Now().Add(-time.Hour),
+				NotAfter:     time.Now().Add(time.Hour),
+				KeyUsage:     x509.KeyUsageDigitalSignature,
+				ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+				DNSNames:     []string{"synnaxlabs.com"},
+			}, ca, nodeKey.Public(), caKey))
+			writePEM(fs, f.Config().AbsoluteNodeCertPath(), xpem.FromCertBytes(b))
+			writePEM(
+				fs,
+				f.Config().AbsoluteNodeKeyPath(),
+				MustSucceed(xpem.FromPrivateKey(nodeKey)),
+			)
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.Subject.String()).ToNot(Equal(ca.Subject.String()))
+			Expect(c.CheckSignatureFrom(ca)).To(Succeed())
+		})
+		It(
+			"Should fail when it cannot replace a certificate another CA signed",
+			func() {
+				f := newFactory("synnaxlabs.com")
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(Succeed())
+				before := serialOf(f)
+				Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+				Expect(fs.Remove("/usr/local/synnax/certs/ca.crt")).To(Succeed())
+				Expect(f.CreateCAPair()).To(Succeed())
+				Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+				Expect(f.CreateNodePairIfStale()).To(MatchError(And(
+					ContainSubstring("does not chain to the CA"),
+					ContainSubstring("Restore the CA key"),
+				)))
+				Expect(serialOf(f)).To(Equal(before))
+			},
+		)
+		It("Should replace a certificate another CA signed", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+			Expect(fs.Remove("/usr/local/synnax/certs/ca.crt")).To(Succeed())
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			ca, _ := MustSucceed2(f.Loader.LoadCAPair())
+			c, _ := MustSucceed2(f.Loader.LoadNodePair())
+			Expect(c.CheckSignatureFrom(ca)).To(Succeed())
+		})
+		It("Should keep a chaining certificate when the CA key is absent", func() {
+			f := newFactory("synnaxlabs.com")
+			Expect(f.CreateCAPair()).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			before := serialOf(f)
+			Expect(fs.Remove(f.Config().AbsoluteCAKeyPath())).To(Succeed())
+			Expect(f.CreateNodePairIfStale()).To(Succeed())
+			Expect(serialOf(f)).To(Equal(before))
 		})
 	})
 
@@ -219,7 +306,7 @@ var _ = Describe("Factory", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
 				Hosts:   []address.Address{"synnaxlabs.com"},
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			Expect(f.CreateNodePair()).To(Succeed())
@@ -229,7 +316,7 @@ var _ = Describe("Factory", func() {
 		It("Should chain an in-memory node certificate to the CA", func() {
 			f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 				FS:      fs,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}))
 			Expect(f.CreateCAPair()).To(Succeed())
 			tlsC := MustSucceed(f.SignNodeCert([]address.Address{"synnaxlabs.com"}))

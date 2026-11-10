@@ -10,18 +10,19 @@
 import { labjack, type task } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import * as Device from "@/feature/labjack/device/types";
+import {
+  AIN_PORT_REGEX,
+  DAC_PORT_REGEX,
+  DIO_PORT_REGEX,
+  negativeChannelOf,
+} from "@/feature/labjack/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "labjack";
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
-export type Scale = labjack.Scale;
-export type ScaleType = labjack.ScaleType;
-export const SCALE_SCHEMAS = labjack.SCALE_SCHEMAS;
-
-const NO_SCALE: Scale = { type: "none" };
+const NO_SCALE: task.Scale = { type: "none" };
 
 export type TemperatureUnits = labjack.TemperatureUnits;
 export type ThermocoupleType = labjack.ThermocoupleType;
@@ -59,52 +60,52 @@ export type Channel = ReadChannel | WriteChannel;
 const deployPortZ = z.string().min(1, "Port must be specified");
 
 const deployAIPortZ = deployPortZ.regex(
-  Device.AIN_PORT_REGEX,
+  AIN_PORT_REGEX,
   "Invalid port, ports must start with AIN and end with an integer",
 );
 
 const deployDigitalPortZ = deployPortZ.regex(
-  Device.DIO_PORT_REGEX,
+  DIO_PORT_REGEX,
   "Invalid port, port must start with DIO and end with an integer",
 );
 
 const deployAOPortZ = deployPortZ.regex(
-  Device.DAC_PORT_REGEX,
+  DAC_PORT_REGEX,
   "Invalid port, ports must start with DAC and end with an integer",
 );
-
-const validateUniquePorts: z.core.CheckFn<Channel[]> = ({
-  value: channels,
-  issues,
-}) => {
-  const portToIndexMap = new Map<string, number>();
-  channels.forEach(({ port }, i) => {
-    if (!portToIndexMap.has(port)) {
-      portToIndexMap.set(port, i);
-      return;
-    }
-    const index = portToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ code, message, path: [index, "port"], input: channels });
-    issues.push({ code, message, path: [i, "port"], input: channels });
-  });
-};
 
 export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = labjack.readConfigZ;
 
-const deployReadChannelZ = z.union([
-  labjack.analogReadChannelZ.extend({
-    range: z.number().positive().default(10),
-    port: deployAIPortZ,
-  }),
+const validateNegativeChannel = ({
+  value: { port, negChan },
+  issues,
+}: z.core.ParsePayload<{ port: string; negChan?: number }>) => {
+  const pair = negativeChannelOf(port);
+  if (negChan == null || negChan === pair) return;
+  issues.push({
+    code: "custom",
+    message:
+      pair == null
+        ? `${port} can only read against ground`
+        : `Negative channel must be ground or AIN${pair}`,
+    path: ["negChan"],
+    input: negChan,
+  });
+};
+
+const deployReadChannelZ = z.discriminatedUnion("type", [
+  labjack.analogReadChannelZ
+    .extend({ range: z.number().positive().default(10), port: deployAIPortZ })
+    .check(validateNegativeChannel),
   labjack.digitalReadChannelZ.extend({ port: deployDigitalPortZ }),
-  labjack.thermocoupleReadChannelZ.extend({
-    port: deployAIPortZ,
-    cjcSource: z.string().min(1, "CJC source must be specified"),
-  }),
+  labjack.thermocoupleReadChannelZ
+    .extend({
+      port: deployAIPortZ,
+      cjcSource: z.string().min(1, "CJC source must be specified"),
+    })
+    .check(validateNegativeChannel),
 ]);
 
 export const deployReadConfigZ = labjack.readConfigZ
@@ -113,7 +114,7 @@ export const deployReadConfigZ = labjack.readConfigZ
     channels: z
       .array(deployReadChannelZ)
       .check(Task.validateReadChannels)
-      .check(validateUniquePorts),
+      .check(Task.validateEnabledChannel),
     sampleRate: z.number().positive().max(50000),
     streamRate: z.number().positive().max(50000),
   })
@@ -146,7 +147,7 @@ export const deployWriteConfigZ = labjack.writeConfigZ.extend({
   channels: z
     .array(deployWriteChannelZ)
     .check(Task.validateWriteChannels)
-    .check(validateUniquePorts),
+    .check(Task.validateEnabledChannel),
   stateRate: z.number().positive().max(50000),
 });
 

@@ -76,3 +76,72 @@ var _ = Describe("Table.UnionTypes", func() {
 		Expect(unions[0].Name).To(Equal("Scale"))
 	})
 })
+
+var _ = Describe("RecordFields", func() {
+	var table *resolution.Table
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Base",
+			QualifiedName: "test.Base",
+			Namespace:     "test",
+			Form: resolution.StructForm{Fields: []resolution.Field{
+				{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+			}},
+		})).To(Succeed())
+	})
+	union := func(enum string) resolution.Type {
+		return resolution.Type{
+			Name: "View",
+			Form: resolution.UnionForm{
+				Discriminator: "type",
+				Enum:          resolution.TypeRef{Name: enum},
+				Extends:       []resolution.TypeRef{{Name: "test.Base"}},
+			},
+		}
+	}
+
+	It("Should hold the tag of a union that borrows its enum", func() {
+		fields := MustBeOk(resolution.RecordFields(union("test.Type"), table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+			{Name: "type", Type: resolution.TypeRef{Name: "test.Type"}},
+		}))
+	})
+
+	It("Should hold the fields of a struct with defaults for its parameters", func() {
+		def := resolution.TypeRef{Name: "int32"}
+		thing := resolution.Type{
+			Name: "Thing",
+			Form: resolution.StructForm{
+				TypeParams: []resolution.TypeParam{{Name: "T", Default: &def}},
+				Fields: []resolution.Field{
+					{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
+					{Name: "value", Type: resolution.TypeRef{
+						TypeParam: &resolution.TypeParam{Name: "T"},
+					}},
+				},
+			},
+		}
+		fields := MustBeOk(resolution.RecordFields(thing, table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "key", Type: resolution.TypeRef{Name: "uuid"}},
+			{Name: "value", Type: def},
+		}))
+	})
+
+	It("Should report a type that is neither a struct nor a union", func() {
+		_, ok := resolution.RecordFields(
+			resolution.Type{Name: "Kind", Form: resolution.EnumForm{}},
+			table,
+		)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should leave out the tag of an unnamed enum", func() {
+		fields := MustBeOk(resolution.RecordFields(union(""), table))
+		Expect(fields).To(Equal([]resolution.Field{
+			{Name: "name", Type: resolution.TypeRef{Name: "string"}},
+		}))
+	})
+})

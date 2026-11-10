@@ -25,6 +25,7 @@ import (
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/gorp"
 	arcranges "github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -110,7 +111,7 @@ func retrieveRange(ctx context.Context, key string) (ranger.Range, error) {
 		return ranger.Range{}, err
 	}
 	var r ranger.Range
-	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, nil)
+	err = rangeSvc.NewRetrieve().Where(ranger.MatchKeys(uid)).Entry(&r).Exec(ctx, db)
 	return r, err
 }
 
@@ -394,7 +395,7 @@ var _ = Describe("createNode.Next", func() {
 			Expect(rangeSvc.
 				NewRetrieve().
 				Where(ranger.MatchNames(name)).
-				Count(ctx, nil),
+				Count(ctx, db),
 			).To(Equal(0))
 
 			calls := rep.get()
@@ -413,7 +414,9 @@ var _ = Describe("createNode.Next", func() {
 				Name:      "parent_" + uuid.New().String(),
 				TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 			}
-			Expect(rangeSvc.NewWriter(nil).Create(ctx, &parent)).To(Succeed())
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return rangeSvc.NewWriter(tx).Create(ctx, &parent)
+			})).To(Succeed())
 
 			n, state := build("child_"+uuid.New().String(), parent.Key.String(), "")
 			n.Next(nodeCtx(ctx))
@@ -485,7 +488,9 @@ var _ = Describe("endNode.Next", func() {
 			Name:      "end_target_" + uuid.New().String(),
 			TimeRange: telem.TimeRange{Start: telem.Now(), End: telem.TimeStampMax},
 		}
-		Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return rangeSvc.NewWriter(tx).Create(ctx, &r)
+		})).To(Succeed())
 		return r
 	}
 
@@ -565,7 +570,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{name=\"r\", color=\"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(name=\"r\", color=\"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -575,7 +580,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"\", \"not-a-color\")",
 			)).To(BeTrue())
 		},
 	)
@@ -585,7 +590,7 @@ var _ = Describe("Analyzer hooks", func() {
 		func(ctx SpecContext) {
 			Expect(hasColorError(
 				ctx,
-				"import ranges\nsensor -> ranges.create{\"r\", \"not-a-color\"}",
+				"import ranges\nsensor -> ranges.create(\"r\", \"not-a-color\")",
 			)).To(BeFalse())
 		},
 	)
@@ -593,13 +598,13 @@ var _ = Describe("Analyzer hooks", func() {
 	It("Should accept a valid color literal", func(ctx SpecContext) {
 		Expect(hasColorError(
 			ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\", color=\"#DF6D38\"}",
+			"import ranges\nsensor -> ranges.create(name=\"r\", color=\"#DF6D38\")",
 		)).To(BeFalse())
 	})
 
 	It("Should not flag a missing color argument", func(ctx SpecContext) {
 		Expect(hasColorError(ctx,
-			"import ranges\nsensor -> ranges.create{name=\"r\"}")).To(BeFalse())
+			"import ranges\nsensor -> ranges.create(name=\"r\")")).To(BeFalse())
 	})
 
 	It(
@@ -610,7 +615,7 @@ var _ = Describe("Analyzer hooks", func() {
 				"    bad := \"not-a-\" + \"color\"\n" +
 				"    ranges.create(\"r\", \"\", bad)\n" +
 				"}\n" +
-				"sensor -> f{}"
+				"sensor -> f()"
 			parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 			_, diags := text.Analyze(ctx, parsed, buildRoot())
 			Expect(diags.Ok()).To(BeTrue())
@@ -689,7 +694,9 @@ var _ = Describe("WASM host functions", func() {
 						End:   telem.TimeStampMax,
 					},
 				}
-				Expect(rangeSvc.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return rangeSvc.NewWriter(tx).Create(ctx, &r)
+				})).To(Succeed())
 				keyH := strs.Create(r.Key.String())
 				before := telem.Now()
 

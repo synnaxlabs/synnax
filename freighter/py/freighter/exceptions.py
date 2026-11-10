@@ -7,12 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from x.exceptions import ExceptionPayload, register_exception
+from typing import override
+
+from x.exceptions import Error, ExceptionPayload, Provider
 
 _FREIGHTER_EXCEPTION_TYPE = "freighter."
 
 
-class Unreachable(Exception):
+class Unreachable(Error):
     """Raised when a target is unreachable."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "unreachable"
@@ -20,29 +22,32 @@ class Unreachable(Exception):
     target: str
     message: str
 
-    def __init__(self, target: str = "", message: str = "Unreachable"):
+    def __init__(self, *, target: str = "", message: str = "Unreachable"):
         self.target = target
         self.message = message
         super().__init__(message)
 
+    @override
     def __str__(self) -> str:
         return self.message
 
 
-class StreamClosed(Exception):
+class StreamClosed(Error):
     """Raised when a stream is closed."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "stream_closed"
 
+    @override
     def __str__(self) -> str:
         return "StreamClosed"
 
 
-class EOF(Exception):
+class EOF(Error):
     """Raised when a stream reaches end-of-file."""
 
     TYPE = _FREIGHTER_EXCEPTION_TYPE + "eof"
 
+    @override
     def __str__(self) -> str:
         return "EOF"
 
@@ -67,4 +72,5 @@ def _freighter_decode(exc: ExceptionPayload) -> Exception | None:
     return None
 
 
-register_exception(_freighter_encode, _freighter_decode)
+EXCEPTION_PROVIDER = Provider(encode=_freighter_encode, decode=_freighter_decode)
+"""Encodes and decodes the exceptions that Freighter raises."""

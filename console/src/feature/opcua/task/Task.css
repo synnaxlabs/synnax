@@ -22,7 +22,7 @@
 }
 
 .console-opc-task-header,
-.console-opc-browser > .pluto-header {
+.console-opc-browser > .lyra-header {
     height: 6rem;
     flex-shrink: 0;
     flex-grow: 0;
@@ -38,6 +38,8 @@
     transform: translateY(0.5rem);
 }
 
+/* The width of the stream rate field it replaces, so the row does not move. */
 .console-opc-array-size-field {
-    width: 100px;
+    width: 115px;
+    flex-shrink: 0;
 }

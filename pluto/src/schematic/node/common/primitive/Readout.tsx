@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type color, text } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, type Ref } from "react";
+
+import { CSS } from "@/css";
 
 const HEIGHT_RATIO = 0.72;
 
@@ -53,7 +54,7 @@ export const Readout = ({
         ref={valueRef}
         level={level}
         color={color}
-        overflow="ellipsis"
+        overflow="fade"
         className={CSS.BE("symbol-field", "readout-value")}
       >
         {value}

@@ -38,24 +38,21 @@ describe("project/Splash", () => {
       expect(screen.queryByText("No projects")).toBeNull();
     });
 
-    it("should name the denial when the list read is refused", async () => {
+    it("should show no projects when the subject cannot retrieve any", async () => {
       await client.projects.create({ name: uniqueName("argon") });
       const denied = await createTestClientWithPolicy(client, {
         name: uuid.create(),
         objects: [
-          user.TYPE_ONTOLOGY_ID,
-          access.role.TYPE_ONTOLOGY_ID,
-          access.policy.TYPE_ONTOLOGY_ID,
+          user.TYPE_RESOURCE_ID,
+          access.role.TYPE_RESOURCE_ID,
+          access.policy.TYPE_RESOURCE_ID,
         ],
         actions: ["retrieve"],
       });
       const { wrapper } = await createConsoleWrapper({ client: denied });
       render(<Project.Splash />, { wrapper });
-      expect(await screen.findByText("Failed to retrieve projects")).toBeDefined();
-      expect(
-        screen.getByText(/^You do not have permission to do that\. /),
-      ).toBeDefined();
-      expect(screen.queryByText("No projects created.")).toBeNull();
+      expect(await screen.findByText("No projects")).toBeDefined();
+      expect(screen.queryByText("Failed to retrieve projects")).toBeNull();
     });
   });
 
@@ -63,7 +60,7 @@ describe("project/Splash", () => {
     it("should log out of the Core", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);
       act(() => {
-        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+        store.dispatch(Session.Core.select("LOCAL"));
       });
       fireEvent.click(screen.getByRole("button", { name: "Log out" }));
       expect(Session.Core.selectSelected(store.getState())).toBeUndefined();
@@ -72,7 +69,7 @@ describe("project/Splash", () => {
     it("should name the selected Core in the connection island", async () => {
       const { store } = await renderWithConsole(<Project.Splash />);
       act(() => {
-        store.dispatch(Session.Core.select(Session.Core.LOCAL_KEY));
+        store.dispatch(Session.Core.select("LOCAL"));
       });
       const name = Session.Core.selectSelected(store.getState())?.name;
       if (name == null) throw new Error("no Core is selected");
@@ -220,8 +217,9 @@ describe("project/Splash", () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
         <Triggers.Provider>
-          <Project.Splash />
-          <Modals.Stack />
+          <Modals.Stack>
+            <Project.Splash />
+          </Modals.Stack>
         </Triggers.Provider>,
         { wrapper },
       );
@@ -233,7 +231,7 @@ describe("project/Splash", () => {
       fireEvent.keyUp(search, { code: "ArrowDown" });
 
       fireEvent.click(screen.getByText("New project"));
-      await screen.findByPlaceholderText("Name");
+      await screen.findByPlaceholderText("Project name");
       fireEvent.keyDown(document.body, { code: "Enter" });
       await act(async () => {});
       expect(Session.Project.selectOptionalSelected(store.getState())).toBeUndefined();
@@ -244,16 +242,15 @@ describe("project/Splash", () => {
     it("should open the create modal and activate the created project", async () => {
       const { wrapper, store } = await createConsoleWrapper({ client });
       render(
-        <>
+        <Modals.Stack>
           <Project.Splash />
-          <Modals.Stack />
-        </>,
+        </Modals.Stack>,
         { wrapper },
       );
       const name = `proj-${id.create()}`;
 
       fireEvent.click(await screen.findByText("New project"));
-      fireEvent.change(await screen.findByPlaceholderText("Name"), {
+      fireEvent.change(await screen.findByPlaceholderText("Project name"), {
         target: { value: name },
       });
       fireEvent.click(screen.getByRole("button", { name: "Create" }));

@@ -13,6 +13,7 @@
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
 //   - Category 5xxx: Import errors
+//   - Category 6xxx: Constant expression errors
 package codes
 
 import "github.com/synnaxlabs/x/diagnostics"
@@ -23,6 +24,9 @@ const (
 	// TypeConstraintViolation indicates a type doesn't satisfy a type variable's
 	// constraint.
 	TypeConstraintViolation diagnostics.ErrorCode = "ARC2003"
+	// NaNComparison indicates a comparison with a NaN constant, which always has the
+	// same result.
+	NaNComparison diagnostics.ErrorCode = "ARC2004"
 
 	// FuncArgCount indicates wrong number of arguments in a function call.
 	FuncArgCount diagnostics.ErrorCode = "ARC3001"
@@ -36,7 +40,15 @@ const (
 	// DeprecatedSymbol indicates a reference to a symbol whose canonical
 	// replacement is recorded on Symbol.Deprecated.
 	DeprecatedSymbol diagnostics.ErrorCode = "ARC4003"
+	// DeclarationAfterStep indicates a variable declared after a step of its scope.
+	DeclarationAfterStep diagnostics.ErrorCode = "ARC4004"
 
 	// UnusedImport indicates an imported module that is never referenced.
 	UnusedImport diagnostics.ErrorCode = "ARC5001"
+
+	// ConstantOverflow indicates a constant integer expression whose value does not fit
+	// its type.
+	ConstantOverflow diagnostics.ErrorCode = "ARC6001"
+	// DivisionByZero indicates a constant integer division or modulo by zero.
+	DivisionByZero diagnostics.ErrorCode = "ARC6002"
 )

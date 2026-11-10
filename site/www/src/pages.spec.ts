@@ -34,8 +34,9 @@ const all = <E extends Element>(parent: ParentNode, selector: string): E[] => [
 ];
 
 const cdnImages = (doc: Document): HTMLImageElement[] =>
-  all<HTMLImageElement>(doc, "picture img").filter((img) =>
-    decodeURIComponent(img.src).includes(CDN),
+  all<HTMLImageElement>(doc, "picture img").filter(
+    (img) =>
+      new URL(img.src, config.site).searchParams.get("href")?.startsWith(CDN) === true,
   );
 
 describe("pages", () => {
@@ -155,6 +156,30 @@ describe("pages", () => {
       it("should describe every image", () => {
         for (const img of all<HTMLImageElement>(doc, "img"))
           expect(img.getAttribute("alt")).not.toBeNull();
+      });
+    });
+
+    describe("analytics", () => {
+      it("should load PostHog", () => {
+        const scripts = all(doc, "script").map((s) => s.textContent);
+        expect(scripts.some((s) => s.includes("window.posthog"))).toBe(true);
+      });
+
+      it("should link the cookie card to the privacy policy", () => {
+        expect(doc.querySelector(".consent a")?.getAttribute("href")).toBe("/privacy");
+      });
+
+      it("should tag each download link with its event and location", () => {
+        const links = all<HTMLAnchorElement>(
+          doc,
+          'a[href="https://docs.synnaxlabs.com/releases/desktop/download"]',
+        );
+        expect(links.map((a) => a.dataset.location)).toEqual([
+          "header",
+          "drawer",
+          "hero",
+        ]);
+        for (const a of links) expect(a.dataset.event).toBe("desktop_download_clicked");
       });
     });
 

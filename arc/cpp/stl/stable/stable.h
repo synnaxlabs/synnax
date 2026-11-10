@@ -12,7 +12,6 @@
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "x/cpp/errors/errors.h"
@@ -51,14 +50,16 @@ struct StableForInputs {
 /// @brief StableFor debounces a signal: emits a value only after it stays
 /// stable for the given duration, suppressing transient fluctuations.
 ///
-/// Stability is measured from the input sample's timestamp, not scheduler
-/// elapsed time. The window closes against the cycle stamp.
+/// Stability is measured in sample time at both ends. The window opens at the
+/// stamp of the sample where the value last changed and closes at the first
+/// later sample that still holds it. One batch can carry several confirmations,
+/// each sent with its own stamp.
 class StableFor : public runtime::node::Node {
     runtime::state::Node state;
     x::telem::TimeSpan duration;
     size_t input_idx;
-    std::optional<std::vector<uint8_t>> value;
-    std::optional<std::vector<uint8_t>> last_sent;
+    std::vector<uint8_t> value;
+    std::vector<uint8_t> last_sent;
     x::telem::TimeStamp last_changed{0};
 
     /// @brief latches the var-bound live duration at a window start;
@@ -79,48 +80,42 @@ public:
         state(std::move(state)), duration(inputs.duration), input_idx(input_idx) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        if (this->state.refresh_inputs()) {
-            const auto &input_data = this->state.input(this->input_idx);
-            const auto &input_time = this->state.input_time(this->input_idx);
-            if (!input_data->empty()) {
-                const auto density = input_data->data_type().density();
-                const auto *data = reinterpret_cast<const uint8_t *>(
-                    input_data->data()
-                );
-                for (size_t i = 0; i < input_data->size(); i++) {
-                    const auto *current_value = data + i * density;
-                    if (!this->value.has_value() ||
-                        std::memcmp(this->value->data(), current_value, density) != 0) {
-                        this->value.emplace(current_value, current_value + density);
-                        this->last_changed = x::telem::TimeStamp(
-                            input_time->at<int64_t>(i)
-                        );
-                        this->refresh_duration();
-                    }
-                }
+        if (!this->state.refresh_inputs()) return x::errors::NIL;
+        const auto &input_data = this->state.input(this->input_idx);
+        const auto &input_time = this->state.input_time(this->input_idx);
+        const auto density = input_data->data_type().density();
+        const auto *data = reinterpret_cast<const uint8_t *>(input_data->data());
+        std::vector<uint8_t> held;
+        std::vector<x::telem::TimeStamp> stamps;
+        for (size_t i = 0; i < input_data->size(); i++) {
+            const auto *current = data + i * density;
+            const auto stamp = x::telem::TimeStamp(input_time->at<int64_t>(i));
+            if (this->value.empty() ||
+                std::memcmp(this->value.data(), current, density) != 0) {
+                this->value.assign(current, current + density);
+                this->last_changed = stamp;
+                this->refresh_duration();
             }
+            if (x::telem::TimeSpan(stamp - this->last_changed) < this->duration ||
+                this->last_sent == this->value)
+                continue;
+            held.insert(held.end(), this->value.begin(), this->value.end());
+            stamps.push_back(stamp);
+            this->last_sent = this->value;
         }
-
-        if (!this->value.has_value()) return x::errors::NIL;
-        const auto current_time = ctx.cycle.now;
-        if ((x::telem::TimeSpan(current_time - this->last_changed) >= this->duration) &&
-            (!this->last_sent.has_value() || *this->last_sent != *this->value)) {
-            const auto &o = this->state.output(0);
-            const auto &o_time = this->state.output_time(0);
-            o->resize(1);
-            std::memcpy(o->data(), this->value->data(), this->value->size());
-            *o_time = x::telem::Series(current_time.nanoseconds());
-            this->last_sent = *this->value;
-            this->state.emit(ctx.mark_changed, 0);
-        }
-
+        if (stamps.empty()) return x::errors::NIL;
+        const auto &o = this->state.output(0);
+        o->resize(stamps.size());
+        std::memcpy(o->data(), held.data(), held.size());
+        *this->state.output_time(0) = x::telem::Series(stamps);
+        this->state.emit(ctx.mark_changed, 0);
         return x::errors::NIL;
     }
 
     void reset(runtime::node::Context &) override {
         this->state.absorb_inputs();
-        this->value = std::nullopt;
-        this->last_sent = std::nullopt;
+        this->value.clear();
+        this->last_sent.clear();
         this->last_changed = x::telem::TimeStamp(0);
     }
 

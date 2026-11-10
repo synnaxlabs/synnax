@@ -19,7 +19,7 @@ import { Button } from "@/schematic/node/general/button/Primitive";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const getButton = (container: HTMLElement): HTMLElement => {
-  const el = container.querySelector<HTMLElement>(".pluto-btn");
+  const el = container.querySelector<HTMLElement>(".lyra-btn");
   if (el == null) throw new Error("expected a button element");
   return el;
 };
@@ -31,7 +31,7 @@ describe("button symbol", () => {
     const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     const cls = btn.getAttribute("class") ?? "";
-    expect(cls).toContain("pluto-symbol-colored");
+    expect(cls).toContain("lyra-symbol-colored");
     expect(cls).toContain("pluto-symbol-button");
     expect(btn.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
   });
@@ -40,7 +40,7 @@ describe("button symbol", () => {
     const { container } = render(<Button fillColor="#ff0000" />);
     const btn = getButton(container);
     // The color is not forwarded, so the base button never sets its own color var.
-    expect(btn.getAttribute("class")).not.toContain("pluto-btn--custom-color");
+    expect(btn.getAttribute("class")).not.toContain("lyra-btn--custom-color");
     expect(btn.style.getPropertyValue("--pluto-btn-color")).toBe("");
   });
 
@@ -56,6 +56,35 @@ describe("button symbol", () => {
     expect(getButton(container).style.getPropertyValue("--pluto-symbol-color")).toBe(
       "0, 0, 0, 0",
     );
+  });
+
+  describe("label text", () => {
+    const parseLabel = (label: Partial<schematic.LabelConfig>): schematic.LabelConfig =>
+      schematic.labelConfigZ.parse(label);
+
+    it("should keep newlines in the text", () => {
+      const { container } = render(
+        <Button label={parseLabel({ label: "LAUNCH\nPUMP VC" })} />,
+      );
+      expect(getButton(container).textContent).toBe("LAUNCH\nPUMP VC");
+    });
+
+    it("should align the text", () => {
+      const { container } = render(<Button label={parseLabel({ align: "start" })} />);
+      expect(getButton(container).style.textAlign).toBe("start");
+    });
+
+    it("should cap the button at a chosen wrap width", () => {
+      const { container } = render(
+        <Button label={parseLabel({ maxInlineSize: 80 })} />,
+      );
+      expect(getButton(container).style.maxInlineSize).toBe("80px");
+    });
+
+    it("should leave the button uncapped at the default wrap width", () => {
+      const { container } = render(<Button label={parseLabel({})} />);
+      expect(getButton(container).style.maxInlineSize).toBe("");
+    });
   });
 
   describe("handler routing", () => {
@@ -256,5 +285,16 @@ describe("ButtonForm", () => {
     expect(getByText("Size")).toBeDefined();
     expect(queryByText("Label size")).toBeNull();
     expect(queryByText("Label direction")).toBeNull();
+  });
+
+  it("should render the wrap width and alignment fields", () => {
+    const { getByText } = render(
+      <FormWrapper>
+        <ButtonForm />
+      </FormWrapper>,
+    );
+    fireEvent.click(getByText("Style"));
+    expect(getByText("Wrap width")).toBeDefined();
+    expect(getByText("Alignment")).toBeDefined();
   });
 });

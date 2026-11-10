@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { getVersion } from "@tauri-apps/api/app";
+import { v7 } from "uuid";
 
 import { watchAccount } from "@/app/analytics/account";
 import { follow } from "@/app/analytics/core";
 import { type Install, retrieveInstall } from "@/app/analytics/install";
-import { create, type Params } from "@/app/analytics/posthog";
+import { create, type Params, type SharedSession } from "@/app/analytics/posthog";
 import { Analytics } from "@/platform/analytics";
 import { Session } from "@/session";
 
@@ -25,7 +26,7 @@ import { Session } from "@/session";
 export const start = (store: Session.Store): Analytics.Sink => {
   if (!DESKTOP || Session.Runtime.ENGINE !== "tauri") return Analytics.NOOP;
   const install = retrieveInstall();
-  const transport = create(identify(install));
+  const transport = create(identify(install), storeSession(store));
   const sink = Analytics.createSink(transport);
   watchAccount({ store, sink, transport });
   // Every window reports its own screens and actions, but a launch opens the app once,
@@ -41,6 +42,44 @@ export const start = (store: Session.Store): Analytics.Sink => {
 const identify = async (install: Promise<Install>): Promise<Params> => ({
   installID: (await install).id,
 });
+
+/**
+ * Keeps the PostHog session in the store, where every window sees it. The main window
+ * starts a new session each launch, and every other window waits for it.
+ */
+const storeSession = (store: Session.Store): SharedSession => {
+  const current = (): string | undefined =>
+    Session.Analytics.selectSessionID(store.getState());
+  const share = (id: string): void => {
+    if (id !== current()) store.dispatch(Session.Analytics.setSessionID(id));
+  };
+  const subscribe = (listener: (id: string) => void): (() => void) => {
+    let last = current();
+    return store.subscribe(() => {
+      const next = current();
+      if (next == null || next === last) return;
+      last = next;
+      listener(next);
+    });
+  };
+  const join = async (): Promise<string> => {
+    if (Session.Runtime.isMainWindow()) {
+      // PostHog takes only a UUIDv7, since it reads the start of the session from it.
+      const id = v7();
+      share(id);
+      return id;
+    }
+    const id = current();
+    if (id != null) return id;
+    return await new Promise((resolve) => {
+      const unsubscribe = subscribe((next) => {
+        unsubscribe();
+        resolve(next);
+      });
+    });
+  };
+  return { join, current, share, subscribe };
+};
 
 /**
  * Reports the launch, and a reset that ran before it, once the install and the version

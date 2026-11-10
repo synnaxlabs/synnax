@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 from collections.abc import Sequence
+from typing import override
 
 from pydantic import BaseModel
 
@@ -28,6 +29,7 @@ class MockUnaryClient(Transport):
 
     def __init__(
         self,
+        *,
         responses: Sequence[BaseModel] | None = None,
         response_errors: list[Exception | None] | None = None,
     ):
@@ -42,6 +44,7 @@ class MockUnaryClient(Transport):
         self.response_errors = response_errors or []
         self._mw = MiddlewareCollector()
 
+    @override
     def use(self, *middleware: Middleware) -> None:
         """Implements the Transport protocol."""
         self._mw.use(*middleware)
@@ -74,7 +77,7 @@ class MockUnaryClient(Transport):
                     raise error
             return ctx
 
-        self._mw.exec(ctx, finalizer)
+        self._mw.exec(ctx, finalizer=finalizer)
 
         res = self.responses.pop(0)
         if not isinstance(res, res_t):

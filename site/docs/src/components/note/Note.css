@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-article .pluto-note {
+article .lyra-note {
     display: flex;
     flex-direction: row;
     align-items: flex-start;
@@ -19,22 +19,26 @@ article .pluto-note {
     font-family: var(--pluto-font-family);
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
+
     /* Softer than the Lyra note: a fainter fill, and text mixed toward the body color.
        The icon keeps the full color of the note. */
     color: color-mix(in srgb, var(--note-color) 70%, var(--docs-body-color));
 
-    &.pluto--info {
+    &.lyra--info {
         --note-color: var(--pluto-primary-text);
+
         background: var(--pluto-primary-z-5);
     }
 
-    &.pluto--warning {
+    &.lyra--warning {
         --note-color: var(--pluto-warning-text);
+
         background: var(--pluto-warning-z-5);
     }
 
-    &.pluto--error {
+    &.lyra--error {
         --note-color: var(--pluto-error-text);
+
         background: var(--pluto-error-z-5);
     }
 

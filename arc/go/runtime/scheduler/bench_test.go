@@ -60,7 +60,7 @@ func buildFlatParallel(n int) (ir.IR, map[string]node.Node) {
 	for i := range n {
 		k := "n" + strconv.Itoa(i)
 		irNodes[i] = irNode(k)
-		members[i] = ir.NodeMember(k)
+		members[i] = ir.Member{NodeKey: new(k)}
 		nodes[k] = newBenchNode()
 	}
 	return programOf(irNodes, nil, rootScope(members...)), nodes
@@ -75,7 +75,7 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 	}
 	irNodes := make([]ir.Node, 0, n)
 	edges := make([]ir.Edge, 0, n-1)
-	p0 := []ir.Member{ir.NodeMember("src")}
+	p0 := []ir.Member{{NodeKey: new("src")}}
 	p1 := make([]ir.Member, 0, n-1)
 	nodes := make(map[string]node.Node, n)
 	irNodes = append(irNodes, irNode("src", "out"))
@@ -83,7 +83,7 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 	for i := 1; i < n; i++ {
 		k := "t" + strconv.Itoa(i)
 		irNodes = append(irNodes, irNode(k))
-		p1 = append(p1, ir.NodeMember(k))
+		p1 = append(p1, ir.Member{NodeKey: new(k)})
 		edges = append(edges, continuousEdge("src", "out", k, "in"))
 		nodes[k] = newBenchNode()
 	}
@@ -105,14 +105,14 @@ func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 		Key:      "s0",
 		Mode:     ir.ScopeModeParallel,
 		Liveness: ir.LivenessAlways,
-		Strata:   []ir.Members{stratum(ir.NodeMember("leaf"))},
+		Strata:   []ir.Members{stratum(ir.Member{NodeKey: new("leaf")})},
 	}
 	for i := 1; i < depth; i++ {
 		current = ir.Scope{
 			Key:      "s" + strconv.Itoa(i),
 			Mode:     ir.ScopeModeParallel,
 			Liveness: ir.LivenessAlways,
-			Strata:   []ir.Members{{ir.ScopeMember(current)}},
+			Strata:   []ir.Members{{ir.Member{Scope: new(current)}}},
 		}
 	}
 	irNodes = append(irNodes, irNode("trigger", "go"))
@@ -121,7 +121,9 @@ func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 	current.Activations = []ir.Activation{
 		{On: ir.Handle{Node: "trigger", Param: "go"}, Kind: ir.EdgeKindConditional},
 	}
-	root := rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(current)))
+	root := rootWithStrata(
+		stratum(ir.Member{NodeKey: new("trigger")}, ir.Member{Scope: new(current)}),
+	)
 	return programOf(irNodes, nil, root), nodes
 }
 
@@ -140,7 +142,7 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 		// Each member's output "next" is truthy, so a transition targeting
 		// the successor fires on every cycle this member runs.
 		irNodes = append(irNodes, irNode(k, "next"))
-		members[i] = ir.NodeMember(k)
+		members[i] = ir.Member{NodeKey: new(k)}
 		nodes[k] = newBenchNode(true)
 		if i+1 < n {
 			next := "m" + strconv.Itoa(i+1)
@@ -164,7 +166,9 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 	return programOf(
 		irNodes,
 		nil,
-		rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(seq))),
+		rootWithStrata(
+			stratum(ir.Member{NodeKey: new("trigger")}, ir.Member{Scope: new(seq)}),
+		),
 	), nodes
 }
 

@@ -9,15 +9,12 @@
 
 """Symbol Toolbar client for managing symbol groups and symbols."""
 
-import json
-from typing import Any
-
-from playwright.sync_api import Locator
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import Locator, TimeoutError as PlaywrightTimeoutError
+from pydantic import JsonValue
 
 from console.layout import LayoutClient
 from console.schematic.symbol_editor import SymbolEditor
-from framework.run_dir import resolve_results_path
+from framework.utils import read_json_object
 
 
 class SymbolToolbar:
@@ -95,7 +92,7 @@ class SymbolToolbar:
     def _rename_inline(self, target: Locator, new_name: str) -> None:
         """Complete an in-place rename started from a context menu."""
         self.ctx_menu.action(target, "Rename")
-        editable = self.page.locator(".pluto-text--editable[contenteditable='true']")
+        editable = self.page.locator(".lyra-text--editable[contenteditable='true']")
         editable.wait_for(state="visible", timeout=5000)
         editable.fill(new_name)
         self.page.keyboard.press("Enter")
@@ -158,12 +155,11 @@ class SymbolToolbar:
             has_text=name
         )
 
-    def symbol_exists(self, name: str, select_group: str | None = None) -> bool:
+    def symbol_exists(self, name: str, *, select_group: str | None = None) -> bool:
         """Check if a symbol exists in the current group.
 
-        Args:
-            name: The symbol name to search for.
-            select_group: Optional group name to select before searching.
+        :param name: The symbol name to search for.
+        :param select_group: Optional group name to select before searching.
         """
         if select_group is not None:
             self.select_group(select_group)
@@ -250,11 +246,11 @@ class SymbolToolbar:
         self.ctx_menu.open_on(group_btn)
         with self.page.expect_download(timeout=10000) as download_info:
             self.ctx_menu.click_option("Export")
-        zip_path = resolve_results_path(f"{name}_export.zip")
+        zip_path = str(self.layout.results_dir / f"{name}_export.zip")
         download_info.value.save_as(zip_path)
         return zip_path
 
-    def export_symbol(self, name: str) -> dict[str, Any]:
+    def export_symbol(self, name: str) -> dict[str, JsonValue]:
         """Export a symbol via context menu and return the JSON content."""
         symbol = self.get_symbol(name)
         self.ctx_menu.open_on(symbol)
@@ -263,31 +259,28 @@ class SymbolToolbar:
             self.ctx_menu.click_option("Export")
 
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
 
-        with open(save_path, encoding="utf-8") as f:
-            result: dict[str, Any] = json.load(f)
-            return result
+        return read_json_object(save_path)
 
     def drag_symbol_to_schematic(self, name: str) -> None:
         """Drag a symbol onto the schematic canvas."""
         symbol = self.get_symbol(name)
         canvas = self.page.locator(".react-flow__pane").first
-        symbol.drag_to(canvas)
+        self.layout.drag(symbol, canvas)
 
-    def add_symbol(self, symbol_type: str, group: str | None = None) -> str:
+    def add_symbol(self, symbol_type: str, *, group: str | None = None) -> str:
         """Add any symbol to the schematic and return its ID.
 
         This is the universal factory method for adding both built-in and custom
         symbols to the schematic canvas.
 
-        Args:
-            symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom Pump")
-            group: Symbol group name (ignored - kept for backward compatibility).
-
-        Returns:
-            The data-testid of the newly created symbol node (e.g., "rf__node-{uuid}")
+        :param symbol_type: Name of the symbol (e.g., "Button", "Valve", "My Custom
+            Pump")
+        :param group: Symbol group name (ignored - kept for backward compatibility).
+        :returns: The data-testid of the newly created symbol node (e.g.,
+            "rf__node-{uuid}")
         """
         self.notifications.close_all()
         initial_count = len(self.page.locator("[data-testid^='rf__node-']").all())
@@ -295,7 +288,8 @@ class SymbolToolbar:
         self._add_by_search(symbol_type)
 
         self.page.wait_for_function(
-            f"document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > {initial_count}"
+            "document.querySelectorAll('[data-testid^=\"rf__node-\"]').length > "
+            f"{initial_count}"
         )
 
         all_symbols = self.page.locator("[data-testid^='rf__node-']").all()

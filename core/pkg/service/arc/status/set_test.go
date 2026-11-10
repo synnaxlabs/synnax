@@ -295,7 +295,7 @@ var _ = Describe("setNode.Next", func() {
 		newKey := cfg.State.Output(0).Unmarshal[string]()[0]
 		var st status.Status[any]
 		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](newKey)).
-			Entry(&st).Exec(ctx, nil)).To(Succeed())
+			Entry(&st).Exec(ctx, db)).To(Succeed())
 		Expect(st.Message).To(Equal("live message"))
 		Expect(rep.get()).To(BeEmpty())
 	})
@@ -319,7 +319,7 @@ var _ = Describe("setNode.Next", func() {
 				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](newKey)).
 					Entry(&s).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			Expect(s.Key).To(Equal(newKey))
 			Expect(s.Name).To(Equal(name))
@@ -365,7 +365,7 @@ var _ = Describe("setNode.Next", func() {
 			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](existingKey)).
 				Entry(&s).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 		).To(Succeed())
 		Expect(s.Variant).To(Equal(status.VariantWarning))
 		Expect(s.Message).To(Equal("updated"))
@@ -391,7 +391,7 @@ var _ = Describe("setNode.Next", func() {
 			statSvc.NewRetrieve[any]().
 				Where(status.MatchKeys[any](key)).
 				Entry(&s).
-				Exec(ctx, nil),
+				Exec(ctx, db),
 		).To(Succeed())
 		Expect(s.Variant).To(Equal(status.VariantError))
 		Expect(s.Message).To(Equal("via uuid"))
@@ -424,7 +424,7 @@ var _ = Describe("setNode.Next", func() {
 
 		Expect(statSvc.NewRetrieve[any]().Where(status.MatchKeys[any](name)).
 			Entry(&status.Status[any]{}).
-			Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 
 		// On invalid variant, Output(0) carries a single empty-string sample.
 		Expect(state.Output(0).Unmarshal[string]()).To(Equal([]string{""}))
@@ -484,7 +484,7 @@ var _ = Describe("setNode.Next", func() {
 				statSvc.NewRetrieve[any]().
 					Where(status.MatchKeys[any](k1, k2)).
 					Entries(&rows).
-					Exec(ctx, nil),
+					Exec(ctx, db),
 			).To(Succeed())
 			warning, info := 0, 0
 			for _, r := range rows {
@@ -570,7 +570,7 @@ var _ = Describe("Analyzer hooks", func() {
 		It("Should flag an invalid variant in a named argument", func(ctx SpecContext) {
 			expectInvalidVariantError(
 				ctx,
-				"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"bogus\"}",
+				"import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"bad\", variant=\"bogus\")",
 				"bogus",
 			)
 		})
@@ -580,7 +580,7 @@ var _ = Describe("Analyzer hooks", func() {
 			func(ctx SpecContext) {
 				expectInvalidVariantError(
 					ctx,
-					"import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"bad\", variant=\"SUCCESS\"}",
+					"import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"bad\", variant=\"SUCCESS\")",
 					"SUCCESS",
 				)
 			},
@@ -592,7 +592,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"alarm\", message=\"ok\", variant=\"success\"}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"alarm\", message=\"ok\", variant=\"success\")",
 					},
 				),
 			)
@@ -608,7 +608,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\"}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"a\", message=\"b\")",
 					},
 				),
 			)
@@ -623,7 +623,7 @@ var _ = Describe("Analyzer hooks", func() {
 			func(ctx SpecContext) {
 				expectInvalidVariantError(
 					ctx,
-					"import status\nsensor -> status.set{\"alarm\", \"bad\", \"bogus\"}",
+					"import status\nsensor -> status.set(\"alarm\", \"bad\", \"bogus\")",
 					"bogus",
 				)
 			},
@@ -635,7 +635,7 @@ var _ = Describe("Analyzer hooks", func() {
 				parsed := MustSucceed(
 					text.Parse(
 						text.Text{
-							Raw: "import status\nsensor -> status.set{\"alarm\", \"ok\", \"success\"}",
+							Raw: "import status\nsensor -> status.set(\"alarm\", \"ok\", \"success\")",
 						},
 					),
 				)
@@ -654,7 +654,7 @@ var _ = Describe("Analyzer hooks", func() {
 				parsed := MustSucceed(
 					text.Parse(
 						text.Text{
-							Raw: "import status\nsensor -> status.set{\"a\", \"b\"}",
+							Raw: "import status\nsensor -> status.set(\"a\", \"b\")",
 						},
 					),
 				)
@@ -704,7 +704,7 @@ var _ = Describe("Analyzer hooks", func() {
 			parsed := MustSucceed(
 				text.Parse(
 					text.Text{
-						Raw: "import status\nsensor -> status.set{key_or_name=\"a\", message=\"b\", variant=42}",
+						Raw: "import status\nsensor -> status.set(key_or_name=\"a\", message=\"b\", variant=42)",
 					},
 				),
 			)
@@ -762,7 +762,7 @@ var _ = Describe("WASM host functions", func() {
 					statSvc.NewRetrieve[any]().
 						Where(status.MatchKeys[any](newKey)).
 						Entry(&s).
-						Exec(ctx, nil),
+						Exec(ctx, db),
 				).To(Succeed())
 				Expect(s.Name).To(Equal(name))
 				Expect(s.Variant).To(Equal(status.VariantInfo))

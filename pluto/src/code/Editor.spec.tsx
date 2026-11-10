@@ -88,8 +88,8 @@ interface Edit {
 }
 
 // A model backed by a real string so Editor's offset/position math and minimal-edit
-// reconciliation actually round-trip. notify forwards an applyEdits mutation to the owning
-// editor's content emitter, as monaco's model→editor wiring does.
+// reconciliation actually round-trip. notify forwards an applyEdits mutation to the
+// owning editor's content emitter, as monaco's model→editor wiring does.
 const createFakeModel = (initial: string, language: string, uri?: unknown) => {
   let value = initial;
   let notify: ((changes: unknown[]) => void) | null = null;
@@ -354,6 +354,18 @@ describe("Editor", () => {
       expect(options.model).toBe(monaco.createdModel);
       expect(options.value).toBeUndefined();
       expect(options.language).toBeUndefined();
+    });
+
+    it("should create a module model with a custom arc:// uri when isModule is set", () => {
+      renderEditor({ initialValue: "z", isModule: true });
+      expect(monaco.Uri.parse).toHaveBeenCalledTimes(1);
+      const uri = monaco.Uri.parse.mock.calls[0][0];
+      expect(uri).toMatch(/^arc:\/\/module\//);
+      expect(monaco.editor.createModel).toHaveBeenCalledWith(
+        "z",
+        "arc",
+        expect.anything(),
+      );
     });
   });
 
@@ -684,7 +696,8 @@ describe("Editor", () => {
       });
       renderEditor({ autoFocus: true });
       const editor = monaco.editorInstance;
-      // A frame late, so the teardown of whatever opened the editor cannot reclaim focus.
+      // A frame late, so the teardown of whatever opened the editor cannot reclaim
+      // focus.
       expect(editor.focus).not.toHaveBeenCalled();
       act(() => frames.forEach((f) => f(0)));
       expect(editor.focus).toHaveBeenCalledTimes(1);

@@ -18,6 +18,15 @@ export interface ConfigureParams {
   deviceKey: device.Key;
 }
 
+/** Props of the form that names a device the Driver found and sets it up. */
+export interface ConfigureProps extends ConfigureParams {
+  close: () => void;
+  /** Returns to the view that opened the form. Adds a "Back" action. */
+  onBack?: () => void;
+  /** Creates a read task for the device. Adds a "Save and create read task" action. */
+  onCreateTask?: (deviceKey: device.Key) => void;
+}
+
 /**
  * Like {@link ConfigureParams}, but the key is optional since connect can also create a
  * new connection.
@@ -34,6 +43,11 @@ export interface ConnectProps extends Session.Modals.ContentProps<
 > {
   /** Returns to the picker that opened the form. Absent when the form opens alone. */
   onBack?: () => void;
+}
+
+/** Props of an integration's rack context menu items. */
+export interface RackMenuItemsProps {
+  rackKey: rack.Key;
 }
 
 /** Props of an integration's device context menu items. */

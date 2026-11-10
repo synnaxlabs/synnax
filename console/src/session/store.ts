@@ -22,6 +22,7 @@ import {
 } from "react-redux";
 
 import { Account } from "@/session/account";
+import { Analytics } from "@/session/analytics";
 import { Arc } from "@/session/arc";
 import { Color } from "@/session/color";
 import { Core } from "@/session/core";
@@ -44,6 +45,7 @@ import { Window } from "@/session/window";
 
 const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
   ...Arc.PERSIST_EXCLUDE,
+  ...Core.PERSIST_EXCLUDE,
   ...LinePlot.PERSIST_EXCLUDE,
   ...Panel.PERSIST_EXCLUDE,
   ...Schematic.PERSIST_EXCLUDE,
@@ -53,7 +55,7 @@ const PERSIST_EXCLUDE: Array<Persist.ExcludeFn<State>> = [
 // Every slice lives in exactly one partition scope, under the schema its stored
 // bytes are parsed through, or in transient. Persist.open throws when one is
 // missing from all four.
-const PERSIST_SCOPES: Persist.Scopes<State> = {
+export const PERSIST_SCOPES: Persist.Scopes<State> = {
   global: {
     [Account.SLICE_NAME]: Account.sliceStateZ,
     [Core.SLICE_NAME]: Core.sliceStateZ,
@@ -78,7 +80,12 @@ const PERSIST_SCOPES: Persist.Scopes<State> = {
     [Schematic.SLICE_NAME]: Schematic.sliceStateZ,
     [Table.SLICE_NAME]: Table.sliceStateZ,
   },
-  transient: [Haul.SLICE_NAME, Link.SLICE_NAME, Persist.SLICE_NAME],
+  transient: [
+    Analytics.SLICE_NAME,
+    Haul.SLICE_NAME,
+    Link.SLICE_NAME,
+    Persist.SLICE_NAME,
+  ],
 };
 
 // Drift keys its windows by label; the key each label maps to is what the window-keyed
@@ -99,6 +106,7 @@ const getPersistContext = (state: State): Persist.Context => ({
 
 export const ZERO_STATE: State = {
   [Account.SLICE_NAME]: Account.ZERO_SLICE_STATE,
+  [Analytics.SLICE_NAME]: Analytics.ZERO_SLICE_STATE,
   [Arc.SLICE_NAME]: Arc.ZERO_SLICE_STATE,
   [Core.SLICE_NAME]: Core.ZERO_SLICE_STATE,
   [Color.SLICE_NAME]: Color.ZERO_SLICE_STATE,
@@ -120,6 +128,7 @@ export const ZERO_STATE: State = {
 
 const combinedReducer = combineReducers({
   [Account.SLICE_NAME]: Account.reducer,
+  [Analytics.SLICE_NAME]: Analytics.reducer,
   [Arc.SLICE_NAME]: Arc.reducer,
   [Core.SLICE_NAME]: Core.reducer,
   [Color.SLICE_NAME]: Color.reducer,
@@ -154,6 +163,7 @@ export const reducer: Reducer<State, Action> = (state, action) => {
 
 export interface State {
   [Account.SLICE_NAME]: Account.SliceState;
+  [Analytics.SLICE_NAME]: Analytics.SliceState;
   [Arc.SLICE_NAME]: Arc.SliceState;
   [Core.SLICE_NAME]: Core.SliceState;
   [Color.SLICE_NAME]: Color.SliceState;
@@ -175,6 +185,7 @@ export interface State {
 
 export type Action =
   | Account.Action
+  | Analytics.Action
   | Arc.Action
   | Core.Action
   | Color.Action
@@ -257,7 +268,15 @@ export const createStore = async (opts: CreateStoreOptions = {}): Promise<Store>
   return await Drift.configureStore<State, Action>({
     runtime,
     preloadedState,
-    middleware: (def) => new Tuple(...def(), ...middleware),
+    // The checks run only in dev, where their timing warnings only track machine load.
+    middleware: (def) =>
+      new Tuple(
+        ...def({
+          immutableCheck: { warnAfter: Infinity },
+          serializableCheck: { warnAfter: Infinity },
+        }),
+        ...middleware,
+      ),
     reducer,
     enablePrerender,
     debug,

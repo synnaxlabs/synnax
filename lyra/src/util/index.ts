@@ -11,5 +11,7 @@ export * from "@/util/canDisable";
 export * from "@/util/children";
 export * from "@/util/event";
 export * from "@/util/findParent";
+export * from "@/util/focus";
+export * from "@/util/move";
 export * from "@/util/reflow";
 export * from "@/util/rootElement";

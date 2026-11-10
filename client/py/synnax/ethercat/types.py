@@ -7,12 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Sequence
 from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field, JsonValue
 
-from synnax import device, task
+from synnax import device, rack as rack_, task
 from synnax.ethercat.types_gen import (
     ReadChannel,
     ReadConfig,
@@ -78,7 +79,7 @@ class ReadTask(
         stream_rate: CrudeRate = 5,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[ReadChannel] | None = None,
+        channels: Sequence[ReadChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -90,7 +91,7 @@ class ReadTask(
             stream_rate=Rate(stream_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
@@ -124,7 +125,7 @@ class WriteTask(
         execution_rate: CrudeRate = 1000,
         data_saving_disabled: bool = False,
         auto_start: bool = False,
-        channels: list[WriteChannel] | None = None,
+        channels: Sequence[WriteChannel] | None = None,
     ) -> None:
         if internal is not None:
             self._internal = internal
@@ -136,7 +137,7 @@ class WriteTask(
             execution_rate=Rate(execution_rate),
             data_saving_disabled=data_saving_disabled,
             auto_start=auto_start,
-            channels=channels if channels is not None else [],
+            channels=list(channels) if channels is not None else [],
         )
         task.assign_keys(self.config.channels)
 
@@ -149,7 +150,7 @@ class Device(device.Device):
 
     :param name: Human-readable name for the device.
     :param network: Network interface name (e.g. "eth0", "enp3s0").
-    :param position: Position of the slave on the EtherCAT bus, 0-indexed.
+    :param position: Position of the slave on the EtherCAT bus, counting from 1.
     :param vendor_id: EtherCAT vendor ID from device EEPROM.
     :param product_code: Product code identifying the device model.
     :param revision: Hardware/firmware revision number.
@@ -167,15 +168,15 @@ class Device(device.Device):
         *,
         name: str = "",
         network: str = "",
-        position: int = 0,
+        position: int = 1,
         vendor_id: int = 0,
         product_code: int = 0,
         revision: int = 0,
         serial: int = 0,
-        rack: int = 0,
+        rack: rack_.Key = 0,
         input_pdos: list[PDOEntry] | None = None,
         output_pdos: list[PDOEntry] | None = None,
-        key: str = "",
+        key: device.Key = "",
         configured: bool = False,
         enabled: bool = True,
     ):

@@ -13,7 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/notify/notify.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::notify {
 /// @brief it should create a notifier successfully.

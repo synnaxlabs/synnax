@@ -36,6 +36,32 @@ var _ = Describe("Literal Type Inference", func() {
 		}
 	})
 
+	Describe("Mixed float and integer literals", func() {
+		DescribeTable("Should resolve to a float",
+			func(specCtx SpecContext, expr string, expected types.Type) {
+				ast := MustSucceed(parser.Parse("func f() {\n    " + expr + "\n}"))
+				ctx := acontext.NewRoot(specCtx, ast, buildExpressionRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				a := MustSucceed(fn.Children()[0].Resolve(ctx, "a"))
+				Expect(ctx.Constraints.ApplySubstitutions(a.Type)).To(Equal(expected))
+			},
+			Entry("float first", "a := 3.2 + 2", types.F64()),
+			Entry("integer first", "a := 2 + 3.2", types.F64()),
+			Entry("three operands", "a := 2 + 3.2 + 1", types.F64()),
+			Entry("declared f32", "a f32 := 3.2 + 2", types.F32()),
+		)
+
+		It("Should still reject a typed integer", func(ctx SpecContext) {
+			expectFailure(ctx, `
+			func f() {
+				x := 10
+				y := x + 3.2
+			}`, nil, "not compatible")
+		})
+	})
+
 	Describe("Numeric literals should adapt to context", func() {
 		var (
 			testExtras []symbol.Symbol
@@ -84,7 +110,7 @@ var _ = Describe("Literal Type Inference", func() {
 
 		It("should allow 2 + abc where abc is f32", func(ctx SpecContext) {
 			expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 2 + abc
 				}
 			`, testExtras)
@@ -92,7 +118,7 @@ var _ = Describe("Literal Type Inference", func() {
 
 		It("should allow abc + 2 where abc is f32", func(ctx SpecContext) {
 			expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return abc + 2
 				}
 			`, testExtras)
@@ -100,7 +126,7 @@ var _ = Describe("Literal Type Inference", func() {
 
 		It("should allow 2.5 + abc where abc is f32", func(ctx SpecContext) {
 			expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 2.5 + abc
 				}
 			`, testExtras)
@@ -108,7 +134,7 @@ var _ = Describe("Literal Type Inference", func() {
 
 		It("should allow 5 + xyz where xyz is i32", func(ctx SpecContext) {
 			expectSuccess(ctx, `
-				func test{} () i32 {
+				func test() i32 {
 					return 5 + xyz
 				}
 			`, testExtras)
@@ -118,7 +144,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"should infer correct type for expressions with multiple literals",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 2 + abc + 3
 				}
 			`, testExtras)
@@ -215,7 +241,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should accept integer literal minus f32 channel with f32 return type",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 1000 - f32_ch
 				}
 			`, testExtras)
@@ -226,7 +252,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should accept float literal divided by f32 channel with f32 return type",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 1000.0 / f32_ch
 				}
 			`, testExtras)
@@ -237,7 +263,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should accept integer literal divided by f32 channel with f32 return type",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 1000 / f32_ch
 				}
 			`, testExtras)
@@ -248,7 +274,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should accept float literal minus f32 channel with f32 return type",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 1000.0 - f32_ch
 				}
 			`, testExtras)
@@ -259,7 +285,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should accept float literal divided by expression of f32 channels",
 			func(ctx SpecContext) {
 				expectSuccess(ctx, `
-				func test{} () f32 {
+				func test() f32 {
 					return 1000.0 / (f32_ch + abc)
 				}
 			`, testExtras)
@@ -270,7 +296,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should reject mixed f32 and f64 channels with literal on left",
 			func(ctx SpecContext) {
 				expectFailure(ctx, `
-				func test{} () f64 {
+				func test() f64 {
 					return 1000.0 - f32_ch + f64_ch
 				}
 			`, testExtras, "type mismatch")
@@ -281,7 +307,7 @@ var _ = Describe("Literal Type Inference", func() {
 			"Should infer f32 return type for literal-left expression in type inference mode",
 			func(ctx SpecContext) {
 				program := MustSucceed(parser.Parse(`
-				func test{} () f32 {
+				func test() f32 {
 					return 1000 - f32_ch
 				}
 			`))

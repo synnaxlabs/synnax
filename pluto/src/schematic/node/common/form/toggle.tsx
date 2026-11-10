@@ -9,16 +9,23 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Tabs as BaseTabs } from "@synnaxlabs/lyra/tabs";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { ScaleField } from "@/schematic/node/common/form/Scale";
-import { StyleForm, type StyleFormProps } from "@/schematic/node/common/form/Style";
+import {
+  StyleForm,
+  type StyleFormProps,
+  type StyleValues,
+} from "@/schematic/node/common/form/Style";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
 import { Properties } from "@/vis/properties";
+
+const path = deep.path<StyleValues & { clickable?: boolean }>();
 
 export interface ToggleFormProps
   extends FormProps, Pick<StyleFormProps, "showNormallyOpen"> {
@@ -47,7 +54,7 @@ export const ToggleForm = ({
       />
     </BaseTabs.Content>
     <BaseTabs.Content itemKey="control">
-      <Toggle.ChannelForm path="" omit={omit} />
+      <Toggle.ChannelForm omit={omit} />
     </BaseTabs.Content>
   </Properties.Tabs>
 );
@@ -55,13 +62,13 @@ export const ToggleForm = ({
 export const DummyToggleForm = (): ReactElement => (
   <Form.Sections x>
     <Form.Section title="Label">
-      <Label.Form path="label" />
+      <Label.Form path={path.label} />
     </Form.Section>
     <Form.Section title="Appearance">
-      <ColorField path="strokeColor" label="Stroke" />
-      <ScaleField path="scale" />
-      <Form.SwitchField path="clickable" label="Clickable" />
+      <ColorField path={path.strokeColor} label="Stroke" />
+      <ScaleField path={path.scale} />
+      <Form.SwitchField path={path.clickable} label="Clickable" />
     </Form.Section>
-    <Orientation.Section path="" />
+    <Orientation.Section path={path} />
   </Form.Sections>
 );

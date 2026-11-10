@@ -15,10 +15,10 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/go/keywords"
 )
 
-var _ = Describe("Reserved", func() {
-	DescribeTable("should contain Go keywords",
+var _ = Describe("Escape", func() {
+	DescribeTable("should escape Go keywords",
 		func(keyword string) {
-			Expect(keywords.Reserved.Contains(keyword)).To(BeTrue())
+			Expect(keywords.Escape(keyword)).To(Equal(keyword + "Val"))
 		},
 		Entry("break", "break"),
 		Entry("func", "func"),
@@ -32,9 +32,9 @@ var _ = Describe("Reserved", func() {
 		Entry("chan", "chan"),
 	)
 
-	DescribeTable("should contain predeclared types",
+	DescribeTable("should escape predeclared types",
 		func(name string) {
-			Expect(keywords.Reserved.Contains(name)).To(BeTrue())
+			Expect(keywords.Escape(name)).To(Equal(name + "Val"))
 		},
 		Entry("bool", "bool"),
 		Entry("string", "string"),
@@ -44,9 +44,9 @@ var _ = Describe("Reserved", func() {
 		Entry("comparable", "comparable"),
 	)
 
-	DescribeTable("should contain predeclared constants",
+	DescribeTable("should escape predeclared constants",
 		func(name string) {
-			Expect(keywords.Reserved.Contains(name)).To(BeTrue())
+			Expect(keywords.Escape(name)).To(Equal(name + "Val"))
 		},
 		Entry("true", "true"),
 		Entry("false", "false"),
@@ -54,9 +54,9 @@ var _ = Describe("Reserved", func() {
 		Entry("iota", "iota"),
 	)
 
-	DescribeTable("should contain predeclared functions",
+	DescribeTable("should escape predeclared functions",
 		func(name string) {
-			Expect(keywords.Reserved.Contains(name)).To(BeTrue())
+			Expect(keywords.Escape(name)).To(Equal(name + "Val"))
 		},
 		Entry("make", "make"),
 		Entry("len", "len"),
@@ -64,26 +64,6 @@ var _ = Describe("Reserved", func() {
 		Entry("delete", "delete"),
 		Entry("panic", "panic"),
 		Entry("recover", "recover"),
-	)
-
-	It("should not contain non-reserved names", func() {
-		Expect(keywords.Reserved.Contains("User")).To(BeFalse())
-		Expect(keywords.Reserved.Contains("myVar")).To(BeFalse())
-		Expect(keywords.Reserved.Contains("foo")).To(BeFalse())
-	})
-})
-
-var _ = Describe("Escape", func() {
-	DescribeTable("should append Val to reserved words",
-		func(input, expected string) {
-			Expect(keywords.Escape(input)).To(Equal(expected))
-		},
-		Entry("type keyword", "type", "typeVal"),
-		Entry("map keyword", "map", "mapVal"),
-		Entry("string type", "string", "stringVal"),
-		Entry("error type", "error", "errorVal"),
-		Entry("nil constant", "nil", "nilVal"),
-		Entry("make function", "make", "makeVal"),
 	)
 
 	DescribeTable("should not modify non-reserved names",

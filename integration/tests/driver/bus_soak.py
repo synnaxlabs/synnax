@@ -67,7 +67,7 @@ class Soak(BusCase, ABC):
             self.assert_resumes()
             while self.should_continue:
                 self.cleanup_simulator()
-                sy.sleep(UNPLUGGED)
+                sy.sleep(UNPLUGGED)  # noqa: TID251 keeps the simulator down
                 self.start_simulator()
                 self.assert_resumes()
                 self.burst()
@@ -86,10 +86,10 @@ class TCPSoak(Soak, TCPRead):
     def burst(self) -> None:
         sim = self.simulator(SCPISim)
         sim.hang()
-        sy.sleep(BURST / 2)
+        sy.sleep(BURST / 2)  # noqa: TID251 fixed fault burst
         sim.unhang()
         sim.delay(LATE_REPLY)
-        sy.sleep(BURST / 2)
+        sy.sleep(BURST / 2)  # noqa: TID251 fixed fault burst
         sim.delay(0)
 
 
@@ -99,7 +99,7 @@ class SerialSoak(Soak, SerialRead):
     def burst(self) -> None:
         sim = self.simulator(SerialFrameSim)
         sim.inject(Fault.GARBAGE | Fault.TRUNCATED | Fault.BAD_CHECKSUM | Fault.UNKNOWN)
-        sy.sleep(BURST)
+        sy.sleep(BURST)  # noqa: TID251 fixed fault burst
         sim.inject(Fault.NONE)
 
 
@@ -121,7 +121,7 @@ class CANSoak(Soak, CANRead):
         with can.Bus(interface="socketcan", channel=can_frames.CHANNEL) as bus:
             while timer.elapsed() < BURST:
                 bus.send(_stray_frame(rng))
-                sy.sleep(GARBAGE_RATE.period)
+                sy.sleep(GARBAGE_RATE.period)  # noqa: TID251 send rate
 
 
 def _stray_frame(rng: random.Random) -> can.Message:

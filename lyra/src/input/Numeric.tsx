@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { bounds } from "@synnaxlabs/x";
-import { type ReactElement, useEffect } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 
 import { CSS } from "@/css";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
@@ -54,6 +54,10 @@ export interface NumericProps
    * works as the sentinel.
    */
   emptyValue?: number;
+  /**
+   * Called when the user commits an empty input. Without it, an empty input reverts.
+   */
+  onClear?: () => void;
 }
 
 /**
@@ -83,6 +87,7 @@ export const Numeric = ({
   size,
   color,
   emptyValue,
+  onClear,
   ...rest
 }: NumericProps): ReactElement => {
   // An absent value renders empty, so the placeholder reads as the unset state.
@@ -97,17 +102,24 @@ export const Numeric = ({
     useCombinedStateAndRef<boolean>(true);
   const valueRef = useSyncedRef(value);
   const boundsRef = useSyncedRef(propsBounds);
+  // A later commit or an Esc supersedes an expression that is still evaluating.
+  const evaluation = useRef(0);
 
   const updateActualValue = () => {
     // This just means we never actually modified the input
     if (isValueValidRef.current) return;
     setIsValueValid(true);
+    const id = ++evaluation.current;
     const raw = internalValueRef.current.trim();
     if (raw === "" && emptyValue != null) {
       onChange?.(emptyValue);
       return;
     }
     if (raw === "" && valueRef.current == null) return;
+    if (raw === "" && onClear != null) {
+      onClear();
+      return;
+    }
     const commit = (v: number | null): void => {
       if (v != null) onChange?.(bounds.clamp(boundsRef.current, v));
       else
@@ -119,7 +131,9 @@ export const Numeric = ({
     };
     const plain = parseNumber(raw);
     if (plain != null) return commit(plain);
-    void evaluateExpression(raw).then(commit);
+    void evaluateExpression(raw).then((v) => {
+      if (id === evaluation.current) commit(v);
+    });
   };
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
@@ -176,6 +190,11 @@ export const Numeric = ({
       // When the user hits 'Enter', we should try to evaluate the input and update the
       // actual value.
       onKeyDown={(e) => {
+        // Esc cancels typed text, so the blur that follows commits nothing.
+        if (e.key === "Escape") {
+          evaluation.current++;
+          return setIsValueValid(true);
+        }
         if (Triggers.eventKey(e) !== "Enter") return;
         updateActualValue();
         onBlur?.();

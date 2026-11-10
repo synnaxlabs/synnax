@@ -42,11 +42,9 @@ describe("SelectTimeZone", () => {
 
   it("should mark the selected time zone as selected", () => {
     const c = render(<Wrapper initial="UTC" />);
-    expect(c.getByText("UTC").closest("button")?.classList).toContain(
-      "pluto--selected",
-    );
+    expect(c.getByText("UTC").closest("button")?.classList).toContain("lyra--selected");
     expect(c.getByText("Local").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
   });
 
@@ -61,10 +59,10 @@ describe("SelectTimeZone", () => {
     const c = render(<Wrapper initial="UTC" />);
     fireEvent.click(c.getByText("Local"));
     expect(c.getByText("Local").closest("button")?.classList).toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
     expect(c.getByText("UTC").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
   });
 });

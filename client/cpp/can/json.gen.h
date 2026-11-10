@@ -33,7 +33,7 @@ inline Properties Properties::parse(x::json::Parser parser) {
 }
 
 inline x::json::json Properties::to_json() const {
-    x::json::json j;
+    x::json::json j = x::json::json::object();
     j["backend"] = this->backend;
     j["channel"] = this->channel;
     j["bitrate"] = this->bitrate;
@@ -52,10 +52,9 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ReadConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::bus::ReadConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::bus::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -68,10 +67,9 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json WriteConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::bus::WriteConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::bus::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -84,10 +82,9 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 }
 
 inline x::json::json ScanConfig::to_json() const {
-    x::json::json j;
-    for (const auto base = ::synnax::task::ScanConfig::to_json();
-         const auto &[k, v]: base.items())
-        j[k] = v;
+    x::json::json j = x::json::json::object();
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

@@ -11,6 +11,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Text } from "@synnaxlabs/lyra/text";
+import Arrow from "@/components/common/Arrow.astro";
 import CdnPicture from "@/components/common/CdnPicture.astro";
 ---
 
@@ -22,30 +23,43 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
                 <Text.Text level="h1" className="hero-title">
                     Unified mission control and data review for hardware operations
                 </Text.Text>
-                <Flex.Box gap={3}>
+                <Flex.Box gap={6}>
                     <Text.Text
                         level="h5"
                         className="hero-description section-description"
                     >
                         Next generation engineering teams build and operate the world's
-                        most advanced hardware using Synnax. One platform for real-time
-                        data acquisition, hardware control, visualization, and analysis.
+                        most advanced hardware using Synnax. Control every system live
+                        and keep every sample, at full rate, in one place.
                     </Text.Text>
-                    <Flex.Box direction="x" align="center" gap={3}>
-                        <Text.Text level="p" color={9} weight={500}>
-                            {" "}
-                            New{" "}
+                    <Flex.Box gap={2} className="hero-actions">
+                        <Flex.Box x gap="small" wrap>
+                            <Button.Button
+                                variant="filled"
+                                size="huge"
+                                level="p"
+                                href="https://docs.synnaxlabs.com/releases/desktop/download"
+                                data-event="desktop_download_clicked"
+                                data-location="hero"
+                                className="hero-action"
+                            >
+                                Download Synnax Desktop
+                                <Arrow direction="down" />
+                            </Button.Button>
+                            <Button.Button
+                                size="huge"
+                                level="p"
+                                href="/#contact"
+                                className="hero-action"
+                            >
+                                Talk to an engineer
+                                <Arrow direction="right" />
+                            </Button.Button>
+                        </Flex.Box>
+                        <Text.Text level="p" color={8}>
+                            Free for any use, including commercial use. macOS and
+                            Windows.
                         </Text.Text>
-                        <Text.Text level="p" variant="code" color={8}>
-                            Arc, the modern standard for writing automations
-                        </Text.Text>
-                        <Button.Button
-                            variant="text"
-                            className="hero-cta"
-                            href="https://docs.synnaxlabs.com/reference/control/arc"
-                        >
-                            Learn more -&gt;
-                        </Button.Button>
                     </Flex.Box>
                 </Flex.Box>
             </Flex.Box>
@@ -88,12 +102,12 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         background:
             radial-gradient(
                 ellipse 60% 50% at 15% 75%,
-                rgba(40, 90, 180, 0.12) 0%,
+                rgb(40 90 180 / 12%) 0%,
                 transparent 60%
             ),
             radial-gradient(
                 ellipse 50% 45% at 80% 20%,
-                rgba(70, 130, 220, 0.09) 0%,
+                rgb(70 130 220 / 9%) 0%,
                 transparent 55%
             );
     }
@@ -123,21 +137,27 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             animation: text-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
         }
 
+        .hero-actions {
+            animation: text-reveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+
+            /* The arrow carries its own blank space on the right. */
+            .hero-action {
+                padding: 0 3rem 0 3.5rem;
+                font-size: 2.5rem;
+                font-weight: 550;
+                border-radius: var(--pluto-border-radius-small);
+            }
+        }
+
         .screenshot-frame-outer {
             position: relative;
             width: 100%;
             padding: 6px;
             border-radius: 1.8rem;
             border: var(--pluto-border);
-            background: rgba(255, 255, 255, 0.03);
+            background: rgb(255 255 255 / 3%);
             animation: screenshot-reveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
             mask-image: linear-gradient(to bottom, #000 0%, #000 65%, transparent 100%);
-            -webkit-mask-image: linear-gradient(
-                to bottom,
-                #000 0%,
-                #000 65%,
-                transparent 100%
-            );
         }
 
         /* Gradient behind both rings */
@@ -149,11 +169,11 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             border-radius: 2.4rem;
             background: conic-gradient(
                 from 45deg at 50% 50%,
-                rgba(55, 116, 208, 0.15) 0%,
-                rgba(80, 160, 240, 0.1) 25%,
-                rgba(55, 116, 208, 0.05) 50%,
-                rgba(100, 140, 220, 0.1) 75%,
-                rgba(55, 116, 208, 0.15) 100%
+                rgb(55 116 208 / 15%) 0%,
+                rgb(80 160 240 / 10%) 25%,
+                rgb(55 116 208 / 5%) 50%,
+                rgb(100 140 220 / 10%) 75%,
+                rgb(55 116 208 / 15%) 100%
             );
             pointer-events: none;
         }
@@ -164,7 +184,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             padding: 6px;
             border-radius: 1.4rem;
             border: var(--pluto-border);
-            background: rgba(255, 255, 255, 0.04);
+            background: rgb(255 255 255 / 4%);
         }
 
         .hero-screenshot {
@@ -177,25 +197,18 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             outline: var(--pluto-border);
             outline-offset: -1px;
             box-shadow:
-                0 1px 1px rgba(0, 0, 0, 0.08),
-                0 2px 4px rgba(0, 0, 0, 0.08),
-                0 8px 16px rgba(0, 0, 0, 0.08),
-                0 24px 48px rgba(0, 0, 0, 0.12),
-                0 48px 96px rgba(0, 0, 0, 0.16);
+                0 1px 1px rgb(0 0 0 / 8%),
+                0 2px 4px rgb(0 0 0 / 8%),
+                0 8px 16px rgb(0 0 0 / 8%),
+                0 24px 48px rgb(0 0 0 / 12%),
+                0 48px 96px rgb(0 0 0 / 16%);
         }
     }
 
-    .hero-cta,
-    .hero-cta a {
-        text-transform: none;
-        font-weight: 500;
-        color: var(--pluto-gray-l8);
-        text-decoration: none;
-        cursor: pointer;
-
-        &:hover {
-            color: var(--pluto-gray-l10);
-            text-decoration: none;
+    @media (width <= 600px) {
+        .hero .hero-actions .hero-action {
+            flex-basis: 100%;
+            justify-content: center;
         }
     }
 
@@ -205,6 +218,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             filter: blur(8px);
             transform: translateY(12px);
         }
+
         to {
             opacity: 1;
             filter: blur(0);
@@ -218,6 +232,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
             filter: blur(12px);
             transform: scale(0.96) translateY(20px);
         }
+
         to {
             opacity: 1;
             filter: blur(0);

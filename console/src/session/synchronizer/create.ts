@@ -70,13 +70,13 @@ export interface Synchronizer<S, A extends Action> {
  */
 export type Synchronizers<S, A extends Action> = Synchronizer<S, A>[];
 
-/** The slice of a domain client a remover needs: delete events and an existence sweep. */
+/**
+ * The slice of a domain client a remover needs: delete events and an existence sweep.
+ */
 export interface Removable<K extends record.Key> {
   onDelete: (handler: (key: K) => void) => destructor.Destructor;
-  retrieve: (params: {
-    keys: K[];
-    ignoreNotFoundError: boolean;
-  }) => Promise<record.Keyed<K>[]>;
+  /** Retrieves the records that match a filter on keys. */
+  retrieve: (params: { key: K[] }) => Promise<record.Keyed<K>[]>;
 }
 
 export interface RemoverParams<S, A extends Action, K extends record.Key> {
@@ -105,7 +105,7 @@ export const createRemover = <S, A extends Action, K extends record.Key = string
     reconcile: async ({ client, store }) => {
       const keys = selectKeys(store.getState());
       if (keys.length === 0) return;
-      const found = await domain(client).retrieve({ keys, ignoreNotFoundError: true });
+      const found = await domain(client).retrieve({ key: keys });
       const existing = new Set(found.map(({ key }) => key));
       const missing = keys.filter((key) => !existing.has(key));
       if (missing.length > 0) store.dispatch(remove(missing));

@@ -10,11 +10,11 @@
 import "@/schematic/node/general/textBox/textBox.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -51,7 +51,7 @@ export const TextBox = ({
       orientation={orientation}
       className={CSS.cls(
         CSS.B("text-box"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         CSS.loc(orientation),
         className,
       )}

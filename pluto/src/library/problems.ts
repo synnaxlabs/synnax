@@ -11,13 +11,18 @@ import { type library } from "@synnaxlabs/client";
 import { type Form } from "@synnaxlabs/lyra/form";
 import { caseconv, deep } from "@synnaxlabs/x";
 
+const ROOT = deep.path<unknown>();
+
 /**
  * Rewrites a dotted path from the Core, such as "messages.2.bit_length", into the form
  * path of the value it names: camel case parts, and element keys in place of array
  * indexes.
  */
-export const toFormPath = (path: string, value: unknown): string =>
-  deep.resolvePath(caseconv.snakeToCamel(path.split(".")).join("."), value);
+export const toFormPath = (path: string, value: unknown): deep.Path<unknown> =>
+  deep
+    .resolvePath(caseconv.snakeToCamel(path.split(".")).join("."), value)
+    .split(".")
+    .reduce((target, key) => target[key], ROOT);
 
 /** Puts each problem as an error status on the form path it names in the value. */
 export const markProblems = (
@@ -27,5 +32,5 @@ export const markProblems = (
 ): void =>
   problems.forEach(({ path, message }) => {
     const formPath = toFormPath(path, value);
-    setStatus(formPath, { key: formPath, variant: "error", message });
+    setStatus(formPath, { key: String(formPath), variant: "error", message });
   });

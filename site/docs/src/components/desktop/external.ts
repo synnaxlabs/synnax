@@ -8,3 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export { default as DownloadButton } from "@/components/desktop/DownloadButton.astro";
+export { installer, installers } from "@/components/desktop/installers";

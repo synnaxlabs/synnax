@@ -68,12 +68,12 @@ var _ = Describe("Polymorphic func Analysis", func() {
 		},
 		Entry("infers types from channel inputs",
 			polymorphicCase{
-				source:       `sensor_f32 -> simple{}`,
+				source:       `sensor_f32 -> simple()`,
 				expectedType: types.F32(),
 			}),
 		Entry("infers types from expression inputs",
 			polymorphicCase{
-				source:       `(f32(1.5) + f32(2.5)) -> simple{}`,
+				source:       `(f32(1.5) + f32(2.5)) -> simple()`,
 				expectedType: types.F32(),
 			}),
 	)
@@ -99,8 +99,8 @@ var _ = Describe("Polymorphic func Analysis", func() {
 				},
 			}
 			root = NewRoot(nil, append(extras, i64Extras...)...)
-			src := `sensor_f32 -> simple{} -> out_f32
-sensor_i64 -> simple{} -> out_i64`
+			src := `sensor_f32 -> simple() -> out_f32
+sensor_i64 -> simple() -> out_i64`
 			ast := MustSucceed(parser.Parse(src))
 			ctx := acontext.NewRoot(sCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
@@ -125,7 +125,7 @@ sensor_i64 -> simple{} -> out_i64`
 				},
 			}
 			root = NewRoot(nil, append(extras, chainExtras...)...)
-			src := `sensor_f32 -> simple{} -> simple{} -> simple{} -> out_f32`
+			src := `sensor_f32 -> simple() -> simple() -> simple() -> out_f32`
 			ast := MustSucceed(parser.Parse(src))
 			ctx := acontext.NewRoot(sCtx, ast, root)
 			analyzer.AnalyzeProgram(ctx)
@@ -175,14 +175,14 @@ var _ = Describe("Polymorphic func in module - cross-analysis", func() {
 
 			root1 := NewRoot(nil, extras...)
 			ast1 := MustSucceed(parser.Parse(`import mymod
-sensor_f32 -> mymod.simple{} -> out_f32`))
+sensor_f32 -> mymod.simple() -> out_f32`))
 			ctx1 := acontext.NewRoot(sCtx, ast1, root1)
 			analyzer.AnalyzeProgram(ctx1)
 			Expect(ctx1.Diagnostics.Ok()).To(BeTrue(), ctx1.Diagnostics.String())
 
 			root2 := NewRoot(nil, extras...)
 			ast2 := MustSucceed(parser.Parse(`import mymod
-sensor_i64 -> mymod.simple{} -> out_i64`))
+sensor_i64 -> mymod.simple() -> out_i64`))
 			ctx2 := acontext.NewRoot(sCtx, ast2, root2)
 			analyzer.AnalyzeProgram(ctx2)
 			Expect(ctx2.Diagnostics.Ok()).To(BeTrue(), ctx2.Diagnostics.String())

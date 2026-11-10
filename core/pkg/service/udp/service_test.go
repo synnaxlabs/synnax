@@ -14,30 +14,30 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/service/bus"
 	"github.com/synnaxlabs/synnax/pkg/service/icd"
+	tasktestutil "github.com/synnaxlabs/synnax/pkg/service/task/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/udp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *udp.Service
+	var (
+		svc   *udp.Service
+		tasks *tasktestutil.Tasks
+	)
 	BeforeEach(func(ctx SpecContext) {
-		svc = MustOpen(udp.OpenService(ctx, udp.ServiceConfig{
-			DB: db,
-			Resolver: bus.Resolver{
-				Stamper: icd.Stamper{DB: db, Ontology: otg},
-			},
+		svc = MustOpen(udp.OpenService(ctx, udp.ServiceConfig{DB: db}))
+		tasks = MustOpen(tasktestutil.OpenTasks(ctx, tasktestutil.TasksConfig{
+			DB:     db,
+			Stores: svc.Stores(),
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the resolver", func(ctx SpecContext) {
-			Expect(udp.OpenService(ctx, udp.ServiceConfig{DB: db})).Error().
-				To(MatchError(ContainSubstring(
-					"resolver.stamper.db: must be non-nil",
-				)))
+		It("Should reject a config missing the DB", func(ctx SpecContext) {
+			Expect(udp.OpenService(ctx, udp.ServiceConfig{})).Error().
+				To(MatchError(ContainSubstring("db: must be non-nil")))
 		})
 	})
 
@@ -56,16 +56,15 @@ var _ = Describe("Service", func() {
 
 	Describe("Write", func() {
 		It("Should stamp the ICD hash into a read config", func(ctx SpecContext) {
-			key := uuid.New()
-			ic, m := createICD(ctx, key)
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ic, m := createICD(ctx)
+			key := MustSucceed(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"icd": ic.Key.String(),
 				"messages": []any{map[string]any{
 					"message": m.Key.String(),
 					"index":   1,
 				}},
-			})).To(Succeed())
-			data := MustSucceed(svc.Read.Read(ctx, nil, key))
+			}))
+			data := MustSucceed(svc.Read.Read(ctx, db, key))
 			Expect(data["icd_hash"]).To(Equal(MustSucceed(
 				icd.TaskHash(ic, []icd.MessageKey{m.Key}),
 			)))
@@ -74,20 +73,19 @@ var _ = Describe("Service", func() {
 		It("Should reject a read config whose message is not in the ICD", func(
 			ctx SpecContext,
 		) {
-			key := uuid.New()
-			ic, _ := createICD(ctx, key)
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			ic, _ := createICD(ctx)
+			Expect(tasks.Create(ctx, svc.Read, msgpack.EncodedJSON{
 				"icd":      ic.Key.String(),
 				"messages": []any{map[string]any{"message": uuid.New().String()}},
-			})).To(MatchError(ContainSubstring("is not in the ICD")))
+			})).Error().To(MatchError(ContainSubstring("is not in the ICD")))
 		})
 
 		It("Should reject a write config whose ICD does not exist", func(
 			ctx SpecContext,
 		) {
-			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+			Expect(tasks.Create(ctx, svc.Write, msgpack.EncodedJSON{
 				"icd": uuid.New().String(),
-			})).To(MatchError(ContainSubstring("does not exist")))
+			})).Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 })

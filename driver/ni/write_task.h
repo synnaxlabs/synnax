@@ -29,6 +29,8 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
     /// @brief a map of command channel keys to the configurations for each output
     /// channel in the task.
     std::map<synnax::channel::Key, std::unique_ptr<channel::Output>> channels;
+    /// @brief the free-running outputs of the task, which have no command channel.
+    std::vector<std::unique_ptr<channel::Output>> generators;
     /// @brief a map of channel keys to their index positions within the tasks
     /// write buffer. Dynamically populated during parsing.
     std::unordered_map<synnax::channel::Key, std::size_t> buf_indexes;
@@ -37,6 +39,7 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
     WriteTaskConfig(WriteTaskConfig &&other) noexcept:
         ::synnax::ni::WriteConfig(std::move(other)),
         channels(std::move(other.channels)),
+        generators(std::move(other.generators)),
         buf_indexes(std::move(other.buf_indexes)) {}
 
     /// @brief delete copy constructor and copy assignment to prevent accidental
@@ -60,10 +63,13 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         ::synnax::ni::WriteConfig(::synnax::ni::WriteConfig::parse(cfg)) {
         cfg.iter("channels", [&](x::json::Parser &ch_cfg) {
             auto ch = channel::parse_output(ch_cfg, task_type);
-            if (ch != nullptr && ch->enabled)
+            if (ch == nullptr || !ch->enabled) return;
+            if (ch->free_running)
+                this->generators.push_back(std::move(ch));
+            else
                 this->channels[ch->cmd_ch_key] = std::move(ch);
         });
-        if (channels.empty()) {
+        if (channels.empty() && generators.empty()) {
             cfg.field_err("channels", "task must have at least one enabled channel");
             return;
         }
@@ -72,6 +78,9 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
             cfg.field_err("device", "failed to retrieve device " + err.data);
             return;
         }
+        for (const auto &generator: this->generators)
+            generator->dev_loc = dev.location;
+        if (channels.empty()) return;
 
         std::vector<synnax::channel::Key> state_keys;
         state_keys.reserve(this->channels.size());
@@ -119,11 +128,14 @@ struct WriteTaskConfig : ::synnax::ni::WriteConfig {
         return {WriteTaskConfig(client, parser, task.type), parser.error()};
     }
 
-    /// @brief applies the configuration to the given DAQmx task.
+    /// @brief applies the configuration to the given DAQmx task. Commanded outputs
+    /// come first, so buf_indexes follow the channel order of the DAQmx task.
     x::errors::Error
     apply(const std::shared_ptr<daqmx::SugaredAPI> &dmx, TaskHandle task_handle) const {
         for (const auto &[_, ch]: channels)
             if (const auto err = ch->apply(dmx, task_handle)) return err;
+        for (const auto &generator: this->generators)
+            if (const auto err = generator->apply(dmx, task_handle)) return err;
         return x::errors::NIL;
     }
 };
@@ -148,7 +160,7 @@ public:
         Sink(cfg.state_rate, cfg.output_channels(), cfg.data_saving_disabled),
         cfg(std::move(cfg)),
         make_hw(std::move(make_hw)),
-        buf(this->cfg.channels.size()) {}
+        buf(this->cfg.channels.size() + this->cfg.generators.size()) {}
 
 private:
     /// @brief builds the hardware for each run.
@@ -157,7 +169,8 @@ private:
     /// and released on stop.
     std::unique_ptr<Hardware> hw_writer;
     /// @brief a pre-allocated write buffer that is flushed to the device every
-    /// time a command is provided.
+    /// time a command is provided. DAQmx reads one value for each channel of the
+    /// task, so generators hold unused slots at the end.
     std::vector<T> buf;
 
     /// @brief implements common::Sink to claim the hardware and start it.

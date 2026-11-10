@@ -22,8 +22,7 @@ import { Select } from "@/session/select";
 const selectContext = (state: StoreState): Color.ContextState =>
   state[SLICE_NAME].context;
 
-export const useSelectContext = (): Color.ContextState =>
-  Select.useMemo(selectContext, []);
+const useSelectContext = (): Color.ContextState => Select.useMemo(selectContext, []);
 
 /** @returns props that keep the Color provider's color state in the session. */
 export const useProviderProps = (): Color.ProviderProps => {

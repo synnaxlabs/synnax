@@ -38,7 +38,7 @@ var _ = Describe("Definition", func() {
 
 	Describe("Function Definitions", func() {
 		It("should jump to function definition from call site", func(ctx SpecContext) {
-			content := `func add(x i32, y i32) i32 {
+			content := `func add() {x i32, y i32} i32 {
     return x + y
 }
 
@@ -62,7 +62,7 @@ func main() {
 		It(
 			"should jump to function definition when hovering over declaration",
 			func(ctx SpecContext) {
-				content := `func multiply(x f64, y f64) f64 {
+				content := `func multiply() {x f64, y f64} f64 {
     return x * y
 }`
 				OpenArcDocument(server, ctx, uri, content)
@@ -79,7 +79,7 @@ func main() {
 
 	Describe("Stage Definitions", func() {
 		It("should jump to stage definition", func(ctx SpecContext) {
-			content := `func max{} (value f32) f32 {
+			content := `func max() {value f32} f32 {
     max_val $= value
     if (value > max_val) {
         max_val = value
@@ -117,7 +117,7 @@ func main() {
 		})
 
 		It("should jump to stateful variable declaration", func(ctx SpecContext) {
-			content := `func counter{} () u32 {
+			content := `func counter() u32 {
     count u32 $= 0
     count = count + 1
     return count
@@ -140,7 +140,7 @@ func main() {
 		It(
 			"should jump to parameter declaration from function body",
 			func(ctx SpecContext) {
-				content := `func multiply(x f64, y f64) f64 {
+				content := `func multiply() {x f64, y f64} f64 {
     return x * y
 }`
 				OpenArcDocument(server, ctx, uri, content)
@@ -218,6 +218,28 @@ func main() {
 				// no AST
 				locations := Definition(server, ctx, uri, 1, 12) // myGl|obal
 				Expect(locations).To(BeNil())
+			},
+		)
+	})
+
+	Describe("User modules", func() {
+		It(
+			"should not jump into the module's text for a member at the top level",
+			func(ctx SpecContext) {
+				// The flow sits on lines that f spans in the module's own text.
+				sources := map[string]string{
+					"lib.m": "\n\n\nexport func f() i64 {\n\n\n\n\n    return 1\n}",
+				}
+				server = MustSucceed(lsp.New(lsp.Config{NewRoot: func() *symbol.Symbol {
+					return NewModuleRoot(sources)
+				}}))
+				server.SetClient(&MockClient{})
+				content := "import lib.m\n\n\n\n\ninterval(period=100ms) -> m.f()"
+				OpenArcDocument(server, ctx, uri, content)
+				Expect(Definition(server, ctx, uri, 5, 28)).To(BeNil()) // m.|f
+				locations := Definition(server, ctx, uri, 5, 26)        // |m.f
+				Expect(locations).To(HaveLen(1))
+				Expect(locations[0].Range.Start.Line).To(Equal(uint32(0)))
 			},
 		)
 	})

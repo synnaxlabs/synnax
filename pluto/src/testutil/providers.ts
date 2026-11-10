@@ -13,15 +13,15 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { alamos } from "@/alamos/aether";
 import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 import { theming } from "@/theming/aether";
 import { type render } from "@/vis/render";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 import { staleness } from "@/vis/staleness/aether";
 
 const ALAMOS_KEY = "alamos";
@@ -64,8 +64,8 @@ export interface ProviderOptions {
   instrumentation?: Instrumentation;
 }
 
-/** Provider instances mounted by {@link buildStack}, by name. A field is `null` when its
- * provider was disabled. */
+/** Provider instances mounted by {@link buildStack}, by name. A field is `null` when
+ * its provider was disabled. */
 export interface MountedProviders {
   alamos: alamos.Provider | null;
   status: status.Aggregator | null;

@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { TimeStamp } from "@synnaxlabs/x";
+import { deep, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useState } from "react";
 import { z } from "zod";
 
@@ -137,6 +137,8 @@ const formSchema = z.object({
   type: z.string(),
 });
 
+const path = deep.path<z.infer<typeof formSchema>>();
+
 const PreviewForm = ({ preview }: { preview: boolean }) => {
   const methods = Form.use({
     values: { name: "Pressure sensor", rate: 50, enabled: true, type: "digital" },
@@ -146,10 +148,10 @@ const PreviewForm = ({ preview }: { preview: boolean }) => {
   return (
     <Form.Form<typeof formSchema> {...methods}>
       <Flex.Box y gap="medium" grow>
-        <Form.TextField path="name" label="Name" />
-        <Form.NumericField path="rate" label="Sample rate" />
-        <Form.SwitchField path="enabled" label="Data saving" />
-        <Form.Field<string> path="type" label="Type">
+        <Form.TextField path={path.name} label="Name" />
+        <Form.NumericField path={path.rate} label="Sample rate" />
+        <Form.SwitchField path={path.enabled} label="Data saving" />
+        <Form.Field path={path.type} label="Type">
           {({ value, onChange, preview: p }) => (
             <Select.Buttons value={value} onChange={onChange} preview={p}>
               <Select.Item itemKey="analog">Analog</Select.Item>

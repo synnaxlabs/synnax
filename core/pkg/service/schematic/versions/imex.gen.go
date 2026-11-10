@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v10"
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v9"
@@ -23,7 +24,7 @@ import (
 
 // Latest is the portable schema version stamped on exported Schematic envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v10.Version
+const Latest = v11.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's Schematic
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -47,7 +48,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		return t10, nil
+		t11, err := v11.MigrateSchematic(ctx, t10)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t11, nil
 	case v8.Version:
 		t8, err := env.Decode[v8.Schematic](ctx)
 		if err != nil {
@@ -61,7 +66,11 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		return t10, nil
+		t11, err := v11.MigrateSchematic(ctx, t10)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t11, nil
 	case v9.Version:
 		t9, err := env.Decode[v9.Schematic](ctx)
 		if err != nil {
@@ -71,8 +80,22 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (Schematic, erro
 		if err != nil {
 			return Schematic{}, err
 		}
-		return t10, nil
+		t11, err := v11.MigrateSchematic(ctx, t10)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t11, nil
 	case v10.Version:
+		t10, err := env.Decode[v10.Schematic](ctx)
+		if err != nil {
+			return Schematic{}, err
+		}
+		t11, err := v11.MigrateSchematic(ctx, t10)
+		if err != nil {
+			return Schematic{}, err
+		}
+		return t11, nil
+	case v11.Version:
 		return env.Decode[Schematic](ctx)
 	}
 	return Schematic{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
@@ -93,5 +116,9 @@ func liftFirst(ctx context.Context, t7 v7.Schematic) (Schematic, error) {
 	if err != nil {
 		return Schematic{}, err
 	}
-	return t10, nil
+	t11, err := v11.MigrateSchematic(ctx, t10)
+	if err != nil {
+		return Schematic{}, err
+	}
+	return t11, nil
 }

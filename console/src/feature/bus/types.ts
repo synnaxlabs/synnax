@@ -8,10 +8,22 @@
 // included in the file licenses/APL.txt.
 
 import { type bus, type icd } from "@synnaxlabs/client";
+import { deep } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 /** A message of a task's config: the fields a read or write task binds. */
 export type Message = bus.ReadMessage | bus.WriteMessage;
+
+/** The form paths of the config fields every bus task holds. */
+export const CONFIG_PATH = deep.path<{
+  config: { device: string; icd?: icd.Key; messages: Message[] };
+}>().config;
+
+/** The form paths of a read task's config. */
+export const READ_PATH = deep.path<{ config: bus.ReadConfig }>().config;
+
+/** The form paths of a write task's config. */
+export const WRITE_PATH = deep.path<{ config: bus.WriteConfig }>().config;
 
 /** Whether an integration can carry an ICD message. */
 export interface Accepts {

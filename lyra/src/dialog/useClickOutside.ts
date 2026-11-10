@@ -26,7 +26,7 @@ export const PORTAL_OWNER_ATTR = "data-portal-owner";
  * Whether the target sits inside el, following portal ownership links so a portaled
  * subtree counts as inside the element it renders from.
  */
-const contains = (el: HTMLElement, target: Node | null): boolean => {
+export const contains = (el: HTMLElement, target: Node | null): boolean => {
   let node: Node | null = target;
   while (node != null) {
     if (el.contains(node)) return true;

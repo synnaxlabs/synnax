@@ -43,15 +43,21 @@ Properties struct {
 }
 
 ReadConfig struct extends bus.ReadConfig, bus.PollConfig {
-    @doc value  "configures a UDP read task. Each datagram is one frame."
-    @go imex    body
+    @doc value           "configures a UDP read task. Each datagram is one frame."
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }
 
 WriteConfig struct extends bus.WriteConfig {
-    @doc value  "configures a UDP write task. Each message is sent as one datagram."
-    @go imex    body
+    @doc value           """
+        configures a UDP write task. Each message is sent as one datagram.
+    """
+    @go imex             body
     @go marshal
     @go migrate
+    @patch
+    @retrieve references
 }

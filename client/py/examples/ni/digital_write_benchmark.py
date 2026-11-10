@@ -14,7 +14,7 @@ import synnax as sy
 client = sy.Synnax()
 
 # Retrieve the USB-6289 device from Synnax.
-dev = client.devices.retrieve(model="USB-6289")
+dev = client.devices.retrieve(model="USB-6289", one=True)
 
 # Create a channel that will be used to send commands to the device. We're using
 # a virtual channel here that won't store any data to disk. Don't worry, we're

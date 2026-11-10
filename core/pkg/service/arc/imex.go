@@ -15,10 +15,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/resource"
 )
 
 var _ imex.ImportExporter = (*Service)(nil)
+
+// Type implements imex.ImportExporter.
+func (s *Service) Type() resource.Type { return resource.TypeArc }
 
 // Match reports whether body is a legacy Console Arc state, which persists the graph
 // inline alongside text and mode. The markers are frozen historical file shapes.
@@ -33,21 +36,19 @@ func (*Service) Match(body map[string]any) bool {
 // discarded so every import mints a new resource. An unknown envelope version is a
 // path-scoped validation error.
 //
-// opts.Parent is ignored: an Arc is never parented — the writer defines the ontology
-// resource with no container relationship — so there is nothing to attach it under. The
-// API layer still enforces update access on the parent the caller declared.
+// opts.Parent is ignored: the writer puts every new Arc in the root directory.
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
 	env imex.Envelope,
 	_ imex.ImportOptions,
-) (ontology.ID, error) {
+) (resource.ID, error) {
 	a, err := versions.DecodeImExEnvelope(ctx, env)
 	if err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
 	if err = s.NewWriter(tx).Create(ctx, &a); err != nil {
-		return ontology.ID{}, err
+		return resource.ID{}, err
 	}
-	return OntologyID(a.Key), nil
+	return a.ResourceID(), nil
 }

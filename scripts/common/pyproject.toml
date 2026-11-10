@@ -1,0 +1,22 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+[project]
+name = "synnax-scripts-common"
+version = "0.0.0"
+description = "Test utilities for scripts and .github/scripts"
+requires-python = ">=3.12,<4"
+classifiers = ["Private :: Do Not Upload"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["scripts_common"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

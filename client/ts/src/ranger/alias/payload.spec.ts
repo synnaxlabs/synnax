@@ -12,9 +12,9 @@ import { describe, expect, it } from "vitest";
 import { ranger } from "@/ranger";
 
 describe("alias", () => {
-  describe("ontologyID", () => {
-    it("should create an ontology ID with the correct type and composite key", () => {
-      const id = ranger.alias.ontologyID("range-uuid-123", 42);
+  describe("resourceID", () => {
+    it("should create a resource ID with the correct type and composite key", () => {
+      const id = ranger.alias.resourceID("range-uuid-123", 42);
       expect(id.type).toBe("range-alias");
       expect(id.key).toBe("range-uuid-123---42");
     });
@@ -22,16 +22,16 @@ describe("alias", () => {
     it("should match the key format produced by createKey", () => {
       const rangeKey = "abc-def";
       const channelKey = 7;
-      const id = ranger.alias.ontologyID(rangeKey, channelKey);
+      const id = ranger.alias.resourceID(rangeKey, channelKey);
       const key = ranger.alias.createKey({ range: rangeKey, channel: channelKey });
       expect(id.key).toBe(key);
     });
   });
 
-  describe("TYPE_ONTOLOGY_ID", () => {
+  describe("TYPE_RESOURCE_ID", () => {
     it("should have the correct type and an empty key", () => {
-      expect(ranger.alias.TYPE_ONTOLOGY_ID.type).toBe("range-alias");
-      expect(ranger.alias.TYPE_ONTOLOGY_ID.key).toBe("");
+      expect(ranger.alias.TYPE_RESOURCE_ID.type).toBe("range-alias");
+      expect(ranger.alias.TYPE_RESOURCE_ID.key).toBe("");
     });
   });
 

@@ -9,8 +9,9 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { rack } from "@/rack";
+import { status } from "@/status";
 import { task } from "@/task";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
@@ -40,7 +41,7 @@ describe("task", () => {
     it("should allow the caller to retrieve tasks with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [task.ontologyID("")],
+        objects: [task.resourceID("")],
         actions: ["retrieve"],
       });
       const rack = await client.racks.create({
@@ -57,11 +58,15 @@ describe("task", () => {
     });
 
     it("should allow the caller to create tasks with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
-        name: "test",
-        objects: [task.ontologyID(""), rack.ontologyID(0)],
-        actions: ["create", "retrieve"],
-      });
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [task.resourceID(""), rack.resourceID(0)],
+          actions: ["create", "retrieve"],
+        },
+        { name: "test", objects: [rack.resourceID(0)], actions: ["update"] },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["create"] },
+      ]);
       const rck = await client.racks.create({
         name: "test",
       });
@@ -76,7 +81,7 @@ describe("task", () => {
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [task.ontologyID("")],
+        objects: [task.resourceID("")],
         actions: [],
       });
       await expect(
@@ -89,15 +94,19 @@ describe("task", () => {
     });
 
     it("should allow the caller to delete tasks with the correct policy", async () => {
-      const userClient = await createTestClientWithPolicy(client, {
+      const userClient = await createTestClientWithPolicy(client, [
+        {
+          name: "test",
+          objects: [task.resourceID("")],
+          actions: ["delete", "retrieve"],
+        },
+        { name: "test", objects: [status.TYPE_RESOURCE_ID], actions: ["delete"] },
+        { name: "test", objects: [rack.resourceID(0)], actions: ["update"] },
+      ]);
+      const rck = await client.racks.create({
         name: "test",
-        objects: [task.ontologyID("")],
-        actions: ["delete", "retrieve"],
       });
-      const rack = await client.racks.create({
-        name: "test",
-      });
-      const randomTask = await rack.createTask({
+      const randomTask = await rck.createTask({
         name: "test",
         type: "pagerduty_alert",
         config: {},
@@ -111,7 +120,7 @@ describe("task", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [task.ontologyID("")],
+        objects: [task.resourceID("")],
         actions: [],
       });
       const rack = await client.racks.create({

@@ -11,7 +11,6 @@ import { type device } from "@synnaxlabs/client";
 import { type ComponentType, type ReactElement } from "react";
 
 import { HARDWARE, type Hardware } from "@/feature/device/integrations";
-import { Device as PlatformDevice } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -31,8 +30,7 @@ interface HardwareProps {
 }
 
 const createConfigure = ({
-  icon,
-  zeroProperties,
+  Configure,
   useCreateRead,
 }: Hardware): ComponentType<HardwareProps> => {
   const ConfigureHardware = ({
@@ -43,12 +41,10 @@ const createConfigure = ({
   }: HardwareProps): ReactElement => {
     const createRead = useCreateRead();
     return (
-      <PlatformDevice.Configure
+      <Configure
         deviceKey={deviceKey}
         close={close}
         onBack={onBack}
-        icon={icon}
-        initialProperties={zeroProperties}
         onCreateTask={(key) => {
           createRead({ deviceKey: key });
           onTaskCreated?.();

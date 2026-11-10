@@ -11,37 +11,7 @@ package v0
 
 import (
 	"slices"
-
-	"github.com/synnaxlabs/x/errors"
 )
-
-// Base returns the parts every text field encoding shares, or the zero BaseField when f
-// has no encoding.
-func (f TextField) Base() BaseField {
-	switch v := f.Variant.(type) {
-	case DelimitedTextField:
-		return v.BaseField
-	case TaggedTextField:
-		return v.BaseField
-	default:
-		return BaseField{}
-	}
-}
-
-// SetBase replaces the parts every text field encoding shares. It panics when f has no
-// encoding.
-func (f *TextField) SetBase(b BaseField) {
-	switch v := f.Variant.(type) {
-	case DelimitedTextField:
-		v.BaseField = b
-		f.Variant = v
-	case TaggedTextField:
-		v.BaseField = b
-		f.Variant = v
-	default:
-		panic(errors.Newf("text field has no encoding: %T", v))
-	}
-}
 
 // FieldBases returns the parts every field of p shares, in field order, with a zero
 // BaseField for a text field with no encoding. It returns nil when p has no format.

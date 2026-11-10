@@ -15,8 +15,6 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { deep, uuid } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useNestedStatus } from "@/feature/icd/editor/useNestedStatus";
-
 type Field = icd.BinaryField | icd.TextField;
 type Encoding = "binary" | icd.TextFieldType;
 type FieldOf<E extends Encoding> = E extends "binary"
@@ -305,40 +303,39 @@ const renderColumn = (
 
 const matchOwnField = (
   key: string | undefined,
-  fieldsPath: string,
+  path: deep.Path<Field[]>,
   field: Field,
-): boolean => key != null && deep.pathsMatch(key, `${fieldsPath}.${field.key}`);
+): boolean => key != null && deep.pathsMatch(key, String(path[field.key]));
 
 export interface FieldsProps {
-  /** The form path of the message payload. */
-  path: string;
+  /** The form path of the message's fields. */
+  path: deep.Path<Field[]>;
   encoding: Encoding;
 }
 
 /** Edits the fields of one encoding in a message payload as a grid. */
 export const Fields = ({ path, encoding }: FieldsProps): ReactElement => {
-  const fieldsPath = `${path}.fields`;
   const { set } = Form.useContext();
-  const fields = Form.useFieldValue<Field[]>(fieldsPath);
-  const status = useNestedStatus(fieldsPath, (key) =>
-    fields.some((f) => encodingOf(f) === encoding && matchOwnField(key, fieldsPath, f)),
+  const fields = Form.useFieldValue(path);
+  const status = Form.useStatuses(path).find(({ key }) =>
+    fields.some((f) => encodingOf(f) === encoding && matchOwnField(key, path, f)),
   );
   const columns = COLUMNS[encoding] as Column<Field>[];
   const own = fields.filter((f) => encodingOf(f) === encoding);
   const rows = own.map((f) => columns.map((c) => c.get(f)));
   const handleChange = (next: Input.TableCell[][]) =>
     set(
-      fieldsPath,
+      path,
       mergeFields(fields, encoding, fieldsFromRows(encoding, columns, own, next)),
     );
   const handleRemove = (index: number) =>
     set(
-      fieldsPath,
+      path,
       fields.filter(({ key }) => key !== own[index].key),
     );
   const createRow = () =>
     columns.map((c) => c.get(createField(encoding, uniqueFieldName(fields))));
-  const failing = own.findIndex((f) => matchOwnField(status?.key, fieldsPath, f));
+  const failing = own.findIndex((f) => matchOwnField(status?.key, path, f));
   let helpText = status?.message;
   if (failing !== -1) helpText = `Field ${failing + 1}: ${helpText}`;
   return (

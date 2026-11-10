@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
+	v2 "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v2"
 )
 
 // MigrationsConfig configures the stored-ranger migration chain.
@@ -26,5 +27,6 @@ func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 		[]gorp.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(cfg),
 		[]gorp.Migration{v1.Migration},
+		v2.Migrations,
 	)
 }

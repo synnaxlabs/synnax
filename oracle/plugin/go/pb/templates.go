@@ -155,19 +155,35 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 }
 
 // {{.Name}}FromPB converts {{.PBTypeShort}} to {{.GoTypeShort}}.
+{{- if .Defaults}}
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
+{{- end}}
 func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	var r {{.GoType}}
 	if pb == nil {
 		return r, nil
 	}
+{{- if .Defaults}}
+	defaults.Prefill(&r)
+{{- end}}
 {{- $goType := .GoType}}
+{{- $defaults := .Defaults}}
 {{- $needsErr := false}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
 	var err error
 {{- end}}
 {{- range .ErrorFields}}
-{{- if .HasBackwardError}}
+{{- if and $defaults .IsMessage .HasBackwardError (not .BackwardCast)}}
+	if pb.{{.PBName}} != nil {
+		r.{{.GoName}}, err = {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
+	}
+{{- else if .HasBackwardError}}
 {{- if .BackwardCast}}
 	parsed{{.GoName}}, err := {{.BackwardExpr}}
 	if err != nil {
@@ -226,9 +242,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}
@@ -248,6 +264,9 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 {{- end}}
 	}
 {{- end}}
+{{- end}}
+{{- if .Defaults}}
+	defaults.FillGroups(&r)
 {{- end}}
 	return r, nil
 }
@@ -324,9 +343,11 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 {{- if or $ut.Bases .IsInline}}
 		m := {{if .IsInline}}inner{{else}}{{.GoVariantType}}{{"{"}}{{.PayloadGoField}}: inner}{{end}}
 {{- range $ut.Bases}}
-		m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
-		if err != nil {
-			return r, err
+		if pb.{{.PBGoName}} != nil {
+			m.{{.GoEmbed}}, err = {{.FromPB}}(pb.{{.PBGoName}})
+			if err != nil {
+				return r, err
+			}
 		}
 {{- end}}
 		r.Variant = m
@@ -603,9 +624,9 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 		if err != nil {
 			return {{$goType}}{}, err
 		}
-		r.{{.GoName}} = vals
+		r.{{.GoName}} = xpb.ListValues(vals)
 {{- else}}
-		r.{{.GoName}} = {{.BackwardExpr}}
+		r.{{.GoName}} = xpb.ListValues({{.BackwardExpr}})
 {{- end}}
 	}
 {{- else}}
@@ -661,65 +682,6 @@ func {{pluralize .Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}
 		if err != nil {
 			return nil, err
 		}
-	}
-	return result, nil
-}
-{{- end}}
-{{- range .AnyHelpers}}
-
-// {{.TypeName}}ToPBAny converts {{.TypeName}} to *anypb.Any for use with generic
-// translators. It wraps the value in structpb.Struct (JSON) for cross-language
-// compatibility.
-func {{.TypeName}}ToPBAny(v {{.GoType}}) (*anypb.Any, error) {
-	pb, err := {{.PBType}}ToPB(v)
-	if err != nil {
-		return nil, err
-	}
-	// Convert proto to JSON bytes, then to Struct for cross-language compatibility
-	jsonBytes, err := protojson.Marshal(pb)
-	if err != nil {
-		return nil, err
-	}
-	s := &structpb.Struct{}
-	if err := protojson.Unmarshal(jsonBytes, s); err != nil {
-		return nil, err
-	}
-	return anypb.New(s)
-}
-
-// {{.TypeName}}FromPBAny converts *anypb.Any to {{.TypeName}} for use with generic
-// translators. It handles typed protos and JSON (google.protobuf.Value, or
-// google.protobuf.Struct from peers on releases before value packing) for
-// cross-language compatibility.
-func {{.TypeName}}FromPBAny(a *anypb.Any) ({{.GoType}}, error) {
-	if a == nil {
-		return {{.GoType}}{}, nil
-	}
-	// First try typed proto
-	var pb {{.PBType}}
-	if err := a.UnmarshalTo(&pb); err == nil {
-		return {{.PBType}}FromPB(&pb)
-	}
-	// Fall back to JSON for cross-language compatibility
-	var (
-		msg proto.Message
-		v   structpb.Value
-		s   structpb.Struct
-	)
-	if err := a.UnmarshalTo(&v); err == nil {
-		msg = &v
-	} else if err := a.UnmarshalTo(&s); err != nil {
-		return {{.GoType}}{}, err
-	} else {
-		msg = &s
-	}
-	jsonBytes, err := protojson.Marshal(msg)
-	if err != nil {
-		return {{.GoType}}{}, err
-	}
-	var result {{.GoType}}
-	if err := json.Unmarshal(jsonBytes, &result); err != nil {
-		return {{.GoType}}{}, err
 	}
 	return result, nil
 }

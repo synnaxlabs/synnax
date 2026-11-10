@@ -53,10 +53,9 @@ describe("Select.Single", () => {
         "data" | "value" | "onChange" | "children" | "resourceName"
       >,
     ) => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       const [value, setValue] = useState<string | undefined>(undefined);
       const handleChange = (key: string | undefined) => {
         setValue(key);
@@ -208,10 +207,9 @@ describe("Select.Single", () => {
   it("should work with initial value", () => {
     const onChange = vi.fn();
     const SelectSingle = () => {
-      const { data, getItem, retrieve } = List.useStaticData<string, TestEntry>({
+      const { data, getItem, search } = List.useStaticData<string, TestEntry>({
         data: testData,
       });
-      const { search } = List.usePager({ retrieve });
       return (
         <Select.Single<string, TestEntry>
           getItem={getItem}
@@ -253,7 +251,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
-      "pluto-btn--prevent-click",
+      "lyra-btn--prevent-click",
     );
   });
 
@@ -265,7 +263,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("First Item"));
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
-    ).not.toContain("pluto-btn--prevent-click");
+    ).not.toContain("lyra-btn--prevent-click");
   });
 
   describe("narrow layout", () => {
@@ -285,22 +283,22 @@ describe("Select.Single", () => {
     };
 
     const getTooltip = (): HTMLElement | null =>
-      document.querySelector<HTMLElement>(".pluto-tooltip");
+      document.querySelector<HTMLElement>(".lyra-tooltip");
 
     it("should show the selected name in a label that fades on overflow", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle />);
       select(c);
       const label = c.getByText("First Item");
-      expect(label.classList).toContain("pluto-select__label");
-      expect(label.classList).toContain("pluto-text--overflow-fade");
+      expect(label.classList).toContain("lyra-select__label");
+      expect(label.classList).toContain("lyra-text--overflow-fade");
     });
 
     it("should mark a collapsible trigger", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
-        "pluto-select-single-trigger--collapsible",
+        "lyra-select-single-trigger--collapsible",
       );
     });
 
@@ -318,6 +316,44 @@ describe("Select.Single", () => {
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       hoverPastDelay(select(c));
       expect(getTooltip()).toBeNull();
+    });
+  });
+
+  describe("end content", () => {
+    const renderEndContent = (entry: unknown) =>
+      entry == null ? undefined : `${(entry as TestEntry).key} end`;
+
+    const select = (c: ReturnType<typeof render>): void => {
+      fireEvent.click(c.getByText("Test Item"));
+      fireEvent.click(c.getByText("First Item Option"));
+    };
+
+    it("should render content from the selected entry before the caret", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ renderEndContent }} />);
+      select(c);
+      const end = c.getByText("1 end");
+      expect(end.classList).toContain("lyra-select-single-trigger__end");
+      expect(end.nextElementSibling?.classList).toContain("lyra-caret-animated");
+    });
+
+    it("should render no end content without a selection", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(<SelectSingle triggerProps={{ renderEndContent }} />);
+      expect(c.container.querySelector(".lyra-select-single-trigger__end")).toBeNull();
+    });
+
+    it("should render no end content on an icon-only trigger", () => {
+      const { SelectSingle } = createSelectSingle();
+      const c = render(
+        <SelectSingle
+          icon={<Icon.Add />}
+          triggerProps={{ renderEndContent, iconOnly: true }}
+        />,
+      );
+      fireEvent.click(c.getByRole("button"));
+      fireEvent.click(c.getByText("First Item Option"));
+      expect(c.queryByText("1 end")).toBeNull();
     });
   });
 
@@ -421,7 +457,7 @@ describe("Select.Single", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
       expect(c.getByText("None").closest("button")?.classList).toContain(
-        "pluto-btn--preview",
+        "lyra-btn--preview",
       );
     });
 

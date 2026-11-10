@@ -14,9 +14,6 @@ import "github.com/vmihailenco/msgpack/v5"
 // GorpKey implements gorp.Entry.
 func (a Arc) GorpKey() Key { return a.Key }
 
-// SetOptions implements gorp.Entry.
-func (Arc) SetOptions() []any { return nil }
-
 // DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase Go
 // field name "Running" and new lowercase msgpack tag "running" for backward
 // compatibility.

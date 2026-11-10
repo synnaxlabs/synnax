@@ -52,7 +52,9 @@ describe("links", () => {
       const href = `https://docs.synnaxlabs.com${TARGET}#present`;
       const { failures, fetched } = await run(href);
       expect(failures).toEqual([]);
-      expect(fetched.filter((url) => url.includes("docs.synnaxlabs.com"))).toEqual([]);
+      expect(
+        fetched.filter((url) => new URL(url).host === "docs.synnaxlabs.com"),
+      ).toEqual([]);
     });
 
     it("should report a missing anchor on a built page", async () => {
@@ -67,6 +69,16 @@ describe("links", () => {
       expect(fetched).toContain(`${BASE_URL}/spec/links/missing`);
       expect(failures).toEqual([`${SOURCE} - dead internal link ${href} (HTTP 404)`]);
     });
+  });
+
+  it.each([
+    "https://synnaxlabs.com/",
+    "https://www.synnaxlabs.com/company",
+    "https://portal.synnaxlabs.com/login",
+  ])("should not fetch %s", async (href) => {
+    const { failures, fetched } = await run(href, [href]);
+    expect(failures).toEqual([]);
+    expect(fetched).not.toContain(href);
   });
 
   it("should fetch a link to another host as an external URL", async () => {

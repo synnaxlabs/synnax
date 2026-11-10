@@ -7,10 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any
+from collections.abc import Callable
 
-from playwright.sync_api import Locator, Page, expect
-from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+from playwright.sync_api import (
+    Locator,
+    Page,
+    TimeoutError as PlaywrightTimeoutError,
+    expect,
+)
+from pydantic import TypeAdapter
 
 import synnax as sy
 
@@ -18,41 +23,42 @@ import synnax as sy
 # attached resolves at once.
 _SILENCE_TIMEOUT = 1000
 
+# Short enough that a new toast is cleared well before it expires on its own.
+_CLICK_ATTEMPT_TIMEOUT = 1000
+_CLICK_TIMEOUT = 10 * sy.TimeSpan.SECOND
+
 _READ_JS = """(elements) => elements.map((el) => {
-  const text = (selector) => el.querySelector(selector)?.innerText.trim();
-  const fields = {
-    count: text(".pluto-text--small"),
-    timestamp: text(".pluto-notification__time"),
-    message: text(".pluto-notification__message"),
-    description: text(".pluto-notification__description"),
+  const text = (selector) => el.querySelector(selector)?.innerText.trim() ?? "";
+  return {
+    message: text(".lyra-notification__message"),
+    description: text(".lyra-notification__description"),
+    variant: el.querySelector("svg[color*='error']") == null ? "info" : "error",
   };
-  const read = Object.fromEntries(
-    Object.entries(fields).filter(([, value]) => value != null),
-  );
-  read.type = el.querySelector("svg[color*='error']") == null ? "info" : "error";
-  return read;
 })"""
+
+_NOTIFICATIONS: TypeAdapter[list[sy.Status]] = TypeAdapter(list[sy.Status])
 
 
 class NotificationsClient:
     """Notifications management for Console UI automation."""
 
-    def __init__(self, page: Page):
+    def __init__(self, page: Page, *, new_timer: Callable[[], sy.Timer] = sy.Timer):
         self.page = page
+        self._new_timer = new_timer
 
     def _all(self) -> Locator:
         """All visible notifications. Each notification carries role=status."""
         return self.page.get_by_role("status")
 
     def check(
-        self, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
-    ) -> list[dict[str, Any]]:
+        self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+    ) -> list[sy.Status]:
         """Check for notifications in the bottom right corner.
 
         Polls every 50ms until notifications are found or timeout is reached.
 
         :param timeout: Maximum time to wait for notifications.
-        :returns: List of notification dictionaries with details.
+        :returns: The notifications, each with its variant, message, and description.
         """
         timer = sy.Timer()
         timeout_span = sy.TimeSpan.from_seconds(timeout)
@@ -61,14 +67,16 @@ class NotificationsClient:
         while timer.elapsed() < timeout_span:
             # One call reads every notification, so a toast that arrives mid-read cannot
             # shift the others.
-            notifications: list[dict[str, Any]] = self._all().evaluate_all(_READ_JS)
+            notifications = _NOTIFICATIONS.validate_python(
+                self._all().evaluate_all(_READ_JS)
+            )
             if len(notifications) > 0:
                 return notifications
             sy.sleep(poll_interval)
 
         return []
 
-    def close(self, notification_index: int = 0) -> bool:
+    def close(self, *, notification_index: int = 0) -> bool:
         """Close a notification by clicking its Silence button.
 
         :param notification_index: Index of the notification to close (0 for
@@ -122,6 +130,25 @@ class NotificationsClient:
         except AssertionError:
             pass
 
+    def clear_and_click(self, target: Locator) -> None:
+        """Clear notifications and click a target that they can cover.
+
+        A toast can land after the clear and outlive a single click timeout, so this
+        repeats both steps until the click lands.
+
+        :param target: The element to click.
+        :raises PlaywrightTimeoutError: If the click does not land in about 10 seconds.
+        """
+        timer = self._new_timer()
+        while True:
+            self.close_all()
+            try:
+                target.click(timeout=_CLICK_ATTEMPT_TIMEOUT)
+                return
+            except PlaywrightTimeoutError:
+                if timer.elapsed() >= _CLICK_TIMEOUT:
+                    raise
+
     def close_connection(self) -> bool:
         """Close the 'Connected to...' notification if present.
 
@@ -142,7 +169,7 @@ class NotificationsClient:
             return False
 
     def wait_for(
-        self, text: str, name: str | None = None, description: str | None = None
+        self, text: str, *, name: str | None = None, description: str | None = None
     ) -> bool:
         """Wait for a notification containing specific text to appear.
 
@@ -155,12 +182,12 @@ class NotificationsClient:
         notification = self._all().filter(has_text=text)
         if name is not None:
             notification = notification.filter(
-                has=self.page.locator(".pluto-notification__name", has_text=name)
+                has=self.page.locator(".lyra-notification__name", has_text=name)
             )
         if description is not None:
             notification = notification.filter(
                 has=self.page.locator(
-                    ".pluto-notification__description", has_text=description
+                    ".lyra-notification__description", has_text=description
                 )
             )
         try:

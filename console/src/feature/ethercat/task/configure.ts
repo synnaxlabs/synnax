@@ -10,12 +10,20 @@
 import { channel, ethercat, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, errors, primitive } from "@synnaxlabs/x";
 
-import * as Device from "@/feature/ethercat/device/types";
+import { check, fill, sameAddress } from "@/feature/ethercat/device/settings";
+import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import {
+  MAKE,
+  SLAVE_MODEL,
+  SLAVE_SCHEMAS,
+  type SlaveDevice,
+} from "@/feature/ethercat/device/types";
 import {
   addressKey,
   DIRECTIONS,
   entryAt,
   type EntryChannel,
+  type EntryReadChannel,
   getUnresolvedMessage,
   hasEntry,
   type PDOType,
@@ -27,7 +35,7 @@ import { Device as PlatformDevice } from "@/platform/device";
 type Channel = ReadChannel | WriteChannel;
 
 export interface SlaveValidationResult<C extends Channel> {
-  slaves: Device.SlaveDevice[];
+  slaves: SlaveDevice[];
   rack: number;
   channelsBySlaveKey: Map<string, Extract<C, EntryChannel>[]>;
 }
@@ -41,7 +49,7 @@ const entryWidth = (bitLength: number): number => {
 };
 
 const validateEntries = <C extends Channel>(
-  slave: Device.SlaveDevice,
+  slave: SlaveDevice,
   channels: C[],
   pdoType: PDOType,
 ): Extract<C, EntryChannel>[] => {
@@ -62,6 +70,12 @@ const validateEntries = <C extends Channel>(
         throw new Error(
           `Slave ${slave.name} has no ${DIRECTIONS[pdoType]} entry at ${address}. ` +
             "Pick an entry.",
+        );
+      const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
+      if (reader != null)
+        throw new Error(
+          `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
+            "reads. Open the device settings of the slave to change its setup.",
         );
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
@@ -89,7 +103,8 @@ const validateEntries = <C extends Channel>(
  * Retrieves the slaves the channels use and checks the entries of the enabled channels.
  * @returns the slaves, their rack, and the enabled channels of each slave.
  * @throws {Error} if the slaves are on different networks, or if an enabled channel has
- * no entry, an entry its slave lacks, or an entry another channel uses.
+ * no entry, an entry its slave lacks, an input that only another program reads, or an
+ * entry another channel uses.
  */
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
@@ -97,13 +112,12 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   pdoType: PDOType,
 ): Promise<SlaveValidationResult<C>> => {
   const slaveKeys = [...new Set(channels.map((ch) => ch.device))];
-  if (slaveKeys.length === 0) throw new Error("No channels configured. Add a channel.");
-
   const slaves = await client.devices.retrieve({
-    keys: slaveKeys,
-    schemas: Device.SLAVE_SCHEMAS,
+    key: slaveKeys,
+    schemas: SLAVE_SCHEMAS,
   });
 
+  PlatformDevice.checkFound(slaveKeys, slaves);
   for (const slave of slaves) PlatformDevice.checkConfigured(slave);
 
   const networks = [...new Set(slaves.map((s) => s.properties.network))];
@@ -131,15 +145,124 @@ export const retrieveAndValidateSlaves = async <C extends Channel>(
   return { slaves, rack: slaves[0].rack, channelsBySlaveKey };
 };
 
+/**
+ * @returns the startup parameters of each slave: a value for every field of each input
+ * that an enabled channel reads, in the order of the slave's catalog. Values the task
+ * held stay. A slave that other software sets up gets none.
+ * @throws {Error} if a value breaks a limit or a rule of the catalog.
+ */
+export const fillStartupParameters = (
+  slaves: SlaveDevice[],
+  channels: ReadChannel[],
+  held: ethercat.SlaveStartupParameters[],
+): ethercat.SlaveStartupParameters[] => {
+  const filled: ethercat.SlaveStartupParameters[] = [];
+  for (const slave of slaves) {
+    if (isShared(slave.properties)) continue;
+    const inputs = slave.properties.settings?.channels ?? [];
+    const entries = channels.filter(
+      (ch): ch is EntryReadChannel =>
+        hasEntry(ch) && !ch.disabled && ch.device === slave.key,
+    );
+    const prior = held.find((s) => s.device === slave.key)?.parameters ?? [];
+    const parameters: ethercat.StartupParameter[] = [];
+    for (const input of inputs) {
+      const ch = entries.find((e) => input.entries.some((a) => sameAddress(a, e)));
+      if (ch == null) continue;
+      const filledInput = fill(input.settings, prior);
+      const [problem] = check(input, filledInput);
+      if (problem != null)
+        throw new Error(
+          `Entry ${ethercat.formatAddress(ch)} on slave ${slave.name}: ${problem.message}`,
+        );
+      parameters.push(...filledInput);
+    }
+    if (parameters.length > 0) filled.push({ device: slave.key, parameters });
+  }
+  return filled;
+};
+
 export interface IndexOptions {
   indexProperty: "readIndex" | "writeStateIndex";
   channelsProperty: "read" | "write";
   nameSuffix: "_time" | "_state_time";
 }
 
+/** @returns the channels that hold the names, keyed by name. */
+export const retrieveByName = async (
+  client: Synnax,
+  names: string[],
+): Promise<Map<string, channel.Channel>> => {
+  if (names.length === 0) return new Map();
+  const found = await client.channels.retrieve({ name: names });
+  return new Map(found.map((c) => [c.name, c]));
+};
+
+/**
+ * @throws {Error} if a device other than the slave uses the slave's identifier, or if
+ * another slave uses the index for itself or for a command channel.
+ */
+const checkIndexFree = async (
+  client: Synnax,
+  slave: SlaveDevice,
+  index: channel.Channel,
+): Promise<void> => {
+  const identifier = channel.escapeInvalidName(slave.properties.identifier);
+  const other = (await client.devices.retrieve({})).find(
+    ({ key, properties }) =>
+      key !== slave.key &&
+      typeof properties?.identifier === "string" &&
+      channel.escapeInvalidName(properties.identifier) === identifier,
+  );
+  if (other != null)
+    throw new Error(
+      `Device ${other.name} has an identifier that gives the same channel names as ` +
+        `${slave.properties.identifier}. Change the identifier of one of them.`,
+    );
+  const others = (
+    await client.devices.retrieve({
+      make: MAKE,
+      model: SLAVE_MODEL,
+      schemas: SLAVE_SCHEMAS,
+    })
+  ).filter(({ key }) => key !== slave.key);
+  const commands = others.flatMap(({ properties }) =>
+    Object.values(properties.write.channels),
+  );
+  const indexes = new Map(
+    commands.length === 0
+      ? []
+      : (await client.channels.retrieve({ key: commands })).map((ch) => [
+          ch.key,
+          ch.index,
+        ]),
+  );
+  const owner = others.find(
+    ({ properties: { readIndex, writeStateIndex, write } }) =>
+      readIndex === index.key ||
+      writeStateIndex === index.key ||
+      Object.values(write.channels).some((key) => indexes.get(key) === index.key),
+  );
+  if (owner != null)
+    throw new Error(
+      `Slave ${owner.name} uses the index channel ${index.name}. Change the ` +
+        `identifier of slave ${slave.name}.`,
+    );
+};
+
+/**
+ * Binds the slave to its index channel, creating the channel when the slave has none.
+ * A deleted device leaves its channels, so the slave reuses an index channel that
+ * holds its name when no other device uses its identifier and no other slave uses the
+ * index.
+ *
+ * @returns true when the slave's properties changed.
+ * @throws {Error} if a channel that is not an index holds the index name, if another
+ * device uses the slave's identifier, or if another slave uses the index.
+ */
 export const checkOrCreateIndex = async (
   client: Synnax,
-  slave: Device.SlaveDevice,
+  slave: SlaveDevice,
   options: IndexOptions,
 ): Promise<boolean> => {
   const { indexProperty, channelsProperty, nameSuffix } = options;
@@ -155,11 +278,21 @@ export const checkOrCreateIndex = async (
 
   if (shouldCreate) {
     const identifier = channel.escapeInvalidName(slave.properties.identifier);
-    const idx = await client.channels.create({
-      name: `${identifier}${nameSuffix}`,
-      dataType: "timestamp",
-      isIndex: true,
-    });
+    const name = `${identifier}${nameSuffix}`;
+    let idx = (await retrieveByName(client, [name])).get(name);
+    if (idx != null) {
+      if (!idx.isIndex)
+        throw new Error(
+          `A channel named ${name} already exists and is not an index. Change the ` +
+            `identifier of slave ${slave.name}.`,
+        );
+      await checkIndexFree(client, slave, idx);
+    } else
+      idx = await client.channels.create({
+        name,
+        dataType: "timestamp",
+        isIndex: true,
+      });
     if (indexProperty === "readIndex") slave.properties.readIndex = idx.key;
     else slave.properties.writeStateIndex = idx.key;
     slave.properties[channelsProperty].channels = {};
@@ -170,13 +303,15 @@ export const checkOrCreateIndex = async (
 
 /**
  * @returns the channels whose mapped Synnax channel is missing.
- * @throws {Error} if a mapped channel holds a different data type than its channel.
+ * @throws {Error} if a mapped channel holds a different data type than getDataType
+ * gives for its channel.
  */
 export const findChannelsToCreate = async <C extends EntryChannel>(
   client: Synnax,
   channels: C[],
   existingChannels: Record<string, number>,
   mapKey: (ch: C) => string = addressKey,
+  getDataType: (ch: C) => string = (ch) => ch.dataType,
 ): Promise<C[]> => {
   const toCreate: C[] = [];
   for (const ch of channels) {
@@ -193,13 +328,99 @@ export const findChannelsToCreate = async <C extends EntryChannel>(
       toCreate.push(ch);
       continue;
     }
-    const dataType = mapped.dataType.toString();
-    if (dataType !== ch.dataType)
-      throw new Error(
-        `Channel ${mapped.name} holds ${dataType} data, not ${ch.dataType}. Set the ` +
-          `data type to ${dataType}, or delete channel ${mapped.name} so the task can ` +
-          "create it again.",
-      );
+    checkDataType(mapped, getDataType(ch));
   }
   return toCreate;
+};
+
+/** @throws {Error} if the channel holds a data type other than the one given. */
+const checkDataType = (existing: channel.Channel, dataType: string): void => {
+  const held = existing.dataType.toString();
+  if (held !== dataType)
+    throw new Error(
+      `Channel ${existing.name} holds ${held} data, not ${dataType}. Set the data ` +
+        `type to ${held}, or delete channel ${existing.name} so the task can create ` +
+        "it again.",
+    );
+};
+
+export interface BindOrphanedChannelsArgs<C extends EntryChannel> {
+  client: Synnax;
+  /**
+   * the key of the slave that deploys the channels. Set it when the channels do not use
+   * the slave's index, to reject a channel that another slave maps.
+   */
+  slave?: string;
+  /** the channels that have no Synnax channel yet. */
+  channels: C[];
+  /** the name deploying gives each channel's Synnax channel. */
+  names: string[];
+  /**
+   * @returns the index the Synnax channel of the channel at i must have, or undefined
+   * when the channel must not reuse a Synnax channel.
+   */
+  index: (i: number) => number | undefined;
+  /** the device's map of channel keys, which receives each bound channel. */
+  map: Record<string, number>;
+  mapKey?: (ch: C) => string;
+  /** @returns the data type the Synnax channel of the channel must hold. */
+  getDataType?: (ch: C) => string;
+}
+
+/**
+ * Binds each channel to the Synnax channel that a deleted device left under its name.
+ * An orphaned channel is not an index, has the index the task gives the channel, and no
+ * slave maps it.
+ *
+ * @returns the channels that still need a Synnax channel.
+ * @throws {Error} if an index, a channel on another index, or a channel that a slave
+ * maps holds a name, or if an orphaned channel holds another data type.
+ */
+export const bindOrphanedChannels = async <C extends EntryChannel>({
+  client,
+  slave,
+  channels,
+  names,
+  index,
+  map,
+  mapKey = addressKey,
+  getDataType = (ch) => ch.dataType,
+}: BindOrphanedChannelsArgs<C>): Promise<C[]> => {
+  const existing = await retrieveByName(client, names);
+  if (existing.size === 0) return channels;
+  const others =
+    slave == null
+      ? []
+      : await client.devices.retrieve({
+          make: MAKE,
+          model: SLAVE_MODEL,
+          schemas: SLAVE_SCHEMAS,
+        });
+  const bound = new Set([
+    ...Object.values(map),
+    ...others
+      .filter(({ key }) => key !== slave)
+      .flatMap(({ properties: { read, write } }) => [
+        ...Object.values(read.channels),
+        ...Object.values(write.channels),
+      ]),
+  ]);
+  return channels.filter((ch, i) => {
+    const orphan = existing.get(names[i]);
+    if (orphan == null) return true;
+    const expected = index(i);
+    if (
+      expected == null ||
+      orphan.isIndex ||
+      orphan.index !== expected ||
+      bound.has(orphan.key)
+    )
+      throw new Error(
+        `A channel named ${orphan.name} already exists. Give the channel another name.`,
+      );
+    checkDataType(orphan, getDataType(ch));
+    map[mapKey(ch)] = orphan.key;
+    bound.add(orphan.key);
+    return false;
+  });
 };

@@ -25,5 +25,16 @@ type Task interface {
 	Stop(sendStatus bool) error
 }
 
-// ErrUnsupportedCommand is returned when a command is not supported by a task.
-var ErrUnsupportedCommand = errors.New("unsupported command")
+var (
+	// ErrUnsupportedCommand is returned when a command is not supported by a task.
+	ErrUnsupportedCommand = errors.New("unsupported command")
+	// ErrTemporary marks an error that a task recovers from by trying again, such as a
+	// lost connection. A task reports it as a warning and keeps running. Mark an error
+	// with errors.Mark, so that the status shows the message of the error alone.
+	ErrTemporary = errors.New("temporary error")
+	// ErrDegraded marks a condition that loses data while the task keeps up its work,
+	// such as a full queue. A task reports it as a warning and continues at once. Mark
+	// an error with errors.Mark, so that the status shows the message of the error
+	// alone.
+	ErrDegraded = errors.New("degraded")
+)

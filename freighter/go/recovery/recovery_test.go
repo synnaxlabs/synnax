@@ -56,8 +56,11 @@ var _ = Describe("Recovery", func() {
 			) (freighter.Context, error) {
 				panic("boom in middleware")
 			}))
-			_, err := mc.Exec(newContext(), freighter.NopFinalizer)
+			oCtx, err := mc.Exec(newContext(), freighter.FinalizerFunc(
+				func(ctx freighter.Context) (freighter.Context, error) { return ctx, nil },
+			))
 			Expect(err).To(MatchError(recovery.ErrPanic))
+			Expect(oCtx.Protocol).To(Equal("test"))
 		})
 
 		It("should not leak the panic value into the returned error", func() {

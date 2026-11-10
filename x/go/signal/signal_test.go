@@ -18,10 +18,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var errRoutineFailed = errors.New("routine failed")
@@ -51,16 +49,43 @@ var _ = Describe("Signal", func() {
 		})
 
 		Context("Context already cancelled", func() {
-			It("Shouldn't start a new routine", func() {
+			It("Should run the routine with the canceled context", func() {
 				ctx, cancel := signal.Isolated()
 				cancel()
-				c := 0
+				var routineErr error
 				ctx.Go(func(ctx context.Context) error {
-					c++
+					routineErr = ctx.Err()
 					return nil
 				})
 				Expect(ctx.Wait()).To(Succeed())
-				Expect(c).To(Equal(0))
+				Expect(routineErr).To(MatchError(context.Canceled))
+			})
+
+			It("Should release what the routine owns through its deferrals", func() {
+				ctx, cancel := signal.Isolated()
+				cancel()
+				released := false
+				ctx.Go(
+					func(ctx context.Context) error { return ctx.Err() },
+					signal.Defer(func() { released = true }),
+				)
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
+				Expect(released).To(BeTrue())
+			})
+
+			It("Should stop and record the routine as canceled", func() {
+				ctx, cancel := signal.Isolated()
+				cancel()
+				ctx.Go(
+					func(ctx context.Context) error { return ctx.Err() },
+					signal.WithKey("canceled"),
+				)
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
+				Eventually(ctx.Stopped()).Should(BeClosed())
+				routines := ctx.Routines()
+				Expect(routines).To(HaveLen(1))
+				Expect(routines[0].State).To(Equal(signal.RoutineStateContextCanceled))
+				Expect(routines[0].FailureReason).ToNot(HaveOccurred())
 			})
 		})
 
@@ -241,7 +266,7 @@ var _ = Describe("Signal", func() {
 	Describe("SendUnderContext", func() {
 		It("Should send a value to the channel", func() {
 			v := make(chan int, 1)
-			_ = signal.SendUnderContext(context.Background(), v, 1)
+			Expect(signal.SendUnderContext(context.Background(), v, 1)).To(Succeed())
 			Expect(<-v).To(Equal(1))
 		})
 
@@ -250,41 +275,10 @@ var _ = Describe("Signal", func() {
 			func(specCtx SpecContext) {
 				ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 				v := make(chan int)
-				_ = signal.SendUnderContext(ctx, v, 1)
+				Expect(signal.SendUnderContext(ctx, v, 1)).
+					To(MatchError(context.DeadlineExceeded))
 				cancel()
 				Expect(v).ToNot(Receive())
-			},
-		)
-	})
-
-	Describe("RecvUnderContext", func() {
-		It("Should receive a value from the channel", func() {
-			v := make(chan int, 1)
-			v <- 1
-			val := MustSucceed(signal.RecvUnderContext(context.Background(), v))
-			Expect(val).To(Equal(1))
-		})
-
-		It(
-			"Should return context error if context is cancelled before receive",
-			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithCancel(specCtx)
-				v := make(chan int)
-				cancel()
-				Expect(signal.RecvUnderContext(ctx, v)).Error().
-					To(MatchError(context.Canceled))
-			},
-		)
-
-		It(
-			"Should receive value even if context is cancelled after value is available",
-			func(specCtx SpecContext) {
-				ctx, cancel := signal.WithCancel(specCtx)
-				v := make(chan int, 1)
-				v <- 1
-				val := MustSucceed(signal.RecvUnderContext(ctx, v))
-				cancel()
-				Expect(val).To(Equal(1))
 			},
 		)
 	})
@@ -351,13 +345,9 @@ var _ = Describe("Signal", func() {
 			ctx, _ := signal.Isolated()
 			ctx.Go(
 				inc1,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   100,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        1.01,
-					},
-				),
+				signal.WithRetryOnPanic(100),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(1.01),
 				signal.RecoverWithErrOnPanic(),
 			)
 
@@ -379,13 +369,9 @@ var _ = Describe("Signal", func() {
 				ctx, _ := signal.Isolated()
 				ctx.Go(
 					inc1,
-					signal.WithBreaker(
-						breaker.Config{
-							MaxRetries:   100,
-							BaseInterval: 1 * time.Millisecond,
-							Scale:        1.01,
-						},
-					),
+					signal.WithRetryOnPanic(100),
+					signal.WithBaseRetryInterval(1*time.Millisecond),
+					signal.WithRetryScale(1.01),
 					signal.RecoverWithoutErrOnPanic(),
 				)
 
@@ -411,13 +397,9 @@ var _ = Describe("Signal", func() {
 			ctx, cancel := signal.Isolated()
 			ctx.Go(
 				f,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   breaker.InfiniteRetries,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        1.01,
-					},
-				),
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(1.01),
 			)
 
 			wg.Go(func() {
@@ -447,13 +429,9 @@ var _ = Describe("Signal", func() {
 			start := time.Now()
 			ctx.Go(
 				succeedInTen,
-				signal.WithBreaker(
-					breaker.Config{
-						MaxRetries:   breaker.InfiniteRetries,
-						BaseInterval: 1 * time.Millisecond,
-						Scale:        2,
-					},
-				),
+				signal.WithRetryOnPanic(),
+				signal.WithBaseRetryInterval(1*time.Millisecond),
+				signal.WithRetryScale(2),
 				signal.RecoverWithErrOnPanic(),
 			)
 

@@ -28,7 +28,9 @@ type Key = uuid.UUID
 type Mode string
 
 const (
-	ModeText  Mode = "text"
+	// ModeText stores the module as Arc source text.
+	ModeText Mode = "text"
+	// ModeGraph stores the module as a visual dataflow graph.
 	ModeGraph Mode = "graph"
 )
 

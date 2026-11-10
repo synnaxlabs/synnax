@@ -68,7 +68,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     const label = async (range: ranger.Range, labels: Label[]): Promise<void> =>
       await client.labels.label(
-        range.ontologyID,
+        range.resourceID,
         labels.map((l) => LABELS[l].key),
       );
     const runs = await Promise.all(
@@ -103,7 +103,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       name,
       color,
       timeRange: new TimeRange(start, end),
-      parent: { key: run.key },
+      parent: run.key,
     });
     await client.ranges.create([
       stage("Pressurization", "#3774D0", closed, opened),
@@ -141,7 +141,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.settle(300);
     }
     await capture.openToolbar(session, "range");
-    const toolbar = page.locator(".console-nav__drawer.pluto--location-left").first();
+    const toolbar = page.locator(".console-nav__drawer.lyra--location-left").first();
     await session.waitFor(toolbar.getByText(REVIEWED, { exact: true }).first());
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });

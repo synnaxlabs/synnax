@@ -34,9 +34,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.contextMenu(session, item, "Set alias under Hotfire 09");
   // The tree name turns into a contenteditable with its text selected, so
   // typing replaces the channel name.
-  const editable = page
-    .locator(".pluto-text--editable[contenteditable='true']")
-    .first();
+  const editable = page.locator(".lyra-text--editable[contenteditable='true']").first();
   await session.waitFor(editable);
   await session.hold(400);
   await session.type("pressure_01");

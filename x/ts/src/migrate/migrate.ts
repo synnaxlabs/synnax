@@ -42,7 +42,8 @@ export interface CompareSemVerOptions {
  * Compares two pre-release identifiers according to semver spec.
  * @param a - First pre-release identifier (without leading hyphen)
  * @param b - Second pre-release identifier (without leading hyphen)
- * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if equal
+ * @returns compare.LESS_THAN if a < b, compare.GREATER_THAN if a > b, compare.EQUAL if
+ * equal
  */
 const comparePreRelease = (a: string, b: string): number => {
   const aParts = a.split(".");
@@ -81,8 +82,8 @@ const comparePreRelease = (a: string, b: string): number => {
 /**
  * Compares the two semantic versions.
  *
- * @param a  The first semantic version.
- * @param b  The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  * @returns a number, where the the number is compare.LESS_THAN (negative) if a is OLDER
@@ -145,8 +146,8 @@ export const versionsEqual = (
 
 /**
  * @returns true if the first semantic version is newer than the second.
- * @param a The first semantic version.
- * @param b The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  */
@@ -158,8 +159,8 @@ export const semVerNewer = (
 
 /**
  * @returns true if the first semantic version is older than the second.
- * @param a The first semantic version.
- * @param b The second semantic version.
+ * @param a - The first semantic version.
+ * @param b - The second semantic version.
  * @param opts - Optional object to disable checking specific version parts
  * (major, minor, patch).
  */

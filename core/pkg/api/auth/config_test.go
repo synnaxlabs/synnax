@@ -10,11 +10,15 @@
 package auth_test
 
 import (
+	"uuid"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
@@ -22,11 +26,13 @@ import (
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiauth.ServiceConfig {
 		return apiauth.ServiceConfig{
+			DB:       &gorp.DB{},
 			Auth:     &auth.Service{},
 			Password: &password.Service{},
+			APIKey:   &apikey.Service{},
 			User:     &user.Service{},
 			RBAC:     &rbac.Service{},
-			Cluster:  node.Cluster,
+			Identity: node.Identity,
 		}
 	}
 
@@ -43,6 +49,11 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(cfg.Validate()).To(MatchError(msg))
 			},
 			Entry(
+				"db",
+				func(c *apiauth.ServiceConfig) { c.DB = nil },
+				"db: must be non-nil",
+			),
+			Entry(
 				"auth",
 				func(c *apiauth.ServiceConfig) { c.Auth = nil },
 				"auth: must be non-nil",
@@ -51,6 +62,11 @@ var _ = Describe("ServiceConfig", func() {
 				"password",
 				func(c *apiauth.ServiceConfig) { c.Password = nil },
 				"password: must be non-nil",
+			),
+			Entry(
+				"api key",
+				func(c *apiauth.ServiceConfig) { c.APIKey = nil },
+				"api_key: must be non-nil",
 			),
 			Entry(
 				"user",
@@ -63,9 +79,14 @@ var _ = Describe("ServiceConfig", func() {
 				"rbac: must be non-nil",
 			),
 			Entry(
-				"cluster",
-				func(c *apiauth.ServiceConfig) { c.Cluster = nil },
-				"cluster: must be non-nil",
+				"identity key",
+				func(c *apiauth.ServiceConfig) { c.Identity.Key = uuid.Nil() },
+				"identity.key: must be set",
+			),
+			Entry(
+				"identity host key",
+				func(c *apiauth.ServiceConfig) { c.Identity.HostKey = 0 },
+				"identity.host_key: must be non-zero",
 			),
 		)
 	})
@@ -74,19 +95,21 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should take the other config's services when set", func() {
 			cfg := full()
 			merged := apiauth.ServiceConfig{}.Override(cfg)
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
 			cfg := full()
 			merged := cfg.Override(apiauth.ServiceConfig{})
+			Expect(merged.DB).To(BeIdenticalTo(cfg.DB))
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Cluster).To(BeIdenticalTo(cfg.Cluster))
+			Expect(merged.Identity).To(Equal(cfg.Identity))
 		})
 	})
 })

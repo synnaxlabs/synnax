@@ -67,6 +67,27 @@ var _ = Describe("TS Actions Plugin", func() {
 			})
 		})
 
+		Context("hand-written types", func() {
+			It("Should not emit an actions.gen.ts file", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Reset {
+						}
+
+						@ts hand
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				for _, f := range resp.Files {
+					Expect(f.Path).ToNot(HaveSuffix("actions.gen.ts"))
+				}
+			})
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave an omitted field out of an action payload", func(
 				ctx SpecContext,
@@ -90,6 +111,60 @@ var _ = Describe("TS Actions Plugin", func() {
 				resp := MustGenerate(ctx, source, "counter", loader, p)
 				ExpectContent(resp, "actions.gen.ts").
 					ToContain("export const setValuePayloadZ = z.object({", "value").
+					ToNotContain("secret")
+			})
+		})
+
+		Context("unions with actions", func() {
+			It("Should emit actions whose handlers take the union", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Base struct {
+						key  uuid
+						name string
+					}
+
+					Shape union on type extends Base {
+						circle {
+							radius float64
+						}
+						square {}
+
+						action Rename {
+							name string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").ToContain(
+					"export const renamePayloadZ = z.object({",
+					`| { type: "rename"; rename: RenamePayload }`,
+					"rename: (state: Draft<Shape>, payload: RenamePayload) => HandlerResult;",
+					"actions.createReduceAll<Shape, Action>((state, action) =>",
+				)
+			})
+
+			It("Should leave an omitted field out of a union action payload", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@ts output "client/ts/src/shape"
+
+					Shape union on type {
+						circle {}
+
+						action Rename {
+							name   string
+							secret bytes { @ts omit }
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "shape", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain("export const renamePayloadZ = z.object({", "name").
 					ToNotContain("secret")
 			})
 		})
@@ -150,6 +225,34 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
+				"Should name the state type and payload references by their TS names",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key uuid
+
+						action Create {
+							counter Counter
+						}
+
+						@ts name "Payload"
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { Payload, keyZ, payloadZ } from "@/counter/types.gen";`,
+							"counter: payloadZ,",
+							"export type ReduceAllResult = actions.ReduceAllResult<Payload, Action>;",
+							"create: (state: Draft<Payload>, payload: CreatePayload) => HandlerResult;",
+						).
+						ToNotContain("counterZ", "Draft<Counter>")
+				},
+			)
+
+			It(
 				"Should flatten fields from an extended struct into the action payload",
 				func(ctx SpecContext) {
 					source := `
@@ -178,7 +281,7 @@ var _ = Describe("TS Actions Plugin", func() {
 			)
 
 			It(
-				"Should emit scopedActionZ and dispatchReqZ bound to keyZ and actionZ",
+				"Should emit scopedActionZ, dispatchReqZ, and dispatchResZ bound to actionZ",
 				func(ctx SpecContext) {
 					source := `
 					@ts output "client/ts/src/counter"
@@ -196,6 +299,32 @@ var _ = Describe("TS Actions Plugin", func() {
 							`import { Counter, keyZ } from "@/counter/types.gen";`,
 							"export const scopedActionZ = actions.scopedZ(keyZ, actionZ);",
 							"export const dispatchReqZ = actions.dispatchReqZ(keyZ, actionZ);",
+							"export const dispatchResZ = actions.dispatchResZ(actionZ);",
+						)
+				},
+			)
+
+			It(
+				"Should bind scopedActionZ and dispatchReqZ to a retrieve key override",
+				func(ctx SpecContext) {
+					source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						name string
+
+						action Tick {
+						}
+
+						@retrieve key "string"
+					}
+				`
+					resp := MustGenerate(ctx, source, "counter", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { Counter } from "@/counter/types.gen";`,
+							"export const scopedActionZ = actions.scopedZ(z.string(), actionZ);",
+							"export const dispatchReqZ = actions.dispatchReqZ(z.string(), actionZ);",
 						)
 				},
 			)
@@ -374,6 +503,78 @@ var _ = Describe("TS Actions Plugin", func() {
 					resp := MustGenerate(ctx, source, "board", loader, p)
 					ExpectContent(resp, "actions.gen.ts").
 						ToContain("tileZ", `from "@/board/types.gen"`)
+				},
+			)
+
+			It(
+				"Should alias the zod schema and type of an action alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@ts output "x/ts/src/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@ts output "client/ts/src/board"
+
+					Board struct {
+						key uuid
+
+						action Set = patch.Set
+					}
+				`
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							`import { patch, zod } from "@synnaxlabs/x";`,
+							"/** Set replaces the value at a path. */\n"+
+								"export const setPayloadZ = patch.setZ;",
+							"export type SetPayload = patch.Set;",
+							`z.object({ type: z.literal("set"), set: setPayloadZ }),`,
+							"set: (state: Draft<Board>, payload: SetPayload) => HandlerResult;",
+						).
+						ToNotContain("export const setPayloadZ = z.object(")
+				},
+			)
+
+			It(
+				"Should write the own doc of an action alias",
+				func(ctx SpecContext) {
+					loader.Add("schemas/patch", `
+						@ts output "x/ts/src/patch"
+
+						Set struct {
+							path string[]
+
+							@doc value "replaces the value at a path."
+						}
+					`)
+					source := `
+					import "schemas/patch"
+
+					@ts output "client/ts/src/board"
+
+					Board struct {
+						key uuid
+
+						action Set = patch.Set {
+							@doc value "replaces the value at a path in the board."
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "board", loader, p)
+					ExpectContent(resp, "actions.gen.ts").
+						ToContain(
+							"/** Set replaces the value at a path in the board. */\n" +
+								"export const setPayloadZ = patch.setZ;",
+						).
+						ToNotContain("/** Set replaces the value at a path. */")
 				},
 			)
 

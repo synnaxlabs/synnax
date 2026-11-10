@@ -23,37 +23,37 @@ overrides the sources below it:
 5. The defaults.
 
 The parameter flags and the configuration file apply only to
-`synnax-driver start --standalone`. The Linux and NI Linux Real-Time service always
-starts with the same command. To configure the service, use `login` and the
-[environment file](#environment-file). Run `login` once, also when the environment file
-holds the connection: `login` creates the folder of the state file, and the service
-cannot.
+`synnax-driver start --standalone`. The service always starts with the same command. To
+configure the service, use `login` and, except on Windows, the
+[environment file](#environment-file). On Linux, run `login` once, also when the
+environment file holds the connection: `login` creates the state file, and the service
+user cannot.
 
 <Divider.Divider x />
 
 ## State file
 
-The state file holds the connection parameters that `login` saves, and the rack key: the
-key that the Core knows this Driver by.
+The state file holds the connection parameters and the API key that `login` saves. Only
+its owner and the administrators can read it. On Windows and macOS, while the service is
+installed, every command uses the path of the computer, so run each command with admin
+rights. Without the service, commands use the path of the user.
 
 | Operating system   | Path                                                               |
 | ------------------ | ------------------------------------------------------------------ |
 | Linux, NI Linux RT | `/var/lib/synnax-driver/persisted-state.json`                      |
+| Windows, service   | `C:\ProgramData\synnax-driver\persisted-state.json`                |
 | Windows            | `%LOCALAPPDATA%\synnax-driver\persisted-state.json`                |
+| macOS, service     | `/Library/Application Support/synnax-driver/persisted-state.json`  |
 | macOS              | `~/Library/Application Support/synnax-driver/persisted-state.json` |
+
+`install` moves the login and the OPC UA certificates in the path of the user to the
+path of the computer, when the path of the computer holds no login yet.
 
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
-<Note.Note variant="warning">
-  The state file holds the password as plain text, and each user of the computer can
-  read and change the file. Give the Driver a user with only the [Host
-  role](/reference/enterprise/users#roles).
-</Note.Note>
-
-To remove the saved login and the rack key, run `synnax-driver clear`. On the next
-start, the Driver shows in the devices toolbar as a new Driver. The old entry stays on
-the Core.
+To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
+start.
 
 <Divider.Divider x />
 
@@ -65,8 +65,7 @@ upper case. The integrations have no variable.
 ```bash
 SYNNAX_DRIVER_HOST=10.0.0.45
 SYNNAX_DRIVER_PORT=9090
-SYNNAX_DRIVER_USERNAME=driver
-SYNNAX_DRIVER_PASSWORD=password
+SYNNAX_DRIVER_API_KEY=syk_...
 SYNNAX_DRIVER_SECURE=false
 SYNNAX_DRIVER_CORRECT_SKEW=true
 SYNNAX_DRIVER_OP_TIMEOUT=60
@@ -79,14 +78,15 @@ To learn what each parameter does, see [Parameters](#parameters).
 
 ### Environment file
 
-On Linux and NI Linux Real-Time, the service and `login` read `/etc/synnax/driver.env`.
-Write one `KEY=value` on each line, with no `export`. `login` uses the file only for
-variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not read the
-`SYNNAX_DRIVER_` variables.
+On Linux, NI Linux Real-Time, and macOS, the service and `login` read
+`/etc/synnax/driver.env`. Write one `KEY=value` on each line, with no `export`. `login`
+uses the file only for variables such as `GRPC_DEFAULT_SSL_ROOTS_FILE_PATH`. It does not
+read the `SYNNAX_DRIVER_` variables. On macOS, `login` reads the file only while the
+service is installed.
 
 `install` creates the file. Only root can read it, so edit it and run `login` as root:
-with `sudo` on Linux, and as `admin` on NI Linux Real-Time. Restart the service after
-you edit the file.
+with `sudo` on Linux and macOS, and as `admin` on NI Linux Real-Time. Restart the
+service after you edit the file.
 
 `start --standalone` does not read the file. For a Driver in a terminal, export the
 variables in the shell:
@@ -108,8 +108,7 @@ The file cannot hold comments.
   "connection": {
     "host": "10.0.0.45",
     "port": 9090,
-    "username": "driver",
-    "password": "password",
+    "api_key": "syk_...",
     "secure": false
   },
   "timing": {
@@ -125,9 +124,13 @@ The file cannot hold comments.
 }
 ```
 
-The `integrations` list replaces the default list. Leave out `remote_info`, so that the
-Driver registers with the Core on the first start and saves its rack key in the state
-file.
+The `integrations` list replaces the default list.
+
+A Driver with no API key logs in once with `username` and `password`, creates a rack and
+its API key, and saves the key in the state file. An upgraded Driver that saved a rack
+before does this at its first start and keeps its rack. If that user cannot create
+racks, the Driver keeps logging in with the password and tries again at each start. Once
+a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Divider.Divider x />
 
@@ -143,12 +146,18 @@ file.
   The port of the Core.
 </Field.Item>
 
+<Field.Item name="api_key" default='""'>
+  The API key of the Driver's rack. The Driver logs in as that rack.
+</Field.Item>
+
 <Field.Item name="username" default="synnax">
-  The username of the Driver user.
+  The username to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="password" default="seldon">
-  The password of the Driver user.
+  The password to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="secure" default="false">
@@ -160,9 +169,15 @@ file.
   the computer.
 </Field.Item>
 
+<Field.Item name="clock_skew_threshold" default="1000000000">
+  The difference between the clock of the computer and the clock of the Core, in
+  nanoseconds, above which the Driver logs a warning. In the configuration file, it goes
+  in `connection`.
+</Field.Item>
+
 <Field.Item name="op_timeout" default="60">
   The number of seconds after which a task operation that has not finished, such as a
-  start, gives the task the error `operation timed out`.
+  start, gives the task the error "Failed to complete task operation".
 </Field.Item>
 
 <Field.Item name="poll_interval" default="1">
@@ -177,19 +192,11 @@ file.
   The number of threads that run task operations. Use a value from 1 to 64.
 </Field.Item>
 
-<Field.Item name="rack_key" default="0">
-  The key that the Core knows this Driver by. With 0, or when the Core has no such key,
-  the Driver registers as a new Driver named after the host name of the computer.
-</Field.Item>
-
-<Field.Item name="cluster_key" default="nil UUID">
-  The key of the Core that owns `rack_key`. When it is not the key of the Core, the
-  Driver ignores `rack_key` and registers as a new Driver, so set both keys.
-</Field.Item>
-
 <Field.Item name="integrations" default="all">
   The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`,
-  and `opc`. NI Linux RT has no `modbus`.
+  and `opc`. The default is every integration that the Driver for your platform has.
+  Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no `labjack` or
+  `modbus`.
 </Field.Item>
 
 </Field.List>

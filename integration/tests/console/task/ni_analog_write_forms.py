@@ -10,6 +10,7 @@
 import random
 
 from console.task.analog_write import AnalogWrite
+from console.task.channels import analog_output
 from tests.console.task.ni_rack_case import NIRackCase
 
 
@@ -27,8 +28,9 @@ class NIAnalogWriteForms(NIRackCase):
         console = self.console
 
         # Talks to NI MAX sim devices
-        rack_name = f"TestRack_{random.randint(100, 999)}"
-        device_name = "E203"
+        suffix = random.randint(100, 999)
+        rack_name = f"TestRack_{suffix}"
+        device_name = f"E203_{suffix}"
 
         self.log("Creating NI Analog Write Task")
         ni_ao = console.pages.create(AnalogWrite, "AO_Test_task")
@@ -40,9 +42,9 @@ class NIAnalogWriteForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(rack_name, device_name)
-        self.verify_voltage_inputs(ni_ao, device_name)
-        self.verify_current_inputs(ni_ao, device_name)
+        self.create_test_ni_rack(rack_name, device_name=device_name)
+        self.verify_voltage_inputs(ni_ao, device_name=device_name)
+        self.verify_current_inputs(ni_ao, device_name=device_name)
 
         # Assert the set values with form state
         ch_names = ni_ao.channels_by_name.copy()
@@ -52,33 +54,33 @@ class NIAnalogWriteForms(NIRackCase):
         for ch in ch_names:
             ni_ao.assert_channel(ch)
 
-    def verify_voltage_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
+    def verify_voltage_inputs(self, ni_ao: AnalogWrite, *, device_name: str) -> None:
         """Validate voltage inputs"""
         self.log("Configuring channels of type Voltage")
         ni_ao.add_channel(
             name="v0",
-            chan_type="Voltage",
+            chan_type=analog_output.Voltage,
             device=device_name,
         )
         ni_ao.add_channel(
             name="v1",
-            chan_type="Voltage",
+            chan_type=analog_output.Voltage,
             device=device_name,
             min_val=-0.1,
             max_val=6.5,
         )
 
-    def verify_current_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
+    def verify_current_inputs(self, ni_ao: AnalogWrite, *, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Current")
         ni_ao.add_channel(
             name="Current_1",
-            chan_type="Current",
+            chan_type=analog_output.Current,
             device=device_name,
         )
         ni_ao.add_channel(
             name="Current_2",
-            chan_type="Current",
+            chan_type=analog_output.Current,
             device=device_name,
             min_val=-0.1,
             max_val=6.5,

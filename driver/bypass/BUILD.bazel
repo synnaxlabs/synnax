@@ -31,7 +31,7 @@ cc_binary(
         "//driver/bypass",
         "//driver/bypass/pipeline",
         "//driver/control",
-        "//driver/pipeline/mock",
+        "//driver/pipeline/testutil",
         "//x/cpp/sync",
         "@google_benchmark//:benchmark_main",
     ],
@@ -44,8 +44,8 @@ cc_test(
     ],
     deps = [
         "//driver/bypass",
-        "//driver/pipeline/mock",
-        "//x/cpp/test",
+        "//driver/pipeline/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -35,6 +35,7 @@ cc_library(
         "//x/cpp/errors",
         "//x/cpp/mem",
         "//x/cpp/telem",
+        "@abseil-cpp//absl/log",
     ],
 )
 
@@ -48,7 +49,7 @@ cc_test(
         "//arc/cpp/stl/channels",
         "//x/cpp/mem",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

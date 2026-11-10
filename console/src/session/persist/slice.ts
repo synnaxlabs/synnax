@@ -62,7 +62,7 @@ export const selectSwapping = (state: StoreState): boolean =>
 
 export const useSelectSwapping = (): boolean => Select.useMemo(selectSwapping, []);
 
-export const selectStoreUnavailable = (state: StoreState): boolean =>
+const selectStoreUnavailable = (state: StoreState): boolean =>
   state[SLICE_NAME].storeUnavailable;
 
 export const useSelectStoreUnavailable = (): boolean =>

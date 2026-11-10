@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { ni } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -113,7 +114,7 @@ describe("createChannel", () => {
         aiChannel("1", 0, "ai_accel", { channel: 3 }),
         aiChannel("2", 1, "ai_bridge"),
       ];
-      const result = createNextAIChannel(channels, "1");
+      const result = createNextAIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ai_accel");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -129,20 +130,24 @@ describe("createChannel", () => {
         aiChannel("3", 2),
         aiChannel("4", 3),
       ];
-      const firstDuplicate = createNextAIChannel(channels, "1");
+      const firstDuplicate = createNextAIChannel(channels, { copy: "1" });
       expect(portOf(firstDuplicate)).toBe(4);
 
       const channelsWithFirstDuplicate = [...channels, firstDuplicate];
-      const secondDuplicate = createNextAIChannel(channelsWithFirstDuplicate, "1");
+      const secondDuplicate = createNextAIChannel(channelsWithFirstDuplicate, {
+        copy: "1",
+      });
       expect(portOf(secondDuplicate)).toBe(5);
 
-      const thirdDuplicate = createNextAIChannel(channelsWithFirstDuplicate, "3");
+      const thirdDuplicate = createNextAIChannel(channelsWithFirstDuplicate, {
+        copy: "3",
+      });
       expect(portOf(thirdDuplicate)).toBe(5);
     });
 
     it("should handle non-sequential ports correctly", () => {
       const channels = [aiChannel("1", 0), aiChannel("2", 2), aiChannel("3", 5)];
-      const result = createNextAIChannel(channels, "1");
+      const result = createNextAIChannel(channels, { copy: "1" });
       expect(portOf(result)).toBe(1);
     });
 
@@ -158,59 +163,65 @@ describe("createChannel", () => {
       const result = createNextAOChannel(channels);
       expect(result.port).toBe(0);
       expect(result.key.length).toBeGreaterThan(0);
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
     });
 
     it("should create a new AI channel with the next available port number", () => {
       const channels: NI.Task.AOChannel[] = [
-        {
-          ...NI.Task.createAOChannel(),
+        ni.aoVoltageChannelZ.parse({
+          type: "ao_voltage",
           key: "1",
           port: 0,
           cmdChannel: 3,
           stateChannel: 10,
-        },
-        {
-          ...NI.Task.createAOChannel(),
+        }),
+        ni.aoVoltageChannelZ.parse({
+          type: "ao_voltage",
           key: "2",
           port: 1,
           cmdChannel: 4,
           stateChannel: 11,
-        },
+        }),
       ];
       const result = createNextAOChannel(channels);
       expect(result.port).toBe(2);
       expect(result.key).toBeDefined();
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).toMatchObject({ cmdChannel: 0, stateChannel: 0 });
     });
 
-    it("should copy properties from the specified index channel", () => {
+    it("should copy a commanded channel without its Synnax channels", () => {
       const channels: NI.Task.AOChannel[] = [
-        {
-          ...NI.Task.createAOChannel("ao_func_gen"),
+        ni.aoCurrentChannelZ.parse({
+          type: "ao_current",
           key: "1",
           port: 0,
           cmdChannel: 3,
           stateChannel: 10,
-        },
-        {
-          ...NI.Task.createAOChannel("ao_current"),
-          key: "2",
-          port: 1,
-          cmdChannel: 4,
-          stateChannel: 11,
-        },
+          cmdChannelName: "named_cmd",
+        }),
       ];
-      const result = createNextAOChannel(channels, "1");
+      const result = createNextAOChannel(channels, { copy: "1" });
+      expect(result).toMatchObject({
+        type: "ao_current",
+        port: 1,
+        cmdChannel: 0,
+        stateChannel: 0,
+        cmdChannelName: "",
+      });
+    });
+
+    it("should copy properties from the specified index channel", () => {
+      const channels: NI.Task.AOChannel[] = [
+        { ...NI.Task.createAOChannel("ao_func_gen"), key: "1", port: 0 },
+        { ...NI.Task.createAOChannel("ao_current"), key: "2", port: 1 },
+      ];
+      const result = createNextAOChannel(channels, { copy: "1" });
       expect(result.type).toBe("ao_func_gen");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.port).toBe(2);
-      expect(result.cmdChannel).toBe(0);
-      expect(result.stateChannel).toBe(0);
+      expect(result).not.toHaveProperty("cmdChannel");
     });
   });
 
@@ -239,7 +250,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_frequency"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_frequency");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -253,7 +264,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_edge_count"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_edge_count");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -267,7 +278,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_period"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_period");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -281,7 +292,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_pulse_width"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_pulse_width");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -295,7 +306,7 @@ describe("createChannel", () => {
         { ...NI.Task.createCIChannel("ci_semi_period"), key: "1", port: 0, channel: 3 },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_semi_period");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");
@@ -314,7 +325,7 @@ describe("createChannel", () => {
         },
         { ...NI.Task.createCIChannel("ci_frequency"), key: "2", port: 1 },
       ];
-      const result = createNextCIChannel(channels, "1");
+      const result = createNextCIChannel(channels, { copy: "1" });
       expect(result.type).toBe("ci_two_edge_sep");
       expect(result.key).not.toBe("1");
       expect(result.key).not.toBe("2");

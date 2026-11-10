@@ -12,6 +12,7 @@ import { color, type destructor, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
+import { synnax } from "@/synnax/aether";
 import { type telem } from "@/telem/aether";
 
 const CONTEXT_KEY = "pluto-vis-staleness";
@@ -49,7 +50,11 @@ export interface EntryProps {
 }
 
 export interface Registration {
-  /** Records an arriving sample. This clears staleness and restarts the countdown. */
+  /**
+   * Records a change of the source. A change that grows the source's appended count, or
+   * comes from a source with no count, is an arrival. The sample's time dates it. A
+   * source that reports no time dates it from now.
+   */
   received: () => void;
   /** Releases the registration. */
   cleanup: destructor.Destructor;
@@ -60,8 +65,11 @@ export interface Registration {
 
 interface Entry {
   props: EntryProps;
-  // Milliseconds on the monotonic clock. Null until the first sample arrives.
+  // The newest sample's time on the monotonic clock. Null until a sample arrives.
   lastReceived: number | null;
+  // The greatest appended count of the source. A history change can lower the count
+  // until its read lands, so the samples it counts again are no arrival.
+  appended?: number;
 }
 
 // The source itself holds the last reported staleness, so a transition is a change
@@ -86,15 +94,14 @@ const providerStateZ = z.object({
 });
 
 /**
- * Provider turns a registered source stale when no sample arrives within its timeout.
- * Staleness measures arrival, not sample time. It answers "is this source still
- * sending", not "is the newest sample recent". A source that delivers old data keeps
- * reading live, and a source that sends more slowly than its timeout reads stale even
- * while it is healthy. Give a source that sends on change a timeout longer than the
- * longest gap you expect between changes. One periodic sweep serves every source below
- * the Provider, so the cost stays flat as sources and sample rates grow. The sweep
- * compares against the monotonic clock, so a throttled or suspended worker resolves to
- * the correct state when it wakes.
+ * Provider turns a registered source stale when its newest sample is older than its
+ * timeout. Age runs from the sample's time, so a source that streams old data reads
+ * stale. A source that reports no time ages from arrival. A source that sends more
+ * slowly than its timeout reads stale even while it is healthy. Give a source that
+ * sends on change a timeout longer than the longest gap you expect between changes. One
+ * periodic sweep serves every source below the Provider, so the cost stays flat as
+ * sources and sample rates grow. The sweep compares against the monotonic clock, so a
+ * throttled or suspended worker resolves to the correct state when it wakes.
  */
 export class Provider extends aether.Composite<typeof providerStateZ> {
   static readonly TYPE = "staleness.Provider";
@@ -105,8 +112,13 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   private interval?: ReturnType<typeof setInterval>;
   // The interval the running timer was started with. Null until the first sweep starts.
   private sweepInterval: TimeSpan | null = null;
+  // Ages samples with the measured clock skew removed.
+  private now: () => TimeStamp = () => TimeStamp.now();
 
   afterUpdate(ctx: aether.Context): void {
+    const connection = synnax.use(ctx)?.connection;
+    this.now = () =>
+      TimeStamp.now().sub(connection?.status.details.clockSkew ?? TimeSpan.ZERO);
     this.updateSweepInterval();
     ctx.set(CONTEXT_KEY, this, false);
   }
@@ -127,8 +139,12 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
     return {
       source,
       received: () => {
-        const at = source.sampleTime?.();
-        const elapsed = at == null ? 0n : TimeStamp.now().valueOf() - at.valueOf();
+        const { time, appended } = source.value();
+        if (appended != null) {
+          if (entry.appended != null && appended <= entry.appended) return;
+          entry.appended = appended;
+        }
+        const elapsed = time == null ? 0n : this.now().valueOf() - time.valueOf();
         const age = Math.max(0, new TimeSpan(elapsed).milliseconds);
         entry.lastReceived = performance.now() - age;
         setStale(entry, age >= props.timeout() * 1000);

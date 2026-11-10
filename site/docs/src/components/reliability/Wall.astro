@@ -96,7 +96,7 @@ const LEGEND = [
             </Flex.Box>
         ))}
     </Flex.Box>
-    <div class="pluto-tooltip reliability-card" aria-live="polite" hidden>
+    <div class="lyra-tooltip reliability-card" aria-live="polite" hidden>
         <Text.Text level="small" variant="code" className="reliability-card-name" />
         <Flex.Box x wrap gap="tiny" className="reliability-card-tags" />
         <Text.Text
@@ -479,13 +479,14 @@ const LEGEND = [
 
         /* The docs enlarge the small step for prose, so the card steps back down to
            the size Lyra tooltips use in the Console. */
-        .pluto-text {
+        .lyra-text {
             font-size: calc(var(--pluto-small-size) * 0.8);
             line-height: 1.5;
         }
 
         .reliability-card-name {
-            word-break: break-word;
+            word-break: normal;
+            overflow-wrap: anywhere;
         }
 
         .reliability-card-tags {
@@ -511,7 +512,7 @@ const LEGEND = [
         }
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .reliability-wall-blocks {
             padding: 3rem 1.5rem;
         }

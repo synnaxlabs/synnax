@@ -11,110 +11,99 @@ import io
 import threading
 
 from framework import models
-from framework.models import STATUS, SYMBOLS
+from framework.models import STATUS
 from framework.report_client import ReportClient
 
-SERIAL_REASON = "Serial ports need a POSIX pseudo-terminal"
 
+def report(statuses: list[STATUS]) -> tuple[ReportClient, list[str]]:
+    lines: list[str] = []
 
-def create_tests() -> list[models.Test]:
-    return [
-        models.Test(test_name="driver/can_read", status=STATUS.PASSED),
+    def log(message: str, /, *, use_name: bool = True) -> None:
+        lines.append(message)
+
+    tests = [
         models.Test(
-            test_name="driver/serial_read",
-            status=STATUS.SKIPPED,
-            skip_reason=SERIAL_REASON,
-        ),
-        models.Test(
-            test_name="driver/tcp_read", status=STATUS.FAILED, error_message="boom"
-        ),
+            test_name=f"driver/case_{i}",
+            status=status,
+            skip_reason="No hardware" if status == STATUS.SKIPPED else None,
+        )
+        for i, status in enumerate(statuses)
     ]
-
-
-def create_client(tests: list[models.Test], log: list[str]) -> ReportClient:
-    return ReportClient(
+    client = ReportClient(
         tests=tests,
         tests_lock=threading.Lock(),
         test_definitions=[],
         active_tests=[],
         active_tests_lock=threading.Lock(),
-        log=lambda message, _: log.append(message),
+        log=log,
     )
+    return client, lines
 
 
-class TestStatistics:
-    def test_skipped_apart_from_passed(self) -> None:
-        """Should count a skipped test as neither passed nor failed."""
-        stats = create_client(create_tests(), []).get_statistics()
+class TestReportClient:
+    def test_skipped_neither_passes_nor_fails(self) -> None:
+        """Should count skipped tests apart from passed and failed tests."""
+        client, _ = report([STATUS.PASSED, STATUS.SKIPPED, STATUS.SKIPPED])
+        stats = client.get_statistics()
         assert stats["total"] == 3
         assert stats["passed"] == 1
-        assert stats["skipped"] == 1
-        assert stats["total_failed"] == 1
+        assert stats["skipped"] == 2
+        assert stats["total_failed"] == 0
 
-    def test_no_tests(self) -> None:
-        """Should report zero skipped tests when no test ran."""
-        assert create_client([], []).get_statistics()["skipped"] == 0
+    def test_summary_shows_skip(self) -> None:
+        """Should print the skip count and the reason of each skipped test."""
+        client, lines = report([STATUS.PASSED, STATUS.SKIPPED])
+        client.print_summary(None)
+        assert "SKIPPED: No hardware" in lines
+        assert "Skipped: 1" in lines
 
-
-class TestPrintSummary:
-    def test_skip_reason(self) -> None:
-        """Should mark a skipped test with its own symbol and print its reason."""
-        log: list[str] = []
-        create_client(create_tests(), log).print_summary(None)
-        assert f"{SYMBOLS.SKIPPED.value} serial_read" in log
-        assert f"SKIPPED: {SERIAL_REASON}" in log
-        assert "Passed: 1" in log
-        assert "Skipped: 1 (unsupported on this host)" in log
-
-    def test_no_skipped_line(self) -> None:
-        """Should leave out the skipped count when no test was skipped."""
-        log: list[str] = []
-        tests = [models.Test(test_name="driver/can_read", status=STATUS.PASSED)]
-        create_client(tests, log).print_summary(None)
-        assert not any(line.startswith("Skipped") for line in log)
+    def test_summary_hides_zero_skips(self) -> None:
+        """Should not print a skip count when no test skipped."""
+        client, lines = report([STATUS.PASSED])
+        client.print_summary(None)
+        assert not any(line.startswith("Skipped") for line in lines)
+        assert client.get_statistics()["skipped"] == 0
 
 
 class TestReportToGitHub:
     def test_notice_and_summary(self) -> None:
         """Should write a notice and a job summary table for each skipped test."""
+        client, _ = report([STATUS.PASSED, STATUS.SKIPPED])
         out, summary = io.StringIO(), io.StringIO()
-        create_client(create_tests(), []).report_to_github(out, summary)
-        assert out.getvalue() == (
-            f"::notice title=Skipped test::driver/serial_read: {SERIAL_REASON}\n"
+        client.report_to_github(out, summary)
+        assert (
+            out.getvalue()
+            == "::notice title=Skipped test::driver/case_1: No hardware\n"
         )
         assert summary.getvalue() == (
             "### Skipped integration tests\n\n"
             "| Test | Reason |\n"
             "| --- | --- |\n"
-            f"| driver/serial_read | {SERIAL_REASON} |\n\n"
+            "| driver/case_1 | No hardware |\n\n"
         )
 
     def test_escape(self) -> None:
         """Should escape workflow command data and Markdown table cells."""
+        client, _ = report([STATUS.SKIPPED])
+        client._tests[0].skip_reason = "100% | down\nnow"
         out, summary = io.StringIO(), io.StringIO()
-        tests = [
-            models.Test(
-                test_name="driver/a",
-                status=STATUS.SKIPPED,
-                skip_reason="100% | down\nnow",
-            )
-        ]
-        create_client(tests, []).report_to_github(out, summary)
+        client.report_to_github(out, summary)
         assert out.getvalue() == (
-            "::notice title=Skipped test::driver/a: 100%25 | down%0Anow\n"
+            "::notice title=Skipped test::driver/case_0: 100%25 | down%0Anow\n"
         )
-        assert "| driver/a | 100% \\| down now |" in summary.getvalue()
+        assert "| driver/case_0 | 100% \\| down now |" in summary.getvalue()
 
     def test_no_skips(self) -> None:
         """Should write nothing when no test was skipped."""
+        client, _ = report([STATUS.PASSED])
         out, summary = io.StringIO(), io.StringIO()
-        tests = [models.Test(test_name="driver/can_read", status=STATUS.PASSED)]
-        create_client(tests, []).report_to_github(out, summary)
+        client.report_to_github(out, summary)
         assert out.getvalue() == ""
         assert summary.getvalue() == ""
 
     def test_no_step_summary(self) -> None:
         """Should still write notices when the run has no job summary file."""
+        client, _ = report([STATUS.SKIPPED])
         out = io.StringIO()
-        create_client(create_tests(), []).report_to_github(out, None)
+        client.report_to_github(out, None)
         assert out.getvalue().startswith("::notice")

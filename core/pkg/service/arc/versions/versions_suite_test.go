@@ -14,6 +14,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,3 +26,19 @@ func TestArcVersions(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+// textOf returns the text of the text-mode Arc b, failing the spec otherwise.
+func textOf(b versions.Base) text.Text {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(versions.TextSource)
+	Expect(ok).To(BeTrue(), "expected a text source, got %T", b.Source.Variant)
+	return src.Text
+}
+
+// graphOf returns the graph of the graph-mode Arc b, failing the spec otherwise.
+func graphOf(b versions.Base) graph.Graph {
+	GinkgoHelper()
+	src, ok := b.Source.Variant.(versions.GraphSource)
+	Expect(ok).To(BeTrue(), "expected a graph source, got %T", b.Source.Variant)
+	return src.Graph
+}

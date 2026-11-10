@@ -25,7 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -33,7 +33,7 @@ import (
 var _ = Describe("Freighter Transport", func() {
 	var (
 		server       *lsp.Server
-		clientStream *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		clientStream *freightertestutil.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
 		ctx          context.Context
 		cancel       context.CancelFunc
 		errChan      chan error
@@ -93,8 +93,8 @@ var _ = Describe("Freighter Transport", func() {
 				return NewRoot(nil)
 			},
 		}))
-		var serverStream *mock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-		clientStream, serverStream = mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+		var serverStream *freightertestutil.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		clientStream, serverStream = freightertestutil.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
 			ctx,
 		)
 		errChan = make(chan error, 1)
@@ -266,7 +266,7 @@ var _ = Describe("Freighter Transport", func() {
 					Instrumentation: alamos.New("eager"),
 					NewRoot:         func() *symbol.Symbol { return NewRoot(nil) },
 				}))
-				eagerClient, eagerStream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+				eagerClient, eagerStream := freightertestutil.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
 					eagerCtx,
 					1,
 				)
@@ -362,7 +362,7 @@ var _ = Describe("Teardown", func() {
 		tCtx     context.Context
 		tCancel  context.CancelFunc
 		external observe.Observer[struct{}]
-		client   *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		client   *freightertestutil.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
 		stream   *contractStream
 		errs     chan error
 		drained  chan struct{}
@@ -419,8 +419,8 @@ var _ = Describe("Teardown", func() {
 			NewRoot:          func() *symbol.Symbol { return NewRoot(nil) },
 			OnExternalChange: external,
 		}))
-		var serverStream *mock.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
-		client, serverStream = mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+		var serverStream *freightertestutil.ServerStream[transport.JSONRPCMessage, transport.JSONRPCMessage]
+		client, serverStream = freightertestutil.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
 			tCtx,
 			0,
 		)
@@ -462,7 +462,7 @@ var _ = Describe("Teardown", func() {
 		// unfenced teardown returns in.
 		drained = make(chan struct{})
 		go func(
-			c *mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
+			c *freightertestutil.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
 			done chan<- struct{},
 		) {
 			defer close(done)
@@ -504,7 +504,7 @@ var _ = Describe("Transport Failure Modes", func() {
 	AfterEach(func() { fCancel() })
 
 	serve := func(maxLen int) (
-		*mock.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
+		*freightertestutil.ClientStream[transport.JSONRPCMessage, transport.JSONRPCMessage],
 		chan error,
 	) {
 		GinkgoHelper()
@@ -512,7 +512,7 @@ var _ = Describe("Transport Failure Modes", func() {
 			Instrumentation: alamos.New("failure"),
 			NewRoot:         func() *symbol.Symbol { return NewRoot(nil) },
 		}))
-		client, stream := mock.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
+		client, stream := freightertestutil.NewStreams[transport.JSONRPCMessage, transport.JSONRPCMessage](
 			fCtx,
 			1,
 		)

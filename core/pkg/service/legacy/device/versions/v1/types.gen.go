@@ -13,9 +13,9 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	rack "github.com/synnaxlabs/synnax/pkg/service/rack/versions/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/status"
+	resource "github.com/synnaxlabs/synnax/pkg/service/resource/versions/v0"
+	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -23,9 +23,17 @@ import (
 // Key is a unique identifier for the device
 type Key = v0.Key
 
-// StatusDetails contains device-specific status details identifying the device and its
-// associated rack.
-type StatusDetails = v0.StatusDetails
+// StatusDetails contains device-specific status details, including the rack the device
+// belongs to.
+type StatusDetails struct {
+	// Rack is the key of the rack this device belongs to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Connected is true while the Driver confirms that it can reach the device. A
+	// device whose state is unknown is not connected.
+	Connected bool `json:"connected" msgpack:"connected"`
+	// Data contains device-specific status data.
+	Data msgpack.EncodedJSON `json:"data,omitzero" msgpack:"data,omitempty"`
+}
 
 // Status is device-specific status information including operational state and device
 // identification.
@@ -57,18 +65,13 @@ type Device struct {
 	Status *Status `json:"status,omitzero" msgpack:"status,omitempty"`
 	// Parent is an optional parent resource ID for hierarchical device organization
 	// (e.g., NI chassis containing modules).
-	Parent *ontology.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
+	Parent *resource.ID `json:"parent,omitzero" msgpack:"parent,omitempty"`
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
 // schema constraints.
 func (d Device) Validate() error {
 	v := validate.New("Device")
-	v.NonZero("rack", d.Rack)
-	v.NotEmptyString("location", d.Location)
-	v.NotEmptyString("make", d.Make)
-	v.NotEmptyString("model", d.Model)
-	v.NotEmptyString("name", d.Name)
 	if d.Parent != nil {
 		v.Exec(func() error { return validate.PathedError(d.Parent.Validate(), "parent") })
 	}

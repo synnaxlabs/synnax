@@ -48,6 +48,7 @@ def select_data_type(
 
 def ask_time_units_select(
     ctx: Context,
+    *,
     question: str | None = None,
     **kwargs: Any,
 ) -> TimeSpanUnits:

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Literal, override as _override
 
 from pydantic import BaseModel, Field
 
@@ -58,6 +58,7 @@ class Properties(BaseModel):
 class ReadConfig(bus.ReadConfig):
     """Configures a CAN read task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -65,6 +66,7 @@ class ReadConfig(bus.ReadConfig):
 class WriteConfig(bus.WriteConfig):
     """Configures a CAN write task."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)
 
@@ -72,5 +74,6 @@ class WriteConfig(bus.WriteConfig):
 class ScanConfig(task.ScanConfig):
     """Configures the scan task that lists the channels of each backend."""
 
+    @_override
     def __hash__(self) -> int:
         return hash(self.key)

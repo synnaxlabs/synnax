@@ -9,12 +9,15 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Form as Base } from "@synnaxlabs/lyra/form";
+import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
 
+const path = deep.path<{ channel: channel.Key }>();
+
 export const Form = (): ReactElement => (
-  <Base.Field<channel.Key> path="channel">
+  <Base.Field path={path.channel}>
     {({ value, onChange }) => (
       <Channel.SelectSingle
         value={value}

@@ -9,6 +9,8 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/testutil/testutil.h"
+
 #include "driver/ni/daqmx/mock.h"
 #include "driver/ni/daqmx/sugared.h"
 
@@ -16,7 +18,7 @@ namespace driver::ni::daqmx {
 TEST(MockAPI, RecordsCallsThroughSugaredAPI) {
     auto mock = std::make_shared<MockAPI>();
     SugaredAPI dmx(mock);
-    ASSERT_FALSE(dmx.CreateLinScale("scale_0", 2.0, 1.0, DAQmx_Val_Volts, "Pascals"));
+    ASSERT_NIL(dmx.CreateLinScale("scale_0", 2.0, 1.0, DAQmx_Val_Volts, "Pascals"));
     const auto calls = mock->calls_to("CreateLinScale");
     ASSERT_EQ(calls.size(), 1);
     EXPECT_EQ(calls[0]["args"]["name"], "scale_0");

@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"io"
 	"runtime"
 	"time"
 
@@ -30,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // observeControl subscribes to db's control updates and returns a channel receiving
@@ -57,6 +57,436 @@ var _ = Describe("Control", func() {
 				ShouldNotLeakGoroutines()
 				fs = openFS()
 			})
+			Describe("Persist only writers", func() {
+				var (
+					db     *cesium.DB
+					idxCh  cesium.ChannelKey
+					dataCh cesium.ChannelKey
+					keys   []cesium.ChannelKey
+				)
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+				})
+				BeforeEach(func(ctx SpecContext) {
+					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
+					keys = []cesium.ChannelKey{idxCh, dataCh}
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Name:     "Index",
+							Key:      idxCh,
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						},
+						cesium.Channel{
+							Name:     "Data",
+							Key:      dataCh,
+							DataType: telem.Int16T,
+							Index:    idxCh,
+						},
+					)).To(Succeed())
+				})
+				openLive := func(ctx SpecContext, authority xcontrol.Authority) *cesium.Writer {
+					GinkgoHelper()
+					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject: xcontrol.Subject{Key: "live", Name: "Live"},
+						Start:          10 * telem.SecondTS,
+						Channels:       keys,
+						Authorities:    []xcontrol.Authority{authority},
+						Sync:           new(true),
+					}))
+				}
+				persistConfig := func(start telem.TimeStamp) cesium.WriterConfig {
+					return cesium.WriterConfig{
+						ControlSubject: xcontrol.Subject{
+							Key:  "backfill",
+							Name: "Backfill",
+						},
+						Start:    start,
+						Channels: keys,
+						Mode:     cesium.WriterModePersistOnly,
+						Authorities: []xcontrol.Authority{
+							xcontrol.AuthorityAbsolute,
+						},
+						Sync: new(true),
+					}
+				}
+				frame := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+					values := make([]int16, len(seconds))
+					for i, s := range seconds {
+						seconds[i] = s * telem.SecondTS
+						values[i] = int16(s)
+					}
+					return telem.MultiFrame(keys, []telem.Series{
+						telem.NewSeries(seconds),
+						telem.NewSeries(values),
+					})
+				}
+				It(
+					"Should fill a gap before the session of a live writer",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						MustCommit(live)
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						Expect(w.Write(frame(1, 2, 3))).To(BeTrue())
+						MustCommit(w)
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Write(frame(12))).To(BeTrue())
+						MustCommit(live)
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(HaveLen(2))
+						Expect(f.Get(dataCh).Series[0]).
+							To(telem.MatchSeriesDataV[int16](1, 2, 3))
+						Expect(f.Get(dataCh).Series[1]).
+							To(telem.MatchSeriesDataV[int16](10, 11, 12))
+					},
+				)
+				It(
+					"Should not take control from a live writer at any authority",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						Expect(db.OpenWriter(ctx, persistConfig(15*telem.SecondTS))).
+							Error().To(And(
+							MatchError(xcontrol.ErrUnauthorized),
+							MatchError(
+								ContainSubstring("cannot access time range"),
+							),
+						))
+						Expect(live.Write(frame(10))).To(BeTrue())
+						MustCommit(live)
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should stop at a commit that reaches a live writer, and keep it writing",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						Expect(w.Write(frame(1, 10))).Error().To(And(
+							MatchError(validate.ErrValidation),
+							MatchError(
+								ContainSubstring("cannot write to time range"),
+							),
+						))
+						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						MustCommit(live)
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It("Should stay out of the control state", func(ctx SpecContext) {
+					updates, disconnect := observeControl(db)
+					defer disconnect()
+					w := MustSucceed(
+						db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+					)
+					Expect(w.Write(frame(1, 2))).To(BeTrue())
+					MustCommit(w)
+					Expect(db.ControlStates().Transfers).To(BeEmpty())
+					Expect(w.Close()).To(Succeed())
+					Consistently(updates).ShouldNot(Receive())
+				})
+				It(
+					"Should leave a live writer as the holder of the channel",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						updates, disconnect := observeControl(db)
+						defer disconnect()
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						Expect(w.Write(frame(1, 2))).To(BeTrue())
+						MustCommit(w)
+						Expect(w.Close()).To(Succeed())
+						Consistently(updates).ShouldNot(Receive())
+						u := db.ControlStates()
+						Expect(u.Transfers).To(HaveLen(2))
+						Expect(u.Transfers[0].To.Subject.Key).To(Equal("live"))
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should let a streaming writer take over next to an open persist writer",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						operator := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject: xcontrol.Subject{
+								Key:  "operator",
+								Name: "Operator",
+							},
+							Start:    1 * telem.SecondTS,
+							Channels: keys,
+							Authorities: []xcontrol.Authority{
+								xcontrol.AuthorityAbsolute,
+							},
+							Sync: new(true),
+						}))
+						Expect(live.Write(frame(20))).To(BeFalse())
+						Expect(operator.Write(frame(21, 22))).To(BeTrue())
+						MustCommit(operator)
+						Expect(w.Write(frame(1, 30))).Error().To(And(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(
+								"because writer [Operator]<operator> holds it",
+							)),
+						))
+						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						Expect(operator.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(HaveLen(1))
+						Expect(f.Get(dataCh).Series[0]).
+							To(telem.MatchSeriesDataV[int16](21, 22))
+					},
+				)
+				It(
+					"Should keep a streaming writer in contention behind a live writer",
+					func(ctx SpecContext) {
+						live := openLive(ctx, xcontrol.AuthorityAbsolute)
+						cfg := persistConfig(1 * telem.SecondTS)
+						cfg.Mode = cesium.WriterModePersistStream
+						cfg.Authorities = []xcontrol.Authority{1}
+						w := MustSucceed(db.OpenWriter(ctx, cfg))
+						Expect(w.Write(frame(1, 2))).To(BeFalse())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(BeEmpty())
+					},
+				)
+				It(
+					"Should leave a virtual channel to the live writer that holds it",
+					func(ctx SpecContext) {
+						cmd := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
+						).To(Succeed())
+						live := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject: xcontrol.Subject{Key: "live", Name: "Live"},
+							Start:          1 * telem.SecondTS,
+							Channels:       []cesium.ChannelKey{cmd},
+							Authorities:    []xcontrol.Authority{1},
+							Sync:           new(true),
+						}))
+						cfg := persistConfig(1 * telem.SecondTS)
+						cfg.Channels = append(keys, cmd)
+						w := MustSucceed(db.OpenWriter(ctx, cfg))
+						Expect(w.Write(telem.MultiFrame(cfg.Channels, []telem.Series{
+							telem.NewSeriesV(1 * telem.SecondTS),
+							telem.NewSeriesV[int16](1),
+							telem.NewSeriesV[int64](2),
+						}))).To(BeTrue())
+						MustCommit(w)
+						Expect(live.Write(telem.UnaryFrame(
+							cmd,
+							telem.NewSeriesV[int64](3),
+						))).To(BeTrue())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(HaveLen(1))
+						Expect(f.Get(dataCh).Series[0]).
+							To(telem.MatchSeriesDataV[int16](1))
+					},
+				)
+			})
+
+			Describe("Commit without control", func() {
+				var (
+					db  *cesium.DB
+					idx cesium.ChannelKey
+				)
+				open := func(
+					ctx SpecContext,
+					key string,
+					authority xcontrol.Authority,
+					keys ...cesium.ChannelKey,
+				) *cesium.Writer {
+					GinkgoHelper()
+					return MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						ControlSubject:   xcontrol.Subject{Key: key},
+						Start:            10 * telem.SecondTS,
+						Channels:         keys,
+						Authorities:      []xcontrol.Authority{authority},
+						EnableAutoCommit: new(false),
+						Sync:             new(true),
+					}))
+				}
+				createIndex := func(ctx SpecContext) cesium.ChannelKey {
+					GinkgoHelper()
+					key := GenerateChannelKey()
+					Expect(db.CreateChannel(ctx, cesium.Channel{
+						Name:     "Index",
+						Key:      key,
+						DataType: telem.TimestampT,
+						IsIndex:  true,
+					})).To(Succeed())
+					return key
+				}
+				frame := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+					return telem.UnaryFrame(idx, telem.NewSeriesSecondsTSV(seconds...))
+				}
+				BeforeAll(func(ctx SpecContext) {
+					ShouldNotLeakGoroutines()
+					db = DeferClose(mustOpenDBOnFS(ctx, fs))
+				})
+				BeforeEach(func(ctx SpecContext) { idx = createIndex(ctx) })
+
+				It(
+					"Should report a commit without control",
+					func(ctx SpecContext) {
+						low := open(ctx, "low", 1, idx)
+						Expect(low.Write(frame(10, 11))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(11*telem.SecondTS + 1))
+						Expect(low.Write(frame(12, 13))).To(BeTrue())
+						high := open(ctx, "high", 2, idx)
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(frame(14))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(14*telem.SecondTS + 1))
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.Get(idx).Len()).To(Equal(int64(5)))
+					},
+				)
+				It(
+					"Should report a commit after a rejected write",
+					func(ctx SpecContext) {
+						low := open(ctx, "low", 1, idx)
+						Expect(low.Write(frame(10))).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, idx)
+						Expect(low.Write(frame(11))).To(BeFalse())
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(Equal(10*telem.SecondTS + 1))
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Close()).To(Succeed())
+					},
+				)
+				DescribeTable(
+					"Should report a refused write once and keep the end of a commit with control",
+					func(ctx SpecContext, sync bool) {
+						low := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject:   xcontrol.Subject{Key: "low"},
+							Start:            10 * telem.SecondTS,
+							Channels:         []cesium.ChannelKey{idx},
+							Authorities:      []xcontrol.Authority{1},
+							EnableAutoCommit: new(false),
+							Sync:             new(sync),
+						}))
+						Expect(low.Write(frame(10))).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, idx)
+						Expect(low.Write(frame(11))).To(Equal(!sync))
+						// A synchronous command orders the write before control
+						// returns.
+						Expect(low.SetAuthority(cesium.WriterConfig{
+							Authorities: []xcontrol.Authority{1},
+						})).To(Succeed())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(frame(12))).To(BeTrue())
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(Equal(12*telem.SecondTS + 1))
+						Expect(low.Write(frame(13))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(13*telem.SecondTS + 1))
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.Get(idx).Len()).To(Equal(int64(3)))
+					},
+					Entry("sync", true),
+					Entry("async", false),
+				)
+				It(
+					"Should report commits on a virtual channel without control",
+					func(ctx SpecContext) {
+						cmd := GenerateChannelKey()
+						Expect(
+							db.CreateChannel(ctx, virtualChannel(cmd, "Command")),
+						).To(Succeed())
+						fr := telem.UnaryFrame(cmd, telem.NewSeriesV[int64](1))
+						low := open(ctx, "low", 1, cmd)
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						high := open(ctx, "high", 2, cmd)
+						Expect(low.Write(fr)).To(BeFalse())
+						end, authorized := MustSucceed2(low.Commit())
+						Expect(authorized).To(BeFalse())
+						Expect(end).To(BeZero())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(fr)).To(BeTrue())
+						MustCommit(low)
+						Expect(low.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should return an error from a one-shot write without control",
+					func(ctx SpecContext) {
+						high := open(ctx, "high", xcontrol.AuthorityAbsolute, idx)
+						Expect(db.Write(ctx, 10*telem.SecondTS, frame(10))).
+							To(MatchError(xcontrol.ErrUnauthorized))
+						Expect(high.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, idx))
+						Expect(f.HasData()).To(BeFalse())
+					},
+				)
+				It(
+					"Should not report control of a channel the writer never wrote to",
+					func(ctx SpecContext) {
+						controlled := createIndex(ctx)
+						low := open(ctx, "low", 1, controlled, idx)
+						high := open(ctx, "high", 2, idx)
+						Expect(low.Write(telem.UnaryFrame(
+							controlled,
+							telem.NewSeriesSecondsTSV(10),
+						))).To(BeTrue())
+						Expect(MustCommit(low)).To(Equal(10*telem.SecondTS + 1))
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, controlled))
+						Expect(f.HasData()).To(BeTrue())
+					},
+				)
+				It(
+					"Should still commit the indexes under control",
+					func(ctx SpecContext) {
+						// Indexes commit in map order, so this tries both orders.
+						for range 64 {
+							controlled := createIndex(ctx)
+							keys := []cesium.ChannelKey{controlled, idx}
+							low := open(ctx, "low", 1, keys...)
+							Expect(low.Write(telem.MultiFrame(keys, []telem.Series{
+								telem.NewSeriesSecondsTSV(10),
+								telem.NewSeriesSecondsTSV(10),
+							}))).To(BeTrue())
+							high := open(ctx, "high", 2, idx)
+							end, authorized := MustSucceed2(low.Commit())
+							Expect(authorized).To(BeFalse())
+							Expect(end).To(BeZero())
+							Expect(high.Close()).To(Succeed())
+							Expect(low.Close()).To(Succeed())
+							f := MustSucceed(
+								db.Read(ctx, telem.TimeRangeMax, controlled),
+							)
+							Expect(f.HasData()).To(BeTrue())
+						}
+					},
+				)
+			})
+
 			Describe("Nominal", func() {
 				var db *cesium.DB
 				BeforeAll(func(ctx SpecContext) {
@@ -153,7 +583,9 @@ var _ = Describe("Control", func() {
 							authorized = MustSucceed(w2.Write(w2Frame))
 							Expect(authorized).To(BeTrue())
 
-							end := MustSucceed(w2.Commit())
+							By("Reporting the refused write at the next commit")
+							end, authorized := MustSucceed2(w2.Commit())
+							Expect(authorized).To(BeFalse())
 							Expect(end).To(Equal(telem.SecondTS*14 + 1))
 
 							By("Shutting down the writers")
@@ -318,6 +750,57 @@ var _ = Describe("Control", func() {
 							Expect(
 								f.SeriesAt(0).Data,
 							).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
+						},
+					)
+				})
+
+				Describe("Refused open", func() {
+					It(
+						"Should refuse a held virtual channel and free the rest",
+						func(ctx SpecContext) {
+							var (
+								freeKey = GenerateChannelKey()
+								heldKey = GenerateChannelKey()
+							)
+							Expect(db.CreateChannel(
+								ctx,
+								cesium.Channel{
+									Name:     "free",
+									Key:      freeKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+								cesium.Channel{
+									Name:     "held",
+									Key:      heldKey,
+									DataType: telem.Uint8T,
+									Virtual:  true,
+								},
+							)).To(Succeed())
+							MustOpen(
+								db.OpenWriter(ctx, cesium.WriterConfig{
+									ControlSubject: xcontrol.Subject{Name: "Holder"},
+									Channels:       []cesium.ChannelKey{heldKey},
+									Authorities: []xcontrol.Authority{
+										xcontrol.AuthorityAbsolute,
+									},
+								}),
+							)
+							Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject: xcontrol.Subject{Name: "Refused"},
+								Channels: []cesium.ChannelKey{
+									freeKey,
+									heldKey,
+								},
+								Authorities:       []xcontrol.Authority{100},
+								ErrOnUnauthorized: new(true),
+							})).Error().To(MatchError(xcontrol.ErrUnauthorized))
+							MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
+								ControlSubject:    xcontrol.Subject{Name: "Next"},
+								Channels:          []cesium.ChannelKey{freeKey},
+								Authorities:       []xcontrol.Authority{1},
+								ErrOnUnauthorized: new(true),
+							}))
 						},
 					)
 				})
@@ -677,7 +1160,6 @@ var _ = Describe("Control", func() {
 						dataStreamerOut                     confluence.Outlet[cesium.StreamerResponse]
 						controlUpdates                      <-chan cesium.ControlUpdate
 						disconnectControl                   observe.Disconnect
-						shutdown                            io.Closer
 					)
 					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
@@ -706,7 +1188,7 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 						By("Opening the first writer")
-						w1 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w1 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							ControlSubject: xcontrol.Subject{Name: "Writer One"},
 							Start:          start,
 							Channels: []cesium.ChannelKey{
@@ -719,7 +1201,7 @@ var _ = Describe("Control", func() {
 							Sync:              new(true),
 						}))
 						By("Opening the second writer")
-						w2 = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						w2 = MustOpen(db.OpenWriter(ctx, cesium.WriterConfig{
 							Start:          start,
 							ControlSubject: xcontrol.Subject{Name: "Writer Two"},
 							Channels: []cesium.ChannelKey{
@@ -741,23 +1223,20 @@ var _ = Describe("Control", func() {
 							}),
 						)
 						sCtx, cancel := signal.Isolated()
-						shutdown = signal.NewHardShutdown(sCtx, cancel)
+						DeferClose(signal.NewHardShutdown(sCtx, cancel))
 						dataStreamerIn, dataStreamerOut = confluence.Attach(
 							dataStreamer,
 							2,
 						)
 						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+						DeferCleanup(func() {
+							dataStreamerIn.Close()
+							Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
+						})
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
 						controlUpdates, disconnectControl = observeControl(db)
-					})
-					AfterEach(func() {
-						disconnectControl()
-						Expect(w1.Close()).To(Succeed())
-						Expect(w2.Close()).To(Succeed())
-						dataStreamerIn.Close()
-						Eventually(dataStreamerOut.Outlet()).Should(BeClosed())
-						Expect(shutdown.Close()).To(Succeed())
+						DeferCleanup(disconnectControl)
 					})
 
 					// Set up:

@@ -59,6 +59,10 @@ void listen_stdin() {
                     }
                 }
             }
+        } else if (GetLastError() == ERROR_BROKEN_PIPE) {
+            // The parent died. Windows has no SIGPIPE to end this process, and no one
+            // is left to receive a clean stop.
+            TerminateProcess(GetCurrentProcess(), 1);
         }
 
         Sleep(100);

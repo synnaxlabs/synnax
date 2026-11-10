@@ -19,16 +19,20 @@ concurrency:
   group: oracle-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# The proxy drops streams at times, so a failed fetch falls back to the source.
+env:
+  GOPROXY: https://proxy.golang.org|direct
+
 jobs:
   check:
     name: Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up Go
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: oracle/go.mod
           cache-dependency-path: |
@@ -39,13 +43,13 @@ jobs:
         uses: ./.github/actions/setup-pnpm
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10.3.0
+        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
           enable-cache: true
 
       - name: Set up buf
-        uses: bufbuild/buf-action@v1
+        uses: bufbuild/buf-action@37ac33d8960807670a6e9719080e885197b09cc6 # v1
         with:
           setup_only: true
           github_token: ${{ github.token }}
@@ -55,6 +59,15 @@ jobs:
 
       - name: Install Python dependencies
         run: uv sync
+
+      - name: Download the Go modules
+        run: .github/scripts/go_mod_download.sh oracle
+
+      # The module cache comes from an earlier run, and a download checks go.sum only
+      # for modules it fetches.
+      - name: Verify the Go module cache
+        working-directory: oracle
+        run: go mod verify
 
       - name: Build Oracle
         working-directory: oracle
@@ -72,7 +85,7 @@ jobs:
 
       - name: Archive JSON report
         if: failure() && steps.check.conclusion == 'failure'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           path: oracle-check.json
           archive: false

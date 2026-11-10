@@ -47,7 +47,7 @@ export const createValveSchematic = async (
   if (authority != null) {
     await capture.selectToolbarTab(session, "Control");
     const input = page
-      .locator(".console-schematic__control .pluto-input__item")
+      .locator(".console-schematic__control .lyra-input__item")
       .filter({ hasText: "Control authority" })
       .locator("input")
       .first();

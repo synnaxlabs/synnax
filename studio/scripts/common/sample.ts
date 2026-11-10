@@ -32,7 +32,7 @@ export const absoluteChip = (target: Locator): Locator =>
 
 /** lostChip matches a symbol's chip while a different writer controls its channel. */
 export const lostChip = (target: Locator): Locator =>
-  target.locator(".pluto-control-chip svg.pluto-icon--square").first();
+  target.locator(".pluto-control-chip svg.lyra-icon--square").first();
 
 /** toggle returns the part of a valve symbol that a click opens or closes. */
 export const toggle = (target: Locator): Locator =>
@@ -83,12 +83,12 @@ export const openAutomation = async (
     await pressTask.stop();
     const { key } = await client.arcs.create({
       name,
-      mode: "text",
-      text: { raw: text },
+      type: "automation",
+      source: { mode: "text", text: { raw: text } },
     });
     if (running) await fixtures.startArc(client, key);
     else {
-      const [rack] = await client.racks.retrieve({ integration: "arc" });
+      const [rack] = await client.racks.retrieve({ integrations: "arc" });
       await client.arcs.updateTask(key, { rack: rack.key });
     }
   } finally {
@@ -108,7 +108,7 @@ export const openAutomation = async (
 /** tab returns the panel tab with the given name. */
 export const tab = (page: Page, name: string): Locator =>
   page
-    .locator(".console-mosaic .pluto-tabs__tab")
+    .locator(".console-mosaic .lyra-tabs__tab")
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
 

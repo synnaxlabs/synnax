@@ -13,7 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/lib/lib.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::lib {
 namespace {

@@ -20,8 +20,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	fhttp "github.com/synnaxlabs/freighter/http"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -42,26 +43,26 @@ func serveRouter(router *fhttp.Router) (*fiber.App, address.Address) {
 
 var _ = Describe("Stream", Ordered, Serial, func() {
 	var (
-		server freighter.StreamServer[test.Request, test.Response]
-		client freighter.StreamClient[test.Request, test.Response]
+		server freighter.StreamServer[testutil.Request, testutil.Response]
+		client freighter.StreamClient[testutil.Request, testutil.Response]
 		addr   address.Address
 	)
 
 	BeforeAll(func() {
 		ShouldNotLeakGoroutines()
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-			StreamWriteDeadline: test.WriteDeadline,
+			StreamWriteDeadline: testutil.WriteDeadline,
 		}))
-		server = router.NewStreamServer[test.Request, test.Response]("/")
-		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+		server = router.NewStreamServer[testutil.Request, testutil.Response]("/")
+		client = MustSucceed(fhttp.NewStreamClient[testutil.Request, testutil.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
 		_, addr = serveRouter(router)
 	})
 
-	test.StreamSuite(func() (
-		freighter.StreamServer[test.Request, test.Response],
-		freighter.StreamClient[test.Request, test.Response],
+	testutil.StreamSuite(func() (
+		freighter.StreamServer[testutil.Request, testutil.Response],
+		freighter.StreamClient[testutil.Request, testutil.Response],
 		address.Address,
 	) {
 		return server, client, addr
@@ -73,19 +74,17 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			func() {
 				report := server.Report()
 				Expect(report["protocol"]).To(Equal("websocket"))
-				Expect(report["encodings"]).To(Equal([]string{
-					"application/json", "application/msgpack",
-				}))
+				Expect(report["encodings"]).To(Equal([]string{"application/json"}))
 			},
 		)
 	})
 
 	Describe("Upgrade Negotiation", func() {
-		It(
+		DescribeTable(
 			"should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec",
-			func(ctx context.Context) {
+			func(ctx context.Context, contentType string) {
 				headers := http.Header{}
-				headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+				headers.Set(fiber.HeaderContentType, contentType)
 				_, res, err := (&ws.Dialer{}).DialContext(
 					ctx,
 					"ws://"+addr.String()+"/",
@@ -96,6 +95,8 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 				DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
 				Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
 			},
+			Entry("an unknown codec", "application/x-no-such-codec"),
+			Entry("msgpack", "application/msgpack"),
 		)
 
 		It(
@@ -108,19 +109,65 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		)
 	})
 
+	Describe("WithAdditionalCodec", func() {
+		// Serves its own app: shutting down the shared one would strand later specs.
+		It(
+			"should construct the codec with a live context that ends when the app stops",
+			func(ctx SpecContext) {
+				const contentType = "application/x-test"
+				codecCtx := make(chan context.Context, 1)
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamWriteDeadline: testutil.WriteDeadline,
+				}))
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+					fhttp.WithAdditionalCodec(
+						contentType,
+						func(ctx context.Context) encoding.Codec {
+							codecCtx <- ctx
+							return json.Codec
+						},
+					),
+				)
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
+				) error {
+					_, err := stream.Receive()
+					return err
+				})
+				ownApp, ownAddr := serveRouter(router)
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, contentType)
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				Expect(res.Body.Close()).To(Succeed())
+				var got context.Context
+				Eventually(codecCtx).Should(Receive(&got))
+				Expect(got.Err()).ToNot(HaveOccurred())
+				Expect(conn.Close()).To(Succeed())
+				Expect(ownApp.Shutdown()).To(Succeed())
+				Eventually(got.Done()).Should(BeClosed())
+			},
+		)
+	})
+
 	Describe("Shutdown", func() {
 		// Serves its own app: shutting down the shared one would strand later specs.
 		It(
 			"should stop serving a stream whose peer never answers the close message",
 			func(ctx SpecContext) {
 				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
-					StreamWriteDeadline: test.WriteDeadline,
+					StreamWriteDeadline: testutil.WriteDeadline,
 				}))
-				ownServer := router.NewStreamServer[test.Request, test.Response]("/")
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+				)
 				serving := make(chan struct{})
 				ownServer.BindHandler(func(
 					_ context.Context,
-					stream freighter.ServerStream[test.Request, test.Response],
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
 				) error {
 					close(serving)
 					_, err := stream.Receive()

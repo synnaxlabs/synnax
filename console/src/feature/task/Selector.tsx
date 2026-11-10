@@ -11,54 +11,34 @@ import { task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access } from "@synnaxlabs/pluto";
 
-import { CAN } from "@/feature/can";
-import { EtherCAT } from "@/feature/ethercat";
-import { HTTP } from "@/feature/http";
-import { LabJack } from "@/feature/labjack";
-import { Modbus } from "@/feature/modbus";
-import { NI } from "@/feature/ni";
-import { OPCUA } from "@/feature/opcua";
-import { PagerDuty } from "@/feature/pagerduty";
-import { Serial } from "@/feature/serial";
-import { TCP } from "@/feature/tcp";
-import { UDP } from "@/feature/udp";
-import { FLAGS } from "@/flags";
+import { INTEGRATIONS } from "@/feature/task/types";
 import { Panel } from "@/platform/panel";
 import { Selector as Base } from "@/platform/selector";
 
-const withTaskVisibility = (Selectable: Base.Selectable): Base.Selectable => {
-  const WrappedSelectable: Base.Selectable = (props) => {
-    const hasCreatePermission = Access.useCreateGranted(task.TYPE_ONTOLOGY_ID);
-    if (!hasCreatePermission) return null;
-    return <Selectable {...props} />;
-  };
-  WrappedSelectable.type = Selectable.type;
-  return WrappedSelectable;
+const GROUPS: Base.Group[] = INTEGRATIONS.filter(
+  ({ selectables }) => selectables.length > 0,
+).map(({ prefix, name, icon, selectables }) => ({
+  key: prefix,
+  title: name,
+  icon,
+  selectables,
+}));
+
+const useCreateGranted = (): boolean => Access.useCreateGranted(task.TYPE_RESOURCE_ID);
+
+/** The task types, one group per integration, for a user who may create tasks. */
+export const SECTION: Base.Section = {
+  key: "tasks",
+  groups: GROUPS,
+  useVisible: useCreateGranted,
 };
 
-export const SELECTABLES: Base.Selectable[] = [
-  ...EtherCAT.Task.SELECTABLES,
-  ...HTTP.Task.SELECTABLES,
-  ...LabJack.Task.SELECTABLES,
-  ...Modbus.Task.SELECTABLES,
-  ...NI.Task.SELECTABLES,
-  ...OPCUA.Task.SELECTABLES,
-  ...PagerDuty.Task.SELECTABLES,
-  ...(FLAGS.can
-    ? [
-        ...CAN.Task.SELECTABLES,
-        ...Serial.Task.SELECTABLES,
-        ...TCP.Task.SELECTABLES,
-        ...UDP.Task.SELECTABLES,
-      ]
-    : []),
-].map(withTaskVisibility);
-
 export const Selector = Base.create({
-  selectables: SELECTABLES,
+  sections: [SECTION],
   icon: <Icon.Task />,
   tabTitle: "Create task",
   text: "Create task",
+  searchPlaceholder: "Search tasks",
 });
 
 export const SELECTOR_TAB_TYPE = "taskSelector";
