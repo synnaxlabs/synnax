@@ -47,9 +47,9 @@ class Tree:
         )
 
     def ts_version(self, package: str) -> str:
-        return json.loads((self.root / package / "ts" / "package.json").read_text())[
-            "version"
-        ]
+        manifest = (self.root / package / "ts" / "package.json").read_text()
+        version: str = json.loads(manifest)["version"]
+        return version
 
     def py_text(self, package: str) -> str:
         return (self.root / package / "py" / "pyproject.toml").read_text()

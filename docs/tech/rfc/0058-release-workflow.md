@@ -57,10 +57,10 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
 - **`console`, `driver`, `core`**: The products to release, all on by default. One
   dispatch ships a whole train; a hotfix ticks one product.
-- **`typescript`, `python`**: Publish the npm packages at the next `ts/v*` version and
-  the PyPI packages at the next `py/v*` version, both on by default. A candidate run
-  never publishes them. An npm publish on an older train takes the `train-X.Y` dist-tag,
-  so `latest` never moves back.
+- **`typescript`, `python`**: Publish the npm packages at the next `ts/v*` patch and the
+  PyPI packages at the next `py/v*` patch on the train, both on by default. A candidate
+  run never publishes them. An npm publish on an older train takes the `train-X.Y`
+  dist-tag, so `latest` never moves back.
 - **`bump`**: `patch` (default) or `minor`, applied to every selected product.
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
@@ -110,15 +110,19 @@ ever already published.
 
 Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
 `py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
-each language releases alone. The resolve stage resolves the tag like a product, the
-publish job runs `stamp_versions.sh` to write it into that language's manifests, and
-every package of the language publishes at that version. The job tags after the registry
-takes the packages, so a failed run leaves no tag; a rerun resolves the same version,
-and `pnpm publish -r` and `prune_published.py` skip what already went up. A merge
-publishes nothing. Both publish through OIDC trusted publishing with `id-token: write`,
-so no registry token lives in the repo's secrets. The registries trust `release.yaml` by
-name, so the publish jobs live in it, not in a called workflow. Packages have no
-candidate channel: a candidate run never publishes them.
+each language releases alone. A language publishes on the train of the code it ships:
+the minor the run releases, else the minor of a `release/<product>-X.Y` branch, else the
+newest product minor reachable from `HEAD`. The resolve stage takes the next patch on
+that train, or `X.Y.0` when the train has none, and ignores `bump`. The publish job
+waits for every product the run releases, runs `stamp_versions.sh` to write the version
+into that language's manifests, and publishes every package of the language at it. The
+job tags after the registry takes the packages, so a failed run leaves no tag. Only a
+rerun of that run may finish the publish: the job fails when the tag exists, or when the
+registry has the version without the tag on a first attempt, so one version never holds
+packages from two commits. A merge publishes nothing. Both publish through OIDC trusted
+publishing with `id-token: write`, so no registry token lives in the repo's secrets. The
+registries trust `release.yaml` by name, so the publish jobs live in it, not in a called
+workflow. Packages have no candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 

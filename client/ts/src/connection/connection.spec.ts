@@ -110,6 +110,9 @@ interface Core060 {
  * parse after the middleware runs, as in an HTTP client. Once `core.upgraded` is set,
  * it answers checks as a Core of the client's version.
  */
+/** A release client version on a newer minor than the 0.60 Core. */
+const CLIENT_061 = "0.61.0";
+
 const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient => {
   const responses: Record<string, unknown> = {
     "/auth/session/create": {
@@ -148,7 +151,7 @@ const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient =>
       if (core.upgraded)
         return resZ.parse({
           ...(responses["/connectivity/check"] as object),
-          nodeVersion: __VERSION__,
+          nodeVersion: CLIENT_061,
           nodeTime: TimeStamp.now().valueOf(),
         });
       await run({ target, role: "client", protocol: "http", params }, 0);
@@ -1015,7 +1018,10 @@ describe("connection", () => {
       const unary = createCore060Unary();
       const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
       unary.use(authClient.middleware());
-      const client = createClient(unary, { tokenless: createCore060Unary() });
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(),
+      });
       const status = await observe.until(
         client,
         () => client.status,
@@ -1031,7 +1037,10 @@ describe("connection", () => {
       const unary = createCore060Unary();
       const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
       unary.use(authClient.middleware());
-      const client = createClient(unary, { tokenless: createCore060Unary() });
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(),
+      });
       await observe.until(
         client,
         () => client.status,
@@ -1052,7 +1061,10 @@ describe("connection", () => {
       const unary = createCore060Unary(core);
       const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
       unary.use(authClient.middleware());
-      const client = createClient(unary, { tokenless: createCore060Unary(core) });
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(core),
+      });
       await observe.until(
         client,
         () => client.status,
@@ -1064,7 +1076,7 @@ describe("connection", () => {
         () => client.status,
         (s) => s.variant === "success",
       );
-      expect(status.details.nodeVersion).toBe(__VERSION__);
+      expect(status.details.nodeVersion).toBe(CLIENT_061);
       expect(status.details.clientServerCompatible).toBe(true);
       await client.close();
     });
@@ -1074,7 +1086,10 @@ describe("connection", () => {
       const unary = createCore060Unary(core);
       const authClient = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
       unary.use(authClient.middleware());
-      const client = createClient(unary, { tokenless: createCore060Unary(core) });
+      const client = createClient(unary, {
+        clientVersion: CLIENT_061,
+        tokenless: createCore060Unary(core),
+      });
       await observe.until(
         client,
         () => client.status,
@@ -1099,6 +1114,7 @@ describe("connection", () => {
       unary.use(authClient.middleware());
       const send = vi.spyOn(unary, "send");
       const client = createClient(unary, {
+        clientVersion: CLIENT_061,
         escalateAfter: 4,
         tokenless: createCore060Unary(core),
       });

@@ -181,6 +181,8 @@ export interface ClientParams {
   address: string;
   /** Human-readable cluster name for status messages. */
   name?: string;
+  /** Version checked against the Core's. Defaults to this package's version. */
+  clientVersion?: string;
   /** Consecutive check failures before escalating to error(unreachable). */
   escalateAfter?: number;
   clockSkewThreshold?: TimeSpan;
@@ -242,6 +244,7 @@ export class Client implements Handle {
     tokenless,
     address,
     name,
+    clientVersion = __VERSION__,
     escalateAfter = DEFAULT_ESCALATE_AFTER,
     clockSkewThreshold = TimeSpan.seconds(1),
     requiresStream = false,
@@ -255,7 +258,7 @@ export class Client implements Handle {
     this.tokenless = tokenless;
     this.address = address;
     this.config = {
-      clientVersion: __VERSION__,
+      clientVersion,
       name,
       escalateAfter,
       clockSkewThreshold,

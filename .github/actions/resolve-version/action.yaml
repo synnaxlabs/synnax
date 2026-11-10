@@ -21,6 +21,10 @@ inputs:
     description: Tag a release candidate (-rc.N)
     required: false
     default: "false"
+  train:
+    description: Resolve the next patch on this minor (X.Y) instead of applying the bump
+    required: false
+    default: ""
 
 outputs:
   version:
@@ -51,6 +55,7 @@ runs:
         PRODUCT: ${{ inputs.product }}
         BUMP: ${{ inputs.bump }}
         PRERELEASE: ${{ inputs.prerelease }}
+        TRAIN: ${{ inputs.train }}
       run:
-        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" >>
+        .github/scripts/resolve_version.sh "$PRODUCT" "$BUMP" "$PRERELEASE" "$TRAIN" >>
         "$GITHUB_OUTPUT"

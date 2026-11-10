@@ -38,10 +38,10 @@ class Repo:
             self.git("tag", name)
 
     def resolve(
-        self, product: str, *, bump: str, prerelease: bool = False
+        self, product: str, *, bump: str, prerelease: bool = False, train: str = ""
     ) -> dict[str, str]:
         result = subprocess.run(
-            [str(SCRIPT), product, bump, "true" if prerelease else "false"],
+            [str(SCRIPT), product, bump, "true" if prerelease else "false", train],
             cwd=self.path,
             check=True,
             capture_output=True,
@@ -49,9 +49,9 @@ class Repo:
         )
         return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
-    def resolve_error(self, product: str, *, bump: str) -> str:
+    def resolve_error(self, product: str, *, bump: str, train: str = "") -> str:
         result = subprocess.run(
-            [str(SCRIPT), product, bump],
+            [str(SCRIPT), product, bump, "false", train],
             cwd=self.path,
             capture_output=True,
             text=True,
@@ -283,3 +283,30 @@ class TestPackages:
         repo.tag("ts/v0.59.0")
         repo.commit("more")
         assert "train rule" in repo.resolve_error("ts", bump="minor")
+
+    def test_should_take_the_next_patch_on_a_train(self, repo: Repo) -> None:
+        repo.tag("ts/v0.58.4")
+        out = repo.resolve("ts", bump="minor", train="0.58")
+        assert out["version"] == "0.58.5"
+        assert out["previous_tag"] == "ts/v0.58.4"
+
+    def test_should_open_a_train_without_a_tag(self, repo: Repo) -> None:
+        repo.tag("ts/v0.58.4")
+        out = repo.resolve("ts", bump="patch", train="0.59")
+        assert out["version"] == "0.59.0"
+        assert out["previous_tag"] == ""
+
+    def test_should_count_unreachable_tags_on_a_train(self, repo: Repo) -> None:
+        repo.git("checkout", "-q", "-b", "release/core-0.58", "core/v0.58.2")
+        repo.tag("py/v0.58.7")
+        repo.git("checkout", "-q", "main")
+        repo.commit("more")
+        assert repo.resolve("py", bump="patch", train="0.58")["version"] == "0.58.8"
+
+    def test_should_reject_a_malformed_train(self, repo: Repo) -> None:
+        assert "malformed train" in repo.resolve_error(
+            "ts", bump="patch", train="0.58.1"
+        )
+
+    def test_should_keep_the_train_rule_on_a_train(self, repo: Repo) -> None:
+        assert "train rule" in repo.resolve_error("ts", bump="patch", train="0.60")

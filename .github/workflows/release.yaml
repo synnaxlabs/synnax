@@ -31,11 +31,11 @@ on:
         type: boolean
         default: true
       typescript:
-        description: Publish the npm packages at the next ts/v* version
+        description: Publish the npm packages at the next ts/v* patch on the train
         type: boolean
         default: true
       python:
-        description: Publish the PyPI packages at the next py/v* version
+        description: Publish the PyPI packages at the next py/v* patch on the train
         type: boolean
         default: true
       bump:
@@ -198,13 +198,42 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
+      # Packages publish on the train of the code they ship: the minor this run
+      # releases, else the release branch's minor, else the newest product minor
+      # reachable from here.
+      - name: Resolve package train
+        id: train
+        if: (inputs.typescript || inputs.python) && !inputs.prerelease
+        env:
+          PRODUCTS:
+            ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
+            steps.driver.outputs.minor }}
+          REF: ${{ github.ref_name }}
+        run: |
+          train=$PRODUCTS
+          branch='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
+          if [ -z "$train" ] && [[ $REF =~ $branch ]]; then
+            train=${BASH_REMATCH[2]}
+          fi
+          if [ -z "$train" ]; then
+            train=$(git tag --list --merged HEAD 'console/v*' 'core/v*' 'driver/v*' \
+              | sed -nE 's#^[a-z]+/v([0-9]+\.[0-9]+)\.[0-9]+$#\1#p' \
+              | sort -t. -k1,1n -k2,2n | tail -n 1)
+          fi
+          if [ -z "$train" ]; then
+            echo "no product tag is reachable, so the package train is unknown" >&2
+            exit 1
+          fi
+          echo "minor=$train" >> "$GITHUB_OUTPUT"
+
       - name: Resolve TypeScript version
         id: ts
         if: inputs.typescript && !inputs.prerelease
         uses: ./.github/actions/resolve-version
         with:
           product: ts
-          bump: ${{ inputs.bump }}
+          bump: patch
+          train: ${{ steps.train.outputs.minor }}
 
       - name: Resolve Python version
         id: py
@@ -212,7 +241,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: py
-          bump: ${{ inputs.bump }}
+          bump: patch
+          train: ${{ steps.train.outputs.minor }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -399,8 +429,14 @@ jobs:
   # workflow.
   publish-ts:
     name: Publish TypeScript packages
-    needs: [resolve, ci]
-    if: inputs.typescript && !inputs.prerelease
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.typescript && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
     permissions:
       contents: write
       id-token: write
@@ -415,6 +451,35 @@ jobs:
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
+
+      # Only a rerun of the run that resolved the version may finish a partial publish.
+      # A later run would mix packages from two commits under one version.
+      - name: Require an unreleased version
+        env:
+          VERSION: ${{ needs.resolve.outputs.ts_version }}
+          TAG: ${{ needs.resolve.outputs.ts_tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists, so another run released $VERSION" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then exit 0; fi
+          for name in alamos client freighter x; do
+            url="https://registry.npmjs.org/@synnaxlabs/$name/$VERSION"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                echo "Rerun the run that published it." >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Stamp package versions
         env:
@@ -433,7 +498,7 @@ jobs:
         # The stamp dirties the tree, and the resolve job already checked the branch.
         run: pnpm publish -r --tag "$TAG" --no-git-checks
 
-      # A failed publish leaves no tag, so a rerun resolves the same version and the
+      # A failed publish leaves no tag. A rerun of the run keeps its version, and the
       # registry skips what already went up.
       - name: Tag
         env:
@@ -443,8 +508,14 @@ jobs:
 
   publish-py:
     name: Publish Python packages
-    needs: [resolve, ci]
-    if: inputs.python && !inputs.prerelease
+    needs: [resolve, ci, publish-console, publish-driver, publish-core]
+    # Packages go out after every product this run releases, and never after one fails.
+    if: >-
+      !cancelled() && inputs.python && !inputs.prerelease && needs.resolve.result ==
+      'success' && needs.ci.result == 'success' && (!inputs.console ||
+      needs.publish-console.result == 'success') && (!inputs.driver ||
+      needs.publish-driver.result == 'success') && (!inputs.core ||
+      needs.publish-core.result == 'success')
     permissions:
       contents: write
       id-token: write
@@ -457,6 +528,35 @@ jobs:
         uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           version: latest-known
+
+      # Only a rerun of the run that resolved the version may finish a partial publish.
+      # A later run would mix packages from two commits under one version.
+      - name: Require an unreleased version
+        env:
+          VERSION: ${{ needs.resolve.outputs.py_version }}
+          TAG: ${{ needs.resolve.outputs.py_tag }}
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
+            echo "$TAG already exists, so another run released $VERSION" >&2
+            exit 1
+          fi
+          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then exit 0; fi
+          for name in alamos synnax synnax-freighter synnax-x; do
+            url="https://pypi.org/pypi/$name/$VERSION/json"
+            code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
+            case "$code" in
+              404) ;;
+              200)
+                echo "$name $VERSION is out without $TAG" >&2
+                echo "Rerun the run that published it." >&2
+                exit 1
+                ;;
+              *)
+                echo "the registry answered $code for $name $VERSION" >&2
+                exit 1
+                ;;
+            esac
+          done
 
       - name: Stamp package versions
         env:
