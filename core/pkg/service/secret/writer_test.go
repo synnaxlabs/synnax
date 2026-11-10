@@ -31,6 +31,13 @@ var _ = Describe("Writer", func() {
 		rk = rack.Key(1).ResourceID()
 	})
 
+	fileSecret := func(fileName string) secret.Secret {
+		return secret.Secret{Variant: secret.FileSecret{
+			Base:     secret.Base{Name: "A"},
+			FileName: fileName,
+		}}
+	}
+
 	resolve := func(ctx SpecContext, key secret.Key) string {
 		GinkgoHelper()
 		g := MustSucceed(e.svc.Grant(ctx, e.db, rk, key))
@@ -57,16 +64,16 @@ var _ = Describe("Writer", func() {
 			})).To(Succeed())
 			Expect(e.retrieve(ctx, key).Base().Name).To(Equal("Password"))
 		})
-		It("Should save the path of a file secret", func(ctx SpecContext) {
+		It("Should save the file name of a file secret", func(ctx SpecContext) {
 			s := secret.Secret{Variant: secret.FileSecret{
-				Base: secret.Base{Name: "Client key"},
-				Path: "/etc/plant/key.pem",
+				Base:     secret.Base{Name: "Client key"},
+				FileName: "key.pem",
 			}}
 			Expect(e.write(ctx, func(w secret.Writer) error {
 				return w.Set(ctx, &s, nil)
 			})).To(Succeed())
 			file := e.retrieve(ctx, s.Base().Key).Variant.(secret.FileSecret)
-			Expect(file.Path).To(Equal("/etc/plant/key.pem"))
+			Expect(file.FileName).To(Equal("key.pem"))
 		})
 		It(
 			"Should replace the value of the secret with the same key",
@@ -96,17 +103,38 @@ var _ = Describe("Writer", func() {
 				"value: required",
 			),
 			Entry(
-				"a file secret with no path",
+				"a file secret with no file name",
 				secret.Secret{Variant: secret.FileSecret{Base: secret.Base{Name: "A"}}},
 				"",
-				"path: required",
+				"file_name: required",
+			),
+			Entry(
+				"a file secret with an absolute path",
+				fileSecret("/etc/synnax/secrets.key"),
+				"",
+				"file_name: must not name a folder",
+			),
+			Entry(
+				"a file secret with a relative path",
+				fileSecret("../secrets.key"),
+				"",
+				"file_name: must not name a folder",
+			),
+			Entry(
+				"a file secret with a Windows path",
+				fileSecret(`C:\synnax\secrets.key`),
+				"",
+				"file_name: must not name a folder",
+			),
+			Entry(
+				"a file secret that names the parent folder",
+				fileSecret(".."),
+				"",
+				"file_name: must not name a folder",
 			),
 			Entry(
 				"a file secret with a value",
-				secret.Secret{Variant: secret.FileSecret{
-					Base: secret.Base{Name: "A"},
-					Path: "/a",
-				}},
+				fileSecret("a"),
 				"v",
 				"value: must be empty for a file secret",
 			),

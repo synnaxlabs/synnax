@@ -95,8 +95,8 @@ type Input struct {
 	Name string `json:"name" msgpack:"name"`
 	// Value is the plain text value of a stored secret.
 	Value string `json:"value" msgpack:"value"`
-	// Path is the path of a file secret on the computer that uses it.
-	Path string `json:"path" msgpack:"path"`
+	// FileName is the name of a file secret's file in the secrets folder of the rack.
+	FileName string `json:"file_name" msgpack:"file_name"`
 	// Key selects the secret to replace. A zero key creates a new secret.
 	Key Key `json:"key" msgpack:"key"`
 }
@@ -106,12 +106,18 @@ func (in Input) secret() (Secret, error) {
 	v := validate.New("secret")
 	switch in.Source {
 	case secret.SourceStored:
-		if v.Ternary("path", in.Path != "", "must be empty for a stored secret") {
+		if v.Ternary(
+			"file_name",
+			in.FileName != "",
+			"must be empty for a stored secret",
+		) {
 			return Secret{}, v.Error()
 		}
 		return Secret{Variant: secret.StoredSecret{Base: base}}, nil
 	case secret.SourceFile:
-		return Secret{Variant: secret.FileSecret{Base: base, Path: in.Path}}, nil
+		return Secret{
+			Variant: secret.FileSecret{Base: base, FileName: in.FileName},
+		}, nil
 	}
 	v.Ternaryf("source", true, "must be stored or file, not %q", in.Source)
 	return Secret{}, v.Error()
