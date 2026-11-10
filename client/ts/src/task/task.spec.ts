@@ -7,11 +7,23 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, patch, TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
-import { beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
+import { HTTPClient } from "@synnaxlabs/freighter";
+import {
+  binary,
+  id,
+  patch,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+  url,
+  uuid,
+} from "@synnaxlabs/x";
+import { afterAll, beforeAll, describe, expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
+import { auth } from "@/auth";
 import { channel } from "@/channel";
+import { errorsMiddleware } from "@/errors";
 import { framer } from "@/framer";
 import { MultipleFoundError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
@@ -26,6 +38,8 @@ import {
   holdResponses,
   recordResponses,
   spyOnSend,
+  TEST_CORE_ADDRESS,
+  TEST_CREDENTIALS,
   waitForStreamLive,
 } from "@/testutil";
 
@@ -725,8 +739,17 @@ describe("Task", async () => {
       await client.tasks.settled(t.key);
     });
 
+    // A client of its own sends the dispatch past the task cache, which checks guards
+    // before a send.
+    const unary = new HTTPClient(
+      new url.URL(TEST_CORE_ADDRESS).child("/api/v1/"),
+      new binary.JSONCodec(),
+    );
+    const login = new auth.Client(unary, { credentials: TEST_CREDENTIALS });
+    unary.use(errorsMiddleware, login.middleware());
+    afterAll(async () => await login.release());
     const sendUpdate = async (key: task.Key, dispatchKey: string, a: task.Action) =>
-      await client.transport.unary.send(
+      await unary.send(
         "/task/dispatch",
         { key, dispatchKey, actions: [a] },
         task.dispatchReqZ,
