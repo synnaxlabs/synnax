@@ -760,6 +760,8 @@ var _ = Describe("Rack", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				expected := before
 				expected.Name = "Renamed Embedded"
+				// A path action stores a rack with no integrations as an empty list.
+				expected.Integrations = []string{}
 				Expect(after).To(Equal(expected))
 				Expect(after.Embedded).To(BeTrue())
 				renamed := MustSucceed(retrieveStatusTx(ctx, stat, tx, svc.EmbeddedKey))

@@ -10,6 +10,7 @@
 package channel_test
 
 import (
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -1563,12 +1564,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Rename", Ordered, func() {
 		var (
-			db  *gorp.DB
-			svc *channel.Service
+			dist testutil.Node
+			db   *gorp.DB
+			svc  *channel.Service
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist := testutil.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			db = dist.DB
 			svc = openService(ctx, dist)
 		})
@@ -1670,6 +1672,70 @@ var _ = Describe("Writer", func() {
 				Expect(resChannels[1].Name).To(Equal(names[1]))
 				Expect(resChannels[2].Name).To(Equal(names[2]))
 			})
+			It(
+				"Should send the renames of several writers to storage in one call",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 2))
+					before := MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					)
+					first, second := UniqueChannelName(), UniqueChannelName()
+					var between ts.Channel
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := svc.NewWriter(tx).
+							Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						// Storage takes no rename before the hook of the last one.
+						gorp.BeforeCommit(tx, func(ctx context.Context) (err error) {
+							between, err = dist.Storage.TS.RetrieveChannel(
+								ctx,
+								keys[0].StorageKey(),
+							)
+							return err
+						})
+						return svc.NewWriter(tx).Rename(ctx, keys[1], second, false)
+					})).To(Succeed())
+					Expect(between.Name).To(Equal(before.Name))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[1].StorageKey()),
+					).Name).To(Equal(second))
+				},
+			)
+			It(
+				"Should rename a channel created after an earlier rename",
+				func(ctx SpecContext) {
+					keys := MustSucceed(CreateVirtual(ctx, db, svc, 1))
+					created := channel.Channel{
+						Name:     UniqueChannelName(),
+						Virtual:  true,
+						DataType: telem.Int64T,
+					}
+					first, second := UniqueChannelName(), UniqueChannelName()
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						w := svc.NewWriter(tx)
+						if err := w.Rename(ctx, keys[0], first, false); err != nil {
+							return err
+						}
+						if err := w.Create(ctx, &created); err != nil {
+							return err
+						}
+						return w.Rename(ctx, created.Key(), second, false)
+					})).To(Succeed())
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(ctx, keys[0].StorageKey()),
+					).Name).To(Equal(first))
+					Expect(MustSucceed(
+						dist.Storage.TS.RetrieveChannel(
+							ctx,
+							created.Key().StorageKey(),
+						),
+					).Name).To(Equal(second))
+				},
+			)
 		})
 	})
 

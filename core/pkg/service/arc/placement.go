@@ -70,12 +70,6 @@ func (w Writer) Move(
 				validate.ErrValidation, "%q is not in the source directory", e.name,
 			)
 		}
-		if e.id.Type != resource.TypeArc {
-			continue
-		}
-		if err = w.validateEntry(ctx, to, e.id, e.name, e.identifier); err != nil {
-			return err
-		}
 	}
 	for _, key := range dirKeys {
 		if err = w.ApplyDirectory(ctx, key, directory.NewSetAction(
@@ -84,30 +78,13 @@ func (w Writer) Move(
 			return err
 		}
 	}
-	if len(arcKeys) == 0 {
-		return nil
+	set := NewSetDirectoryAction(SetDirectoryPayload{Directory: to})
+	for _, key := range arcKeys {
+		if err = w.Apply(ctx, key, set); err != nil {
+			return err
+		}
 	}
-	var moved []Arc
-	if err = w.table.NewUpdate().
-		Where(gorp.MatchKeys[Key, Arc](arcKeys...)).
-		Change(func(_ gorp.Context, a Arc) Arc {
-			b := a.Base()
-			b.Directory = &to
-			a.SetBase(b)
-			moved = append(moved, a)
-			return a
-		}).
-		Exec(ctx, w.tx); err != nil {
-		return err
-	}
-	for _, a := range moved {
-		w.dispatcher.Attach(
-			w.tx,
-			a.Base().Key,
-			NewCreateAction(CreatePayload{Arc: a}),
-		)
-	}
-	return w.resyncImporting(ctx)
+	return nil
 }
 
 // entry is an Arc or a directory as the directory that holds it sees it.
@@ -115,8 +92,6 @@ type entry struct {
 	id     resource.ID
 	name   string
 	parent *directory.Key
-	// identifier is whether the name must be an identifier.
-	identifier bool
 }
 
 func (w Writer) retrieveEntries(
@@ -155,16 +130,11 @@ func (w Writer) retrieveEntries(
 
 func arcEntry(a Arc) entry {
 	b := a.Base()
-	return entry{
-		id:         a.ResourceID(),
-		name:       b.Name,
-		parent:     b.Directory,
-		identifier: a.Type() == TypeModule,
-	}
+	return entry{id: a.ResourceID(), name: b.Name, parent: b.Directory}
 }
 
 func directoryEntry(d directory.Directory) entry {
-	return entry{id: d.ResourceID(), name: d.Name, parent: d.Parent, identifier: true}
+	return entry{id: d.ResourceID(), name: d.Name, parent: d.Parent}
 }
 
 // validateName checks name for the entry id in the directory that holds it. An entry

@@ -528,3 +528,103 @@ var RangeSetEndService_ServiceDesc = grpc.ServiceDesc{
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "core/pkg/transport/grpc/ranger/ranger.proto",
 }
+
+const (
+	RangeDispatchService_Exec_FullMethodName = "/grpc.ranger.RangeDispatchService/Exec"
+)
+
+// RangeDispatchServiceClient is the client API for RangeDispatchService service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type RangeDispatchServiceClient interface {
+	Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+}
+
+type rangeDispatchServiceClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewRangeDispatchServiceClient(cc grpc.ClientConnInterface) RangeDispatchServiceClient {
+	return &rangeDispatchServiceClient{cc}
+}
+
+func (c *rangeDispatchServiceClient) Exec(ctx context.Context, in *DispatchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, RangeDispatchService_Exec_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// RangeDispatchServiceServer is the server API for RangeDispatchService service.
+// All implementations should embed UnimplementedRangeDispatchServiceServer
+// for forward compatibility.
+type RangeDispatchServiceServer interface {
+	Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error)
+}
+
+// UnimplementedRangeDispatchServiceServer should be embedded to have
+// forward compatible implementations.
+//
+// NOTE: this should be embedded by value instead of pointer to avoid a nil
+// pointer dereference when methods are called.
+type UnimplementedRangeDispatchServiceServer struct{}
+
+func (UnimplementedRangeDispatchServiceServer) Exec(context.Context, *DispatchRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method Exec not implemented")
+}
+func (UnimplementedRangeDispatchServiceServer) testEmbeddedByValue() {}
+
+// UnsafeRangeDispatchServiceServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to RangeDispatchServiceServer will
+// result in compilation errors.
+type UnsafeRangeDispatchServiceServer interface {
+	mustEmbedUnimplementedRangeDispatchServiceServer()
+}
+
+func RegisterRangeDispatchServiceServer(s grpc.ServiceRegistrar, srv RangeDispatchServiceServer) {
+	// If the following call panics, it indicates UnimplementedRangeDispatchServiceServer was
+	// embedded by pointer and is nil.  This will cause panics if an
+	// unimplemented method is ever invoked, so we test this at initialization
+	// time to prevent it from happening at runtime later due to I/O.
+	if t, ok := srv.(interface{ testEmbeddedByValue() }); ok {
+		t.testEmbeddedByValue()
+	}
+	s.RegisterService(&RangeDispatchService_ServiceDesc, srv)
+}
+
+func _RangeDispatchService_Exec_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DispatchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeDispatchServiceServer).Exec(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RangeDispatchService_Exec_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeDispatchServiceServer).Exec(ctx, req.(*DispatchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// RangeDispatchService_ServiceDesc is the grpc.ServiceDesc for RangeDispatchService service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeDispatchService_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "grpc.ranger.RangeDispatchService",
+	HandlerType: (*RangeDispatchServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Exec",
+			Handler:    _RangeDispatchService_Exec_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "core/pkg/transport/grpc/ranger/ranger.proto",
+}

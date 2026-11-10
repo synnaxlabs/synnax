@@ -376,4 +376,57 @@ var _ = Describe("Dispatch", func() {
 			Exec(ctx, db)).To(Succeed())
 		Expect(stored.Name).To(Equal("renamed"))
 	})
+
+	Describe("Role", func() {
+		move := func(p policy.Policy, to role.Key) apipolicy.DispatchRequest {
+			return apipolicy.DispatchRequest{
+				Key: p.Key,
+				Actions: []policy.Action{policy.NewSetAction(policy.SetPayload{
+					Path:  []string{"role"},
+					Value: to,
+				})},
+			}
+		}
+		storedRole := func(ctx SpecContext, p policy.Policy) role.Key {
+			GinkgoHelper()
+			var stored policy.Policy
+			Expect(svc.RBAC.Policy.NewRetrieve().
+				Where(policy.MatchKeys(p.Key)).
+				Entry(&stored).
+				Exec(ctx, db)).To(Succeed())
+			return stored.Role
+		}
+		It(
+			"Should move a policy for a subject that can update it and both roles",
+			func(ctx SpecContext) {
+				from, to := createRole(ctx), createRole(ctx)
+				p := createPolicy(ctx, from.Key)
+				u := createEditor(ctx, access.ActionUpdate, from.Key, to.Key)
+				MustSucceed(dispatch(AuthedCtx(ctx, u), move(p, to.Key)))
+				Expect(storedRole(ctx, p)).To(Equal(to.Key))
+			},
+		)
+		It(
+			"Should refuse to move a policy onto a role the subject cannot update",
+			func(ctx SpecContext) {
+				from, to := createRole(ctx), createRole(ctx)
+				p := createPolicy(ctx, from.Key)
+				u := createEditor(ctx, access.ActionUpdate, from.Key)
+				Expect(dispatch(AuthedCtx(ctx, u), move(p, to.Key))).Error().
+					To(denied(u, access.ActionUpdate, role.ResourceID(to.Key)))
+				Expect(storedRole(ctx, p)).To(Equal(from.Key))
+			},
+		)
+		It(
+			"Should refuse to move a policy off a role the subject cannot update",
+			func(ctx SpecContext) {
+				from, to := createRole(ctx), createRole(ctx)
+				p := createPolicy(ctx, from.Key)
+				u := createEditor(ctx, access.ActionUpdate, to.Key)
+				Expect(dispatch(AuthedCtx(ctx, u), move(p, to.Key))).Error().
+					To(denied(u, access.ActionUpdate, role.ResourceID(from.Key)))
+				Expect(storedRole(ctx, p)).To(Equal(from.Key))
+			},
+		)
+	})
 })

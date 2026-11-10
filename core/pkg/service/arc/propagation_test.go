@@ -287,6 +287,21 @@ var _ = Describe("Change propagation", Ordered, func() {
 			Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
 		})
 
+		It(
+			"Should drift the importer when a dispatch sets the module's directory",
+			func(ctx SpecContext) {
+				d := createDirectory(ctx, "pt_lib", root)
+				m, key := setup(ctx)
+				before := settledHash(ctx, key)
+				Expect(dispatch(ctx, m.Base().Key, "", []arc.Action{
+					arc.NewSetDirectoryAction(
+						arc.SetDirectoryPayload{Directory: d.Key},
+					),
+				})).To(Succeed())
+				Eventually(configHash(ctx, key)).ShouldNot(Equal(before))
+			},
+		)
+
 		It("Should drift the importer when the module's directory is renamed", func(
 			ctx SpecContext,
 		) {

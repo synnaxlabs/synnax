@@ -217,6 +217,15 @@ Arc union on type Type extends Base {
         """
     }
 
+    action SetDirectory {
+        directory uuid
+
+        @doc value """
+            moves the Arc into the directory with the given key. The root Arcs directory
+            holds the Arcs at the top level.
+        """
+    }
+
     action Set extends patch.Set {
         @doc value """
             replaces the Arc's name, or the value at a path in the graph's node inputs.

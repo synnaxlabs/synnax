@@ -118,6 +118,42 @@ var _ = Describe("Actions", func() {
 		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{set("group", &g.Key)}))
 	})
 
+	DescribeTable("Should store an editable field", func(
+		ctx SpecContext,
+		path string,
+		value any,
+		expect func(*rack.Rack),
+	) {
+		act := set(path, value)
+		Expect(write(ctx, func(w rack.Writer) error {
+			return w.Apply(ctx, r.Key, act)
+		})).To(Succeed())
+		expected := r
+		expected.Status = nil
+		expect(&expected)
+		Expect(retrieve(ctx)).To(Equal(expected))
+		Expect(rec.Snapshot()[1].Actions).To(Equal([]rack.Action{act}))
+	},
+		Entry("integrations", "integrations", []string{"ni", "opc"}, func(
+			r *rack.Rack,
+		) {
+			r.Integrations = []string{"ni", "opc"}
+		}),
+		Entry("version", "version", "0.50.0", func(r *rack.Rack) {
+			r.Version = new("0.50.0")
+		}),
+	)
+
+	It("Should refuse integrations that are not a list", func(ctx SpecContext) {
+		Expect(write(ctx, func(w rack.Writer) error {
+			return w.Apply(ctx, r.Key, set("integrations", nil))
+		})).To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("integrations")),
+		))
+		Expect(retrieve(ctx).Integrations).To(Equal([]string{"ni"}))
+	})
+
 	DescribeTable("Should refuse a path outside the editable fields", func(
 		ctx SpecContext,
 		path string,
@@ -130,7 +166,6 @@ var _ = Describe("Actions", func() {
 		Expect(rec.Snapshot()).To(HaveLen(1))
 	},
 		Entry("key", "key", 7),
-		Entry("integrations", "integrations", []string{"opc"}),
 		Entry("embedded", "embedded", true),
 		Entry("role", "role", "00000000-0000-0000-0000-000000000000"),
 	)
