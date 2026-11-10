@@ -14,6 +14,7 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"math"
+	"sync"
 	"time"
 	"uuid"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/kafka"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 	"github.com/twmb/franz-go/pkg/kfake"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 var _ = Describe("Write task", func() {
@@ -335,13 +338,26 @@ var _ = Describe("Write task", func() {
 		},
 	)
 
-	It("Should stop when the cluster is lost with a full producer buffer",
-		func(ctx SpecContext) {
+	Describe("Lost cluster", func() {
+		// startBlocked starts a task on a cluster that drops every produce request, and
+		// returns once the producer holds more records than its buffer.
+		startBlocked := func(ctx SpecContext) (driver.Task, task.Task) {
+			GinkgoHelper()
 			lost := MustSucceed(kfake.NewCluster(
 				kfake.NumBrokers(1),
 				kfake.AllowAutoTopicCreation(),
 			))
 			DeferCleanup(lost.Close)
+			producing := make(chan struct{})
+			var once sync.Once
+			lost.ControlKey(
+				kmsg.Produce.Int16(),
+				func(kmsg.Request) (kmsg.Response, error, bool) {
+					lost.KeepControl()
+					once.Do(func() { close(producing) })
+					return nil, errors.New("cluster lost"), true
+				},
+			)
 			index, data := createIndexed(ctx, telem.Float64T)
 			dev := createDevice(ctx, kafka.Properties{Brokers: lost.ListenAddrs()})
 			f = newFactory(kafka.FactoryConfig{PingTimeout: 200 * telem.Millisecond})
@@ -354,8 +370,6 @@ var _ = Describe("Write task", func() {
 			Expect(dt.Exec(ctx, task.Command{
 				Task: t.Key, Type: "start", Key: "cmd-2",
 			})).To(Succeed())
-			Expect(taskStatus(ctx, t).Details.Running).To(BeTrue())
-			lost.Close()
 			// More samples than the producer buffers by default.
 			const n = 60_000
 			stamps := make([]telem.TimeStamp, n)
@@ -365,12 +379,31 @@ var _ = Describe("Write task", func() {
 				values[i] = float64(i)
 			}
 			writeFrame(ctx, index, data, stamps, telem.NewSeries(values))
+			Eventually(producing).WithTimeout(10 * time.Second).Should(BeClosed())
+			return dt, t
+		}
+
+		It("Should answer a stop command with a timeout", func(ctx SpecContext) {
+			dt, t := startBlocked(ctx)
+			Expect(dt.Exec(ctx, task.Command{
+				Task: t.Key, Type: "stop", Key: "cmd-3",
+			})).To(Succeed())
+			stat := taskStatus(ctx, t)
+			Expect(stat.Variant).To(Equal(status.VariantError))
+			Expect(stat.Message).To(Equal("Failed to stop task"))
+			Expect(stat.Description).To(ContainSubstring("timed out producing records"))
+			Expect(stat.Details.Running).To(BeFalse())
+			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+		})
+
+		It("Should time out a stop without a status", func(ctx SpecContext) {
+			dt, _ := startBlocked(ctx)
 			stopped := make(chan error, 1)
 			go func() { stopped <- dt.Stop(false) }()
 			Eventually(stopped).WithTimeout(10 * time.Second).
 				Should(Receive(MatchError(ContainSubstring("timed out producing"))))
-		},
-	)
+		})
+	})
 
 	It("Should reject an unknown channel", func(ctx SpecContext) {
 		dev := createDevice(ctx, clusterProperties())

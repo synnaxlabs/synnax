@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 	"uuid"
 
@@ -530,14 +531,24 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		xio.CloserFunc(func() error {
 			// Produce blocks on a full buffer until its context ends, so a lost cluster
-			// would hold the graceful wait forever.
+			// would hold the graceful wait forever. The first of the drain and the
+			// deadline to settle decides the outcome.
 			timeout := t.factoryCfg.PingTimeout.Duration()
-			deadline := time.AfterFunc(timeout, cancel)
+			var settled atomic.Bool
+			deadline := time.AfterFunc(timeout, func() {
+				if settled.CompareAndSwap(false, true) {
+					cancel()
+				}
+			})
 			err := shutdown.Close()
-			if !deadline.Stop() {
-				return errors.Newf("timed out producing records after %s", timeout)
+			deadline.Stop()
+			if settled.CompareAndSwap(false, true) {
+				return err
 			}
-			return err
+			return errors.Join(
+				errors.Newf("timed out producing records after %s", timeout),
+				errors.Skip(err, context.Canceled),
+			)
 		}),
 	}
 	sCtx.Go(func(ctx context.Context) error {
