@@ -991,7 +991,7 @@ TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
     this->add_slave(stg);
     const auto slaves = ASSERT_NIL_P(this->master->scan());
     ASSERT_TRUE(slaves[0].properties.settings.has_value());
-    EXPECT_TRUE(slaves[0].properties.settings->contains("mode"));
+    EXPECT_TRUE(slaves[0].properties.settings.value().contains("mode"));
     EXPECT_EQ(
         slaves[0].status.settings_error,
         "failed to read 0x8050:03: Object does not exist in the object dictionary"
