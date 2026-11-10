@@ -9,7 +9,7 @@
 
 # /// script
 # requires-python = ">=3.12,<4"
-# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.59,<0.60"]
+# dependencies = ["boto3", "certifi>=2026.10.19", "synnax>=0.60,<0.61"]
 # ///
 
 """Stops the EC2 instance behind a runner, unless GitHub has a job assigned to it.
