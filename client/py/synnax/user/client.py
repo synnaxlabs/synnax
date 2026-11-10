@@ -7,14 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.access import role as role_
 from synnax.exceptions import ValidationError
-from synnax.transport import send_batch
 from synnax.user import actions_gen
 from synnax.user.payload import New, User
 from synnax.user.types_gen import (
@@ -23,8 +23,9 @@ from synnax.user.types_gen import (
     Key,
     Order,
     RetrieveRequest,
-    SetPayload,
     SetUsernamePayload,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -50,17 +51,15 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class Client:
     client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, transport: UnaryClient) -> None:
         self.client = transport
+        self._sender = actions.Sender[Key, Action](
+            client=transport, endpoint="/user/dispatch", update=UpdateAction
+        )
 
     @overload
     def create(
@@ -112,16 +111,32 @@ class Client:
         return res
 
     def change_username(self, key: Key, username: str) -> None:
-        action = actions_gen.set_username(SetUsernamePayload(username=username))
-        self.client.send(
-            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
+        self._sender.dispatch(
+            key, actions_gen.set_username(SetUsernamePayload(username=username))
         )
 
     def change_name(self, key: Key, *, name: str) -> None:
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        self.client.send(
-            "/user/dispatch", _DispatchRequest(key=key, actions=[action]), Empty
-        )
+        self.update(key=key, name=name)
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes users by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the user that it changes.
+        :param update: The key of the user and the fields to change.
+        :raises NotFoundError: If no user has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
 
     def set_role(self, keys: Key | list[Key], role: role_.Key) -> None:
         """Gives a role to the users with the given keys. The role replaces the role
@@ -133,12 +148,7 @@ class Client:
             not exist.
         :raises NotFoundError: If one of the users does not exist.
         """
-        action = actions_gen.set(SetPayload(path=["role"], value=str(role)))
-        send_batch(
-            self.client,
-            "/user/dispatch",
-            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
-        )
+        self.update([{"key": k, "role": role} for k in normalize(keys)])
 
     @overload
     def retrieve(

@@ -7,17 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import actions, group as group_, project as project_, ranger
 from synnax.table.types_gen import (
+    Action,
     Key,
     RetrieveRequest,
     RetrieveResponse,
     Table,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -38,29 +41,17 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _SetPayload(BaseModel):
-    path: list[str]
-    value: Any
-
-
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[_SetAction]
-
-
 class Client:
     """Client for creating, retrieving, renaming, and deleting tables in a Core."""
 
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/table/dispatch", update=UpdateAction
+        )
 
     @overload
     def create(self, *, name: str, project: project_.Key) -> Table: ...
@@ -187,15 +178,33 @@ class Client:
         res = self._client.send("/table/retrieve", req, RetrieveResponse)
         return sole("table", req, res.tables) if single else res.tables
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes tables by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the table that it changes.
+        :param update: The key of the table and the fields to change.
+        :raises NotFoundError: If no table has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Rename a table.
 
         :param key: The key of the table to rename.
         :param name: The new name for the table.
         """
-        action = _SetAction(set=_SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/table/dispatch", req, Empty)
+        self.update(key=key, name=name)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Delete one or more tables by key.

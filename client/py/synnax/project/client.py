@@ -7,14 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
-from synnax import group as group_, imex
-from synnax.project import actions_gen
+from synnax import actions, group as group_, imex
 from synnax.project.types_gen import (
     Action,
     Cursor,
@@ -23,7 +22,8 @@ from synnax.project.types_gen import (
     Project,
     RetrieveRequest,
     RetrieveResponse,
-    SetPayload,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -45,12 +45,6 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class _ExportRequest(BaseModel):
     key: Key
     encoding: imex.Encoding
@@ -69,6 +63,7 @@ class Client:
     """
 
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     _file_transport: FileTransport
     instrumentation: Instrumentation = NOOP
 
@@ -80,6 +75,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/project/dispatch", update=UpdateAction
+        )
         self._file_transport = file_transport
         self.instrumentation = instrumentation
 
@@ -126,15 +124,33 @@ class Client:
             "/project/delete", _DeleteRequest(keys=normalize(keys)), Empty
         )
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes projects by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the project that it changes.
+        :param update: The key of the project and the fields to change.
+        :raises NotFoundError: If no project has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Rename a project.
 
         :param key: The key of the project to rename.
         :param name: The new name for the project.
         """
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/project/dispatch", req, Empty)
+        self.update(key=key, name=name)
 
     def export(
         self, key: Key, dest: FilePath, *, encoding: imex.Encoding = "JSON"

@@ -22,6 +22,7 @@ from synnax.channel.types_gen import (
     Operation,
     Order,
     Payload,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "Params",
     "Payload",
     "Retriever",
+    "UpdateInput",
     "Where",
     "WhereInput",
     "Writer",

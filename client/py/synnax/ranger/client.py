@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator, Sequence
-from typing import TYPE_CHECKING, Any, Literal, cast, overload, override
+from typing import TYPE_CHECKING, Any, Literal, Unpack, cast, overload, override
 
 import numpy as np
 from pydantic import BaseModel, PrivateAttr
@@ -29,6 +29,7 @@ from synnax.ranger.types_gen import (
     Order,
     Payload,
     RetrieveRequest,
+    UpdateInput,
     Where,
     WhereInput,
     resource_id,
@@ -808,6 +809,26 @@ class Client:
         key: Key | list[Key] | tuple[Key, ...],
     ) -> None:
         self._writer.delete(normalize(key))
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes ranges by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the range that it changes.
+        :param update: The key of the range and the fields to change.
+        :raises NotFoundError: If no range has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._writer.update([update] if updates is None else updates)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a range.

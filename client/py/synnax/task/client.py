@@ -18,6 +18,7 @@ from typing import (
     Literal,
     Protocol as BaseProtocol,
     TypeVar,
+    Unpack,
     overload,
     override,
 )
@@ -28,10 +29,9 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_, ranger
+from synnax import actions, device as device_, framer, rack as rack_, ranger
 from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_LOADING, VARIANT_WARNING
-from synnax.task import actions_gen
 from synnax.task.types_gen import (
     Action,
     Command,
@@ -41,8 +41,9 @@ from synnax.task.types_gen import (
     Payload,
     RetrieveRequest,
     RetrieveResponse,
-    SetPayload,
     Status,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
     resource_id,
@@ -62,12 +63,6 @@ class _CreateRequest(BaseModel):
 
 
 _CreateResponse = _CreateRequest
-
-
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
 
 
 class _DeleteRequest(BaseModel):
@@ -402,6 +397,7 @@ class JSONConfigMixin[C: BaseModel](Protocol):
 
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     _frame_client: framer.Client
     _default_rack: rack_.Rack | None
     _racks: rack_.Client
@@ -418,6 +414,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/task/dispatch", update=UpdateAction
+        )
         self._frame_client = frame_client
         self._racks = rack_client
         self._device_client = device_client
@@ -512,19 +511,35 @@ class Client:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
             task.set_internal(self.sugar(created)[0])
             return task
-        actions: list[Action] = [
-            actions_gen.set(SetPayload(path=["name"], value=pld.name)),
-            actions_gen.set(SetPayload(path=["rack"], value=pld.rack)),
-            actions_gen.set(SetPayload(path=["config"], value=pld.config)),
-        ]
-        req = _DispatchRequest(key=pld.key, actions=actions)
-        self._client.send("/task/dispatch", req, Empty)
+        self.update(
+            key=pld.key, name=pld.name, rack=pld.rack, config={"set": pld.config}
+        )
         task.set_internal(self.retrieve(key=pld.key))
         return task
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))
         self._client.send("/task/delete", req, Empty)
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes tasks by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the task that it changes.
+        :param update: The key of the task and the fields to change.
+        :raises NotFoundError: If no task has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
 
     def rename(self, key: Key, name: str) -> None:
         """Renames a task.
@@ -533,9 +548,7 @@ class Client:
         :param name: The new name for the task.
         :raises NotFoundError: If no task has the given key.
         """
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/task/dispatch", req, Empty)
+        self.update(key=key, name=name)
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Task: ...

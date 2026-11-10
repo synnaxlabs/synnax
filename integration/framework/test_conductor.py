@@ -633,7 +633,9 @@ All matching is case-insensitive substring.
         # Update conductor range end time
         if conductor.range is not None:
             try:
-                conductor.client.ranges.set_end(conductor.range.key, sy.TimeStamp.now())
+                conductor.client.ranges.update(
+                    key=conductor.range.key, time_range={"end": sy.TimeStamp.now()}
+                )
             except Exception as e:
                 conductor.log(f"Warning: Failed to finalize conductor range: {e}")
 

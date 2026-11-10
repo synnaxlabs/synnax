@@ -7,23 +7,25 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.util import request_where, returns_one, sole
-from synnax.view import actions_gen
 from synnax.view.types_gen import (
     Action,
+    BaseUpdateInput,
     Cursor,
     Key,
     Order,
     RetrieveRequest,
     RetrieveResponse,
-    SetPayload,
     Type,
+    UpdateAction,
+    UpdateInput,
     View,
     Where,
     WhereInput,
@@ -39,18 +41,13 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -60,6 +57,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/view/dispatch", update=UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @overload
@@ -79,6 +79,27 @@ class Client:
             keys = [keys]
         self._client.send("/view/delete", _DeleteRequest(keys=keys), Empty)
 
+    @overload
+    def update(self, /, **update: Unpack[BaseUpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes views by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the view that it changes.
+        :param update: The key of the view and the fields that all view types hold.
+            Use a list of updates to change the type of a view.
+        :raises NotFoundError: If no view has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a view.
 
@@ -86,9 +107,7 @@ class Client:
         :param name: The new name for the view.
         :raises NotFoundError: If no view has the given key.
         """
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/view/dispatch", req, Empty)
+        self.update(key=key, name=name)
 
     @overload
     def retrieve(

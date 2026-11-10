@@ -7,11 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.group import actions_gen
 from synnax.group.types_gen import (
     Action,
@@ -22,12 +23,12 @@ from synnax.group.types_gen import (
     RetrieveRequest,
     RetrieveResponse,
     SetParentPayload,
-    SetPayload,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
 from synnax.resource import ID, CrudeID, Type
-from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
 
@@ -47,17 +48,15 @@ class _DeleteReq(BaseModel):
     keys: list[Key]
 
 
-class _DispatchReq(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, client: UnaryClient):
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/group/dispatch", update=UpdateAction
+        )
 
     def create(
         self,
@@ -196,11 +195,29 @@ class Client:
         res = self._client.send("/group/retrieve", req, RetrieveResponse)
         return sole("group", req, res.groups) if single else res.groups
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes groups by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the group that it changes.
+        :param update: The key of the group and the fields to change.
+        :raises NotFoundError: If no group has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> Empty:
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        return self._client.send(
-            "/group/dispatch", _DispatchReq(key=key, actions=[action]), Empty
-        )
+        self.update(key=key, name=name)
+        return Empty()
 
     def delete(self, keys: list[Key]) -> Empty:
         return self._client.send("/group/delete", _DeleteReq(keys=keys), Empty)
@@ -214,9 +231,5 @@ class Client:
         action = actions_gen.set_parent(
             SetParentPayload(parent=ID(parent) if parent is not None else None)
         )
-        send_batch(
-            self._client,
-            "/group/dispatch",
-            [_DispatchReq(key=k, actions=[action]) for k in keys],
-        )
+        self._sender.dispatch_each(keys, action)
         return Empty()

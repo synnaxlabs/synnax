@@ -7,12 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from collections.abc import Mapping, Sequence
+from typing import Any
+
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient
-from synnax.ranger import actions_gen
-from synnax.ranger.types_gen import Action, Key, Payload, SetPayload
+from synnax import actions
+from synnax.ranger.types_gen import Action, Key, Payload, UpdateAction
 from synnax.telem import TimeStamp
 
 
@@ -28,14 +31,9 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class Writer:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     instrumentation: Instrumentation
 
     def __init__(
@@ -45,6 +43,9 @@ class Writer:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/range/dispatch", update=UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @trace("debug", key="range.create")
@@ -57,17 +58,14 @@ class Writer:
         req = _DeleteRequest(keys=keys)
         self._client.send("/range/delete", req, Empty)
 
+    @trace("debug", key="range.update")
+    def update(self, updates: Sequence[Mapping[str, Any]]) -> None:
+        self._sender.update(updates)
+
     @trace("debug", key="range.rename")
     def rename(self, key: Key, name: str) -> None:
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/range/dispatch", req, Empty)
+        self.update([{"key": key, "name": name}])
 
     @trace("debug", key="range.set_end")
     def set_end(self, key: Key, end: TimeStamp) -> None:
-        # A string holds every 64-bit timestamp exactly.
-        action = actions_gen.set(
-            SetPayload(path=["time_range", "end"], value=str(int(end)))
-        )
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/range/dispatch", req, Empty)
+        self.update([{"key": key, "time_range": {"end": end}}])

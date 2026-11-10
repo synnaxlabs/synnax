@@ -537,7 +537,9 @@ class ExecutionClient:
         )
 
     def _finalize_range(self, test_range: sy.Range) -> sy.Range:
-        self._client.ranges.set_end(test_range.key, sy.TimeStamp.now())
+        self._client.ranges.update(
+            key=test_range.key, time_range={"end": sy.TimeStamp.now()}
+        )
         return self._client.ranges.retrieve(key=test_range.key)
 
     # ----- Timeout monitoring -----

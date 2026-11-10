@@ -10,16 +10,19 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.arc.graph import Graph
 from synnax.arc.text import Text
 from synnax.arc.types_gen import (
+    Action,
     AutomationPayload,
+    BaseUpdateInput,
     Cursor,
     GraphSource,
     Key,
@@ -32,6 +35,8 @@ from synnax.arc.types_gen import (
     Source,
     TextSource,
     Type,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
     resource_id,
@@ -100,9 +105,13 @@ class Client:
     """Client for managing Arc programs in the Synnax cluster."""
 
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/arc/dispatch", update=UpdateAction
+        )
 
     @overload
     def create(
@@ -276,6 +285,27 @@ class Client:
         res = self._client.send("/arc/retrieve", req, RetrieveResponse)
         arcs = self._sugar(res.arcs)
         return sole("Arc", req, arcs) if single else arcs
+
+    @overload
+    def update(self, /, **update: Unpack[BaseUpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes Arcs by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the Arc that it changes.
+        :param update: The key of the Arc and the fields that all Arc types hold.
+            Use a list of updates to change the type of an Arc.
+        :raises NotFoundError: If no Arc has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

@@ -7,17 +7,20 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import actions, group as group_, project as project_, ranger
 from synnax.lineplot.types_gen import (
+    Action,
     Key,
     LinePlot,
     RetrieveRequest,
     RetrieveResponse,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -38,31 +41,19 @@ class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
-class _SetPayload(BaseModel):
-    path: list[str]
-    value: Any
-
-
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[_SetAction]
-
-
 class Client:
     """Client for creating, retrieving, renaming, and deleting line plots on a Synnax
     Core. A line plot belongs to exactly one of a project and a range.
     """
 
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/lineplot/dispatch", update=UpdateAction
+        )
 
     @overload
     def create(self, *, name: str, project: project_.Key) -> LinePlot: ...
@@ -190,17 +181,33 @@ class Client:
         res = self._client.send("/lineplot/retrieve", req, RetrieveResponse)
         return sole("line plot", req, res.line_plots) if single else res.line_plots
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes line plots by partial records. A field that an update leaves out
+        keeps its value, and a None clears an optional field. A list of updates applies
+        in one transaction.
+
+        :param updates: The updates, each with the key of the line plot that it changes.
+        :param update: The key of the line plot and the fields to change.
+        :raises NotFoundError: If no line plot has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Rename a line plot.
 
         :param key: The key of the line plot to rename.
         :param name: The new name for the line plot.
         """
-        req = _DispatchRequest(
-            key=key,
-            actions=[_SetAction(set=_SetPayload(path=["name"], value=name))],
-        )
-        self._client.send("/lineplot/dispatch", req, Empty)
+        self.update(key=key, name=name)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Delete one or more line plots by key.

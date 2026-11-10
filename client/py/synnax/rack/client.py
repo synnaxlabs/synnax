@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import group as group_
+from synnax import actions, group as group_
 from synnax.exceptions import NotFoundError
-from synnax.rack import actions_gen
 from synnax.rack.types_gen import (
     Action,
     Cursor,
@@ -23,11 +22,11 @@ from synnax.rack.types_gen import (
     Order,
     Rack,
     RetrieveRequest,
-    SetPayload,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
-from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole
 from x import filter
 from x.lists import normalize
@@ -41,12 +40,6 @@ class _CreateResponse(BaseModel):
     racks: list[Rack]
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
@@ -57,6 +50,7 @@ class _RetrieveResponse(BaseModel):
 
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     _embedded_rack: Rack | None = None
     instrumentation: Instrumentation
 
@@ -67,6 +61,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/rack/dispatch", update=UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @overload
@@ -105,6 +102,30 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/rack/delete", req, Empty)
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes racks by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the rack that it changes.
+        :param update: The key of the rack and the fields to change.
+        :raises NotFoundError: If no rack has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        sent = [update] if updates is None else updates
+        self._sender.update(sent)
+        embedded = self._embedded_rack
+        if embedded is not None and any(u["key"] == embedded.key for u in sent):
+            self._embedded_rack = None
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a rack.
 
@@ -112,11 +133,7 @@ class Client:
         :param name: The new name for the rack.
         :raises NotFoundError: If no rack has the given key.
         """
-        action = actions_gen.set(SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/rack/dispatch", req, Empty)
-        if self._embedded_rack is not None and self._embedded_rack.key == key:
-            self._embedded_rack = None
+        self.update(key=key, name=name)
 
     def set_group(self, keys: Key | list[Key], group: group_.Key | None = None) -> None:
         """Moves racks into a group, or out of their group when group is None.
@@ -124,13 +141,7 @@ class Client:
         :param keys: The key of the rack to move, or a list of keys.
         :param group: The key of the group to move the racks into.
         """
-        value = None if group is None else str(group)
-        action = actions_gen.set(SetPayload(path=["group"], value=value))
-        send_batch(
-            self._client,
-            "/rack/dispatch",
-            [_DispatchRequest(key=k, actions=[action]) for k in normalize(keys)],
-        )
+        self.update([{"key": k, "group": group} for k in normalize(keys)])
 
     @overload
     def retrieve(self, key: Key, *, include_status: bool = ...) -> Rack: ...

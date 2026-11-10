@@ -7,15 +7,14 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel, JsonValue
 from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import group as group_, rack as rack_
-from synnax.device import actions_gen
+from synnax import actions, group as group_, rack as rack_
 from synnax.device.types_gen import (
     Action,
     Cursor,
@@ -24,11 +23,11 @@ from synnax.device.types_gen import (
     Order,
     RetrieveRequest,
     RetrieveResponse,
-    SetPayload,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
-from synnax.transport import send_batch
 from synnax.util import request_where, returns_one, sole, sole_or_none
 from x import filter
 from x.lists import normalize
@@ -41,18 +40,13 @@ class _CreateRequest(BaseModel):
 _CreateResponse = _CreateRequest
 
 
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[Action]
-
-
 class _DeleteRequest(BaseModel):
     keys: list[Key]
 
 
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     instrumentation: Instrumentation = NOOP
 
     def __init__(
@@ -62,6 +56,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/device/dispatch", update=UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @overload
@@ -134,6 +131,26 @@ class Client:
         req = _DeleteRequest(keys=keys)
         self._client.send("/device/delete", req, Empty)
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes devices by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the device that it changes.
+        :param update: The key of the device and the fields to change.
+        :raises NotFoundError: If no device has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a device.
 
@@ -141,7 +158,7 @@ class Client:
         :param name: The new name for the device.
         :raises NotFoundError: If no device has the given key.
         """
-        self.dispatch(key, actions_gen.set(SetPayload(path=["name"], value=name)))
+        self.update(key=key, name=name)
 
     def set_group(self, keys: list[Key], group: group_.Key | None = None) -> None:
         """Moves devices into a group, or out of their group when group is None.
@@ -150,25 +167,17 @@ class Client:
         :param group: The key of the group to move the devices into. The group must
             sit under the rack of each device.
         """
-        value = None if group is None else str(group)
-        action = actions_gen.set(SetPayload(path=["group"], value=value))
-        send_batch(
-            self._client,
-            "/device/dispatch",
-            [_DispatchRequest(key=k, actions=[action]) for k in keys],
-        )
+        self.update([{"key": k, "group": group} for k in keys])
 
     def dispatch(self, key: Key, actions: Action | list[Action]) -> None:
         """Applies actions to a device, in order, in one transaction.
 
         :param key: The key of the device.
-        :param actions: The actions to apply, such as ``device.set`` and
-            ``device.set_rack``.
+        :param actions: The actions to apply, such as ``device.set_rack``.
         :raises NotFoundError: If no device has the given key.
         :raises ValidationError: If an action is invalid.
         """
-        req = _DispatchRequest(key=key, actions=normalize(actions))
-        self._client.send("/device/dispatch", req, Empty)
+        self._sender.dispatch(key, actions)
 
     @overload
     def retrieve(

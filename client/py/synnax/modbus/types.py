@@ -132,9 +132,7 @@ class ReadTask(
             key = key.replace("_", "-")
             channels[key] = ch.channel
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 
@@ -197,9 +195,7 @@ class WriteTask(
                 key += f"-{ch.bit}"
             channels[key.replace("_", "-")] = ch.channel
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 

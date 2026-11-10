@@ -7,18 +7,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
-from synnax import group as group_, project as project_, ranger
+from synnax import actions, group as group_, project as project_, ranger
 from synnax.schematic import symbol
 from synnax.schematic.types_gen import (
+    Action,
     Key,
     RetrieveRequest,
     RetrieveResponse,
     Schematic,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -50,22 +53,6 @@ class _CopyResponse(BaseModel):
     schematic: Schematic
 
 
-class _SetPayload(BaseModel):
-    path: list[str]
-    value: Any
-
-
-class _SetAction(BaseModel):
-    type: Literal["set"] = "set"
-    set: _SetPayload
-
-
-class _DispatchRequest(BaseModel):
-    key: Key
-    dispatch_key: str = ""
-    actions: list[_SetAction]
-
-
 class Client:
     """Client for creating, retrieving, renaming, copying, and deleting schematics.
 
@@ -78,6 +65,9 @@ class Client:
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/schematic/dispatch", update=UpdateAction
+        )
         self.symbols = symbol.Client(client)
 
     @overload
@@ -206,6 +196,26 @@ class Client:
         res = self._client.send("/schematic/retrieve", req, RetrieveResponse)
         return sole("schematic", req, res.schematics) if single else res.schematics
 
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes schematics by partial records. A field that an update leaves out
+        keeps its value, and a None clears an optional field. A list of updates applies
+        in one transaction.
+
+        :param updates: The updates, each with the key of the schematic that it changes.
+        :param update: The key of the schematic and the fields to change.
+        :raises NotFoundError: If no schematic has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
+
     def rename(self, key: Key, name: str) -> None:
         """Renames a schematic.
 
@@ -213,12 +223,7 @@ class Client:
         :param name: The new name for the schematic.
         :raises NotFoundError: If no schematic exists for key.
         """
-        action = _SetAction(set=_SetPayload(path=["name"], value=name))
-        self._client.send(
-            "/schematic/dispatch",
-            _DispatchRequest(key=key, actions=[action]),
-            Empty,
-        )
+        self.update(key=key, name=name)
 
     def copy(
         self,

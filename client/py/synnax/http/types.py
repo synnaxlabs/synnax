@@ -127,9 +127,7 @@ class ReadTask(
                     index_key = field.channel
             read[ep.path] = {"index": index_key, "channels": channels}
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 
@@ -179,9 +177,7 @@ class WriteTask(
         for ep in self.config.endpoints:
             write[ep.path] = ep.channel.channel
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 

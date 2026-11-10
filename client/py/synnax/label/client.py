@@ -7,19 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.exceptions import ValidationError
 from synnax.label.types_gen import (
+    Action,
     Cursor,
     Key,
     Label,
     Order,
     RetrieveRequest,
     RetrieveResponse,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -56,9 +60,13 @@ class Client:
     """Client for creating, retrieving, deleting, and attaching labels in a Core."""
 
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
 
     def __init__(self, client: UnaryClient) -> None:
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/label/dispatch", update=UpdateAction
+        )
 
     @overload
     def create(self, *, name: str, color: color_.Crude) -> Label: ...
@@ -212,6 +220,26 @@ class Client:
         )
         res = self._client.send("/label/retrieve", req, RetrieveResponse)
         return sole("label", req, res.labels) if single else res.labels
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes labels by partial records. A field that an update leaves out keeps
+        its value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the label that it changes.
+        :param update: The key of the label and the fields to change.
+        :raises NotFoundError: If no label has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
 
     def delete(self, keys: Key | list[Key]) -> None:
         """Deletes one or more labels and removes them from every range and status.

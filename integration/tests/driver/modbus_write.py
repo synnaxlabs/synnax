@@ -128,12 +128,7 @@ class ModbusWriteWordOrder(ModbusWriteTaskCase):
         stream_rate: sy.Rate,
     ) -> sy.modbus.WriteTask:
         sy.device.ensure_object(device.properties, "connection")["swap_words"] = True
-        self.client.devices.dispatch(
-            device.key,
-            sy.device.set(
-                sy.device.SetPayload(path=["properties"], value=device.properties)
-            ),
-        )
+        self.client.devices.update(key=device.key, properties=device.properties)
         return super().create(
             device=device,
             task_name=task_name,

@@ -7,19 +7,23 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import Any, Literal, overload
+from typing import Any, Literal, Unpack, overload
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import actions
 from synnax.access.role.types_gen import (
+    Action,
     Cursor,
     Key,
     Order,
     RetrieveRequest,
     RetrieveResponse,
     Role,
+    UpdateAction,
+    UpdateInput,
     Where,
     WhereInput,
 )
@@ -41,6 +45,7 @@ class _DeleteRequest(BaseModel):
 
 class Client:
     _client: UnaryClient
+    _sender: actions.Sender[Key, Action]
     instrumentation: Instrumentation
 
     def __init__(
@@ -50,6 +55,9 @@ class Client:
         instrumentation: Instrumentation = NOOP,
     ):
         self._client = client
+        self._sender = actions.Sender[Key, Action](
+            client=client, endpoint="/access/role/dispatch", update=UpdateAction
+        )
         self.instrumentation = instrumentation
 
     @overload
@@ -194,6 +202,26 @@ class Client:
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         return sole("role", req, res.roles) if single else res.roles
+
+    @overload
+    def update(self, /, **update: Unpack[UpdateInput]) -> None: ...
+
+    @overload
+    def update(self, updates: list[UpdateInput], /) -> None: ...
+
+    def update(
+        self, updates: list[UpdateInput] | None = None, /, **update: Any
+    ) -> None:
+        """Changes roles by partial records. A field that an update leaves out keeps its
+        value, and a None clears an optional field. A list of updates applies in one
+        transaction.
+
+        :param updates: The updates, each with the key of the role that it changes.
+        :param update: The key of the role and the fields to change.
+        :raises NotFoundError: If no role has a given key.
+        :raises ValidationError: If an update is invalid.
+        """
+        self._sender.update([update] if updates is None else updates)
 
     def delete(self, keys: Key | list[Key]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

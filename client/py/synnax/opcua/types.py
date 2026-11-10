@@ -123,9 +123,7 @@ class ReadTask(
                     {"node_id": ch.node_id, "field": ch.field, "channel": ch.channel}
                 )
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 
@@ -177,9 +175,7 @@ class WriteTask(
             if ch.node_id:
                 channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
-        device_client.dispatch(
-            dev.key, device.set(device.SetPayload(path=["properties"], value=props))
-        )
+        device_client.update(key=dev.key, properties=props)
         return dev
 
 
