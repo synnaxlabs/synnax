@@ -154,6 +154,16 @@ TEST(ReadSettings, Gives6xSTGInStandaloneModeItsSyncMode) {
     EXPECT_TRUE(mode["switch"].empty());
 }
 
+/// @brief it should name the object that holds the mode of a 6xSTG.
+TEST(ReadSettings, NamesTheModeObjectOf6xSTG) {
+    const auto settings = ASSERT_NIL_P(
+        read_settings(DEWESOFT, IOLITE_6XSTG, STG_OP_MODES, stg(0))
+    );
+    ASSERT_TRUE(settings.has_value());
+    EXPECT_EQ((*settings)["mode"]["index"], 0x8020);
+    EXPECT_EQ((*settings)["mode"]["sub_index"], 9);
+}
+
 /// @brief it should mark a 6xSTG that DewesoftX also sets up as shared, and switch it
 /// to standalone with a write that saves the mode.
 TEST(ReadSettings, Switches6xSTGInDualModeToStandaloneAndSaves) {

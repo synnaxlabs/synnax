@@ -116,6 +116,8 @@ std::pair<x::json::json, x::errors::Error> read_mode(
     );
     if (err) return {{}, err};
     x::json::json result{
+        {"index", mode["index"]},
+        {"sub_index", mode["sub_index"]},
         {"value", held},
         {"shared", false},
         {"switch", x::json::json::array()},

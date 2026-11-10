@@ -25,9 +25,10 @@ namespace driver::ethercat::esi {
 /// settings under "device", and under "channels" the settings of each input with the
 /// entries that read it in every PDO layout. An entry whose format only one program
 /// reads names it in "only_read_by". When the catalog describes the card's mode,
-/// "mode" holds the value that the card holds, whether other software sets up the
-/// card ("shared"), the sync mode that the value needs as a dc::Choice among op_modes
-/// ("op_mode"), and the startup parameters that make the card standalone ("switch").
+/// "mode" holds the address of the object that holds it ("index" and "sub_index"), the
+/// value that the card holds, whether other software sets up the card ("shared"), the
+/// sync mode that the value needs as a dc::Choice among op_modes ("op_mode"), and the
+/// startup parameters that make the card standalone ("switch").
 /// Reads the option lists, limits, and mode that the catalog takes from the card
 /// through read. Returns nullopt when the catalog describes no settings for the
 /// product.

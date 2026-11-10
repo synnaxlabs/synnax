@@ -64,6 +64,9 @@ export interface StartupParameter extends z.infer<typeof startupParameterZ> {}
 
 /** The mode that a slave held at the scan, as its catalog describes it. */
 const modeZ = z.object({
+  /** The address of the CoE object that holds the mode. */
+  index: z.number(),
+  subIndex: z.number(),
   value: z.number(),
   /** Whether other software also sets up the slave. */
   shared: z.boolean(),

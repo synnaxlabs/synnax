@@ -205,6 +205,8 @@ export const createDewesoftXSettings = (
       ),
     })),
     mode: {
+      index: 0x8020,
+      subIndex: 9,
       value: shared ? 1 : 0,
       shared,
       switch: shared

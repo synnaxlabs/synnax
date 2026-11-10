@@ -374,6 +374,8 @@ describe("EtherCAT device ContextMenuItems", () => {
           device: [],
           channels: [],
           mode: {
+            index: 0x8020,
+            subIndex: 9,
             value: 0,
             shared: false,
             opMode: {
