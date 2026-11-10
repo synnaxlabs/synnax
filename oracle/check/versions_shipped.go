@@ -10,14 +10,14 @@
 package check
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"maps"
-	"path"
 	"slices"
 
 	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/plugin/go/types"
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/oracle/versions"
 )
@@ -30,10 +30,9 @@ type Release struct {
 	Root string
 }
 
-// checkShipped fails on every version file that changes the stored shape a stable
-// release shipped. A shipped version is frozen: a shape change needs a new version.
-// Docs, validation rules, and omit-transient types do not reach the stored bytes, so
-// they may change.
+// checkShipped fails on every version file whose stored types no longer decode the
+// data a stable release wrote. It compares resolved shapes, so a type may move to
+// another file or chain, and an enum or union may gain members.
 func checkShipped(
 	ctx context.Context,
 	r *GateReport,
@@ -71,8 +70,9 @@ func checkShipped(
 				fail("is gone")
 				continue
 			}
-			old, err := shipped.File(ctx, livePath, n)
-			if err != nil {
+			ns := versions.DepNS(livePath, n)
+			old, now := resolution.NewTable(), resolution.NewTable()
+			if err := shipped.SurfaceInto(ctx, old, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path:     filePath,
 					Severity: SeverityError,
@@ -80,72 +80,55 @@ func checkShipped(
 				})
 				continue
 			}
-			f, err := resolver.File(ctx, livePath, n)
-			if err != nil {
+			if err := resolver.SurfaceInto(ctx, now, livePath, n, ns); err != nil {
 				r.fail(Finding{
 					Path: filePath, Severity: SeverityError, Message: err.Error(),
 				})
 				continue
 			}
-			compareShipped(old, f, fail)
+			compareStored(old, now, ns, fail)
 		}
 	}
 }
 
-// compareShipped reports each stored-shape difference between the shipped and the
-// current form of one version file.
-func compareShipped(old, f *versions.File, fail func(format string, args ...any)) {
-	persisted := old.Persisted()
-	persisted.Add(f.Persisted().Slice()...)
-	// A union compares its inline variant payloads itself.
-	for _, t := range slices.Concat(old.Defined, f.Defined) {
-		if t.Synthetic {
-			persisted.Remove(t.Name)
+// compareStored checks each stored type of the surface in namespace ns: every type
+// with a codec or a migration. A stored type the surface no longer carries is allowed
+// only when another stored type that remains reaches it, since that type's comparison
+// then covers its shape.
+func compareStored(
+	old, now *resolution.Table, ns string, fail func(format string, args ...any),
+) {
+	var roots []resolution.Type
+	for _, t := range old.TypesInNamespace(ns) {
+		if !t.Synthetic && (domain.HasExprFromType(t, "go", "marshal") ||
+			domain.HasExprFromType(t, "go", "migrate")) {
+			roots = append(roots, t)
 		}
 	}
-	oldDefined, defined := declared(old), declared(f)
-	for _, name := range slices.Sorted(maps.Keys(persisted)) {
-		oldAlias, wasAlias := old.Aliases[name]
-		oldType, wasDefined := oldDefined[name]
-		alias, isAlias := f.Aliases[name]
-		t, isDefined := defined[name]
-		switch {
-		case !wasAlias && !wasDefined:
-			fail("adds %s", name)
-		case !isAlias && !isDefined:
-			fail("removes %s", name)
-		case wasAlias && (!isAlias || alias != oldAlias):
-			fail("changes the alias line of %s", name)
-		case wasDefined && !isDefined:
-			fail("replaces the declaration of %s with an alias line", name)
-		case wasDefined &&
-			!types.StructurallyEqual(oldType, t, old.Table, f.Table):
-			fail("changes the shape of %s", name)
+	slices.SortFunc(
+		roots,
+		func(a, b resolution.Type) int { return cmp.Compare(a.Name, b.Name) },
+	)
+	var kept []resolution.Type
+	for _, t := range roots {
+		if _, ok := now.Get(t.QualifiedName); ok {
+			kept = append(kept, t)
 		}
 	}
-	oldStored, _ := classifyDeps(old)
-	stored, _ := classifyDeps(f)
-	for _, depLive := range slices.Sorted(maps.Keys(old.Pins)) {
-		ns := path.Base(depLive)
-		if !oldStored.Contains(ns) && !stored.Contains(ns) {
+	for _, t := range roots {
+		n, ok := now.Get(t.QualifiedName)
+		if !ok {
+			if !slices.ContainsFunc(kept, func(k resolution.Type) bool {
+				return resolution.RefersTo(
+					resolution.TypeRef{Name: k.QualifiedName}, t.QualifiedName, old,
+				)
+			}) {
+				fail("removes %s", t.Name)
+			}
 			continue
 		}
-		pv, ok := f.Pins[depLive]
-		if !ok {
-			fail("drops its pin of %s v%d", depLive, old.Pins[depLive])
-		} else if pv != old.Pins[depLive] {
-			fail("moves its pin of %s from v%d to v%d", depLive, old.Pins[depLive], pv)
+		if reason := newShapes(old, now).typ(t.Name, t, n); reason != "" {
+			fail("changes the stored shape of %s (%s)", t.Name, reason)
 		}
 	}
-}
-
-// declared maps the non-synthetic declarations of f by name.
-func declared(f *versions.File) map[string]resolution.Type {
-	m := make(map[string]resolution.Type, len(f.Defined))
-	for _, t := range f.Defined {
-		if !t.Synthetic {
-			m[t.Name] = t
-		}
-	}
-	return m
 }

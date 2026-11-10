@@ -87,8 +87,12 @@ or generator logic and schemas disagree.
   `@go fields`, `@go imports`, and `@go to_any` in the live file and the definer; each
   dependency type such a definer reaches through its pins, at its current version, has
   the same `@validate` and `@default` in its live file and its version file), and
-  shipped versions (every version file the latest stable Core tag holds keeps the stored
-  shape it had there; docs, rules, and omit-transient types may change).
+  shipped versions (each stored type of a version file the latest stable Core tag holds
+  must still decode the data that release wrote). The shipped check compares resolved
+  shapes across pins: stored field names and order, field types, optionality, `@key`,
+  defaults, and enum and union members. A type may move to another file or chain, and an
+  enum or union may gain members. Docs, rules, codec markers, and omit-transient types
+  may change.
 - Frozen `versions/vN` Go packages are regenerated, checked outputs of the version
   files. In current and frozen packages alike, a stored reference resolves to the
   dependency version that the declaring version file imports, so a freeze never moves a

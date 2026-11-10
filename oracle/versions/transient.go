@@ -24,36 +24,6 @@ import (
 // marshal declarations (a resource persisted through another resource's bytes)
 // has no transient members.
 func (f *File) Transient() set.Set[string] {
-	roots := f.marshalRoots()
-	stored := f.closure(roots, true, false)
-	all := f.closure(roots, false, false)
-	transient := make(set.Set[string])
-	for name := range all {
-		if !stored.Contains(name) {
-			transient.Add(name)
-		}
-	}
-	return transient
-}
-
-// Persisted returns the names of the members, alias lines included, that reach the
-// stored bytes through the file's @go marshal declarations. A file with no marshal
-// declarations persists through another resource's bytes, so all of its members count.
-func (f *File) Persisted() set.Set[string] {
-	if roots := f.marshalRoots(); len(roots) > 0 {
-		return f.closure(roots, true, true)
-	}
-	all := make(set.Set[string], len(f.Defined)+len(f.Aliases))
-	for _, t := range f.Defined {
-		all.Add(t.Name)
-	}
-	for name := range f.Aliases {
-		all.Add(name)
-	}
-	return all
-}
-
-func (f *File) marshalRoots() []string {
 	roots := make([]string, 0)
 	for _, t := range f.Defined {
 		if t.Synthetic {
@@ -65,13 +35,20 @@ func (f *File) marshalRoots() []string {
 			}
 		}
 	}
-	return roots
+	stored := f.closure(roots, true)
+	all := f.closure(roots, false)
+	transient := make(set.Set[string])
+	for name := range all {
+		if !stored.Contains(name) {
+			transient.Add(name)
+		}
+	}
+	return transient
 }
 
 // closure walks the file's local reference graph from the given roots. When
-// persistedOnly is set, omitted struct fields do not contribute edges. When aliases is
-// set, the result also holds the alias lines the walk reaches.
-func (f *File) closure(roots []string, persistedOnly, aliases bool) set.Set[string] {
+// persistedOnly is set, omitted struct fields do not contribute edges.
+func (f *File) closure(roots []string, persistedOnly bool) set.Set[string] {
 	local := make(map[string]resolution.Type, len(f.Defined))
 	for _, t := range f.Defined {
 		local[t.Name] = t
@@ -89,9 +66,6 @@ func (f *File) closure(roots []string, persistedOnly, aliases bool) set.Set[stri
 		}
 		t, ok := local[name]
 		if !ok {
-			if _, isAlias := f.Aliases[name]; aliases && isAlias {
-				out.Add(name)
-			}
 			return
 		}
 		out.Add(name)
