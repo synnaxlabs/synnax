@@ -131,6 +131,81 @@ var _ = Describe("Service", func() {
 			)))
 		})
 
+		It("Should include a module's compile status", func(ctx SpecContext) {
+			module := arc.Arc{Variant: arc.ModuleArc{Base: arc.Base{
+				Name: "status_m",
+				Source: arc.Source{Variant: arc.TextSource{
+					Text: text.Text{Raw: "export func f() i64 { return 1 }"},
+				}},
+			}}}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Create(ctx, &module)
+			})).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return arcSvc.NewWriter(tx).Delete(ctx, module.Base().Key)
+				})).To(Succeed())
+			})
+			grantOn(
+				ctx,
+				author.ResourceID(),
+				access.ActionRetrieve,
+				module.ResourceID(),
+			)
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{module.Base().Key}},
+				},
+			}
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.ModuleArc).Status).To(BeNil())
+			req.IncludeStatus = true
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			stat := res.Arcs[0].Variant.(arc.ModuleArc).Status
+			Expect(stat).ToNot(BeNil())
+			Expect(stat.Message).To(Equal("Compiled"))
+		})
+
+		It("Should include what changed in a deployed automation", func(
+			ctx SpecContext,
+		) {
+			a := createArc(ctx, "changes_a")
+			grantOn(ctx, author.ResourceID(), access.ActionRetrieve, a.ResourceID())
+			req := apiarc.RetrieveRequest{
+				Where: &arc.Where{
+					Key: &filter.Set[arc.Key]{In: []arc.Key{a.Base().Key}},
+				},
+				IncludeChanges: true,
+			}
+			tsk := deploy(ctx, a)
+			res := MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeEmpty())
+			stat := &task.Status{
+				Owner:   new(task.ResourceID(tsk.Key)),
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+				Details: task.StatusDetails{Running: true, ConfigHash: tsk.ConfigHash},
+			}
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return statusSvc.NewWriter(tx).Set(ctx, stat)
+			})).To(Succeed())
+			b := a.Base()
+			b.Source = arc.Source{Variant: arc.TextSource{
+				Text: text.Text{Raw: "func f() i64 { return 1 }"},
+			}}
+			a.SetBase(b)
+			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+				return arcSvc.NewWriter(tx).Create(ctx, &a)
+			})).To(Succeed())
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(Equal(
+				[]arc.Change{{Type: arc.TypeAutomation, Kind: arc.ChangeKindChanged}},
+			))
+			req.IncludeChanges = false
+			res = MustSucceed(retrieve(AuthedCtx(ctx, author), req))
+			Expect(res.Arcs[0].Variant.(arc.AutomationArc).Changes).To(BeNil())
+		})
+
 		It(
 			"Should compile the graph of a graph-mode automation",
 			func(ctx SpecContext) {
