@@ -560,7 +560,8 @@ class TimeSpan(int):
         """:returns: The TimeSpan represented as a datetime.timedelta."""
         return timedelta(seconds=self.seconds)
 
-    # The int overloads keep the int signature, but a bare number raises TypeError.
+    # The int overloads keep the int signature, but a bare number raises TypeError. An
+    # int 0 before a span is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: TimeStamp) -> TimeStamp: ...
     @overload
@@ -578,7 +579,8 @@ class TimeSpan(int):
 
     @override
     def __radd__(self, lhs: int) -> TimeSpan:
-        # sum() starts from the int 0.
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # TimeSpan(0) as the start when the iterable can be empty.
         if type(lhs) is int and lhs == 0:
             return self
         raise _operand_error("+", lhs, self)
@@ -866,6 +868,7 @@ class Rate(float):
         return f"Rate({super().__repr__()} Hz)"
 
     # The float overloads keep the float signature, but a bare number raises TypeError.
+    # An int 0 before a rate is the one exception, so sum() works.
     @overload
     def __add__(self, rhs: Rate) -> Rate: ...
     @overload
@@ -878,7 +881,11 @@ class Rate(float):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: float) -> NoReturn:
+    def __radd__(self, lhs: float) -> Rate:
+        # sum() starts from the int 0. An empty sum() returns that int, so pass
+        # Rate(0) as the start when the iterable can be empty.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload
