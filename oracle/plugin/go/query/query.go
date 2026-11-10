@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/pluralize"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -772,7 +773,7 @@ var templateFuncs = template.FuncMap{
 	"formatDoc": doc.FormatGo,
 	"toPascal":  naming.ToPascalCase,
 	"toLower":   strings.ToLower,
-	"pluralize": matcher.Plural,
+	"pluralize": pluralize.String,
 }
 
 var retrieveTemplate = template.Must(

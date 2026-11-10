@@ -282,6 +282,16 @@ func (s *Service) Retrieve(
 	for i := range res.Arcs {
 		res.Arcs[i] = materialize(res.Arcs[i])
 	}
+	if req.IncludeStatus {
+		if err = s.includeStatus(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
+	if req.IncludeChanges {
+		if err = s.includeChanges(ctx, snap, res.Arcs); err != nil {
+			return RetrieveResponse{}, err
+		}
+	}
 	return res, nil
 }
 
@@ -303,6 +313,57 @@ func (s *Service) Compiled(
 		}
 		return res, nil
 	}
+}
+
+// includeChanges attaches to each automation what changed since its task was
+// deployed. An automation that was never deployed and a module get none.
+func (s *Service) includeChanges(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	keys := make([]arc.Key, len(arcs))
+	for i, a := range arcs {
+		keys[i] = a.Base().Key
+	}
+	records, err := s.internal.RetrieveDrift(ctx, snap, keys...)
+	if err != nil {
+		return err
+	}
+	for i, a := range arcs {
+		automation, ok := a.Variant.(arc.AutomationArc)
+		if !ok {
+			continue
+		}
+		if rec, ok := records[automation.Key]; ok {
+			automation.Changes = arc.Changes(rec)
+		}
+		arcs[i].Variant = automation
+	}
+	return nil
+}
+
+// includeStatus attaches each module's compile status. An automation has none.
+func (s *Service) includeStatus(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	arcs []Arc,
+) error {
+	ids := make([]resource.ID, len(arcs))
+	for i, a := range arcs {
+		ids[i] = a.ResourceID()
+	}
+	statuses, err := s.status.Join[struct{}](ctx, snap, ids)
+	if err != nil {
+		return err
+	}
+	for i, st := range statuses {
+		if module, ok := arcs[i].Variant.(arc.ModuleArc); ok {
+			module.Status = st
+			arcs[i].Variant = module
+		}
+	}
+	return nil
 }
 
 // LSPMessage represents a single JSON-RPC message for the LSP

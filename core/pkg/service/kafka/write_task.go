@@ -233,6 +233,12 @@ func newWriteChannel(
 	if f.Type, err = xjson.ParseType(string(wc.JSONType)); err != nil {
 		return nil, errors.Wrapf(err, "channel %q", wc.Key)
 	}
+	if len(f.Enums) > 0 && f.Type != xjson.String {
+		return nil, errors.Wrapf(
+			validate.ErrValidation,
+			"channel %q: enum values require the string JSON type", wc.Key,
+		)
+	}
 	if wc.TimeFormat != nil {
 		if f.TimeFormat, err = xjson.ParseTimeFormat(
 			string(*wc.TimeFormat),

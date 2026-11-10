@@ -76,6 +76,22 @@ var _ = Describe("Table", func() {
 		})
 	})
 
+	Describe("Observe", func() {
+		It("Should notify observers of a created directory", func(ctx SpecContext) {
+			var names []string
+			DeferCleanup(table.Observe().OnChange(func(
+				_ context.Context,
+				r gorp.TxReader[directory.Key, directory.Directory],
+			) {
+				for ch := range r {
+					names = append(names, ch.Value.Name)
+				}
+			}))
+			create(ctx, "lib", nil)
+			Eventually(func() []string { return names }).Should(Equal([]string{"lib"}))
+		})
+	})
+
 	Describe("Create", func() {
 		It("Should give a directory with no key a new key", func(ctx SpecContext) {
 			d := create(ctx, "lib", nil)

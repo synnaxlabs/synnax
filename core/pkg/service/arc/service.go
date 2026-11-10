@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
@@ -150,8 +151,10 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	table   *gorp.Table[Key, Arc]
 	indexes indexes
-	closer  xio.MultiCloser
-	cfg     ServiceConfig
+	// drifts stores what changed in each deployed automation since its deploy.
+	drifts *gorp.Table[drift.Key, drift.Record]
+	closer xio.MultiCloser
+	cfg    ServiceConfig
 	// directories stores the directories below root.
 	directories *directory.Table
 	// root is the directory that holds every Arc.
@@ -165,6 +168,11 @@ type Service struct {
 	// followCommit reads them once the transaction commits.
 	resyncs *gorp.Attachment[Key]
 	deletes *gorp.Attachment[Key]
+	// editedModules holds the modules whose text a transaction changed. followCommit
+	// resyncs their importers.
+	editedModules *gorp.Attachment[Key]
+	// importerSync schedules a resync of every importer of an edited module.
+	importerSync *debounce.Keyed[Key]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -236,16 +244,42 @@ func (s *Service) NewLSP(cfg LSPConfig) (*lsp.Server, error) {
 			}
 			return cfg.Rename(ctx, channel.Key(sym.ID), newName)
 		},
-		OnExternalChange: observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
-			Observable: s.cfg.Channel.Observe(),
-			Translate: func(
-				context.Context,
-				gorp.TxReader[channel.Key, channel.Channel],
-			) (struct{}, bool) {
-				return struct{}{}, true
+		OnExternalChange: observe.Merge[struct{}](
+			observe.Translator[gorp.TxReader[channel.Key, channel.Channel], struct{}]{
+				Observable: s.cfg.Channel.Observe(),
+				Translate: func(
+					context.Context,
+					gorp.TxReader[channel.Key, channel.Channel],
+				) (struct{}, bool) {
+					return struct{}{}, true
+				},
 			},
-		},
+			observe.Translator[gorp.TxReader[Key, Arc], struct{}]{
+				Observable: s.table.Observe(),
+				Translate:  moduleChanged,
+			},
+			observe.Translator[gorp.TxReader[directory.Key, directory.Directory], struct{}]{
+				Observable: s.directories.Observe(),
+				Translate: func(
+					context.Context,
+					gorp.TxReader[directory.Key, directory.Directory],
+				) (struct{}, bool) {
+					return struct{}{}, true
+				},
+			},
+		),
 	})
+}
+
+// moduleChanged reports whether any change in r touches a module, whose importers'
+// diagnostics may now differ.
+func moduleChanged(_ context.Context, r gorp.TxReader[Key, Arc]) (struct{}, bool) {
+	for c := range r {
+		if c.Kind == gorp.ChangeDelete || c.Value.Type() == TypeModule {
+			return struct{}{}, true
+		}
+	}
+	return struct{}{}, false
 }
 
 // newLSPRoot builds a root that reads the DB with no snapshot, since the LSP analyzes
@@ -325,22 +359,103 @@ func (s *Service) CompileProgram(ctx context.Context, key Key) (AutomationArc, e
 		snap gorp.Snapshot,
 		lookups *channel.Lookups,
 	) (arc.Program, error) {
-		root := s.NewRoot(snap, lookups)
-		switch src := automation.Source.Variant.(type) {
-		case TextSource:
-			return arc.CompileText(ctx, src.Text.Materialize(), root,
-				arc.WithAllowDashedNames(s.AllowDashedNames()))
-		case GraphSource:
-			return arc.CompileGraph(ctx, src.Graph, root,
-				arc.WithAllowDashedNames(s.AllowDashedNames()))
-		}
-		return arc.Program{}, nil
+		return s.compileWith(ctx, s.NewRoot(snap, lookups), automation)
 	})
 	if err != nil {
 		return AutomationArc{}, err
 	}
 	automation.Program = &prog
 	return automation, nil
+}
+
+// snapshotRoot builds an analysis root that reads snap.
+func (s *Service) snapshotRoot(snap gorp.Snapshot) *symbol.Symbol {
+	return s.newRoot(
+		channel.NewConsistentResolver(s.cfg.Channel.NewArcSymbolResolver(snap)),
+		s.moduleSource(snap),
+	)
+}
+
+// compile compiles the automation's source against a root that reads snap. It also
+// returns the path of every module the compile loaded, at any depth. An error means
+// the automation does not compile.
+func (s *Service) compile(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	automation AutomationArc,
+) (arc.Program, []string, error) {
+	root := s.snapshotRoot(snap)
+	prog, err := s.compileWith(ctx, root, automation)
+	if err != nil {
+		return arc.Program{}, nil, err
+	}
+	return prog, arctext.LoadedPaths(root), nil
+}
+
+// compileWith compiles the automation's source against root.
+func (s *Service) compileWith(
+	ctx context.Context,
+	root *symbol.Symbol,
+	automation AutomationArc,
+) (arc.Program, error) {
+	opt := arc.WithAllowDashedNames(s.AllowDashedNames())
+	switch src := automation.Source.Variant.(type) {
+	case TextSource:
+		return arc.CompileText(ctx, src.Text.Materialize(), root, opt)
+	case GraphSource:
+		return arc.CompileGraph(ctx, src.Graph, root, opt)
+	}
+	return arc.Program{}, errors.Newf("automation %s has no source", automation.Key)
+}
+
+// hashModules returns the text hash of the module at each path. A path that holds no
+// module is left out.
+func (s *Service) hashModules(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	paths []string,
+) (map[string]string, error) {
+	hashes := make(map[string]string, len(paths))
+	for _, path := range paths {
+		a, err := s.retrieveArc(ctx, snap, path)
+		if errors.Is(err, symbol.ErrModuleNotFound) {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		if a.Type() != TypeModule {
+			continue
+		}
+		if hashes[path], err = Hash(a.Base()); err != nil {
+			return nil, err
+		}
+	}
+	return hashes, nil
+}
+
+// analyzeModule checks the module's source under the module rules against a root that
+// reads snap. A module links no code of its own, so analysis is its whole compile.
+func (s *Service) analyzeModule(
+	ctx context.Context,
+	snap gorp.Snapshot,
+	module ModuleArc,
+) error {
+	src, ok := module.Source.Variant.(TextSource)
+	if !ok {
+		return errors.New("a module must be written as text")
+	}
+	cfg := parser.Config{AllowDashedNames: s.AllowDashedNames()}
+	parsed, diag := arctext.Parse(src.Text.Materialize(), cfg)
+	if diag != nil && !diag.Ok() {
+		return diag
+	}
+	if _, diag = arctext.AnalyzeModule(
+		ctx, parsed, s.snapshotRoot(snap), cfg,
+	); diag != nil && !diag.Ok() {
+		return diag
+	}
+	return nil
 }
 
 // OpenService instantiates a new Arc service using the provided configurations. Each
@@ -360,15 +475,17 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:         cfg,
-		reserved:    reservedNames(),
-		state:       actions.NewState[Key, Action](cfg.DB),
-		table:       cfg.Table.table,
-		indexes:     cfg.Table.indexes,
-		directories: cfg.Table.directories,
-		root:        cfg.Table.root,
-		resyncs:     gorp.NewAttachment[Key](),
-		deletes:     gorp.NewAttachment[Key](),
+		cfg:           cfg,
+		reserved:      reservedNames(),
+		state:         actions.NewState[Key, Action](cfg.DB),
+		table:         cfg.Table.table,
+		indexes:       cfg.Table.indexes,
+		directories:   cfg.Table.directories,
+		root:          cfg.Table.root,
+		drifts:        cfg.Table.drifts,
+		resyncs:       gorp.NewAttachment[Key](),
+		deletes:       gorp.NewAttachment[Key](),
+		editedModules: gorp.NewAttachment[Key](),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -381,8 +498,15 @@ func OpenService(
 	if s.taskSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
-		Callback: s.resyncTask,
+		Callback: s.resync,
 	}); !ok(err, s.taskSync) {
+		return nil, err
+	}
+	if s.importerSync, err = debounce.NewKeyed(debounce.KeyedConfig[Key]{
+		Delay:    cfg.TaskSyncDebounce.Duration(),
+		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
+		Callback: s.resyncImporters,
+	}); !ok(err, s.importerSync) {
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))
@@ -463,11 +587,18 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		matchTasks:          s.cfg.MatchTasks,
 		status:              s.cfg.Status,
 		table:               s.table,
+		drifts:              s.drifts,
 		dispatcher:          s.state.Dispatcher(),
 		directoryDispatcher: s.directoryState.Dispatcher(),
 		sweeper:             s.sweeper,
 		resyncs:             s.resyncs,
 		deletes:             s.deletes,
+		editedModules:       s.editedModules,
+		compile:             s.compile,
+		analyze:             s.analyzeModule,
+		hashModules:         s.hashModules,
+		now:                 s.cfg.Now,
+		parser:              parser.Config{AllowDashedNames: s.AllowDashedNames()},
 	}
 }
 

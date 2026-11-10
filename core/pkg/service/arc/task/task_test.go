@@ -3677,6 +3677,39 @@ var _ = Describe("Task", Ordered, func() {
 			`),
 		)
 
+		It("Should trap a cycle that makes too many strings", func(ctx SpecContext) {
+			prog := arc.Text{Raw: `
+				func grow() {
+					s := ""
+					for i := range(100000) {
+						s = s + "x"
+					}
+				}
+				interval(period=10ms) -> grow()
+			`}
+			svcTask := task.Task{
+				Key:    uuid.New(),
+				Name:   "test-string-limit",
+				Type:   arctask.Type,
+				Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+			}
+			createTask(ctx, svcTask)
+			t := MustSucceed(
+				newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+			)
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+			Eventually(func(g Gomega) {
+				var stat task.Status
+				g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
+					Where(status.MatchOwners[task.StatusDetails](svcTask.ResourceID())).
+					Entry(&stat).Exec(ctx, db)).To(Succeed())
+				g.Expect(stat.Message).To(Equal("Node failed"))
+				g.Expect(stat.Description).
+					To(ContainSubstring("too many strings in one cycle"))
+			}).Should(Succeed())
+		})
+
 		It(
 			"Should report WASM division by zero via status service",
 			func(ctx SpecContext) {

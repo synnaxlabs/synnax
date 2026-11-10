@@ -154,12 +154,65 @@ CIChannel union on type extends v2.CIChannel {
 WaveType = v2.WaveType
 
 BaseAOChannel struct extends v2.BaseAOChannel {
+    -cmd_channel
+    -state_channel
+    -cmd_channel_name
+    -state_channel_name
     port uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 }
 
-AOChannel union on type extends v2.AOChannel {}
+CommandedAOChannel struct {
+    cmd_channel        channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
+    }
+    state_channel      channel.Key = 0 {
+        @doc value "is the Synnax channel the output state is written to."
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+
+    @doc value  "carries the command and state channels of a commanded analog output."
+    @go marshal
+}
+
+AOChannel union on type extends BaseAOChannel {
+    ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
+        @doc value "drives a current output."
+    }
+    ao_func_gen {
+        wave_type WaveType = sine {
+            @doc value "selects the waveform to generate."
+        }
+        frequency float64 = 0 {
+            @doc value "is the waveform frequency, in Hertz."
+        }
+        amplitude float64 = 0 {
+            @doc value "is the waveform amplitude."
+        }
+        offset    float64 = 0 {
+            @doc value "is the waveform DC offset."
+        }
+
+        @doc value """
+            generates a waveform from task start to task stop, with no commands.
+        """
+    }
+    ao_voltage extends MinMaxVal, CustomScale, CommandedAOChannel {
+        @doc value "drives a voltage output."
+    }
+
+    @doc value  """
+        is a single NI analog output channel. The type field selects the output mode and
+        the fields that accompany it.
+    """
+    @go marshal
+}
 
 DIChannel struct extends v2.DIChannel {
     port uint32 = 0 {

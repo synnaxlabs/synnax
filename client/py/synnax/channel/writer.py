@@ -23,6 +23,7 @@ from synnax.channel.payload import (
 
 class _CreateRequest(BaseModel):
     channels: list[Payload]
+    retrieve_if_name_exists: bool
 
 
 class _Response(BaseModel):
@@ -61,8 +62,11 @@ class Writer:
     def create(
         self,
         channels: list[Payload],
+        retrieve_if_name_exists: bool,
     ) -> list[Payload]:
-        req = _CreateRequest(channels=channels)
+        req = _CreateRequest(
+            channels=channels, retrieve_if_name_exists=retrieve_if_name_exists
+        )
         return self._client.send("/channel/create", req, _Response).channels
 
     @trace("debug")
