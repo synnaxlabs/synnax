@@ -159,6 +159,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
+    const before = deep.copy(slave.properties);
     let modified = await checkOrCreateIndex(client, slave, WRITE_INDEX_OPTIONS);
     const existingChannels = slave.properties.write.channels;
     // The command and state of a pair are checked apart: deleting one must recreate
@@ -236,7 +237,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
 
-    if (modified) await Device.setProperties(client, slave, SLAVE_SCHEMAS);
+    if (modified) await Device.setProperties(client, slave, before, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.cmdChannel = existingChannels[addressKey(ch)];
