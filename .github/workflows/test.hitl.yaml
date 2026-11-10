@@ -14,9 +14,9 @@
 name: Test - HITL
 
 on:
-  # The hardware is free for CI from 06:00 to 14:00 UTC. A later attempt runs when the
-  # hardware was in use, and the last one leaves four hours for its build and tests. An
-  # attempt does nothing once a run passed that day or while one runs.
+  # The hardware is free for CI from 06:00 to 14:00 UTC. A run takes about 40 minutes,
+  # so attempts two hours apart do not overlap, and the last one leaves four hours. An
+  # attempt does nothing once a run on main passed its tests that day.
   schedule:
     - cron: "0 6 * * *" # after the nightly build frees the bots
     - cron: "0 8 * * *"
@@ -28,28 +28,31 @@ permissions:
 
 jobs:
   gate:
-    name: Check for a passed or running run
+    name: Check for a passed run
     runs-on: ubuntu-latest
     permissions:
       actions: read
     outputs:
       skip: ${{ steps.check.outputs.skip }}
     steps:
-      # A run in progress two hours after it started is past its hardware check.
-      - name: Check for a passed or running run
+      # A skipped attempt also ends in success, so only a passed test job counts.
+      - name: Check for a passed run
         id: check
         if: github.event_name == 'schedule'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          count=$(gh run list --workflow test.hitl.yaml --created ">=$(date -u +%F)" \
-            --json databaseId,status,conclusion --jq "map(select(
-              .databaseId != $GITHUB_RUN_ID and
-              (.conclusion == \"success\" or .status != \"completed\")
-            )) | length")
           skip=false
-          if [ "$count" -gt 0 ]; then skip=true; fi
+          for id in $(gh run list --workflow test.hitl.yaml --branch main \
+            --status success --created ">=$(date -u +%F)" --json databaseId \
+            --jq '.[].databaseId'); do
+            if gh api --paginate "repos/$GH_REPO/actions/runs/$id/jobs" --jq '.jobs[] |
+              select(.name == "Test (synnax-server-1)" and .conclusion == "success")' |
+              grep -q .; then
+              skip=true
+            fi
+          done
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
 
   build:
