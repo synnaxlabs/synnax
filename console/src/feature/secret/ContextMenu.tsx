@@ -51,15 +51,13 @@ export const SecretMenu = ({ secret: s, onRename }: SecretMenuProps): ReactEleme
   const id = secret.resourceID(s.key);
   const canUpdate = Access.useUpdateGranted(id);
   const canDelete = Access.useDeleteGranted(id);
-  // The Core replaces a value as a create that overwrites the secret.
-  const canReplace = Access.useCreateGranted(secret.TYPE_RESOURCE_ID) && canUpdate;
   const openReplace = useCreateModal();
   const handleDelete = useDeleteSecret();
   return (
     <ContextMenu.Menu>
       {canUpdate && <ContextMenu.RenameItem onClick={() => onRename(s.key)} />}
       <Menu.Divider />
-      {canReplace && s.source === "stored" && (
+      {canUpdate && s.source === "stored" && (
         <Menu.Item itemKey="replace" onClick={() => openReplace({ replace: s.key })}>
           <Icon.Refresh />
           Replace value
