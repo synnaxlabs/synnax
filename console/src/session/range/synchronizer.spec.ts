@@ -144,5 +144,57 @@ describe("Range.SYNCHRONIZERS", () => {
       const { ranges } = await createTestClient().lineplots.retrieve(plot.key);
       expect(ranges).toEqual([{ variant: "key", key: local.key }]);
     });
+
+    const mountWithLocal = async () => {
+      const local = createLocal();
+      await createPlot([{ variant: "key", key: local.key }]);
+      const { wrapper, store } = await createConsoleWrapper({
+        client,
+        preloadedState: {
+          [Session.Range.SLICE_NAME]: Session.Range.sliceStateZ.parse({
+            ranges: [local],
+          }),
+        },
+      });
+      const hook = renderHook(
+        () => Session.Synchronizer.use(Session.Range.SYNCHRONIZERS),
+        { wrapper },
+      );
+      const rewritten = () =>
+        store.getState()[Session.Range.SLICE_NAME].staticKeysRewritten;
+      return { ...hook, rewritten };
+    };
+
+    it("should try the rewrite again when a send fails", async () => {
+      const error = vi.spyOn(console, "error").mockImplementation(() => {});
+      const send = vi
+        .spyOn(client.lineplots, "send")
+        .mockRejectedValue(new Error("send failed"));
+      try {
+        const { result, rewritten } = await mountWithLocal();
+        await waitFor(() => expect(result.current).toBe(true));
+        expect(error).toHaveBeenCalled();
+        expect(rewritten()).toBe(false);
+      } finally {
+        send.mockRestore();
+        error.mockRestore();
+      }
+    });
+
+    it("should not mark the rewrite done when its pass ends", async () => {
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const send = vi.spyOn(client.lineplots, "send").mockReturnValue(gate);
+      try {
+        const { unmount, rewritten } = await mountWithLocal();
+        await waitFor(() => expect(send).toHaveBeenCalled());
+        unmount();
+        release();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(rewritten()).toBe(false);
+      } finally {
+        send.mockRestore();
+      }
+    });
   });
 });
