@@ -33,7 +33,7 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a certificate in order. Path actions edit only its name.
- * @throws {Error} if the secret cannot hold an action, such as a set of its PEM.
+ * @throws {Error} if the certificate cannot hold an action, such as a set of its PEM.
  */
 export const reduceAll = createReduceAll(handlers);
 
