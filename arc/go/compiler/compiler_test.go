@@ -2718,6 +2718,76 @@ var _ = Describe("Compiler", func() {
 				return r[1]
 			}`, float64(-2.0)),
 		)
+
+		DescribeTable("64-bit index",
+			func(ctx SpecContext, body string, expected any) {
+				source := fmt.Sprintf(
+					`func test() %s %s`,
+					inferReturnType(expected),
+					body,
+				)
+				output := MustSucceed(compileWithHostImports(ctx, source, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				test := mod.ExportedFunction("test")
+				Expect(test).ToNot(BeNil())
+				results := MustSucceed(test.Call(ctx))
+				Expect(results).To(HaveLen(1))
+				assertResult(results[0], expected)
+			},
+			Entry("len index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				return s[len(s) - 1]
+			}`, 3.0),
+			Entry("range index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				acc := 0.0
+				for i := range(len(s)) {
+					acc = acc + s[i]
+				}
+				return acc
+			}`, 6.0),
+			Entry("u64 index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i u64 := 1
+				return s[i]
+			}`, 2.0),
+			Entry("literal-first index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 1
+				return s[1 + i]
+			}`, 3.0),
+			Entry("indexed assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s[len(s) - 1] = 9.0
+				return s[2]
+			}`, 9.0),
+			Entry("indexed compound assignment", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				s[len(s) - 1] += 9.0
+				return s[2]
+			}`, 12.0),
+			Entry("slice start", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				t series f64 := s[len(s) - 2:]
+				return t[0]
+			}`, 2.0),
+			Entry("slice end", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				t series f64 := s[1:len(s)]
+				return t[1]
+			}`, 3.0),
+			Entry("index of 2^32 + 1 wraps to 1", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := 4294967297
+				return s[i]
+			}`, 2.0),
+			Entry("negative i64 index matches a negative i32 index", `{
+				s series f64 := [1.0, 2.0, 3.0]
+				i i64 := -1
+				j i32 := -1
+				return s[i] == s[j]
+			}`, true),
+		)
 	})
 
 	Describe("Unit Literals", func() {

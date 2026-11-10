@@ -202,6 +202,33 @@ func find_peak() {
     series_peak_idx = peak_idx
 }
 
+func index_last() {
+    data series f64 := [1.0, 2.5, 3.7, 4.2]
+    series_index_last = data[len(data) - 1]
+}
+
+func index_sum() {
+    data series f64 := [1.0, 2.5, 3.7, 4.2]
+    sum f64 := 0.0
+    for i := range(len(data)) {
+        sum = sum + data[i]
+    }
+    series_index_sum = sum
+}
+
+func index_write() {
+    data series f64 := [1.0, 2.5, 3.7, 4.2]
+    data[len(data) - 1] = 9.0
+    data[len(data) - 2] += 1.0
+    series_index_write = data[2] + data[3]
+}
+
+func slice_tail() {
+    data series f64 := [1.0, 2.5, 3.7, 4.2]
+    tail series f64 := data[len(data) - 2:len(data)]
+    series_slice_tail = tail[0]
+}
+
 
 for_in_i32 -> sum_i32() -> for_out_i32
 for_in_u8 -> sum_u8() -> for_out_u8
@@ -221,6 +248,10 @@ for_in_pow2 -> next_power_of_two() -> for_out_pow2
 interval(period=100ms) -> loop_channel_write()
 interval(period=100ms) -> sum_all()
 interval(period=100ms) -> find_peak()
+interval(period=100ms) -> index_last()
+interval(period=100ms) -> index_sum()
+interval(period=100ms) -> index_write()
+interval(period=100ms) -> slice_tail()
 """
 
 
@@ -379,6 +410,10 @@ SERIES_VIRTUAL = [
     "series_sum_all",
     "series_peak_val",
     "series_peak_idx",
+    "series_index_last",
+    "series_index_sum",
+    "series_index_write",
+    "series_slice_tail",
 ]
 
 ALL_CHANNELS = list(SERIES_VIRTUAL)
@@ -402,6 +437,10 @@ class ForLoops(ArcCase):
             ("series_sum_all", sy.DataType.FLOAT64),
             ("series_peak_val", sy.DataType.FLOAT64),
             ("series_peak_idx", sy.DataType.INT32),
+            ("series_index_last", sy.DataType.FLOAT64),
+            ("series_index_sum", sy.DataType.FLOAT64),
+            ("series_index_write", sy.DataType.FLOAT64),
+            ("series_slice_tail", sy.DataType.FLOAT64),
         ]
         for name, dtype in virtual_channels:
             create_virtual_channel(self.client, name, data_type=dtype)
@@ -427,3 +466,15 @@ class ForLoops(ArcCase):
         self.log("[find_peak] Waiting for peak_idx == 3, peak_val == 9.8")
         self.wait_for_eq("series_peak_idx", 3)
         self.wait_for_near("series_peak_val", 9.8, tolerance=0.01)
+
+        self.log("[index_last] Waiting for data[len(data) - 1] == 4.2")
+        self.wait_for_near("series_index_last", 4.2, tolerance=0.01)
+
+        self.log("[index_sum] Waiting for the range index sum == 11.4")
+        self.wait_for_near("series_index_sum", 11.4, tolerance=0.01)
+
+        self.log("[index_write] Waiting for the indexed writes == 13.7")
+        self.wait_for_near("series_index_write", 13.7, tolerance=0.01)
+
+        self.log("[slice_tail] Waiting for the slice start == 3.7")
+        self.wait_for_near("series_slice_tail", 3.7, tolerance=0.01)

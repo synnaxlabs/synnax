@@ -300,6 +300,19 @@ func compileFunctionCallExpr[T antlr.ParserRuleContext](
 	return types.Type{}, nil
 }
 
+// CompileIndex compiles a series index or slice bound and converts it to the i32 that
+// the series host functions take.
+func CompileIndex[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) error {
+	t, err := Compile(ctx.Child(expr).WithHint(types.Type{}))
+	if err != nil {
+		return err
+	}
+	return EmitCast(ctx, t, types.I32())
+}
+
 func compileIndexOrSlice(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	indexOrSlice parser.IIndexOrSliceContext,
@@ -314,9 +327,7 @@ func compileIndexOrSlice(
 				"indexing is only supported on series types",
 			)
 		}
-		if _, err := Compile(
-			ctx.Child(expressions[0]).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, expressions[0]); err != nil {
 			return types.Type{}, err
 		}
 		t := operandType.Unwrap()
@@ -346,9 +357,7 @@ func compileIndexOrSlice(
 	}
 
 	if startExpr != nil {
-		if _, err := Compile(
-			ctx.Child(startExpr).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, startExpr); err != nil {
 			return types.Type{}, err
 		}
 	} else {
@@ -356,9 +365,7 @@ func compileIndexOrSlice(
 	}
 
 	if endExpr != nil {
-		if _, err := Compile(
-			ctx.Child(endExpr).WithHint(types.I32()),
-		); err != nil {
+		if err := CompileIndex(ctx, endExpr); err != nil {
 			return types.Type{}, err
 		}
 	} else {
