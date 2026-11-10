@@ -269,8 +269,7 @@ func (t *ReadTask) openWriter(
 	)
 	sw.InFrom(requests)
 	sw.OutTo(responses)
-	// A routine never starts under a cancelled context, and then never closes its
-	// outlets. The writer runs apart from ctx, so that close always ends it.
+	// The writer runs apart from ctx. Closing the requests stops it.
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(t.cfg.Instrumentation))
 	sw.Flow(
 		sCtx, confluence.CloseOutputInletsOnExit(), confluence.RecoverWithErrOnPanic(),

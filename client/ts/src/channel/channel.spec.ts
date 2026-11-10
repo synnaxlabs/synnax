@@ -224,6 +224,65 @@ describe("Channel", () => {
         expect(channelTwo[0].key).toEqual(channel.key);
         expect(channelTwo[1].key).not.toEqual(channel.key);
       });
+      it("should not create a duplicate channel with the same name", async () => {
+        const name = id.create();
+        const props = {
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        };
+        const channel = await client.channels.create(props);
+        await client.channels.create(props, { retrieveIfNameExists: true });
+        const retrieved = await client.channels.retrieve({
+          where: { name: { eq: name } },
+        });
+        expect(retrieved.map((c) => c.key)).toEqual([channel.key]);
+      });
+      it("should create one channel when creates of the same name run at once", async () => {
+        const name = id.create();
+        const props = {
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        };
+        const created = await Promise.all(
+          Array.from({ length: 10 }, () =>
+            client.channels.create(props, { retrieveIfNameExists: true }),
+          ),
+        );
+        const keys = new Set(created.map((c) => c.key));
+        expect(keys.size).toEqual(1);
+        const retrieved = await client.channels.retrieve({
+          where: { name: { eq: name } },
+        });
+        expect(retrieved.map((c) => c.key)).toEqual([...keys]);
+      });
+      it("should return the channels in the order they were passed", async () => {
+        const name = id.create();
+        const channel = await client.channels.create({
+          name,
+          leaseholder: 1,
+          virtual: true,
+          dataType: DataType.FLOAT32,
+        });
+        const newName = id.create();
+        const created = await client.channels.create(
+          [
+            {
+              name: newName,
+              leaseholder: 1,
+              virtual: true,
+              dataType: DataType.FLOAT32,
+            },
+            { name, leaseholder: 1, virtual: true, dataType: DataType.FLOAT32 },
+          ],
+          { retrieveIfNameExists: true },
+        );
+        expect(created.map((c) => c.name)).toEqual([newName, name]);
+        expect(created[1].key).toEqual(channel.key);
+      });
     });
   });
 

@@ -19,8 +19,10 @@ const TABLE_DIGITS: Record<ChannelType, number> = {
   coil: 0,
   discrete_input: 1,
   input_register: 3,
+  input_register_string: 3,
   input_register_bit: 3,
   holding_register: 4,
+  holding_register_string: 4,
   holding_register_bit: 4,
 };
 

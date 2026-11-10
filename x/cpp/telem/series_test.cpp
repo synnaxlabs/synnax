@@ -182,6 +182,77 @@ TEST(TestSeries, testSampleValueConstructionString) {
     ASSERT_EQ(s.at<std::string>(0), "test");
 }
 
+/// @brief it should keep the given data type of a string sample.
+TEST(TestSeries, testSampleValueConstructionKeepsVariableType) {
+    for (const auto &dt: {STRING_T, JSON_T, BYTES_T}) {
+        const Series s(SampleValue(std::string("{\"a\":1}")), dt);
+        ASSERT_EQ(s.data_type(), dt);
+        ASSERT_EQ(s.size(), 1);
+        ASSERT_EQ(s.at<std::string>(0), "{\"a\":1}");
+    }
+}
+
+/// @brief it should build a uuid series from the 16 bytes of a UUID.
+TEST(TestSeries, testSampleValueConstructionUUID) {
+    const auto uuid = x::uuid::create();
+    const Series s(
+        SampleValue(std::string(reinterpret_cast<const char *>(uuid.data()), 16)),
+        UUID_T
+    );
+    ASSERT_EQ(s.data_type(), UUID_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.at<x::uuid::UUID>(0), uuid);
+    ASSERT_EQ(s.uuids(), std::vector{uuid});
+}
+
+/// @brief it should reject a uuid sample that does not hold 16 bytes.
+TEST(TestSeries, testSampleValueConstructionUUIDWrongSize) {
+    ASSERT_THROW(Series(SampleValue(std::string("abc")), UUID_T), std::runtime_error);
+}
+
+/// @brief it should keep a numeric sample of the given data type.
+TEST(TestSeries, testSampleValueConstructionNumeric) {
+    const Series f(SampleValue(1.5), FLOAT64_T);
+    ASSERT_EQ(f.data_type(), FLOAT64_T);
+    ASSERT_EQ(f.at<double>(0), 1.5);
+    const Series b(SampleValue(static_cast<uint8_t>(1)), BOOLEAN_T);
+    ASSERT_EQ(b.data_type(), BOOLEAN_T);
+    ASSERT_EQ(b.at<uint8_t>(0), 1);
+}
+
+/// @brief it should reject a sample that the data type does not hold.
+TEST(TestSeries, testSampleValueConstructionMismatch) {
+    ASSERT_THROW(Series(SampleValue(1.5), INT32_T), std::runtime_error);
+    ASSERT_THROW(Series(SampleValue(1.5), JSON_T), std::runtime_error);
+    ASSERT_THROW(Series(SampleValue(1.5), UUID_T), std::runtime_error);
+    ASSERT_THROW(Series(SampleValue(std::string("1")), FLOAT64_T), std::runtime_error);
+}
+
+/// @brief it should reject a read at an index equal to the size of the series.
+TEST(TestSeries, testAtIndexEqualToSize) {
+    const Series f(std::vector<float>{1, 2});
+    ASSERT_THROW((void) f.at<float>(2), std::runtime_error);
+    const Series s(std::vector<std::string>{"a"});
+    ASSERT_THROW((void) s.at<std::string>(1), std::runtime_error);
+    ASSERT_THROW(
+        (void) Series(std::vector<std::string>{}, BYTES_T).at<std::string>(0),
+        std::runtime_error
+    );
+}
+
+/// @brief it should read each UUID of a uuid series by index.
+TEST(TestSeries, testAtUUID) {
+    const auto a = x::uuid::create();
+    const auto b = x::uuid::create();
+    Series s(UUID_T, 2);
+    s.write(a.data(), 1);
+    s.write(b.data(), 1);
+    ASSERT_EQ(s.at<x::uuid::UUID>(0), a);
+    ASSERT_EQ(s.at<x::uuid::UUID>(-1), b);
+    ASSERT_THROW((void) s.at<x::uuid::UUID>(2), std::runtime_error);
+    ASSERT_THROW((void) Series(1.0).at<x::uuid::UUID>(0), std::runtime_error);
+}
+
 /// @brief it should correctly construct a series from an inline vector.
 TEST(TestSeries, testInlineVectorConstruction) {
     const auto s = Series(std::vector<float>{1, 2, 3});
@@ -2517,6 +2588,29 @@ TEST(SeriesBytes, ClearResetsSize) {
     ASSERT_EQ(s.byte_size(), 0);
 }
 
+/// @brief it should read the samples of a BYTES series as strings.
+TEST(SeriesBytes, Strings) {
+    const std::vector<std::string> blobs = {
+        std::string("\x00\x01", 2),
+        "",
+        std::string("\xFF", 1),
+    };
+    auto s = Series(blobs, BYTES_T);
+    ASSERT_EQ(s.strings(), blobs);
+    ASSERT_EQ(s.at<std::string>(-1), blobs[2]);
+    ASSERT_EQ(std::get<std::string>(s.at(0)), blobs[0]);
+    s.write(std::string("\x02", 1));
+    ASSERT_EQ(s.size(), 4);
+    ASSERT_EQ(s.at<std::string>(3), std::string("\x02", 1));
+}
+
+/// @brief it should construct a BYTES series from a single string.
+TEST(SeriesBytes, StringConstruction) {
+    const Series s(std::string("\x00\x01", 2), BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.at<std::string>(0), std::string("\x00\x01", 2));
+}
+
 /// @brief pre-allocated BYTES series should have zero size but non-zero byte_cap.
 TEST(SeriesBytes, AllocationVariable) {
     const Series s(BYTES_T, 32);
@@ -2560,18 +2654,6 @@ TEST(SeriesBytes, DeepCopyIsIndependent) {
     const auto *orig_raw = reinterpret_cast<const uint8_t *>(original.data());
     const auto *copy_raw = reinterpret_cast<const uint8_t *>(copy.data());
     ASSERT_EQ(memcmp(orig_raw, copy_raw, original.byte_size()), 0);
-}
-
-/// @brief strings() should throw when called on a BYTES series.
-TEST(SeriesBytes, StringsThrowsForBytesType) {
-    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
-    ASSERT_THROW((void) s.strings(), std::runtime_error);
-}
-
-/// @brief at<std::string>() should throw when called on a BYTES series.
-TEST(SeriesBytes, AtStringThrowsForBytesType) {
-    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
-    ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
 }
 
 /// @brief uuids() should recover the same UUIDs written into a UUID series.

@@ -213,6 +213,16 @@ var _ = Describe("Compiler", func() {
 		Expect(r.Close(ctx)).To(Succeed())
 	})
 
+	It("Should reject a function that carries no symbol", func(ctx SpecContext) {
+		prog := MustSucceed(text.Parse(text.Text{Raw: "func f() i64 { return 1 }"}))
+		inter, diag := text.Analyze(ctx, prog, NewRoot(nil))
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+		inter.Functions[0].Symbol = nil
+		Expect(compiler.Compile(ctx, inter)).Error().To(MatchError(
+			ContainSubstring(`function "f" has no symbol`),
+		))
+	})
+
 	Describe("Function Execution", func() {
 		It("should execute a function with conditional returns", func(ctx SpecContext) {
 			output := MustSucceed(compile(ctx, `
@@ -1684,6 +1694,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string, expected uint64) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
@@ -1695,8 +1706,8 @@ var _ = Describe("Compiler", func() {
 				results := MustSucceed(guard.Call(ctx))
 				Expect(results).To(ConsistOf(expected))
 			},
-			Entry("false and", "false and (i32(1) / i32(0)) > i32(0)", uint64(0)),
-			Entry("true or", "true or (i32(1) / i32(0)) > i32(0)", uint64(1)),
+			Entry("false and", "false and (i32(1) / zero) > i32(0)", uint64(0)),
+			Entry("true or", "true or (i32(1) / zero) > i32(0)", uint64(1)),
 		)
 
 		DescribeTable(
@@ -1704,6 +1715,7 @@ var _ = Describe("Compiler", func() {
 			func(ctx SpecContext, body string) {
 				output := MustSucceed(compileWithHostImports(ctx, fmt.Sprintf(`
 			func guard() bool {
+				zero := i32(0)
 				return %s
 			}
 			`, body), nil))
@@ -1714,8 +1726,8 @@ var _ = Describe("Compiler", func() {
 				).Error().
 					To(MatchError(ContainSubstring("integer divide by zero")))
 			},
-			Entry("true and", "true and (i32(1) / i32(0)) > i32(0)"),
-			Entry("false or", "false or (i32(1) / i32(0)) > i32(0)"),
+			Entry("true and", "true and (i32(1) / zero) > i32(0)"),
+			Entry("false or", "false or (i32(1) / zero) > i32(0)"),
 		)
 	})
 

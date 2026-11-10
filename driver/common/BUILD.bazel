@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -41,6 +42,15 @@ cc_library(
     ],
 )
 
+cc_binary(
+    name = "write_task_bench",
+    srcs = ["write_task_bench.cpp"],
+    deps = [
+        "//driver/common",
+        "@google_benchmark//:benchmark_main",
+    ],
+)
+
 cc_test(
     name = "common_test",
     srcs = [
@@ -49,6 +59,7 @@ cc_test(
         "sample_clock_test.cpp",
         "scan_task_test.cpp",
         "status_test.cpp",
+        "testutil.h",
         "write_task_test.cpp",
     ],
     deps = [

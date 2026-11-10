@@ -147,7 +147,12 @@ const TreeContextMenu: Tree.ContextMenu = (props): ReactElement => {
               Import components
             </Menu.Item>
           )}
-          <Menu.Divider />
+        </>
+      )}
+      <Menu.Divider />
+      <Tree.CopyContextMenuItem {...props} />
+      {singleResource && (
+        <>
           <Export.ContextMenuItem
             onClick={() =>
               handleExport({
@@ -230,7 +235,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
     else throw new UnexpectedError(`a ${id.type} does not belong to a project`);
   });
   await client.batch.send([
-    ...Group.moveRequests(client, groups, destination.id),
+    ...client.groups.moveRequests(groups, destination.id),
     ...[...byType].map(([type, keys]) =>
       Base.VISUALIZATIONS[type](client).setProjectRequest(keys, destination.id.key),
     ),
@@ -238,6 +243,7 @@ const drop: Tree.Drop = async ({ client, destination, items }) => {
 };
 
 const TreeItem = Tree.createItem({
+  linkable: true,
   icon: <Icon.Project />,
   useOnSelect,
   children,

@@ -91,7 +91,6 @@ func (w Writer) Create(ctx context.Context, l *Log) error {
 		}
 		l.Project = proj
 	}
-	l.ApplyDefaults()
 	if err = validateWrite(*l); err != nil {
 		return err
 	}

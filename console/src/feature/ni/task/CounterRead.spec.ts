@@ -136,6 +136,28 @@ describe("CounterRead", () => {
     expect(screen.queryByText("Measurement time")).toBeNull();
   });
 
+  it("should clamp the divisor to at least 1", async () => {
+    await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { measMethod: "LargeRng2Ctr", divisor: 7 }),
+      ]),
+    );
+    const input = await screen.findByDisplayValue("7");
+    fireEvent.change(input, { target: { value: "0" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("1"));
+  });
+
+  it("should clamp the initial count to at least 0", async () => {
+    await renderCounterRead(
+      createConfig([createChannel("ci_edge_count", 0, { initialCount: 9 })]),
+    );
+    const input = await screen.findByDisplayValue("9");
+    fireEvent.change(input, { target: { value: "-4" } });
+    fireEvent.blur(input);
+    await waitFor(() => expect((input as HTMLInputElement).value).toBe("0"));
+  });
+
   it("should swap the channel to the newly selected type", async () => {
     await renderCounterRead(createConfig([createChannel("ci_frequency", 0)]));
     await screen.findByText("Measurement method");
