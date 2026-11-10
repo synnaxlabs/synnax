@@ -1068,6 +1068,7 @@ describe("Read", () => {
       });
       const statusChannel = (dataType: string) =>
         EtherCAT.Task.createEntryReadChannel(slave.key, { ...STATUS_ENTRY, dataType });
+      const tasks: task.Key[] = [];
       const deploy = async (dataTypes: string[]) => {
         const rendered = await renderRead({
           ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -1080,9 +1081,10 @@ describe("Read", () => {
           EtherCAT.Task.READ_SCHEMAS,
         );
         rendered.unmount();
+        tasks.push(deployed.key);
         return deployed.config.channels.map(({ channel }) => channel);
       };
-      return { identifier, slave, statusChannel, deploy };
+      return { identifier, slave, statusChannel, deploy, tasks };
     };
 
     it("should get its own channel, and the first type should keep its channel", async () => {
@@ -1100,6 +1102,16 @@ describe("Read", () => {
       expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(first);
       expect(updated.properties.read.channels[`${0x6000}_1:int16`]).toBe(typed);
       expect(await deploy(["uint16"])).toEqual([first]);
+    });
+
+    it("should keep its own channel after the entry's first channel is deleted", async () => {
+      const { deploy, tasks } = await createStatusSlave();
+      const [first] = await deploy(["uint16"]);
+      const [typed] = await deploy(["int16"]);
+      // The Core refuses to delete a channel that a task uses.
+      await client.tasks.delete(tasks);
+      await client.channels.delete(first);
+      expect(await deploy(["int16"])).toEqual([typed]);
     });
 
     it("should show the name of its own channel before deploying", async () => {

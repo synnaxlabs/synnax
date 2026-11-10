@@ -131,7 +131,7 @@ const Form: FC = () => {
     const first = channels[addressKey(ch)] ?? 0;
     if (first !== 0 && mapped == null) return null;
     const held = mapped?.find(({ key }) => key === first)?.dataType.toString();
-    return { channel: channels[readKey(ch, held)] ?? 0 };
+    return { channel: channels[readKey(slave, ch, held)] ?? 0 };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -219,7 +219,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
   // The data type and repeated name checks run before any create, so their failure
   // leaves nothing behind.
   const held = await retrieveHeldDataTypes(client, slaves, channelsBySlaveKey);
-  const keyOf = (ch: EntryReadChannel) => readKey(ch, held.get(ch.key));
+  const keyOf = (slave: SlaveDevice, ch: EntryReadChannel) =>
+    readKey(slave, ch, held.get(ch.key));
   const nameOf = (slave: SlaveDevice, ch: EntryReadChannel) =>
     readChannelName(slave, ch, held.get(ch.key));
   const plans = [];
@@ -229,7 +230,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       client,
       channels,
       slave.properties.read.channels,
-      keyOf,
+      (ch) => keyOf(slave, ch),
       readDataType,
     );
     plans.push({ slave, channels, missing });
@@ -250,7 +251,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       names: missing.map((ch) => nameOf(slave, ch)),
       index: () => slave.properties.readIndex,
       map: slave.properties.read.channels,
-      mapKey: keyOf,
+      mapKey: (ch) => keyOf(slave, ch),
       getDataType: readDataType,
     });
 
@@ -264,14 +265,14 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       );
 
       created.forEach((c, i) => {
-        slave.properties.read.channels[keyOf(toCreate[i])] = c.key;
+        slave.properties.read.channels[keyOf(slave, toCreate[i])] = c.key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[keyOf(ch)];
+      ch.channel = slave.properties.read.channels[keyOf(slave, ch)];
     });
   }
 

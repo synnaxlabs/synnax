@@ -122,20 +122,33 @@ export const addressKey = ({ index, subIndex }: Address): string =>
 /** @returns whether the read channel scales its samples. */
 const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
 
+// A colon comes before the type, because the wire's case conversion changes an
+// underscore before a letter.
+const typedKey = (ch: EntryReadChannel): string => `${addressKey(ch)}:${ch.dataType}`;
+
 /** @returns whether the unscaled read channel needs a channel apart from held's. */
-const isTyped = (ch: EntryReadChannel, held: string | undefined): boolean =>
-  !isScaled(ch) && held != null && held !== ch.dataType;
+const isTyped = (
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+  held: string | undefined,
+): boolean =>
+  !isScaled(ch) &&
+  (slave.properties.read.channels[typedKey(ch)] != null ||
+    (held != null && held !== ch.dataType));
 
 /**
  * @returns the device properties key of the read channel's Synnax channel. A scaled
  * channel writes float64 samples, so it maps to its own Synnax channel. So does a
  * channel whose data type differs from held, the type of the channel that the slave
- * maps for the entry. A colon comes before its type, because the wire's case conversion
- * changes an underscore before a letter.
+ * maps for the entry, and a channel whose type the slave already maps apart.
  */
-export const readKey = (ch: EntryReadChannel, held: string | undefined): string => {
+export const readKey = (
+  slave: SlaveDevice,
+  ch: EntryReadChannel,
+  held: string | undefined,
+): string => {
   if (isScaled(ch)) return `scaled_${addressKey(ch)}`;
-  return isTyped(ch, held) ? `${addressKey(ch)}:${ch.dataType}` : addressKey(ch);
+  return isTyped(slave, ch, held) ? typedKey(ch) : addressKey(ch);
 };
 
 /** @returns the data type of the read channel's Synnax channel. */
@@ -290,7 +303,7 @@ export const readChannelName = (
     ch,
   );
   if (isScaled(ch)) return `${name}_scaled`;
-  return isTyped(ch, held) ? `${name}_${ch.dataType}` : name;
+  return isTyped(slave, ch, held) ? `${name}_${ch.dataType}` : name;
 };
 
 /** The names deploying the task gives a write channel's command and state channels. */
