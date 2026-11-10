@@ -363,8 +363,11 @@ def _send_oob_and_assert_state_clamped(
     writes OOB command values, then reads the state channels and asserts
     the actual state does NOT match the commanded OOB values.
     """
-    cmd_keys = [ch.cmd_channel for ch in tsk.config.channels]
-    state_keys = [ch.state_channel for ch in tsk.config.channels]
+    commanded = [
+        ch for ch in tsk.config.channels if not isinstance(ch, sy.ni.AOFuncGenChannel)
+    ]
+    cmd_keys = [ch.cmd_channel for ch in commanded]
+    state_keys = [ch.state_channel for ch in commanded]
 
     channels = client.channels.retrieve(cmd_keys)
     index_keys = list({ch.index for ch in channels if ch.index != 0})

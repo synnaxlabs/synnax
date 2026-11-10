@@ -36,6 +36,32 @@ var _ = Describe("Literal Type Inference", func() {
 		}
 	})
 
+	Describe("Mixed float and integer literals", func() {
+		DescribeTable("Should resolve to a float",
+			func(specCtx SpecContext, expr string, expected types.Type) {
+				ast := MustSucceed(parser.Parse("func f() {\n    " + expr + "\n}"))
+				ctx := acontext.NewRoot(specCtx, ast, buildExpressionRoot(nil))
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+				fn := MustSucceed(ctx.Scope.Resolve(ctx, "f"))
+				a := MustSucceed(fn.Children()[0].Resolve(ctx, "a"))
+				Expect(ctx.Constraints.ApplySubstitutions(a.Type)).To(Equal(expected))
+			},
+			Entry("float first", "a := 3.2 + 2", types.F64()),
+			Entry("integer first", "a := 2 + 3.2", types.F64()),
+			Entry("three operands", "a := 2 + 3.2 + 1", types.F64()),
+			Entry("declared f32", "a f32 := 3.2 + 2", types.F32()),
+		)
+
+		It("Should still reject a typed integer", func(ctx SpecContext) {
+			expectFailure(ctx, `
+			func f() {
+				x := 10
+				y := x + 3.2
+			}`, nil, "not compatible")
+		})
+	})
+
 	Describe("Numeric literals should adapt to context", func() {
 		var (
 			testExtras []symbol.Symbol

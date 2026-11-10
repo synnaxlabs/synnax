@@ -82,7 +82,7 @@ func (w Writer) ApplyDirectory(
 		return err
 	}
 	w.directoryDispatcher.Attach(w.tx, key, acts...)
-	return nil
+	return w.resyncImporting(ctx)
 }
 
 // DeleteDirectory deletes the empty directories with keys.
@@ -90,5 +90,8 @@ func (w Writer) DeleteDirectory(ctx context.Context, keys ...directory.Key) erro
 	if slices.Contains(keys, w.root) {
 		return errRoot("deleted")
 	}
-	return w.directories.NewWriter(w.tx).Delete(ctx, keys...)
+	if err := w.directories.NewWriter(w.tx).Delete(ctx, keys...); err != nil {
+		return err
+	}
+	return w.resyncImporting(ctx)
 }

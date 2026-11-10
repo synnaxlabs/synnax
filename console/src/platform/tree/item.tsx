@@ -90,6 +90,8 @@ export interface Item extends FC<ItemProps> {
   drop?: Drop;
   haulItems: HaulItems;
   ContextMenu?: ContextMenu;
+  /** A deep link opens a resource of this type. */
+  linkable: boolean;
 }
 
 export interface Items extends Partial<Record<resource.Type, Item>> {}
@@ -135,6 +137,8 @@ export interface CreateItemParams {
   drop?: Drop;
   haulItems?: HaulItems;
   ContextMenu?: ContextMenu;
+  /** A deep link opens a resource of this type. */
+  linkable?: boolean;
   Content?: Content;
 }
 
@@ -148,6 +152,7 @@ export const createItem = ({
   drop,
   haulItems = () => [],
   ContextMenu,
+  linkable = false,
   Content: ContentComp,
 }: CreateItemParams): Item => {
   const Row = ContentComp ?? DefaultRow;
@@ -167,6 +172,7 @@ export const createItem = ({
   item.drop = drop;
   item.haulItems = haulItems;
   item.ContextMenu = ContextMenu;
+  item.linkable = linkable;
   return item;
 };
 

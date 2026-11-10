@@ -41,9 +41,17 @@ func (w *Writer) Write(frame frame.Frame) (authorized bool, err error) {
 	return authorized, err
 }
 
-func (w *Writer) Commit() (telem.TimeStamp, error) {
+// Commit commits all writes since the last commit and returns the end of the commit.
+// authorized is false if the writer lacks control of a channel with samples to commit,
+// and the end is then zero. authorized is also false if a write since the last commit
+// was refused for no control, but the commit applies and returns its end. The writer
+// stays open so that it can regain control.
+func (w *Writer) Commit() (end telem.TimeStamp, authorized bool, err error) {
 	res, err := w.exec(Request{Command: CommandCommit}, true)
-	return res.End, err
+	if err != nil {
+		return 0, false, err
+	}
+	return res.End, res.Authorized, nil
 }
 
 func (w *Writer) SetAuthority(cfg Config) error {
@@ -73,21 +81,26 @@ func (w *Writer) exec(req Request, sync bool) (Response, error) {
 	}
 	select {
 	case res = <-w.responses.Outlet():
-		return res, w.close(res.Err)
-	case w.requests.Inlet() <- req:
-	}
-	if !sync {
-		return res, nil
-	}
-	for res = range w.responses.Outlet() {
 		if res.Err != nil {
-			return res, w.close(res.Err)
+			return Response{}, w.close(res.Err)
 		}
-		if res.Command == req.Command {
+	case w.requests.Inlet() <- req:
+		if !sync {
 			return res, nil
 		}
+		for res = range w.responses.Outlet() {
+			if res.Err != nil {
+				return Response{}, w.close(res.Err)
+			}
+			if res.Command == req.Command {
+				return res, nil
+			}
+		}
 	}
-	return res, w.close(nil)
+	if err := w.close(nil); err != nil {
+		return Response{}, err
+	}
+	return Response{}, errors.Wrap(ErrClosed, "writer exited without a response")
 }
 
 func (w *Writer) Close() error { return w.close(nil) }

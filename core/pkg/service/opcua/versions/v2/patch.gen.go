@@ -72,10 +72,11 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
-	case "array_mode":
-		return patch.Value(&rc.ArrayMode, c.Next())
-	case "array_size":
-		return patch.Value(&rc.ArraySize, c.Next())
+	case "sampling":
+		if c = c.Next(); c.Done() {
+			return patch.Value(&rc.Sampling, c)
+		}
+		return rc.Sampling.Patch(c)
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
 	case "nan_fill_enabled":
@@ -92,11 +93,85 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Float(float64(rc.ReadConfig.SampleRate))
 	h.Float(float64(rc.ReadConfig.StreamRate))
 	h.String(rc.Device)
-	h.Bool(rc.ArrayMode)
-	h.Int(int64(rc.ArraySize))
+	rc.Sampling.HashContent(h)
 	h.Len(len(rc.Channels))
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
 	}
 	h.Bool(rc.NanFillEnabled)
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (s *Sampling) Patch(c patch.Cursor) error {
+	switch v := s.Variant.(type) {
+	case UnarySampling:
+		c, ok := c.Guard("type", "unary")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	case ArraySampling:
+		c, ok := c.Guard("type", "array")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(s, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		s.Variant = v
+		return nil
+	default:
+		return patch.Absent(s, c, "type")
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (s *Sampling) HashContent(h *content.Hash) {
+	switch v := s.Variant.(type) {
+	case UnarySampling:
+		h.String("unary")
+		v.HashContent(h)
+	case ArraySampling:
+		h.String("array")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (us *UnarySampling) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (us *UnarySampling) HashContent(h *content.Hash) {
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (as *ArraySampling) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "size":
+		return patch.Value(&as.Size, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (as *ArraySampling) HashContent(h *content.Hash) {
+	h.Uint(uint64(as.Size))
 }
