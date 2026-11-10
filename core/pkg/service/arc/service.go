@@ -185,11 +185,10 @@ type Service struct {
 	editedModules *gorp.Attachment[Key]
 	// importerSync schedules a resync of every importer of an edited module.
 	importerSync *debounce.Keyed[Key]
-	// pathChanges marks each transaction that created, moved, renamed, or deleted a
-	// module or a directory. followCommit then triggers importingSync, which resyncs
-	// every Arc with an import.
-	pathChanges   *gorp.Attachment[struct{}]
-	importingSync *debounce.Keyed[struct{}]
+	// pathChanges marks each transaction that may change which module an import path
+	// names. followCommit then triggers pathSync to resync each Arc with an import.
+	pathChanges *gorp.Attachment[struct{}]
+	pathSync    *debounce.Keyed[struct{}]
 	// directoryState holds the actions that change directories.
 	directoryState *actions.State[directory.Key, directory.Action]
 }
@@ -588,11 +587,11 @@ func OpenService(
 	}); !ok(err, s.importerSync) {
 		return nil, err
 	}
-	if s.importingSync, err = debounce.NewKeyed(debounce.KeyedConfig[struct{}]{
+	if s.pathSync, err = debounce.NewKeyed(debounce.KeyedConfig[struct{}]{
 		Delay:    cfg.TaskSyncDebounce.Duration(),
 		MaxDelay: cfg.TaskSyncDebounce.Duration() * 4,
 		Callback: s.resyncImporting,
-	}); !ok(err, s.importingSync) {
+	}); !ok(err, s.pathSync) {
 		return nil, err
 	}
 	ok(nil, xio.NoFailCloserFunc(cfg.DB.Observe().OnChange(s.followCommit)))

@@ -118,7 +118,7 @@ func (s *Service) importersOf(
 }
 
 // resyncImporting schedules a resync of every Arc with an import, since a path change
-// may resolve or break any of them. It runs on the importing-sync debouncer and reads
+// may resolve or break any of them. It runs on the path-sync debouncer and reads
 // committed state with no lock.
 func (s *Service) resyncImporting(ctx context.Context, _ struct{}) {
 	var arcs []Arc

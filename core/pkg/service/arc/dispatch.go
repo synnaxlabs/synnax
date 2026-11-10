@@ -100,9 +100,9 @@ func (w Writer) Apply(ctx context.Context, key Key, acts ...Action) error {
 	return nil
 }
 
-// followCommit schedules a task resync for each Arc that c dispatched to, then drops
-// the edit time and pending resync of each Arc that c deleted. It runs only for a
-// commit, so a denied or failed write changes neither.
+// followCommit schedules the resyncs that c asked for, then drops the edit time and
+// pending resync of each Arc that c deleted. It runs only for a commit, so a denied or
+// failed write changes neither.
 func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 	for _, key := range s.resyncs.Of(c) {
 		s.taskSync.Trigger(key)
@@ -111,7 +111,7 @@ func (s *Service) followCommit(_ context.Context, c gorp.Commit) {
 		s.importerSync.Trigger(key)
 	}
 	if len(s.pathChanges.Of(c)) > 0 {
-		s.importingSync.Trigger(struct{}{})
+		s.pathSync.Trigger(struct{}{})
 	}
 	for _, key := range s.deletes.Of(c) {
 		s.sweeper.forget(key)

@@ -276,7 +276,7 @@ func (w Writer) UpdateTask(
 		return nil, err
 	}
 	var hashes drift.Hashes
-	if cfg.Hash, hashes, err = w.build(ctx, a, rec.Stored, b); err != nil {
+	if cfg.Hash, hashes, err = w.hash(ctx, a, rec.Stored, b); err != nil {
 		return nil, err
 	}
 	written, err := w.writeTask(ctx, a.Base(), tsk.Rack, existing, cfg)
@@ -301,10 +301,10 @@ func (w Writer) current(ctx context.Context, b Build, key Key) (Build, error) {
 	return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
 }
 
-// build returns the hash of a's compiled program in b and the hashes of its content.
-// The program holds the code of every module a imports. An automation that does not
-// compile hashes its text and the modules in previous, rehashed.
-func (w Writer) build(
+// hash returns the hash of a's compiled program in b and the hashes of its content. The
+// program holds the code of every module a imports. An automation that does not compile
+// hashes its text and the modules in previous, rehashed.
+func (w Writer) hash(
 	ctx context.Context,
 	a Arc,
 	previous drift.Hashes,
@@ -445,7 +445,7 @@ func (w Writer) syncTask(ctx context.Context, a Arc, built Build) error {
 	if err != nil {
 		return err
 	}
-	hash, hashes, err := w.build(ctx, a, rec.Stored, built)
+	hash, hashes, err := w.hash(ctx, a, rec.Stored, built)
 	if err != nil || (cfg.Hash == hash && tsk.Name == b.Name) {
 		return err
 	}
