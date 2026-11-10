@@ -1361,6 +1361,23 @@ describe("connection", () => {
       await client.close();
     });
 
+    it("should leave a failed login on the stream to the auth status", async () => {
+      const internal: Error[] = [];
+      const ensured = vi.fn(async () => {
+        throw new AuthError("no credentials");
+      });
+      const unary = mockUnary(() => TimeStamp.now());
+      const client = createClient(unary, {
+        requiresStream: true,
+        stream: { reset: async () => {}, ensure: ensured },
+        onInternalError: (error) => internal.push(error),
+      });
+      while (ensured.mock.calls.length === 0) await sleep(TimeSpan.milliseconds(1));
+      await sleep(TimeSpan.milliseconds(5));
+      expect(internal).toEqual([]);
+      await client.close();
+    });
+
     it("should recover from escalated downtime without internal errors or a cache reset", async () => {
       const internal: Error[] = [];
       const streamCalls: string[] = [];
