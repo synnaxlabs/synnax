@@ -970,7 +970,7 @@ protected:
     /// it. Returns the status that the command sets.
     synnax::task::Status set_standalone() {
         synnax::device::Device dev{
-            .key = "ethercat_1_2_12345",
+            .key = make_unique_channel_name("ethercat_1_2_12345"),
             .rack = this->rack.key,
             .location = "eth0.Slot 1",
             .make = INTEGRATION_NAME,
