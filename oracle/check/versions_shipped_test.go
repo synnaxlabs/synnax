@@ -574,5 +574,346 @@ Channel struct {
 				"schemas/synnax/channel v0 is gone, which core/v0.60.1 shipped",
 			))
 		})
+
+		DescribeTable("Should fail a changed stored shape",
+			func(shipped, current, reason string) {
+				write(releaseRoot, v0Path, shipped)
+				write(root, v0Path, current)
+				Expect(messages()).To(ContainElement(ContainSubstring(reason)))
+			},
+			Entry("a type that changes its form", `
+Mode uint8
+
+Channel struct {
+    mode Mode
+
+    @go marshal
+}
+`, `
+Mode enum {
+    a = 1
+}
+
+Channel struct {
+    mode Mode
+
+    @go marshal
+}
+`, "Channel.mode: changes from resolution.DistinctForm to resolution.EnumForm"),
+			Entry("a distinct type with a new base", `
+Mode uint8
+
+Channel struct {
+    mode Mode
+
+    @go marshal
+}
+`, `
+Mode uint16
+
+Channel struct {
+    mode Mode
+
+    @go marshal
+}
+`, "Channel.mode: changes from uint8 to uint16"),
+			Entry("an alias with a new target", `
+Inner struct {
+    a string
+}
+
+Payload = Inner
+
+Channel struct {
+    payload Payload
+
+    @go marshal
+}
+`, `
+Inner struct {
+    a string
+}
+
+Other struct {
+    a uint8
+}
+
+Payload = Other
+
+Channel struct {
+    payload Payload
+
+    @go marshal
+}
+`, "Channel.payload.a: changes from string to uint8"),
+			Entry("a map with a new value type", `
+Channel struct {
+    labels map<string, string>
+
+    @go marshal
+}
+`, `
+Channel struct {
+    labels map<string, uint8>
+
+    @go marshal
+}
+`, "Channel.labels: changes from string to uint8"),
+			Entry("a map that becomes an array", `
+Channel struct {
+    labels map<string, string>
+
+    @go marshal
+}
+`, `
+Channel struct {
+    labels string[]
+
+    @go marshal
+}
+`, "Channel.labels: changes its type arguments"),
+			Entry("a fixed array with a new size", `
+Channel struct {
+    bytes uint8[4]
+
+    @go marshal
+}
+`, `
+Channel struct {
+    bytes uint8[8]
+
+    @go marshal
+}
+`, "Channel.bytes: changes its array size"),
+			Entry("a generic type with new type parameters", `
+Box struct<T> {
+    value T
+
+    @go marshal
+}
+`, `
+Box struct<T, U> {
+    value T
+
+    @go marshal
+}
+`, "Box: changes its type parameters"),
+			Entry("a field that drops its type parameter", `
+Box struct<T> {
+    value T
+
+    @go marshal
+}
+`, `
+Box struct<T> {
+    value string
+
+    @go marshal
+}
+`, "Box.value: changes between a type parameter and a concrete type"),
+			Entry("an enum that changes between int and string members", `
+Level enum {
+    a = 1
+}
+
+Channel struct {
+    level Level
+
+    @go marshal
+}
+`, `
+Level enum {
+    a = "a"
+}
+
+Channel struct {
+    level Level
+
+    @go marshal
+}
+`, "Channel.level: changes between int and string members"),
+			Entry("a union with a new discriminator", `
+Scale union on type {
+    none {}
+
+    @go marshal
+}
+`, `
+Scale union on kind {
+    none {}
+
+    @go marshal
+}
+`, "Scale: changes its discriminator"),
+			Entry("a union that starts to borrow an enum", `
+Scale union on type {
+    none {}
+
+    @go marshal
+}
+`, `
+Type enum {
+    none = "none"
+}
+
+Scale union on type Type {
+    none {}
+
+    @go marshal
+}
+`, "Scale: changes its discriminator type"),
+			Entry("a union whose borrowed enum renames a member", `
+Type enum {
+    none = "none"
+}
+
+Scale union on type Type {
+    none {}
+
+    @go marshal
+}
+`, `
+Type enum {
+    off = "none"
+}
+
+Scale union on type Type {
+    none {}
+
+    @go marshal
+}
+`, "Scale: member none removed"),
+			Entry("a union that gains a base", `
+Base struct {
+    unit string
+}
+
+Scale union on type {
+    none {}
+
+    @go marshal
+}
+`, `
+Base struct {
+    unit string
+}
+
+Scale union on type extends Base {
+    none {}
+
+    @go marshal
+}
+`, "Scale: changes its bases"),
+			Entry("a union whose base gains a field", `
+Base struct {
+    unit string
+}
+
+Scale union on type extends Base {
+    none {}
+
+    @go marshal
+}
+`, `
+Base struct {
+    unit   string
+    offset float64
+}
+
+Scale union on type extends Base {
+    none {}
+
+    @go marshal
+}
+`, "Scale: stored fields change from [unit] to [unit offset]"),
+			Entry("a union variant that becomes named", `
+Scale union on type {
+    linear {
+        slope float64
+    }
+
+    @go marshal
+}
+`, `
+Linear struct {
+    slope float64
+}
+
+Scale union on type {
+    linear Linear
+
+    @go marshal
+}
+`, "Scale.linear: changes between inline and named"),
+		)
+
+		It("Should fail a release whose schemas directory is malformed", func() {
+			write(root, v0Path, shippedV0)
+			write(releaseRoot, "schemas/synnax/versions/README.md", "")
+			Expect(messages()).To(ConsistOf(
+				ContainSubstring("must contain only per-resource chain directories"),
+			))
+		})
+
+		It("Should fail a shipped version file that no longer resolves", func() {
+			write(releaseRoot, v0Path, `
+import "schemas/x/versions/text/v0"
+
+Channel struct {
+    level text.Level
+
+    @go marshal
+}
+`)
+			write(root, v0Path, shippedV0)
+			Expect(messages()).To(ContainElement(
+				ContainSubstring(v0Path + " at core/v0.60.1"),
+			))
+		})
+
+		It("Should fail a current version file that does not resolve", func() {
+			write(root, v0Path, `
+import "schemas/x/versions/text/v0"
+
+Channel struct {
+    level text.Level
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(ContainElement(ContainSubstring("text")))
+		})
+	})
+
+	It("Should pass a generic stored type that renames its type parameter", func() {
+		write(releaseRoot, v0Path, `
+Box struct<T> {
+    value T
+
+    @go marshal
+}
+`)
+		write(root, v0Path, `
+Box struct<U> {
+    value U
+
+    @go marshal
+}
+`)
+		Expect(messages()).To(BeEmpty())
+	})
+
+	It("Should pass a recursive stored type that keeps its shape", func() {
+		const node = `
+Node struct {
+    name string
+    next Node?
+
+    @go marshal
+}
+`
+		write(releaseRoot, v0Path, node)
+		write(root, v0Path, node)
+		Expect(messages()).To(BeEmpty())
 	})
 })

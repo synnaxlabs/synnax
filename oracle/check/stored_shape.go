@@ -56,13 +56,11 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 		return s.ref(at, o.Target, new.Form.(resolution.AliasForm).Target)
 	case resolution.DistinctForm:
 		return s.ref(at, o.Base, new.Form.(resolution.DistinctForm).Base)
-	case resolution.PrimitiveForm:
-		if n := new.Form.(resolution.PrimitiveForm); o.Name != n.Name {
-			return fmt.Sprintf("%s: changes from %s to %s", at, o.Name, n.Name)
-		}
-	case resolution.BuiltinGenericForm:
-		if n := new.Form.(resolution.BuiltinGenericForm); o.Name != n.Name {
-			return fmt.Sprintf("%s: changes from %s to %s", at, o.Name, n.Name)
+	case resolution.PrimitiveForm, resolution.BuiltinGenericForm:
+		if old.QualifiedName != new.QualifiedName {
+			return fmt.Sprintf(
+				"%s: changes from %s to %s", at, old.QualifiedName, new.QualifiedName,
+			)
 		}
 	default:
 		return fmt.Sprintf("%s: has an unknown form %T", at, old.Form)
@@ -152,15 +150,13 @@ func (s shapes) ref(at string, old, new resolution.TypeRef) string {
 		(old.ArraySize != nil && *old.ArraySize != *new.ArraySize) {
 		return at + ": changes its array size"
 	}
-	oldType, oldOK := old.Resolve(s.old)
-	newType, newOK := new.Resolve(s.new)
-	if !oldOK || !newOK {
-		if oldOK != newOK || old.Name != new.Name {
-			return fmt.Sprintf("%s: changes from %s to %s", at, old.Name, new.Name)
+	if old.IsTypeParam() || new.IsTypeParam() {
+		if old.IsTypeParam() != new.IsTypeParam() {
+			return at + ": changes between a type parameter and a concrete type"
 		}
 		return ""
 	}
-	return s.typ(at, oldType, newType)
+	return s.typ(at, s.old.MustGet(old.Name), s.new.MustGet(new.Name))
 }
 
 // enumMembers requires every old member in new with the same value. Stored data holds
