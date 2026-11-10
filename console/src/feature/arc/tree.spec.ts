@@ -177,5 +177,23 @@ describe("arc/tree", () => {
         ).toBeUndefined(),
       );
     });
+
+    it("deletes a directory after confirmation", async () => {
+      const { root } = await createArcInDirectory();
+      const sub = await client.arcs.directories.create({
+        parent: root.key,
+        name: uniqueName("sub"),
+      });
+      await renderLiveTree({ client, root, items: Arc.TREE_ITEMS });
+      await openTreeRowContextMenu(sub.name);
+      fireEvent.click(await screen.findByText("Delete"));
+      await screen.findByText(`Are you sure you want to delete ${sub.name}?`);
+      fireEvent.click(findButton("Delete"));
+      await waitFor(async () => {
+        await expect(client.arcs.directories.retrieve([sub.key])).rejects.toSatisfy(
+          (e) => NotFoundError.matches(e),
+        );
+      });
+    });
   });
 });
