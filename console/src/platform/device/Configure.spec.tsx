@@ -41,6 +41,7 @@ const HARDWARE: Device.Hardware = {
   icon: <Icon.Hardware />,
   make: "acme",
   scanType: "acme_scan",
+  location: { shape: "plain" },
   checks: [],
   Configure: Device.createConfigure({
     icon: <Icon.Hardware />,

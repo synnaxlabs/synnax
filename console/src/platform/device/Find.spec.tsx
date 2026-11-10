@@ -29,6 +29,7 @@ const createHardware = (): Device.Hardware => ({
   icon: <Icon.Device />,
   make: uniqueName("make"),
   scanType: uniqueName("scan"),
+  location: { shape: "plain" },
   checks: [],
   Configure: Device.createConfigure({ icon: <Icon.Device />, zeroProperties: {} }),
 });

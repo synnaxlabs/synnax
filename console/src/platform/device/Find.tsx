@@ -149,7 +149,6 @@ interface DeviceItemProps {
 
 const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement => (
   <Pane.Item>
-    <PDevice.StatusIndicator status={d.status} />
     <Flex.Box y gap="tiny" grow>
       <Text.Text level="p" weight={500} color={11}>
         {d.name}
@@ -175,6 +174,7 @@ const DeviceItem = ({ device: d, onConfigure }: DeviceItemProps): ReactElement =
         Configure
       </Button.Button>
     )}
+    <PDevice.StatusIndicator status={d.status} tooltipLocation="left" />
   </Pane.Item>
 );
 
