@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { lineplot } from "@synnaxlabs/client";
+import { lineplot, NotFoundError } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { toRef } from "@/session/range/ref";
 import {
@@ -37,21 +38,30 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
     client.ranges.onDelete((key) => store.dispatch(remove({ keys: [key] }))),
 };
 
+const REWRITE_FAILED = { name: "Line plot", message: "Failed to update static ranges" };
+
 // Desktop 1.0 stored a static range's key on a line plot. The Core cannot resolve the
-// key, so the plot shows the range's window instead.
-const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
-  reconcile: async ({ client, store, ended }) => {
-    const { ranges, staticKeysRewritten } = store.getState().range;
-    if (staticKeysRewritten) return;
-    const windows = new Map(
-      ranges
-        .filter(({ variant }) => variant === "static")
-        .map((s) => [s.key, toRef(s)]),
-    );
-    if (windows.size > 0) {
+// key, so the plot shows the range's window instead. A plot the user cannot update, or
+// one deleted meanwhile, counts as done; any other failure retries on the next pass.
+const useRewriteStaticKeys = (): Synchronizer.Callbacks<StoreState, Action> => {
+  const handleError = Status.useErrorHandler();
+  return {
+    reconcile: async ({ client, store, ended }) => {
+      const { ranges, staticKeysRewritten } = store.getState().range;
+      if (staticKeysRewritten) return;
+      const windows = new Map(
+        ranges
+          .filter(({ variant }) => variant === "static")
+          .map((s) => [s.key, toRef(s)]),
+      );
+      if (windows.size === 0) {
+        if (!ended()) store.dispatch(markStaticKeysRewritten());
+        return;
+      }
+      const grantee = await client.users.current.retrieve();
       const plots = await client.lineplots.retrieve({});
-      await Promise.all(
-        plots.map(async ({ key, ranges }) => {
+      const failed = await Promise.all(
+        plots.map(async ({ key, ranges }): Promise<boolean> => {
           const actions = ranges.flatMap((range) => {
             const window = range.variant === "key" ? windows.get(range.key) : undefined;
             if (window == null) return [];
@@ -60,15 +70,28 @@ const rewriteStaticKeys: Synchronizer.Callbacks<StoreState, Action> = {
               lineplot.addRange({ range: window }),
             ];
           });
-          if (actions.length > 0) await client.lineplots.send(key, actions);
+          if (actions.length === 0) return false;
+          const updatable = await client.access.granted.retrieve(grantee, {
+            objects: lineplot.resourceID(key),
+            action: "update",
+          });
+          if (!updatable) return false;
+          try {
+            await client.lineplots.send(key, actions);
+          } catch (e) {
+            if (NotFoundError.matches(e)) return false;
+            if (!ended()) handleError(e, REWRITE_FAILED);
+            return true;
+          }
+          return false;
         }),
       );
-    }
-    if (!ended()) store.dispatch(markStaticKeysRewritten());
-  },
+      if (!failed.some(Boolean) && !ended()) store.dispatch(markStaticKeysRewritten());
+    },
+  };
 };
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   { name: "sync ranges", use: () => syncRanges },
-  { name: "rewrite static range keys", use: () => rewriteStaticKeys },
+  { name: "rewrite static range keys", use: useRewriteStaticKeys },
 ];
