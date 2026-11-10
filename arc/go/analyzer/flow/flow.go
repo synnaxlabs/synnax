@@ -382,6 +382,9 @@ func analyzeIdentifier(
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
+	if rejectOuterSeries(ctx, sym, ctx.AST) {
+		return
+	}
 
 	isValueVarSink := (sym.Kind == symbol.KindVariable ||
 		sym.Kind == symbol.KindStatefulVariable) && sym.Type.Kind != types.KindChan
@@ -539,6 +542,12 @@ func inputArguments[T antlr.ParserRuleContext](
 ) []symbol.Argument {
 	args := symbol.FunctionArguments(fn)
 	for _, arg := range args {
+		if head, tail := parser.ExpressionNameParts(arg.Expr); head != "" {
+			sym, err := ctx.Scope.ResolveMember(ctx, head, tail)
+			if err == nil && rejectOuterSeries(ctx, sym, arg.Expr) {
+				continue
+			}
+		}
 		expression.Analyze(ctx.Child(arg.Expr))
 	}
 	return args

@@ -239,10 +239,17 @@ This section lists the most common diagnostics without a code, not all of them.
   message={"variable '<x>' of type <T> has no effect outside a function"}
 >
   <Problem.Cause>
-    A `:=` or `$=` outside a function declares a series. Code outside a function cannot
-    read a series, so the compiler drops the declaration.
+    A `:=` or `$=` outside a function declares a series that no code uses. The compiler
+    drops the declaration.
   </Problem.Cause>
   <Problem.Fix>Declare the variable in the function that uses it.</Problem.Fix>
+</Problem.Item>
+<Problem.Item message={"series '<x>' declared outside a function cannot be used"}>
+  <Problem.Cause>
+    Flow code reads or writes a series declared at the top level or in a sequence or
+    stage.
+  </Problem.Cause>
+  <Problem.Fix>Declare the series in the function that uses it.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"cannot assign to loop variable '<i>'"}>
   <Problem.Cause>The loop body changes the loop variable.</Problem.Cause>

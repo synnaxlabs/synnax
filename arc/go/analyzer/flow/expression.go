@@ -211,7 +211,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 		}
 		head, tail := parser.PrimaryNameParts(pe)
 		sym, err := fn.ResolveMember(ctx, head, tail)
-		if err != nil {
+		if err != nil || rejectOuterSeries(ctx, sym, pe) {
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
@@ -261,4 +261,19 @@ func BindOutput[T antlr.ParserRuleContext](
 	); err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 	}
+}
+
+// rejectOuterSeries adds an error at ast and returns true when sym is a series
+// declared outside a function, which no flow code can use.
+func rejectOuterSeries[T antlr.ParserRuleContext](
+	ctx acontext.Context[T],
+	sym *symbol.Symbol,
+	ast antlr.ParserRuleContext,
+) bool {
+	if !sym.IsComputed() || sym.Type.Kind != types.KindSeries {
+		return false
+	}
+	ctx.Diagnostics.Add(diagnostics.Errorf(ast,
+		"series '%s' declared outside a function cannot be used", sym.Name))
+	return true
 }

@@ -749,7 +749,7 @@ func lowerComputedDecl(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (varEntry, bool) {
-	// A series has no register and cannot be read outside a function, so its
+	// The analyzer rejects every use of a series declared outside a function, so its
 	// declaration lowers to nothing.
 	if e.register == nil {
 		ctx.Diagnostics.Add(diagnostics.Warningf(ctx.AST,

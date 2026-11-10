@@ -1990,6 +1990,53 @@ var _ = Describe("Text", func() {
 			},
 			Entry("top level", "data := [1.0, 2.0, 3.0]"),
 			Entry("stage", "sequence main {\nstage a {\ndata := [1.0, 2.0]\n}\n}"),
+			Entry("stateful", "sequence main {\nstage a {\ndata $= [1.0, 2.0]\n}\n}"),
+		)
+
+		DescribeTable("Should reject a use of a series declared outside a function",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"series 'data' declared outside a function cannot be used",
+				))
+			},
+			Entry("index", "data := [1, 2]\ndata[0] -> out_ch"),
+			Entry("call", "data := [1, 2]\nlen(data) -> out_ch"),
+			Entry("source", "data := [1, 2]\ndata -> out_ch"),
+			Entry("sink", "data := [1, 2]\ncount_ch -> data"),
+			Entry("declaration", "data := [1, 2]\nx := data[0]\nx -> out_ch"),
+			Entry(
+				"stage",
+				"sequence main {\nstage a {\ndata := [1, 2]\ndata[0] -> out_ch\n}\n}",
+			),
+			Entry(
+				"argument",
+				"func f(s series i64) i64 { return s[0] }\n"+
+					"data := [1, 2]\ncount_ch -> f(s=data) -> out_ch",
+			),
+		)
+
+		It("Should not compile a function that reads a series declared outside it",
+			func(ctx SpecContext) {
+				source := "data := [1, 2]\nfunc f() i64 { return data[0] }\n" +
+					"count_ch -> f() -> out_ch"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(text.Compile(ctx, inter)).Error().To(MatchError(
+					ContainSubstring("cannot read 'data'"),
+				))
+			},
 		)
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",
