@@ -117,15 +117,15 @@ describe("secret/validity", () => {
       expect(Validity.describeSecret(s)).toBe("Set on May 4, 2026");
     });
 
-    it("shows the path of a file secret", () => {
+    it("shows the file name of a file secret", () => {
       const s: secret.Secret = {
         key: "7a6b5c4d-3e2f-4a1b-9c8d-7e6f5a4b3c2d",
         name: "Token",
         source: "file",
         updated: NOT_BEFORE,
-        path: "/etc/synnax/token",
+        fileName: "token",
       };
-      expect(Validity.describeSecret(s)).toBe("/etc/synnax/token");
+      expect(Validity.describeSecret(s)).toBe("Read from token");
     });
   });
 });
