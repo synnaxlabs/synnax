@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1643,6 +1644,77 @@ var _ = Describe("Delete", func() {
 			})
 		})
 	}
+})
+
+var _ = Describe("Background removal", func() {
+	var (
+		fsys *FaultyFS
+		db   *cesium.DB
+		key  cesium.ChannelKey
+	)
+	BeforeEach(func(ctx SpecContext) {
+		fsys = WrapFaultyFS(FileSystems["memFS"]())
+		db = openDBOnFS(ctx, fsys)
+		key = GenerateChannelKey()
+		Expect(db.CreateChannel(ctx, cesium.Channel{
+			Key:      key,
+			Name:     "Anaximander",
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		})).To(Succeed())
+	})
+	AfterEach(func() { Expect(db.Close()).To(Succeed()) })
+
+	holdRemoval := func() (removing, release chan struct{}) {
+		removing, release = make(chan struct{}), make(chan struct{})
+		fsys.SetOptions(WithBeforeRemove(sync.OnceFunc(func() {
+			close(removing)
+			<-release
+		})))
+		return removing, release
+	}
+
+	DescribeTable(
+		"Should return while the removal runs and make Close wait for it",
+		func(del func() error) {
+			removing, release := holdRemoval()
+			Expect(del()).To(Succeed())
+			Eventually(removing).Should(BeClosed())
+			Expect(fsys.Exists(channelKeyToPath(key))).To(BeFalse())
+			Expect(deletedDirs(fsys, key)).To(HaveLen(1))
+			closed := make(chan error, 1)
+			go func() { closed <- db.Close() }()
+			Consistently(closed).ShouldNot(Receive())
+			close(release)
+			Eventually(closed).Should(Receive(BeNil()))
+			Expect(deletedDirs(fsys, key)).To(BeEmpty())
+		},
+		Entry("DeleteChannel", func() error { return db.DeleteChannel(key) }),
+		Entry("DeleteChannels", func() error {
+			return db.DeleteChannels([]cesium.ChannelKey{key})
+		}),
+	)
+
+	It("Should leave the data after a failed removal and remove it on Open", func(
+		ctx SpecContext,
+	) {
+		fsys.SetOptions(WithFailRemove())
+		Expect(db.DeleteChannel(key)).To(Succeed())
+		Expect(db.Close()).To(Succeed())
+		Expect(deletedDirs(fsys, key)).To(HaveLen(1))
+		fsys.SetOptions()
+		db = openDBOnFS(ctx, fsys)
+		Eventually(deletedDirs).WithArguments(fsys, key).Should(BeEmpty())
+		Expect(db.RetrieveChannel(ctx, key)).Error().
+			To(MatchError(cesium.ErrChannelNotFound))
+	})
+
+	It("Should not delete a channel once the DB is closed", func() {
+		Expect(db.Close()).To(Succeed())
+		Expect(db.DeleteChannel(key)).To(MatchError(cesium.ErrDBClosed))
+		Expect(db.DeleteChannels([]cesium.ChannelKey{key})).
+			To(MatchError(cesium.ErrDBClosed))
+	})
 })
 
 // deletedDirs returns the detached directories of key that still wait for removal.

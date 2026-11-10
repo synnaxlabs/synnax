@@ -1385,6 +1385,7 @@ var _ = Describe("Writer", func() {
 					Eventually(removing).Should(BeClosed())
 					read := make(chan bool, 1)
 					go func() {
+						defer GinkgoRecover()
 						read <- MustSucceed(slowSvc.NewRetrieve().
 							Where(channel.MatchKeys(ch.Key())).
 							Exists(ctx, slow.DB))

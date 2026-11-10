@@ -79,15 +79,16 @@ func dirNameToKey(name string) (ChannelKey, error) {
 //
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	// Close waits for removals under db.mu, so the check must hold the lock.
 	if db.closed.Load() {
 		return ErrDBClosed
 	}
 	// The random suffix lets a channel be created and deleted again while an earlier
 	// removal runs.
 	oldName := keyToDirName(ch)
-	newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
-	db.mu.Lock()
-	defer db.mu.Unlock()
+	newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
 	if err := db.removeChannel(ch); err != nil {
 		return err
 	}
@@ -103,9 +104,6 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 // returns once the channels are detached and removes their data in the background.
 // Close waits for the removal to finish.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
-	if db.closed.Load() {
-		return ErrDBClosed
-	}
 	var (
 		indexChannels       = make([]ChannelKey, 0, len(chs))
 		directoriesToRemove = make([]string, 0, len(chs))
@@ -115,6 +113,9 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		db.removeDirs(directoriesToRemove...)
 		db.mu.Unlock()
 	}()
+	if db.closed.Load() {
+		return ErrDBClosed
+	}
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
@@ -135,7 +136,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		// Rename the files first, so we can avoid hogging the mutex while deleting the
 		// directory, which may take a longer time.
 		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
 			return err
@@ -152,7 +153,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 		}
 
 		oldName := keyToDirName(ch)
-		newName := oldName + "-DELETE-" + strconv.Itoa(rand.Int())
+		newName := oldName + deletedDirInfix + strconv.Itoa(rand.Int())
 		err = db.fs.Rename(oldName, newName)
 		if err != nil {
 			return err
@@ -164,13 +165,17 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return err
 }
 
+// deletedDirInfix marks a channel directory that a delete detached and that waits for
+// removal.
+const deletedDirInfix = "-DELETE-"
+
 // removeDirs removes the named detached channel directories in the background. A
-// failed removal leaves the directory on disk and logs the error.
+// failed removal logs the error, and the next Open retries it.
 func (db *DB) removeDirs(names ...string) {
 	if len(names) == 0 {
 		return
 	}
-	db.routines.Go(func(context.Context) error {
+	db.removals.Go(func() {
 		for _, name := range names {
 			if err := db.fs.Remove(name); err != nil {
 				db.L.Error(
@@ -180,7 +185,6 @@ func (db *DB) removeDirs(names ...string) {
 				)
 			}
 		}
-		return nil
 	})
 }
 
