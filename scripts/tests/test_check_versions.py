@@ -21,7 +21,6 @@ NODE_DIRS = [
     "freighter/ts",
     "x/ts",
 ]
-CPP_VERSION = "client/cpp/version/VERSION"
 
 
 class Repo:
@@ -53,7 +52,6 @@ class Repo:
             self.write(
                 f"{d}/package.json", f'{{\n  "name": "x",\n  "version": "{v}"\n}}\n'
             )
-        self.write(CPP_VERSION, overrides.get("cpp", version) + "\n")
 
     def write(self, rel: str, content: str) -> None:
         file = self.path / rel
@@ -106,12 +104,6 @@ class TestTrainRule:
         assert "Node (" in result.stderr
         assert "client/ts" in result.stderr
 
-    def test_should_reject_a_split_cpp_client(self, repo: Repo) -> None:
-        repo.manifests("0.58.4", cpp="0.59.0")
-        result = repo.check()
-        assert result.returncode != 0
-        assert "C++ (" in result.stderr
-
 
 class TestTags:
     """Tests for how the Core's latest stable minor is read."""
@@ -155,7 +147,7 @@ class TestTrainFlag:
         assert "not the release train 0.59.x" in result.stderr
 
     def test_should_reject_a_split(self, repo: Repo) -> None:
-        repo.manifests("0.58.4", cpp="0.59.0")
+        repo.manifests("0.58.4", **{"client/ts": "0.59.0"})
         assert repo.check("--train", "0.58").returncode != 0
 
     def test_should_not_need_a_core_tag(self, tmp_path: Path) -> None:

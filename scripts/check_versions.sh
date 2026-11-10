@@ -132,15 +132,6 @@ main() {
         if ! check_match "Node ($d)" "$found" "$expected" "$f"; then ok=false; fi
     done
 
-    local cpp_version="$ROOT_DIR/client/cpp/version/VERSION"
-    require_file "$cpp_version"
-    local found
-    found="$(major_minor "$(tr -d '[:space:]' < "$cpp_version")")"
-    expected="${expected:-$found}"
-    if ! check_match "C++ (client/cpp)" "$found" "$expected" "$cpp_version"; then
-        ok=false
-    fi
-
     if [[ -n $TRAIN ]]; then
         if [[ $expected != "$TRAIN" ]]; then
             echo "❌ packages are on ${expected}.x, not the release train ${TRAIN}.x" >&2

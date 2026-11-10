@@ -74,10 +74,10 @@ the current year. Both scripts source the rule from `common/copyright.sh`.
 
 ## Versioning and release
 
-- `check_versions.sh` — verifies every npm and PyPI package manifest and the C++
-  client's `VERSION` file share one minor, and that the minor is the Core's latest
-  stable `core/v*` tag or the next one (the train rule). Needs tags fetched.
-  `--train X.Y` requires that minor instead; the Release workflow passes its train.
+- `check_versions.sh` — verifies every npm and PyPI package manifest shares one minor,
+  and that the minor is the Core's latest stable `core/v*` tag or the next one (the
+  train rule). Needs tags fetched. `--train X.Y` requires that minor instead; the
+  Release workflow passes its train.
 - `bump_versions.sh <version>` — sets a new semver (`X.Y.Z`) across those manifests.
   Release tooling; don't run ad hoc against a dirty tree.
 - `uv run reliability.py <run-url> --version <X.Y.Z>`: builds the docs reliability page

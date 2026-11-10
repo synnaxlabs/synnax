@@ -241,7 +241,7 @@ jobs:
               exit 1
             fi
           done
-          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)?$'
+          SEMVER='^([0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?)?$'
           for VALUE in "$VERSION" "$DESKTOP_VERSION"; do
             if ! [[ "$VALUE" =~ $SEMVER ]]; then
               echo "malformed version: $VALUE" >&2
@@ -764,6 +764,14 @@ jobs:
           dest:
             ${{ endsWith(matrix.os, '-build-bot') && format('~/setup-pnpm-{0}',
             runner.name) || '~/setup-pnpm' }}
+
+      # The Console's version guard reads the TypeScript client's version.
+      - name: Stamp package versions
+        if: inputs.console && env.CONSOLE_REF_RUN_ID == '' && inputs.release_tag != ''
+        shell: bash
+        env:
+          VERSION: ${{ needs.setup.outputs.VERSION }}
+        run: .github/scripts/stamp_versions.sh "$VERSION"
 
       - name: Build Console web assets
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
