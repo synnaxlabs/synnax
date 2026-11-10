@@ -14,7 +14,7 @@ import { binary, type CrudeTimeSpan, TimeSpan, url, zod } from "@synnaxlabs/x";
 import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { HTTPClient, Unreachable } from "@/index";
+import { HTTPClient, Timeout, unaryWithBreaker, Unreachable } from "@/index";
 
 const ENDPOINT = new url.URL({
   host: "127.0.0.1",
@@ -124,6 +124,24 @@ describe("http", () => {
       await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
         /^\[freighter\] no response from http:\/\/127\.0\.0\.1:\d+\/stall within 50ms$/,
       );
+    });
+
+    test("throws a timeout that the breaker does not retry", async () => {
+      let requests = 0;
+      const c = await serve(() => {
+        requests++;
+      });
+      const unary = unaryWithBreaker(c, {
+        maxRetries: 2,
+        baseInterval: TimeSpan.milliseconds(1),
+      });
+      const err = await unary
+        .send("/stall", {}, messageZ, messageZ)
+        .catch((e: unknown) => e);
+      expect(Timeout.matches(err)).toBe(true);
+      expect(Unreachable.matches(err)).toBe(false);
+      expect((err as Error).cause).toMatchObject({ name: "TimeoutError" });
+      expect(requests).toBe(1);
     });
 
     test("rejects a send whose response body never ends", async () => {

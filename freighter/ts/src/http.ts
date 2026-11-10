@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import { Unreachable } from "@/errors";
+import { Timeout, Unreachable } from "@/errors";
 import {
   type FileEncoding,
   type FileOptions,
@@ -195,6 +195,11 @@ export class HTTPClient
     };
   }
 
+  /**
+   * Sends a request to the target and waits for its response.
+   * @throws {Timeout} if no response arrives within the timeout.
+   * @throws {Unreachable} if the target cannot be reached.
+   */
   async send<RQ extends z.ZodType, RS extends z.ZodType = RQ>(
     target: string,
     req: z.input<RQ> | z.infer<RQ>,
@@ -223,7 +228,7 @@ export class HTTPClient
           data = await httpRes.arrayBuffer();
         } catch (e) {
           if (timeout == null || signal?.aborted !== true) throw errors.fromUnknown(e);
-          throw new Error(
+          throw new Timeout(
             `[freighter] no response from ${ctx.target} within ${timeout.toString()}`,
             { cause: e },
           );

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Middleware, Unreachable } from "@synnaxlabs/freighter";
+import { type Middleware, Timeout, Unreachable } from "@synnaxlabs/freighter";
 import { array, errors } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -114,11 +114,12 @@ export class DisconnectedError extends SynnaxError.sub("disconnected") {
 }
 
 /**
- * Whether the error means the Core could not be reached: a request that failed on
- * the wire, or one short-circuited while the connection is known unreachable.
+ * Whether the error means the Core could not be reached: a request that failed on the
+ * wire or got no response in time, or one short-circuited while the connection is known
+ * unreachable.
  */
 export const isConnectionError = (err: unknown): boolean =>
-  Unreachable.matches(err) || DisconnectedError.matches(err);
+  Unreachable.matches(err) || Timeout.matches(err) || DisconnectedError.matches(err);
 
 /** Raised when time-series data is not contiguous. */
 export class ContiguityError extends SynnaxError.sub("contiguity") {}
