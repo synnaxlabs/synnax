@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/diagnostics"
+	"go.lsp.dev/protocol"
 )
 
 // CastRanges rewrites each range() call whose typed integer arguments differ. Every
@@ -42,10 +44,10 @@ func castRanges(ctx context.Context, src string) (string, bool) {
 	if diag != nil {
 		return src, false
 	}
-	// A stored program can name channels and modules no root here resolves, so its
-	// diagnostics are dropped and only the arguments that resolved are typed.
-	program, _ := text.Analyze(ctx, t, symbol.NewRoot(nil, stl.NewSymbols()))
-	c := rangeCaster{types: program.TypeMap, insert: map[int]string{}}
+	// A stored program can name channels and modules no root here resolves, so only
+	// the arguments that resolved are typed.
+	program, diag := text.Analyze(ctx, t, symbol.NewRoot(nil, stl.NewSymbols()))
+	c := rangeCaster{types: program.TypeMap, diag: diag, insert: map[int]string{}}
 	antlr.ParseTreeWalkerDefault.Walk(&c, t.AST)
 	if len(c.insert) == 0 {
 		return src, true
@@ -63,13 +65,14 @@ func castRanges(ctx context.Context, src string) (string, bool) {
 type rangeCaster struct {
 	parser.BaseArcParserListener
 	types map[antlr.ParserRuleContext]types.Type
+	diag  *diagnostics.Diagnostics
 	// insert holds the text to write before the rune at each offset.
 	insert map[int]string
 }
 
-func (c *rangeCaster) EnterForClause(clause *parser.ForClauseContext) {
-	if len(c.insert) > 0 || clause.DECLARE() == nil ||
-		len(clause.AllIDENTIFIER()) != 1 {
+func (c *rangeCaster) EnterForStatement(stmt *parser.ForStatementContext) {
+	clause := stmt.ForClause()
+	if len(c.insert) > 0 || clause == nil || !c.rejected(stmt) {
 		return
 	}
 	args := rangeArgs(clause.Expression())
@@ -86,10 +89,7 @@ func (c *rangeCaster) EnterForClause(clause *parser.ForClauseContext) {
 		typed = append(typed, arg)
 		argTypes = append(argTypes, t)
 	}
-	target, mixed := widest(argTypes)
-	if !mixed {
-		return
-	}
+	target := widest(argTypes)
 	for i, arg := range typed {
 		if argTypes[i].Kind == target.Kind {
 			continue
@@ -97,6 +97,22 @@ func (c *rangeCaster) EnterForClause(clause *parser.ForClauseContext) {
 		c.insert[arg.GetStart().GetStart()] = target.String() + "("
 		c.insert[arg.GetStop().GetStop()+1] = ")"
 	}
+}
+
+// rejected reports whether the analyzer rejected the range() of stmt for mixing integer
+// types.
+func (c *rangeCaster) rejected(stmt *parser.ForStatementContext) bool {
+	tok := stmt.GetStart()
+	at := protocol.Position{
+		Line:      uint32(tok.GetLine() - 1),
+		Character: uint32(tok.GetColumn()),
+	}
+	for _, i := range c.diag.AtLocation(at) {
+		if strings.HasSuffix((*c.diag)[i].Message, "in range()") {
+			return true
+		}
+	}
+	return false
 }
 
 // rangeArgs returns the arguments of expr when it is a range() call.
@@ -166,23 +182,17 @@ func terminals(tree antlr.Tree) []antlr.Token {
 	return tokens
 }
 
-// widest returns the widest integer type of ts, signed when any of ts is signed, and
-// whether ts holds more than one type.
-func widest(ts []types.Type) (types.Type, bool) {
-	if len(ts) == 0 {
-		return types.Type{}, false
-	}
+// widest returns the widest integer type of ts, signed when any of ts is signed.
+func widest(ts []types.Type) types.Type {
 	var (
 		bytes  int
 		signed bool
-		mixed  bool
 	)
 	for _, t := range ts {
-		mixed = mixed || t.Kind != ts[0].Kind
 		signed = signed || t.IsSignedInteger()
 		bytes = max(bytes, t.Density())
 	}
-	return integerType(bytes, signed), mixed
+	return integerType(bytes, signed)
 }
 
 func integerType(bytes int, signed bool) types.Type {
