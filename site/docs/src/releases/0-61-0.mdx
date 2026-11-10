@@ -59,8 +59,8 @@ export stage vent {
 }
 ```
 
-An automation imports the module by its folder path in the **Arcs** toolbar, and uses
-its code like its own:
+An automation imports the module by its folder path in the Arcs toolbar, and uses its
+code like its own:
 
 ```arc
 import lib.tank
@@ -247,17 +247,17 @@ sensor -> scale(factor=2.0) -> out
 - **NaN and infinity** -> `math.nan`, `math.inf`, `math.is_nan`, `math.is_infinite`, and
   `math.is_finite` find bad values, such as
   `not math.is_finite(pump_speed) or pump_speed < 15 => next`.
-- **Arcs in folders** -> the **Arcs** toolbar shows your Arcs as a folder tree that you
-  can search. Arc tasks show in the **Tasks** toolbar, where you start and stop them.
+- **Arcs in folders** -> the Arcs toolbar shows your Arcs as a folder tree that you can
+  search. Arc tasks show in the tasks toolbar, where you start and stop them.
 
 New Arcs are text only in the Console, and graph Arcs still open and run. See
 [Arc](/reference/control/arc).
 
 #### Find things faster in the Console
 
-The **Devices**, **Arcs**, and **Channels** toolbars and the component selector each
-have a search. The **Devices** toolbar finds a device by its name, location, make, or
-model, and shows the short part of each location, such as the host of a server.
+The devices, Arcs, and channels toolbars and the component selector each have a search.
+The devices toolbar finds a device by its name, location, make, or model, and shows the
+short part of each location, such as the host of a server.
 
 A folder of 12,896 channels opens in about 255 ms and shows **Show more** to load the
 rest. Ctrl+C or Cmd+C copies the names of the selected tree items, and a paste into chat
