@@ -98,8 +98,11 @@ const createScriptedUnary = ({
   };
 };
 
+/** A release client version on a newer minor than the 0.60 Core. */
+const CLIENT_061 = "0.61.0";
+
 interface Core060 {
-  /** Whether the Core was upgraded to the client's version. */
+  /** Whether the Core was upgraded to {@link CLIENT_061}. */
   upgraded: boolean;
   /** Whether the Core stopped answering. */
   down?: boolean;
@@ -108,11 +111,8 @@ interface Core060 {
 /**
  * A Core 0.60 that answers a login and a check with the shapes it sends. Responses
  * parse after the middleware runs, as in an HTTP client. Once `core.upgraded` is set,
- * it answers checks as a Core of the client's version.
+ * it answers checks as a Core of {@link CLIENT_061}.
  */
-/** A release client version on a newer minor than the 0.60 Core. */
-const CLIENT_061 = "0.61.0";
-
 const createCore060Unary = (core: Core060 = { upgraded: false }): UnaryClient => {
   const responses: Record<string, unknown> = {
     "/auth/session/create": {

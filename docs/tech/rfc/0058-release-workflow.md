@@ -110,19 +110,21 @@ ever already published.
 
 Each language is a product with one lockstep tag: `ts/vX.Y.Z` for the npm packages and
 `py/vX.Y.Z` for the PyPI packages. No package depends on one in the other language, so
-each language releases alone. A language publishes on the train of the code it ships:
-the minor the run releases, else the minor of a `release/<product>-X.Y` branch, else the
-newest product minor reachable from `HEAD`. The resolve stage takes the next patch on
-that train, or `X.Y.0` when the train has none, and ignores `bump`. The publish job
-waits for every product the run releases, runs `stamp_versions.sh` to write the version
-into that language's manifests, and publishes every package of the language at it. The
-job tags after the registry takes the packages, so a failed run leaves no tag. Only a
-rerun of that run may finish the publish: the job fails when the tag exists, or when the
-registry has the version without the tag on a first attempt, so one version never holds
-packages from two commits. A merge publishes nothing. Both publish through OIDC trusted
-publishing with `id-token: write`, so no registry token lives in the repo's secrets. The
-registries trust `release.yaml` by name, so the publish jobs live in it, not in a called
-workflow. Packages have no candidate channel: a candidate run never publishes them.
+each language releases alone. A language publishes on the Core's train, so every client
+works with a released Core: the Core minor the run releases, else the minor of a
+`release/<product>-X.Y` branch, else the newest Core minor reachable from `HEAD`. A run
+that releases no Core fails when no Core is out on that train. The resolve stage takes
+the next patch on the train, or `X.Y.0` when the train has none, and ignores `bump`. The
+publish job waits for every product the run releases, then claims the version by pushing
+its tag at the run's commit. It stops when the tag names another commit, or when the
+registry has the version without a tag, so one version never holds packages from two
+commits. A rerun at the same commit finishes a partial publish, since the registry skips
+what already went up. The job then runs `stamp_versions.sh` to write the version into
+that language's manifests and publishes every package of the language at it. A merge
+publishes nothing. Both publish through OIDC trusted publishing with `id-token: write`,
+so no registry token lives in the repo's secrets. The registries trust `release.yaml` by
+name, so the publish jobs live in it, not in a called workflow. Packages have no
+candidate channel: a candidate run never publishes them.
 
 ### 2.2 Versions
 

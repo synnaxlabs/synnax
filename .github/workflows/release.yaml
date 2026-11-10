@@ -198,30 +198,34 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
-      # Packages publish on the train of the code they ship: the minor this run
-      # releases, else the release branch's minor, else the newest product minor
-      # reachable from here.
+      # Packages publish on the Core's train, so every client works with a released
+      # Core: the minor this run releases for the Core, else the release branch's
+      # minor, else the newest Core minor reachable from here.
       - name: Resolve package train
         id: train
         if: (inputs.typescript || inputs.python) && !inputs.prerelease
         env:
-          PRODUCTS:
-            ${{ steps.core.outputs.minor || steps.console.outputs.minor ||
-            steps.driver.outputs.minor }}
+          CORE: ${{ steps.core.outputs.minor }}
           REF: ${{ github.ref_name }}
         run: |
-          train=$PRODUCTS
+          minors() {
+            sed -nE 's#^core/v([0-9]+\.[0-9]+)\.[0-9]+$#\1#p' | sort -t. -k1,1n -k2,2n
+          }
+          train=$CORE
           branch='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
           if [ -z "$train" ] && [[ $REF =~ $branch ]]; then
             train=${BASH_REMATCH[2]}
           fi
           if [ -z "$train" ]; then
-            train=$(git tag --list --merged HEAD 'console/v*' 'core/v*' 'driver/v*' \
-              | sed -nE 's#^[a-z]+/v([0-9]+\.[0-9]+)\.[0-9]+$#\1#p' \
-              | sort -t. -k1,1n -k2,2n | tail -n 1)
+            train=$(git tag --list --merged HEAD 'core/v*' | minors | tail -n 1)
           fi
           if [ -z "$train" ]; then
-            echo "no product tag is reachable, so the package train is unknown" >&2
+            echo "no core tag is reachable, so the package train is unknown" >&2
+            exit 1
+          fi
+          released=$(git tag --list "core/v$train.*" | minors)
+          if [ -z "$CORE" ] && [ -z "$released" ]; then
+            echo "no Core is released on $train, so no client may publish on it" >&2
             exit 1
           fi
           echo "minor=$train" >> "$GITHUB_OUTPUT"
@@ -452,18 +456,20 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      # Only a rerun of the run that resolved the version may finish a partial publish.
-      # A later run would mix packages from two commits under one version.
-      - name: Require an unreleased version
+      # The tag claims the version before anything publishes. A rerun at the same commit
+      # finishes a partial publish, since the registry skips what already went up. Any
+      # other run stops, so one version never holds packages from two commits.
+      - name: Claim the version
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
           TAG: ${{ needs.resolve.outputs.ts_tag }}
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
-            echo "$TAG already exists, so another run released $VERSION" >&2
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
             exit 1
           fi
-          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then exit 0; fi
           for name in alamos client freighter x; do
             url="https://registry.npmjs.org/@synnaxlabs/$name/$VERSION"
             code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
@@ -471,7 +477,6 @@ jobs:
               404) ;;
               200)
                 echo "$name $VERSION is out without $TAG" >&2
-                echo "Rerun the run that published it." >&2
                 exit 1
                 ;;
               *)
@@ -480,6 +485,7 @@ jobs:
                 ;;
             esac
           done
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Stamp package versions
         env:
@@ -497,14 +503,6 @@ jobs:
             format('train-{0}', needs.resolve.outputs.ts_minor) }}
         # The stamp dirties the tree, and the resolve job already checked the branch.
         run: pnpm publish -r --tag "$TAG" --no-git-checks
-
-      # A failed publish leaves no tag. A rerun of the run keeps its version, and the
-      # registry skips what already went up.
-      - name: Tag
-        env:
-          TAG: ${{ needs.resolve.outputs.ts_tag }}
-        run:
-          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
   publish-py:
     name: Publish Python packages
@@ -529,18 +527,20 @@ jobs:
         with:
           version: latest-known
 
-      # Only a rerun of the run that resolved the version may finish a partial publish.
-      # A later run would mix packages from two commits under one version.
-      - name: Require an unreleased version
+      # The tag claims the version before anything publishes. A rerun at the same commit
+      # finishes a partial publish, since the registry skips what already went up. Any
+      # other run stops, so one version never holds packages from two commits.
+      - name: Claim the version
         env:
           VERSION: ${{ needs.resolve.outputs.py_version }}
           TAG: ${{ needs.resolve.outputs.py_tag }}
         run: |
-          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null; then
-            echo "$TAG already exists, so another run released $VERSION" >&2
+          claimed=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ "$claimed" = "$GITHUB_SHA" ]; then exit 0; fi
+          if [ -n "$claimed" ]; then
+            echo "$TAG names $claimed, not this commit" >&2
             exit 1
           fi
-          if [ "$GITHUB_RUN_ATTEMPT" != 1 ]; then exit 0; fi
           for name in alamos synnax synnax-freighter synnax-x; do
             url="https://pypi.org/pypi/$name/$VERSION/json"
             code=$(curl -s -o /dev/null -w '%{http_code}' "$url")
@@ -548,7 +548,6 @@ jobs:
               404) ;;
               200)
                 echo "$name $VERSION is out without $TAG" >&2
-                echo "Rerun the run that published it." >&2
                 exit 1
                 ;;
               *)
@@ -557,6 +556,7 @@ jobs:
                 ;;
             esac
           done
+          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
       - name: Stamp package versions
         env:
@@ -582,12 +582,6 @@ jobs:
           else
             echo "All distributions already published; nothing to upload."
           fi
-
-      - name: Tag
-        env:
-          TAG: ${{ needs.resolve.outputs.py_tag }}
-        run:
-          gh api "repos/$GH_REPO/git/refs" -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA"
 
   # The Core embeds the Console and Driver, so it waits for the ones this run releases
   # and never runs after one fails.
