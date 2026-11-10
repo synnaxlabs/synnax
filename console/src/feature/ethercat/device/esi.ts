@@ -98,6 +98,29 @@ export interface StartupCommands {
   modeCommands: ethercat.StartupParameter[];
 }
 
+const DECLARED_ENCODING = /<\?xml[^>]*\bencoding\s*=\s*["']([^"']+)["']/;
+
+/**
+ * @returns the text of an XML file, read as UTF-16 after a UTF-16 byte order mark, or
+ * else in the encoding that its declaration names.
+ * @throws {Error} if the declaration names an unknown encoding.
+ */
+const decode = (file: Uint8Array): string => {
+  if (file[0] === 0xff && file[1] === 0xfe)
+    return new TextDecoder("utf-16le").decode(file);
+  if (file[0] === 0xfe && file[1] === 0xff)
+    return new TextDecoder("utf-16be").decode(file);
+  const head = new TextDecoder("windows-1252").decode(file.subarray(0, 256));
+  const encoding = DECLARED_ENCODING.exec(head)?.[1] ?? "utf-8";
+  try {
+    return new TextDecoder(encoding).decode(file);
+  } catch {
+    throw new Error(
+      `The ESI file uses ${encoding}, an encoding that Synnax cannot read.`,
+    );
+  }
+};
+
 /**
  * Reads the CoE startup commands (InitCmds) of the slave's device from an ESI file.
  * The Driver writes the commands of the INIT to PRE-OP and PRE-OP to SAFE-OP
@@ -105,14 +128,14 @@ export interface StartupCommands {
  * access, data that is not 1, 2, 4, or 8 bytes, or a value that a number cannot hold.
  * A command on an object that the catalog of the slave describes takes the type of
  * that field.
- * @throws {Error} if the file is not XML, is for another vendor, or lists no device
- * with the slave's product code and revision.
+ * @throws {Error} if the file is not XML, uses an unknown encoding, is for another
+ * vendor, or lists no device with the slave's product code and revision.
  */
 export const parseStartupCommands = (
-  xml: string,
+  file: Uint8Array,
   props: SlaveProperties,
 ): StartupCommands => {
-  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const doc = new DOMParser().parseFromString(decode(file), "application/xml");
   if (doc.getElementsByTagName("parsererror").length > 0)
     throw new Error("The file is not a valid ESI XML file.");
   const vendor = parseHexDec(

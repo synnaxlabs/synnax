@@ -410,7 +410,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         name: "Excitation",
       };
 
-      const importFile = (name: string, contents: string) => {
+      const importFile = (name: string, contents: string | Uint8Array<ArrayBuffer>) => {
         const picker = interceptFilePicker();
         fireEvent.click(findButton("Import from ESI file"));
         picker.selectFiles([fakePickedFile(name, contents)]);
@@ -605,6 +605,56 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
             },
           ]),
         );
+      });
+
+      it("should read a file in the encoding that its declaration names", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const text =
+          '<?xml version="1.0" encoding="ISO-8859-1"?>' +
+          esiOf([`<CoE>${initCmd("PS", "#x8050", "1", "01", "Offset in °C")}</CoE>`]);
+        importFile(
+          "latin.xml",
+          Uint8Array.from(text, (c) => c.charCodeAt(0)),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8050,
+              subIndex: 1,
+              dataType: "uint8",
+              value: 1,
+              name: "Offset in °C",
+            },
+          ]),
+        );
+      });
+
+      it("should read a UTF-16 file that starts with a byte order mark", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const text = `\uFEFF${esiOf([`<CoE>${initCmd("PS", "#x8050", "1", "01", "Gain")}</CoE>`])}`;
+        const bytes = new Uint8Array(
+          new Uint16Array(Array.from(text, (c) => c.charCodeAt(0))).buffer,
+        );
+        importFile("wide.xml", bytes);
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            { index: 0x8050, subIndex: 1, dataType: "uint8", value: 1, name: "Gain" },
+          ]),
+        );
+      });
+
+      it("should reject a file in an encoding that Synnax cannot read", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        importFile("odd.xml", `<?xml version="1.0" encoding="EBCDIC-9"?>${esiOf([])}`);
+        expect(
+          await screen.findByText(
+            "The ESI file uses EBCDIC-9, an encoding that Synnax cannot read.",
+          ),
+        ).toBeTruthy();
       });
 
       it("should import an 8-byte value that a number holds", async () => {

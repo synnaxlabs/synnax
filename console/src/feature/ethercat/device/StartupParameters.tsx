@@ -195,8 +195,8 @@ export const StartupParameters = (): ReactElement => {
     try {
       const file = await Runtime.pickFiles({ title: IMPORT_TITLE, extension: "xml" });
       if (file == null) return;
-      const xml = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
-      const commands = parseStartupCommands(xml, get(PROPERTIES).value);
+      const bytes = await Runtime.toBytes(await file.read());
+      const commands = parseStartupCommands(bytes, get(PROPERTIES).value);
       onChange(mergeStartupParameters(get(PATH).value, commands.parameters));
       setResult(describeImport(commands));
     } catch (e) {
