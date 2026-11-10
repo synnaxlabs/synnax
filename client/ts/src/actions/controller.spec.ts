@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, patch, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
@@ -29,6 +29,7 @@ type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
   | { type: "child"; key: string; value: number }
+  | { type: "guarded"; key: string; value: number; when: number }
   | { type: "create"; doc: Doc }
   | { type: "invalid" }
   | { type: "noop" };
@@ -48,6 +49,12 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       if (next.values[a.key] == null) throw new Error(`no value at ${a.key}`);
       next = { values: { ...next.values, [`${a.key}.child`]: a.value } };
       targets.add(`${a.key}.child`);
+    } else if (a.type === "guarded") {
+      // Applies only while the value is when, as an update with a guard does.
+      if ((next.values[a.key] ?? 0) !== a.when)
+        throw new patch.StaleError(`${a.key} is not ${a.when}`);
+      next = { values: { ...next.values, [a.key]: a.value } };
+      targets.add(a.key);
     } else if (a.type === "tag")
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
@@ -1208,6 +1215,22 @@ describe("actions.Controller", () => {
       ]);
       expect(docs.get("k")).toEqual({ values: { a: 99 } });
       expect(controller.prepareUndo("k")).toBeNull();
+    });
+
+    it("shows a remote edit that leaves a pending dispatch stale", async () => {
+      const { send, calls } = createHeldSend();
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const sent = controller.dispatch("k", [
+        { type: "guarded", key: "a", value: 5, when: 0 },
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
+      controller.applyRemote("k", 1, "foreign-1", [set("a", 9)]);
+      expect(docs.get("k")).toEqual({ values: { a: 9 } });
+      await expect.poll(() => calls.length).toBe(1);
+      calls[0].reject(new patch.StaleError("a is not 0"));
+      await expect(sent).rejects.toThrow(patch.StaleError);
+      expect(docs.get("k")).toEqual({ values: { a: 9 } });
     });
 
     it("is a no-op when the doc is not cached", () => {

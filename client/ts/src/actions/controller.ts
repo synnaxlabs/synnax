@@ -15,6 +15,7 @@ import {
   destructor,
   errors,
   id,
+  patch,
   type record,
   TimeSpan,
   TimeStamp,
@@ -623,12 +624,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     return this.rebuild(r);
   }
 
-  /** Returns the base with the pending entries applied. */
+  /**
+   * Returns the base with the pending entries applied. An entry that a remote edit left
+   * stale shows nothing, and the Core refuses it.
+   */
   private rebuild(r: Rebase<State, Action>): State {
-    return r.pending.reduce(
-      (state, { actions }) => this.params.reduce(state, actions).next,
-      r.base,
-    );
+    return r.pending.reduce((state, { actions }) => {
+      try {
+        return this.params.reduce(state, actions).next;
+      } catch (e) {
+        if (patch.StaleError.matches(e)) return state;
+        throw errors.fromUnknown(e);
+      }
+    }, r.base);
   }
 
   private write(key: Key, r: Rebase<State, Action>): void {
