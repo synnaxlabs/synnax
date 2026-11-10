@@ -46,9 +46,10 @@ parse_rack_key(const synnax::auth::Subject &subject) {
     return {key, true};
 }
 
-/// @brief returns the key of the rack that the API key logs in as at the Core of conn,
-/// or 0 when the Core rejects the key or the key logs in as another subject.
-std::pair<synnax::rack::Key, x::errors::Error>
+/// @brief returns the rack that the API key logs in as and the cluster key of the Core
+/// of conn. The rack key is 0 when the Core rejects the key or the key logs in as
+/// another subject.
+std::pair<RemoteInfo, x::errors::Error>
 retrieve_key_rack(synnax::Config conn, const std::string &api_key) {
     conn.api_key = api_key;
     conn.username.clear();
@@ -56,13 +57,15 @@ retrieve_key_rack(synnax::Config conn, const std::string &api_key) {
     const auto client = synnax::Synnax(conn);
     if (const auto err = client.auth->authenticate()) {
         if (err.matches(synnax::auth::ERR_INVALID_CREDENTIALS))
-            return {0, x::errors::NIL};
-        return {0, err};
+            return {RemoteInfo{}, x::errors::NIL};
+        return {RemoteInfo{}, err};
     }
-    return {
-        parse_rack_key(client.auth->current_session().subject).first,
-        x::errors::NIL
-    };
+    const auto [rack_key, is_rack] = parse_rack_key(
+        client.auth->current_session().subject
+    );
+    if (!is_rack) return {RemoteInfo{}, x::errors::NIL};
+    const auto [cluster_key, err] = parse_cluster_key(client.connectivity->check());
+    return {RemoteInfo{.rack_key = rack_key, .cluster_key = cluster_key}, err};
 }
 
 std::pair<synnax::rack::Rack, x::errors::Error>
@@ -127,9 +130,9 @@ Config::login(x::args::Parser &args, const synnax::Config &conn) {
     Config cfg;
     if (auto err = cfg.load_persisted_state(args)) return {cfg, err};
     if (!cfg.connection.api_key.empty()) {
-        const auto [key, err] = retrieve_key_rack(conn, cfg.connection.api_key);
+        const auto [info, err] = retrieve_key_rack(conn, cfg.connection.api_key);
         if (err) return {cfg, err};
-        if (key != 0) cfg.remote_info.rack_key = key;
+        if (info.rack_key != 0) cfg.remote_info = info;
     }
     cfg.connection = conn;
     if (auto err = cfg.enroll()) return {cfg, err};

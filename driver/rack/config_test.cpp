@@ -217,6 +217,45 @@ TEST_F(RackConfigTest, LoginKeepsEnrolledRack) {
     ASSERT_EQ(loaded.rack.key, first.rack.key);
 }
 
+/// @brief it should log in as the rack of the saved API key when the saved state has no
+/// cluster key.
+TEST_F(RackConfigTest, LoginKeepsEnrolledRackWithoutClusterKey) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NIL(Config::save_remote_info(args, RemoteInfo{}));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(second.rack.key, first.rack.key);
+}
+
+/// @brief it should create a new rack when the Core rejects the saved API key.
+TEST_F(RackConfigTest, LoginCreatesRackWhenSavedKeyRevoked) {
+    const auto first = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    const auto client = new_test_client();
+    const auto keys = ASSERT_NIL_P(
+        client.api_keys.retrieve({{"rack", std::to_string(first.rack.key)}})
+    );
+    std::vector<std::string> key_ids;
+    for (const auto &k: keys)
+        key_ids.push_back(k.key);
+    ASSERT_NIL(client.api_keys.del(key_ids));
+    const auto second = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_NE(second.rack.key, 0);
+    ASSERT_NE(second.rack.key, first.rack.key);
+}
+
+/// @brief it should enroll the saved rack when the saved API key logs in as a user.
+TEST_F(RackConfigTest, LoginKeepsSavedRackWithUserKey) {
+    const auto client = new_test_client();
+    const auto rack = ASSERT_NIL_P(client.racks.create("user key rack"));
+    const auto user_key = ASSERT_NIL_P(client.api_keys.create("user key"));
+    const auto cluster_key = ASSERT_NIL_P(
+        x::uuid::UUID::parse(client.connectivity->check().cluster_key)
+    );
+    save_unenrolled_remote_info(rack.key, cluster_key.to_string());
+    ASSERT_NIL(Config::save_api_key(args, key_conn(user_key.token)));
+    const auto cfg = ASSERT_NIL_P(Config::login(args, test_client_config()));
+    ASSERT_EQ(cfg.rack.key, rack.key);
+}
+
 /// @brief it should keep the saved rack and the password when the caller cannot create
 /// an API key for the rack.
 TEST_F(RackConfigTest, EnrollKeepsSavedRackWhenKeyDenied) {
