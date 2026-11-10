@@ -120,6 +120,25 @@ describe("ChannelName", () => {
     );
   });
 
+  it("should show the form name as formatName gives it, and store a rename as typed", async () => {
+    const editID = Task.getChannelNameID("formatted");
+    const { form } = await renderInTaskForm(
+      <Task.ChannelName
+        channel={0}
+        namePath={path.config.name}
+        formatName={(name) => `${name}_int16`}
+        id={editID}
+      />,
+      { values: { config: { name: "pressure" } } },
+    );
+    await waitFor(() => expect(screen.getByText("pressure_int16")).toBeTruthy());
+    act(() => Text.edit(editID));
+    const el = await awaitTextEditing(editID);
+    act(() => commitTextEdit(el, "flow"));
+    await waitFor(() => expect(screen.getByText("flow_int16")).toBeTruthy());
+    expect(form.current?.get(path.config.name).value).toBe("flow");
+  });
+
   it("should not mark a skipped channel as new", async () => {
     await renderInTaskForm(
       <Task.ChannelName
@@ -231,6 +250,20 @@ describe("ChannelName", () => {
       await waitFor(() =>
         expect(form.current?.get(path.name).value).toBe("name_after"),
       );
+    });
+
+    it("should show the form name of a missing channel as formatName gives it", async () => {
+      const deleted = await createDeleted();
+      await renderInTaskFormWithClient(
+        <Task.ChannelName
+          channel={deleted.key}
+          namePath={path.name}
+          formatName={(name) => `${name}_int16`}
+        />,
+        { client, values: { name: "form_name" } },
+      );
+      await waitFor(() => expect(isMissing()).toBe(true));
+      expect(screen.getByText("form_name_int16")).toBeTruthy();
     });
 
     it("should say that deploying skips a missing skipped channel", async () => {

@@ -40,6 +40,11 @@ export interface ChannelNameProps extends optional.Optional<
   /** The name deploying the task gives the channel; shown while the form has none. */
   defaultName?: string;
   /**
+   * Gives the name deploying the task creates from the name in the form, shown in
+   * place of it. A rename still stores the typed name.
+   */
+  formatName?: (name: string) => string;
+  /**
    * Holds the name deploying the task gives the channel, shown until the channel
    * resolves. Required while the channel is 0, unless the channel is picked.
    */
@@ -59,7 +64,7 @@ const NO_CHANNEL = "No channel";
 
 interface NameProps extends Omit<
   ChannelNameProps,
-  "channel" | "defaultName" | "namePath" | "icon" | "skipped" | "picked"
+  "channel" | "defaultName" | "formatName" | "namePath" | "icon" | "skipped" | "picked"
 > {
   name: string;
   /** Takes a rename. Without it, the name is read only. */
@@ -85,14 +90,22 @@ const Name = ({ name, onRename, className, ...rest }: NameProps) => {
 interface StoredProps extends Omit<NameProps, "name" | "onRename"> {
   namePath: deep.Target<string | undefined>;
   defaultName?: string;
+  formatName?: (name: string) => string;
 }
 
 /** The name the form carries for a channel whose record isn't in hand. */
-const Stored = ({ namePath, defaultName = NO_CHANNEL, ...rest }: StoredProps) => {
+const Stored = ({
+  namePath,
+  defaultName = NO_CHANNEL,
+  formatName,
+  ...rest
+}: StoredProps) => {
   // Use optional values here because for some reason, the namePath is not always
   // populated.
   const field = Form.useField(namePath, { optional: true });
-  const name = primitive.isNonZero(field?.value) ? field.value : defaultName;
+  let name = defaultName;
+  if (primitive.isNonZero(field?.value))
+    name = formatName == null ? field.value : formatName(field.value);
   return <Name {...rest} name={name} onRename={field?.onChange} />;
 };
 
@@ -101,11 +114,16 @@ interface UnresolvedProps extends Omit<StoredProps, "namePath" | "defaultName"> 
   defaultName: string;
 }
 
-const Unresolved = ({ namePath, defaultName, ...rest }: UnresolvedProps) =>
+const Unresolved = ({ namePath, defaultName, formatName, ...rest }: UnresolvedProps) =>
   namePath == null ? (
     <Name {...rest} name={defaultName} />
   ) : (
-    <Stored {...rest} namePath={namePath} defaultName={defaultName} />
+    <Stored
+      {...rest}
+      namePath={namePath}
+      defaultName={defaultName}
+      formatName={formatName}
+    />
   );
 
 // A plain function, not a component, so a wrapping tooltip's handlers reach the DOM.
@@ -127,6 +145,7 @@ const Resolved = ({
   channel,
   namePath,
   defaultName = NO_CHANNEL,
+  formatName,
   icon,
   deploy,
   ...rest
@@ -142,7 +161,7 @@ const Resolved = ({
         : (name: string) => update({ key: channel, name });
     return lead(icon, <Name {...rest} name={result.data} onRename={handleRename} />);
   }
-  const unresolved = { ...rest, namePath, defaultName };
+  const unresolved = { ...rest, namePath, defaultName, formatName };
   if (isMissing(result))
     return (
       <Message
@@ -219,12 +238,13 @@ export const ChannelName = ({
   channel,
   namePath,
   defaultName,
+  formatName,
   icon,
   skipped = false,
   picked = false,
   ...rest
 }: ChannelNameProps): ReactElement => {
-  const named = { ...rest, namePath, defaultName, icon };
+  const named = { ...rest, namePath, defaultName, formatName, icon };
   if (channel !== 0)
     return <Resolved {...named} channel={channel} deploy={deployOf(skipped, picked)} />;
   if (picked) return lead(icon, <Name {...rest} name={NO_CHANNEL} color={8} />);

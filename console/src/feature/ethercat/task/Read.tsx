@@ -73,6 +73,8 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { data: mapped } = Channel.useResultDataType(
     first === 0 ? null : { key: first },
   );
+  const named =
+    slave != null && hasEntry(ch) && entryAt(slave.properties.pdos.inputs, ch) != null;
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...props}
@@ -81,11 +83,10 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       status={ch.type === "unresolved" ? "error" : undefined}
       path={entry}
       channel={ch.channel}
-      defaultName={
-        slave != null &&
-        hasEntry(ch) &&
-        entryAt(slave.properties.pdos.inputs, ch) != null
-          ? readChannelName(slave, ch, mapped?.toString())
+      defaultName={named ? readChannelName(slave, ch, mapped?.toString()) : undefined}
+      formatName={
+        named
+          ? (name) => readChannelName(slave, { ...ch, name }, mapped?.toString())
           : undefined
       }
       skipped={ch.disabled}

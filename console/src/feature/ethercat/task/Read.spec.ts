@@ -1141,6 +1141,26 @@ describe("Read", () => {
       const item = await findChannelListItem(`${identifier}_Status_int16`);
       expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
     });
+
+    it("should show the name the user gave it in its type before deploying", async () => {
+      const { statusChannel, deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      await deploy(["uint16"], name);
+      await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [statusChannel("int16", name)],
+      });
+      const item = await findChannelListItem(`${name}_int16`);
+      expect(within(item).getByRole("img", { name: "New channel" })).toBeTruthy();
+    });
+
+    it("should not add its type to a name that ends in it", async () => {
+      const { deploy } = await createStatusSlave();
+      const name = uniqueName("ecat_pressure");
+      await deploy(["uint16"], name);
+      const [typed] = await deploy(["int16"], `${name}_int16`);
+      expect((await client.channels.retrieve(typed)).name).toBe(`${name}_int16`);
+    });
   });
 
   describe("a slave with the identifier of a deleted slave", () => {

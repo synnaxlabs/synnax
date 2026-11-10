@@ -290,22 +290,24 @@ export const getEntryChannelName = (
  * The name deploying the task gives a read channel: its own name, or a default. A
  * default name of a scaled channel ends in `_scaled`. The name of a channel whose data
  * type differs from held ends in its type, apart from the channel that the slave maps
- * for the entry.
+ * for the entry. A name that already ends in the type does not get it again.
  */
 export const readChannelName = (
   slave: SlaveDevice,
   ch: EntryReadChannel,
   held: string | undefined,
 ): string => {
-  if (primitive.isNonZero(ch.name))
-    return isTyped(slave, ch, held) ? `${ch.name}_${ch.dataType}` : ch.name;
-  const name = getEntryChannelName(
-    slave.properties.identifier,
-    slave.properties.pdos.inputs,
-    ch,
-  );
-  if (isScaled(ch)) return `${name}_scaled`;
-  return isTyped(slave, ch, held) ? `${name}_${ch.dataType}` : name;
+  let name = ch.name;
+  if (primitive.isZero(name)) {
+    name = getEntryChannelName(
+      slave.properties.identifier,
+      slave.properties.pdos.inputs,
+      ch,
+    );
+    if (isScaled(ch)) return `${name}_scaled`;
+  }
+  const suffix = `_${ch.dataType}`;
+  return isTyped(slave, ch, held) && !name.endsWith(suffix) ? `${name}${suffix}` : name;
 };
 
 /** The names deploying the task gives a write channel's command and state channels. */
