@@ -187,6 +187,20 @@ jobs:
           bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
 
+      # A manifest off the train would ship a Console and clients that report the wrong
+      # minor to the Core.
+      - name: Check manifests against the train
+        if: inputs.console || inputs.driver || inputs.core
+        env:
+          MINORS: >-
+            ${{ steps.console.outputs.minor }} ${{ steps.driver.outputs.minor }} ${{
+            steps.core.outputs.minor }}
+        run: |
+          read -ra minors <<< "$MINORS"
+          for minor in $(printf '%s\n' "${minors[@]}" | sort -u); do
+            scripts/check_versions.sh --train "$minor"
+          done
+
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
       - name: Resolve embedded versions
