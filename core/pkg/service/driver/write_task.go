@@ -192,6 +192,9 @@ func (t *WriteTask) openStream(ctx context.Context) (stream, error) {
 	)
 	select {
 	case <-ctx.Done():
+		// The streamer ignores its requests until the relay acks, so only a cancel
+		// stops it.
+		cancel()
 		err = ctx.Err()
 	case _, ok := <-responses.Outlet():
 		if ok {
