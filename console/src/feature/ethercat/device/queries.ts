@@ -135,6 +135,7 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
     const tasks = running.filter((t) =>
       devicesOf(t.config).some((k) => onNetwork.has(k)),
     );
+    let switched = false;
     try {
       await Promise.all(
         tasks.map(async (t) => {
@@ -153,12 +154,13 @@ export const { useUpdate: useSetStandalone } = Flux.createUpdate<SetStandalonePa
         timeout: TimeSpan.seconds(30),
       });
       if (res.variant === "error") throw status.toError(res);
-    } catch (e) {
+      switched = true;
+    } finally {
       // A task that fails to start shows its own error.
-      await Promise.allSettled(
-        tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
-      );
-      throw e;
+      if (!switched)
+        await Promise.allSettled(
+          tasks.map(async (t) => await t.executeCommandSync({ type: "start" })),
+        );
     }
     return data;
   },
