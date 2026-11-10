@@ -10,7 +10,9 @@
 import {
   AuthError,
   connection,
+  ExpiredTokenError,
   InvalidCredentialsError,
+  InvalidTokenError,
   MissingCredentialsError,
   SessionEndedError,
 } from "@synnaxlabs/client";
@@ -117,6 +119,16 @@ describe("auth/Login", () => {
     [
       "an ended session",
       new SessionEndedError("session ended"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an invalid token",
+      new InvalidTokenError("invalid token"),
+      "Your session ended. Log in again.",
+    ],
+    [
+      "an expired token",
+      new ExpiredTokenError("expired token"),
       "Your session ended. Log in again.",
     ],
     [

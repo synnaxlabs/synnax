@@ -428,6 +428,41 @@ describe("auth", () => {
       await owner.logout();
     });
 
+    it("should log in again instead of ending a cookie session with credentials", async () => {
+      const owner = makeClient();
+      await login(owner);
+      let cookie: string | undefined =
+        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
+      let logins = 0;
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      transport.use(async (ctx, next) => {
+        if (ctx.target.endsWith("/auth/session/create")) logins++;
+        if (cookie != null) ctx.params.Cookie = cookie;
+        return await next(ctx);
+      });
+      const onFailure = vi.fn();
+      const client = new auth.Client(
+        transport.unary,
+        { credentials: TEST_CREDENTIALS, cookie: true },
+        { onFailure },
+      );
+      transport.use(client.middleware());
+      await client.retrieveSessions();
+      expect(logins).toBe(1);
+      cookie = undefined;
+      // Node keeps no cookies, so each fresh session is lost the same way
+      await expect(client.retrieveSessions()).rejects.toThrow(MissingCredentialsError);
+      expect(logins).toBeGreaterThan(1);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(MissingCredentialsError.matches(onFailure.mock.calls[0][0])).toBe(true);
+      await owner.logout();
+    });
+
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
