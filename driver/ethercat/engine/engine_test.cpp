@@ -990,8 +990,7 @@ TEST_F(EngineTest, WritesReaderSettingsAsStartupParametersOnStart) {
     EXPECT_TRUE(this->master->written().empty());
 }
 
-/// @brief it should write a reader's settings to the bus when another task already
-/// runs it.
+/// @brief it should write a reader's settings to a bus that another task already runs.
 TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
     const auto first = ASSERT_NIL_P(
         this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
@@ -1004,6 +1003,23 @@ TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
     ASSERT_EQ(written.size(), 1);
     EXPECT_EQ(written[0].first, 0);
     EXPECT_EQ(written[0].second, settings.at(0));
+}
+
+/// @brief it should not write the settings of a reader that the running bus cannot map.
+TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader(
+            {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
+            x::telem::Rate(100),
+            1,
+            measurement(0, 6)
+        ),
+        errors::PDO_MAPPING_ERROR
+    );
+    EXPECT_TRUE(this->master->written().empty());
 }
 
 /// @brief it should refuse a reader that sets an object to another value than an open

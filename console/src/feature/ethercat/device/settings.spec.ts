@@ -26,9 +26,9 @@ describe("Settings", () => {
   describe("fill", () => {
     it("should give each address one value in field order, from the defaults", () => {
       expect(Settings.fill(fields, [])).toEqual([
-        { ...MEASUREMENT, dataType: "uint16", value: 0 },
-        { ...RANGE, dataType: "uint16", value: 0 },
-        { ...EXCITATION, dataType: "float32", value: 0 },
+        { ...MEASUREMENT, dataType: "uint16", value: 0, name: "" },
+        { ...RANGE, dataType: "uint16", value: 0, name: "" },
+        { ...EXCITATION, dataType: "float32", value: 0, name: "" },
       ]);
     });
 
@@ -63,7 +63,13 @@ describe("Settings", () => {
 
   describe("set", () => {
     it("should keep the values of other inputs", () => {
-      const other = { index: 0x8041, subIndex: 1, dataType: "uint16", value: 6 };
+      const other = {
+        index: 0x8041,
+        subIndex: 1,
+        dataType: "uint16",
+        value: 6,
+        name: "",
+      };
       expect(Settings.set(fields, [other], RANGE, 1)).toContainEqual(other);
     });
 

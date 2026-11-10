@@ -196,7 +196,7 @@ std::pair<size_t, x::errors::Error> Master::count_slaves() {
     return {count > 0 ? static_cast<size_t>(count) : 0, x::errors::NIL};
 }
 
-std::string Master::write_parameters(
+x::errors::Error Master::write_parameters(
     const uint16_t pos,
     const std::vector<slave::StartupParameter> &parameters
 ) {
@@ -212,24 +212,27 @@ std::string Master::write_parameters(
                 SDO_TIMEOUT
             ) > 0)
             continue;
-        return "rejected startup parameter " + param.to_string() + ": " +
-               errors::sdo_abort_reason(
-                   pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
-               );
+        return x::errors::Error(
+            errors::STARTUP_PARAMETER_ERROR,
+            "rejected startup parameter " + param.to_string() + ": " +
+                errors::sdo_abort_reason(
+                    pop_sdo_abort(*this->api, pos, param.index, param.sub_index)
+                )
+        );
     }
-    return "";
+    return x::errors::NIL;
 }
 
 bool Master::write_startup_parameters(
     const uint16_t pos,
     const std::vector<slave::StartupParameter> &parameters
 ) {
-    const auto failure = this->write_parameters(pos, parameters);
-    if (failure.empty())
-        this->session.value().startup_failures.erase(pos);
+    const auto err = this->write_parameters(pos, parameters);
+    if (err)
+        this->session.value().startup_failures[pos] = err.data;
     else
-        this->session.value().startup_failures[pos] = failure;
-    return failure.empty();
+        this->session.value().startup_failures.erase(pos);
+    return !err;
 }
 
 master::Activation Master::activate(
@@ -478,11 +481,11 @@ x::errors::Error Master::write(
     const std::vector<slave::StartupParameter> &parameters
 ) {
     std::lock_guard lock(this->mailbox_mu);
-    if (const auto failure = this->write_parameters(pos, parameters); !failure.empty())
+    if (const auto err = this->write_parameters(pos, parameters))
         return x::errors::Error(
             errors::STARTUP_PARAMETER_ERROR,
             "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
-                failure
+                err.data
         );
     if (this->session)
         this->session->plan.slaves[pos].add_startup_parameters(parameters);
