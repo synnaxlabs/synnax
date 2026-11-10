@@ -189,7 +189,8 @@ public:
     /// @brief advances the high water mark to the current channel alignment, so a
     /// (re-)activated stage only responds to samples arriving after activation. When
     /// the channel's index has a recent clock offset, the stage also drops samples
-    /// stamped before entry on the sender's clock.
+    /// stamped before entry on the sender's clock, to within the minimum delivery
+    /// delay.
     void reset(runtime::node::Context &ctx) override {
         this->state.reset();
         this->entered = ctx.cycle.now;

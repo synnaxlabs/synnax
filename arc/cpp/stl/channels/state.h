@@ -54,6 +54,7 @@ class ClockOffset {
     }
 
 public:
+    /// @brief records an offset observed at local time now.
     void observe(const x::telem::TimeStamp now, const x::telem::TimeSpan offset) {
         const auto w = window_of(now);
         auto &b = this->buckets[w & 1];
@@ -64,8 +65,8 @@ public:
         b.min = std::min(b.min, offset);
     }
 
-    /// @returns the estimate at local time now, or nullopt when no offset is recent
-    /// enough.
+    /// @brief returns the estimate at local time now.
+    /// @returns nullopt when no offset is recent enough.
     [[nodiscard]] std::optional<x::telem::TimeSpan>
     at(const x::telem::TimeStamp now) const {
         const auto w = window_of(now);

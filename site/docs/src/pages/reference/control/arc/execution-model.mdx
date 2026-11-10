@@ -110,9 +110,10 @@ When a stage starts:
   each time the stage starts. A function call with no trigger that reads a channel in
   its body is different: it runs in every cycle while the stage is active.
 - **Earlier values** -> the stage reacts only to values that arrive after it starts.
-  When a channel sent data before the stage started, the stage also drops samples taken
-  before it started on the sender's clock. A condition such as `tank_pt > 300` waits for
-  the next `tank_pt` value, even when the last value was 400.
+  When a channel sent data in the 5 to 10 seconds before the stage started, the stage
+  also drops samples taken before it started on the sender's clock, to within the
+  channel's delivery delay. A condition such as `tank_pt > 300` waits for the next
+  `tank_pt` value, even when the last value was 400.
 - **Timers** -> `time.wait` counts from zero, and `time.interval` fires at once, then
   once each period.
 - **Variables** -> variables declared with `:=` in the stage or the sequence go back to
