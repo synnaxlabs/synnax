@@ -392,9 +392,25 @@ jobs:
       - name: Build
         run: pnpm build:client
 
+      # A hotfix on an older train must not move `latest` back. Every package shares the
+      # client's minor.
+      - name: Pick the dist-tag
+        id: dist-tag
+        run: |
+          minor=$(jq -r .version client/ts/package.json | cut -d. -f1,2)
+          latest=$(npm view @synnaxlabs/client version | cut -d. -f1,2)
+          newest=$(printf '%s\n%s\n' "$minor" "$latest" | sort -V | tail -n 1)
+          if [ "$minor" = "$newest" ]; then
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=train-$minor" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish
+        env:
+          TAG: ${{ steps.dist-tag.outputs.tag }}
         # pnpm refuses a branch other than main unless it is named here.
-        run: pnpm publish -r --publish-branch "$GITHUB_REF_NAME"
+        run: pnpm publish -r --tag "$TAG" --publish-branch "$GITHUB_REF_NAME"
 
   publish-py:
     name: Publish Python packages

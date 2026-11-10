@@ -58,6 +58,9 @@ One `workflow_dispatch` workflow, `release.yaml`, with inputs:
 
 - **`console`, `driver`, `core`**: The products to release, all on by default. One
   dispatch ships a whole train; a hotfix ticks one product.
+- **`packages`**: Publish the Python and TypeScript packages, on by default. A candidate
+  run never publishes them. An npm publish on an older train takes the `train-X.Y`
+  dist-tag, so `latest` never moves back.
 - **`bump`**: `patch` (default) or `minor`, applied to every selected product.
 - **`prerelease`**: Tag `-rc.N` and mark the releases pre-release.
 - **`console_version`, `driver_version`**: Releases the Core embeds. Default: the one
