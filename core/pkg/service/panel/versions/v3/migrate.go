@@ -66,7 +66,7 @@ var ArcExplorerTabsMigration = migrate.New(
 		}
 		w := gorp.WrapWriter[Key, Panel](tx)
 		for _, p := range panels {
-			if !stripArcExplorerTabs(&p.Root) {
+			if !StripArcExplorerTabs(&p.Root) {
 				continue
 			}
 			if err := w.Set(ctx, p); err != nil {
@@ -77,13 +77,13 @@ var ArcExplorerTabsMigration = migrate.New(
 	},
 )
 
-// stripArcExplorerTabs removes the Arc explorer tabs under n, reporting whether
+// StripArcExplorerTabs removes the Arc explorer tabs under n, reporting whether
 // anything changed. Emptied leaves stay in place: the schema allows them.
-func stripArcExplorerTabs(n *Node) bool {
+func StripArcExplorerTabs(n *Node) bool {
 	switch v := n.Variant.(type) {
 	case SplitNode:
-		first := stripArcExplorerTabs(&v.First)
-		last := stripArcExplorerTabs(&v.Last)
+		first := StripArcExplorerTabs(&v.First)
+		last := StripArcExplorerTabs(&v.Last)
 		if !first && !last {
 			return false
 		}

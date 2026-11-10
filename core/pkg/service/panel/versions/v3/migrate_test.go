@@ -50,6 +50,7 @@ var _ = Describe("ArcExplorerTabsMigration", func() {
 	})
 
 	migrate := func(ctx SpecContext, panels ...v3.Panel) []v3.Panel {
+		GinkgoHelper()
 		Expect(gorp.NewCreate[v3.Key, v3.Panel]().Entries(&panels).Exec(ctx, db)).
 			To(Succeed())
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
