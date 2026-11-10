@@ -46,14 +46,23 @@ def written_pair(
 class TestPositionalArguments:
     """Positional forms that 0.60 accepted should still work and warn."""
 
-    def test_synnax(self, login_info: tuple[str, int, str, str]) -> None:
+    def test_synnax(
+        self, login_info: tuple[str, int, str, str], virtual_channel: sy.Channel
+    ) -> None:
         host, port, username, password = login_info
         with deprecated():
-            sy.Synnax(host, port, username, password).close()  # type: ignore[call-arg]
+            c = sy.Synnax(host, port, username, password)  # type: ignore[call-arg]
+        try:
+            assert c.channels.retrieve(virtual_channel.key).key == virtual_channel.key
+        finally:
+            c.close()
 
     def test_range(self) -> None:
+        tr = sy.TimeRange(start=1, end=2)
         with deprecated():
-            sy.Range("range", sy.TimeRange.MAX)  # type: ignore[call-arg]
+            rng = sy.Range("range", tr)  # type: ignore[call-arg]
+        assert rng.name == "range"
+        assert rng.time_range == tr
 
     def test_framer(
         self,
@@ -96,10 +105,20 @@ class TestPositionalArguments:
         asyncio.run(run())
 
     def test_controller(self, client: sy.Synnax, virtual_channel: sy.Channel) -> None:
+        cmd = client.channels.create(
+            name=f"{virtual_channel.name}_cmd",
+            virtual=True,
+            data_type=sy.DataType.FLOAT64,
+        )
         key = virtual_channel.key
         with deprecated():
-            ctrl = client.control.acquire("deprecation", [key], [key])  # type: ignore[call-arg]
-        with ctrl:
+            ctrl = client.control.acquire("deprecation", [key], [cmd.key, key])  # type: ignore[call-arg]
+        with ctrl, client.open_streamer(channels=cmd.key) as s:
+            assert [ch.key for ch in ctrl._receiver.channels] == [key]
+            ctrl[cmd.key] = 2
+            frame = s.read(timeout=5)
+            assert frame is not None
+            assert frame[cmd.key].to_numpy().tolist() == [2]
             with deprecated():
                 ctrl.set_authority(key, 200)  # type: ignore[call-overload]
             ctrl[key] = 1
@@ -124,16 +143,19 @@ class TestPositionalArguments:
 
     def test_task(self, client: sy.Synnax) -> None:
         tsk = client.tasks.create(name=str(uuid4()), type="pagerduty_alert")
-        with deprecated():
-            tsk.execute_command("deprecation", None)  # type: ignore[call-arg]
-        with deprecated():
-            client.tasks.maybe_assign_def_rack(tsk.to_payload(), 0)  # type: ignore[call-arg]
-        with deprecated(), pytest.raises(TimeoutError):
-            tsk.execute_command_sync("deprecation", None, 0)  # type: ignore[call-arg]
-        starter = _StarterStopper(tsk)
-        with deprecated(), pytest.raises(TimeoutError):
-            starter.start(0)  # type: ignore[call-arg]
-        with deprecated(), pytest.raises(TimeoutError):
-            starter.stop(0)  # type: ignore[call-arg]
-        with deprecated(), pytest.raises(TimeoutError), starter.run(0):  # type: ignore[call-arg]
-            pass
+        try:
+            with deprecated():
+                tsk.execute_command("deprecation", None)  # type: ignore[call-arg]
+            with deprecated():
+                client.tasks.maybe_assign_def_rack(tsk.to_payload(), 0)  # type: ignore[call-arg]
+            with deprecated(), pytest.raises(TimeoutError):
+                tsk.execute_command_sync("deprecation", None, 0)  # type: ignore[call-arg]
+            starter = _StarterStopper(tsk)
+            with deprecated(), pytest.raises(TimeoutError):
+                starter.start(0)  # type: ignore[call-arg]
+            with deprecated(), pytest.raises(TimeoutError):
+                starter.stop(0)  # type: ignore[call-arg]
+            with deprecated(), pytest.raises(TimeoutError), starter.run(0):  # type: ignore[call-arg]
+                pass
+        finally:
+            client.tasks.delete(tsk.key)
