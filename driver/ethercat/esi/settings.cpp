@@ -7,12 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <format>
 #include <map>
 #include <string>
 #include <utility>
+
+#include "x/cpp/telem/telem.h"
 
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/settings.h"
@@ -88,10 +91,92 @@ x::json::json entries_of(const x::json::json &layouts, const int n) {
                            n * layout["index_step"].get<int>();
         const auto first = layout["sub_index"].get<int>() +
                            n * layout["sub_index_step"].get<int>();
-        for (int k = 0; k < layout["count"].get<int>(); k++)
-            entries.push_back({{"index", index}, {"sub_index", first + k}});
+        for (int k = 0; k < layout["count"].get<int>(); k++) {
+            x::json::json entry{{"index", index}, {"sub_index", first + k}};
+            if (layout.contains("only_read_by"))
+                entry["only_read_by"] = layout["only_read_by"];
+            entries.push_back(std::move(entry));
+        }
     }
     return entries;
+}
+
+/// @brief returns the startup parameter that writes value to the object of item.
+x::json::json parameter(const x::json::json &item, const x::json::json &value) {
+    return {
+        {"index", item["index"]},
+        {"sub_index", item["sub_index"]},
+        {"data_type", item["data_type"]},
+        {"value", value},
+    };
+}
+
+/// @brief returns the mode that the card holds, as read_settings describes it.
+std::pair<x::json::json, x::errors::Error> read_mode(
+    const x::json::json &mode,
+    const std::vector<dc::OpMode> &op_modes,
+    const coe::Read &read
+) {
+    const auto [held, err] = read(
+        mode["index"].get<uint16_t>(),
+        mode["sub_index"].get<uint8_t>()
+    );
+    if (err) return {{}, err};
+    x::json::json result{
+        {"index", mode["index"]},
+        {"sub_index", mode["sub_index"]},
+        {"value", held},
+        {"shared", false},
+        {"switch", x::json::json::array()},
+    };
+    const double value = held;
+    const auto &values = mode["values"];
+    const auto match = std::ranges::find_if(values, [value](const auto &v) {
+        return v["value"].template get<double>() == value;
+    });
+    if (match != values.end()) {
+        result["shared"] = match->value("shared", false);
+        if (match->contains("op_mode")) {
+            const auto &op = (*match)["op_mode"];
+            const auto aa = op["assign_activate"].get<uint16_t>();
+            const auto sii = std::ranges::find(
+                op_modes,
+                aa,
+                &dc::OpMode::assign_activate
+            );
+            if (sii != op_modes.end())
+                result["op_mode"] =
+                    dc::Choice{
+                        .index = static_cast<uint16_t>(sii - op_modes.begin()),
+                        .assign_activate = aa,
+                        .cycles =
+                            {
+                                .sync0 = x::telem::TimeSpan(
+                                    op.value<int64_t>("sync0_cycle", 0)
+                                ),
+                                .sync1 = x::telem::TimeSpan(
+                                    op.value<int64_t>("sync1_cycle", 0)
+                                ),
+                            },
+                    }
+                        .to_json();
+        }
+    }
+    if (value == mode["standalone"].get<double>()) return {result, x::errors::NIL};
+    result["switch"].push_back(parameter(mode, mode["standalone"]));
+    if (!mode.contains("save")) return {result, x::errors::NIL};
+    const auto &save = mode["save"];
+    const auto [held_flag, save_err] = read(
+        save["index"].get<uint16_t>(),
+        save["sub_index"].get<uint8_t>()
+    );
+    if (save_err) return {{}, save_err};
+    const double flag = held_flag;
+    if (std::ranges::any_of(save["when"], [flag](const auto &w) {
+            return w.template get<double>() == flag;
+        }))
+        result["switch"].push_back(parameter(save, save["value"]));
+    return {result, x::errors::NIL};
 }
 
 x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
@@ -123,11 +208,38 @@ x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
     }
     return x::errors::NIL;
 }
+
+/// @brief appends the settings of each input that channels describes to out, with the
+/// option lists, limits, and values that the card holds.
+x::errors::Error read_channels(
+    const x::json::json &channels,
+    const coe::Read &read,
+    x::json::json &out
+) {
+    const auto index_step = channels["index_step"].get<uint16_t>();
+    for (int n = 0; n < channels["count"].get<int>(); n++) {
+        x::json::json channel{
+            {"entries", entries_of(channels["entries"], n)},
+            {"settings", channels["settings"]},
+            {"requires", channels["requires"]},
+        };
+        const auto step = static_cast<uint16_t>(n * index_step);
+        for (auto &setting: channel["settings"])
+            shift(setting, step);
+        for (auto &rule: channel["requires"])
+            shift(rule, step);
+        if (auto err = resolve_all(channel["settings"], read)) return err;
+        if (auto err = read_values(channel["settings"], read)) return err;
+        out.push_back(std::move(channel));
+    }
+    return x::errors::NIL;
+}
 }
 
 std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
     const uint32_t vendor_id,
     const uint32_t product_code,
+    const std::vector<dc::OpMode> &op_modes,
     const coe::Read &read
 ) {
     const auto catalog = x::json::json::parse(
@@ -143,26 +255,13 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         {"channels", x::json::json::array()},
     };
     if (auto err = resolve_all(result["device"], read)) return {std::nullopt, err};
-    if (!it->contains("channels")) return {std::move(result), x::errors::NIL};
-    const auto &channels = (*it)["channels"];
-    const auto index_step = channels["index_step"].get<uint16_t>();
-    for (int n = 0; n < channels["count"].get<int>(); n++) {
-        x::json::json channel{
-            {"entries", entries_of(channels["entries"], n)},
-            {"settings", channels["settings"]},
-            {"requires", channels["requires"]},
-        };
-        const auto step = static_cast<uint16_t>(n * index_step);
-        for (auto &setting: channel["settings"])
-            shift(setting, step);
-        for (auto &rule: channel["requires"])
-            shift(rule, step);
-        if (auto err = resolve_all(channel["settings"], read))
+    if (it->contains("channels"))
+        if (auto err = read_channels((*it)["channels"], read, result["channels"]))
             return {std::nullopt, err};
-        if (auto err = read_values(channel["settings"], read))
-            return {std::nullopt, err};
-        result["channels"].push_back(std::move(channel));
-    }
+    if (!it->contains("mode")) return {std::move(result), x::errors::NIL};
+    auto [mode, err] = read_mode((*it)["mode"], op_modes, read);
+    if (err) return {std::move(result), err};
+    result["mode"] = std::move(mode);
     return {std::move(result), x::errors::NIL};
 }
 }

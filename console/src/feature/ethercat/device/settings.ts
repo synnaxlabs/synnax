@@ -12,7 +12,7 @@ import { z } from "zod";
 
 const ADDRESS = { index: z.number(), subIndex: z.number() };
 
-interface Address {
+export interface Address {
   index: number;
   subIndex: number;
 }
@@ -50,9 +50,12 @@ const requirementZ = z.object({
   message: z.string(),
 });
 
+/** An entry that reads an input. onlyReadBy names the one program that reads it. */
+const entryZ = z.object({ ...ADDRESS, onlyReadBy: z.string().optional() });
+
 /** The fields of one input, and the entries that read it in every PDO layout. */
 const inputZ = z.object({
-  entries: z.array(z.object(ADDRESS)),
+  entries: z.array(entryZ),
   settings: z.array(fieldZ),
   requires: z.array(requirementZ),
 });

@@ -195,8 +195,8 @@ class Engine {
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
     /// @brief returns err, the error of the last pass of a failed start, with a
-    /// sentence for each slave in left_out. The error ends with slave::DC_SYNC_ADVICE
-    /// once when a slave in refused or left_out needs it.
+    /// sentence for each slave in left_out. The error ends with each distinct advice of
+    /// the refusals in refused and left_out.
     static x::errors::Error start_error(
         x::errors::Error err,
         const std::map<uint16_t, slave::Refusal> &refused,
@@ -253,9 +253,12 @@ class Engine {
         const Settings &settings
     );
     /// @returns errors::SETTING_CONFLICT when an open reader sets an object in settings
-    /// to another value.
+    /// to another value, apart from a slave that another program sets up.
     [[nodiscard]] x::errors::Error
     check_settings_locked(const Settings &settings) const;
+
+    /// @brief whether another program sets up the slave at position, by the last scan.
+    [[nodiscard]] bool shared_locked(uint16_t position) const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
 
@@ -355,7 +358,8 @@ public:
     /// sample: in PRE-OP when it starts the bus, and on the running bus otherwise. On a
     /// running bus, the IgH master writes nothing and takes only the values that the
     /// slaves hold, and a slave that loses power goes back to the values it stores. The
-    /// slaves keep the settings when the reader closes.
+    /// slaves keep the settings when the reader closes. A slave that another program
+    /// sets up gets no settings.
     /// @returns errors::RATE_MISMATCH when sample_rate is under 0.001 Hz, when no bus
     /// rate suits every open task, or when a slave runs DC sync and its fixed bus rate
     /// does not suit the reader. errors::PDO_MAPPING_ERROR when an entry is not in the
@@ -398,6 +402,17 @@ public:
     /// stopped. Thread-safe.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     rediscover();
+
+    /// @brief finds slave on the bus by its vendor, product, and serial number, or by
+    /// its position when it has no serial number. Then writes parameters to it while
+    /// the bus is stopped, and discovers the slaves again so that they show the change.
+    /// Thread-safe.
+    /// @returns errors::SLAVE_CONFIG_ERROR while a task runs the bus or when slave is
+    /// not on the bus, or the error of the write.
+    [[nodiscard]] x::errors::Error configure(
+        const slave::Properties &slave,
+        const std::vector<slave::StartupParameter> &parameters
+    );
 
     /// @brief returns the latest condition of each enabled slave, then each left-out
     /// slave with its refusal, or an empty list when the bus is not running.

@@ -199,6 +199,7 @@ x::errors::Error Master::initialize() {
         auto [settings, settings_err] = esi::read_settings(
             slave_info.vendor_id,
             slave_info.product_code,
+            result.properties.op_modes,
             sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
         );
         result.status.settings_error = settings_err.data;
@@ -261,6 +262,11 @@ x::errors::Error Master::write(
             "no slave at position " + std::to_string(position)
         );
     const auto &slave = this->cached_slaves[position - 1].properties;
+    if (!this->activated) {
+        for (const auto &param: parameters)
+            if (auto err = this->download(slave, param)) return err;
+        return x::errors::NIL;
+    }
     for (const auto &param: parameters) {
         const auto want = param.bytes();
         std::vector<uint8_t> held(want.size());

@@ -52,8 +52,8 @@ void set_live_status(const slave::Health &health, synnax::device::Status &status
                              ". The other devices on the network started without it. "
                              "The Driver tries it again the next time the network "
                              "starts.";
-        if (health.refusal->dc_sync_invalid)
-            status.description.append(" ").append(slave::DC_SYNC_ADVICE);
+        if (!health.refusal->advice.empty())
+            status.description.append(" ").append(health.refusal->advice);
         return;
     }
     if (health.lost) {
@@ -109,6 +109,57 @@ std::string pdo_error_description(const std::string &error) {
         std::toupper(static_cast<unsigned char>(sentence[0]))
     );
     return sentence + ". " + get_pdo_error_guidance(error);
+}
+
+/// @brief returns the program that alone reads an input entry of the slave, or an empty
+/// string when Synnax can read each of them.
+std::string only_reader(const slave::Properties &props) {
+    if (!props.settings || !props.settings->contains("channels")) return "";
+    for (const auto &channel: props.settings->at("channels"))
+        for (const auto &entry: channel.at("entries"))
+            if (entry.contains("only_read_by") &&
+                props.find_pdo(
+                    entry.at("index").get<uint16_t>(),
+                    entry.at("sub_index").get<uint8_t>(),
+                    true
+                ))
+                return entry.at("only_read_by").get<std::string>();
+    return "";
+}
+
+/// @brief sets status to the warning for a slave with settings that sends data that
+/// only reader reads.
+void set_mode_status(
+    const std::string &reader,
+    const x::json::json &settings,
+    synnax::device::Status &status
+) {
+    status.variant = synnax::status::VARIANT_WARNING;
+    const auto mode = settings.find("mode");
+    if (mode != settings.end() && mode->at("switch").empty()) {
+        status.message = "Waiting for a power restart";
+        status.description = "The device runs Synnax only after a power restart. Until "
+                             "then, it sends data that only " +
+                             reader + " reads.";
+        return;
+    }
+    status.message = "Set up for " + reader;
+    status.description = "On this port, the device sends data that only " + reader +
+                         " reads. ";
+    status.description += mode == settings.end()
+                            ? "Connect"
+                            : "In the device settings, switch the device to Synnax "
+                              "only, or connect";
+    status.description += " Synnax to the port that " + reader + " does not use.";
+}
+
+/// @brief adds a failed settings read to the description of status as a warning.
+void add_settings_error(const std::string &error, synnax::device::Status &status) {
+    if (error.empty()) return;
+    if (!status.description.empty()) status.description += ' ';
+    status.description += "Failed to read the settings: " + error +
+                          ". The Driver tries again while no task uses the port.";
+    status.variant = synnax::status::VARIANT_WARNING;
 }
 
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
@@ -202,6 +253,10 @@ bool Scanner::exec(
         this->test_interface(cmd);
         return true;
     }
+    if (cmd.type == SET_STANDALONE_CMD_TYPE) {
+        this->set_standalone(cmd);
+        return true;
+    }
     return false;
 }
 
@@ -251,7 +306,10 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (
+    else if (const auto reader = only_reader(props); !reader.empty()) {
+        set_mode_status(reader, props.settings.value(), status);
+        add_settings_error(sts.settings_error, status);
+    } else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
@@ -272,13 +330,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
             status.description = pdo_error_description(sts.pdo_discovery_error);
             status.variant = synnax::status::VARIANT_WARNING;
         }
-        if (!sts.settings_error.empty()) {
-            if (!status.description.empty()) status.description += ' ';
-            status
-                .description += "Failed to read the settings: " + sts.settings_error +
-                                ". The Driver tries again while no task uses the port.";
-            status.variant = synnax::status::VARIANT_WARNING;
-        }
+        add_settings_error(sts.settings_error, status);
     }
     dev.status = std::move(status);
     return {std::move(dev), is_enabled};
@@ -378,4 +430,83 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
     this->ctx->set_status(task_status);
 }
 
+void Scanner::set_standalone(const synnax::task::Command &cmd) const {
+    x::json::Parser parser(cmd.args);
+    const SetStandaloneArgs args(parser);
+    synnax::task::Status task_status{
+        .name = this->task.name,
+        .variant = synnax::status::VARIANT_ERROR,
+        .details =
+            synnax::task::StatusDetails{
+                .running = true,
+                .cmd = cmd.key,
+                .config_hash = this->task.config_hash,
+            },
+        .owner = synnax::task::resource_id(this->task.key),
+    };
+    const auto fail = [&](const std::string &description) {
+        task_status.message = "Failed to switch the device";
+        task_status.description = description;
+        this->ctx->set_status(task_status);
+    };
+    if (!parser.ok()) {
+        task_status.details.data = parser.error_json();
+        fail(common::config_err_description(parser.error()));
+        return;
+    }
+    const auto [dev, dev_err] = this->ctx->client->devices.retrieve(args.device);
+    if (dev_err) {
+        fail(dev_err.message());
+        return;
+    }
+    const auto [saved, saved_err] = parse_properties(dev.properties);
+    if (saved_err) {
+        fail(common::config_err_description(saved_err));
+        return;
+    }
+    const std::string network = saved.network;
+    const std::string key = dev.key;
+    const auto [engine, engine_err] = this->pool->acquire(network);
+    if (engine_err) {
+        fail(engine_err.data);
+        return;
+    }
+    const auto [slaves, err] = engine->rediscover();
+    if (err) {
+        fail(err.data);
+        return;
+    }
+    const auto slave = std::ranges::find_if(slaves, [&network, &key](const auto &s) {
+        return generate_slave_key(s.properties, network) == key;
+    });
+    if (slave == slaves.end()) {
+        fail("The device is not on " + network + ". Check its power and cabling.");
+        return;
+    }
+    const auto &props = slave->properties;
+    if (!props.settings || !props.settings->contains("mode")) {
+        fail("Synnax does not know how to switch this device.");
+        return;
+    }
+    std::vector<slave::StartupParameter> parameters;
+    x::json::Parser switch_parser(props.settings->at("mode"));
+    switch_parser.iter("switch", [&parameters](x::json::Parser &param) {
+        parameters.push_back(slave::StartupParameter::parse(param));
+    });
+    if (!switch_parser.ok()) {
+        fail(common::config_err_description(switch_parser.error()));
+        return;
+    }
+    if (!parameters.empty())
+        if (auto configure_err = engine->configure(props, parameters)) {
+            fail(configure_err.data);
+            return;
+        }
+    task_status.variant = synnax::status::VARIANT_SUCCESS;
+    task_status.message = "Switched " + dev.name + " to Synnax only";
+    task_status.description = parameters.empty()
+                                ? "The device already runs Synnax only."
+                                : "Restart the power of the device to finish.";
+    this->ctx->set_status(task_status);
+}
 }

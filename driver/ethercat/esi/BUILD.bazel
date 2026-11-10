@@ -42,10 +42,12 @@ cc_library(
     visibility = ["//driver/ethercat:__subpackages__"],
     deps = [
         "//driver/ethercat/coe",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/telem",
         "//x/cpp/errors",
         "//x/cpp/json",
+        "//x/cpp/telem",
     ],
 )
 
@@ -54,6 +56,8 @@ cc_test(
     srcs = ["settings_test.cpp"],
     deps = [
         ":settings",
+        "//driver/ethercat/coe",
+        "//driver/ethercat/dc",
         "//driver/ethercat/errors",
         "//driver/ethercat/testutil:stg",
         "//x/cpp/testutil",

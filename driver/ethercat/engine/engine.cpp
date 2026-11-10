@@ -135,7 +135,7 @@ x::errors::Error left_out_error(
         name,
         refusal.reason
     );
-    if (refusal.dc_sync_invalid) msg.append(" ").append(slave::DC_SYNC_ADVICE);
+    if (!refusal.advice.empty()) msg.append(" ").append(refusal.advice);
     return x::errors::Error(errors::STATE_CHANGE_REFUSED, msg);
 }
 }
@@ -145,18 +145,24 @@ x::errors::Error Engine::start_error(
     const std::map<uint16_t, slave::Refusal> &refused,
     const std::map<uint16_t, LeftOut> &left_out
 ) {
-    bool dc_sync_refused = std::ranges::any_of(refused, [](const auto &r) {
-        return r.second.dc_sync_invalid;
-    });
+    std::vector<std::string_view> advice;
+    const auto add_advice = [&advice](const slave::Refusal &refusal) {
+        if (!refusal.advice.empty() &&
+            std::ranges::find(advice, refusal.advice) == advice.end())
+            advice.push_back(refusal.advice);
+    };
+    for (const auto &[_, refusal]: refused)
+        add_advice(refusal);
     for (const auto &[pos, left]: left_out) {
         if (!err.data.ends_with('.')) err.data += '.';
         err.data += " The Driver left out slave " + std::to_string(pos) +
                     " because it " + left.refusal.reason + ".";
-        dc_sync_refused |= left.refusal.dc_sync_invalid;
+        add_advice(left.refusal);
     }
-    if (!dc_sync_refused) return err;
+    if (advice.empty()) return err;
     if (!err.data.ends_with('.')) err.data += '.';
-    err.data.append(" ").append(slave::DC_SYNC_ADVICE);
+    for (const auto a: advice)
+        err.data.append(" ").append(a);
     return err;
 }
 
@@ -411,6 +417,10 @@ Engine::start_locked(const uint64_t mhz, std::map<uint16_t, slave::Config> confi
         std::map<uint16_t, slave::Refusal> refused;
         if (!err) {
             this->slaves = std::move(slaves);
+            for (const auto &s: this->slaves)
+                if (const auto it = plan.slaves.find(s.properties.position);
+                    it != plan.slaves.end() && s.properties.shared())
+                    it->second.startup_parameters.clear();
             auto activation = this->master->activate(plan, start_cycle);
             err = activation.err;
             if (!err) break;
@@ -612,9 +622,17 @@ Engine::~Engine() {
     this->stop_locked();
 }
 
+bool Engine::shared_locked(const uint16_t position) const {
+    const auto slave = std::ranges::find(this->slaves, position, [](const auto &s) {
+        return s.properties.position;
+    });
+    return slave != this->slaves.end() && slave->properties.shared();
+}
+
 x::errors::Error Engine::check_settings_locked(const Settings &settings) const {
     for (const auto &input: this->inputs)
         for (const auto &[pos, params]: settings) {
+            if (this->shared_locked(pos)) continue;
             const auto held = input->settings.find(pos);
             if (held == input->settings.end()) continue;
             for (const auto &param: params)
@@ -669,9 +687,11 @@ std::pair<Engine::Joined, x::errors::Error> Engine::join_locked(
     }
     // A reader that the running bus cannot map must leave the slaves as they are.
     if (!started)
-        for (const auto &[pos, params]: settings)
+        for (const auto &[pos, params]: settings) {
+            if (this->shared_locked(pos)) continue;
             if (auto write_err = this->master->write(pos, params))
                 return {{}, write_err};
+        }
     return {{.mhz = mhz, .offsets = std::move(offsets)}, x::errors::NIL};
 }
 
@@ -748,6 +768,34 @@ std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error> Engine::redisco
     std::lock_guard lock(this->mu);
     if (this->running()) return {this->slaves, x::errors::NIL};
     return this->rediscover_locked();
+}
+
+x::errors::Error Engine::configure(
+    const slave::Properties &slave,
+    const std::vector<slave::StartupParameter> &parameters
+) {
+    std::lock_guard lock(this->mu);
+    if (this->running())
+        return x::errors::Error(
+            errors::SLAVE_CONFIG_ERROR,
+            "a task uses " + this->iface + ". Stop the tasks that use it first"
+        );
+    const auto [slaves, err] = this->master->scan();
+    if (err) return err;
+    const auto found = std::ranges::find_if(slaves, [&slave](const auto &s) {
+        const auto &p = s.properties;
+        return p.vendor_id == slave.vendor_id && p.product_code == slave.product_code &&
+               p.serial == slave.serial &&
+               (slave.serial != 0 || p.position == slave.position);
+    });
+    if (found == slaves.end())
+        return x::errors::Error(
+            errors::SLAVE_CONFIG_ERROR,
+            slave.name + " is not on " + this->iface + ". Check its power and cabling"
+        );
+    if (auto write_err = this->master->write(found->properties.position, parameters))
+        return write_err;
+    return this->rediscover_locked().second;
 }
 
 std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>

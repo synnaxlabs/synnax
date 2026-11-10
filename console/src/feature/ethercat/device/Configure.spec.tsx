@@ -15,15 +15,19 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createIdentifier,
   createSettingsDescription,
   createSlaveDevice,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
+import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -60,7 +64,8 @@ interface SetupArgs {
   useOpen?: typeof Device.useConfigureModal;
   analytics?: Analytics.Sink;
   startupParameters?: ethercat.StartupParameter[];
-  settings?: EtherCAT.Device.Settings.Description;
+  settings?: EtherCAT.Device.SlaveProperties["settings"];
+  inputs?: ethercat.PDOEntry[];
 }
 
 const setup = async ({
@@ -69,6 +74,7 @@ const setup = async ({
   analytics,
   startupParameters = [],
   settings,
+  inputs = [],
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -91,6 +97,7 @@ const setup = async ({
       opMode: OP_MODE,
       startupParameters,
       settings,
+      pdos: { inputs, outputs: [] },
     },
     configured,
   );
@@ -396,6 +403,83 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
           FILTER,
         ]),
       );
+    });
+  });
+
+  describe("setup", () => {
+    it("should offer to switch a card that sends data only DewesoftX reads", async () => {
+      await setup({
+        settings: createDewesoftXSettings(true),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(findButton("Switch to Synnax only")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+    });
+
+    /** Opens a card that sends data only DewesoftX reads and clicks the switch. */
+    const clickSwitch = async (answer: Omit<CommandAnswer, "type"> = {}) => {
+      const slave = await setup({
+        settings: createDewesoftXSettings(true),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      const rack = await client.racks.retrieve({ key: slave.rack });
+      const scan = await rack.createTask({
+        name: uniqueName("ecat_scan"),
+        type: EtherCAT.Task.SCAN_TYPE,
+        config: {},
+      });
+      const driver = await answerNextCommand(client, scan, {
+        ...answer,
+        type: "set_standalone",
+      });
+      fireEvent.click(findButton("Switch to Synnax only"));
+      expect(await driver.answered).toMatchObject({ args: { device: slave.key } });
+    };
+
+    it("should ask for a power restart once the card switches", async () => {
+      await clickSwitch();
+      expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
+    it("should show why the card did not switch", async () => {
+      await clickSwitch({ variant: "error", message: "Slave 3 refused the switch" });
+      expect(await screen.findByText(/Slave 3 refused the switch/)).toBeTruthy();
+      expect(screen.queryByText("Restart the power of the device")).toBeNull();
+    });
+
+    it("should ask for a power restart for a switched card that sends DewesoftX data", async () => {
+      await setup({
+        settings: createDewesoftXSettings(false),
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
+    it("should offer no switch for a card whose mode the scan did not read", async () => {
+      await setup({
+        settings: { ...createDewesoftXSettings(true), mode: undefined },
+        inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
+      });
+      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(
+        screen.getByText(/Connect Synnax to the other EtherCAT port/),
+      ).toBeTruthy();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
+    });
+
+    it("should hide the settings of a card that DewesoftX sets up", async () => {
+      await setup({ settings: createDewesoftXSettings(true), inputs: [STRAIN_ENTRY] });
+      expect(await screen.findByText("Set up by DewesoftX")).toBeTruthy();
+      expect(
+        screen.getByText(
+          "DewesoftX sets up this device, so Synnax does not change its settings.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      expect(screen.queryByText("Switch to Synnax only")).toBeNull();
     });
   });
 

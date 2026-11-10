@@ -81,13 +81,25 @@ int micros(const x::telem::TimeSpan span) {
     return static_cast<int>(span.microseconds());
 }
 
+/// @brief returns what the user can do about a slave that refuses a state with the AL
+/// status code, or an empty view for no advice.
+std::string_view refusal_advice(const uint16_t code) {
+    switch (code) {
+        case 0x001D: // Invalid output configuration
+        case 0x001E: // Invalid input configuration
+            return slave::MODE_RESTART_ADVICE;
+        case 0x0030: // Invalid DC SYNC configuration
+            return slave::DC_SYNC_ADVICE;
+        default:
+            return {};
+    }
+}
+
 }
 
 /// SOEM group 0 addresses every slave, so enabled and disabled slaves get their own.
 constexpr uint8_t ENABLED_GROUP = 1;
 constexpr uint8_t DISABLED_GROUP = 2;
-/// AL status code for "Invalid DC SYNC configuration".
-constexpr uint16_t AL_INVALID_DC_SYNC = 0x0030;
 /// IOMap buffer size for process data image. This is local memory only - actual wire
 /// traffic is determined by slave PDO mappings. 128KB handles networks with hundreds
 /// of slaves or slaves with large PDO mappings (e.g., multi-axis drives).
@@ -475,7 +487,8 @@ x::errors::Error Master::write(
             "slave " + std::to_string(pos) + " (" + this->slave_name(pos) + ") " +
                 err.data
         );
-    this->session.value().plan.slaves[pos].add_startup_parameters(parameters);
+    if (this->session)
+        this->session->plan.slaves[pos].add_startup_parameters(parameters);
     return x::errors::NIL;
 }
 
@@ -540,6 +553,7 @@ void Master::read_settings(slave::DiscoveryResult &slave) {
     auto [settings, err] = esi::read_settings(
         props.vendor_id,
         props.product_code,
+        props.op_modes,
         [this, pos](const uint16_t index, const uint8_t sub_index) {
             return this->read_sdo(pos, index, sub_index);
         }
@@ -941,7 +955,7 @@ std::pair<std::vector<Master::DCSetup>, x::errors::Error> Master::resolve_dc() c
         const auto &props = slave.properties;
         const auto config = this->config(props.position);
         if (!config.enabled) continue;
-        const auto &choice = config.op_mode;
+        const auto choice = config.op_mode ? config.op_mode : props.catalog_op_mode();
         const auto [mode, select_err] = dc::select(props.op_modes, choice);
         if (select_err)
             return {
@@ -1253,7 +1267,7 @@ Master::state_error(const std::vector<uint16_t> &failed, const uint16_t state) {
             std::ranges::find(TRANSIENT_FAULTS, code) == TRANSIENT_FAULTS.end())
             refusing[pos] = {
                 .reason = "refused " + target + ": " + text,
-                .dc_sync_invalid = code == AL_INVALID_DC_SYNC,
+                .advice = refusal_advice(code),
             };
         msg += ": " + text;
     }

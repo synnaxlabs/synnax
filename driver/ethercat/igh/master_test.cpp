@@ -293,13 +293,14 @@ TEST_F(IGHMasterTest, ScanFillsNamesAndDataTypesFromTheRegistry) {
 TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     this->api->add_slave();
     this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
-        .objects = testutil::stg_objects();
+        .objects = testutil::stg_objects(0);
     const auto slaves = ASSERT_NIL_P(this->master.scan());
     const auto expected = ASSERT_NIL_P(
         esi::read_settings(
             testutil::DEWESOFT,
             testutil::IOLITE_6XSTG,
-            testutil::read_of(testutil::stg_objects())
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
         )
     );
     ASSERT_TRUE(expected.has_value());
@@ -309,7 +310,7 @@ TEST_F(IGHMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
 
 /// @brief it should report why the settings of a slave could not be read.
 TEST_F(IGHMasterTest, ScanReportsAFailedSettingsRead) {
-    auto objects = testutil::stg_objects();
+    auto objects = testutil::stg_objects(0);
     objects.erase({0x8050, 3});
     this->api->add_slave("6xSTG", testutil::DEWESOFT, testutil::IOLITE_6XSTG)
         .objects = objects;
@@ -616,6 +617,29 @@ TEST_F(IGHMasterTest, ActivateSkipsTheStartupParametersOfADisabledSlave) {
     this->configs = {{1, {.enabled = false, .startup_parameters = {FILTER}}}};
     ASSERT_NIL(this->scan_and_activate());
     EXPECT_TRUE(this->api->slaves[0].downloads.empty());
+}
+
+/// @brief it should write each parameter to a slave before activation.
+TEST_F(IGHMasterTest, WriteDownloadsEachParameterBeforeActivation) {
+    this->api->add_slave();
+    ASSERT_NIL_P(this->master.scan());
+    ASSERT_NIL(this->master.write(1, {FILTER}));
+    const std::vector<MockAPI::SDO> expected{{0x8000, 0x15, {0x03, 0x00}}};
+    EXPECT_EQ(this->api->slaves[0].downloads, expected);
+    EXPECT_TRUE(this->api->slaves[0].startup_sdos.empty());
+}
+
+/// @brief it should return the reason a slave rejects a parameter before activation.
+TEST_F(IGHMasterTest, WriteReturnsWhyASlaveRejectedAParameter) {
+    this->api->add_slave().download_aborts[{0x8000, 0x15}] = 0x06090031;
+    ASSERT_NIL_P(this->master.scan());
+    const auto err = this->master.write(1, {FILTER});
+    ASSERT_OCCURRED_AS(err, errors::STARTUP_PARAMETER_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "slave 1 (TestSlave) rejected startup parameter 0x8000:15 (Filter): Value of "
+        "parameter written too high"
+    );
 }
 
 /// @brief it should accept a value that the slave holds on the running bus, and write

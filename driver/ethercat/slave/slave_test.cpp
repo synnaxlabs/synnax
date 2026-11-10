@@ -611,4 +611,40 @@ TEST(Properties, ParsesWithoutStartupParameters) {
     ASSERT_NIL(parser.error());
     EXPECT_TRUE(props.config.startup_parameters.empty());
 }
+
+/// @brief it should return the sync mode that the catalog gives for the card's mode.
+TEST(PropertiesCatalogOpMode, ReturnsTheModeThatTheCatalogGives) {
+    Properties props;
+    props.settings = x::json::json{
+        {"mode",
+         {{"value", 0},
+          {"op_mode",
+           {{"index", 1},
+            {"assign_activate", 0x0300},
+            {"sync0_cycle", 1000},
+            {"sync1_cycle", 1000000000}}}}},
+    };
+    EXPECT_EQ(
+        props.catalog_op_mode(),
+        (dc::Choice{
+            .index = 1,
+            .assign_activate = 0x0300,
+            .cycles = {
+                .sync0 = x::telem::MICROSECOND,
+                .sync1 = x::telem::SECOND,
+            },
+        })
+    );
+}
+
+/// @brief it should return no sync mode when the catalog gives none for the card's
+/// mode, or describes no mode for the card.
+TEST(PropertiesCatalogOpMode, ReturnsNoneWhenTheCatalogGivesNone) {
+    Properties props;
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"device", x::json::json::array()}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+    props.settings = x::json::json{{"mode", {{"value", 1}, {"shared", true}}}};
+    EXPECT_EQ(props.catalog_op_mode(), std::nullopt);
+}
 }

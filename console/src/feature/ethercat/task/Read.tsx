@@ -43,7 +43,7 @@ import {
   readDataType,
   readKey,
   type ReadSchemas,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
@@ -134,7 +134,7 @@ const createSlaveChannels = async (
   key: string,
 ): Promise<ReadChannel[]> => {
   const slave = await client.devices.retrieve({ key, schemas: SLAVE_SCHEMAS });
-  const inputs = uniqueEntries(slave.properties.pdos.inputs);
+  const inputs = usableEntries(slave.properties, "inputs");
   if (inputs.length === 0) return [{ ...createReadChannel([]), device: key }];
   return inputs.map((entry) => createEntryReadChannel(key, entry));
 };

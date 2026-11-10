@@ -145,10 +145,10 @@ public:
     [[nodiscard]] virtual std::vector<slave::Health>
     check(const x::breaker::Breaker &breaker) = 0;
 
-    /// @brief writes parameters to the slave at position on the running bus, in order.
-    /// A master that can also adds them to the startup parameters of the slave, so it
+    /// @brief writes parameters to the slave at position, in order. On a running bus, a
+    /// master that can also adds them to the startup parameters of the slave, so it
     /// writes them again when the slave restarts. Safe to call from one thread while
-    /// another runs receive() and send(). Valid between activate() and deactivate().
+    /// another runs receive() and send(). Valid between scan() and deactivate().
     /// @returns errors::STARTUP_PARAMETER_ERROR when the slave rejects a parameter. The
     /// parameters before it stay on the slave. errors::SETTING_CONFLICT when the master
     /// cannot change a parameter on the running bus.

@@ -163,8 +163,17 @@ protected:
     void initialize_with_dc_slave(const std::vector<dc::OpMode> &modes) {
         MockSlaveInfo slave;
         slave.state = EC_STATE_PRE_OP;
-        slave.hasdc = true;
         slave.name = "16xAO";
+        this->initialize_with_dc_slave(slave, modes);
+    }
+
+    /// @brief initializes the master with slave as its one DC slave, which lists modes,
+    /// and gives it a DC system time of 5 s.
+    void initialize_with_dc_slave(
+        MockSlaveInfo slave,
+        const std::vector<dc::OpMode> &modes
+    ) {
+        slave.hasdc = true;
         this->add_slave(slave);
         this->set_op_modes(modes);
         this->mock->register_values[{1, 0x0910}] = 5'000'000'000;
@@ -942,8 +951,8 @@ TEST_F(SOEMMasterTest, ScanGivesNoOpModesWithoutDCCategory) {
     EXPECT_TRUE(this->master->scan().first[0].properties.op_modes.empty());
 }
 
-/// @brief returns a 6xSTG in PRE-OP that holds the objects of the 6xSTG on the station
-/// and lists the mailbox protocols in mbx_proto.
+/// @brief returns a standalone 6xSTG in PRE-OP that holds the objects of the 6xSTG on
+/// the station and lists the mailbox protocols in mbx_proto.
 MockSlaveInfo create_stg(const uint16_t mbx_proto) {
     MockSlaveInfo slave;
     slave.state = EC_STATE_PRE_OP;
@@ -951,7 +960,7 @@ MockSlaveInfo create_stg(const uint16_t mbx_proto) {
     slave.eep_id = testutil::IOLITE_6XSTG;
     slave.name = "6xSTG";
     slave.mbx_proto = mbx_proto;
-    slave.sdo_objects = testutil::stg_objects();
+    slave.sdo_objects = testutil::stg_objects(0);
     return slave;
 }
 
@@ -965,7 +974,8 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
         esi::read_settings(
             testutil::DEWESOFT,
             testutil::IOLITE_6XSTG,
-            testutil::read_of(testutil::stg_objects())
+            slaves[1].properties.op_modes,
+            testutil::read_of(testutil::stg_objects(0))
         )
     );
     ASSERT_TRUE(expected.has_value());
@@ -1035,7 +1045,6 @@ TEST_F(SOEMMasterTest, ActivateSafeOpRefusalReturnsAtOnce) {
         "configuration"
     );
     EXPECT_EQ(this->mock->readstate_count, 1);
-    EXPECT_FALSE(this->activation.refusals.at(1).dc_sync_invalid);
 }
 
 /// @brief it should wait for a state change on the clock of its config, so a fake clock
@@ -1109,9 +1118,20 @@ TEST_F(SOEMMasterTest, ActivateMarksARefusalWithAnInvalidDCSync) {
     const std::map<uint16_t, slave::Refusal> expected = {
         {2,
          {.reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-          .dc_sync_invalid = true}},
+          .advice = slave::DC_SYNC_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
+}
+
+/// @brief it should give the mode restart advice with the refusal of a slave that
+/// reports an invalid input or output configuration.
+TEST_F(SOEMMasterTest, ActivateGivesTheModeRestartAdviceWithAnInvalidConfiguration) {
+    for (const uint16_t code: {0x001D, 0x001E}) {
+        this->create_master(x::telem::SECOND);
+        this->add_pending_and_refusing_slaves(code);
+        ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
+        EXPECT_EQ(this->activation.refusals.at(2).advice, slave::MODE_RESTART_ADVICE);
+    }
 }
 
 /// @brief it should record why a slave refused OP after SAFE-OP when another slave with
@@ -1155,7 +1175,9 @@ TEST_F(SOEMMasterTest, ActivateForgetsTheRefusalsOfTheLastStart) {
     this->mock->slave_infos[0].ALstatuscode = 0x001D;
     ASSERT_OCCURRED_AS(this->activate(), errors::STATE_CHANGE_REFUSED);
     const std::map<uint16_t, slave::Refusal> expected = {
-        {1, {.reason = "refused SAFE-OP: Invalid output configuration"}},
+        {1,
+         {.reason = "refused SAFE-OP: Invalid output configuration",
+          .advice = slave::MODE_RESTART_ADVICE}},
     };
     EXPECT_EQ(this->activation.refusals, expected);
 }
@@ -1184,8 +1206,8 @@ TEST_F(SOEMMasterTest, ActivateReportsADCSyncRefusal) {
         "configuration; slave 2 (SecondSlave) is in PRE-OP: Invalid DC SYNC "
         "configuration"
     );
-    EXPECT_TRUE(this->activation.refusals.at(1).dc_sync_invalid);
-    EXPECT_TRUE(this->activation.refusals.at(2).dc_sync_invalid);
+    EXPECT_EQ(this->activation.refusals.at(1).advice, slave::DC_SYNC_ADVICE);
+    EXPECT_EQ(this->activation.refusals.at(2).advice, slave::DC_SYNC_ADVICE);
 }
 
 /// @brief it should return a refusal as soon as a slave refuses OP.
@@ -1505,6 +1527,26 @@ TEST_F(SOEMMasterTest, ActivateLeavesSyncOffOnASlaveWithAnSMMode) {
         {.slave = 1, .address = 0x0981, .value = 0, .size = 1},
     };
     EXPECT_EQ(this->mock->register_writes, expected);
+}
+
+/// @brief it should run the DC mode that the catalog gives for the mode a slave holds
+/// when no mode is chosen, in place of the SM mode that it would pick.
+TEST_F(SOEMMasterTest, ActivateRunsTheCatalogModeWhenNoModeIsChosen) {
+    this->initialize_with_dc_slave(
+        create_stg(ECT_MBXPROT_COE),
+        {SM, {.name = "DC", .assign_activate = 0x0300}}
+    );
+    const auto catalog = this->master->scan().first.at(0).properties.catalog_op_mode();
+    ASSERT_TRUE(catalog.has_value());
+    EXPECT_EQ(catalog.value().assign_activate, 0x0300);
+    ASSERT_NIL(this->activate());
+    ASSERT_EQ(this->mock->register_writes.size(), 7);
+    EXPECT_EQ(this->mock->register_writes[3].address, 0x09A0);
+    EXPECT_EQ(this->mock->register_writes[3].value, 1000);
+    EXPECT_EQ(this->mock->register_writes[4].address, 0x09A4);
+    EXPECT_EQ(this->mock->register_writes[4].value, 999'999'000);
+    EXPECT_EQ(this->mock->register_writes[6].address, 0x0981);
+    EXPECT_EQ(this->mock->register_writes[6].value, 0x07);
 }
 
 /// @brief it should leave DC sync off on a disabled slave.
@@ -2828,6 +2870,16 @@ TEST_F(SOEMMasterTest, WriteReachesTheRunningBusAndReplaysOnRecovery) {
             {1, 0x8000, 0x15, {0x05, 0x00}},
             {1, 0x8000, 0x19, {0x02}},
         })
+    );
+}
+
+/// @brief it should write parameters to a slave when no task runs the bus.
+TEST_F(SOEMMasterTest, WriteReachesASlaveOnAStoppedBus) {
+    this->initialize_with_slave();
+    ASSERT_NIL(this->master->write(1, {RANGE}));
+    EXPECT_EQ(
+        this->mock->sdo_writes,
+        (std::vector<MockAPI::SDOWrite>{{1, 0x8000, 0x19, {0x02}}})
     );
 }
 

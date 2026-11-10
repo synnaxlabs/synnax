@@ -184,6 +184,38 @@ export const createSettingsDescription = (): Description => {
   };
 };
 
+/**
+ * Builds the catalog of {@link createSettingsDescription} for a card in which only
+ * DewesoftX reads {@link STRAIN_SAMPLE_ENTRY}. A shared card is one that DewesoftX also
+ * sets up, and a scan gives it the write that switches it to Synnax only.
+ */
+export const createDewesoftXSettings = (
+  shared: boolean,
+): NonNullable<SlaveProperties["settings"]> => {
+  const description = createSettingsDescription();
+  return {
+    ...description,
+    channels: description.channels.map((channel) => ({
+      ...channel,
+      entries: channel.entries.map((entry) =>
+        entry.index === STRAIN_SAMPLE_ENTRY.index &&
+        entry.subIndex === STRAIN_SAMPLE_ENTRY.subIndex
+          ? { ...entry, onlyReadBy: "DewesoftX" }
+          : entry,
+      ),
+    })),
+    mode: {
+      index: 0x8020,
+      subIndex: 9,
+      value: shared ? 1 : 0,
+      shared,
+      switch: shared
+        ? [{ index: 0x8020, subIndex: 9, dataType: "uint16", value: 0, name: "" }]
+        : [],
+    },
+  };
+};
+
 /** Builds an input channel whose entry name matched no single entry. */
 export const createUnresolvedReadChannel = (
   device: string,

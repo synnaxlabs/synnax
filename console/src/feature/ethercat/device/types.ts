@@ -52,6 +52,20 @@ const opModeChoiceZ = z.object({
   sync1Cycle: z.number().default(0),
 });
 export interface OpModeChoice extends z.infer<typeof opModeChoiceZ> {}
+/** The mode that a slave held at the scan, as its catalog describes it. */
+const modeZ = z.object({
+  /** The address of the CoE object that holds the mode. */
+  index: z.number(),
+  subIndex: z.number(),
+  value: z.number(),
+  /** Whether other software also sets up the slave. */
+  shared: z.boolean(),
+  /** The sync mode that the mode needs. */
+  opMode: opModeChoiceZ.optional(),
+  /** The writes that make the slave standalone. Empty when it is. */
+  switch: z.array(ethercat.startupParameterZ),
+});
+
 const ZERO_PDOS: PDOs = {
   inputs: [],
   outputs: [],
@@ -82,7 +96,7 @@ export const slavePropertiesZ = z.object({
   opMode: opModeChoiceZ.optional(),
   startupParameters: z.array(ethercat.startupParameterZ).default(() => []),
   /** The fields that the slave's catalog describes, read from the slave at scan. */
-  settings: descriptionZ.optional(),
+  settings: descriptionZ.extend({ mode: modeZ.optional() }).optional(),
 });
 export interface SlaveProperties extends z.infer<typeof slavePropertiesZ> {}
 
