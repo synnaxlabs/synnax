@@ -577,7 +577,10 @@ class TimeSpan(int):
         return NotImplemented
 
     @override
-    def __radd__(self, lhs: int) -> NoReturn:
+    def __radd__(self, lhs: int) -> TimeSpan:
+        # sum() starts from the int 0.
+        if type(lhs) is int and lhs == 0:
+            return self
         raise _operand_error("+", lhs, self)
 
     @overload

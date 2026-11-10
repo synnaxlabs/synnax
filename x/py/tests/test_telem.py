@@ -436,6 +436,12 @@ class TestTimeSpan:
         """Should correctly add two time spans"""
         assert sy.TimeSpan(2000) == sy.TimeSpan.MICROSECOND + sy.TimeSpan.MICROSECOND
 
+    def test_sum(self) -> None:
+        """Should sum time spans with the builtin sum"""
+        total = sum([sy.TimeSpan.SECOND, sy.TimeSpan.MILLISECOND])
+        assert isinstance(total, sy.TimeSpan)
+        assert total == sy.TimeSpan.SECOND + sy.TimeSpan.MILLISECOND
+
     def test_sub(self) -> None:
         """Should correctly subtract two time spans"""
         assert sy.TimeSpan(0) == sy.TimeSpan.MICROSECOND - sy.TimeSpan.MICROSECOND
