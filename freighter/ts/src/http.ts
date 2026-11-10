@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, errors, runtime, type url } from "@synnaxlabs/x";
+import {
+  binary,
+  type CrudeTimeSpan,
+  errors,
+  runtime,
+  TimeSpan,
+  type url,
+} from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { Unreachable } from "@/errors";
@@ -81,6 +88,8 @@ const shouldCastToUnreachable = (
 
 const HTTP_STATUS_BAD_REQUEST = 400;
 
+const DEFAULT_TIMEOUT = TimeSpan.seconds(60);
+
 /**
  * The single query parameter file transfer params travel on. The server exposes its
  * value to the handler as the "params" request param.
@@ -135,6 +144,8 @@ const toSendableBody = async (body: UploadBody): Promise<UploadBody> => {
  * HTTPClientFactory provides a POST and GET implementation of the Unary protocol.
  * @param url - The base URL of the API.
  * @param encoder - The encoder/decoder to use for the request/response.
+ * @param timeout - The longest a send waits for its response, body included. Defaults
+ * to 60 seconds. File transfers have no limit, since their bodies can take longer.
  */
 export class HTTPClient
   extends MiddlewareCollector
@@ -142,11 +153,18 @@ export class HTTPClient
 {
   endpoint: url.URL;
   encoder: binary.Codec;
+  private readonly timeout: TimeSpan;
 
-  constructor(endpoint: url.URL, encoder: binary.Codec, secure: boolean = false) {
+  constructor(
+    endpoint: url.URL,
+    encoder: binary.Codec,
+    secure: boolean = false,
+    timeout: CrudeTimeSpan = DEFAULT_TIMEOUT,
+  ) {
     super();
     this.endpoint = endpoint.replace({ protocol: secure ? "https" : "http" });
     this.encoder = encoder;
+    this.timeout = new TimeSpan(timeout);
 
     return new Proxy(this, {
       get: (target, prop, receiver) => {
@@ -176,12 +194,25 @@ export class HTTPClient
       { ...this.context(url), params: { ...params } },
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
-        const httpRes = await this.fetch(url, ctx.target, {
-          method: "POST",
-          body: this.encoder.encode(req, reqSchema),
-          headers: { ...this.defaultHeaders, ...ctx.params },
-        });
-        const data = await httpRes.arrayBuffer();
+        const signal = AbortSignal.timeout(this.timeout.milliseconds);
+        let httpRes: Response;
+        let data: ArrayBuffer;
+        try {
+          httpRes = await this.fetch(url, ctx.target, {
+            method: "POST",
+            body: this.encoder.encode(req, reqSchema),
+            headers: { ...this.defaultHeaders, ...ctx.params },
+            signal,
+          });
+          data = await httpRes.arrayBuffer();
+        } catch (e) {
+          if (!signal.aborted) throw errors.fromUnknown(e);
+          const timeout = this.timeout.toString();
+          throw new Error(
+            `[freighter] no response from ${ctx.target} within ${timeout}`,
+            { cause: e },
+          );
+        }
         if (httpRes.ok) {
           if (resSchema != null)
             res = this.encoder.decode<RS>(data, resSchema, {

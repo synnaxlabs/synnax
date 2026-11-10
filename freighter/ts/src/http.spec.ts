@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary, url, zod } from "@synnaxlabs/x";
-import { describe, expect, test } from "vitest";
+import { createServer, type RequestListener, type Server } from "node:http";
+import { type AddressInfo } from "node:net";
+
+import { binary, TimeSpan, url, zod } from "@synnaxlabs/x";
+import { afterEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
 import { HTTPClient, Unreachable } from "@/index";
@@ -91,6 +94,44 @@ describe("http", () => {
     const send = c.send("/unreachable", {}, messageZ, messageZ);
     await expect(send).rejects.toThrow(Unreachable);
     await expect(send).rejects.toThrow("Unreachable");
+  });
+
+  describe("timeout", () => {
+    let server: Server;
+
+    const serve = async (handler: RequestListener): Promise<HTTPClient> => {
+      server = createServer(handler);
+      await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+      const { port } = server.address() as AddressInfo;
+      return new HTTPClient(
+        new url.URL({ host: "127.0.0.1", port }),
+        new binary.JSONCodec(),
+        false,
+        TimeSpan.milliseconds(50),
+      );
+    };
+
+    afterEach(async () => {
+      server.closeAllConnections();
+      await new Promise((resolve) => server.close(resolve));
+    });
+
+    test("rejects a send that the server never answers", async () => {
+      const c = await serve(() => {});
+      await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
+        /^\[freighter\] no response from http:\/\/127\.0\.0\.1:\d+\/stall within 50ms$/,
+      );
+    });
+
+    test("rejects a send whose response body never ends", async () => {
+      const c = await serve((_, res) => {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.write("{");
+      });
+      await expect(c.send("/stall", {}, messageZ, messageZ)).rejects.toThrow(
+        "no response from",
+      );
+    });
   });
 
   describe("upload", () => {
