@@ -129,7 +129,7 @@ func createSecret(ctx SpecContext) secret.Key {
 	GinkgoHelper()
 	s := secret.Secret{Variant: secret.StoredSecret{Base: secret.Base{Name: "Key"}}}
 	Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return svc.Secret.NewWriter(tx).Create(ctx, &s, []byte("rk"))
+		return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("rk"))
 	})).To(Succeed())
 	return s.Base().Key
 }
@@ -164,7 +164,16 @@ func retrieveTask(ctx SpecContext, key task.Key) task.Task {
 	return t
 }
 
-var _ = Describe("Rename", func() {
+var _ = Describe("Dispatch rename", func() {
+	renameTo := func(key task.Key, name string) apitask.DispatchRequest {
+		return apitask.DispatchRequest{
+			Key: key,
+			Actions: []task.Action{task.NewSetAction(task.SetPayload{
+				Path:  []string{"name"},
+				Value: name,
+			})},
+		}
+	}
 	It("Should rename the task and its status with update on both", func(
 		ctx SpecContext,
 	) {
@@ -177,36 +186,11 @@ var _ = Describe("Rename", func() {
 			t.ResourceID(),
 			statusOf(ctx, t),
 		)
-		MustSucceed(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-		))
+		MustSucceed(dispatch(AuthedCtx(ctx, u), renameTo(t.Key, "After")))
 		renamed := retrieveTask(ctx, t.Key)
 		Expect(renamed.Name).To(Equal("After"))
 		Expect(renamed.Snapshot).To(BeTrue())
 		Expect(renamed.Config).To(Equal(t.Config))
-	})
-	It("Should reject an empty name", func(ctx SpecContext) {
-		u := createUser(ctx)
-		t := createTask(ctx)
-		grant(
-			ctx,
-			access.ActionUpdate,
-			u.ResourceID(),
-			t.ResourceID(),
-			statusOf(ctx, t),
-		)
-		Expect(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: ""},
-		)).Error().To(MatchError(ContainSubstring("name: required")))
-		Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
-	})
-	It("Should return a not found error for a missing task", func(ctx SpecContext) {
-		u := createUser(ctx)
-		key := uuid.New()
-		grant(ctx, access.ActionUpdate, u.ResourceID(), task.ResourceID(key))
-		Expect(rename(
-			AuthedCtx(ctx, u), apitask.RenameRequest{Key: key, Name: "After"},
-		)).Error().To(MatchError(query.ErrNotFound))
 	})
 	taskID := func(_ SpecContext, t task.Task) resource.ID { return t.ResourceID() }
 	DescribeTable(
@@ -219,9 +203,8 @@ var _ = Describe("Rename", func() {
 			u := createUser(ctx)
 			t := createTask(ctx)
 			grant(ctx, access.ActionUpdate, u.ResourceID(), granted(ctx, t))
-			Expect(rename(
-				AuthedCtx(ctx, u), apitask.RenameRequest{Key: t.Key, Name: "After"},
-			)).Error().To(denied(u, access.ActionUpdate, refused(ctx, t)))
+			Expect(dispatch(AuthedCtx(ctx, u), renameTo(t.Key, "After"))).
+				Error().To(denied(u, access.ActionUpdate, refused(ctx, t)))
 			Expect(retrieveTask(ctx, t.Key).Name).To(Equal("Before"))
 		},
 		Entry("without update on the task", statusOf, taskID),
@@ -238,7 +221,7 @@ var _ = Describe("Dispatch", func() {
 			Base: secret.Base{Key: uuid.MustParse(routingKey), Name: "Routing key"},
 		}}
 		Expect(node.DB.WithTx(ctx, func(tx gorp.Tx) error {
-			return svc.Secret.NewWriter(tx).Create(ctx, &s, []byte("rk"))
+			return svc.Secret.NewWriter(tx).Set(ctx, &s, []byte("rk"))
 		})).To(Succeed())
 	})
 	createDraft := func(ctx SpecContext) task.Task {
@@ -770,12 +753,17 @@ var _ = Describe("Delete", func() {
 	) freighter.UnaryHandler[apitask.DeleteRequest, struct{}] {
 		GinkgoHelper()
 		s := MustSucceed(apitask.NewService(apitask.ServiceConfig{
-			DB:          node.DB,
-			Task:        svc.Task,
-			Status:      svc.Status,
-			RBAC:        svc.RBAC,
-			Framer:      svc.Framer,
-			StopTimeout: timeout,
+			DB:     node.DB,
+			Task:   svc.Task,
+			Status: svc.Status,
+			RBAC:   svc.RBAC,
+			Stopper: MustSucceed(task.NewStopper(task.StopperConfig{
+				DB:      node.DB,
+				Task:    svc.Task,
+				Status:  svc.Status,
+				Framer:  svc.Framer,
+				Timeout: timeout,
+			})),
 		}))
 		return bind.WritePrepared(binder, s.PrepareDelete, s.Delete)
 	}

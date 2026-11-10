@@ -76,7 +76,7 @@ const formClient = createTestClient();
 
 // A routing key is the key of a secret, which must exist when a config names it.
 const createRoutingKey = async (): Promise<string> =>
-  (await client.secrets.create({ name: "Routing key", source: "stored", value: "rk" }))
+  (await client.secrets.set({ name: "Routing key", source: "stored", value: "rk" }))
     .key;
 const ROUTING_KEY = await createRoutingKey();
 const OTHER_ROUTING_KEY = await createRoutingKey();

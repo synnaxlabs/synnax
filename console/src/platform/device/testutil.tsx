@@ -36,7 +36,10 @@ import {
 const path = deep.path<z.infer<typeof deviceFormSchema>>();
 
 export interface CreateTestDeviceOptions extends Partial<
-  Pick<device.New, "name" | "configured" | "properties" | "make" | "model" | "rack">
+  Pick<
+    device.New,
+    "name" | "configured" | "properties" | "make" | "model" | "rack" | "location"
+  >
 > {}
 
 const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
@@ -96,6 +99,7 @@ export const createTestDevice = async (
     make = "make",
     model = "model",
     rack: rackKey,
+    location = "dev1",
   }: CreateTestDeviceOptions = {},
   schemas?: device.DeviceSchemas,
 ): Promise<device.Device> => {
@@ -105,7 +109,7 @@ export const createTestDevice = async (
       key: id.create(),
       name: name ?? uniqueName("device"),
       rack: rackKey,
-      location: "dev1",
+      location,
       make,
       model,
       configured,
@@ -133,16 +137,10 @@ export const setTestDeviceStatus = async (
   );
 };
 
-/**
- * Builds the tree resource that the tree hands to device context-menu items, carrying
- * the configured flag in its data payload.
- */
+/** Builds the tree resource that the tree hands to device context-menu items. */
 export const createDeviceResource = (
-  dev: Pick<device.Device, "key" | "name"> & { configured?: boolean },
-): Tree.Resource =>
-  createResource(device.resourceID(dev.key), dev.name, {
-    configured: dev.configured ?? false,
-  });
+  dev: Pick<device.Device, "key" | "name">,
+): Tree.Resource => createResource(device.resourceID(dev.key), dev.name);
 
 export interface RenderMenuItemOptions {
   /** Client backing the console wrapper; null (default) for Core-free specs. */

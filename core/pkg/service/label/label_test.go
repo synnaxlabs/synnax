@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Label", Ordered, func() {
@@ -59,6 +60,18 @@ var _ = Describe("Label", Ordered, func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should refuse a label whose key exists", func(ctx SpecContext) {
+			l := &label.Label{
+				Name:  "Label",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, l)).To(Succeed())
+			again := label.Label{Key: l.Key, Name: "Renamed"}
+			Expect(w.Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("label %s already exists", l.Key)),
+			))
+		})
 		It("Should create many labels", func(ctx SpecContext) {
 			ls := []label.Label{
 				{

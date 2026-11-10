@@ -118,31 +118,31 @@ func (in Input) secret() (Secret, error) {
 	return Secret{}, v.Error()
 }
 
-// CreateRequest holds the secrets to create or replace.
-type CreateRequest struct {
+// SetRequest holds the secrets to create or replace.
+type SetRequest struct {
 	Secrets []Input `json:"secrets" msgpack:"secrets"`
 }
 
-// CreateResponse holds the created secrets, without their values.
-type CreateResponse struct {
+// SetResponse holds the set secrets, without their values.
+type SetResponse struct {
 	Secrets []Secret `json:"secrets" msgpack:"secrets"`
 }
 
-// Create creates the secrets, or replaces those whose key exists.
-func (s *Service) Create(
+// Set creates the secrets, or replaces those whose key exists.
+func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
-	req CreateRequest,
-) (CreateResponse, error) {
+	req SetRequest,
+) (SetResponse, error) {
 	w := s.internal.NewWriter(tx)
-	res := CreateResponse{Secrets: make([]Secret, len(req.Secrets))}
+	res := SetResponse{Secrets: make([]Secret, len(req.Secrets))}
 	for i, in := range req.Secrets {
 		sec, err := in.secret()
 		if err != nil {
-			return CreateResponse{}, err
+			return SetResponse{}, err
 		}
-		if err = w.Create(ctx, &sec, []byte(in.Value)); err != nil {
-			return CreateResponse{}, err
+		if err = w.Set(ctx, &sec, []byte(in.Value)); err != nil {
+			return SetResponse{}, err
 		}
 		res.Secrets[i] = sec
 	}
@@ -208,23 +208,6 @@ func (s *Service) fillUses(
 		secrets[i].SetBase(base)
 	}
 	return nil
-}
-
-// RenameRequest names the secret to rename and its new name.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the secret to rename.
-	Key Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the secret.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	return struct{}{}, s.internal.NewWriter(tx).Rename(ctx, req.Key, req.Name)
 }
 
 // DispatchRequest carries an action sequence to apply to a single secret. DispatchKey

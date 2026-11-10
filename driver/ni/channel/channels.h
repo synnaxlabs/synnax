@@ -218,7 +218,7 @@ inline std::string format_cfg_path(const std::string &path) {
     return formatted;
 }
 
-inline std::string format_cjc_port(const std::string &path, const std::int32_t port) {
+inline std::string format_cjc_port(const std::string &path, const std::uint32_t port) {
     const auto last_underscore = path.find_last_of('_');
     if (last_underscore == std::string::npos) return path;
     return path.substr(0, last_underscore) + "_" + std::to_string(port);
@@ -249,7 +249,7 @@ struct CJCArgs {
     /// @brief the reference temperature, used only when the source is a constant.
     double val = 0;
     /// @brief the reference channel's port, used only when the source is a channel.
-    int32_t port = 0;
+    uint32_t port = 0;
 };
 
 inline CJCArgs parse_cjc(const ::synnax::ni::CJC &cjc) {
@@ -1416,7 +1416,7 @@ inline x::errors::Error apply(
     if (scale_err) return scale_err;
     const auto decoding_type = get_ci_decoding_type(ch.decoding_type);
     const auto initial_angle = ch.initial_angle;
-    const auto pulses_per_rev = static_cast<uint32_t>(ch.pulses_per_rev);
+    const auto pulses_per_rev = ch.pulses_per_rev;
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
     const auto terminal_z = ch.terminal_z;
@@ -1491,7 +1491,7 @@ inline x::errors::Error apply(
     const auto decoding_type = get_ci_decoding_type(ch.decoding_type);
     const auto max_val = ch.max_val;
     const auto min_val = ch.min_val;
-    const auto pulses_per_rev = static_cast<uint32_t>(ch.pulses_per_rev);
+    const auto pulses_per_rev = ch.pulses_per_rev;
     const auto terminal_a = ch.terminal_a;
     const auto terminal_b = ch.terminal_b;
     auto [units, units_err] = parse_units(ch.units);
@@ -1586,7 +1586,7 @@ inline x::errors::Error apply(
     const auto loc = ctx.dev_loc + "/ctr" + std::to_string(ch.port);
     const auto count_direction = get_ci_count_direction(ch.count_direction);
     const auto edge = get_ci_edge(ch.active_edge);
-    const auto initial_count = static_cast<uint32_t>(ch.initial_count);
+    const auto initial_count = ch.initial_count;
     const auto terminal = ch.terminal;
     auto err = dmx->CreateCICountEdgesChan(
         task_handle,
@@ -2105,6 +2105,9 @@ struct Input {
 struct Output {
     /// @brief whether the channel is enabled for the task.
     bool enabled = true;
+    /// @brief true when the hardware generates the output on its own. The channel
+    /// runs with the task and has no command or state channel.
+    bool free_running = false;
     /// @brief the channel's path within the task config.
     std::string cfg_path;
     /// @brief the key of the Synnax channel commands are read from.
@@ -2178,8 +2181,11 @@ parse_output(x::json::Parser &cfg, const std::string &task_type) {
     visit_leaf(
         [&](const auto &v) {
             out->enabled = !v.disabled;
-            out->cmd_ch_key = v.cmd_channel;
-            out->state_ch_key = v.state_channel;
+            if constexpr (requires { v.cmd_channel; }) {
+                out->cmd_ch_key = v.cmd_channel;
+                out->state_ch_key = v.state_channel;
+            } else
+                out->free_running = true;
         },
         out->channel
     );

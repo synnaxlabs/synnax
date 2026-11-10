@@ -45,7 +45,6 @@ class TestModbusReadTask:
                             "data_type": "float32",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                     ],
                 },
@@ -68,7 +67,6 @@ class TestModbusReadTask:
                             "data_type": "uint32",
                             "bytes_swapped": True,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                     ],
                 },
@@ -129,7 +127,6 @@ class TestModbusReadTask:
                             "data_type": "float32",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                         {
                             "type": "input_register",
@@ -140,7 +137,6 @@ class TestModbusReadTask:
                             "data_type": "int16",
                             "bytes_swapped": False,
                             "words_swapped": False,
-                            "string_length": 0,
                         },
                         {
                             "type": "coil",
@@ -235,6 +231,22 @@ class TestModbusReadTask:
             sy.modbus.InputRegisterBitReadChannel(
                 type="input_register_bit", address=3, channel=1234, bit=16
             )
+
+    def test_string_length_bounds(self) -> None:
+        """Test that a string channel holds 1 to 250 characters."""
+        for length in (1, 250):
+            ch = sy.modbus.InputRegisterStringReadChannel(
+                type="input_register_string", address=3, channel=1234, length=length
+            )
+            assert ch.length == length
+        for length in (0, 251):
+            with pytest.raises(ValidationError):
+                sy.modbus.InputRegisterStringReadChannel(
+                    type="input_register_string",
+                    address=3,
+                    channel=1234,
+                    length=length,
+                )
 
     def test_register_channels_default_to_uint16(self) -> None:
         """Test that a register channel without a data type reads uint16."""
@@ -992,3 +1004,50 @@ class TestModbusDevicePropertyUpdates:
         assert read_channels["register-bit-input-4-9"] == chs[1].key
         write_channels = obj(updated.properties, "write", "channels")
         assert write_channels["holding-register-bit-output-4-3"] == chs[2].key
+
+    def test_string_channels_update_device_properties(self, client: sy.Synnax) -> None:
+        """Test that string channels map to the keys of released string registers."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.modbus.Device(
+            host="127.0.0.1",
+            port=502,
+            name="Test Modbus String Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        index = client.channels.create(
+            name=f"str_time_{suffix}", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        chs = [
+            client.channels.create(
+                name=f"str_{i}_{suffix}",
+                data_type=sy.DataType.STRING,
+                index=index.key,
+            )
+            for i in range(2)
+        ]
+        read = sy.modbus.ReadTask(
+            name="String read task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterStringReadChannel(
+                    type="holding_register_string",
+                    channel=chs[0].key,
+                    address=4,
+                    length=6,
+                ),
+                sy.modbus.InputRegisterStringReadChannel(
+                    type="input_register_string",
+                    channel=chs[1].key,
+                    address=8,
+                    length=3,
+                ),
+            ],
+        )
+        read.update_device_properties(client.devices)
+        updated = client.devices.retrieve(key=device.key)
+        read_channels = obj(updated.properties, "read", "channels")
+        assert read_channels["holding-register-input-4-string"] == chs[0].key
+        assert read_channels["register-input-8-string"] == chs[1].key

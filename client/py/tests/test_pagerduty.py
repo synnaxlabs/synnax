@@ -22,7 +22,7 @@ ROUTING_KEY = UUID("6f1c2a4e-8b3d-4c5f-9a7e-0d2b4c6e8f1a")
 @pytest.fixture
 def routing_key(client: sy.Synnax) -> secret.Key:
     """A stored secret that holds a PagerDuty routing key."""
-    return client.secrets.create(
+    return client.secrets.set(
         name="PagerDuty routing key", value="12345678901234567890123456789012"
     ).key
 

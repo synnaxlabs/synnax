@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { destructor, observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import {
   Controller,
-  type Edit,
   type Frame,
   type Reducer,
   type SendDispatch,
@@ -28,6 +27,7 @@ interface Doc {
 type Action =
   | { type: "set"; key: string; value: number }
   | { type: "tag"; key: string; tag: string }
+  | { type: "child"; key: string; value: number }
   | { type: "create"; doc: Doc }
   | { type: "invalid" }
   | { type: "noop" };
@@ -42,6 +42,11 @@ const reducer: Reducer<Doc, Action> = (state, actions) => {
       next = { values: { ...next.values, [a.key]: a.value } };
       inverse.unshift({ type: "set", key: a.key, value: prev });
       targets.add(a.key);
+    } else if (a.type === "child") {
+      // Fails without its parent, as a set inside a field that another edit made does.
+      if (next.values[a.key] == null) throw new Error(`no value at ${a.key}`);
+      next = { values: { ...next.values, [`${a.key}.child`]: a.value } };
+      targets.add(`${a.key}.child`);
     } else if (a.type === "tag")
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
@@ -102,6 +107,8 @@ const setupStore = (
     now: opts.now,
     listed: opts.listed,
   });
+  // A live change stream, so echoes arrive.
+  epochs.notify(1);
   return { errors, docs, epochs, controller, send };
 };
 
@@ -664,13 +671,6 @@ describe("actions.Controller", () => {
       return send;
     };
 
-    // Sets a value outside the reducer, as a client's rename does.
-    const name = (docs: Table<string, Doc>, value: number): Edit => {
-      const reapply = () =>
-        docs.set("k", (d) => (d == null ? d : { values: { ...d.values, n: value } }));
-      return { rollback: reapply(), reapply };
-    };
-
     it("applies the batch over the state before a failed in-flight dispatch", async () => {
       const send = createFailingSend(1);
       const { docs, controller } = setupStore({ send });
@@ -713,6 +713,22 @@ describe("actions.Controller", () => {
       expect(controller.prepareRedo("k")?.actions).toEqual([set("b", 2)]);
     });
 
+    it("rejects a queued edit that needs the failed one and sends on", async () => {
+      const send = createFailingSend(1);
+      const { docs, controller } = setupStore({ send });
+      prime(docs, "k", { a: 0 });
+      const one = controller.dispatch("k", [set("b", 1)]);
+      const two = controller.dispatch("k", [{ type: "child", key: "b", value: 2 }]);
+      await expect(one).rejects.toThrow("rejected");
+      await expect(two).rejects.toThrow("no value at b");
+      expect(await controller.dispatch("k", [set("c", 3)])).toBe(true);
+      expect(send.mock.calls.map(([, actions]) => actions)).toEqual([
+        [set("b", 1)],
+        [set("c", 3)],
+      ]);
+      expect(docs.get("k")).toEqual({ values: { a: 0, c: 3 } });
+    });
+
     it("drops a queued undo of a dispatch whose send failed", async () => {
       const send = createFailingSend(2);
       const { docs, controller } = setupStore({ send });
@@ -732,7 +748,7 @@ describe("actions.Controller", () => {
       const { docs, controller } = setupStore({ send: createFailingSend(1) });
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
-      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const renamed = controller.send("k", [set("n", 7)]);
       const two = controller.dispatch("k", [set("b", 2)]);
       await expect(one).rejects.toThrow("rejected");
       await Promise.all([renamed, two]);
@@ -744,7 +760,7 @@ describe("actions.Controller", () => {
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
       const two = controller.dispatch("k", [set("b", 2)]);
-      const renamed = controller.send("k", [{ type: "noop" }], name(docs, 7));
+      const renamed = controller.send("k", [set("n", 7)]);
       const three = controller.dispatch("k", [set("c", 3)]);
       await expect(one).rejects.toThrow("rejected");
       await expect(two).rejects.toThrow("rejected");
@@ -755,10 +771,7 @@ describe("actions.Controller", () => {
 
     it("sends a rename for a doc that is not cached", async () => {
       const { controller, send } = setupStore();
-      await controller.send("missing", [{ type: "noop" }], {
-        rollback: destructor.NOOP,
-        reapply: () => destructor.NOOP,
-      });
+      await controller.send("missing", [{ type: "noop" }]);
       expect(send.mock.calls.map(([key, actions]) => [key, actions])).toEqual([
         ["missing", [{ type: "noop" }]],
       ]);
@@ -811,16 +824,13 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 1, b: 2 } });
     });
 
-    it("sends actions the caller applied after queued dispatches", async () => {
+    it("sends the actions of a send after queued dispatches", async () => {
       const { gate, send } = createGatedSend();
       const { docs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
       const one = controller.dispatch("k", [set("a", 1)]);
       const two = controller.dispatch("k", [set("a", 2)]);
-      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }], {
-        rollback: destructor.NOOP,
-        reapply: () => destructor.NOOP,
-      });
+      const tagged = controller.send("k", [{ type: "tag", key: "a", tag: "x" }]);
       gate.resolve();
       await Promise.all([one, two, tagged]);
       expect(send.mock.calls[1][1]).toEqual([
@@ -1523,6 +1533,19 @@ describe("actions.Controller", () => {
       await dispatched;
       expect(controller.hasPending("k")).toBe(false);
       expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+    });
+
+    it("settles a dispatch on its send in epoch 0, which has no stream", async () => {
+      const { docs, epochs, controller } = setupStore({
+        send: async () => [set("h", 9)],
+      });
+      epochs.notify(0);
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      expect(controller.hasPending("k")).toBe(false);
+      expect(docs.get("k")).toEqual({ values: { a: 1, h: 9 } });
+      docs.set("k", { values: { a: 5 } });
+      expect(docs.get("k")).toEqual({ values: { a: 5 } });
     });
 
     it("keeps a staged transaction pending across an epoch change", () => {

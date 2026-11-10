@@ -126,6 +126,6 @@ func createSecret(svc *secret.Service) v2.CreateSecret {
 		s := secret.Secret{Variant: secret.StoredSecret{
 			Base: secret.Base{Key: key, Name: name},
 		}}
-		return svc.NewWriter(tx).Create(ctx, &s, value)
+		return svc.NewWriter(tx).Set(ctx, &s, value)
 	}
 }

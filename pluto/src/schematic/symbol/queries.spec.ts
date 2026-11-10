@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { schematic } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  createTestClientWithRole,
+} from "@synnaxlabs/client/testutil";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { Symbol } from "@/schematic/symbol";
 import { renderHookSuspended } from "@/testutil/render";
@@ -134,6 +137,52 @@ describe("Symbol queries", () => {
       expect(retrieved.group).toBe(parent.key);
     });
 
+    it("should edit the symbol it created on a later save", async () => {
+      const parent = await client.groups.create({
+        scope: "schematic_symbol",
+        name: "test-symbol-resave",
+      });
+      const { result } = renderHook(() => Symbol.useForm({ query: null }), { wrapper });
+      act(() => {
+        result.current.form.set(path.name, "created-symbol");
+        result.current.form.set(path.data.svg, "<svg>created</svg>");
+        result.current.form.set(path.group, parent.key);
+      });
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const key = result.current.form.get(path.key).value;
+      if (key == null) throw new Error("symbol key is null");
+      await createTestClient().schematics.symbols.dispatch(
+        key,
+        schematic.symbol.set({ path: ["data", "svg"], value: "<svg>remote</svg>" }),
+      );
+      act(() => result.current.form.set(path.name, "renamed-symbol"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(true));
+      const stored = await createTestClient().schematics.symbols.retrieve(key);
+      expect(stored.name).toBe("renamed-symbol");
+      expect(stored.data.svg).toBe("<svg>remote</svg>");
+    });
+
+    it("should keep typed values and show the error on a refused save", async () => {
+      const parent = await client.groups.create({
+        scope: "schematic_symbol",
+        name: "test-symbol-refused",
+      });
+      const symbol = await client.schematics.symbols.create({
+        name: "refused-symbol",
+        group: parent.key,
+        data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+      });
+      const viewer = await createTestClientWithRole(client, "Viewer");
+      const { result } = await renderHookSuspended(
+        () => Symbol.useForm({ query: { key: symbol.key } }),
+        { wrapper: await createAsyncSynnaxWrapper({ client: viewer }) },
+      );
+      act(() => result.current.form.set(path.name, "typed-symbol"));
+      await act(async () => expect(await result.current.saveAsync()).toBe(false));
+      expect(result.current.variant).toEqual("error");
+      expect(result.current.form.value().name).toEqual("typed-symbol");
+    });
+
     it("should serve a warm symbol from the cache without suspending", async () => {
       const parent = await client.groups.create({
         scope: "schematic_symbol",
@@ -205,9 +254,12 @@ describe("Symbol queries", () => {
         );
       });
 
+      const previewViewport = { zoom: 2, position: { x: 3, y: 4 } };
       await act(async () => {
         result.current.form.set(path.name, "updated-name");
         result.current.form.set(path.data.svg, "<svg>updated</svg>");
+        result.current.form.set(path.data.strokeScaled, true);
+        result.current.form.set(path.data.previewViewport, previewViewport);
         result.current.save();
       });
 
@@ -215,9 +267,14 @@ describe("Symbol queries", () => {
         expect(result.current.variant).toEqual("success");
       });
 
-      const retrieved = await client.schematics.symbols.retrieve(symbol.key);
-      expect(retrieved.name).toBe("updated-name");
-      expect(retrieved.data.svg).toBe("<svg>updated</svg>");
+      await waitFor(async () => {
+        const retrieved = await client.schematics.symbols.retrieve(symbol.key);
+        expect(retrieved.name).toBe("updated-name");
+        expect(retrieved.group).toBe(parent.key);
+        expect(retrieved.data.svg).toBe("<svg>updated</svg>");
+        expect(retrieved.data.strokeScaled).toBe(true);
+        expect(retrieved.data.previewViewport).toEqual(previewViewport);
+      });
     });
   });
 
@@ -263,14 +320,13 @@ describe("Symbol queries", () => {
           previewViewport: { zoom: 1, position: { x: 0, y: 0 } },
         },
       });
-      const afterOptimistic = vi.fn();
-      const { result } = renderHook(() => Symbol.useRename({ afterOptimistic }), {
-        wrapper,
-      });
+      const { result } = renderHook(() => Symbol.useRename(), { wrapper });
       await act(async () => {
         await result.current.updateAsync({ key: symbol.key, name: "new-name" });
       });
-      expect(afterOptimistic).toHaveBeenCalledOnce();
+      expect(client.schematics.symbols.watch(symbol.key).getCached()).toMatchObject({
+        name: "new-name",
+      });
     });
   });
 

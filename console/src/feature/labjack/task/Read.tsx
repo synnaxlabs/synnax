@@ -22,7 +22,6 @@ import {
   type Device,
   DI_PORT_TYPE,
   type DIPort,
-  GROUND_CHANNEL,
   MAKE,
   type Model,
   negativeChannelOf,
@@ -224,8 +223,8 @@ const createChannelOn = (
     port: port.key,
   };
   // A differential copy reads against the pair of its own port.
-  if ("negChan" in next && next.negChan !== GROUND_CHANNEL)
-    next.negChan = negativeChannelOf(port.key) ?? GROUND_CHANNEL;
+  if ("negChan" in next && next.negChan != null)
+    next.negChan = negativeChannelOf(port.key) ?? undefined;
   return next;
 };
 
@@ -384,7 +383,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await PlatformDevice.setProperties(client, dev, SCHEMAS);
   }
   config.channels.forEach(
     (c) =>

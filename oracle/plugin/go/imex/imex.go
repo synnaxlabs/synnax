@@ -31,6 +31,7 @@ import (
 	"go/token"
 	"maps"
 	"os"
+	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -86,14 +87,15 @@ func (*Plugin) Requires() []string { return []string{"go/types"} }
 
 // Generate emits imex machinery for every output package whose types declare @go imex:
 // a Version constant in each versions/vK package the Core has exported, and Latest in
-// the versions package root. Constants below the earliest exported version are deleted.
-// A bare marker adds the autoDecodeEnvelope ladder, liftFirst, and Service.Export;
-// `@go imex body` adds an exported <Type>Ladder per type instead and deletes any
-// Export. It errors when a marked type has no version chain, when a bare marker shares
-// its package with another marked type, when body types in one package come from
-// different chains, when a version redeclares a type without its Migrate<Type> step,
-// when an exported version's file marks no type @go imex, or when a version package
-// does not parse.
+// the versions package root. A bare marker adds the autoDecodeEnvelope ladder,
+// liftFirst, and Service.Export; `@go imex body` adds an exported <Type>Ladder per type
+// instead. It deletes every imex file in a Go output package that this run does not
+// emit, such as Version constants below the earliest exported version or all files of a
+// type that dropped @go imex. It errors when a marked type has no version chain, when a
+// bare marker shares its package with another marked type, when body types in one
+// package come from different chains, when a version redeclares a type without its
+// Migrate<Type> step, when an exported version's file marks no type @go imex, or when a
+// version package does not parse.
 //
 // The emitted Export calls the service's NewRetrieve, MatchKeys, and Type, and parses
 // id.Key as a UUID. A resource missing any of them, or keyed by something else, fails
@@ -150,7 +152,40 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 			return nil, err
 		}
 	}
+	deletions, err := p.stale(req, resp.Files)
+	if err != nil {
+		return nil, err
+	}
+	resp.Deletions = deletions
 	return resp, nil
+}
+
+// stale returns every path that could hold an imex file from an earlier run and holds
+// none in this one.
+func (p *Plugin) stale(req *plugin.Request, emitted []plugin.File) ([]string, error) {
+	candidates := make(set.Set[string])
+	for _, typ := range req.Resolutions.TypesWithDomain("go") {
+		root := output.GetPath(typ, "go")
+		if root == "" {
+			continue
+		}
+		candidates.Add(path.Clean(root), path.Join(root, "versions"))
+		versions, err := versioning.VersionDirs(req.RepoRoot, root)
+		if err != nil {
+			return nil, err
+		}
+		for _, k := range versions {
+			candidates.Add(path.Clean(versioning.VersionedPath(root, k)))
+		}
+	}
+	for _, f := range emitted {
+		candidates.Remove(path.Dir(f.Path))
+	}
+	paths := slices.Sorted(maps.Keys(candidates))
+	for i, dir := range paths {
+		paths[i] = dir + "/" + p.options.FileNamePattern
+	}
+	return paths, nil
 }
 
 // target is one type that declares @go imex.
@@ -238,24 +273,20 @@ func (p *Plugin) generatePackage(
 	outputPath string,
 	targets []target,
 ) error {
-	var (
-		exported = make(set.Set[int])
-		floor    = targets[0].floor
-	)
+	exported := make(set.Set[int])
 	for _, t := range targets {
 		exported.Add(t.exported...)
-		floor = min(floor, t.floor)
 	}
 	versionNums := slices.Sorted(maps.Keys(exported))
 	for _, k := range versionNums {
-		path := versioning.VersionedPath(outputPath, k)
+		dir := versioning.VersionedPath(outputPath, k)
 		subject, err := versionSubject(ctx, req, targets[0].livePath, k)
 		if err != nil {
 			return err
 		}
 		var buf bytes.Buffer
 		if err := versionTemplate.Execute(&buf, &versionData{
-			Package: naming.DerivePackageName(path),
+			Package: naming.DerivePackageName(dir),
 			Subject: subject,
 			Version: k,
 			Runtime: p.options.RuntimeImportPath,
@@ -263,21 +294,9 @@ func (p *Plugin) generatePackage(
 			return err
 		}
 		resp.Files = append(resp.Files, plugin.File{
-			Path:    path + "/" + p.options.FileNamePattern,
+			Path:    dir + "/" + p.options.FileNamePattern,
 			Content: buf.Bytes(),
 		})
-	}
-	stale, err := versioning.VersionDirs(req.RepoRoot, outputPath)
-	if err != nil {
-		return err
-	}
-	for _, k := range stale {
-		if k < floor {
-			resp.Deletions = append(
-				resp.Deletions,
-				versioning.VersionedPath(outputPath, k)+"/"+p.options.FileNamePattern,
-			)
-		}
 	}
 	imports := make([]string, 0, len(versionNums))
 	for _, k := range versionNums {
@@ -287,7 +306,10 @@ func (p *Plugin) generatePackage(
 			gomod.DefaultModulePrefix,
 		))
 	}
-	var buf bytes.Buffer
+	var (
+		buf bytes.Buffer
+		err error
+	)
 	if targets[0].body {
 		err = p.executeBody(&buf, targets, imports)
 	} else {
@@ -301,9 +323,6 @@ func (p *Plugin) generatePackage(
 		Content: buf.Bytes(),
 	})
 	if targets[0].body {
-		resp.Deletions = append(
-			resp.Deletions, outputPath+"/"+p.options.FileNamePattern,
-		)
 		return nil
 	}
 	name, err := exportedName(targets[0].typ, req.Resolutions)
@@ -681,10 +700,10 @@ func migrateStepExists(dir, goName string) (bool, error) {
 			strings.HasSuffix(e.Name(), "_test.go") {
 			continue
 		}
-		path := filepath.Join(dir, e.Name())
-		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
+		file := filepath.Join(dir, e.Name())
+		f, err := parser.ParseFile(fset, file, nil, parser.SkipObjectResolution)
 		if err != nil {
-			return false, errors.Wrapf(err, "parse %s", path)
+			return false, errors.Wrapf(err, "parse %s", file)
 		}
 		for _, d := range f.Decls {
 			if fn, ok := d.(*ast.FuncDecl); ok && fn.Recv == nil &&

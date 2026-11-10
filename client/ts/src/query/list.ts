@@ -169,7 +169,19 @@ interface Entry<Q, K extends record.Key, D extends Data, V, C> {
   /** The table versions and epoch when the window stopped seeing changes. */
   seen?: Seen;
   refetchTimer?: ReturnType<typeof setTimeout>;
-  composed?: { records: V[]; end: C | null; value: Window<D, C> };
+  composed?: {
+    records: V[];
+    keys: K[];
+    end: C | null;
+    versions: number[];
+    value: Window<D, C>;
+  };
+  /**
+   * The composed record of each member and the table record it came from. A member
+   * keeps its composed record until its table record or a watched table changes it.
+   * Only a maintained window holds it, since an unmaintained one misses those changes.
+   */
+  composedByKey?: Map<K, { source: V; value: D }>;
   /** The window last delivered to the handlers. */
   delivered?: Window<D, C>;
 }
@@ -253,6 +265,7 @@ export class Lists<
       entry.searchLimit = undefined;
       entry.stale = false;
       entry.composed = undefined;
+      entry.composedByKey = undefined;
       this.deliver(entry);
     });
   }
@@ -295,6 +308,7 @@ export class Lists<
       entry.fetched = false;
       entry.searchLimit = undefined;
       entry.composed = undefined;
+      entry.composedByKey = undefined;
     });
   }
 
@@ -589,13 +603,21 @@ export class Lists<
     result: K[] | "refetch",
   ): void {
     if (entry.ingesting || !entry.fetched) return;
-    if (result === "refetch") return this.scheduleRefetch(entry);
+    if (result === "refetch") {
+      // The change can reach any member.
+      entry.composedByKey = undefined;
+      return this.scheduleRefetch(entry);
+    }
+    // Admitting can drop a member that a refetch puts back, so the composed records go
+    // first.
+    const members = new Set(entry.keys);
+    result.forEach((key) => entry.composedByKey?.delete(key));
+    if (result.some((key) => members.has(key))) entry.composed = undefined;
     if (trigger.contentOnly !== true)
       if (entry.ranked) this.scheduleRefetch(entry);
       else this.admit(entry, result);
-    const members = new Set(entry.keys);
-    if (!result.some((key) => members.has(key))) return;
-    entry.composed = undefined;
+    const admitted = new Set(entry.keys);
+    if (!result.some((key) => admitted.has(key))) return;
     this.deliver(entry);
   }
 
@@ -623,18 +645,24 @@ export class Lists<
     entry.idleSince = undefined;
     entry.teardown?.();
     entry.teardown = undefined;
+    entry.composedByKey = undefined;
     entry.seen = this.seen();
     this.clearRefetch(entry);
   }
 
   private seen(): Seen {
-    const { table, triggers = [] } = this.config;
     const maintained = this.hooks.maintained?.() !== false;
     const epoch = this.hooks.epoch?.() ?? 1;
     return {
-      versions: [table.version(), ...triggers.map((t) => t.version())],
+      versions: this.versions(),
       epoch: maintained && epoch !== 0 ? epoch : null,
     };
+  }
+
+  /** The versions of the table and of each trigger's table. */
+  private versions(): number[] {
+    const { table, triggers = [] } = this.config;
+    return [table.version(), ...triggers.map((t) => t.version())];
   }
 
   /** Arms one sweep timer per table while any window sits in the grace window. */
@@ -700,20 +728,44 @@ export class Lists<
     if (entry.teardown == null) entry.seen = this.seen();
   }
 
-  /** Composes the window, interned against its records so repeated reads stay
-   *  referentially stable. */
+  /**
+   * Composes the window, interned against its records so repeated reads stay
+   * referentially stable. An unchanged member keeps its composed record, so a reader
+   * can find the changed records by identity.
+   */
   private windowOf(entry: Entry<Q, K, D, V, C>): Window<D, C> {
     const { table, compose } = this.config;
-    const records = table.get(entry.keys);
-    const { composed, end, query } = entry;
+    const { composed, end, keys, query } = entry;
+    const versions = this.versions();
+    // Keys are replaced, never edited, so an unchanged table answers in constant time.
     if (
+      composed?.keys === keys &&
+      composed.end === end &&
+      compare.arraysEqual(composed.versions, versions)
+    )
+      return composed.value;
+    const records = table.get(keys);
+    // An unmaintained window misses trigger changes, so equal records can hide one.
+    if (
+      entry.teardown != null &&
       composed != null &&
       composed.end === end &&
       compare.arraysEqual(composed.records, records)
-    )
+    ) {
+      entry.composed = { ...composed, keys, versions };
       return composed.value;
-    const value = { records: records.map((r) => compose(r, query)), end };
-    entry.composed = { records, end, value };
+    }
+    const composedByKey = new Map<K, { source: V; value: D }>();
+    const composedRecords = records.map((source) => {
+      const previous = entry.composedByKey?.get(source.key);
+      const value =
+        previous?.source === source ? previous.value : compose(source, query);
+      composedByKey.set(source.key, { source, value });
+      return value;
+    });
+    const value = { records: composedRecords, end };
+    entry.composed = { records, keys, end, versions, value };
+    if (entry.teardown != null) entry.composedByKey = composedByKey;
     return value;
   }
 

@@ -10,6 +10,7 @@
 package arc_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
@@ -52,6 +52,32 @@ var _ = Describe("Writer", func() {
 			},
 		)
 
+		It("Should reject a decoded Arc whose source is null", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			var a arc.Arc
+			Expect(json.Unmarshal(
+				[]byte(`{"type":"automation","name":"null-source","source":null}`),
+				&a,
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("source: required")),
+			))
+		})
+
+		It("Should give a decoded Arc that omits its source a text source", func(
+			ctx SpecContext,
+		) {
+			tx := DeferClose(db.OpenTx())
+			var a arc.Arc
+			Expect(json.Unmarshal(
+				[]byte(`{"type":"automation","name":"no-source"}`),
+				&a,
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
+			Expect(a.Base().Source.Variant).To(BeAssignableToTypeOf(arc.TextSource{}))
+		})
+
 		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			key := uuid.New()
@@ -80,29 +106,6 @@ var _ = Describe("Writer", func() {
 			Expect(a.Base().Directory).To(HaveValue(Equal(root.Key)))
 		})
 
-		It("Should keep the directory of a moved Arc on update", func(ctx SpecContext) {
-			tx := DeferClose(db.OpenTx())
-			w := svc.NewWriter(tx)
-			root := rootDirectory(ctx, tx).Key
-			lib := directory.Directory{Name: "lib"}
-			Expect(w.CreateDirectory(ctx, &lib, root)).To(Succeed())
-			a := newModule(
-				arc.Base{Name: "moved", Source: arc.Source{Variant: arc.TextSource{}}},
-			)
-			Expect(w.Create(ctx, &a)).To(Succeed())
-			Expect(w.Move(ctx, root, lib.Key, a.ResourceID())).To(Succeed())
-			b := a.Base()
-			b.Directory = nil
-			a.SetBase(b)
-			Expect(w.Create(ctx, &a)).To(Succeed())
-			var stored arc.Arc
-			Expect(svc.NewRetrieve().
-				Where(arc.MatchKeys(b.Key)).
-				Entry(&stored).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(stored.Base().Directory).To(HaveValue(Equal(lib.Key)))
-		})
-
 		It("Should reject an Arc that is neither an automation nor a module", func(
 			ctx SpecContext,
 		) {
@@ -111,15 +114,29 @@ var _ = Describe("Writer", func() {
 				To(MatchError(validate.ErrValidation))
 		})
 
-		It("Should reject a change of type", func(ctx SpecContext) {
+		It("Should refuse an Arc whose key exists", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			a := newModule(
 				arc.Base{Name: "typed", Source: arc.Source{Variant: arc.TextSource{}}},
 			)
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			a = newAutomation(a.Base())
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).
-				To(MatchError(ContainSubstring("type cannot change")))
+			key := a.Base().Key
+			again := newAutomation(arc.Base{
+				Key:    key,
+				Name:   "retyped",
+				Source: arc.Source{Variant: arc.TextSource{}},
+			})
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("arc %s already exists", key)),
+			))
+			var stored arc.Arc
+			Expect(svc.NewRetrieve().
+				Where(arc.MatchKeys(key)).
+				Entry(&stored).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(stored.Type()).To(Equal(arc.TypeModule))
+			Expect(stored.Base().Name).To(Equal("typed"))
 		})
 
 		It("Should handle multiple Arc creations", func(ctx SpecContext) {
@@ -208,32 +225,6 @@ var _ = Describe("Writer", func() {
 				arcs[1].Base().Key,
 			)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
-		})
-	})
-
-	Describe("Update", func() {
-		var tx gorp.Tx
-		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
-		It("Should update an existing Arc", func(ctx SpecContext) {
-			key := uuid.New()
-			a := newAutomation(arc.Base{
-				Key:    key,
-				Name:   "existing-arc",
-				Source: arc.Source{Variant: arc.TextSource{Text: text.Text{}}},
-			})
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			b := a.Base()
-			b.Name = "updated-arc"
-			a.SetBase(b)
-			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
-			var retrieved arc.Arc
-			Expect(
-				svc.NewRetrieve().
-					Where(arc.MatchKeys(key)).
-					Entry(&retrieved).
-					Exec(ctx, tx),
-			).To(Succeed())
-			Expect(retrieved.Base().Name).To(Equal("updated-arc"))
 		})
 	})
 
