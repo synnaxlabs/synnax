@@ -286,6 +286,7 @@ class TestPackages:
 
     def test_should_take_the_next_patch_on_a_train(self, repo: Repo) -> None:
         repo.tag("ts/v0.58.4")
+        repo.commit("more")
         out = repo.resolve("ts", bump="minor", train="0.58")
         assert out["version"] == "0.58.5"
         assert out["previous_tag"] == "ts/v0.58.4"
@@ -310,3 +311,9 @@ class TestPackages:
 
     def test_should_keep_the_train_rule_on_a_train(self, repo: Repo) -> None:
         assert "train rule" in repo.resolve_error("ts", bump="patch", train="0.60")
+
+    def test_should_keep_a_version_claimed_at_head(self, repo: Repo) -> None:
+        repo.tag("ts/v0.58.4")
+        repo.commit("more")
+        repo.tag("ts/v0.58.5")
+        assert repo.resolve("ts", bump="patch", train="0.58")["version"] == "0.58.5"

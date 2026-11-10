@@ -22,6 +22,7 @@
 # 0.0.0. That first release must be a major bump, so it outranks the 1.0.0 candidates.
 # latest is true when no stable tag of the product outranks the result. A train (X.Y)
 # ignores the bump and resolves the next patch on that minor, or X.Y.0 when none exists.
+# A train's newest tag at HEAD resolves to itself.
 
 set -euo pipefail
 
@@ -57,6 +58,10 @@ if [ -n "$TRAIN" ]; then
         IFS=. read -r _ _ PATCH <<< "$CURRENT"
         PREVIOUS_TAG="$PRODUCT/v$CURRENT"
         NEXT="$TRAIN.$((PATCH + 1))"
+        # A tag at HEAD claims its version for this commit, so a rerun finishes it.
+        if [ "$(git rev-parse "$PREVIOUS_TAG^{commit}")" = "$(git rev-parse HEAD)" ]; then
+            NEXT=$CURRENT
+        fi
     fi
 else
     BASE=$(git tag --list "$PRODUCT/v*" --merged HEAD | highest "$PRODUCT")

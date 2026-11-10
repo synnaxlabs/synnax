@@ -456,9 +456,10 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
 
-      # The tag claims the version before anything publishes. A rerun at the same commit
-      # finishes a partial publish, since the registry skips what already went up. Any
-      # other run stops, so one version never holds packages from two commits.
+      # The tag claims the version before anything publishes. A run at the same commit
+      # resolves the claimed version again and finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits.
       - name: Claim the version
         env:
           VERSION: ${{ needs.resolve.outputs.ts_version }}
@@ -527,9 +528,10 @@ jobs:
         with:
           version: latest-known
 
-      # The tag claims the version before anything publishes. A rerun at the same commit
-      # finishes a partial publish, since the registry skips what already went up. Any
-      # other run stops, so one version never holds packages from two commits.
+      # The tag claims the version before anything publishes. A run at the same commit
+      # resolves the claimed version again and finishes a partial publish, since the
+      # registry skips what already went up. Any other run stops, so one version never
+      # holds packages from two commits.
       - name: Claim the version
         env:
           VERSION: ${{ needs.resolve.outputs.py_version }}

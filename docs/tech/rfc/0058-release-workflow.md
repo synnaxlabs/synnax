@@ -118,13 +118,14 @@ the next patch on the train, or `X.Y.0` when the train has none, and ignores `bu
 publish job waits for every product the run releases, then claims the version by pushing
 its tag at the run's commit. It stops when the tag names another commit, or when the
 registry has the version without a tag, so one version never holds packages from two
-commits. A rerun at the same commit finishes a partial publish, since the registry skips
-what already went up. The job then runs `stamp_versions.sh` to write the version into
-that language's manifests and publishes every package of the language at it. A merge
-publishes nothing. Both publish through OIDC trusted publishing with `id-token: write`,
-so no registry token lives in the repo's secrets. The registries trust `release.yaml` by
-name, so the publish jobs live in it, not in a called workflow. Packages have no
-candidate channel: a candidate run never publishes them.
+commits. A run at the same commit keeps the version, since the resolve stage keeps a tag
+that names `HEAD`, and finishes a partial publish, since the registry skips what already
+went up. The job then runs `stamp_versions.sh` to write the version into that language's
+manifests and publishes every package of the language at it. A merge publishes nothing.
+Both publish through OIDC trusted publishing with `id-token: write`, so no registry
+token lives in the repo's secrets. The registries trust `release.yaml` by name, so the
+publish jobs live in it, not in a called workflow. Packages have no candidate channel: a
+candidate run never publishes them.
 
 ### 2.2 Versions
 
@@ -133,11 +134,11 @@ and the Core release fails unless the Console and Driver it embeds share its min
 Console and Driver open a train; the Core closes it. Every product and every package
 shares the train's minor; patches are independent, so a Console hotfix ships as `0.59.1`
 while the Core stays at `0.59.0`, and Pluto `0.59.2` works with every client `0.59.x`.
-Each language publishes on the train of the code it ships and releases its packages
-together at one version. The C++ client and the C library are on no registry and ship
-with the Driver, so they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no
-manifest. The catalog pins internal deps as `workspace:^`, which pnpm rewrites to
-`^X.Y.Z` at publish, so any patch mix inside a train resolves; `pluto/package.json` pins
+Each language publishes on the Core's train and releases its packages together at one
+version. The C++ client and the C library are on no registry and ship with the Driver,
+so they carry the Driver's `SYNNAX_DRIVER_VERSION` define and have no manifest. The
+catalog pins internal deps as `workspace:^`, which pnpm rewrites to `^X.Y.Z` at publish,
+so any patch mix inside a train resolves; `pluto/package.json` pins
 `@synnaxlabs/freighter` and `@synnaxlabs/media` as `workspace:*`, which publishes exact
 versions, and both move to the catalog.
 
