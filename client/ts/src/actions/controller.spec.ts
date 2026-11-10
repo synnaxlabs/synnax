@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { observe, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import {
@@ -1582,7 +1582,7 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toEqual({ values: { a: 2 } });
     });
 
-    it("settles a dispatch that the Core answers while the stream is down", async () => {
+    it("settles a dispatch the Core answers while the stream is down", async () => {
       const { send, calls } = createHeldSend();
       const { docs, downs, controller } = setupStore({ send });
       prime(docs, "k", { a: 0 });
@@ -1611,6 +1611,80 @@ describe("actions.Controller", () => {
       epochs.notify(0);
       expect(controller.hasUndo("k")).toBe(false);
       expect(controller.hasPending("k")).toBe(false);
+    });
+  });
+
+  describe("echo deadline", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const createFetch = () =>
+      vi.fn(async (keys: string[]) => keys.map((key) => ({ key, values: { a: 1 } })));
+
+    it("fetches the doc once and settles when the echo is 10 s late", async () => {
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      const settled = controller.settled("k");
+      await vi.advanceTimersByTimeAsync(9_999);
+      expect(controller.hasPending("k")).toBe(true);
+      await vi.advanceTimersByTimeAsync(1);
+      await settled;
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch).toHaveBeenCalledWith(["k"]);
+    });
+
+    it("drops the echo when it comes after the deadline", async () => {
+      const { docs, controller, send } = setupStore({ fetch: createFetch() });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      await vi.advanceTimersByTimeAsync(10_000);
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      expect(controller.prepareUndo("k")?.actions).toEqual([set("a", 0)]);
+    });
+
+    it("fetches the doc only once no other entry is pending", async () => {
+      const { send, calls } = createHeldSend();
+      const fetch = createFetch();
+      const { docs, controller } = setupStore({ send, fetch });
+      prime(docs, "k", { a: 0 });
+      const first = controller.dispatch("k", [set("a", 1)]);
+      calls[0].resolve();
+      await first;
+      const second = controller.dispatch("k", [set("b", 2)]);
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(fetch).not.toHaveBeenCalled();
+      calls[1].resolve();
+      await second;
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("clears the deadline when the echo arrives", async () => {
+      const fetch = createFetch();
+      const { docs, controller, send } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      controller.applyRemote("k", 1, send.mock.calls[0][2], [set("a", 1)]);
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(fetch).not.toHaveBeenCalled();
+    });
+
+    it("clears the deadline when the stream goes down", async () => {
+      const fetch = createFetch();
+      const { docs, downs, controller } = setupStore({ fetch });
+      prime(docs, "k", { a: 0 });
+      await controller.dispatch("k", [set("a", 1)]);
+      downs.notify();
+      await vi.advanceTimersByTimeAsync(11_000);
+      expect(fetch).not.toHaveBeenCalled();
     });
   });
 

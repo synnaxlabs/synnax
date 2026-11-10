@@ -28,6 +28,7 @@ import { Table } from "@/query/table";
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
 const STALE_AUTO_ADVANCE_CAP = 10;
+const ECHO_DEADLINE = TimeSpan.seconds(10);
 
 export interface StackEntry<Action> {
   /** Stays the same when the entry coalesces or is made again after a failed send. */
@@ -229,6 +230,8 @@ interface Pending<Action> {
    * The actions the Core broadcasts for the dispatch. Undefined until it applies it.
    */
   echo?: Action[];
+  /** Fires when the echo is late. */
+  deadline?: ReturnType<typeof setTimeout>;
 }
 
 /** The dispatch state of a doc that has pending entries. */
@@ -311,6 +314,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // Echoes whose seq does not exceed this are stale and are dropped. A seq of 0 is
   // "unstamped" and always applies.
   private readonly lastAppliedSeq = new Map<Key, number>();
+  /** Dispatch keys of entries settled at their echo deadline, so their echoes drop. */
+  private readonly expired = new Set<string>();
   private readonly rebases = new Map<Key, Rebase<State, Action>>();
   /** Callers of settled, waiting for a doc to hold no pending entry. */
   private readonly settling = new Map<Key, Array<() => void>>();
@@ -381,8 +386,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   private changeEpoch(epoch: number): void {
     this.epoch = epoch;
     this.live = epoch !== 0;
-    // Sequence numbers restart with the Core.
+    // Sequence numbers restart with the Core, and no echo crosses an epoch.
     this.lastAppliedSeq.clear();
+    this.expired.clear();
     if (epoch === 0) {
       [...this.rebases.keys()].forEach((key) => this.release(key));
       this.undos.delete(() => true);
@@ -622,7 +628,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     // The doc already holds the first pending entry. It changes only when the echo
     // carries actions that the entry does not, such as fields the Core derives.
     const held = i === 0 && deep.equal(r.pending[0].actions, actions);
-    if (i !== -1) r.pending.splice(i, 1);
+    if (i !== -1) clearTimeout(r.pending.splice(i, 1)[0].deadline);
     if (held) this.docs.stampWrite(key);
     else this.write(key, r);
     if (r.pending.length === 0) this.release(key);
@@ -647,10 +653,35 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     const r = this.rebases.get(key);
     const p = r?.pending.find((p) => p.dispatchKey === dispatchKey);
     if (r == null || p == null) return;
-    p.echo = [...p.actions, ...added];
+    const echo = [...p.actions, ...added];
+    p.echo = echo;
     // No echo arrives while the stream is down. The echo may also have been lost when
     // the epoch changed during the send.
-    if (!this.live || p.epoch !== this.epoch) this.settle(key, r, dispatchKey, p.echo);
+    if (!this.live || p.epoch !== this.epoch) {
+      this.settle(key, r, dispatchKey, echo);
+      return;
+    }
+    p.deadline = setTimeout(
+      () => this.expire(key, r, dispatchKey, echo),
+      ECHO_DEADLINE.milliseconds,
+    );
+  }
+
+  /**
+   * Settles an entry whose echo is late, and fetches the doc again, since the stream
+   * may have lost other changes to it.
+   */
+  private expire(
+    key: Key,
+    r: Rebase<State, Action>,
+    dispatchKey: string,
+    echo: Action[],
+  ): void {
+    this.expired.add(dispatchKey);
+    this.settle(key, r, dispatchKey, echo);
+    // A fetched doc can already hold an entry that is still pending, which would then
+    // apply twice.
+    if (!this.rebases.has(key)) this.docs.refetch([key]);
   }
 
   private createPending(dispatchKey: string, actions: Action[] = []): Pending<Action> {
@@ -980,8 +1011,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Resolves once the cached doc holds no dispatch that the Core has not echoed. An
-   * open transaction is pending until it commits or aborts.
+   * Resolves once the cached doc holds no dispatch that the Core has not echoed. A
+   * dispatch that the Core applied stops waiting for its echo when the change stream
+   * goes down, or when the echo is 10 seconds late. An open transaction is pending
+   * until it commits or aborts.
    */
   async settled(key: Key): Promise<void> {
     if (!this.rebases.has(key)) return;
@@ -993,6 +1026,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private release(key: Key): void {
+    this.rebases.get(key)?.pending.forEach(({ deadline }) => clearTimeout(deadline));
     this.rebases.delete(key);
     const waiting = this.settling.get(key);
     if (waiting == null) return;
@@ -1006,8 +1040,9 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * applies only when a create heads it. Otherwise the doc is fetched when the frame
    * changes a field that a list reads. A frame whose dispatch key matches a pending
    * entry is that entry's echo: it moves into the base, and the doc changes only if
-   * other frames came first. Any other frame applies to the base, under the pending
-   * entries, and marks its targets as remote-touched.
+   * other frames came first. An echo that comes after its deadline drops. Any other
+   * frame applies to the base, under the pending entries, and marks its targets as
+   * remote-touched.
    */
   applyRemote(key: Key, seq: number, dispatchKey: string, actions: Action[]): void {
     // Until the fetch caches the doc, a frame only marks that the Core may answer from
@@ -1021,6 +1056,7 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       if (seq <= last) return;
       this.lastAppliedSeq.set(key, seq);
     }
+    if (this.expired.delete(dispatchKey)) return;
     const doc = this.docs.get(key);
     if (doc == null) {
       // Anything but a create predates our knowledge of the doc, so it drops.
