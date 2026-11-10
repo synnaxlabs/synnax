@@ -47,7 +47,7 @@ const useRename = Tree.createUseRename({
 const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
   const { itemKey } = rest;
   const status = Rack.useResult({ key: Number(resource.id.key) }).data?.status;
-
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item {...rest}>
       <Icon.Rack />
@@ -59,7 +59,9 @@ const Content = ({ resource, icon: _icon, ...rest }: Tree.ContentProps) => {
         className={CSS.B("rack-tree-name")}
         grow
         onChange
+        highlight={highlight}
       />
+      <Tree.MatchGroup id={resource.id} />
       <Rack.StatusIndicator status={status} />
     </PTree.Item>
   );

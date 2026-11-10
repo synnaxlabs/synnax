@@ -111,6 +111,7 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
   const { data: devStatus } = Device.useResultStatus(query);
   const { data: make } = Device.useResultMake(query);
   const { data: location = "" } = Device.useResultLocation(query);
+  const highlight = Tree.useHighlight();
   return (
     <PTree.Item className={CSS.cls(className, CSS.B("device-tree-item"))} {...rest}>
       <Flex.Box x grow align="center" className={CSS.B("name-location")}>
@@ -123,7 +124,9 @@ const Content = ({ resource, className, icon: _icon, ...rest }: Tree.ContentProp
           onChange
           overflow="fade"
           status={status.keepVariants(devStatus?.variant, "disabled")}
+          highlight={highlight}
         />
+        <Tree.MatchGroup id={resource.id} />
         {location !== "" && (
           <Text.Text
             level="small"
