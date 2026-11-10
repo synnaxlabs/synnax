@@ -40,8 +40,8 @@ func (p MovePayload) Handle(s Secret) (Secret, error) {
 	return edit(s, patch.Move(p).Apply)
 }
 
-// document is the part of a secret that path actions edit. The value and path change
-// only through a create, which replaces the secret.
+// document is the part of a secret that path actions edit. The value and file name
+// change only through a create, which replaces the secret.
 type document struct {
 	Name string `json:"name"`
 }
