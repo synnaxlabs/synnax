@@ -74,6 +74,40 @@ describe("setProperties", () => {
     expect(stored.properties).toEqual(properties);
   });
 
+  it("should write every property of a versioned device", async () => {
+    const v1 = z.object({
+      version: z.literal(1),
+      channels: caseconv.preserveCase(z.record(z.string(), z.number())),
+    });
+    const v2 = v1.extend({ version: z.literal(2), fields: z.array(z.string()) });
+    const migrated = {
+      ...schemas,
+      properties: v2.or(
+        v1.transform((p) => ({ ...p, version: 2 as const, fields: [] })),
+      ),
+    };
+    const created = await createTestDevice(
+      client,
+      { properties: { version: 1, channels: {} } },
+      { ...schemas, properties: v1 },
+    );
+    const dev = await client.devices.retrieve({ key: created.key, schemas: migrated });
+    const properties = { ...deep.copy(dev.properties), fields: ["temperature"] };
+    properties.channels.myTopic = 7;
+    await Device.setProperties(
+      client,
+      { ...dev, properties },
+      dev.properties,
+      migrated,
+    );
+    const stored = await client.devices.retrieve({ key: dev.key, schemas: migrated });
+    expect(stored.properties).toEqual({
+      version: 2,
+      channels: { myTopic: 7 },
+      fields: ["temperature"],
+    });
+  });
+
   it("should send nothing when no property differs", async () => {
     const properties = { readIndex: 1, channels: {} };
     await expect(
