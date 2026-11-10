@@ -14,6 +14,9 @@ export const LATEST = "latest";
 /** Requests the train before the newest one. */
 export const PREVIOUS = "previous";
 
+// 0.60 shipped while `main` held the docs, so its docs build from a branch of `main`.
+const DOCS_BRANCHES = new Map([["0.60", "release/docs-0.60"]]);
+
 /** A deployment of one docs version. */
 export interface Deployment {
   /** A train such as `0.61`, or `next`. */
@@ -43,7 +46,8 @@ export interface Lookups {
 /**
  * Plans the deployments of docs versions. `next` builds from `main`. A train builds
  * from its newest stable Core tag, or from its release branch if the branch holds that
- * tag. A patch released from `main` leaves the branch behind its newest tag.
+ * tag. A patch released from `main` leaves the branch behind its newest tag. 0.60
+ * builds from `release/docs-0.60`.
  * @param requested - Trains such as `0.61`, `next`, `latest`, or `previous`. `previous`
  * adds nothing while only one train exists.
  * @throws {Error} if no train has a site, if a version is neither `next` nor a train
@@ -68,13 +72,15 @@ export const plan = async (
     throw new Error(`A ref builds exactly one version, not ${names.length}`);
   const refOf = async (name: string): Promise<string> => {
     if (name === NEXT) return "main";
+    const docs = DOCS_BRANCHES.get(name);
+    if (docs != null) return docs;
     const tag = `core/v${await newest(name)}`;
     const branch = `release/core-${name}`;
     return (await holds(branch, tag)) ? branch : tag;
   };
   return await Promise.all(
     names.map(async (name) => {
-      const { url } = resolve(name, trains);
+      const { url } = resolve(name, trains, null);
       return {
         version: name,
         ref: ref ?? (await refOf(name)),

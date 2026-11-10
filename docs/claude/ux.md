@@ -300,6 +300,26 @@ bound, a log precision, or the line plot X channel.
   Its tooltip shows the message and the description. A word from the variant was
   rejected, because one variant covers both states.
 
+### Devices
+
+- Status sits at the right end. In a list, such as the device tree, select items, and
+  the find view, a device shows its status as a dot (`Device.StatusIndicator`), and a
+  Driver shows its heart. A closed device select shows a badge instead (see Menus and
+  selects). A list is for scanning, and a chosen device answers one question, so it gets
+  words.
+- The integration says how a device's location reads (`Device.LocationFormat`). The
+  telling part is gray l9 and the rest l7: the slot of an EtherCAT path, the host of an
+  address, and the first address of a list with a count. An address hides the schemes of
+  its integration, such as `https://` and `mqtts://`, because a scheme never tells two
+  of its devices apart. While any part is hidden or cut, a tooltip shows the whole
+  location.
+- A device tree item is one line: the logo, the name, and the location at the right end.
+  The location gives up its width first, down to its telling part, and then the name
+  fades. Two lines were rejected for the tree.
+- A device select item is two lines in 48 px: the name, then the location 3 px below it,
+  with the status dot at the right. It has no logo, because the select lists one make
+  and the closed select shows the logo.
+
 ### Lists with checkboxes
 
 - Explorers and record lists use `Select.Item` with `checkable`. Only the checkbox, a

@@ -13,7 +13,7 @@ import { z } from "zod";
 export const MAKE = "ethercat";
 
 /** The name a rack lists in its integrations when its Driver runs this one. */
-export const INTEGRATION = "ethercat";
+export const INTEGRATION_KEY = "ethercat";
 
 export const makeZ = z.literal(MAKE);
 

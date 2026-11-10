@@ -118,6 +118,9 @@ func (p *Plugin) generateFile(
 			TypeName: casing.TypeSnake(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
+		if action.IsAlias() {
+			ad.Target = r.ResolveTypeRef(action.Alias, ctx)
+		}
 		for _, field := range action.Fields {
 			ad.Fields = append(ad.Fields, processField(field, r, ctx))
 		}
@@ -181,7 +184,11 @@ type actionData struct {
 	Name     string
 	TypeName string
 	Doc      string
-	Fields   []fieldData
+	// Target is the Go type of the struct that an action alias uses as its payload. The
+	// payload is a defined type over it, not a Go alias, so the package can declare its
+	// Handle method.
+	Target string
+	Fields []fieldData
 }
 
 type fieldData struct {
@@ -264,11 +271,15 @@ const (
 {{- if .Doc}}
 {{formatDoc (printf "%sPayload" .Name) .Doc}}
 {{end -}}
+{{if .Target -}}
+type {{.Name}}Payload {{.Target}}
+{{- else -}}
 type {{.Name}}Payload struct {
 {{- range .Fields}}
 	{{.GoName}} {{.GoType}} ` + "`" + `json:"{{.JSONName}}{{.JSONTagSuffix}}" msgpack:"{{.JSONName}}{{.MsgpackTagSuffix}}"` + "`" + `
 {{- end}}
 }
+{{- end}}
 {{end}}
 // Action is a discriminated union for all {{.TargetName}} mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.

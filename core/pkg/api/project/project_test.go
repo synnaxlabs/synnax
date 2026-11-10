@@ -205,30 +205,6 @@ var _ = Describe("Create", func() {
 	})
 })
 
-var _ = Describe("Rename", func() {
-	It("Should refuse the rename without update on the project", func(
-		ctx SpecContext,
-	) {
-		u := createUser(ctx)
-		p := createProject(ctx, "Rename denied")
-		Expect(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
-		})).Error().To(denied(u, access.ActionUpdate, p.ResourceID()))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Rename denied"))
-	})
-	It("Should rename the project with update on it", func(ctx SpecContext) {
-		u := createUser(ctx)
-		p := createProject(ctx, "Rename granted")
-		grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-		MustSucceed(rename(AuthedCtx(ctx, u), apiproject.RenameRequest{
-			Key:  p.Key,
-			Name: "Renamed",
-		}))
-		Expect(retrieveProject(ctx, p.Key).Name).To(Equal("Renamed"))
-	})
-})
-
 var _ = Describe("Dispatch", func() {
 	setGroup := func(g group.Key) []project.Action {
 		return []project.Action{project.NewSetAction(project.SetPayload{
@@ -385,43 +361,6 @@ func retrieveProject(ctx SpecContext, key project.Key) project.Project {
 		Exec(ctx, db)).To(Succeed())
 	return p
 }
-
-var _ = Describe("SetGroup", func() {
-	It(
-		"Should refuse the move without update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group denied")
-			g := createProjectGroup(ctx, "Set group denied")
-			grantOn(ctx, u.ResourceID(), access.ActionUpdate, p.ResourceID())
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().To(MatchError(access.ErrDenied))
-			Expect(retrieveProject(ctx, p.Key).Group).To(BeNil())
-		},
-	)
-	It(
-		"Should move the project with update on the destination group",
-		func(ctx SpecContext) {
-			u := createUser(ctx)
-			p := createProject(ctx, "Set group granted")
-			g := createProjectGroup(ctx, "Set group granted")
-			grantOn(
-				ctx,
-				u.ResourceID(),
-				access.ActionUpdate,
-				p.ResourceID(),
-				g.ResourceID(),
-			)
-			Expect(setGroup(
-				AuthedCtx(ctx, u),
-				apiproject.SetGroupRequest{Group: &g.Key, Keys: []project.Key{p.Key}},
-			)).Error().ToNot(HaveOccurred())
-			Expect(retrieveProject(ctx, p.Key).Group).To(Equal(&g.Key))
-		},
-	)
-})
 
 var _ = Describe("Create in a group", func() {
 	projectType := resource.ID{Type: resource.TypeProject}

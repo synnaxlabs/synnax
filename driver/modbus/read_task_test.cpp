@@ -69,7 +69,7 @@ protected:
         x::json::json properties{{"connection", conn_cfg.to_json()}};
 
         device = synnax::device::Device{
-            .key = "modbus_test_device",
+            .key = make_unique_channel_name("modbus_test_device"),
             .rack = rack.key,
             .location = "dev1",
             .make = MAKE,
@@ -332,7 +332,7 @@ TEST(ReadTask, testBasicReadTask) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "my_modbus_lover",
+        .key = make_unique_channel_name("my_modbus_lover"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -439,7 +439,7 @@ TEST(ReadTask, testReconnectAfterServerRestart) {
     auto conn_cfg = device::ConnectionConfig{"127.0.0.1", 1502};
     x::json::json properties{{"connection", conn_cfg.to_json()}};
     synnax::device::Device dev{
-        .key = "modbus_reconnect_dev",
+        .key = make_unique_channel_name("modbus_reconnect_dev"),
         .rack = rack.key,
         .location = "dev1",
         .make = MAKE,
@@ -632,7 +632,7 @@ void expect_pi_from_word_swapped_device(
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
     auto dev = synnax::device::Device{
-        .key = "modbus_word_swapped_device",
+        .key = make_unique_channel_name("modbus_word_swapped_device"),
         .rack = rack.key,
         .location = "dev1",
         .make = "modbus",
@@ -1314,8 +1314,13 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
 
 /// @brief it should reject a register value wider than one request of the device.
 TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 1}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 1}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide"),
         x::telem::FLOAT32_T,
@@ -1338,8 +1343,13 @@ TEST_F(ModbusReadTest, testValueWiderThanMaxRegistersRejected) {
 
 /// @brief it should reject a string wider than one request of the device.
 TEST_F(ModbusReadTest, testStringWiderThanMaxRegistersRejected) {
-    device.properties["requests"] = {{"max_registers", 2}};
-    ASSERT_NIL(client->devices.create(device));
+    ASSERT_NIL(client->devices.dispatch(
+        device.key,
+        {synnax::device::set(
+            {.path = {"properties", "requests"},
+             .value = x::json::json{{"max_registers", 2}}}
+        )}
+    ));
     auto ch = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("wide_str"),
         x::telem::STRING_T,

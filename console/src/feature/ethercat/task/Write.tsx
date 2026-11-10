@@ -15,6 +15,7 @@ import { deep, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useResultSlave, useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { SLAVE_SCHEMAS } from "@/feature/ethercat/device/types";
 import { AddSlaveEntriesItem } from "@/feature/ethercat/task/AddSlaveEntriesItem";
 import {
   WriteChannelDetails,
@@ -45,6 +46,7 @@ import {
   writeChannelOf,
   type WriteSchemas,
 } from "@/feature/ethercat/task/types";
+import { Device } from "@/platform/device";
 import { type Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -233,7 +235,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
 
-    if (modified) await client.devices.create(slave);
+    if (modified) await Device.setProperties(client, slave, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.cmdChannel = writeChannelOf(slave, ch, "command");

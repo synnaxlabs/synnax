@@ -56,6 +56,8 @@ export interface SelectProps extends Pick<Device.SelectSingleProps, "filter"> {
   model?: string;
   path?: deep.Target<device.Key>;
   icon: Icon.ReactElement;
+  /** How the location of each listed device reads. */
+  locationFormat?: Device.LocationFormat;
   /** Adds an action below the list that connects a device and selects it. */
   connect?: SelectConnect;
 }
@@ -69,6 +71,7 @@ export const Select = ({
   model,
   path = root.config.device,
   icon,
+  locationFormat,
   connect,
 }: SelectProps) => {
   const canConnect = Access.useCreateGranted(device.TYPE_RESOURCE_ID);
@@ -96,6 +99,7 @@ export const Select = ({
           emptyContent={emptyContent}
           grow
           icon={icon}
+          locationFormat={locationFormat}
           preview={preview}
           visible={visible}
           onVisibleChange={setVisible}
