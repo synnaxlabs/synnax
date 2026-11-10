@@ -134,8 +134,10 @@ export const readDataType = (ch: EntryReadChannel): string =>
 export const readChannelOf = (slave: SlaveDevice, ch: EntryReadChannel): number => {
   const at = isAt(ch);
   const scaled = isScaled(ch);
-  return slave.properties.read.channels.find((b) => at(b) && b.scaled === scaled)
-    ?.channel ?? 0;
+  return (
+    slave.properties.read.channels.find((b) => at(b) && b.scaled === scaled)?.channel ??
+    0
+  );
 };
 
 /** Maps the read channel to the Synnax channel with the key on the slave. */
