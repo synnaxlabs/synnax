@@ -16,6 +16,7 @@ workflow runs started.
 Usage: hook_health.py <hook-id>. Reads GH_TOKEN, GITHUB_REPOSITORY, and GITHUB_RUN_ID.
 """
 
+import http.client
 import json
 import os
 import re
@@ -71,7 +72,7 @@ class Http:
             except urllib.error.HTTPError as e:
                 if e.code < 500:
                     raise
-            except OSError:
+            except (OSError, http.client.HTTPException):
                 pass
             self.sleep(RETRY_SECONDS)
         return self.get(req)

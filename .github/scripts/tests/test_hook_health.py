@@ -182,6 +182,7 @@ class TestHttp:
             TimeoutError(),
             http.client.RemoteDisconnected("closed"),
             ConnectionResetError(),
+            http.client.IncompleteRead(b"[{"),
         ],
     )
     def test_should_retry_a_transient_failure(self, error: Exception) -> None:
