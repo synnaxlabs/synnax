@@ -49,10 +49,10 @@ const pdo::Entry OUT_U4(0, 0x7000, 4, 4, false, x::telem::UINT8_T);
 
 /// @brief why a slave in the specs refuses SAFE-OP.
 const slave::Refusal REFUSAL{.reason = "refused SAFE-OP: Inconsistent settings"};
-/// @brief a refusal that needs slave::DC_SYNC_ADVICE.
+/// @brief a refusal with slave::DC_SYNC_ADVICE.
 const slave::Refusal DC_SYNC_REFUSAL{
     .reason = "refused SAFE-OP: Invalid DC SYNC configuration",
-    .dc_sync_invalid = true,
+    .advice = slave::DC_SYNC_ADVICE,
 };
 
 /// @brief byte offsets of the entries of io_slave in its slave's part of the image.
@@ -967,6 +967,195 @@ TEST_F(EngineTest, StartupParametersReachTheMaster) {
     EXPECT_EQ(this->master->config(1).startup_parameters, params);
 }
 
+namespace {
+/// @brief sets the measurement of input 1 of a 6xSTG at the given position.
+Settings measurement(const uint16_t position, const double value) {
+    return {
+        {position,
+         {{.index = 0x8040,
+           .sub_index = 1,
+           .data_type = x::telem::UINT16_T,
+           .value = value}}}
+    };
+}
+}
+
+/// @brief it should write a reader's settings in PRE-OP when it starts the bus.
+TEST_F(EngineTest, WritesReaderSettingsAsStartupParametersOnStart) {
+    const auto settings = measurement(0, 6);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+    );
+    EXPECT_EQ(this->master->config(0).startup_parameters, settings.at(0));
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should write a reader's settings to a bus that another task already runs.
+TEST_F(EngineTest, WritesReaderSettingsToARunningBus) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto settings = measurement(0, 6);
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, settings)
+    );
+    const auto written = this->master->written();
+    ASSERT_EQ(written.size(), 1);
+    EXPECT_EQ(written[0].first, 0);
+    EXPECT_EQ(written[0].second, settings.at(0));
+}
+
+/// @brief a 6xSTG that holds the mode in which DewesoftX sets it up.
+const x::json::json SHARED_SETTINGS{{"mode", {{"shared", true}}}};
+
+/// @brief it should write no settings to a slave that another program sets up when the
+/// bus starts.
+TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnStart) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    Config cfg;
+    cfg.slave_configs = [] {
+        return std::pair{
+            std::map<uint16_t, slave::Config>{
+                {1, {.startup_parameters = measurement(1, 3).at(1)}}
+            },
+            x::errors::NIL
+        };
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    const auto reader = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        measurement(1, 6)
+    ));
+    EXPECT_TRUE(this->master->config(1).startup_parameters.empty());
+}
+
+/// @brief it should write no settings to a slave that another program sets up on a
+/// running bus.
+TEST_F(EngineTest, WritesNoSettingsToASharedSlaveOnARunningBus) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    const auto second = ASSERT_NIL_P(this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1,
+        measurement(1, 6)
+    ));
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should not check the settings of a slave that another program sets up
+/// against those of other readers.
+TEST_F(EngineTest, SharedSlaveSettingsDoNotConflict) {
+    auto shared = io_slave(1);
+    shared.settings = SHARED_SETTINGS;
+    this->master->add_slave(shared);
+    const auto entries = std::vector{on_slave(IN_I16, 1)};
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 6))
+    );
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader(entries, x::telem::Rate(100), 1, measurement(1, 0))
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should not write the settings of a reader that the running bus cannot map.
+TEST_F(EngineTest, UnmappedReaderLeavesARunningBusSettingsAlone) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader(
+            {pdo::Entry(0, 0x9999, 1, 16, true, x::telem::INT16_T)},
+            x::telem::Rate(100),
+            1,
+            measurement(0, 6)
+        ),
+        errors::PDO_MAPPING_ERROR
+    );
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should refuse a reader that sets an object to another value than an open
+/// reader does.
+TEST_F(EngineTest, RefusesAReaderWhoseSettingsConflict) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0)),
+        errors::SETTING_CONFLICT
+    );
+    const auto same = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+}
+
+/// @brief it should refuse a reader whose settings conflict with a reader that opened
+/// while it read the slave settings.
+TEST_F(EngineTest, RefusesAConflictingReaderThatOpenedDuringItsSettingsRead) {
+    const auto calls = std::make_shared<std::atomic<int>>(0);
+    std::promise<void> release;
+    Config cfg;
+    cfg.slave_configs = [calls, released = release.get_future().share()] {
+        if (calls->fetch_add(1) == 0) released.wait();
+        return std::pair{std::map<uint16_t, slave::Config>{}, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>("eth0", this->master, cfg);
+    std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> late;
+    std::thread opening([&] {
+        late = this->engine
+                   ->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0));
+    });
+    ASSERT_EVENTUALLY_EQ(calls->load(), 1);
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    release.set_value();
+    opening.join();
+    ASSERT_OCCURRED_AS(late.second, errors::SETTING_CONFLICT);
+    EXPECT_TRUE(this->master->written().empty());
+}
+
+/// @brief it should let a reader set an object that a closed reader set to another
+/// value.
+TEST_F(EngineTest, ReleasesTheSettingsOfAClosedReader) {
+    auto keep = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6))
+    );
+    first.reset();
+    const auto second = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 0))
+    );
+    EXPECT_EQ(this->master->config(0).startup_parameters, measurement(0, 0).at(0));
+}
+
+/// @brief it should fail to open a reader whose setting a slave on the running bus
+/// rejects.
+TEST_F(EngineTest, FailsAReaderWhoseSettingTheSlaveRejects) {
+    const auto first = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->inject_write_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected 0x8040:01")
+    );
+    ASSERT_OCCURRED_AS_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1, measurement(0, 6)),
+        errors::STARTUP_PARAMETER_ERROR
+    );
+}
+
 /// @brief it should return the error that kept the master from initializing once the
 /// retries run out.
 TEST_F(EngineTest, InitializeErrorPropagates) {
@@ -1159,6 +1348,36 @@ TEST_F(EngineTest, FailedStartGivesTheDCSyncAdviceOnce) {
         "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
         "refused SAFE-OP: Invalid DC SYNC configuration. " +
             std::string(slave::DC_SYNC_ADVICE)
+    );
+    ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
+}
+
+/// @brief it should end the error of a failed start with each distinct advice of the
+/// left-out slaves, in the order of the slaves.
+TEST_F(EngineTest, FailedStartGivesEachDistinctAdvice) {
+    this->engine = std::make_shared<Engine>("eth0", this->master, quick_start_config());
+    this->master->add_slave(io_slave(1));
+    this->master->add_slave(io_slave(2));
+    this->master->add_slave(io_slave(3));
+    this->master->refuse(1, DC_SYNC_REFUSAL);
+    this->master->refuse(
+        2,
+        {.reason = "refused SAFE-OP: Invalid output configuration",
+         .advice = slave::MODE_RESTART_ADVICE}
+    );
+    this->master->refuse(3, DC_SYNC_REFUSAL);
+    this->master->inject_state_change_error(
+        x::errors::Error(errors::STATE_CHANGE_ERROR, "failed to reach OP")
+    );
+    auto res = this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1);
+    EXPECT_EQ(
+        res.second.data,
+        "failed to reach OP. The Driver left out slave 1 because it refused SAFE-OP: "
+        "Invalid DC SYNC configuration. The Driver left out slave 2 because it "
+        "refused SAFE-OP: Invalid output configuration. The Driver left out slave 3 "
+        "because it refused SAFE-OP: Invalid DC SYNC configuration. " +
+            std::string(slave::DC_SYNC_ADVICE) + " " +
+            std::string(slave::MODE_RESTART_ADVICE)
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_ERROR);
 }
@@ -1696,6 +1915,82 @@ TEST_F(EngineTest, DiscoverReturnsTheSlavesOnTheBus) {
     ASSERT_EQ(slaves.size(), 2);
     EXPECT_EQ(slaves[0].properties.position, 0);
     EXPECT_EQ(slaves[1].properties.position, 1);
+}
+
+/// @brief the writes that switch a 6xSTG to standalone mode and save the mode.
+const std::vector<slave::StartupParameter> STANDALONE{
+    {.index = 0x8020, .sub_index = 9, .data_type = x::telem::UINT16_T, .value = 0},
+    {.index = 0x8020, .sub_index = 2, .data_type = x::telem::UINT16_T, .value = 2},
+};
+
+/// @brief it should write to a slave on a stopped bus, then discover the slaves again.
+TEST_F(EngineTest, ConfigureWritesOnAStoppedBusAndDiscoversAgain) {
+    ASSERT_NIL(this->engine->configure(io_slave(0), STANDALONE));
+    EXPECT_EQ(
+        this->master->call_log(),
+        (std::vector<std::string>{"scan", "write", "deactivate", "scan"})
+    );
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {0, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should write to the slave at its position in the new scan, not at the
+/// position that the caller saw.
+TEST_F(EngineTest, ConfigureFindsTheSlaveInItsOwnScan) {
+    auto first = io_slave(0);
+    first.serial = 7;
+    auto second = io_slave(1);
+    second.serial = 8;
+    this->master = std::make_shared<testutil::Master>();
+    this->master->add_slave(first);
+    this->master->add_slave(second);
+    this->engine = std::make_shared<Engine>("eth0", this->master);
+    auto seen = second;
+    seen.position = 0;
+    ASSERT_NIL(this->engine->configure(seen, STANDALONE));
+    EXPECT_EQ(
+        this->master->written(),
+        (std::vector<std::pair<uint16_t, std::vector<slave::StartupParameter>>>{
+            {1, STANDALONE},
+        })
+    );
+}
+
+/// @brief it should refuse to write when the slave is no longer on the bus.
+TEST_F(EngineTest, ConfigureRefusesASlaveThatIsNotOnTheBus) {
+    auto gone = io_slave(0);
+    gone.serial = 9;
+    const auto err = this->engine->configure(gone, STANDALONE);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(err.data, "Slave0 is not on eth0. Check its power and cabling");
+    EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
+/// @brief it should refuse to write to a slave while a task runs the bus.
+TEST_F(EngineTest, ConfigureRefusesWhileTheBusRuns) {
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    this->master->clear_call_log();
+    const auto err = this->engine->configure(io_slave(0), STANDALONE);
+    ASSERT_OCCURRED_AS(err, errors::SLAVE_CONFIG_ERROR);
+    EXPECT_EQ(err.data, "a task uses eth0. Stop the tasks that use it first");
+    EXPECT_EQ(this->master->call_count("write"), 0);
+}
+
+/// @brief it should return the error of a write that the slave rejects.
+TEST_F(EngineTest, ConfigureReturnsTheErrorOfTheWrite) {
+    this->master->inject_write_error(
+        x::errors::Error(errors::STARTUP_PARAMETER_ERROR, "rejected")
+    );
+    ASSERT_OCCURRED_AS(
+        this->engine->configure(io_slave(0), STANDALONE),
+        errors::STARTUP_PARAMETER_ERROR
+    );
 }
 
 /// @brief it should create an engine for an interface on the first discovery.

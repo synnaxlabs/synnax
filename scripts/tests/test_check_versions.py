@@ -60,9 +60,12 @@ class Repo:
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(content)
 
-    def check(self) -> subprocess.CompletedProcess[str]:
+    def check(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [str(SCRIPT), str(self.path)], capture_output=True, text=True, check=False
+            [str(SCRIPT), *args, str(self.path)],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
 
@@ -137,3 +140,26 @@ class TestTags:
         result = repo.check()
         assert result.returncode != 0
         assert "no stable core tag" in result.stderr
+
+
+class TestTrainFlag:
+    """Tests for checking the manifests against a release's resolved train."""
+
+    def test_should_accept_the_train(self, repo: Repo) -> None:
+        result = repo.check("--train", "0.58")
+        assert result.returncode == 0, result.stderr
+
+    def test_should_reject_another_minor(self, repo: Repo) -> None:
+        result = repo.check("--train", "0.59")
+        assert result.returncode != 0
+        assert "not the release train 0.59.x" in result.stderr
+
+    def test_should_reject_a_split(self, repo: Repo) -> None:
+        repo.manifests("0.58.4", cpp="0.59.0")
+        assert repo.check("--train", "0.58").returncode != 0
+
+    def test_should_not_need_a_core_tag(self, tmp_path: Path) -> None:
+        repo = Repo(tmp_path)
+        repo.manifests("0.61.0")
+        result = repo.check("--train", "0.61")
+        assert result.returncode == 0, result.stderr

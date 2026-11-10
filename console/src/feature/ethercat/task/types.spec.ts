@@ -13,10 +13,13 @@ import { z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  createDewesoftXSettings,
   createRepeatedNamePDOs,
   createUnresolvedReadChannel,
   createUnresolvedWriteChannel,
   STATUS_ENTRY,
+  STRAIN_ENTRY,
+  STRAIN_SAMPLE_ENTRY,
 } from "@/feature/ethercat/testutil";
 
 const roundTrip = (key: string): string =>
@@ -42,19 +45,36 @@ describe("addressKey", () => {
   });
 });
 
-describe("uniqueEntries", () => {
+describe("usableEntries", () => {
+  const props = (
+    inputs: EtherCAT.Device.SlaveProperties["pdos"]["inputs"],
+    settings?: EtherCAT.Device.SlaveProperties["settings"],
+  ): EtherCAT.Device.SlaveProperties => ({
+    ...EtherCAT.Device.ZERO_SLAVE_PROPERTIES,
+    pdos: { inputs, outputs: [] },
+    settings,
+  });
+
   it("should list an address that two PDOs map only once", () => {
     const value = { ...STATUS_ENTRY, name: "Value", pdoName: "Channel 1" };
-    const entries = EtherCAT.Task.uniqueEntries([
-      value,
-      { ...value, pdoName: "Other" },
-    ]);
+    const entries = EtherCAT.Task.usableEntries(
+      props([value, { ...value, pdoName: "Other" }]),
+      "inputs",
+    );
     expect(entries).toEqual([value]);
   });
 
   it("should keep entries that share a name but not an address", () => {
     const { inputs } = createRepeatedNamePDOs();
-    expect(EtherCAT.Task.uniqueEntries(inputs)).toHaveLength(8);
+    expect(EtherCAT.Task.usableEntries(props(inputs), "inputs")).toHaveLength(8);
+  });
+
+  it("should leave out the inputs that only another program reads", () => {
+    const entries = EtherCAT.Task.usableEntries(
+      props([STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], createDewesoftXSettings(true)),
+      "inputs",
+    );
+    expect(entries).toEqual([STRAIN_ENTRY]);
   });
 });
 

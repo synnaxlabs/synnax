@@ -21,7 +21,7 @@ import {
   DIRECTIONS,
   hasEntry,
   type PDOType,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 import { type Task } from "@/platform/task";
 
@@ -58,7 +58,7 @@ export const AddSlaveEntriesItem = <C extends Channel>({
   const used = new Set(
     all.flatMap((ch) => (ch.device === device && hasEntry(ch) ? [addressKey(ch)] : [])),
   );
-  const unused = uniqueEntries(slave.properties.pdos[pdoType]).filter(
+  const unused = usableEntries(slave.properties, pdoType).filter(
     (entry) => !used.has(addressKey(entry)),
   );
   if (unused.length === 0) return null;
