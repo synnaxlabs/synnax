@@ -503,7 +503,7 @@ func storageOrder[K Key](keys []K, after *K) []K {
 	return sorted
 }
 
-func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) error {
+func (r *Retrieve[K, E]) execFilter(ctx context.Context, snap Snapshot) (err error) {
 	var (
 		validCount int
 		match      bool
