@@ -290,7 +290,8 @@ const checkDataType = (existing: channel.Channel, dataType: string): void => {
   if (held !== dataType)
     throw new Error(
       `Channel ${existing.name} holds ${held} data, not ${dataType}. Set the data ` +
-        `type to ${held}.`,
+        `type to ${held}, or delete channel ${existing.name} so the task can create ` +
+        "it again.",
     );
 };
 

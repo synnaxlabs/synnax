@@ -1420,7 +1420,8 @@ describe("Read", () => {
         statuses,
         new RegExp(
           `^Channel ${identifier}_Status holds uint16 data, not int16\\. Set the ` +
-            "data type to uint16\\.$",
+            `data type to uint16, or delete channel ${identifier}_Status so the ` +
+            "task can create it again\\.$",
         ),
       );
     });
