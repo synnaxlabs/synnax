@@ -10,6 +10,7 @@
 package status_test
 
 import (
+	"sync/atomic"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,6 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -442,5 +445,46 @@ var _ = Describe("Dispatch", Ordered, func() {
 				Expect(joined[1].Message).To(Equal("running"))
 			},
 		)
+	})
+})
+
+// failOnceDB fails the first iterator that the DB opens, which is the scan that
+// populates the indexes of a table.
+type failOnceDB struct {
+	kv.DB
+	failed atomic.Bool
+}
+
+func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if f.failed.CompareAndSwap(false, true) {
+		return nil, errors.New("populate failed")
+	}
+	return f.DB.OpenIterator(opts)
+}
+
+var _ = Describe("Failed index population", func() {
+	It("Should find a status by name with a scan", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(&failOnceDB{DB: memkv.New()}))
+		svc := MustOpen(status.OpenService(ctx, status.ServiceConfig{DB: db}))
+		st := status.Status[any]{
+			Key:     "stored",
+			Name:    "pump",
+			Variant: status.VariantInfo,
+			Time:    telem.Now(),
+		}
+		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+			return svc.NewWriter(tx).Set(ctx, &st)
+		})).To(Succeed())
+		key, multiple := MustSucceed2(
+			svc.SetByKeyOrName(ctx, "pump", "on", string(status.VariantSuccess)),
+		)
+		Expect(key).To(Equal("stored"))
+		Expect(multiple).To(BeFalse())
+		var matched []status.Status[any]
+		Expect(svc.NewRetrieve[any]().
+			Where(status.MatchNames[any]("pump")).
+			Entries(&matched).
+			Exec(ctx, db)).To(Succeed())
+		Expect(matched).To(HaveExactElements(HaveField("Message", "on")))
 	})
 })

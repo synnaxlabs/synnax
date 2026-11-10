@@ -13,10 +13,12 @@ import (
 	"context"
 	"slices"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
 )
 
@@ -127,14 +129,30 @@ func MatchNames[D any](names ...string) Filter[D] {
 		keys[i] = compare.TextKey(n)
 	}
 	exact := set.New(names...)
+	named := gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+		return exact.Contains(s.Name), nil
+	})
 	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.And(
 			gorp.MatchKeysFunc[Key, Status[D]](func(ctx gorp.Context) ([]Key, error) {
-				return r.indexes.name.Get(ctx, ctx.Snapshot, keys...)
+				found, err := r.indexes.name.Get(ctx, ctx.Snapshot, keys...)
+				if !errors.Is(err, gorp.ErrIndexInvalid) {
+					return found, err
+				}
+				// Scan when the index failed to populate, as an index Filter does.
+				var matches []Status[D]
+				if err = gorp.NewRetrieve[Key, Status[D]]().
+					Where(named).
+					Entries(&matches).
+					Exec(ctx, ctx.Snapshot); err != nil {
+					return nil, err
+				}
+				return lo.Map(
+					matches,
+					func(s Status[D], _ int) Key { return s.Key },
+				), nil
 			}),
-			gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-				return exact.Contains(s.Name), nil
-			}),
+			named,
 		)
 	}
 }
