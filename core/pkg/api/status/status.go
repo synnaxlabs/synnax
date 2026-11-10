@@ -75,7 +75,8 @@ func decodeDetails[D any](details any) (D, error) {
 		return decoded, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	if err = json.Unmarshal(b, &decoded); err != nil {
-		return decoded, errors.Wrap(validate.ErrValidation, err.Error())
+		var zero D
+		return zero, errors.Wrap(validate.ErrValidation, err.Error())
 	}
 	return decoded, nil
 }
@@ -94,7 +95,10 @@ func resolveDetails(s *status.Status[any]) error {
 	case resource.TypeTask:
 		_, err = decodeDetails[task.StatusDetails](s.Details)
 	case resource.TypeRack:
-		s.Details, err = decodeDetails[rack.StatusDetails](s.Details)
+		var details rack.StatusDetails
+		if details, err = decodeDetails[rack.StatusDetails](s.Details); err == nil {
+			s.Details = details
+		}
 	case resource.TypeChannel:
 		_, err = decodeDetails[struct{}](s.Details)
 	}
