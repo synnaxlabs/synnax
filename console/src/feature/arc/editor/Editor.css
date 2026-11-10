@@ -9,6 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The graph canvas inherits its height, so the body needs a height value to pass on. */
 .console-arc-editor__body {
+    height: 100%;
     min-height: 0;
 }

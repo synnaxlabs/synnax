@@ -20,6 +20,7 @@ import (
 	textpb "github.com/synnaxlabs/arc/text/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	statuspb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/filter"
 	filterpb "github.com/synnaxlabs/x/filter/pb"
@@ -45,19 +46,25 @@ func BaseToPB(r arc.Base) (*Base, error) {
 }
 
 // BaseFromPB converts Base to Base.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func BaseFromPB(pb *Base) (arc.Base, error) {
 	var r arc.Base
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Key, err = uuid.Parse(pb.Key)
 	if err != nil {
 		return arc.Base{}, err
 	}
-	r.Source, err = SourceFromPB(pb.Source)
-	if err != nil {
-		return arc.Base{}, err
+	if pb.Source != nil {
+		r.Source, err = SourceFromPB(pb.Source)
+		if err != nil {
+			return arc.Base{}, err
+		}
 	}
 	r.Name = pb.Name
 	if pb.Directory != nil {
@@ -67,6 +74,7 @@ func BaseFromPB(pb *Base) (arc.Base, error) {
 		}
 		r.Directory = &v
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -115,11 +123,15 @@ func ChangeToPB(r arc.Change) (*Change, error) {
 }
 
 // ChangeFromPB converts Change to Change.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func ChangeFromPB(pb *Change) (arc.Change, error) {
 	var r arc.Change
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
 	r.Type, err = TypeFromPB(pb.Type)
 	if err != nil {
@@ -130,6 +142,7 @@ func ChangeFromPB(pb *Change) (arc.Change, error) {
 		return arc.Change{}, err
 	}
 	r.Path = pb.Path
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -375,16 +388,23 @@ func TextSourceToPB(r arc.TextSource) (*SourceTextPayload, error) {
 }
 
 // TextSourceFromPB converts SourceTextPayload to TextSource.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func TextSourceFromPB(pb *SourceTextPayload) (arc.TextSource, error) {
 	var r arc.TextSource
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Text, err = textpb.TextFromPB(pb.Text)
-	if err != nil {
-		return arc.TextSource{}, err
+	if pb.Text != nil {
+		r.Text, err = textpb.TextFromPB(pb.Text)
+		if err != nil {
+			return arc.TextSource{}, err
+		}
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -427,16 +447,23 @@ func GraphSourceToPB(r arc.GraphSource) (*SourceGraphPayload, error) {
 }
 
 // GraphSourceFromPB converts SourceGraphPayload to GraphSource.
+//
+// A message that pb omits keeps its schema default. Proto cannot tell an omitted scalar
+// from a zero one, so a scalar keeps the value that pb holds.
 func GraphSourceFromPB(pb *SourceGraphPayload) (arc.GraphSource, error) {
 	var r arc.GraphSource
 	if pb == nil {
 		return r, nil
 	}
+	defaults.Prefill(&r)
 	var err error
-	r.Graph, err = graphpb.GraphFromPB(pb.Graph)
-	if err != nil {
-		return arc.GraphSource{}, err
+	if pb.Graph != nil {
+		r.Graph, err = graphpb.GraphFromPB(pb.Graph)
+		if err != nil {
+			return arc.GraphSource{}, err
+		}
 	}
+	defaults.FillGroups(&r)
 	return r, nil
 }
 
@@ -712,9 +739,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return r, err
 		}
 		m := inner
-		m.Base, err = BaseFromPB(pb.Base)
-		if err != nil {
-			return r, err
+		if pb.Base != nil {
+			m.Base, err = BaseFromPB(pb.Base)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	case *Arc_Module:
@@ -723,9 +752,11 @@ func ArcFromPB(pb *Arc) (arc.Arc, error) {
 			return r, err
 		}
 		m := inner
-		m.Base, err = BaseFromPB(pb.Base)
-		if err != nil {
-			return r, err
+		if pb.Base != nil {
+			m.Base, err = BaseFromPB(pb.Base)
+			if err != nil {
+				return r, err
+			}
 		}
 		r.Variant = m
 	}

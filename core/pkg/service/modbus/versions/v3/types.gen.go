@@ -14,6 +14,7 @@ package v3
 import (
 	"encoding/json/jsontext"
 	"encoding/json/v2"
+	"reflect"
 	"strconv"
 
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
@@ -21,6 +22,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
 )
 
 // RegisterValue interprets one or more 16-bit registers as a single typed value.
@@ -103,6 +105,11 @@ type HoldingRegisterReadChannel struct {
 
 func (HoldingRegisterReadChannel) isReadChannelVariant() {}
 
+// SetDefaults sets every field that has a schema default to that default.
+func (h *HoldingRegisterReadChannel) SetDefaults() {
+	h.RegisterValue.SetDefaults()
+}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (h *HoldingRegisterReadChannel) ApplyDefaults() {
 	h.RegisterValue.ApplyDefaults()
@@ -115,6 +122,11 @@ type InputRegisterReadChannel struct {
 }
 
 func (InputRegisterReadChannel) isReadChannelVariant() {}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (i *InputRegisterReadChannel) SetDefaults() {
+	i.RegisterValue.SetDefaults()
+}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (i *InputRegisterReadChannel) ApplyDefaults() {
@@ -284,6 +296,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			HoldingRegisterReadChannel
 		}
+		v.HoldingRegisterReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -293,6 +306,7 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			Type ReadChannelType `json:"type"`
 			InputRegisterReadChannel
 		}
+		v.InputRegisterReadChannel.SetDefaults()
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
@@ -497,6 +511,30 @@ func (r *ReadConfig) ApplyDefaults() {
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (r *ReadConfig) SetDefaults() {
+	r.ReadConfig.SetDefaults()
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (r *ReadConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(r))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain ReadConfig
+	if reflect.ValueOf(*r).IsZero() {
+		r.SetDefaults()
+	}
+	return dec.Decode((*plain)(r))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its
