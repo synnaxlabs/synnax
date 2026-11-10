@@ -54,6 +54,13 @@ on:
         required: false
         type: boolean
         default: false
+      os_specific:
+        description:
+          Whether the module has code that only some operating systems build. Lint then
+          runs for Windows and macOS as well as Linux on every run.
+        required: false
+        type: boolean
+        default: false
       cached:
         description:
           Whether to run go test, which reuses the results that main saves, instead of
@@ -84,10 +91,34 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        goos: [linux, windows, darwin]
+        # Code that builds the same on every operating system lints the same, so only a
+        # module with OS-specific code, or a full run, lints for Windows and macOS.
+        goos:
+          ${{ fromJSON((inputs.os_specific || inputs.windows || inputs.macos) &&
+          '["linux", "windows", "darwin"]' || '["linux"]') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Check that the module has no OS-specific code
+        if: ${{ !inputs.os_specific && matrix.goos == 'linux' }}
+        working-directory: ${{ inputs.directory }}
+        run: |
+          os='aix|android|darwin|dragonfly|freebsd|illumos|ios|js|linux|netbsd|openbsd'
+          os="$os|plan9|solaris|unix|wasip1|windows"
+          files=$(git ls-files '*.go' ':(exclude)**/testdata/**')
+          found=$(
+            {
+              grep -E "_($os)(_[a-z0-9]+)?(_test)?\.go$" <<< "$files" || true
+              xargs -r grep -lE "^//go:build .*\b($os)\b" <<< "$files" || true
+            } | sort -u
+          )
+          if [ -n "$found" ]; then
+            echo "::error::These files build only on some operating systems:"
+            echo "$found"
+            echo "Set os_specific: true for this module in ci.yaml."
+            exit 1
+          fi
 
       # The Ubuntu image ships toolchains lint never uses, and the restored cache plus a
       # compile overflows the disk they leave free.
