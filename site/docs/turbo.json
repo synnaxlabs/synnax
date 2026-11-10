@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turborepo.org/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "cache": false,
+      "env": ["DOCS_VERSION", "FLAG_*", "VERCEL_ENV"],
+      "passThroughEnv": ["DOCS_GITHUB_TOKEN"]
+    }
+  }
+}
