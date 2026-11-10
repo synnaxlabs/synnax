@@ -1045,6 +1045,43 @@ TEST_F(EtherCATScanModeTest, ShowsDiscoveryOnThePortThatDewesoftXDoesNotUse) {
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
 }
 
+/// @brief it should show the live health of a running slave over its setup warning.
+TEST_F(EtherCATScanModeTest, ShowsTheLiveHealthOverTheSetupWarning) {
+    this->start(true);
+    const auto engine = ASSERT_NIL_P(this->pool->acquire("eth0"));
+    const pdo::Entry entry{1, 0x6000, 1, 32, true, x::telem::UINT32_T};
+    const auto reader = ASSERT_NIL_P(
+        engine->open_reader({entry}, x::telem::Rate(100), 1)
+    );
+    ASSERT_EVENTUALLY_TRUE(
+        !engine->health().empty() && engine->health()[0].operational()
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Operational");
+}
+
+/// @brief it should add a failed settings read to the setup warning.
+TEST_F(EtherCATScanModeTest, AddsAFailedSettingsReadToTheSetupWarning) {
+    this->start(true);
+    this->props.settings.value().erase("mode");
+    this->serve();
+    this->master->fail_settings_read(
+        1,
+        "failed to read 0x8020:09: Object does not exist in the object dictionary"
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "On this port, the device sends data that only DewesoftX reads. Connect "
+        "Synnax to the port that DewesoftX does not use. Failed to read the settings: "
+        "failed to read 0x8020:09: Object does not exist in the object dictionary. The "
+        "Driver tries again while no task uses the port."
+    );
+}
+
 /// @brief it should write the switch that the scan read to the slave on a stopped bus.
 TEST_F(EtherCATScanModeTest, SetStandaloneWritesTheSwitchToTheSlave) {
     this->start(true);

@@ -153,6 +153,15 @@ void set_mode_status(
     status.description += " Synnax to the port that " + reader + " does not use.";
 }
 
+/// @brief adds a failed settings read to the description of status as a warning.
+void add_settings_error(const std::string &error, synnax::device::Status &status) {
+    if (error.empty()) return;
+    if (!status.description.empty()) status.description += ' ';
+    status.description += "Failed to read the settings: " + error +
+                          ". The Driver tries again while no task uses the port.";
+    status.variant = synnax::status::VARIANT_WARNING;
+}
+
 /// @brief parses slave properties, returning x::errors::VALIDATION with each invalid
 /// field when they do not parse.
 std::pair<slave::Properties, x::errors::Error>
@@ -295,11 +304,12 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
     else if (!is_enabled) {
         status.message = "Device disabled";
         status.variant = synnax::status::VARIANT_DISABLED;
-    } else if (const auto reader = only_reader(props); !reader.empty())
-        set_mode_status(reader, props.settings.value(), status);
-    else if (live != health.end())
+    } else if (live != health.end())
         set_live_status(*live, status);
-    else if (
+    else if (const auto reader = only_reader(props); !reader.empty()) {
+        set_mode_status(reader, props.settings.value(), status);
+        add_settings_error(sts.settings_error, status);
+    } else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {
@@ -320,13 +330,7 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
             status.description = pdo_error_description(sts.pdo_discovery_error);
             status.variant = synnax::status::VARIANT_WARNING;
         }
-        if (!sts.settings_error.empty()) {
-            if (!status.description.empty()) status.description += ' ';
-            status
-                .description += "Failed to read the settings: " + sts.settings_error +
-                                ". The Driver tries again while no task uses the port.";
-            status.variant = synnax::status::VARIANT_WARNING;
-        }
+        add_settings_error(sts.settings_error, status);
     }
     dev.status = std::move(status);
     return {std::move(dev), is_enabled};
