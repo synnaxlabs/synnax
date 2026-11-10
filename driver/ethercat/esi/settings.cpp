@@ -12,6 +12,7 @@
 #include <cstdint>
 #include <format>
 #include <map>
+#include <set>
 #include <string>
 #include <utility>
 
@@ -179,43 +180,98 @@ std::pair<x::json::json, x::errors::Error> read_mode(
     return {result, x::errors::NIL};
 }
 
+using Address = std::pair<uint16_t, uint8_t>;
+
+Address address_of(const x::json::json &item) {
+    return {item["index"].get<uint16_t>(), item["sub_index"].get<uint8_t>()};
+}
+
+void keep_first(x::errors::Error &first, const x::errors::Error &err) {
+    if (!first) first = err;
+}
+
+/// @brief removes each item for which drop returns true. Returns whether it removed
+/// any.
+template<typename Drop>
+bool remove_if(x::json::json &items, Drop &&drop) {
+    auto kept = x::json::json::array();
+    for (auto &item: items)
+        if (!drop(item)) kept.push_back(std::move(item));
+    const bool removed = kept.size() != items.size();
+    items = std::move(kept);
+    return removed;
+}
+
+/// @brief whether a setting holds each address that the conditions of item under key
+/// name.
+bool names_held(
+    const x::json::json &item,
+    const char *key,
+    const std::set<Address> &held
+) {
+    if (!item.contains(key)) return true;
+    return std::ranges::all_of(item[key], [&held](const auto &condition) {
+        return held.contains(address_of(condition));
+    });
+}
+
+/// @brief removes each setting whose conditions name an address that no setting holds,
+/// until none does. Returns the addresses of the settings left.
+std::set<Address> prune(x::json::json &settings) {
+    std::set<Address> held;
+    do {
+        held.clear();
+        for (const auto &setting: settings)
+            held.insert(address_of(setting));
+    } while (remove_if(settings, [&held](const auto &setting) {
+        return !names_held(setting, "visible_when", held);
+    }));
+    return held;
+}
+
+/// @brief resolves each setting, and removes each one whose options or limit the card
+/// cannot give. Returns the first error.
 x::errors::Error resolve_all(x::json::json &settings, const coe::Read &read) {
-    for (auto &setting: settings)
-        if (auto err = resolve(setting, read)) return err;
-    return x::errors::NIL;
+    x::errors::Error first;
+    remove_if(settings, [&](x::json::json &setting) {
+        const auto err = resolve(setting, read);
+        keep_first(first, err);
+        return static_cast<bool>(err);
+    });
+    return first;
 }
 
 /// @brief sets the "value" of each setting to the float32 or unsigned value that the
-/// card holds. Reads each address once.
+/// card holds, and removes each setting whose value the card cannot give. Reads each
+/// address once. Returns the first error.
 x::errors::Error read_values(x::json::json &settings, const coe::Read &read) {
-    std::map<std::pair<uint16_t, uint8_t>, uint32_t> held;
-    for (auto &setting: settings) {
-        const std::pair address{
-            setting["index"].get<uint16_t>(),
-            setting["sub_index"].get<uint8_t>()
-        };
+    std::map<Address, std::pair<uint32_t, x::errors::Error>> held;
+    x::errors::Error first;
+    remove_if(settings, [&](x::json::json &setting) {
+        const auto address = address_of(setting);
         auto it = held.find(address);
-        if (it == held.end()) {
-            const auto [value, err] = read(address.first, address.second);
-            if (err) return err;
-            it = held.emplace(address, value).first;
-        }
-        const auto raw = it->second;
+        if (it == held.end())
+            it = held.emplace(address, read(address.first, address.second)).first;
+        const auto &[raw, err] = it->second;
+        keep_first(first, err);
+        if (err) return true;
         if (setting["data_type"] == "float32")
             setting["value"] = std::bit_cast<float>(raw);
         else
             setting["value"] = raw;
-    }
-    return x::errors::NIL;
+        return false;
+    });
+    return first;
 }
 
 /// @brief appends the settings of each input that channels describes to out, with the
-/// option lists, limits, and values that the card holds.
+/// option lists, limits, and values that the card holds. Returns the first error.
 x::errors::Error read_channels(
     const x::json::json &channels,
     const coe::Read &read,
     x::json::json &out
 ) {
+    x::errors::Error first;
     const auto index_step = channels["index_step"].get<uint16_t>();
     for (int n = 0; n < channels["count"].get<int>(); n++) {
         x::json::json channel{
@@ -228,11 +284,16 @@ x::errors::Error read_channels(
             shift(setting, step);
         for (auto &rule: channel["requires"])
             shift(rule, step);
-        if (auto err = resolve_all(channel["settings"], read)) return err;
-        if (auto err = read_values(channel["settings"], read)) return err;
+        keep_first(first, resolve_all(channel["settings"], read));
+        keep_first(first, read_values(channel["settings"], read));
+        const auto held = prune(channel["settings"]);
+        remove_if(channel["requires"], [&held](const auto &rule) {
+            return !held.contains(address_of(rule["then"])) ||
+                   !names_held(rule, "when", held);
+        });
         out.push_back(std::move(channel));
     }
-    return x::errors::NIL;
+    return first;
 }
 }
 
@@ -254,14 +315,17 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         {"device", (*it)["device"]},
         {"channels", x::json::json::array()},
     };
-    if (auto err = resolve_all(result["device"], read)) return {std::nullopt, err};
+    auto err = resolve_all(result["device"], read);
+    prune(result["device"]);
     if (it->contains("channels"))
-        if (auto err = read_channels((*it)["channels"], read, result["channels"]))
-            return {std::nullopt, err};
-    if (!it->contains("mode")) return {std::move(result), x::errors::NIL};
-    auto [mode, err] = read_mode((*it)["mode"], op_modes, read);
-    if (err) return {std::move(result), err};
+        keep_first(err, read_channels((*it)["channels"], read, result["channels"]));
+    if (!it->contains("mode")) return {std::move(result), err};
+    auto [mode, mode_err] = read_mode((*it)["mode"], op_modes, read);
+    if (mode_err) {
+        keep_first(err, mode_err);
+        return {std::move(result), err};
+    }
     result["mode"] = std::move(mode);
-    return {std::move(result), x::errors::NIL};
+    return {std::move(result), err};
 }
 }

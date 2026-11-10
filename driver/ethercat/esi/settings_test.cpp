@@ -105,8 +105,9 @@ TEST(ReadSettings, Gives6xSTGInputSettingsTheValuesOfTheCard) {
     EXPECT_EQ(setting(input_2, 34)["value"], 0.0);
 }
 
-/// @brief it should report a setting whose value the card cannot read.
-TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
+/// @brief it should leave out a setting whose value the card cannot read, with the rule
+/// that names it, and keep the other settings and the mode.
+TEST(ReadSettings, LeavesOutASettingWhoseValueTheCardCannotRead) {
     auto objects = testutil::stg_objects(0);
     objects.erase({0x8041, 28});
     const auto [settings, err] = read_settings(
@@ -120,7 +121,64 @@ TEST(ReadSettings, ReportsASettingWhoseValueTheCardCannotRead) {
         err.data,
         "failed to read 0x8041:1C: Object does not exist in the object dictionary"
     );
-    EXPECT_FALSE(settings.has_value());
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    ASSERT_EQ(channels.size(), 6);
+    EXPECT_THROW(setting(channels[1], 28), std::runtime_error);
+    EXPECT_EQ(setting(channels[1], 3)["value"], 2);
+    EXPECT_EQ(setting(channels[0], 28)["value"], 5.0);
+    ASSERT_EQ(channels[1]["requires"].size(), 1);
+    EXPECT_EQ(channels[1]["requires"][0]["then"]["sub_index"], 34);
+    EXPECT_EQ(channels[0]["requires"].size(), 2);
+    EXPECT_TRUE(settings.value().contains("mode"));
+}
+
+/// @brief it should leave out each setting and rule that depends on a setting that the
+/// card cannot read.
+TEST(ReadSettings, LeavesOutTheSettingsThatDependOnAnUnreadSetting) {
+    auto objects = testutil::stg_objects(0);
+    objects.erase({0x8040, 1});
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_OP_MODES,
+        testutil::read_of(std::move(objects))
+    );
+    ASSERT_MATCHES(err, coe::OBJECT_MISSING);
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    EXPECT_EQ(
+        names(channels[0]["settings"]),
+        (std::vector<std::string>{
+            "Low-pass filter",
+            "Coupling",
+            "Excitation",
+            "Excitation polarity",
+            "Excitation voltage",
+            "Excitation voltage",
+            "Excitation current",
+        })
+    );
+    EXPECT_TRUE(channels[0]["requires"].empty());
+    EXPECT_EQ(channels[1]["settings"].size(), 13);
+    EXPECT_EQ(channels[1]["requires"].size(), 2);
+}
+
+/// @brief it should leave out a setting whose options the card cannot give, and keep
+/// the other settings at its address.
+TEST(ReadSettings, LeavesOutASettingWhoseOptionsTheCardCannotGive) {
+    const auto [settings, err] = read_settings(
+        DEWESOFT,
+        IOLITE_6XSTG,
+        STG_OP_MODES,
+        counting_ranges(0)
+    );
+    ASSERT_MATCHES(err, errors::SDO_READ_ERROR);
+    ASSERT_TRUE(settings.has_value());
+    const auto &channels = settings.value()["channels"];
+    EXPECT_EQ(setting(channels[0], 3)["visible_when"][0]["values"][0], 1);
+    EXPECT_THROW(setting(channels[0], 3, 1), std::runtime_error);
+    EXPECT_NO_THROW(setting(channels[1], 3, 1));
 }
 
 /// @brief it should give each 6xSTG input the entries that read it in the unbuffered
