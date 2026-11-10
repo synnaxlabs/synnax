@@ -113,10 +113,16 @@ const holdAll = (fields: Field[], values: Value[], conditions: Condition[]): boo
 export const visibleFields = (fields: Field[], values: Value[]): Field[] =>
   fields.filter((f) => holdAll(fields, values, f.visibleWhen));
 
+const allows = ({ options, min, max }: Field, value: number): boolean =>
+  (options == null || options.some((o) => o.value === value)) &&
+  (min == null || value >= min) &&
+  (max == null || value <= max);
+
 /**
  * @returns a setting for each address of the fields, in the order of the fields, with
  * the value in values or the default. A shown field with options takes its default
- * when its value is not one of them.
+ * when its value is not one of them. A hidden field takes its default when its value
+ * is not one of its options or is outside its limits.
  */
 export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
   const shown = visibleFields(fields, values);
@@ -124,11 +130,16 @@ export const fill = (fields: Field[], values: Value[]): ethercat.Setting[] => {
   for (const field of fields) {
     if (settings.some((s) => sameAddress(s, field))) continue;
     let value = valueAt(fields, values, field);
-    const options = shown.find((f) => sameAddress(f, field))?.options;
-    if (options != null && !options.some((o) => o.value === value))
-      value = options.some((o) => o.value === field.default)
+    const visible = shown.find((f) => sameAddress(f, field));
+    if (visible == null) {
+      if (!allows(field, value)) value = field.default;
+    } else if (
+      visible.options != null &&
+      !visible.options.some((o) => o.value === value)
+    )
+      value = visible.options.some((o) => o.value === field.default)
         ? field.default
-        : options[0].value;
+        : visible.options[0].value;
     const { index, subIndex, dataType } = field;
     settings.push({ index, subIndex, dataType, value });
   }
