@@ -261,7 +261,7 @@ func (f *Factory) ConfigureTask(
 		configured, autoStart, err = f.configureWrite(ctx, t)
 	case ScanTaskType:
 		configured, autoStart, err = f.configureScan(t)
-	case EdgeTaskType:
+	case SparkplugEdgeTaskType:
 		configured, autoStart, err = f.configureEdge(ctx, t)
 	default:
 		return nil, driver.ErrTaskNotHandled

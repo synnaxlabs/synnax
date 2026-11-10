@@ -33,3 +33,8 @@ func (u StatusConfigUpdate) ApplyTo(x *StatusConfig) error {
 	}
 	return nil
 }
+
+const (
+	// StatusTaskType is the task type of StatusConfig.
+	StatusTaskType = "rack_status"
+)

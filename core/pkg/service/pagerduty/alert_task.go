@@ -24,9 +24,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// AlertTaskType is the type identifier for PagerDuty alert tasks.
-const AlertTaskType = "pagerduty_alert"
-
 // validateConfig checks the deploy-time constraints on a task config: a real
 // routing key and at least one enabled alert.
 func validateConfig(c TaskConfig) error {

@@ -617,6 +617,16 @@ func renderGoFile(
 				return nil, nil, err
 			}
 			data.Applies = append(data.Applies, methods)
+			// The update of a config generates at the package root, where its task
+			// type belongs, even when the config generates in a version package.
+			config, _ := procData.table.Get(d.typ.Updates)
+			if value, name, ok := domain.TaskType(config); ok {
+				data.TaskTypes = append(data.TaskTypes, taskTypeData{
+					Name:   casing.TypePascal(name) + "TaskType",
+					Value:  value,
+					Config: naming.GetGoName(config),
+				})
+			}
 		}
 	}
 
@@ -1114,7 +1124,13 @@ type templateData struct {
 	Decls          []declData
 	// Applies are the methods that apply each update type of the file.
 	Applies []string
+	// TaskTypes are the task types that the config structs of the file configure.
+	TaskTypes []taskTypeData
 }
+
+// taskTypeData is the constant of the type of the task that a config struct
+// configures.
+type taskTypeData struct{ Name, Value, Config string }
 
 // importAlias returns the import alias for a cross-package reference,
 // honoring the conflict re-render pass's overrides (keyed by import path).
@@ -1936,6 +1952,15 @@ func (u *{{.Name}}) SetBase(base {{.Base}}) {
 {{- range .Applies}}
 
 {{.}}
+{{- end}}
+{{- if .TaskTypes}}
+
+const (
+{{- range .TaskTypes}}
+	// {{.Name}} is the task type of {{.Config}}.
+	{{.Name}} = "{{.Value}}"
+{{- end}}
+)
 {{- end}}
 `),
 )

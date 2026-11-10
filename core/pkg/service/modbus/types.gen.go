@@ -1455,3 +1455,12 @@ func (u HoldingRegisterBitWriteChannelUpdate) Defaults() (HoldingRegisterBitWrit
 	var x HoldingRegisterBitWriteChannel
 	return x, nil
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "modbus_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "modbus_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "modbus_scan"
+)

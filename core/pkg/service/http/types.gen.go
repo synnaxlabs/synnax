@@ -779,3 +779,12 @@ func (u GeneratedWriteFieldUpdate) Defaults() (GeneratedWriteField, error) {
 	x.ApplyDefaults()
 	return x, nil
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "http_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "http_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "http_scan"
+)

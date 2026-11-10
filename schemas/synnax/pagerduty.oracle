@@ -62,4 +62,5 @@ TaskConfig struct extends task.StartConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "pagerduty_alert"
 }

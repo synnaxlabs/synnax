@@ -596,3 +596,12 @@ func (u ReadFieldUpdate) ApplyTo(x *ReadField) error {
 	}
 	return nil
 }
+
+const (
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "kafka_scan"
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "kafka_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "kafka_write"
+)

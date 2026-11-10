@@ -48,7 +48,8 @@ export const orderZ = z.object({
 export interface Order extends z.infer<typeof orderZ> {}
 
 export interface UpdateSchemas<
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Properties extends patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> =
+    patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>>,
   Model extends z.ZodType<string> = z.ZodType<string>,
 > {
   properties: Properties;
@@ -56,7 +57,8 @@ export interface UpdateSchemas<
 }
 
 export const updateZ = <
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Properties extends patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> =
+    patch.StructSchemas<z.ZodType<record.Unknown>, z.ZodType<record.Unknown>>,
   Model extends z.ZodType<string> = z.ZodString,
 >({ properties, model }: Partial<UpdateSchemas<Properties, Model>> = {}) =>
   z.object({
@@ -64,18 +66,22 @@ export const updateZ = <
     model: (model ?? z.string()).optional(),
     name: z.string().optional(),
     configured: z.boolean().optional(),
-    properties: (properties ?? record.unknownZ()).optional(),
+    properties: (properties == null
+      ? record.unknownZ()
+      : patch.structZ(properties)
+    ).optional(),
     group: patch.changeZ(group.keyZ).optional(),
   });
 export interface Update<
-  Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
+  Properties extends patch.StructSchemas<z.ZodType, z.ZodType<record.Unknown>> =
+    patch.StructSchemas<z.ZodType<record.Unknown>, z.ZodType<record.Unknown>>,
   Model extends z.ZodType<string> = z.ZodString,
 > {
   location?: string;
   model?: z.infer<Model>;
   name?: string;
   configured?: boolean;
-  properties?: z.infer<Properties>;
+  properties?: patch.Struct<Properties["u"], Properties["t"]>;
   group?: patch.Change<typeof group.keyZ>;
 }
 

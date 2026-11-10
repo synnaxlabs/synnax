@@ -1024,3 +1024,12 @@ func (u DigitalWriteChannelUpdate) Defaults() (DigitalWriteChannel, error) {
 	x.ApplyDefaults()
 	return x, nil
 }
+
+const (
+	// ReadTaskType is the task type of ReadConfig.
+	ReadTaskType = "labjack_read"
+	// WriteTaskType is the task type of WriteConfig.
+	WriteTaskType = "labjack_write"
+	// ScanTaskType is the task type of ScanConfig.
+	ScanTaskType = "labjack_scan"
+)

@@ -1644,6 +1644,7 @@ AnalogReadConfig struct extends task.ReadConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "ni_analog_read"
 }
 
 CounterReadConfig struct extends task.ReadConfig {
@@ -1659,6 +1660,7 @@ CounterReadConfig struct extends task.ReadConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "ni_counter_read"
 }
 
 WriteConfig struct extends task.WriteConfig {
@@ -1682,6 +1684,7 @@ AnalogWriteConfig struct extends WriteConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "ni_analog_write"
 }
 
 DigitalReadConfig struct extends task.ReadConfig {
@@ -1700,6 +1703,7 @@ DigitalReadConfig struct extends task.ReadConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "ni_digital_read"
 }
 
 DigitalWriteConfig struct extends WriteConfig {
@@ -1713,6 +1717,7 @@ DigitalWriteConfig struct extends WriteConfig {
     @go migrate
     @patch
     @retrieve references
+    @task type           "ni_digital_write"
 }
 
 ScanConfig struct extends task.ScanConfig {
@@ -1721,6 +1726,7 @@ ScanConfig struct extends task.ScanConfig {
     @go marshal
     @go migrate
     @patch
+    @task type  "ni_scanner"
 }
 
 AccelChargeSensitivityUnits enum {
