@@ -59,7 +59,8 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 		byKey[g.Key.String()] = g
 	}
 	var devices []Device
-	if err = gorp.NewRetrieve[Key, Device]().Entries(&devices).Exec(ctx, tx); err != nil {
+	if err = gorp.NewRetrieve[Key, Device]().Entries(&devices).
+		Exec(ctx, tx); err != nil {
 		return err
 	}
 	racks := make(map[string]rack.Key, len(devices))
@@ -86,7 +87,12 @@ func splitGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) erro
 				parent = groupID(copyChain(p, r, visited))
 			}
 		}
-		c := groupv1.Group{Key: uuid.New(), Name: g.Name, Scope: g.Scope, Parent: &parent}
+		c := groupv1.Group{
+			Key:    uuid.New(),
+			Name:   g.Name,
+			Scope:  g.Scope,
+			Parent: &parent,
+		}
 		copies[rackCopy{group: g.Key, rack: r}] = c.Key
 		created = append(created, c)
 		return c.Key
