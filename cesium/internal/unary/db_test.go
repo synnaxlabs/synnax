@@ -234,7 +234,7 @@ var _ = Describe("DB Metadata Operations", func() {
 					Subject: control.Subject{Key: "string"},
 				}))
 				Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
-				_ = MustSucceed(w.Close())
+				MustSucceed(w.Close())
 				i := MustSucceed(db.OpenIterator(unary.IteratorConfig{}))
 				Expect(i.Close()).To(Succeed())
 			},

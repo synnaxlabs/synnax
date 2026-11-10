@@ -167,15 +167,15 @@ var _ = Describe("DB Metadata Operations", func() {
 			Expect(db.OpenWriter(ctx, cfg)).Error().To(MatchError(virtual.ErrDBClosed))
 			db.UnmarkClosed()
 			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
-			_ = MustSucceed(w.Close())
+			MustSucceed(w.Close())
 		})
 
 		It("Should leave the DB open if a writer is open", func(ctx SpecContext) {
 			w, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
 			Expect(db.MarkClosed()).To(MatchError(resource.ErrOpen))
-			_ = MustSucceed(w.Close())
+			MustSucceed(w.Close())
 			w, _ = MustSucceed2(db.OpenWriter(ctx, cfg))
-			_ = MustSucceed(w.Close())
+			MustSucceed(w.Close())
 		})
 
 		It("Should return ErrDBClosed if the DB is closed", func() {
