@@ -399,6 +399,32 @@ describe("auth", () => {
       ).rejects.toThrow(MissingCredentialsError);
     });
 
+    it("should end a cookie session once the browser drops its cookie", async () => {
+      const owner = makeClient();
+      await login(owner);
+      let cookie: string | undefined =
+        `synnax-session-${TEST_CLIENT_PARAMS.port}=${owner.token}`;
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      transport.use(async (ctx, next) => {
+        if (cookie != null) ctx.params.Cookie = cookie;
+        return await next(ctx);
+      });
+      const onFailure = vi.fn();
+      const client = new auth.Client(transport.unary, { cookie: true }, { onFailure });
+      transport.use(client.middleware());
+      await client.retrieveSessions();
+      cookie = undefined;
+      await expect(client.retrieveSessions()).rejects.toThrow(SessionEndedError);
+      expect(onFailure).toHaveBeenCalledOnce();
+      expect(SessionEndedError.matches(onFailure.mock.calls[0][0])).toBe(true);
+      await owner.logout();
+    });
+
     it("should let the newest login win when two interleave", async () => {
       const admin = createTestClient();
       const second = { username: id.create(), password: "seldon" };
