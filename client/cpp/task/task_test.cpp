@@ -204,17 +204,17 @@ TEST(TaskTests, testDispatch) {
     auto t = Task{
         .name = "test_module",
         .type = "pagerduty_alert",
-        .config = {{"routing_key", "rk"}}
+        .config = {{"auto_start", false}}
     };
     ASSERT_NIL(r.tasks.create(t));
     ASSERT_NIL(r.tasks.dispatch(
         t.key,
         {set({.path = {"name"}, .value = "renamed"}),
-         set({.path = {"config", "routing_key"}, .value = "rk-2"})}
+         set({.path = {"config", "auto_start"}, .value = true})}
     ));
     const auto got = ASSERT_NIL_P(r.tasks.retrieve(t.key));
     ASSERT_EQ(got.name, "renamed");
-    ASSERT_EQ(got.config.at("routing_key"), "rk-2");
+    ASSERT_EQ(got.config.at("auto_start"), true);
     ASSERT_EQ(got.type, "pagerduty_alert");
     ASSERT_NE(got.config_hash, t.config_hash);
 }
