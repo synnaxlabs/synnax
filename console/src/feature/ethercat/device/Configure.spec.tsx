@@ -11,7 +11,7 @@ import { type ethercat } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { strings } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -28,7 +28,7 @@ import { Device } from "@/platform/device";
 import { Modals } from "@/platform/modals";
 import { findButton, renderModalOpener } from "@/platform/modals/testutil";
 import { answerNextCommand, type CommandAnswer } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { fakePickedFile, interceptFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -66,7 +66,12 @@ interface SetupArgs {
   startupParameters?: ethercat.StartupParameter[];
   settings?: EtherCAT.Device.SlaveProperties["settings"];
   inputs?: ethercat.PDOEntry[];
+  vendorId?: number;
+  productCode?: number;
+  revision?: number;
 }
+
+const VENDOR_ID = 0xdebe50f7;
 
 const setup = async ({
   configured = true,
@@ -75,6 +80,9 @@ const setup = async ({
   startupParameters = [],
   settings,
   inputs = [],
+  vendorId = VENDOR_ID,
+  productCode = 0,
+  revision = 0,
 }: SetupArgs = {}) => {
   const rack = await client.racks.create({ name: uniqueName("ecat_rack") });
   const slave = await createSlaveDevice(
@@ -98,6 +106,9 @@ const setup = async ({
       startupParameters,
       settings,
       pdos: { inputs, outputs: [] },
+      vendorId,
+      productCode,
+      revision,
     },
     configured,
   );
@@ -319,6 +330,394 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
         FILTER,
       ]);
+    });
+
+    describe("import from an ESI file", () => {
+      const initCmd = (
+        transition: string,
+        index: string,
+        subIndex: string,
+        data: string,
+        comment: string,
+        attributes = "",
+      ) => `<InitCmd${attributes}>
+        <Transition>${transition}</Transition>
+        <Index>${index}</Index>
+        <SubIndex>${subIndex}</SubIndex>
+        <Data>${data}</Data>
+        <Comment>${comment}</Comment>
+      </InitCmd>`;
+
+      const VENDOR = "#xDEBE50F7";
+
+      const ESI = `<?xml version="1.0" encoding="utf-8"?>
+      <EtherCATInfo>
+        <Vendor><Id>${VENDOR}</Id></Vendor>
+        <Descriptions>
+          <Devices>
+            <Device>
+              <Type ProductCode="252" RevisionNo="#x00010000">IOLITEr 6xSTG</Type>
+              <Mailbox>
+                <CoE>
+                  ${initCmd("IP", "32800", "9", "0100", "Bus1 mode")}
+                  ${initCmd("IP", "32800", "10", "0300", "Bus2 mode")}
+                </CoE>
+              </Mailbox>
+            </Device>
+            <Device>
+              <Type ProductCode="#x66" RevisionNo="#x01000001">SIRIUSe 8xAI</Type>
+              <Mailbox>
+                <CoE>
+                  ${initCmd("IP", "#x8020", "07", "0600", "OperationMode")}
+                  ${initCmd("PS", "#x8040", "#x06", "0000a040", "Excitation")}
+                  ${initCmd("SO", "#x8040", "1", "01", "Starts in OP")}
+                  ${initCmd("PS", "#x1c12", "0", "000000", "Three bytes")}
+                  ${initCmd("PS", "#x1c13", "0", "0100", "Complete", ' CompleteAccess="1"')}
+                  ${initCmd("PS", "#x8050", "1", "FFFFFFFFFFFFFFFF", "Minus one")}
+                </CoE>
+              </Mailbox>
+            </Device>
+          </Devices>
+        </Descriptions>
+      </EtherCATInfo>`;
+
+      /** @returns an ESI file of the vendor with one device of each mailbox. */
+      const esiOf = (mailboxes: string[], vendor = VENDOR) =>
+        `<EtherCATInfo><Vendor><Id>${vendor}</Id></Vendor><Descriptions><Devices>
+          ${mailboxes
+            .map(
+              (mailbox, i) => `<Device>
+                <Type ProductCode="${0x67 + i}" RevisionNo="1">SIRIUSe ${i + 1}</Type>
+                <Mailbox>${mailbox}</Mailbox>
+              </Device>`,
+            )
+            .join("")}
+        </Devices></Descriptions></EtherCATInfo>`;
+
+      const SIRIUS = { productCode: 0x66, revision: 0x01000001 };
+      const OPERATION_MODE: ethercat.StartupParameter = {
+        index: 0x8020,
+        subIndex: 7,
+        dataType: "uint16",
+        value: 6,
+        name: "OperationMode",
+      };
+      const EXCITATION: ethercat.StartupParameter = {
+        index: 0x8040,
+        subIndex: 6,
+        dataType: "uint32",
+        value: 0x40a00000,
+        name: "Excitation",
+      };
+
+      const importFile = (name: string, contents: string | Uint8Array<ArrayBuffer>) => {
+        const picker = interceptFilePicker();
+        fireEvent.click(findButton("Import from ESI file"));
+        picker.selectFiles([fakePickedFile(name, contents)]);
+      };
+
+      afterEach(() => vi.restoreAllMocks());
+
+      it("should add the commands that the device runs before SAFE-OP", async () => {
+        const slave = await setup(SIRIUS);
+        importFile("sirius.xml", ESI);
+        await screen.findByText("Imported 2 startup parameters for SIRIUSe 8xAI");
+        expect(
+          screen.getByText("Skipped 4 that the Driver cannot write."),
+        ).toBeTruthy();
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
+      });
+
+      it("should replace a parameter on the same object", async () => {
+        const slave = await setup({
+          ...SIRIUS,
+          startupParameters: [FILTER, { ...OPERATION_MODE, value: 1, name: "" }],
+        });
+        importFile("sirius.xml", ESI);
+        await screen.findByText(/^Imported 2 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            FILTER,
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
+      });
+
+      it("should leave out the object that holds the mode of the card", async () => {
+        const slave = await setup({
+          productCode: 252,
+          revision: 0x00010000,
+          settings: createDewesoftXSettings(false),
+          inputs: [STRAIN_ENTRY],
+        });
+        importFile("stg.xml", ESI);
+        await screen.findByText("Imported 1 startup parameter for IOLITEr 6xSTG");
+        expect(
+          screen.getByText(
+            "Left out 0x8020:09, which holds the mode of the device. " +
+              "Synnax sets the mode.",
+          ),
+        ).toBeTruthy();
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8020,
+              subIndex: 10,
+              dataType: "uint16",
+              value: 3,
+              name: "Bus2 mode",
+            },
+          ]),
+        );
+      });
+
+      it("should name the devices of a file that has none for the slave", async () => {
+        await setup({ productCode: 252, revision: 0x00020000 });
+        importFile("other.xml", ESI);
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x00FC and revision " +
+              "0x00020000. It is for IOLITEr 6xSTG, SIRIUSe 8xAI.",
+          ),
+        ).toBeTruthy();
+        expect(screen.queryByRole("textbox", { name: "Index 1" })).toBeNull();
+      });
+
+      it("should say that a file lists no devices", async () => {
+        await setup(SIRIUS);
+        importFile("empty.xml", esiOf([]));
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x0066 and revision " +
+              "0x01000001. It lists no devices.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should keep the order of the writes to one object", async () => {
+        const write = (
+          subIndex: number,
+          dataType: string,
+          value: number,
+          name: string,
+        ) => ({
+          index: 0x1c12,
+          subIndex,
+          dataType,
+          value,
+          name,
+        });
+        const slave = await setup({
+          productCode: 0x67,
+          revision: 1,
+          startupParameters: [FILTER, write(0, "uint8", 1, "")],
+        });
+        importFile(
+          "pdo.xml",
+          esiOf([
+            `<CoE>
+              ${initCmd("PS", "#x1c12", "0", "00", "Clear")}
+              ${initCmd("PS", "#x1c12", "1", "0016", "Assign")}
+              ${initCmd("PS", "#x1c12", "0", "01", "Count")}
+            </CoE>`,
+          ]),
+        );
+        await screen.findByText(/^Imported 3 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            FILTER,
+            write(0, "uint8", 0, "Clear"),
+            write(1, "uint16", 0x1600, "Assign"),
+            write(0, "uint8", 1, "Count"),
+          ]),
+        );
+      });
+
+      it("should merge into the parameters as they are when the file opens", async () => {
+        const slave = await setup({ ...SIRIUS, startupParameters: [FILTER] });
+        const picker = interceptFilePicker();
+        fireEvent.click(findButton("Import from ESI file"));
+        fireEvent.click(screen.getByRole("button", { name: "Remove parameter 1" }));
+        picker.selectFiles([fakePickedFile("sirius.xml", ESI)]);
+        await screen.findByText(/^Imported 2 startup parameters/);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            OPERATION_MODE,
+            EXCITATION,
+          ]),
+        );
+      });
+
+      it("should reject a file for another vendor", async () => {
+        await setup(SIRIUS);
+        importFile("other.xml", ESI.replace(VENDOR, "#x00000002"));
+        expect(
+          await screen.findByText(
+            "The ESI file is not for vendor 0xDEBE50F7, the vendor of the device.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should name three devices and others of a file with more", async () => {
+        await setup({ productCode: 0x99, revision: 1 });
+        importFile("many.xml", esiOf(["", "", "", ""]));
+        expect(
+          await screen.findByText(
+            "The ESI file lists no device with product code 0x0099 and revision " +
+              "0x00000001. It is for SIRIUSe 1, SIRIUSe 2, SIRIUSe 3, and others.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should read a command on a catalog field as the type of the field", async () => {
+        const slave = await setup({
+          productCode: 0x67,
+          revision: 1,
+          settings: createSettingsDescription(),
+        });
+        importFile(
+          "strain.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8040", "#x1c", "0000a040", "Excitation")}</CoE>`,
+          ]),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8040,
+              subIndex: 0x1c,
+              dataType: "float32",
+              value: 5,
+              name: "Excitation",
+            },
+          ]),
+        );
+      });
+
+      it("should read a file in the encoding that its declaration names", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");
+        const text = `<?xml version="1.0" encoding="ISO-8859-1"?>${esiOf([
+          `<CoE>${command}</CoE>`,
+        ])}`;
+        importFile(
+          "latin.xml",
+          Uint8Array.from(text, (c) => c.charCodeAt(0)),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8050,
+              subIndex: 1,
+              dataType: "uint8",
+              value: 1,
+              name: "Offset in °C",
+            },
+          ]),
+        );
+      });
+
+      it("should read a UTF-16 file that starts with a byte order mark", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const text = `\uFEFF${esiOf([`<CoE>${initCmd("PS", "#x8050", "1", "01", "Gain")}</CoE>`])}`;
+        const bytes = new Uint8Array(
+          new Uint16Array(Array.from(text, (c) => c.charCodeAt(0))).buffer,
+        );
+        importFile("wide.xml", bytes);
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            { index: 0x8050, subIndex: 1, dataType: "uint8", value: 1, name: "Gain" },
+          ]),
+        );
+      });
+
+      it("should read a UTF-8 file with a byte order mark over its declaration", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        const command = initCmd("PS", "#x8050", "1", "01", "Offset in °C");
+        const text = `\uFEFF<?xml version="1.0" encoding="ISO-8859-1"?>${esiOf([
+          `<CoE>${command}</CoE>`,
+        ])}`;
+        importFile("marked.xml", new TextEncoder().encode(text));
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            {
+              index: 0x8050,
+              subIndex: 1,
+              dataType: "uint8",
+              value: 1,
+              name: "Offset in °C",
+            },
+          ]),
+        );
+      });
+
+      it("should reject a file in an encoding that Synnax cannot read", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        importFile("odd.xml", `<?xml version="1.0" encoding="EBCDIC-9"?>${esiOf([])}`);
+        expect(
+          await screen.findByText(
+            "The ESI file uses EBCDIC-9, an encoding that Synnax cannot read.",
+          ),
+        ).toBeTruthy();
+      });
+
+      it("should import an 8-byte value that a number holds", async () => {
+        const slave = await setup({ productCode: 0x67, revision: 1 });
+        importFile(
+          "count.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8050", "1", "0100000000000000", "One")}</CoE>`,
+          ]),
+        );
+        await screen.findByText(/^Imported 1 startup parameter /);
+        await save();
+        await waitFor(async () =>
+          expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+            { index: 0x8050, subIndex: 1, dataType: "uint64", value: 1, name: "One" },
+          ]),
+        );
+      });
+
+      it("should neither import nor count the commands of other mailboxes", async () => {
+        await setup({ productCode: 0x67, revision: 1 });
+        importFile(
+          "soe.xml",
+          esiOf([
+            `<CoE>${initCmd("PS", "#x8050", "1", "01", "CoE")}</CoE>
+            <SoE>${initCmd("PS", "#x8051", "1", "01", "SoE")}</SoE>`,
+          ]),
+        );
+        expect(
+          await screen.findByText("Imported 1 startup parameter for SIRIUSe 1"),
+        ).toBeTruthy();
+      });
+
+      it("should reject a file that is not XML", async () => {
+        await setup(SIRIUS);
+        importFile("notes.xml", "not xml <");
+        expect(
+          await screen.findByText("The file is not a valid ESI XML file."),
+        ).toBeTruthy();
+      });
     });
 
     it("should remove a parameter", async () => {
