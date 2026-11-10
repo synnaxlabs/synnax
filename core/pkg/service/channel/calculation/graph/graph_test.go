@@ -1652,6 +1652,7 @@ var _ = Describe("Graph", func() {
 				// goroutine holds a snapshot for up to 100 ms. A writer that waits for
 				// the lock can hold the report back, so Eventually retries.
 				reportsUnderSnapshot := func() bool {
+					GinkgoHelper()
 					held, reported := make(chan struct{}), make(chan struct{})
 					timedOut := make(chan bool, 1)
 					go func() {
