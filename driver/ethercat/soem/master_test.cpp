@@ -973,6 +973,19 @@ TEST_F(SOEMMasterTest, ScanStoresTheSettingsThatTheCatalogDescribes) {
     EXPECT_EQ(slaves[1].properties.settings, expected);
 }
 
+/// @brief it should report why the settings of a slave could not be read.
+TEST_F(SOEMMasterTest, ScanReportsAFailedSettingsRead) {
+    auto stg = create_stg(ECT_MBXPROT_COE);
+    stg.sdo_objects.erase({0x8050, 3});
+    this->add_slave(stg);
+    const auto slaves = ASSERT_NIL_P(this->master->scan());
+    EXPECT_FALSE(slaves[0].properties.settings.has_value());
+    EXPECT_EQ(
+        slaves[0].status.settings_error,
+        "failed to read 0x8050:03: Object does not exist in the object dictionary"
+    );
+}
+
 /// @brief it should read no settings from a slave that does not list CoE.
 TEST_F(SOEMMasterTest, ScanReadsNoSettingsFromASlaveWithoutCoE) {
     this->add_slave(create_stg(0));

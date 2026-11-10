@@ -343,6 +343,8 @@ struct Status {
     State state = State::UNKNOWN;
     /// @brief why PDO discovery failed, or empty when it succeeded.
     std::string pdo_discovery_error;
+    /// @brief why the read of the settings failed, or empty when it succeeded.
+    std::string settings_error;
 };
 
 /// @brief what to do about a slave that reports "Invalid DC SYNC configuration". A
