@@ -24,8 +24,10 @@ Core.
 
   <Fragment slot="python">
 
-Most Python examples connect with the login that `sy login` saves. Log in once, see
-[Log in once with sy login](/reference/client/connect#log-in-once-with-sy-login), then
+Most Python examples create the client with `sy.Synnax()`. With Synnax Desktop open,
+they connect to it with no setup. To run them against a Core in Synnax Enterprise, log
+in once with `sy login`, see
+[Log in once with sy login](/reference/client/connect#log-in-once-with-sy-login). Then
 run a script:
 
 ```bash
@@ -49,11 +51,18 @@ The README in each folder gives the steps.
   <Fragment slot="typescript">
 
 The TypeScript examples connect to `localhost:9090` with the username `synnax` and the
-password `seldon`. Change these values in the script to match your Core. From the
-`client/ts/examples/node` folder, install the client and run a script:
+password `seldon`. Replace these values in the script. For Synnax Desktop, use the
+`host`, `port`, and `apiKey` from the **Connect from code** dialog, see
+[Connect to Synnax Desktop](/reference/client/connect#connect-to-synnax-desktop). For a
+Core in Synnax Enterprise, use its address and your credentials.
+
+From the `client/ts/examples/node` folder, install the client that matches the version
+of your Core, then run a script. Change `0.61` to the major and minor version of your
+Core:
 
 ```bash
 npm install
+npm install @synnaxlabs/client@~0.61.0
 node basicReadWrite.js
 ```
 
@@ -113,19 +122,21 @@ Control sequences. See [Control](/reference/control).
 | [control/virtual.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/control/virtual.py) | Send values between scripts through a virtual channel.        |
 | [simulators/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/simulators)                | Simulate hardware, so you can test sequences with no devices. |
 
-Hardware tasks. See [Hardware](/reference/hardware). These examples need the Driver and
-the device. The Modbus, OPC UA, and HTTP folders include a simulated device.
+Hardware tasks. See [Hardware](/reference/hardware). These examples need the device and
+the Driver. MQTT tasks run in the Core, so the MQTT examples need no Driver. The Modbus,
+OPC UA, HTTP, and MQTT folders include a simulated device.
 
-| Example                                                                                                                      | Shows how to                                                 |
-| ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| [ni/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/ni)                                                  | Create National Instruments read, write, and counter tasks.  |
-| [labjack/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/labjack)                                        | Connect a LabJack and create read and write tasks.           |
-| [modbus/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/modbus)                                          | Connect a Modbus TCP server and create read and write tasks. |
-| [opcua/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/opcua)                                            | Connect an OPC UA server and create read and write tasks.    |
-| [http_sim/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/http_sim)                                      | Connect an HTTP server and create read and write tasks.      |
-| [arduino/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/arduino)                                        | Write your own driver for an Arduino.                        |
-| [hardware/task_management.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/hardware/task_management.py) | Find, configure, start, and stop tasks.                      |
-| [pagerduty/alert_task.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/pagerduty/alert_task.py)         | Open a PagerDuty incident when a status changes.             |
+| Example                                                                                                                      | Shows how to                                                                  |
+| ---------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [ni/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/ni)                                                  | Create National Instruments read, write, and counter tasks.                   |
+| [labjack/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/labjack)                                        | Connect a LabJack and create read and write tasks.                            |
+| [modbus/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/modbus)                                          | Connect a Modbus TCP server and create read and write tasks.                  |
+| [opcua/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/opcua)                                            | Connect an OPC UA server and create read and write tasks.                     |
+| [http_sim/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/http_sim)                                      | Connect an HTTP server and create read and write tasks.                       |
+| [mqtt_sim/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/mqtt_sim)                                      | Connect an MQTT broker and create read and write tasks, also for Sparkplug B. |
+| [arduino/](https://github.com/synnaxlabs/synnax/tree/main/client/py/examples/arduino)                                        | Write your own driver for an Arduino.                                         |
+| [hardware/task_management.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/hardware/task_management.py) | Find, configure, start, and stop tasks.                                       |
+| [pagerduty/alert_task.py](https://github.com/synnaxlabs/synnax/blob/main/client/py/examples/pagerduty/alert_task.py)         | Open a PagerDuty incident when a status changes.                              |
 
   </Fragment>
 

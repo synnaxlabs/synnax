@@ -23,6 +23,8 @@ export interface BarProps extends Flex.BoxProps {
   running: boolean;
   /** Shows the redeploy button when the deployed config is stale. */
   drifted?: boolean;
+  /** Replaces the redeploy button's tooltip, to say what is stale. */
+  redeployTooltip?: ReactNode;
   /** Hides the action row entirely, for a caller that cannot command the task. */
   hideActions?: boolean;
   /** Disables the deploy and start/stop actions. */
@@ -35,8 +37,9 @@ export interface BarProps extends Flex.BoxProps {
   extraActions?: ReactNode;
   /** The task's settings, first in the action row. They show when the actions hide. */
   settings?: ReactNode;
-  onDeploy: () => void;
-  onStop: () => void;
+  /** Unused when the actions hide. */
+  onDeploy?: () => void;
+  onStop?: () => void;
 }
 
 /**
@@ -47,6 +50,7 @@ export const Bar = ({
   status: stat,
   running,
   drifted = false,
+  redeployTooltip,
   hideActions = false,
   disabled = false,
   fallbackMessage,
@@ -60,7 +64,7 @@ export const Bar = ({
   const [expanded, setExpanded] = useState(false);
   const handleToggle = () => setExpanded((prev) => !prev);
   const handleContract = () => setExpanded(false);
-  const handleStartStop = () => (running ? onStop() : onDeploy());
+  const handleStartStop = () => (running ? onStop?.() : onDeploy?.());
   return (
     <Frame expanded={expanded} onContract={handleContract} {...props}>
       <Status
@@ -77,7 +81,8 @@ export const Bar = ({
               {extraActions}
               <RedeployButton
                 visible={drifted}
-                onClick={onDeploy}
+                tooltip={redeployTooltip}
+                onClick={() => onDeploy?.()}
                 disabled={disabled || startStopVariant === "loading"}
               />
               <StartStopButton

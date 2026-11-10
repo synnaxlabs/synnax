@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,11 +46,11 @@ func createGroup(ctx SpecContext, parent *group.Group) group.Group {
 
 func createSymbol(ctx SpecContext, g group.Group) symbol.Symbol {
 	GinkgoHelper()
-	sym := symbol.Symbol{
+	sym := defaults.Fill(symbol.Symbol{
 		Name:  "Inlet",
 		Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 		Group: &g.Key,
-	}
+	})
 	Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 		return svc.NewWriter(tx).Create(ctx, &sym)
 	})).To(Succeed())
@@ -117,10 +118,10 @@ var _ = Describe("Writer in concurrent transactions", func() {
 					})).To(Succeed())
 				}
 			})
-			created := symbol.Symbol{
+			created := defaults.Fill(symbol.Symbol{
 				Name: "concurrent",
 				Data: symbol.Spec{SVG: "<svg/>", Variant: "valve"},
-			}
+			})
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 				return svc.NewWriter(tx).Create(ctx, &created)
 			})).To(Succeed())

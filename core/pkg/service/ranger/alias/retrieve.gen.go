@@ -25,6 +25,7 @@ const tableName = "range-alias"
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
+	alias    *gorp.LookupIndex[string, Alias, string]
 	rangeVal *gorp.KeyReference[string, Alias, ranger.Key]
 }
 
@@ -33,6 +34,10 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
+		alias: gorp.NewLookupIndex[string, Alias, string](
+			"alias",
+			func(e *Alias) string { return e.Alias },
+		),
 		rangeVal: gorp.NewKeyReference(gorp.KeyReferenceConfig[string, Alias, ranger.Key]{
 			Name:     "range",
 			Table:    "range",
@@ -48,7 +53,9 @@ func newIndexes() indexes {
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
 func (i indexes) all() []gorp.Index[string, Alias] {
-	return []gorp.Index[string, Alias]{}
+	return []gorp.Index[string, Alias]{
+		i.alias,
+	}
 }
 
 // references returns the references packaged for registration via

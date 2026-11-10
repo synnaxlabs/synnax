@@ -9,17 +9,15 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-arc-toolbar {
-    .lyra-list__item {
-        .console-arc__metadata {
-            flex-shrink: 1;
-            overflow: hidden;
-            padding-top: 0.25rem;
+.console-task-toolbar {
+    .console-arc__metadata {
+        flex-shrink: 1;
+        overflow: hidden;
+        padding-top: 0.25rem;
 
-            /* Only apply overflow hidden when the element is not being renamed */
-            &:not(:has([contenteditable="true"])) {
-                overflow: hidden;
-            }
+        /* Only apply overflow hidden when the element is not being renamed */
+        &:not(:has([contenteditable="true"])) {
+            overflow: hidden;
         }
     }
 }

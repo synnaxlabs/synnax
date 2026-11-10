@@ -28,7 +28,10 @@ import {
   serverComputed,
   shortcutZ,
 } from "@/arc/directory/where.gen";
+import { validateIdentifier } from "@/arc/identifier";
 import { type Arc, type Key as ArcKey } from "@/arc/types.gen";
+import { type batch } from "@/batch";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 
@@ -111,26 +114,96 @@ export class Client extends query.Retriever<
   }
 
   /**
+   * Retrieves every directory above the directories that is not one of them, each once.
+   * The chain ends at the root.
+   * @throws {NotFoundError} if a directory or one above it does not exist.
+   */
+  async retrieveAncestors(keys: Key | Key[]): Promise<Directory[]> {
+    await this.store.track(async (since) => {
+      this.store.ingest(await this.execRetrieve({}), { since });
+    });
+    const ancestors = this.getCachedAncestors(keys);
+    if (ancestors != null) return ancestors;
+    const listed = array.toArray(keys).join(", ");
+    throw new NotFoundError(`Arc directory ${listed} or one above it not found`);
+  }
+
+  /**
+   * Returns every cached directory above the directories that is not one of them, each
+   * once, or undefined when a directory on the chain is not cached.
+   */
+  getCachedAncestors(keys: Key | Key[]): Directory[] | undefined {
+    const starts = array.toArray(keys);
+    const visited = new Set<Key>(starts);
+    const ancestors: Directory[] = [];
+    for (const key of starts) {
+      const start = this.store.get(key);
+      if (start == null) return undefined;
+      let { parent } = start;
+      while (parent != null && !visited.has(parent)) {
+        const d = this.store.get(parent);
+        if (d == null) return undefined;
+        visited.add(d.key);
+        ancestors.push(d);
+        parent = d.parent;
+      }
+    }
+    return ancestors;
+  }
+
+  /**
+   * Calls the handler with the cached ancestors of the directories after each change to
+   * a cached directory, since a rename or a move of any directory can change them.
+   */
+  onAncestorsChange(
+    keys: Key | Key[],
+    handler: query.ChangeHandler<Directory[]>,
+  ): destructor.Destructor {
+    return this.store.subscribe(() => handler(this.getCachedAncestors(keys)));
+  }
+
+  /**
+   * Builds a request that creates a directory in the directory parent. A request with a
+   * key writes the directory to the cache.
+   * @throws {ValidationError} if name is not an identifier.
+   */
+  createRequest({
+    parent,
+    key,
+    name,
+  }: CreateParams): batch.Request<z.infer<typeof createReqZ>> {
+    validateIdentifier(name);
+    const payload = { parent, directory: { key, name } };
+    if (key == null) return { endpoint: "/arc/directory/create", payload };
+    return {
+      endpoint: "/arc/directory/create",
+      payload,
+      apply: () => this.store.set({ key, name, parent }),
+    };
+  }
+
+  /**
    * Creates a directory in the directory parent. A create with a key writes the
    * directory to the cache first, and removes it if the Core rejects the create.
+   * @throws {ValidationError} if name is not an identifier.
    */
-  async create({ parent, key, name }: CreateParams): Promise<Directory> {
+  async create(params: CreateParams): Promise<Directory> {
+    const { endpoint, payload, apply } = this.createRequest(params);
     const { directory } = await query.optimistic({
-      rollbacks: key == null ? [] : [this.store.set({ key, name, parent })],
+      rollbacks: apply == null ? [] : [apply()],
       commit: async () =>
-        await this.cfg.unary.send(
-          "/arc/directory/create",
-          { parent, directory: { key, name } },
-          createReqZ,
-          createResZ,
-        ),
+        await this.cfg.unary.send(endpoint, payload, createReqZ, createResZ),
     });
     this.store.set(directory);
     return directory;
   }
 
-  /** Renames the directory with key. */
+  /**
+   * Renames the directory with key.
+   * @throws {ValidationError} if name is not an identifier.
+   */
   async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
+    validateIdentifier(name);
     const rename = () => query.partialUpdate(this.store, key, { name });
     await query.optimistic({
       rollbacks: [rename()],
@@ -153,29 +226,44 @@ export class Client extends query.Retriever<
     this.store.delete(payload.keys);
   }
 
+  /**
+   * Builds a request that moves Arcs and directories from the directory from into the
+   * directory to. Its cache write moves the cached ones.
+   */
+  moveRequest(
+    from: resource.ID,
+    to: resource.ID,
+    ...children: resource.ID[]
+  ): batch.Request<z.infer<typeof moveReqZ>> {
+    return {
+      endpoint: "/arc/move",
+      payload: { from: from.key, to: to.key, ids: children },
+      apply: () => this.applyMove(to, children),
+    };
+  }
+
+  private applyMove(to: resource.ID, children: resource.ID[]): destructor.Destructor {
+    const undos = children.map(({ type, key }) =>
+      type === "arc"
+        ? query.partialUpdate(this.cfg.arcs, key, { directory: to.key })
+        : query.partialUpdate(this.store, key, { parent: to.key }),
+    );
+    return () => undos.forEach((undo) => undo());
+  }
+
   /** Moves Arcs and directories from the directory from into the directory to. */
   async move(
     from: resource.ID,
     to: resource.ID,
     ...children: resource.ID[]
   ): Promise<void> {
-    const move = (): destructor.Destructor[] =>
-      children.map(({ type, key }) =>
-        type === "arc"
-          ? query.partialUpdate(this.cfg.arcs, key, { directory: to.key })
-          : query.partialUpdate(this.store, key, { parent: to.key }),
-      );
+    const { endpoint, payload } = this.moveRequest(from, to, ...children);
     await query.optimistic({
-      rollbacks: move(),
+      rollbacks: [this.applyMove(to, children)],
       commit: async () =>
-        await this.cfg.unary.send(
-          "/arc/move",
-          { from: from.key, to: to.key, ids: children },
-          moveReqZ,
-          emptyResZ,
-        ),
+        await this.cfg.unary.send(endpoint, payload, moveReqZ, emptyResZ),
     });
-    move();
+    this.applyMove(to, children);
   }
 
   private async execRetrieve(

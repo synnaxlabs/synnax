@@ -46,7 +46,8 @@ func checkImportOrder(ctx acontext.Context[parser.IProgramContext]) {
 // resolver). Subsequent dotted lookups (`t.now`) resolve through the alias by
 // ordinary scope walk and member descent — no separate import gate is needed.
 //
-// Diagnoses duplicate aliases and unknown module paths.
+// Diagnoses duplicate aliases and unknown module paths. A failed import still binds
+// its alias, with no Target, so its uses report nothing more.
 func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 	root := ctx.Scope.Root()
 	ambient := ambientOf(root)
@@ -54,7 +55,6 @@ func collectImports(ctx acontext.Context[parser.IProgramContext]) {
 		module, err := lookupModule(ctx, root, ambient, entry.Path)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, entry.AST))
-			continue
 		}
 		alias := symbol.Symbol{
 			Name:   entry.Alias,
@@ -80,7 +80,7 @@ func reportUnusedImports(ctx acontext.Context[parser.IProgramContext]) {
 		if child.Kind != symbol.KindModuleAlias {
 			continue
 		}
-		if child.Used {
+		if child.Used || child.Target == nil {
 			continue
 		}
 		ctx.Diagnostics.Add(diagnostics.Errorf(
