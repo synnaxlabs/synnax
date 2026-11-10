@@ -51,17 +51,17 @@ const requirementZ = z.object({
 });
 
 /** The fields of one input, and the entries that read it in every PDO layout. */
-const channelZ = z.object({
+const inputZ = z.object({
   entries: z.array(z.object(ADDRESS)),
   settings: z.array(fieldZ),
   requires: z.array(requirementZ),
 });
-export interface Channel extends z.infer<typeof channelZ> {}
+export interface Input extends z.infer<typeof inputZ> {}
 
 /** The fields of a slave: those of the whole slave, and those of each input. */
 export const descriptionZ = z.object({
   device: z.array(fieldZ),
-  channels: z.array(channelZ),
+  channels: z.array(inputZ),
 });
 export interface Description extends z.infer<typeof descriptionZ> {}
 
@@ -80,10 +80,10 @@ export const sameAddress = (a: Address, b: Address): boolean =>
   a.index === b.index && a.subIndex === b.subIndex;
 
 /** @returns the input that the entry at the address reads, or undefined. */
-export const findChannel = (
+export const findInput = (
   description: Description | undefined,
   address: Address,
-): Channel | undefined =>
+): Input | undefined =>
   description?.channels.find((c) => c.entries.some((e) => sameAddress(e, address)));
 
 /**
@@ -173,8 +173,8 @@ const rangeMessage = ({ name, unit, min, max }: Field): string => {
 };
 
 /** @returns the problems with the values of the shown fields. */
-export const check = (channel: Channel, values: Value[]): Problem[] => {
-  const { settings: fields, requires } = channel;
+export const check = (input: Input, values: Value[]): Problem[] => {
+  const { settings: fields, requires } = input;
   const problems: Problem[] = [];
   for (const field of visibleFields(fields, values)) {
     const value = valueAt(fields, values, field);

@@ -50,13 +50,13 @@ describe("Settings", () => {
     });
   });
 
-  describe("findChannel", () => {
+  describe("findInput", () => {
     it("should find the input of each entry that reads it", () => {
       const description = createSettingsDescription();
       for (const entry of channel.entries)
-        expect(Settings.findChannel(description, entry)).toBe(description.channels[0]);
+        expect(Settings.findInput(description, entry)).toBe(description.channels[0]);
       expect(
-        Settings.findChannel(description, { index: 0x6040, subIndex: 2 }),
+        Settings.findInput(description, { index: 0x6040, subIndex: 2 }),
       ).toBeUndefined();
     });
   });
