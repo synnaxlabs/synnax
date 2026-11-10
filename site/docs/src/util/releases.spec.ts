@@ -194,6 +194,7 @@ describe("releases", () => {
       expect(await releases.documented("core")).toEqual("0.59.3");
       expect(await releases.documented("desktop")).toEqual("1.0.4");
       expect(await releases.latest("core")).toEqual("0.60.1");
+      expect(await releases.onTrain("core", "0.60")).toEqual("0.60.1");
       expect(await releases.trains("core")).toEqual(["0.60", "0.59"]);
     });
 
