@@ -121,10 +121,10 @@ export const parseStartupCommands = (
       names.length > 3
         ? `${names.slice(0, 3).join(", ")}, and others`
         : names.join(", ");
+    const lists = names.length === 0 ? "It lists no devices." : `It is for ${listed}.`;
     throw new Error(
       `The ESI file lists no device with product code ${formatHex(productCode, 4)} ` +
-        `and revision ${formatHex(revision, 8)}. ` +
-        (names.length === 0 ? "It lists no devices." : `It is for ${listed}.`),
+        `and revision ${formatHex(revision, 8)}. ${lists}`,
     );
   }
   const commands = Array.from(devices[found].getElementsByTagName("InitCmd")).filter(
