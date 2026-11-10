@@ -687,6 +687,20 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(cell("Name 1").value).toBe("Sample rate");
     });
 
+    it("should not store the name of a setting after its address changes", async () => {
+      const slave = await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [SAMPLE_RATE],
+      });
+      commit("Subindex 1", "0x02");
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { ...SAMPLE_RATE, subIndex: 2 },
+        ]),
+      );
+    });
+
     it("should keep the name that the user gave the parameter of a setting", async () => {
       const named = { ...SAMPLE_RATE, value: 4, name: "Rate" };
       const slave = await setup({
