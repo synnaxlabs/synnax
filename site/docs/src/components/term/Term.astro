@@ -59,6 +59,13 @@ const { icon } = Astro.props;
             & > :not(.part-icon, h3) {
                 grid-column: 1 / -1;
             }
+
+            /* A square marker, so the blue chips stay with the diagram. */
+            & > .part-icon {
+                border-color: var(--pluto-gray-l3);
+                background: var(--pluto-gray-l2);
+                color: var(--pluto-gray-l9);
+            }
         }
     }
 </style>

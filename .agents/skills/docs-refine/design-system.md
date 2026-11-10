@@ -49,8 +49,8 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
   A hairline opens a list, and hairlines split its entries. A block never ends on one.
 - **Gray-l4 frame** (`--pluto-border`) -> the edge of a block that has its own surface.
 - **Primary** -> links, the state that matters in a diagram, the icon chip of a diagram
-  block, a part, or a term, the Enterprise mark, and the brand accent: the rule under a
-  page title and the landing use cases.
+  block or a part, the Enterprise mark, and the brand accent: the rule under a page
+  title and the landing use cases.
 - **Error and warning** -> the severity dot of a problem entry, and notes. Error also
   marks a required field: the asterisk before **Required**.
 - **Arc code colors** (`tokens` in `@synnaxlabs/arc`) -> Arc code blocks, and the type
@@ -64,7 +64,7 @@ An icon in text, such as **Arcs** (`<Icon.Arc />`), is 1em and centers on the ca
 - **Dot** -> 5px, gray-l8. One item of a set, in no order.
 - **Square** -> 24px, 6px corners, gray-l2 fill and 1px gray-l3 border (the inline code
   chip), mono 12px. 20px next to small text. An order: actions to do, events that
-  happen, or parts that come in a fixed order.
+  happen, or parts that come in a fixed order. The icon chip of a term is a 36px square.
 - **Index** -> `01`, mono 12px, gray-l7. A number that keeps the reader's place in a set
   that has no order of its own.
 - **Eyebrow** -> mono 12px, uppercase, gray-l8, above a heading. A part of a tutorial
