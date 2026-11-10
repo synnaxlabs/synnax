@@ -327,7 +327,8 @@ class Client:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)
 
     def set_text(self, key: Key, text: str) -> None:
-        """Replaces the text of the text-mode Arc with key.
+        """Replaces the text of the text-mode Arc with key. Edits that other editors
+        make between the read and the write merge into the result.
 
         :raises NotFoundError: If no Arc has key.
         :raises ValueError: If the Arc is a graph-mode Arc.
