@@ -211,8 +211,22 @@ class TestCherryPicks:
         assert "### Arc" not in notes
         assert f"### Core\n* Fix a stall by @someone in {PULL}/11" in notes
 
-    def test_keeps_a_fix_picked_only_into_a_later_release(self, train: Train) -> None:
+    def test_keeps_a_fix_the_previous_tag_does_not_hold(self, train: Train) -> None:
+        train.git("checkout", "-q", "-b", "release/core-0.59", "main~3")
         train.git("cherry-pick", "-x", train.stall)
-        train.git("tag", "core/v0.62.1")
+        train.git("tag", "core/v0.59.2")
         notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.0")
-        assert f"{PULL}/11" in notes
+        assert f"* Fix a stall by @someone in {PULL}/11" in notes
+
+    def test_leaves_out_a_fix_picked_from_its_pr_branch(self, train: Train) -> None:
+        branch = "0123456789abcdef0123456789abcdef01234567"
+        train.commit("Pick the stall fix (0.60.1) (#13)")
+        train.git("tag", "core/v0.60.1")
+        train.gh.serve("api */pulls/13/commits", [picked("Fix a stall", branch)])
+        train.gh.serve(
+            f"api */commits/{branch}/pulls",
+            [{"number": 11, "merged_at": "2026-11-01T00:00:00Z"}],
+        )
+        notes = train.run("core/v0.61.0", "main", "c.yml", "core/v0.60.1")
+        assert f"{PULL}/11" not in notes
+        assert f"* Fix a stage by @someone in {PULL}/14" in notes

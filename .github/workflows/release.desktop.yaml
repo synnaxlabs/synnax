@@ -121,6 +121,7 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
