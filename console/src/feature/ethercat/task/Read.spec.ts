@@ -645,6 +645,35 @@ describe("Read", () => {
     ]);
   });
 
+  it("should leave out the settings of an input that only a disabled channel reads", async () => {
+    const slave = await createStrainSlave();
+    const other = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { container, draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        EtherCAT.Task.createEntryReadChannel(other.key, createPDOs().inputs[0]),
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          disabled: true,
+        },
+      ],
+      startupParameters: [
+        { device: slave.key, parameters: [{ ...MEASUREMENT, value: 6 }] },
+      ],
+    });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(created.config.startupParameters).toEqual([]);
+  });
+
   it("should block configuration of a setting that breaks a rule of the catalog", async () => {
     const slave = await createStrainSlave();
     const { container, statuses } = await renderRead({
