@@ -11,8 +11,8 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, filter } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { NotFoundError } from "@/errors";
 import { actions } from "@/actions";
+import { NotFoundError } from "@/errors";
 import { query } from "@/query";
 import { resource } from "@/resource";
 import { createOf, reduceAll } from "@/secret/actions";
@@ -277,8 +277,15 @@ export class Client extends query.Retriever<
   private async fetchThrough(req: RetrieveRequest): Promise<Secret[]> {
     const secrets = await this.execRetrieve(req);
     if (req.includeUses !== true) return secrets;
-    this.usesStore.set(secrets.map(({ key, uses }) => ({ key, uses })));
+    this.usesStore.set(this.usesOf(secrets));
     return secrets.map(stripUses);
+  }
+
+  // A fetch that a delete overtakes must not restore the uses of the deleted secret.
+  private usesOf(secrets: Secret[]): Uses[] {
+    return secrets
+      .filter(({ key }) => this.store.status(key) !== "tombstoned")
+      .map(({ key, uses }) => ({ key, uses }));
   }
 
   private async fetchSingle({ key, includeUses }: RetrieveSingleParams): Promise<Key> {
