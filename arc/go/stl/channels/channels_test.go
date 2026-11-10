@@ -552,6 +552,17 @@ var _ = Describe("Channel", func() {
 			)
 
 			It(
+				"Should keep its entry stamp when the offset changes after entry",
+				func(ctx SpecContext) {
+					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)
+					enter(ctx, 101*telem.SecondTS)
+					learnOffset(11, 100*telem.SecondTS, 111*telem.SecondTS)
+					deliver(ctx, 100.5)
+					Expect(emitted).To(BeZero())
+				},
+			)
+
+			It(
 				"Should not let a delayed batch raise the offset",
 				func(ctx SpecContext) {
 					learnOffset(11, 100*telem.SecondTS, 100*telem.SecondTS)

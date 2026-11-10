@@ -9370,5 +9370,54 @@ var _ = Describe("Sequence", func() {
 				Expect(seen(h)).To(Equal([]float32{3, 4}))
 			},
 		)
+
+		It(
+			"Should drop a pre-entry batch on a channel an alias rebinds to at entry",
+			func(ctx SpecContext) {
+				const rebindPt = 425
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), startCmd},
+					"go_cmd":    {types.U8(), goCmd},
+					"pt":        {types.F32(), pt},
+					"other_pt":  {types.F32(), rebindPt},
+					"pt_seen":   {types.F32(), ptSeen},
+				})
+				h := newRuntimeHarness(ctx, `
+    sequence main {
+        p := other_pt
+        stage a {
+            p -> pt_seen
+            go_cmd == 1 => next
+        }
+        stage b {
+            p = pt
+            p -> pt_seen
+        }
+    }
+    start_cmd == 1 => main`, resolver,
+					channels.Digest{Key: startCmd, DataType: telem.Uint8T},
+					channels.Digest{Key: goCmd, DataType: telem.Uint8T},
+					channels.Digest{Key: ptIdx, DataType: telem.TimestampT},
+					channels.Digest{Key: pt, DataType: telem.Float32T, Index: ptIdx},
+					channels.Digest{Key: rebindPt, DataType: telem.Float32T},
+					channels.Digest{Key: ptSeen, DataType: telem.Float32T},
+				)
+				defer h.Close(ctx)
+				trigger(h, ctx, startCmd)
+				pre := h.cycleNow
+				learn(h)
+				trigger(h, ctx, goCmd)
+				h.IngestIndexed(
+					ptIdx,
+					telem.NewSeriesV(pre-10*telem.MillisecondTS),
+					pt,
+					telem.NewSeriesV[float32](289.6),
+				)
+				for range 5 {
+					advance(h, ctx, telem.Millisecond)
+				}
+				Expect(seen(h)).To(BeEmpty())
+			},
+		)
 	})
 })
