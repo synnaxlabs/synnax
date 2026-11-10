@@ -59,6 +59,51 @@ var _ = Describe("MigrateArc", func() {
 		Expect(src.Raw).To(BeEmpty())
 	})
 
+	It("Should cast the mixed range() arguments of a stored 0.60 program", func(
+		ctx SpecContext,
+	) {
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Name: "ranges",
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(
+				"func f{n i32} () {\n    for i := range(n, i64(100)) {}\n}",
+			)},
+		}
+		got := textOf(migrateFromV3(ctx, seed).Base()).Materialize().Raw
+		Expect(got).To(Equal(
+			"func f(n i32) {} {\n    for i := range(i64(n), i64(100)) {}\n}",
+		))
+		diag := analyze(ctx, got)
+		Expect(diag.Ok()).To(BeTrue(), diag.String())
+	})
+
+	It("Should keep a stored program that does not parse", func(ctx SpecContext) {
+		const broken = "func f() {\n    for i := range(n, i64(100)) {}\n"
+		seed := v3.Arc{
+			Key:  uuid.New(),
+			Mode: v3.ModeText,
+			Text: text.Text{Doc: text.Create(broken)},
+		}
+		got := textOf(migrateFromV3(ctx, seed).Base()).Materialize().Raw
+		Expect(got).To(Equal(v4.SwapBrackets(broken)))
+	})
+
+	It("Should cast the mixed range() arguments of an imported program", func(
+		ctx SpecContext,
+	) {
+		got := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
+			Name: "imported",
+			Mode: v3.ModeText,
+			Text: text.Text{
+				Raw: "func f{n i32} () {\n    for i := range(n, i64(1)) {}\n}",
+			},
+		})).Base()
+		Expect(textOf(got).Materialize().Raw).To(Equal(
+			"func f(n i32) {} {\n    for i := range(i64(n), i64(1)) {}\n}",
+		))
+	})
+
 	It("Should lift a v3 Arc as an automation", func(ctx SpecContext) {
 		key := uuid.New()
 		migrated := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
