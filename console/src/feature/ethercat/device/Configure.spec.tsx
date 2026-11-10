@@ -337,7 +337,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       subIndex: 1,
       dataType: "uint16",
       value: 12,
-      name: "Sample rate",
+      name: "",
     };
 
     it("should save a setting picked as a startup parameter", async () => {
@@ -351,6 +351,30 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         expect(properties.startupParameters).toEqual([FILTER, SAMPLE_RATE]);
         expect(properties.settings).toEqual(settings);
       });
+    });
+
+    it("should show the name of the setting for a parameter with no name", async () => {
+      await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [SAMPLE_RATE],
+      });
+      expect(cell("Name 1").value).toBe("Sample rate");
+    });
+
+    it("should keep the name that the user gave the parameter of a setting", async () => {
+      const named = { ...SAMPLE_RATE, value: 4, name: "Rate" };
+      const slave = await setup({
+        settings: createSettingsDescription(),
+        startupParameters: [named],
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Sample rate" }));
+      fireEvent.click(await screen.findByRole("option", { name: "1 kS/s" }));
+      await save();
+      await waitFor(async () =>
+        expect((await retrieve(slave.key)).properties.startupParameters).toEqual([
+          { ...named, value: 12 },
+        ]),
+      );
     });
 
     it("should remove the startup parameter of a cleared setting", async () => {

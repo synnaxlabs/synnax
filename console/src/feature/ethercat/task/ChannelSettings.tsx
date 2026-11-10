@@ -16,7 +16,7 @@ import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SettingInput } from "@/feature/ethercat/device/SettingInput";
 import {
   check,
-  findChannel,
+  findInput,
   problemAt,
   set,
   valueAt,
@@ -56,11 +56,11 @@ export const ChannelSettings = ({
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  const channel = findChannel(slave?.properties.settings, ch);
-  if (channel == null || slave == null || isShared(slave.properties)) return null;
-  const fields = channel.settings;
+  const input = findInput(slave?.properties.settings, ch);
+  if (input == null || slave == null || isShared(slave.properties)) return null;
+  const fields = input.settings;
   const values = held.find((s) => s.device === ch.device)?.parameters ?? [];
-  const problems = check(channel, values);
+  const problems = check(input, values);
   return (
     <PForm.Section title="Settings">
       {visibleFields(fields, values).map((field) => (

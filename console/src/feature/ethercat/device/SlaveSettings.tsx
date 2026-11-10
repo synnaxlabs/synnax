@@ -23,14 +23,18 @@ import { type SlaveDevice } from "@/feature/ethercat/device/types";
 
 const PATH = deep.path<SlaveDevice>().properties;
 
-/** @returns the parameters after the field takes the value, or loses it on null. */
+/**
+ * @returns the parameters after the field takes the value, or loses it on null. A new
+ * parameter has no name, so the table shows the name of the field.
+ */
 const setParameter = (
   parameters: ethercat.StartupParameter[],
-  { index, subIndex, dataType, name }: Field,
+  { index, subIndex, dataType }: Field,
   value: number | null,
 ): ethercat.StartupParameter[] => {
   const i = parameters.findIndex((p) => sameAddress(p, { index, subIndex }));
   if (value == null) return parameters.filter((_, j) => j !== i);
+  const name = i === -1 ? "" : parameters[i].name;
   const parameter = { index, subIndex, dataType, value, name };
   if (i === -1) return [...parameters, parameter];
   return parameters.map((p, j) => (j === i ? parameter : p));
