@@ -298,7 +298,7 @@ actions, so phase 8 deletes them with no migration.
 | 4     | Serve every dispatch endpoint with one handler  | `core/pkg/api`                                                                          | 1          |
 | 5     | Apply updates in the Core                       | `core/pkg/service`, `core/pkg/api`                                                      | 3, 4       |
 | 6     | Move TypeScript clients and forms to updates    | `client/ts`, `pluto`, `console`                                                         | 5          |
-| 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5          |
+| 7     | Move Python, C++, and Driver edits to updates   | `client/py`, `client/cpp`, `driver`                                                     | 5, 6       |
 | 8     | Delete path actions and per-client edit helpers | `oracle`, `x/go/patch`, `x/ts/src/patch`, `core/pkg/service`, `client/ts`, `client/py`  | 6, 7       |
 | 9     | Type the gRPC dispatch protos and add batch     | `oracle/plugin/pb`, `core/pkg/api/grpc`, `core/pkg/transport/grpc`, `client/cpp`        | 8          |
 
