@@ -46,7 +46,7 @@ struct Health {
 
 const std::string CLOCK_TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/"
                                               "enterprise/troubleshooting"
-                                              "#clock-is-ahead-of-the-core";
+                                              "#clock-out-of-sync-with-the-core";
 
 /// @brief returns a warning when the clock skew in conn exceeds its threshold, and
 /// health otherwise. A health that is not a success takes precedence.
@@ -62,10 +62,8 @@ with_clock_skew(const Health &health, const synnax::connection::State &conn) {
         .variant = ::synnax::status::VARIANT_WARNING,
         .message = "Clock out of sync with the Core",
         .description = "The clock of this host is " +
-                       conn.clock_skew.abs()
-                           .truncate(x::telem::MILLISECOND)
-                           .to_string() +
-                       " " + direction + " the Core, more than the " +
+                       conn.clock_skew.abs().to_string() + " " + direction +
+                       " the Core, more than the " +
                        conn.clock_skew_threshold.to_string() +
                        " limit. Synchronize both clocks with NTP. See " +
                        CLOCK_TROUBLESHOOTING_URL + ".",

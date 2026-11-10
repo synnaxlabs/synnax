@@ -512,6 +512,7 @@ TEST(stateTests, WarnsOnClockSkew) {
     EXPECT_NE(warned.description.find("ahead of the Core"), std::string::npos);
     EXPECT_NE(warned.description.find("1s limit"), std::string::npos);
     EXPECT_NE(warned.description.find("NTP"), std::string::npos);
+    EXPECT_TRUE(warned.details.running);
     skewed->skew = 0;
     client->connectivity->check();
     const auto beats = transport->beats.load();
@@ -525,5 +526,47 @@ TEST(stateTests, WarnsOnClockSkew) {
     EXPECT_EQ(cleared.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(cleared.message, "Driver is running");
     EXPECT_EQ(cleared.description, "");
+}
+
+/// @brief it should say the clock is behind the Core when the skew is negative, and
+/// print the skew without rounding it to the limit.
+TEST(stateTests, WarnsWhenClockBehind) {
+    const auto health = with_clock_skew(
+        Health{},
+        synnax::connection::State{
+            .clock_skew = x::telem::TimeSpan::ZERO() - x::telem::SECOND -
+                          400 * x::telem::MICROSECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(health.message, "Clock out of sync with the Core");
+    EXPECT_EQ(
+        health.description,
+        "The clock of this host is 1s 400us behind the Core, more than the 1s limit. "
+        "Synchronize both clocks with NTP. See " +
+            CLOCK_TROUBLESHOOTING_URL + "."
+    );
+}
+
+/// @brief it should report a health that is not a success over a clock skew warning.
+TEST(stateTests, HealthOverridesClockSkew) {
+    const Health error{
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Driver 0.59.3 cannot work with Core 0.60.1",
+        .description = "Install the Driver release that matches the Core.",
+    };
+    const auto health = with_clock_skew(
+        error,
+        synnax::connection::State{
+            .clock_skew = 3 * x::telem::SECOND,
+            .clock_skew_exceeded = true,
+            .clock_skew_threshold = x::telem::SECOND,
+        }
+    );
+    EXPECT_EQ(health.variant, error.variant);
+    EXPECT_EQ(health.message, error.message);
+    EXPECT_EQ(health.description, error.description);
 }
 }
