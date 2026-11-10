@@ -32,6 +32,7 @@ ignore:
   - "**/*.gen.go"
   - "**/*.gen.ts"
   - "**/*.gen.h"
+  - "**/actions_gen.py"
   - "**/types_gen.py"
   # protoc
   - "**/*.pb.go"

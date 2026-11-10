@@ -180,7 +180,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-omit = ["*/types_gen.py"]
+omit = ["*/actions_gen.py", "*/types_gen.py"]
 
 [build-system]
 requires = ["hatchling"]
