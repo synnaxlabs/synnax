@@ -80,7 +80,7 @@ export const plan = async (
   };
   return await Promise.all(
     names.map(async (name) => {
-      const { url } = resolve(name, trains);
+      const { url } = resolve(name, trains, null);
       return {
         version: name,
         ref: ref ?? (await refOf(name)),
