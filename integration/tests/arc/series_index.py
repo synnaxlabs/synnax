@@ -39,7 +39,26 @@ func read_wide() {i i64} f64 {
     return data[i]
 }
 
+// An unsigned counter that goes below zero wraps to the maximum of its type.
+func read_u8() {i u8} f64 {
+    data := [1.5, 2.5, 3.5]
+    return data[i - 1]
+}
+
+func read_u32() {i u32} f64 {
+    data := [1.5, 2.5, 3.5]
+    return data[i - 1]
+}
+
+func read_u64() {i u64} f64 {
+    data := [1.5, 2.5, 3.5]
+    return data[i - 1]
+}
+
 series_read_idx -> read_at() -> series_read_out
+series_u8_idx -> read_u8() -> series_u8_out
+series_u32_idx -> read_u32() -> series_u32_out
+series_u64_idx -> read_u64() -> series_u64_out
 series_wide_idx -> read_wide() -> series_wide_out
 series_write_idx -> write_at() -> series_write_out
 series_flag_idx -> flag_at() -> series_flag_out
@@ -54,6 +73,8 @@ class IndexCase:
     index: int
     # None for an index outside the series.
     expected: float | None
+    # The index the task reports, when it is not the value written.
+    reported: int | None = None
 
 
 # Each series holds 3 values. Consecutive expectations on one output differ, so each
@@ -76,6 +97,12 @@ CASES = [
     IndexCase("FlagMiddle", "series_flag_idx", "series_flag_out", 1, 1),
     IndexCase("WideFirst", "series_wide_idx", "series_wide_out", 0, 1.5),
     IndexCase("WideLast", "series_wide_idx", "series_wide_out", -1, 3.5),
+    IndexCase("U8First", "series_u8_idx", "series_u8_out", 1, 1.5),
+    IndexCase("U8Last", "series_u8_idx", "series_u8_out", 3, 3.5),
+    IndexCase("U32First", "series_u32_idx", "series_u32_out", 1, 1.5),
+    IndexCase("U32Last", "series_u32_idx", "series_u32_out", 3, 3.5),
+    IndexCase("U64First", "series_u64_idx", "series_u64_out", 1, 1.5),
+    IndexCase("U64Last", "series_u64_idx", "series_u64_out", 3, 3.5),
     IndexCase("ReadPastEnd", "series_read_idx", "series_read_out", 3, None),
     IndexCase("ReadBeforeStart", "series_read_idx", "series_read_out", -4, None),
     IndexCase("WritePastEnd", "series_write_idx", "series_write_out", 4, None),
@@ -85,9 +112,20 @@ CASES = [
     IndexCase("WidePastEnd", "series_wide_idx", "series_wide_out", 6, None),
     IndexCase("WideAboveI32", "series_wide_idx", "series_wide_out", 2**32 + 1, None),
     IndexCase("WideBelowI32", "series_wide_idx", "series_wide_out", -(2**32) - 1, None),
+    IndexCase("U8BelowZero", "series_u8_idx", "series_u8_out", 0, None, 2**8 - 1),
+    IndexCase("U32BelowZero", "series_u32_idx", "series_u32_out", 0, None, 2**32 - 1),
+    IndexCase("U64BelowZero", "series_u64_idx", "series_u64_out", 0, None, 2**64 - 1),
 ]
 
-OUTPUTS = ["series_read_out", "series_write_out", "series_flag_out", "series_wide_out"]
+OUTPUTS = [
+    "series_read_out",
+    "series_write_out",
+    "series_flag_out",
+    "series_wide_out",
+    "series_u8_out",
+    "series_u32_out",
+    "series_u64_out",
+]
 
 
 class SeriesIndex(ArcCase):
@@ -108,6 +146,15 @@ class SeriesIndex(ArcCase):
         )
         create_indexed_pair(self.client, "series_read_out")
         create_indexed_pair(self.client, "series_wide_out")
+        for name, data_type in (
+            ("u8", sy.DataType.UINT8),
+            ("u32", sy.DataType.UINT32),
+            ("u64", sy.DataType.UINT64),
+        ):
+            create_virtual_channel(
+                self.client, f"series_{name}_idx", data_type=data_type
+            )
+            create_indexed_pair(self.client, f"series_{name}_out")
         create_indexed_pair(self.client, "series_write_out")
         create_indexed_pair(self.client, "series_flag_out", data_type=sy.DataType.UINT8)
         super().setup()
@@ -115,12 +162,13 @@ class SeriesIndex(ArcCase):
     def _expect_out_of_bounds(self, case: IndexCase, last: float | None) -> None:
         """Fail unless the task reported the index and the output kept its last
         value."""
-        description = f"index {case.index} out of bounds for series of size 3"
-        if not -(2**31) <= case.index < 2**31:
-            description = f"index {case.index} out of bounds for an i32 series index"
+        index = case.index if case.reported is None else case.reported
+        description = f"index {index} out of bounds for series of size 3"
+        if not -(2**31) <= index < 2**31:
+            description = f"index {index} out of bounds for an i32 series index"
         key = self.task_key(self.arc_name)
         if not self.wait_for_task_status(key, description):
-            self.fail(f"[{case.label}] no status surfaced for index {case.index}")
+            self.fail(f"[{case.label}] no status surfaced for index {index}")
         actual = self.read_tlm(case.out_ch)
         if actual != last:
             self.fail(f"[{case.label}] {case.out_ch} changed from {last} to {actual}")

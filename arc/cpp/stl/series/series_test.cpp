@@ -1298,7 +1298,8 @@ TEST(SeriesModule, LenNullHandleReturnsZero) {
 /// @brief it should return an index that fits in an i32.
 TEST(SeriesModule, IndexFromReturnsIndexInRange) {
     Fixture f{std::string(MISC_WAT)};
-    for (const int64_t index: {int64_t{0}, int64_t{-1}, int64_t{INT32_MAX}}) {
+    for (const int64_t index:
+         {int64_t{0}, int64_t{-1}, int64_t{INT32_MAX}, int64_t{INT32_MIN}}) {
         auto result = f.get("index_from_i64")
                           .call(f.store, {wasmtime::Val(index)})
                           .unwrap();
@@ -1326,6 +1327,10 @@ TEST(SeriesModule, IndexFromU64OutOfRangeTraps) {
     expect_failure(
         f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{-1})}),
         "index 18446744073709551615 out of bounds for an i32 series index"
+    );
+    expect_failure(
+        f.get("index_from_u64").call(f.store, {wasmtime::Val(int64_t{INT32_MAX} + 1)}),
+        "index 2147483648 out of bounds for an i32 series index"
     );
 }
 

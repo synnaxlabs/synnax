@@ -144,13 +144,46 @@ func (e *Writer) WriteBrIf(labelIdx uint32) {
 	e.WriteLEB128Unsigned(uint64(labelIdx))
 }
 
+// WriteBinaryOpInferred writes the binary operation op for operands of resultType. An
+// arithmetic result wraps to the width of resultType.
 func (e *Writer) WriteBinaryOpInferred(op string, resultType types.Type) error {
 	opcode, err := binaryOpcode(op, resultType)
 	if err != nil {
 		return err
 	}
 	e.WriteBinaryOp(opcode)
+	switch op {
+	case "+", "-", "*", "/", "%":
+		e.WriteNarrow(resultType)
+	default:
+	}
 	return nil
+}
+
+// WriteNarrow wraps the i32 on the stack to the width of t. WASM has no 8-bit or
+// 16-bit integer, so arithmetic on these types can leave a value outside their range.
+// It writes nothing for any other type.
+func (e *Writer) WriteNarrow(t types.Type) {
+	switch t.Kind {
+	case types.KindU8:
+		e.WriteI32Const(math.MaxUint8)
+		e.WriteOpcode(OpI32And)
+	case types.KindU16:
+		e.WriteI32Const(math.MaxUint16)
+		e.WriteOpcode(OpI32And)
+	case types.KindI8:
+		e.writeSignExtend(24)
+	case types.KindI16:
+		e.writeSignExtend(16)
+	default:
+	}
+}
+
+func (e *Writer) writeSignExtend(shift int32) {
+	e.WriteI32Const(shift)
+	e.WriteOpcode(OpI32Shl)
+	e.WriteI32Const(shift)
+	e.WriteOpcode(OpI32ShrS)
 }
 
 // WriteBinaryOp writes a simple binary operation (no immediates)

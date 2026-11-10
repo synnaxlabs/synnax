@@ -96,6 +96,110 @@ func cast_f64_neg() {x f64} {
 }
 in_f64_neg -> cast_f64_neg()
 
+// ───────── Narrow integer types (u8, u16, i8, i16) ─────────
+// A narrow type holds only values in its range. Each result widens to i64 in Arc,
+// because a narrow output channel cuts the value to its width when it stores it.
+func wrap_cast() {x i32} {
+    out_wrap_cast_u8  = i64(u8(x))
+    out_wrap_cast_i8  = i64(i8(x))
+    out_wrap_cast_u16 = i64(u16(x))
+    out_wrap_cast_i16 = i64(i16(x))
+}
+in_wrap_cast -> wrap_cast()
+
+func wrap_cast_i64() {x i64} {
+    out_wrap_cast_i64_u8  = i64(u8(x))
+    out_wrap_cast_i64_i8  = i64(i8(x))
+    out_wrap_cast_i64_u16 = i64(u16(x))
+    out_wrap_cast_i64_i16 = i64(i16(x))
+}
+in_wrap_cast_i64 -> wrap_cast_i64()
+
+func wrap_cast_u16() {x u16} {
+    out_wrap_cast_u16_u8  = i64(u8(x))
+    out_wrap_cast_u16_i8  = i64(i8(x))
+    out_wrap_cast_u16_i16 = i64(i16(x))
+}
+in_wrap_cast_u16 -> wrap_cast_u16()
+
+func wrap_cast_u8() {x u8} {
+    out_wrap_cast_u8_i8  = i64(i8(x))
+    out_wrap_cast_u8_u16 = i64(u16(x))
+    out_wrap_cast_u8_i16 = i64(i16(x))
+}
+in_wrap_cast_u8 -> wrap_cast_u8()
+
+func wrap_cast_i8() {x i8} {
+    out_wrap_cast_i8_u8  = i64(u8(x))
+    out_wrap_cast_i8_u16 = i64(u16(x))
+    out_wrap_cast_i8_i16 = i64(i16(x))
+}
+in_wrap_cast_i8 -> wrap_cast_i8()
+
+func sat_cast() {x f64} {
+    out_sat_cast_u8  = i64(u8(x))
+    out_sat_cast_i8  = i64(i8(x))
+    out_sat_cast_u16 = i64(u16(x))
+    out_sat_cast_i16 = i64(i16(x))
+}
+in_sat_cast -> sat_cast()
+
+func sat_cast_f32() {x f32} {
+    out_sat_cast_f32_u8  = i64(u8(x))
+    out_sat_cast_f32_i8  = i64(i8(x))
+    out_sat_cast_f32_u16 = i64(u16(x))
+    out_sat_cast_f32_i16 = i64(i16(x))
+}
+in_sat_cast_f32 -> sat_cast_f32()
+
+func wrap_u8() {x u8} {
+    out_wrap_u8_sub = i64(x - 1)
+    out_wrap_u8_add = i64(x + 255)
+    out_wrap_u8_mul = i64(x * 100)
+    out_wrap_u8_neg = i64(-x)
+    y u8 := x
+    y += 255
+    out_wrap_u8_cmp = i64(y)
+}
+in_wrap_u8 -> wrap_u8()
+
+func wrap_u16() {x u16} {
+    out_wrap_u16_sub = i64(x - 1)
+    out_wrap_u16_add = i64(x + 65535)
+    out_wrap_u16_mul = i64(x * 1000)
+    out_wrap_u16_neg = i64(-x)
+    y u16 := x
+    y += 65535
+    out_wrap_u16_cmp = i64(y)
+}
+in_wrap_u16 -> wrap_u16()
+
+func wrap_i8() {x i8} {
+    d i8 := -1
+    out_wrap_i8_sub = i64(x - 127)
+    out_wrap_i8_add = i64(x + 127)
+    out_wrap_i8_mul = i64(x * 100)
+    out_wrap_i8_neg = i64(-x)
+    out_wrap_i8_div = i64(x / d)
+    y i8 := x
+    y -= 127
+    out_wrap_i8_cmp = i64(y)
+}
+in_wrap_i8 -> wrap_i8()
+
+func wrap_i16() {x i16} {
+    d i16 := -1
+    out_wrap_i16_sub = i64(x - 32767)
+    out_wrap_i16_add = i64(x + 32767)
+    out_wrap_i16_mul = i64(x * 1000)
+    out_wrap_i16_neg = i64(-x)
+    out_wrap_i16_div = i64(x / d)
+    y i16 := x
+    y -= 32767
+    out_wrap_i16_cmp = i64(y)
+}
+in_wrap_i16 -> wrap_i16()
+
 // ───────── Flow-context casts (inline expression in flow) ─────────
 // The cast.go path that compiles in-flow expressions differs from the WASM
 // function-body path above: the value is read straight from channel state at
@@ -140,6 +244,316 @@ INPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("in_f64", sy.DataType.FLOAT64),
     ("in_f64_neg", sy.DataType.FLOAT64),
     ("flow_trigger", sy.DataType.INT64),
+    ("in_wrap_cast", sy.DataType.INT32),
+    ("in_wrap_cast_i64", sy.DataType.INT64),
+    ("in_wrap_cast_u16", sy.DataType.UINT16),
+    ("in_wrap_cast_u8", sy.DataType.UINT8),
+    ("in_wrap_cast_i8", sy.DataType.INT8),
+    ("in_sat_cast", sy.DataType.FLOAT64),
+    ("in_sat_cast_f32", sy.DataType.FLOAT32),
+    ("in_wrap_u8", sy.DataType.UINT8),
+    ("in_wrap_u16", sy.DataType.UINT16),
+    ("in_wrap_i8", sy.DataType.INT8),
+    ("in_wrap_i16", sy.DataType.INT16),
+]
+
+# Each entry is an input channel, the value to write, and the i64 outputs to expect.
+# The two values for one input give different outputs, so each wait proves a new
+# write landed.
+NARROW_CASES: list[tuple[str, int | float, dict[str, int]]] = [
+    # An integer cast wraps to the width of the target.
+    (
+        "in_wrap_cast",
+        -1,
+        {
+            "out_wrap_cast_u8": 255,
+            "out_wrap_cast_i8": -1,
+            "out_wrap_cast_u16": 65535,
+            "out_wrap_cast_i16": -1,
+        },
+    ),
+    (
+        "in_wrap_cast",
+        40000,
+        {
+            "out_wrap_cast_u8": 64,
+            "out_wrap_cast_i8": 64,
+            "out_wrap_cast_u16": 40000,
+            "out_wrap_cast_i16": -25536,
+        },
+    ),
+    (
+        "in_wrap_cast",
+        42,
+        {
+            "out_wrap_cast_u8": 42,
+            "out_wrap_cast_i8": 42,
+            "out_wrap_cast_u16": 42,
+            "out_wrap_cast_i16": 42,
+        },
+    ),
+    (
+        "in_wrap_cast_i64",
+        300,
+        {
+            "out_wrap_cast_i64_u8": 44,
+            "out_wrap_cast_i64_i8": 44,
+            "out_wrap_cast_i64_u16": 300,
+            "out_wrap_cast_i64_i16": 300,
+        },
+    ),
+    (
+        "in_wrap_cast_i64",
+        -40000,
+        {
+            "out_wrap_cast_i64_u8": 192,
+            "out_wrap_cast_i64_i8": -64,
+            "out_wrap_cast_i64_u16": 25536,
+            "out_wrap_cast_i64_i16": 25536,
+        },
+    ),
+    (
+        "in_wrap_cast_i64",
+        4294967303,
+        {
+            "out_wrap_cast_i64_u8": 7,
+            "out_wrap_cast_i64_i8": 7,
+            "out_wrap_cast_i64_u16": 7,
+            "out_wrap_cast_i64_i16": 7,
+        },
+    ),
+    (
+        "in_wrap_cast_u16",
+        300,
+        {
+            "out_wrap_cast_u16_u8": 44,
+            "out_wrap_cast_u16_i8": 44,
+            "out_wrap_cast_u16_i16": 300,
+        },
+    ),
+    (
+        "in_wrap_cast_u16",
+        65535,
+        {
+            "out_wrap_cast_u16_u8": 255,
+            "out_wrap_cast_u16_i8": -1,
+            "out_wrap_cast_u16_i16": -1,
+        },
+    ),
+    (
+        "in_wrap_cast_u8",
+        200,
+        {
+            "out_wrap_cast_u8_i8": -56,
+            "out_wrap_cast_u8_u16": 200,
+            "out_wrap_cast_u8_i16": 200,
+        },
+    ),
+    (
+        "in_wrap_cast_u8",
+        100,
+        {
+            "out_wrap_cast_u8_i8": 100,
+            "out_wrap_cast_u8_u16": 100,
+            "out_wrap_cast_u8_i16": 100,
+        },
+    ),
+    (
+        "in_wrap_cast_i8",
+        -1,
+        {
+            "out_wrap_cast_i8_u8": 255,
+            "out_wrap_cast_i8_u16": 65535,
+            "out_wrap_cast_i8_i16": -1,
+        },
+    ),
+    (
+        "in_wrap_cast_i8",
+        5,
+        {
+            "out_wrap_cast_i8_u8": 5,
+            "out_wrap_cast_i8_u16": 5,
+            "out_wrap_cast_i8_i16": 5,
+        },
+    ),
+    # A float cast saturates at the bounds of the target.
+    (
+        "in_sat_cast",
+        70000.0,
+        {
+            "out_sat_cast_u8": 255,
+            "out_sat_cast_i8": 127,
+            "out_sat_cast_u16": 65535,
+            "out_sat_cast_i16": 32767,
+        },
+    ),
+    (
+        "in_sat_cast",
+        -70000.0,
+        {
+            "out_sat_cast_u8": 0,
+            "out_sat_cast_i8": -128,
+            "out_sat_cast_u16": 0,
+            "out_sat_cast_i16": -32768,
+        },
+    ),
+    (
+        "in_sat_cast",
+        42.9,
+        {
+            "out_sat_cast_u8": 42,
+            "out_sat_cast_i8": 42,
+            "out_sat_cast_u16": 42,
+            "out_sat_cast_i16": 42,
+        },
+    ),
+    (
+        "in_sat_cast_f32",
+        70000.0,
+        {
+            "out_sat_cast_f32_u8": 255,
+            "out_sat_cast_f32_i8": 127,
+            "out_sat_cast_f32_u16": 65535,
+            "out_sat_cast_f32_i16": 32767,
+        },
+    ),
+    (
+        "in_sat_cast_f32",
+        -70000.0,
+        {
+            "out_sat_cast_f32_u8": 0,
+            "out_sat_cast_f32_i8": -128,
+            "out_sat_cast_f32_u16": 0,
+            "out_sat_cast_f32_i16": -32768,
+        },
+    ),
+    (
+        "in_sat_cast_f32",
+        -42.5,
+        {
+            "out_sat_cast_f32_u8": 0,
+            "out_sat_cast_f32_i8": -42,
+            "out_sat_cast_f32_u16": 0,
+            "out_sat_cast_f32_i16": -42,
+        },
+    ),
+    # Arithmetic wraps to the width of the type.
+    (
+        "in_wrap_u8",
+        0,
+        {
+            "out_wrap_u8_sub": 255,
+            "out_wrap_u8_add": 255,
+            "out_wrap_u8_mul": 0,
+            "out_wrap_u8_neg": 0,
+            "out_wrap_u8_cmp": 255,
+        },
+    ),
+    (
+        "in_wrap_u8",
+        17,
+        {
+            "out_wrap_u8_sub": 16,
+            "out_wrap_u8_add": 16,
+            "out_wrap_u8_mul": 164,
+            "out_wrap_u8_neg": 239,
+            "out_wrap_u8_cmp": 16,
+        },
+    ),
+    (
+        "in_wrap_u16",
+        0,
+        {
+            "out_wrap_u16_sub": 65535,
+            "out_wrap_u16_add": 65535,
+            "out_wrap_u16_mul": 0,
+            "out_wrap_u16_neg": 0,
+            "out_wrap_u16_cmp": 65535,
+        },
+    ),
+    (
+        "in_wrap_u16",
+        100,
+        {
+            "out_wrap_u16_sub": 99,
+            "out_wrap_u16_add": 99,
+            "out_wrap_u16_mul": 34464,
+            "out_wrap_u16_neg": 65436,
+            "out_wrap_u16_cmp": 99,
+        },
+    ),
+    (
+        "in_wrap_i8",
+        1,
+        {
+            "out_wrap_i8_sub": -126,
+            "out_wrap_i8_add": -128,
+            "out_wrap_i8_mul": 100,
+            "out_wrap_i8_neg": -1,
+            "out_wrap_i8_div": -1,
+            "out_wrap_i8_cmp": -126,
+        },
+    ),
+    (
+        "in_wrap_i8",
+        -128,
+        {
+            "out_wrap_i8_sub": 1,
+            "out_wrap_i8_add": -1,
+            "out_wrap_i8_mul": 0,
+            "out_wrap_i8_neg": -128,
+            "out_wrap_i8_div": -128,
+            "out_wrap_i8_cmp": 1,
+        },
+    ),
+    (
+        "in_wrap_i8",
+        2,
+        {
+            "out_wrap_i8_sub": -125,
+            "out_wrap_i8_add": -127,
+            "out_wrap_i8_mul": -56,
+            "out_wrap_i8_neg": -2,
+            "out_wrap_i8_div": -2,
+            "out_wrap_i8_cmp": -125,
+        },
+    ),
+    (
+        "in_wrap_i16",
+        1,
+        {
+            "out_wrap_i16_sub": -32766,
+            "out_wrap_i16_add": -32768,
+            "out_wrap_i16_mul": 1000,
+            "out_wrap_i16_neg": -1,
+            "out_wrap_i16_div": -1,
+            "out_wrap_i16_cmp": -32766,
+        },
+    ),
+    (
+        "in_wrap_i16",
+        -32768,
+        {
+            "out_wrap_i16_sub": 1,
+            "out_wrap_i16_add": -1,
+            "out_wrap_i16_mul": 0,
+            "out_wrap_i16_neg": -32768,
+            "out_wrap_i16_div": -32768,
+            "out_wrap_i16_cmp": 1,
+        },
+    ),
+    (
+        "in_wrap_i16",
+        40,
+        {
+            "out_wrap_i16_sub": -32727,
+            "out_wrap_i16_add": -32729,
+            "out_wrap_i16_mul": -25536,
+            "out_wrap_i16_neg": -40,
+            "out_wrap_i16_div": -40,
+            "out_wrap_i16_cmp": -32727,
+        },
+    ),
 ]
 
 OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
@@ -214,6 +628,13 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("flow_num_f64_to_i32", sy.DataType.INT32),
     ("flow_num_f64_to_f32", sy.DataType.FLOAT32),
     ("flow_num_arith", sy.DataType.INT32),
+    # Narrow integer types, widened to i64 in Arc
+    *(
+        (name, sy.DataType.INT64)
+        for name in dict.fromkeys(
+            name for _, _, expected in NARROW_CASES for name in expected
+        )
+    ),
 ]
 
 ALL_CHANNELS = [name for name, _ in INPUT_CHANNELS] + [
@@ -241,6 +662,9 @@ class Conversion(ArcCase):
     of the bare form's cast-emit path). Numeric form covers one representative
     pair per opcode family (extend, wrap, convert, trunc, promote/demote) plus
     one cast composed inside a binary op.
+
+    - Narrow integer types: an integer cast into u8, u16, i8, or i16 wraps, a float
+    cast saturates, and arithmetic on these types wraps.
     """
 
     arc_source = ARC_CONVERSION_SOURCE
@@ -262,6 +686,7 @@ class Conversion(ArcCase):
         self._test_f32()
         self._test_f64()
         self._test_flow_context()
+        self._test_narrow()
 
     def _test_32(self) -> None:
         self.log("=== i32 = 42, u32 = 42 ===")
@@ -322,6 +747,14 @@ class Conversion(ArcCase):
         self.wait_for_eq("out_f64_neg_to_i64", -7)
         self.wait_for_near("out_f64_neg_to_f32", -7.0, tolerance=1e-5)
         self.wait_for_eq("out_f64_neg_to_str", "-7")
+
+    def _test_narrow(self) -> None:
+        self.log("=== Narrow integer casts and arithmetic ===")
+        for in_ch, value, expected in NARROW_CASES:
+            self.log(f"Writing {value} to {in_ch}")
+            self.writer.write(in_ch, value)
+            for out_ch, result in expected.items():
+                self.wait_for_eq(out_ch, result)
 
     def _test_flow_context(self) -> None:
         # Pre-write the source channels so they hold values when flow_trigger

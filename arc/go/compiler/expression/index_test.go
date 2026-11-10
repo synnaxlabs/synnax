@@ -37,6 +37,35 @@ var _ = Describe("CompileIndex", func() {
 		Entry("u16", types.U16()),
 	)
 
+	DescribeTable("should compile a literal index to an i32 constant",
+		func(bCtx SpecContext, expr string, index int32) {
+			expectSeriesExpression(
+				bCtx,
+				expr,
+				[]symbol.Symbol{seriesSymbol("s", types.F64(), 0)},
+				types.F64(),
+				OpLocalGet, 0, OpI32Const, index, OpCall, uint32(0),
+			)
+		},
+		Entry("zero", "s[0]", int32(0)),
+		Entry("positive", "s[2]", int32(2)),
+	)
+
+	It(
+		"should compile a negative literal index with no conversion",
+		func(bCtx SpecContext) {
+			expectSeriesExpression(
+				bCtx,
+				"s[-1]",
+				[]symbol.Symbol{seriesSymbol("s", types.F64(), 0)},
+				types.F64(),
+				OpLocalGet, 0,
+				OpI32Const, int32(1), OpI32Const, int32(-1), OpI32Mul,
+				OpCall, uint32(0),
+			)
+		},
+	)
+
 	DescribeTable("should narrow a 64-bit index with a host call",
 		expectSeriesExpression,
 		Entry("i64 index", "s[i]",

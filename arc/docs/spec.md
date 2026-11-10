@@ -137,7 +137,7 @@ TypeCast ::= Type '(' Expression ')'
 
 - Widening (e.g., `i16(i8_val)`) is safe (sign/zero extend)
 - Narrowing (e.g., `i8(i64_val)`) truncates
-- Signed ↔ Unsigned saturates at bounds
+- Signed ↔ Unsigned keeps the bits, so `u8(i8(-1))` is `255`
 - Float → Integer truncates toward zero, saturates on overflow
 - Integer overflow uses two's-complement wrapping. An expression made only of integer
   literals that overflows its type is a compile error (`ARC6001`).
