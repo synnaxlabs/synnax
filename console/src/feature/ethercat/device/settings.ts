@@ -26,7 +26,6 @@ const conditionZ = z.object({
 export interface Condition extends z.infer<typeof conditionZ> {}
 
 const optionZ = z.object({ value: z.number(), name: z.string() });
-interface Option extends z.infer<typeof optionZ> {}
 
 /** A CoE object of a slave that a user sets by name. */
 const fieldZ = z.object({
@@ -50,7 +49,6 @@ const requirementZ = z.object({
   then: conditionZ,
   message: z.string(),
 });
-interface Requirement extends z.infer<typeof requirementZ> {}
 
 /** The fields of one input, and the entries that read it in every PDO layout. */
 const channelZ = z.object({
