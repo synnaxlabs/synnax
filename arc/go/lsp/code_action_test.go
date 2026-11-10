@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
 	xlsp "github.com/synnaxlabs/x/lsp"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -524,6 +525,67 @@ var _ = Describe("CodeAction", func() {
 				}
 			},
 		)
+
+		Describe("User modules", func() {
+			BeforeEach(func() {
+				sources := map[string]string{
+					"lib.m":   "export func f() i64 { return 1 }",
+					"lib.n":   "export func f() i64 { return 1 }",
+					"other.m": "export func f() i64 { return 1 }",
+				}
+				server, uri, client = SetupTestServerWithClient(lsp.Config{
+					NewRoot: func() *symbol.Symbol { return NewModuleRoot(sources) },
+				})
+			})
+			actionsFor := func(ctx SpecContext, content string) []protocol.CodeAction {
+				GinkgoHelper()
+				OpenArcDocument(server, ctx, uri, content)
+				diags := client.Diagnostics()
+				Expect(diags).ToNot(BeEmpty())
+				return asCodeActions(
+					MustSucceed(server.CodeAction(ctx, codeActionParams(diags))),
+				)
+			}
+
+			It("should import the one module with the name", func(ctx SpecContext) {
+				actions := actionsFor(ctx, "func g() i64 {\n    return n.f()\n}\n")
+				action := findActionByTitle(actions, "Add import 'lib.n'")
+				Expect(action).ToNot(BeNil())
+				Expect(action.IsPreferred).To(HaveValue(BeTrue()))
+				Expect(
+					action.Edit.Changes[uri][0].NewText,
+				).To(Equal("import lib.n\n\n"))
+			})
+
+			It(
+				"should offer each module with the name and prefer none",
+				func(ctx SpecContext) {
+					actions := actionsFor(ctx, "func g() i64 {\n    return m.f()\n}\n")
+					for _, title := range []string{
+						"Add import 'lib.m'",
+						"Add import 'other.m'",
+					} {
+						action := findActionByTitle(actions, title)
+						Expect(action).ToNot(BeNil())
+						Expect(action.IsPreferred).To(HaveValue(BeFalse()))
+					}
+				},
+			)
+
+			It(
+				"should keep the path and alias of each import in the merged block",
+				func(ctx SpecContext) {
+					actions := actionsFor(
+						ctx,
+						"import lib.m as k\n\nfunc g() i64 {\n    return k.f() + n.f()\n}\n",
+					)
+					action := findActionByTitle(actions, "Add import 'lib.n'")
+					Expect(action).ToNot(BeNil())
+					Expect(action.Edit.Changes[uri][0].NewText).
+						To(Equal("import (\n    lib.m as k\n    lib.n\n)\n"))
+				},
+			)
+		})
 
 		It(
 			"should return no action when context has no diagnostics",

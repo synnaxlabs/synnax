@@ -923,7 +923,15 @@ func buildAutoImportEditFromSnapshot(
 			if child.Name == moduleName {
 				return nil
 			}
-			existingNames = append(existingNames, child.Name)
+			item, ok := child.AST.(parser.IImportItemContext)
+			if !ok {
+				continue
+			}
+			entry := item.ImportPath().GetText()
+			if item.AS() != nil {
+				entry += " as " + item.IDENTIFIER().GetText()
+			}
+			existingNames = append(existingNames, entry)
 			parent, ok := child.AST.GetParent().(antlr.ParserRuleContext)
 			if !ok || seenStmts.Contains(parent) {
 				continue
