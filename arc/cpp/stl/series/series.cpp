@@ -29,6 +29,15 @@ std::optional<wasmtime::Trap> check_index(const uint32_t index, const size_t siz
         std::to_string(size)
     );
 }
+
+/// @brief returns bound as an offset into a series of size samples. A negative bound
+/// counts from the end, and a bound outside the series stops at the nearer end.
+size_t slice_bound(const uint32_t bound, const size_t size) {
+    const auto n = static_cast<int64_t>(size);
+    auto b = static_cast<int64_t>(static_cast<int32_t>(bound));
+    if (b < 0) b += n;
+    return static_cast<size_t>(std::clamp<int64_t>(b, 0, n));
+}
 }
 
 // NOLINTNEXTLINE(readability-function-size): one binding macro per host function.
@@ -635,15 +644,15 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
             [ss](uint32_t handle, uint32_t start, uint32_t end) -> uint32_t {
                 const auto *src = ss->get(handle);
                 if (src == nullptr) return 0;
-                // An open end arrives as -1, the largest uint32_t.
-                const auto stop = std::min<size_t>(end, src->size());
-                if (start >= stop) return 0;
-                const auto slice_len = stop - start;
+                const auto first = slice_bound(start, src->size());
+                const auto last = slice_bound(end, src->size());
+                if (first >= last) return 0;
+                const auto slice_len = last - first;
                 auto sliced = x::telem::Series(src->data_type(), slice_len);
                 const auto density = src->data_type().density();
                 std::memcpy(
                     sliced.data(),
-                    src->data() + start * density,
+                    src->data() + first * density,
                     slice_len * density
                 );
                 sliced.resize(slice_len);

@@ -11,6 +11,7 @@ package series_test
 
 import (
 	"fmt"
+	"math"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -1292,8 +1293,8 @@ var _ = Describe("Series", func() {
 			).To(Equal(uint32(0)))
 		})
 
-		DescribeTable("Should stop at the length",
-			func(ctx SpecContext, end uint32) {
+		DescribeTable("Should count a negative bound from the end and stop at the ends",
+			func(ctx SpecContext, start, end int, expected []int32) {
 				h := callU32(ctx, "create_empty_i32", testutil.U32(4))
 				for i := range uint32(4) {
 					callU32(
@@ -1308,29 +1309,27 @@ var _ = Describe("Series", func() {
 					ctx,
 					"slice",
 					testutil.U32(h),
-					testutil.U32(2),
-					testutil.U32(end),
+					testutil.U32(uint32(int32(start))),
+					testutil.U32(uint32(int32(end))),
 				)
+				if len(expected) == 0 {
+					Expect(rh).To(BeZero())
+					return
+				}
 				ser := MustBeOk(ss.Get(rh))
-				Expect(ser.Len()).To(Equal(int64(2)))
-				Expect(ser.ValueAt[int32](0)).To(Equal(int32(30)))
-				Expect(ser.ValueAt[int32](1)).To(Equal(int32(40)))
+				Expect(ser.Len()).To(Equal(int64(len(expected))))
+				for i, v := range expected {
+					Expect(ser.ValueAt[int32](i)).To(Equal(v))
+				}
 			},
-			Entry("for an open end", ^uint32(0)),
-			Entry("for an end past the length", uint32(10)),
+			Entry("an open end", 2, math.MaxInt32, []int32{30, 40}),
+			Entry("an end past the length", 2, 10, []int32{30, 40}),
+			Entry("a negative end", 0, -1, []int32{10, 20, 30}),
+			Entry("a negative start", -2, math.MaxInt32, []int32{30, 40}),
+			Entry("two negative bounds", -3, -1, []int32{20, 30}),
+			Entry("a negative start before the series", -10, 2, []int32{10, 20}),
+			Entry("a negative end before the series", 0, -10, nil),
+			Entry("a start past the length", 4, math.MaxInt32, nil),
 		)
-
-		It("Should return 0 for a start past the length", func(ctx SpecContext) {
-			h := callU32(ctx, "create_empty_i32", testutil.U32(3))
-			Expect(
-				callU32(
-					ctx,
-					"slice",
-					testutil.U32(h),
-					testutil.U32(3),
-					testutil.U32(^uint32(0)),
-				),
-			).To(Equal(uint32(0)))
-		})
 	})
 })
