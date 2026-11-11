@@ -42,14 +42,14 @@ sets its times, and what local ranges cannot do.
 </Field.Item>
 
 <Field.Item name="color" type="string">
-  A hex color such as `"#FF0000"`. The client returns it as a color object. TypeScript
-  can change or clear it later. Line plots show only ranges that have a color. The
-  Console cannot set it. An [Arc automation](/reference/ranges/arc) can.
+  A hex color such as `"#FF0000"`. The client returns it as a color object. Python and
+  TypeScript can change or clear it later. Line plots show only ranges that have a
+  color. The Console cannot set it. An [Arc automation](/reference/ranges/arc) can.
 </Field.Item>
 
 <Field.Item name="parent" type="Range | UUID">
   The parent range. Python takes the range or its key. TypeScript takes the key. Set it
-  when you create the range. Only TypeScript can change it later.
+  when you create the range, or change or clear it later from Python or TypeScript.
 </Field.Item>
 
 <Field.Item name="labels" type="UUID[]">
