@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/feature/ethercat/task/SelectEntryField.css";
-
 import { ethercat } from "@synnaxlabs/client";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -18,7 +16,7 @@ import { type ReactElement } from "react";
 import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
-import { canSwitch, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import { onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   addressKey,
   type Channel,
@@ -31,7 +29,6 @@ import {
   type PDOType,
   usableEntries,
 } from "@/feature/ethercat/task/types";
-import { CSS } from "@/platform/css";
 
 export interface SelectEntryFieldProps {
   path: deep.Target<Channel>;
@@ -57,19 +54,9 @@ export const SelectEntryField = ({
           .filter((e) => !used.has(addressKey(e)))
           .map((e) => onlyReaderOf(slave.properties, e))
           .find((r) => r != null) ?? null);
-  const switchHint =
-    slave != null && canSwitch(slave.properties)
-      ? " In Configure, switch the device to Synnax."
-      : "";
   let emptyContent = `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;
   if (primitive.isZero(ch.device)) emptyContent = "Select a slave device first.";
-  else if (reader != null) emptyContent = `Set up for ${reader}.${switchHint}`;
-  const footer =
-    reader == null || entries.length === 0 ? undefined : (
-      <Text.Text level="small" color={9} className={CSS.BE("ethercat-entry", "hidden")}>
-        {`Only ${reader} reads the other ${DIRECTIONS[pdoType]} entries.${switchHint}`}
-      </Text.Text>
-    );
+  else if (reader != null) emptyContent = `Set up for ${reader}.`;
   const unresolvedProps =
     ch.type === "unresolved"
       ? {
@@ -105,7 +92,6 @@ export const SelectEntryField = ({
           resourceName="entry"
           allowNone={false}
           emptyContent={emptyContent}
-          footer={footer}
         >
           {entries.map((entry) => {
             const label = getEntryLabel(entry);

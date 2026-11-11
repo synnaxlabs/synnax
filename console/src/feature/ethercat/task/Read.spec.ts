@@ -330,7 +330,7 @@ describe("Read", () => {
     });
   });
 
-  it("should show no settings for a channel of a slave that DewesoftX sets up", async () => {
+  it("should show no settings or setup note for a channel of a slave that DewesoftX sets up", async () => {
     const slave = await createSharedSlave();
     await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
@@ -339,6 +339,7 @@ describe("Read", () => {
     fireEvent.click(await screen.findByRole("option", { name: /0x6030:01/ }));
     expect(await screen.findByText("Channel 1 › Value · 0x6030:01")).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^Measurement/ })).toBeNull();
+    expect(screen.queryByText("Set up by DewesoftX")).toBeNull();
   });
 
   it("should share the settings of an input between the entries that read it", async () => {
@@ -450,7 +451,7 @@ describe("Read", () => {
   });
 
   describe("a slave whose inputs only DewesoftX reads", () => {
-    const renderPicker = async (shared: boolean) => {
+    const renderChannel = async (shared: boolean) => {
       const slave = await createSlaveDevice(client, testRack.key, {
         identifier: createIdentifier(),
         network: "eth0",
@@ -462,42 +463,19 @@ describe("Read", () => {
         channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
       });
       fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
-      fireEvent.click(await screen.findByText("Select entry"));
     };
 
-    it("should point to the switch to Synnax", async () => {
-      await renderPicker(true);
-      expect(
-        await screen.findByText(
-          "Set up for DewesoftX. In Configure, switch the device to Synnax.",
-        ),
-      ).toBeTruthy();
+    it("should show the setup note and the switch to Synnax in the task", async () => {
+      await renderChannel(true);
+      expect(await screen.findByText("Set up for DewesoftX")).toBeTruthy();
+      expect(screen.getByRole("button", { name: "Switch to Synnax" })).toBeTruthy();
     });
 
-    it("should say why the picker leaves out the inputs that only DewesoftX reads", async () => {
-      const slave = await createSlaveDevice(client, testRack.key, {
-        identifier: createIdentifier(),
-        network: "eth0",
-        pdos: { inputs: [STATUS_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
-        settings: createDewesoftXSettings(true),
-      });
-      await renderRead({
-        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-        channels: [{ ...EtherCAT.Task.createReadChannel([]), device: slave.key }],
-      });
-      fireEvent.click(await screen.findByRole("option", { name: /No entry/ }));
+    it("should say who sets up the slave in an empty picker", async () => {
+      await renderChannel(false);
       fireEvent.click(await screen.findByText("Select entry"));
-      expect(
-        await screen.findByText(
-          "Only DewesoftX reads the other input entries. In Configure, switch the " +
-            "device to Synnax.",
-        ),
-      ).toBeTruthy();
-    });
-
-    it("should not point to a switch that the slave does not have", async () => {
-      await renderPicker(false);
       expect(await screen.findByText("Set up for DewesoftX.")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Switch to Synnax" })).toBeNull();
     });
   });
 

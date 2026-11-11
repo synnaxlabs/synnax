@@ -17,6 +17,8 @@ import { type z } from "zod";
 
 import { useResultSlave } from "@/feature/ethercat/device/queries";
 import { SelectSlave } from "@/feature/ethercat/device/SelectSlave";
+import { of } from "@/feature/ethercat/device/setup";
+import { SetupNote } from "@/feature/ethercat/device/SetupNote";
 import { ChannelSettings } from "@/feature/ethercat/task/ChannelSettings";
 import { SelectEntryField } from "@/feature/ethercat/task/SelectEntryField";
 import {
@@ -59,12 +61,18 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
 }) => {
   const ch = PForm.useFieldValue(path);
   const calibrated = hasEntry(ch) && "calibrated" in ch && ch.calibrated;
+  const { data: slave } = useResultSlave(
+    primitive.isZero(ch.device) ? null : { key: ch.device },
+  );
+  // A slave that DewesoftX only sets up still sends Synnax its data.
+  const noted = slave != null && of(slave.properties).kind !== "shared";
   return (
     <PForm.Sections>
       <PForm.Section title="Source">
         <SelectSlave path={path.device} />
       </PForm.Section>
       <PForm.Section title="Entry">
+        {noted && <SetupNote deviceKey={ch.device} />}
         <SelectEntryField path={path} pdoType={pdoType} schema={schema} />
         {hasEntry(ch) && !calibrated && (
           <PForm.Field
