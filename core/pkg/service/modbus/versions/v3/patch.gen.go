@@ -646,7 +646,9 @@ func (hrwc *HoldingRegisterWriteChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&hrwc.BaseWriteChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&hrwc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&hrwc.RegisterValue.DataType, c.Next(), func(def *HoldingRegisterWriteChannel) {
+			hrwc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&hrwc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
