@@ -88,6 +88,9 @@ var _ = Describe("IndexGroupMigration", func() {
 				free("f", 11, 10, "return v", &g),
 				free("data", 12, 10, "", nil),
 				free("h", 14, 13, "return u", &g),
+				free("a2_time", 15, 15, "", nil),
+				free("renamed_a2", 16, 15, "return t", &g),
+				free("a2", 17, 15, "return s", &g),
 				v1.Channel{
 					Name:        "sensor_time",
 					Leaseholder: 1,
@@ -105,6 +108,7 @@ var _ = Describe("IndexGroupMigration", func() {
 				Expect(groupOf(ctx, 9)).To(BeNil())
 				Expect(groupOf(ctx, 10)).To(BeNil())
 				Expect(groupOf(ctx, 13, 1)).To(BeNil())
+				Expect(groupOf(ctx, 15)).To(BeNil())
 			}
 			migrate(ctx, "first")
 			expectGroups()

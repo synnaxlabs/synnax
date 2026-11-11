@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	groupv1 "github.com/synnaxlabs/synnax/pkg/service/group/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
-	"github.com/synnaxlabs/x/set"
 )
 
 var Migration = migrate.NewEntry("v61_add_group", autoMigrateChannel)
@@ -32,8 +31,7 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ch
 })
 
 // IndexGroupMigration moves the index of each grouped calculated channel into the
-// group of that channel when the index has no group and no other kind of channel uses
-// it.
+// group of that channel when the index has no group and no other channel uses it.
 var IndexGroupMigration = migrate.New("v61_calculated_index_group", migrateIndexGroups)
 
 func migrateIndexGroups(
@@ -49,19 +47,20 @@ func migrateIndexGroups(
 	}
 	var (
 		groups = make(map[Key]*groupv1.Key)
-		shared = set.New[Key]()
+		users  = make(map[Key]int)
 	)
 	for _, c := range channels {
-		switch {
-		case c.IsCalculated() && c.LocalIndex != 0 && c.Group != nil:
+		if c.IsIndex || c.LocalIndex == 0 {
+			continue
+		}
+		users[c.Index()]++
+		if c.IsCalculated() && c.Group != nil {
 			groups[c.Index()] = c.Group
-		case !c.IsCalculated() && !c.IsIndex && c.LocalIndex != 0:
-			shared.Add(c.Index())
 		}
 	}
 	var moved []Channel
 	for _, c := range channels {
-		if g, ok := groups[c.Key()]; ok && c.Group == nil && !shared.Contains(c.Key()) {
+		if g, ok := groups[c.Key()]; ok && c.Group == nil && users[c.Key()] == 1 {
 			c.Group = g
 			moved = append(moved, c)
 		}
