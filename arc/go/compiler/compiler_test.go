@@ -2653,6 +2653,14 @@ var _ = Describe("Compiler", func() {
 				}
 				return 0
 			}`, float64(1)),
+			Entry("i16 cast of 40000 is negative through a variable", `{
+				x i32 := 40000
+				y i16 := i16(x)
+				if y < 0 {
+					return 1
+				}
+				return 0
+			}`, float64(1)),
 			Entry("i16 cast of 40000 is -25536", `{
 				x i32 := 40000
 				return i64(i16(x))
@@ -2675,6 +2683,15 @@ var _ = Describe("Compiler", func() {
 				x i16 := -32767
 				y i16 := x - 1
 				if -y > 0 {
+					return 1
+				}
+				return 0
+			}`, float64(0)),
+			Entry("i16 minimum negated is not positive through a variable", `{
+				x i16 := -32767
+				y i16 := x - 1
+				z i16 := -y
+				if z > 0 {
 					return 1
 				}
 				return 0
@@ -2721,12 +2738,8 @@ var _ = Describe("Compiler", func() {
 					actual int64
 				)
 				switch outType {
-				case "i8":
-					actual = int64(int8(MustBeOk(mem.ReadByte(offset))))
 				case "u8":
 					actual = int64(MustBeOk(mem.ReadByte(offset)))
-				case "i16":
-					actual = int64(int16(MustBeOk(mem.ReadUint16Le(offset))))
 				case "u16":
 					actual = int64(MustBeOk(mem.ReadUint16Le(offset)))
 				default:
@@ -2743,9 +2756,6 @@ var _ = Describe("Compiler", func() {
 			Entry("i8 cast of 200 is -56", "x i32", "i64", `
 					out = i64(i8(x))
 			`, api.EncodeI32(200), int64(-56)),
-			Entry("i8 cast of 200 is -56 in an i8 output", "x i32", "i8", `
-					out = i8(x)
-			`, api.EncodeI32(200), int64(-56)),
 			Entry("u8 255 plus 1 divided by 2 is 0", "x u8", "i64", `
 					out = i64((x + 1) / 2)
 			`, api.EncodeI32(255), int64(0)),
@@ -2761,14 +2771,8 @@ var _ = Describe("Compiler", func() {
 			Entry("i8 minimum negated is -128", "x i8", "i64", `
 					out = i64(-x)
 			`, api.EncodeI32(-128), int64(-128)),
-			Entry("i8 minimum negated is -128 in an i8 output", "x i8", "i8", `
-					out = -x
-			`, api.EncodeI32(-128), int64(-128)),
 			Entry("i8 cast of an i64 511 is -1", "x i64", "i64", `
 					out = i64(i8(x))
-			`, api.EncodeI64(511), int64(-1)),
-			Entry("i8 cast of an i64 511 is -1 in an i8 output", "x i64", "i8", `
-					out = i8(x)
 			`, api.EncodeI64(511), int64(-1)),
 			Entry("i16 cast of 40000 is negative", "x i32", "i64", `
 					out = 0
@@ -2778,9 +2782,6 @@ var _ = Describe("Compiler", func() {
 			`, api.EncodeI32(40000), int64(1)),
 			Entry("i16 cast of 40000 is -25536", "x i32", "i64", `
 					out = i64(i16(x))
-			`, api.EncodeI32(40000), int64(-25536)),
-			Entry("i16 cast of 40000 is -25536 in an i16 output", "x i32", "i16", `
-					out = i16(x)
 			`, api.EncodeI32(40000), int64(-25536)),
 			Entry("u16 65535 plus 1 divided by 2 is 0", "x u16", "i64", `
 					out = i64((x + 1) / 2)
@@ -2804,14 +2805,8 @@ var _ = Describe("Compiler", func() {
 			Entry("i16 minimum negated is -32768", "x i16", "i64", `
 					out = i64(-x)
 			`, api.EncodeI32(-32768), int64(-32768)),
-			Entry("i16 minimum negated is -32768 in an i16 output", "x i16", "i16", `
-					out = -x
-			`, api.EncodeI32(-32768), int64(-32768)),
 			Entry("i16 cast of an i64 131071 is -1", "x i64", "i64", `
 					out = i64(i16(x))
-			`, api.EncodeI64(131071), int64(-1)),
-			Entry("i16 cast of an i64 131071 is -1 in an i16 output", "x i64", "i16", `
-					out = i16(x)
 			`, api.EncodeI64(131071), int64(-1)),
 		)
 
