@@ -33,6 +33,9 @@ A Dewesoft device runs in one of two setups. Each module stores its setup.
 If the Driver connects to bus 2 of a standalone IOLITE, the module shows **Connect
 Synnax to EtherCAT bus 1 IN**.
 
+In dual mode, DewesoftX drives the digital outputs of an IOLITE 32xDO or 8xDI-4xDO. To
+drive them from Synnax, run the device in standalone mode.
+
 In dual mode, one converter gives the data to both systems, and DewesoftX sets its
 sample rate. The data on the Driver's bus gets no added anti-aliasing filter, so a
 network that cycles slower than the sample rate can show aliases.
