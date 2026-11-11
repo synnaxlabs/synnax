@@ -43,9 +43,10 @@ var _ = Describe("Legacy project bundles", func() {
 	) (*service.Layer, *gorp.DB, project.Project) {
 		GinkgoHelper()
 		l, db := openLayer(ctx)
+		b := MustSucceed(l.Bundle.Decode(ctx, LoadBundle(path), fileName))
 		tx := db.OpenTx()
 		defer func() { Expect(tx.Close()).To(Succeed()) }()
-		p := MustSucceed(l.Bundle.Import(ctx, tx, LoadBundle(path), fileName))
+		p := MustSucceed(l.Bundle.Import(ctx, tx, b))
 		Expect(tx.Commit(ctx)).To(Succeed())
 		return l, db, p
 	}
@@ -148,10 +149,9 @@ var _ = Describe("Legacy project bundles", func() {
 			// The layout names an ni_analog_write task whose component file the export
 			// never wrote. A member the bundle does not hold is a broken bundle, so the
 			// import fails rather than dropping it quietly.
-			l, db := openLayer(ctx)
-			tx := DeferClose(db.OpenTx())
-			Expect(l.Bundle.Import(
-				ctx, tx, LoadBundle(path), "Dropped.zip",
+			l, _ := openLayer(ctx)
+			Expect(l.Bundle.Decode(
+				ctx, LoadBundle(path), "Dropped.zip",
 			)).Error().To(SatisfyAll(
 				MatchError(ContainSubstring("98dbf43a")),
 				MatchError(ContainSubstring("not found")),

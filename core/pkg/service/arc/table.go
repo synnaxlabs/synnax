@@ -14,6 +14,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/directory"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/drift"
@@ -34,6 +35,11 @@ type TableConfig struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Parser is the parser config the Core runs with. The migrations lex stored Arcs
+	// with it.
+	//
+	// [OPTIONAL] - Defaults to dashed names off.
+	Parser parser.Config
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -45,6 +51,7 @@ var _ config.Config[TableConfig] = TableConfig{}
 // Override implements config.Config.
 func (c TableConfig) Override(other TableConfig) TableConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Parser = override.If(c.Parser, other.Parser, other.Parser != parser.Config{})
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -88,7 +95,7 @@ func OpenTable(ctx context.Context, cfgs ...TableConfig) (*Table, error) {
 		Name:            tableName,
 		Indexes:         t.indexes.all(),
 		References:      []gorp.Reference[Key, Arc]{newDirectoryReference()},
-		Migrations:      versions.NewMigrations(t.root),
+		Migrations:      versions.NewMigrations(t.root, cfg.Parser),
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, errors.Combine(err, t.directories.Close())

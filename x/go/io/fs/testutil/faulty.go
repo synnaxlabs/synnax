@@ -41,6 +41,8 @@ const (
 	FaultOpRemove FaultOp = "remove"
 	// FaultOpList names FS.List.
 	FaultOpList FaultOp = "list"
+	// FaultOpClose names File.Close.
+	FaultOpClose FaultOp = "close"
 )
 
 // FaultyFSOption selects an operation a wrapped FS fails.
@@ -115,6 +117,12 @@ func WithFailRemove(names ...string) FaultyFSOption {
 
 // WithFailList fails List on each of the given paths. With no path, every List fails.
 func WithFailList(names ...string) FaultyFSOption { return failOn(FaultOpList, names) }
+
+// WithFailClose fails Close on each of the given paths. With no path, every Close
+// fails. A failed Close still closes the file.
+func WithFailClose(names ...string) FaultyFSOption {
+	return failOn(FaultOpClose, names)
+}
 
 // WithFailAfter holds every failure back until op has run at least once, so a test can
 // fail the second half of a sequence.
@@ -284,4 +292,7 @@ func (f *faultyFile) WriteAt(p []byte, off int64) (int, error) {
 	return f.File.WriteAt(p, off)
 }
 
-func (f *faultyFile) Close() error { f.fs.open.Add(-1); return f.File.Close() }
+func (f *faultyFile) Close() error {
+	f.fs.open.Add(-1)
+	return errors.Join(f.File.Close(), f.fs.fault(FaultOpClose, f.name))
+}

@@ -33,7 +33,7 @@ import { type ReactElement, type ReactNode, useState } from "react";
 import { CSS } from "@/platform/css";
 import { ConnectFrame } from "@/platform/device/ConnectFrame";
 import { type Hardware } from "@/platform/device/integration";
-import { isRunning } from "@/platform/device/racks";
+import { isReady } from "@/platform/device/racks";
 import { Modals } from "@/platform/modals";
 import { type Session } from "@/session";
 
@@ -86,7 +86,7 @@ const ScannerState = ({
 }: ScannerStateProps): ReactElement | null => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  if (!isRunning(r))
+  if (!isReady(r))
     return (
       <State
         variant="warning"
@@ -137,7 +137,7 @@ const ScannerState = ({
 };
 
 const isScanning = (r: rack.Rack, scanner: task.Task | undefined): boolean =>
-  isRunning(r) &&
+  isReady(r) &&
   scanner != null &&
   !isScanDisabled(scanner) &&
   scanner.status?.variant !== "error";
@@ -264,7 +264,7 @@ export const Find = ({
 }: FindProps): ReactElement => {
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
-  const running = allRacks?.some(isRunning) === true;
+  const running = allRacks?.some(isReady) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
@@ -280,8 +280,7 @@ export const Find = ({
   const [scanning, setScanning] = useState(false);
   const targets = (scanners ?? []).filter(
     (s) =>
-      !isScanDisabled(s) &&
-      racks?.some((r) => r.key === s.rack && isRunning(r)) === true,
+      !isScanDisabled(s) && racks?.some((r) => r.key === s.rack && isReady(r)) === true,
   );
   const scan = async () => {
     setScanning(true);

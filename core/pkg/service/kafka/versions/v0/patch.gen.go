@@ -32,7 +32,9 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "group":
 		return patch.Value(&rc.Group, c.Next())
 	case "start_offset":
-		return patch.Value(&rc.StartOffset, c.Next())
+		return patch.Defaulted(&rc.StartOffset, c.Next(), func(def *ReadConfig) {
+			rc.StartOffset = def.StartOffset
+		})
 	case "records":
 		return patch.List(&rc.Records, c.Next())
 	default:
@@ -68,7 +70,9 @@ func (rf *ReadField) Patch(c patch.Cursor) error {
 	case "pointer":
 		return patch.Value(&rf.Pointer, c.Next())
 	case "data_type":
-		return patch.Value(&rf.DataType, c.Next())
+		return patch.Defaulted(&rf.DataType, c.Next(), func(def *ReadField) {
+			rf.DataType = def.DataType
+		})
 	case "time_format":
 		return patch.OptionalValue(&rf.TimeFormat, c.Next())
 	case "enum_values":
@@ -133,13 +137,17 @@ func (rr *ReadRecord) HashContent(h *content.Hash) {
 func (r *Record) Patch(c patch.Cursor) error {
 	switch c.Segment() {
 	case "value_pointer":
-		return patch.Value(&r.ValuePointer, c.Next())
+		return patch.Defaulted(&r.ValuePointer, c.Next(), func(def *Record) {
+			r.ValuePointer = def.ValuePointer
+		})
 	case "channel_pointer":
 		return patch.OptionalValue(&r.ChannelPointer, c.Next())
 	case "timestamp_pointer":
 		return patch.OptionalValue(&r.TimestampPointer, c.Next())
 	case "time_format":
-		return patch.Value(&r.TimeFormat, c.Next())
+		return patch.Defaulted(&r.TimeFormat, c.Next(), func(def *Record) {
+			r.TimeFormat = def.TimeFormat
+		})
 	case "fields":
 		return patch.List(&r.Fields, c.Next())
 	default:
@@ -175,7 +183,9 @@ func (sc *ScanConfig) Patch(c patch.Cursor) error {
 	case "key":
 		return patch.Value(&sc.ScanConfig.KeyedConfig.Key, c.Next())
 	case "rate":
-		return patch.Value(&sc.ScanConfig.Rate, c.Next())
+		return patch.Defaulted(&sc.ScanConfig.Rate, c.Next(), func(def *ScanConfig) {
+			sc.ScanConfig.Rate = def.ScanConfig.Rate
+		})
 	case "disabled":
 		return patch.Value(&sc.ScanConfig.Disabled, c.Next())
 	default:
@@ -199,7 +209,9 @@ func (wc *WriteChannel) Patch(c patch.Cursor) error {
 	case "channel":
 		return patch.Value(&wc.Channel, c.Next())
 	case "json_type":
-		return patch.Value(&wc.JSONType, c.Next())
+		return patch.Defaulted(&wc.JSONType, c.Next(), func(def *WriteChannel) {
+			wc.JSONType = def.JSONType
+		})
 	case "time_format":
 		return patch.OptionalValue(&wc.TimeFormat, c.Next())
 	case "enum_values":
@@ -241,10 +253,14 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "topic":
 		return patch.Value(&wc.Topic, c.Next())
 	case "record_key":
-		return patch.Value(&wc.RecordKey, c.Next())
+		return patch.Defaulted(&wc.RecordKey, c.Next(), func(def *WriteConfig) {
+			wc.RecordKey = def.RecordKey
+		})
 	case "record":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&wc.Record, c)
+			return patch.Defaulted(&wc.Record, c, func(def *WriteConfig) {
+				wc.Record = def.Record
+			})
 		}
 		return wc.Record.Patch(c)
 	case "channels":

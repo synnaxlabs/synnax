@@ -84,7 +84,7 @@ Examples:
 	return cmd
 }
 
-func runCheck(cmd *cobra.Command, _ []string) error {
+func runCheck(cmd *cobra.Command, _ []string) (err error) {
 	ctx := cmd.Context()
 
 	gates := lo.Must(cmd.Flags().GetStringSlice(checkGatesFlag))
@@ -152,10 +152,21 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		cache = loadCheckCache(repoRoot)
 	}
 
+	var shipped *check.Release
+	if wantedGates.has("versions") {
+		var release check.Release
+		if release, err = extractRelease(ctx, repoRoot); err != nil {
+			return err
+		}
+		defer func() { err = errors.Combine(err, os.RemoveAll(release.Root)) }()
+		shipped = &release
+	}
+
 	checkers := buildCheckers(formatters, cache, warningsAsErrors)
 	report := check.Run(ctx, result, check.Env{
 		RepoRoot:     repoRoot,
 		IncludeDiffs: includeDiffs,
+		Shipped:      shipped,
 	}, checkers, gates)
 
 	if err := check.Render(

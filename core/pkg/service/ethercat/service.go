@@ -94,16 +94,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v2.NewReadMigration(slaves),
 				v3.ReadMigration,
 			},
-			SetEntryKey:        (*ReadConfig).SetKey,
-			PatchEntry:         (*ReadConfig).Patch,
-			HashEntry:          (*ReadConfig).HashContent,
-			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			SetEntryKey: (*ReadConfig).SetKey,
+			PatchEntry:  (*ReadConfig).Patch,
+			HashEntry:   (*ReadConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
 				c *ReadConfig,
 			) error {
 				return v3.ResolveReadConfig(ctx, snap, slaves, c)
+			},
+			ValidateEntry: func(c *ReadConfig) error {
+				v := validate.New("ethercat.ReadConfig")
+				v.Exec(c.Validate)
+				v.GreaterThan("stream_rate", c.StreamRate, 0)
+				return v.Error()
 			},
 		},
 	); !ok(err, s.Read) {
@@ -122,10 +127,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 				v2.NewWriteMigration(slaves),
 				v3.WriteMigration,
 			},
-			SetEntryKey:        (*WriteConfig).SetKey,
-			PatchEntry:         (*WriteConfig).Patch,
-			HashEntry:          (*WriteConfig).HashContent,
-			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			SetEntryKey: (*WriteConfig).SetKey,
+			PatchEntry:  (*WriteConfig).Patch,
+			HashEntry:   (*WriteConfig).HashContent,
 			ResolveEntry: func(
 				ctx context.Context,
 				snap gorp.Snapshot,
@@ -133,22 +137,23 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			) error {
 				return v3.ResolveWriteConfig(ctx, snap, slaves, c)
 			},
+			ValidateEntry: (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err
 	}
 	if s.Scan, err = config.OpenService(
 		ctx, config.ServiceConfig[ScanConfig]{
-			DB:                 cfg.DB,
-			Instrumentation:    cfg.Instrumentation,
-			Type:               "ethercat_scan",
-			LegacyVersion:      legacy.LastVersion,
-			Ladder:             versions.ScanConfigLadder,
-			Legacy:             &legacy.Scan,
-			SetEntryKey:        (*ScanConfig).SetKey,
-			PatchEntry:         (*ScanConfig).Patch,
-			HashEntry:          (*ScanConfig).HashContent,
-			ApplyEntryDefaults: (*ScanConfig).ApplyDefaults,
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Type:            "ethercat_scan",
+			LegacyVersion:   legacy.LastVersion,
+			Ladder:          versions.ScanConfigLadder,
+			Legacy:          &legacy.Scan,
+			SetEntryKey:     (*ScanConfig).SetKey,
+			PatchEntry:      (*ScanConfig).Patch,
+			HashEntry:       (*ScanConfig).HashContent,
+			ValidateEntry:   (*ScanConfig).Validate,
 		},
 	); !ok(err, s.Scan) {
 		return nil, err
