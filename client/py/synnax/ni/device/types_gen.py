@@ -11,14 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias, override as _override
+from typing import Annotated, Literal, TypeAlias, TypedDict, override as _override
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax import channel, rack as rack_, status as status_
 from synnax.ni import chassis as chassis_
 from synnax.resource import ID
+from x import filter
 
 Key: TypeAlias = UUID
 
@@ -68,6 +69,50 @@ class Identity(BaseModel):
     chassis: chassis_.Key | None = None
 
 
+class Where(BaseModel):
+    """Is a filter that selects NI devices.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        serial: Selects by serial.
+        model: Selects by model.
+        rack: Selects by rack.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    serial: filter.String | None = None
+    model: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+
+
+# WhereInput is a Where written as a partial record.
+# A plain value or a list stands for an operator.
+WhereInput = TypedDict(
+    "WhereInput",
+    {
+        "and": list["WhereInput"],
+        "or": list["WhereInput"],
+        "not": "WhereInput",
+        "key": filter.SetInput[Key],
+        "name": filter.StringInput,
+        "serial": filter.StringInput,
+        "model": filter.StringInput,
+        "rack": filter.SetInput[rack_.Key],
+    },
+    total=False,
+)
+
+
 class StatusDetails(BaseModel):
     """Identifies the device and rack that a status pertains to.
 
@@ -78,6 +123,16 @@ class StatusDetails(BaseModel):
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
     device: Key
+
+
+class Cursor(BaseModel):
+    """Is a position in an order of devices: the sort value and the key of a device.
+
+    Attributes:
+        key: Is the key of the device at the position.
+    """
+
+    key: Key
 
 
 class OutputPorts(BaseModel):
@@ -93,6 +148,26 @@ class OutputPorts(BaseModel):
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve devices.
+
+    Attributes:
+        where: Selects the devices to retrieve. An absent where selects all of them.
+        search_term: Keeps the devices that match the term, closest match first.
+        after: Starts the devices strictly past this position in their order.
+        limit: Is the most devices to return.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    after: Cursor | None = None
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class Configuration(BaseModel):
@@ -181,6 +256,19 @@ Update = Annotated[
     IdentityUpdate | ConfigurationUpdate,
     Field(discriminator="group"),
 ]
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the devices a RetrieveRequest selects.
+
+    Attributes:
+        devices: Are the devices the request selects.
+    """
+
+    devices: list[Device] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 TYPE_RESOURCE_ID = ID(type="ni_device")

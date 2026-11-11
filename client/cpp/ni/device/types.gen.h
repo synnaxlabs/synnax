@@ -11,17 +11,23 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
+#include <vector>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/ni/chassis/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/resource/id.h"
 #include "client/cpp/status/types.gen.h"
+#include "x/cpp/filter/field.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni::device {
@@ -29,10 +35,14 @@ namespace synnax::ni::device {
 struct InputPorts;
 struct CommandStatePair;
 struct Identity;
+struct Where;
 struct StatusDetails;
+struct Cursor;
 struct OutputPorts;
+struct RetrieveRequest;
 struct Configuration;
 struct Device;
+struct RetrieveResponse;
 
 using Key = x::uuid::UUID;
 
@@ -79,6 +89,54 @@ struct Identity {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief Where is a filter that selects NI devices.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    ::x::filter::Field<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    ::x::filter::Field<::x::filter::String> name;
+    /// @brief serial selects by serial.
+    ::x::filter::Field<::x::filter::String> serial;
+    /// @brief model selects by model.
+    ::x::filter::Field<::x::filter::String> model;
+    /// @brief rack selects by rack.
+    ::x::filter::Field<::x::filter::Set<::synnax::rack::Key>> rack;
+
+    /// @brief returns a filter that matches when both a and b match.
+    friend Where operator&&(Where a, Where b) {
+        Where w;
+        w.and_.emplace();
+        w.and_->push_back(std::move(a));
+        w.and_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a or b matches.
+    friend Where operator||(Where a, Where b) {
+        Where w;
+        w.or_.emplace();
+        w.or_->push_back(std::move(a));
+        w.or_->push_back(std::move(b));
+        return w;
+    }
+
+    /// @brief returns a filter that matches when a does not match.
+    friend Where operator!(Where a) {
+        Where w;
+        w.not_ = std::move(a);
+        return w;
+    }
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
 struct StatusDetails {
     /// @brief rack is the key of the rack the device belongs to.
@@ -87,6 +145,16 @@ struct StatusDetails {
     Key device;
 
     static StatusDetails parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief Cursor is a position in an order of devices: the sort value and the key of a
+/// device.
+struct Cursor {
+    /// @brief key is the key of the device at the position.
+    Key key;
+
+    static Cursor parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -102,6 +170,47 @@ struct OutputPorts {
 };
 
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveOptions holds every field of a RetrieveRequest except where.
+struct RetrieveOptions {
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+};
+
+/// @brief RetrieveRequest is a request to retrieve devices.
+struct RetrieveRequest {
+    /// @brief where selects the devices to retrieve. An absent where selects all of
+    /// them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the devices that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief after starts the devices strictly past this position in their order.
+    std::optional<Cursor> after;
+    /// @brief limit is the most devices to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    /// @brief returns a request for the records that where selects.
+    static RetrieveRequest from(Where where, const RetrieveOptions &options = {}) {
+        return {
+            .where = std::move(where),
+            .search_term = options.search_term,
+            .after = options.after,
+            .limit = options.limit,
+            .include_status = options.include_status,
+        };
+    }
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 /// @brief Configuration holds the device fields that the user owns.
 struct Configuration {
@@ -187,6 +296,15 @@ using Update = std::variant<IdentityUpdate, ConfigurationUpdate>;
 
 Update parse_update(x::json::Parser parser);
 [[nodiscard]] x::json::json to_json(const Update &value);
+
+/// @brief RetrieveResponse holds the devices a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief devices are the devices the request selects.
+    std::vector<Device> devices;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
 
 const synnax::resource::ID TYPE_RESOURCE_ID("ni_device", "");
 
