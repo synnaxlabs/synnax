@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v3"
-	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
@@ -318,7 +317,7 @@ var _ = Describe("ReadMigration", func() {
 var _ = Describe("MigrateWriteConfig", func() {
 	It("Should lift every channel of the config", func(ctx SpecContext) {
 		cfg := MustSucceed(v3.MigrateWriteConfig(ctx, v2.WriteConfig{
-			WriteConfig: task.WriteConfig{Device: "dev"},
+			Device: "dev",
 			Channels: []v2.WriteChannel{
 				{Variant: v2.HoldingRegisterWriteChannel{
 					BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
@@ -346,11 +345,7 @@ var _ = Describe("WriteMigration", func() {
 	It("Should lift stored write configs in place", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		stored := v2.WriteConfig{
-			WriteConfig: task.WriteConfig{PersistConfig: task.PersistConfig{
-				StartConfig: task.StartConfig{
-					KeyedConfig: task.KeyedConfig{Key: uuid.New()},
-				},
-			}},
+			Key: uuid.New(),
 			Channels: []v2.WriteChannel{{Variant: v2.HoldingRegisterWriteChannel{
 				BaseWriteChannel: v2.BaseWriteChannel{Key: "reg"},
 			}}},
