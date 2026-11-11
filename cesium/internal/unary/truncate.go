@@ -24,9 +24,10 @@ import (
 
 // TruncateToIndex truncates each domain to the samples that its index has timestamps
 // for, and logs each truncation. A crash between the saves of a channel and its index
-// leaves such domains. Before each truncation, it copies the cut bytes to a new
-// .truncated file in the channel directory that the log names, and never overwrites an
-// existing file. When the copy fails, it returns the error and does not truncate.
+// leaves such domains. Before each truncation, it copies the cut bytes to a .truncated
+// file in the channel directory that the log names. It reuses a file that already holds
+// those bytes, and never overwrites any other file. When the copy fails, it returns the
+// error and does not truncate.
 // TruncateToIndex must run before any writer or iterator opens on the DB. It does
 // nothing for an index channel.
 func (db *DB) TruncateToIndex(ctx context.Context) error {
@@ -82,15 +83,21 @@ func (db *DB) quarantine(ctx context.Context, c cut) (string, error) {
 	for n := 1; ; n++ {
 		info, err := db.cfg.FS.Stat(name)
 		if os.IsNotExist(err) {
-			return name, db.copyCut(ctx, c, name)
+			if err = db.copyCut(ctx, c, name); err != nil {
+				return "", err
+			}
+			return name, nil
 		}
 		if err != nil {
 			return "", err
 		}
 		if info.Size() == int64(c.size) {
 			held, err := db.holdsCut(ctx, c, name)
-			if err != nil || held {
-				return name, err
+			if err != nil {
+				return "", err
+			}
+			if held {
+				return name, nil
 			}
 		}
 		name = fmt.Sprintf("%s.%d.truncated", base, n)
@@ -116,7 +123,11 @@ func (db *DB) holdsCut(ctx context.Context, c cut, name string) (held bool, err 
 	if err != nil {
 		return false, err
 	}
-	defer func() { err = errors.Combine(err, f.Close()) }()
+	defer func() {
+		if err = errors.Combine(err, f.Close()); err != nil {
+			held = false
+		}
+	}()
 	err = db.readCut(ctx, c, func(cutBytes io.Reader) error {
 		var (
 			a = make([]byte, 32*1024)
@@ -141,7 +152,10 @@ func (db *DB) holdsCut(ctx context.Context, c cut, name string) (held bool, err 
 			}
 		}
 	})
-	return held, err
+	if err != nil {
+		return false, err
+	}
+	return held, nil
 }
 
 func (db *DB) copyCut(ctx context.Context, c cut, name string) (err error) {
