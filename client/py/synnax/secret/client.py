@@ -99,7 +99,8 @@ class Client:
         :raises ValidationError: If ``secrets`` is omitted and the keyword arguments do
             not give a name and exactly one of a value or a file name.
         :raises PathError: If a secret is not valid, such as a stored secret without a
-            value or a file name that is a path.
+            value or a file name that is a path, or if a replace changes the source of a
+            secret.
         :raises AccessDenied: If the caller cannot create secrets, or cannot update a
             secret that the call replaces.
         """
