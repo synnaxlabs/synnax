@@ -79,7 +79,7 @@ describe("app/window/Window", () => {
   // Without the Provider, every update check reads the empty context default.
   it("tells the user about a Console update from the main window", async () => {
     mocks.engine = "tauri";
-    mockUpdater({ served: "1.4.2" });
+    mockUpdater({ served: "1.5.1" });
     mockWindows(Drift.MAIN_WINDOW);
     const core = createCore("Local");
     await renderWithStatus(

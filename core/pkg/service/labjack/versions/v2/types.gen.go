@@ -652,6 +652,7 @@ func (r *ReadConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 // schema constraints.
 func (r ReadConfig) Validate() error {
 	v := validate.New("ReadConfig")
+	v.Exec(r.ReadConfig.Validate)
 	for i := range r.Channels {
 		v.Exec(func() error { return validate.PathedError(r.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
 	}
@@ -701,6 +702,14 @@ func (w *WriteConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 	return dec.Decode((*plain)(w))
 }
 
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (w WriteConfig) Validate() error {
+	v := validate.New("WriteConfig")
+	v.GreaterThan("state_rate", w.StateRate, 0)
+	return v.Error()
+}
+
 // ScanConfig configures a LabJack scan task.
 type ScanConfig struct {
 	task.ScanConfig
@@ -740,4 +749,12 @@ func (s *ScanConfig) DecodeMsgpack(dec *vmsgpack.Decoder) error {
 		s.SetDefaults()
 	}
 	return dec.Decode((*plain)(s))
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (s ScanConfig) Validate() error {
+	v := validate.New("ScanConfig")
+	v.Exec(s.ScanConfig.Validate)
+	return v.Error()
 }

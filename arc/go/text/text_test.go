@@ -2381,6 +2381,30 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
+			"Should type an integer literal by the channel alias it writes to",
+			func(ctx SpecContext) {
+				source := `
+			sequence s {
+				vlv := flag_ch
+				1 -> vlv
+			}
+			count_ch == 1 => s`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				constant := findNodeByType(inter.Nodes, "constant")
+				Expect(constant.Outputs[0].Type).To(Equal(types.U8()))
+				Expect(constant.Inputs[0].Value).To(Equal(uint8(1)))
+				write := findNodeByType(inter.Nodes, "write")
+				Expect(write.Channels.Write).To(HaveKeyWithValue(uint32(903), "vlv"))
+			},
+		)
+
+		It(
 			"Should reject rebinding an alias to a nonexistent channel",
 			func(ctx SpecContext) {
 				source := `

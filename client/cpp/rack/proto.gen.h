@@ -106,6 +106,20 @@ string_contains_from_proto(const ::service::rack::pb::StringContains &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
+StatusDetails::to_proto() const {
+    ::service::rack::pb::StatusDetails pb;
+    pb.set_running(this->running);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StatusDetails, x::errors::Error>
+StatusDetails::from_proto(const ::service::rack::pb::StatusDetails &pb) {
+    StatusDetails cpp;
+    cpp.running = pb.running();
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::rack::pb::Rack, x::errors::Error> Rack::to_proto() const {
     ::service::rack::pb::Rack pb;
     pb.set_key(this->key);

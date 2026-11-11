@@ -123,6 +123,7 @@ export class Cache {
   private readonly spaces: SpaceLifecycle[] = [];
   private readonly detachers: destructor.Destructor[] = [];
   private readonly epochObserver = new observe.Observer<number>();
+  private readonly downObserver = new observe.Observer<void>();
   private readonly params: CacheParams;
   private streamer: Streamer | null = null;
   private epochCount = 0;
@@ -316,7 +317,7 @@ export class Cache {
         onError: this.onError,
         onLive: onStreamLive,
         onDrop: (error) => {
-          if (this.streamer === streamer) this.live = false;
+          if (this.streamer === streamer) this.goDown();
           onStreamDrop?.(error);
         },
         onRetry: onStreamRetry,
@@ -340,7 +341,7 @@ export class Cache {
         onDead: (error) => {
           if (this.streamer !== streamer) return;
           this.unmaintained = true;
-          this.live = false;
+          this.goDown();
           if (AccessDeniedError.matches(error)) onStreamDenied?.(error);
         },
       });
@@ -369,6 +370,20 @@ export class Cache {
   /** Subscribes to epoch changes. Returns a destructor that unsubscribes. */
   onEpoch(callback: (epoch: number) => void): destructor.Destructor {
     return this.epochObserver.onChange(callback);
+  }
+
+  /**
+   * Subscribes to the change stream going down: a drop that starts a reconnect, a
+   * failure that ends it, or a close. No change made while it is down ever arrives.
+   * Returns a destructor that unsubscribes.
+   */
+  onStreamDown(callback: () => void): destructor.Destructor {
+    return this.downObserver.onChange(callback);
+  }
+
+  private goDown(): void {
+    this.live = false;
+    this.downObserver.notify();
   }
 
   /**
@@ -439,6 +454,7 @@ export class Cache {
     this.spaces.forEach((space) => space.close());
     this.tables.forEach(({ close }) => close());
     if (this.streamer == null) return;
+    this.goDown();
     await this.streamer.close();
   }
 }

@@ -53,7 +53,7 @@ const openModal = async (params: CreateWrapperParams = {}): Promise<void> => {
   });
 };
 
-const clickUpdate = async (version: string = "1.4.2"): Promise<void> => {
+const clickUpdate = async (version: string = "1.5.1"): Promise<void> => {
   await waitFor(() =>
     expect(screen.getByText(`Version ${version} available`)).toBeTruthy(),
   );
@@ -107,7 +107,7 @@ describe("version useInfoModal", () => {
   });
 
   it("should report up to date on a dev build without checking", async () => {
-    const ipc = mockUpdater({ version: "0.0.0", served: "1.4.2" });
+    const ipc = mockUpdater({ version: "0.0.0", served: "1.5.1" });
     await openModal();
     await waitFor(() => expect(screen.getByText("Up to date")).toBeTruthy());
     expect(callsOf(ipc, "updater_check")).toHaveLength(0);
@@ -115,7 +115,7 @@ describe("version useInfoModal", () => {
 
   it("should present the update that the Core serves and install it on request", async () => {
     const ipc = mockUpdater({
-      served: "1.4.2",
+      served: "1.5.1",
       download: async (send) => {
         send({ event: "Started", data: { contentLength: 1000 } });
         send({ event: "Progress", data: { chunkLength: 400 } });
@@ -131,7 +131,7 @@ describe("version useInfoModal", () => {
   });
 
   it("should run the install through the provided middleware", async () => {
-    const ipc = mockUpdater({ served: "1.4.2" });
+    const ipc = mockUpdater({ served: "1.5.1" });
     const order: string[] = [];
     await openModal({
       installMiddleware: async (run) => {
@@ -146,7 +146,7 @@ describe("version useInfoModal", () => {
   });
 
   it("should not relaunch when the middleware rejects", async () => {
-    const ipc = mockUpdater({ served: "1.4.2" });
+    const ipc = mockUpdater({ served: "1.5.1" });
     await openModal({
       installMiddleware: async () => await Promise.reject(new Error("the app is busy")),
     });
@@ -165,7 +165,7 @@ describe("version useInfoModal", () => {
 
   it("should hold the progress bar empty until the download reports a total", async () => {
     mockUpdater({
-      served: "1.4.2",
+      served: "1.5.1",
       download: async () => await new Promise<void>(() => {}),
     });
     await openModal();
@@ -176,10 +176,10 @@ describe("version useInfoModal", () => {
   });
 
   it("should never install an update without a click", async () => {
-    const ipc = mockUpdater({ served: "1.4.2" });
+    const ipc = mockUpdater({ served: "1.5.1" });
     await openModal();
     await waitFor(() =>
-      expect(screen.getByText("Version 1.4.2 available")).toBeTruthy(),
+      expect(screen.getByText("Version 1.5.1 available")).toBeTruthy(),
     );
     expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
     expect(restarted(ipc)).toBe(false);
@@ -191,7 +191,7 @@ describe("version useInfoModal", () => {
       recheckFails: boolean = false,
     ): Promise<{ ipc: IPC; rid: unknown }> => {
       const ipc = mockUpdater({
-        served: "1.4.2",
+        served: "1.5.1",
         download: async () => await download,
       });
       const setStatus = await renderBadge();
@@ -251,6 +251,47 @@ describe("version useInfoModal", () => {
       await act(async () => {});
       expect(screen.getByText("Downloading update")).toBeTruthy();
       expect(screen.queryByText("Failed to check for updates")).toBeNull();
+    });
+  });
+
+  describe("older release that the Core serves", () => {
+    const DOWNGRADE = "Downgrade Console 1.5.0 to 1.4.2";
+
+    const openDowngrade = async (): Promise<IPC> => {
+      const ipc = mockUpdater({ served: "1.4.2" });
+      await openModal({ coreVersion: "1.4.2", secure: true });
+      await clickUpdate("1.4.2");
+      expect(await screen.findByText(DOWNGRADE)).toBeTruthy();
+      return ipc;
+    };
+
+    it("should install it after the user confirms the downgrade", async () => {
+      const ipc = await openDowngrade();
+      fireEvent.click(screen.getByRole("button", { name: "Downgrade" }));
+      await waitFor(() => expect(restarted(ipc)).toBe(true));
+      expect(installed(ipc)).toBe(true);
+    });
+
+    it("should not download it when the user cancels", async () => {
+      const ipc = await openDowngrade();
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      await waitFor(() => expect(screen.queryByText(DOWNGRADE)).toBeNull());
+      await act(async () => {});
+      expect(callsOf(ipc, "plugin:updater|download")).toHaveLength(0);
+    });
+
+    it("should explain that it cannot downgrade over an insecure connection", async () => {
+      mockUpdater({ served: "1.4.2" });
+      await openModal({ coreVersion: "1.4.2" });
+      expect(
+        await screen.findByText("Cannot downgrade over an insecure connection"),
+      ).toBeTruthy();
+      expect(
+        screen.getByText(
+          "Core 1.4.2 is older than Console 1.5.0. Install Console 1.4.2 by hand, or connect to the Core over TLS to downgrade.",
+        ),
+      ).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "Update and restart" })).toBeNull();
     });
   });
 
