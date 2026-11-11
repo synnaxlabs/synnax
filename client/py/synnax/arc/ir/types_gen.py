@@ -86,7 +86,9 @@ class Authorities(BaseModel):
     """
 
     default: int | None = Field(default=None, ge=0, le=255)
-    channels: dict[int, int] = Field(default_factory=dict)
+    channels: dict[
+        Annotated[int, Field(ge=0, le=4294967295)], Annotated[int, Field(ge=0, le=255)]
+    ] = Field(default_factory=dict)
 
 
 class ExitTarget(BaseModel):

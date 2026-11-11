@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from x.codec import Bytes
@@ -27,4 +29,6 @@ class Output(BaseModel):
     """
 
     wasm: Bytes
-    output_memory_bases: dict[str, int] = Field(default_factory=dict)
+    output_memory_bases: dict[str, Annotated[int, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=dict
+    )

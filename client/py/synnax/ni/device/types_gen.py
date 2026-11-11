@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import TypeAlias, override as _override
+from typing import Annotated, TypeAlias, override as _override
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -32,7 +32,9 @@ class InputPorts(BaseModel):
     """
 
     index: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
-    channels: dict[str, channel.Key] = Field(default_factory=dict)
+    channels: dict[str, Annotated[channel.Key, Field(ge=0, le=4294967295)]] = Field(
+        default_factory=dict
+    )
 
 
 class CommandStatePair(BaseModel):
