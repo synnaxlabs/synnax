@@ -37,8 +37,40 @@ func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error)
 	return out, nil
 }
 
-// Migration lifts stored schematics from v11 to v12, which stores the precision as an
-// optional byte.
+// MigrateElementConfig lifts a v11 element config into v12. A stroke width rounds to
+// whole pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel.
+// A NaN width counts as 0.
+func MigrateElementConfig(
+	ctx context.Context,
+	old v11.ElementConfig,
+) (ElementConfig, error) {
+	out, err := autoMigrateElementConfig(ctx, old)
+	if err != nil {
+		return ElementConfig{}, err
+	}
+	switch o := old.Variant.(type) {
+	case v10.BoxElementConfig:
+		n := out.Variant.(BoxElementConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v10.CircleElementConfig:
+		n := out.Variant.(CircleElementConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v10.LineElementConfig:
+		n := out.Variant.(LineElementConfig)
+		n.StrokeWidth = max(migrateStrokeWidth(o.StrokeWidth), 1)
+		out.Variant = n
+	case v10.PolygonElementConfig:
+		n := out.Variant.(PolygonElementConfig)
+		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	}
+	return out, nil
+}
+
+// Migration lifts stored schematics from v11 to v12, which stores the precision and
+// stroke widths as bytes.
 var Migration = migrate.NewEntry("v62_byte_precision", MigrateSchematic)
 
 // MigrateNumericTelemConfig lifts a v11 numeric telemetry config into v12. It rounds
@@ -64,4 +96,25 @@ func migratePrecision(p float64) *uint8 {
 		return new(uint8(0))
 	}
 	return new(uint8(min(max(math.Round(p), 0), maxPrecision)))
+}
+
+func migrateStrokeWidth(w float64) uint8 {
+	if math.IsNaN(w) || w <= 0 {
+		return 0
+	}
+	return uint8(min(max(math.Round(w), 1), 20))
+}
+
+// MigrateSegmentedEdgeConfig lifts a v11 edge config to v12, which fills the default
+// stroke width.
+func MigrateSegmentedEdgeConfig(
+	ctx context.Context,
+	old v11.SegmentedEdgeConfig,
+) (SegmentedEdgeConfig, error) {
+	out, err := autoMigrateSegmentedEdgeConfig(ctx, old)
+	if err != nil {
+		return SegmentedEdgeConfig{}, err
+	}
+	out.ApplyDefaults()
+	return out, nil
 }

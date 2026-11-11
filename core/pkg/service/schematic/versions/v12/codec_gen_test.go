@@ -33,6 +33,16 @@ import (
 )
 
 var (
+	fullyPopulatedSegmentedEdgeConfig = v12.SegmentedEdgeConfig{
+		StrokeColor: new(color.Color{
+			R: 3,
+			G: 4,
+			B: 5,
+			A: 5.5,
+		}),
+		StrokeWidth: 7,
+		Segments:    []v12.Segment{{Direction: spatial.Direction("x"), Length: 9.5}},
+	}
 	fullyPopulatedStaticSymbolConfig = v12.StaticSymbolConfig{
 		Label: v12.LabelConfig{
 			Label:         "test_2",
@@ -201,18 +211,29 @@ var (
 		}),
 		OnClickDelay: 24.5,
 	}
-	fullyPopulatedSegmentedEdgeConfig = v12.SegmentedEdgeConfig{
-		StrokeColor: new(color.Color{
-			R: 3,
-			G: 4,
-			B: 5,
-			A: 5.5,
-		}),
-		Segments: []v12.Segment{{Direction: spatial.Direction("x"), Length: 8.5}},
-	}
 )
 
 var _ = Describe("Codec", func() {
+	Describe("EdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.EdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.EdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("pipe variant", v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("electric variant", v12.EdgeConfig{Variant: v12.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("secondary variant", v12.EdgeConfig{Variant: v12.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("jacketed variant", v12.EdgeConfig{Variant: v12.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("hydraulic variant", v12.EdgeConfig{Variant: v12.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("pneumatic variant", v12.EdgeConfig{Variant: v12.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+			Entry("data variant", v12.EdgeConfig{Variant: v12.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}),
+		)
+	})
 	Describe("ElementConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v12.ElementConfig) {
@@ -297,7 +318,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 				BorderRadius: 14.5,
-				StrokeWidth:  15.5,
+				StrokeWidth:  16,
 			}}),
 			Entry("button variant", v12.ElementConfig{Variant: v12.ButtonElementConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
@@ -335,7 +356,7 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 11.5,
 				}),
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("gauge variant", v12.ElementConfig{Variant: v12.GaugeElementConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
@@ -409,7 +430,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Start:       spatial.XY{X: 7.5, Y: 8.5},
 				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("off_page_reference variant", v12.ElementConfig{Variant: v12.OffPageReferenceElementConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -440,7 +461,7 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 14.5,
 				}),
-				StrokeWidth: 15.5,
+				StrokeWidth: 16,
 			}}),
 			Entry("select variant", v12.ElementConfig{Variant: v12.SelectElementConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -989,7 +1010,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 				BorderRadius: 14.5,
-				StrokeWidth:  15.5,
+				StrokeWidth:  16,
 			}}),
 			Entry("button variant", v12.NodeConfig{Variant: v12.ButtonNodeConfig{
 				LabeledConfig:  fullyPopulatedLabeledConfig,
@@ -1027,7 +1048,7 @@ var _ = Describe("Codec", func() {
 					B: 11,
 					A: 11.5,
 				}),
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("gauge variant", v12.NodeConfig{Variant: v12.GaugeNodeConfig{
 				LabeledConfig:      fullyPopulatedLabeledConfig,
@@ -1101,7 +1122,7 @@ var _ = Describe("Codec", func() {
 				}),
 				Start:       spatial.XY{X: 7.5, Y: 8.5},
 				End:         spatial.XY{X: 10.5, Y: 11.5},
-				StrokeWidth: 12.5,
+				StrokeWidth: 13,
 			}}),
 			Entry("off_page_reference variant", v12.NodeConfig{Variant: v12.OffPageReferenceNodeConfig{
 				LabeledConfig: fullyPopulatedLabeledConfig,
@@ -1132,7 +1153,7 @@ var _ = Describe("Codec", func() {
 					B: 14,
 					A: 14.5,
 				}),
-				StrokeWidth: 15.5,
+				StrokeWidth: 16,
 			}}),
 			Entry("select variant", v12.NodeConfig{Variant: v12.SelectNodeConfig{
 				LabeledConfig:   fullyPopulatedLabeledConfig,
@@ -1667,7 +1688,53 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("SegmentedEdgeConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v12.SegmentedEdgeConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v12.SegmentedEdgeConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedSegmentedEdgeConfig),
+			Entry("zero values", v12.SegmentedEdgeConfig{
+				StrokeColor: nil,
+				StrokeWidth: 0,
+				Segments:    []v12.Segment{},
+			}),
+			Entry("empty collections", v12.SegmentedEdgeConfig{
+				StrokeColor: new(color.Color{
+					R: 3,
+					G: 4,
+					B: 5,
+					A: 5.5,
+				}),
+				StrokeWidth: 7,
+				Segments:    []v12.Segment{},
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeEdgeConfig(b *testing.B) {
+	seed := v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.EdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeElementConfig(b *testing.B) {
 	seed := v12.ElementConfig{Variant: v12.CapElementConfig{StaticSymbolConfig: fullyPopulatedStaticSymbolConfig}}
@@ -1772,6 +1839,102 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func BenchmarkEncodeDecodeSegmentedEdgeConfig(b *testing.B) {
+	seed := fullyPopulatedSegmentedEdgeConfig
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v12.SegmentedEdgeConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeEdgeConfig(f *testing.F) {
+	{
+		seed := v12.EdgeConfig{Variant: v12.PipeEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.ElectricEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.SecondaryEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.JacketedEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.HydraulicEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.PneumaticEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.EdgeConfig{Variant: v12.DataEdgeConfig{SegmentedEdgeConfig: fullyPopulatedSegmentedEdgeConfig}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.EdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.EdgeConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeElementConfig(f *testing.F) {
@@ -2024,7 +2187,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 			BorderRadius: 14.5,
-			StrokeWidth:  15.5,
+			StrokeWidth:  16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2076,7 +2239,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 11,
 				A: 11.5,
 			}),
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2178,7 +2341,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 			}),
 			Start:       spatial.XY{X: 7.5, Y: 8.5},
 			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -2223,7 +2386,7 @@ func FuzzDecodeElementConfig(f *testing.F) {
 				B: 14,
 				A: 14.5,
 			}),
-			StrokeWidth: 15.5,
+			StrokeWidth: 16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3503,7 +3666,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Dimensions:   spatial.Dimensions{Width: 12.5, Height: 13.5},
 			BorderRadius: 14.5,
-			StrokeWidth:  15.5,
+			StrokeWidth:  16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3555,7 +3718,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 11,
 				A: 11.5,
 			}),
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3657,7 +3820,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 			}),
 			Start:       spatial.XY{X: 7.5, Y: 8.5},
 			End:         spatial.XY{X: 10.5, Y: 11.5},
-			StrokeWidth: 12.5,
+			StrokeWidth: 13,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3702,7 +3865,7 @@ func FuzzDecodeNodeConfig(f *testing.F) {
 				B: 14,
 				A: 14.5,
 			}),
-			StrokeWidth: 15.5,
+			StrokeWidth: 16,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -4822,6 +4985,66 @@ func FuzzDecodeSchematic(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v12.Schematic
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeSegmentedEdgeConfig(f *testing.F) {
+	{
+		seed := fullyPopulatedSegmentedEdgeConfig
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.SegmentedEdgeConfig{
+			StrokeColor: nil,
+			StrokeWidth: 0,
+			Segments:    []v12.Segment{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v12.SegmentedEdgeConfig{
+			StrokeColor: new(color.Color{
+				R: 3,
+				G: 4,
+				B: 5,
+				A: 5.5,
+			}),
+			StrokeWidth: 7,
+			Segments:    []v12.Segment{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v12.SegmentedEdgeConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v12.SegmentedEdgeConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

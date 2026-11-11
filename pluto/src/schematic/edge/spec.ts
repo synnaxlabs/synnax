@@ -31,6 +31,8 @@ export interface Spec<
   Form: FC<FormProps>;
   Edge: Edge;
   defaultConfig: () => P;
+  /** Returns the full width the edge draws at a stroke width, extra lines included. */
+  renderedWidth: (strokeWidth: number) => number;
   /** Overrides the default fallback of each color field it lists. */
   colorFallbacks?: ColorFallbacks;
 }

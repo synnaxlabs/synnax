@@ -139,7 +139,11 @@ describe("schematic clipboard", () => {
         variant: "tank",
         label: { label: "Pump" },
       });
-      expect(payload.configs.e1).toEqual({ variant: "pipe", segments: [] });
+      expect(payload.configs.e1).toEqual({
+        variant: "pipe",
+        segments: [],
+        strokeWidth: 2,
+      });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();

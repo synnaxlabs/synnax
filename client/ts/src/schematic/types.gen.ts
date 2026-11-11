@@ -214,6 +214,8 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 export const segmentedEdgeConfigZ = z.object({
   /** strokeColor is the stroke color of the edge. */
   strokeColor: color.colorZ.optional(),
+  /** strokeWidth is the stroke width of the edge in pixels. */
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
   /**
    * segments is the ordered list of orthogonal runs that trace the connector path from
    * the source handle to the target handle.
@@ -590,7 +592,7 @@ export const boxNodeConfigZ = labeledConfigZ.extend({
   /** borderRadius is the uniform corner radius of the box in pixels. */
   borderRadius: z.number().default(3),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface BoxNodeConfig extends z.infer<typeof boxNodeConfigZ> {}
 
@@ -624,7 +626,7 @@ export const circleNodeConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface CircleNodeConfig extends z.infer<typeof circleNodeConfigZ> {}
 
@@ -702,7 +704,7 @@ export const lineNodeConfigZ = z.object({
   /** end is the second endpoint, offset from the node position. */
   end: spatial.xyZ.prefault({ x: 100, y: 0 }),
   /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface LineNodeConfig extends z.infer<typeof lineNodeConfigZ> {}
 
@@ -741,7 +743,7 @@ export const polygonNodeConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 
@@ -1982,7 +1984,7 @@ export const boxElementConfigZ = labeledConfigZ.extend({
   /** borderRadius is the uniform corner radius of the box in pixels. */
   borderRadius: z.number().default(3),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface BoxElementConfig extends z.infer<typeof boxElementConfigZ> {}
 
@@ -2016,7 +2018,7 @@ export const circleElementConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the circle. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface CircleElementConfig extends z.infer<typeof circleElementConfigZ> {}
 
@@ -2096,7 +2098,7 @@ export const lineElementConfigZ = z.object({
   /** end is the second endpoint, offset from the node position. */
   end: spatial.xyZ.prefault({ x: 100, y: 0 }),
   /** strokeWidth is the stroke width of the line in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.min(1).max(20).default(2),
 });
 export interface LineElementConfig extends z.infer<typeof lineElementConfigZ> {}
 
@@ -2137,7 +2139,7 @@ export const polygonElementConfigZ = labeledConfigZ.extend({
   /** fillColor is the fill color of the polygon. */
   fillColor: color.colorZ.optional(),
   /** strokeWidth is the border stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: zod.uint8.max(20).default(2),
 });
 export interface PolygonElementConfig extends z.infer<typeof polygonElementConfigZ> {}
 

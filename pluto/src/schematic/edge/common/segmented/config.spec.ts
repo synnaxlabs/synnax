@@ -17,5 +17,6 @@ describe("createDefaultConfig", () => {
     expect(config.variant).toBe("pipe");
     expect(config.segments).toEqual([]);
     expect(config.strokeColor).toBeUndefined();
+    expect(config.strokeWidth).toBe(2);
   });
 });

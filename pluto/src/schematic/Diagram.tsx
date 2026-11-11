@@ -117,7 +117,13 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
         zoom,
         true,
       );
-      if (points.length >= 2) polylines.push({ key: edge.key, points, order });
+      if (points.length < 2) return;
+      const strokeWidth = cfg?.strokeWidth ?? Edge.Base.DEFAULT_STROKE_WIDTH;
+      const width =
+        cfg == null
+          ? strokeWidth
+          : Edge.resolveSpec(cfg.variant).renderedWidth(strokeWidth);
+      polylines.push({ key: edge.key, points, order, strokeWidth, width });
     });
     jumpStore.commit(Edge.Jumps.findCrossings(polylines));
   };

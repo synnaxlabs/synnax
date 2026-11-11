@@ -21,7 +21,7 @@ import (
 func autoMigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
 	configs := make(map[string]ElementConfig, len(old.Configs))
 	for k, v := range old.Configs {
-		nv, err := autoMigrateElementConfig(ctx, v)
+		nv, err := MigrateElementConfig(ctx, v)
 		if err != nil {
 			return Schematic{}, err
 		}
@@ -149,7 +149,6 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			FillColor:     variant.FillColor,
 			Dimensions:    variant.Dimensions,
 			BorderRadius:  variant.BorderRadius,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v11.ButtonElementConfig:
 		return ElementConfig{Variant: ButtonElementConfig{
@@ -168,7 +167,6 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Radius:        variant.Radius,
 			StrokeColor:   variant.StrokeColor,
 			FillColor:     variant.FillColor,
-			StrokeWidth:   variant.StrokeWidth,
 		}}, nil
 	case v11.GaugeElementConfig:
 		numericTelemConfig, err := MigrateNumericTelemConfig(ctx, variant.NumericTelemConfig)
@@ -216,7 +214,6 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			StrokeColor: variant.StrokeColor,
 			Start:       variant.Start,
 			End:         variant.End,
-			StrokeWidth: variant.StrokeWidth,
 		}}, nil
 	case v11.OffPageReferenceElementConfig:
 		return ElementConfig{Variant: OffPageReferenceElementConfig{
@@ -234,7 +231,6 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			CornerRounding: variant.CornerRounding,
 			StrokeColor:    variant.StrokeColor,
 			FillColor:      variant.FillColor,
-			StrokeWidth:    variant.StrokeWidth,
 		}}, nil
 	case v11.SelectElementConfig:
 		return ElementConfig{Variant: SelectElementConfig{
@@ -613,32 +609,60 @@ func autoMigrateElementConfig(ctx context.Context, old v11.ElementConfig) (Eleme
 			Locked:  variant.Locked,
 		}}, nil
 	case v11.PipeElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: PipeElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.ElectricElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: ElectricElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.SecondaryElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: SecondaryElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.JacketedElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: JacketedElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.HydraulicElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: HydraulicElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.PneumaticElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: PneumaticElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	case v11.DataElementConfig:
+		segmentedEdgeConfig, err := MigrateSegmentedEdgeConfig(ctx, variant.SegmentedEdgeConfig)
+		if err != nil {
+			return ElementConfig{}, err
+		}
 		return ElementConfig{Variant: DataElementConfig{
-			SegmentedEdgeConfig: variant.SegmentedEdgeConfig,
+			SegmentedEdgeConfig: segmentedEdgeConfig,
 		}}, nil
 	default:
 		return ElementConfig{}, errors.Newf("unknown ElementConfig variant %T", variant)
@@ -672,5 +696,12 @@ func autoMigrateScaleIndicatorConfig(ctx context.Context, old v11.ScaleIndicator
 		Side:               old.Side,
 		CaretSide:          old.CaretSide,
 		Level:              old.Level,
+	}, nil
+}
+
+func autoMigrateSegmentedEdgeConfig(_ context.Context, old v11.SegmentedEdgeConfig) (SegmentedEdgeConfig, error) {
+	return SegmentedEdgeConfig{
+		StrokeColor: old.StrokeColor,
+		Segments:    old.Segments,
 	}, nil
 }

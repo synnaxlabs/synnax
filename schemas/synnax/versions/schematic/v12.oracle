@@ -28,9 +28,14 @@ Edge = v7.Edge
 
 Segment = v9.Segment
 
-SegmentedEdgeConfig = v9.SegmentedEdgeConfig
+SegmentedEdgeConfig struct extends v9.SegmentedEdgeConfig {
+    stroke_color
+    stroke_width uint8 = 2 {
+        @doc value "is the stroke width of the edge in pixels."
+    }
+}
 
-EdgeConfig = v9.EdgeConfig
+EdgeConfig union on variant extends v9.EdgeConfig {}
 
 FlexAlignment = v9.FlexAlignment
 
@@ -73,7 +78,28 @@ PageType = v9.PageType
 
 Page = v9.Page
 
-NodeConfig union on variant extends v10.NodeConfig {}
+NodeConfig union on variant extends v10.NodeConfig {
+    box {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    circle {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+    line {
+        stroke_width uint8 = 2 {
+            @doc value "is the stroke width of the line in pixels."
+        }
+    }
+    polygon {
+        stroke_width uint8 = 2 {
+            @doc value "is the border stroke width in pixels."
+        }
+    }
+}
 
 ElementConfig union on variant extends v10.ElementConfig {}
 

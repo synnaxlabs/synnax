@@ -11,6 +11,7 @@ package schematic_test
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"math"
 	"strconv"
 	"uuid"
@@ -958,6 +959,24 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
 		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
 	})
+
+	invalidWidth := MatchError(ContainSubstring("stroke_width"))
+	DescribeTable("Should validate a stroke width against its bounds",
+		func(variant string, width int, matcher OmegaMatcher) {
+			a := decode(fmt.Sprintf(`{"type": "set_config", "set_config": {"key":
+				"n1", "config": {"variant": %q, "stroke_width": %d}}}`, variant, width))
+			Expect(a.SetConfig.Config.Validate()).To(matcher)
+		},
+		Entry("box at 0", "box", 0, Succeed()),
+		Entry("box above 20", "box", 21, invalidWidth),
+		Entry("circle at 0", "circle", 0, Succeed()),
+		Entry("polygon at 0", "polygon", 0, Succeed()),
+		Entry("line at 0", "line", 0, invalidWidth),
+		Entry("line at 1", "line", 1, Succeed()),
+		Entry("line above 20", "line", 21, invalidWidth),
+		Entry("edge at 0", "pipe", 0, invalidWidth),
+		Entry("edge above 20", "pipe", 21, invalidWidth),
+	)
 
 	It("Should keep an empty string the payload carries", func() {
 		a := decode(`{"type": "set_config", "set_config": {"key": "v1",

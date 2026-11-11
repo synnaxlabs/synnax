@@ -92,6 +92,11 @@ SegmentedEdgeConfig struct {
     stroke_color color.Color? {
         @doc value "is the stroke color of the edge."
     }
+    stroke_width uint8 = 2 {
+        @doc value    "is the stroke width of the edge in pixels."
+        @validate max 20
+        @validate min 1
+    }
     segments     Segment[]    {
         @doc value """
             is the ordered list of orthogonal runs that trace the connector path from
@@ -354,8 +359,9 @@ NodeConfig union on variant {
         border_radius float64 = 3 {
             @doc value "is the uniform corner radius of the box in pixels."
         }
-        stroke_width  float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width  uint8 = 2 {
+            @doc value    "is the border stroke width in pixels."
+            @validate max 20
         }
 
         @doc value "is the configuration for box annotation symbols."
@@ -395,8 +401,9 @@ NodeConfig union on variant {
         fill_color   color.Color? {
             @doc value "is the fill color of the circle."
         }
-        stroke_width float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width uint8 = 2 {
+            @doc value    "is the border stroke width in pixels."
+            @validate max 20
         }
 
         @doc value "is the configuration for circle annotation symbols."
@@ -490,8 +497,10 @@ NodeConfig union on variant {
         end          spatial.XY = { x = 100, y = 0 } {
             @doc value "is the second endpoint, offset from the node position."
         }
-        stroke_width float64 = 2 {
-            @doc value "is the stroke width of the line in pixels."
+        stroke_width uint8 = 2 {
+            @doc value    "is the stroke width of the line in pixels."
+            @validate max 20
+            @validate min 1
         }
 
         @doc value "is the configuration for straight line symbols."
@@ -534,8 +543,9 @@ NodeConfig union on variant {
         fill_color      color.Color? {
             @doc value "is the fill color of the polygon."
         }
-        stroke_width    float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width    uint8 = 2 {
+            @doc value    "is the border stroke width in pixels."
+            @validate max 20
         }
 
         @doc value "is the configuration for polygon annotation symbols."
