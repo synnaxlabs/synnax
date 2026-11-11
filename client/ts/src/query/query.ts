@@ -25,7 +25,7 @@ import {
   NotFoundError,
 } from "@/errors";
 import { Deleted } from "@/query/deleted";
-import { type Table, type TableEvent } from "@/query/table";
+import { isChange, type Table, type TableEvent } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
 
 const hashes = new WeakMap<object, string>();
@@ -978,13 +978,13 @@ export class Space<
     }
 
     if (this.isServerComputed(params) || (keyOf?.(params) == null && matches == null)) {
-      // Rule 3: server-computed — any relevant event triggers a debounced
-      // wholesale refetch; membership is never patched locally. A change to a
-      // current member's entry notifies immediately, so optimistic writes render
-      // without waiting on the refetch.
+      // Rule 3: server-computed. Any change triggers a debounced wholesale refetch, and
+      // membership is never patched locally. A change to a current member's entry
+      // notifies immediately, so optimistic writes render without waiting on the
+      // refetch.
       teardown.push(
         table.subscribeBatch((events) => {
-          this.scheduleRefetch(query);
+          if (events.some(isChange)) this.scheduleRefetch(query);
           this.touchMembers(
             query,
             events.map((event) => event.key),

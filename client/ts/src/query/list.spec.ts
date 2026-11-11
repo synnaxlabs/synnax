@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
 import { ValidationError } from "@/errors";
 import { query } from "@/query";
 import { Lists, MAX_SEARCH_LIMIT } from "@/query/list";
-import { type SpaceHooks } from "@/query/query";
+import { DEFAULT_DEBOUNCE, type SpaceHooks } from "@/query/query";
 
 interface Rec {
   key: string;
@@ -385,6 +385,32 @@ describe("Lists", () => {
       table.set("2", rec("2", "ac"));
       await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
       expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it("should not fetch again when another list finds new records", async () => {
+      const { lists, list, fetch } = await searching([rec("1", "ab"), rec("2", "c")]);
+      await lists.list({ order: byName }).retrieve();
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(names(list.getCached())).toEqual(["ab"]);
+    });
+
+    it("should fetch again when another list fetches a changed record", async () => {
+      const { lists, list, fetch, core } = await searching([rec("1", "ab")]);
+      core.records = [rec("1", "ab", 5), rec("2", "ac")];
+      await lists.list({ order: byName }).retrieve();
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      expect(fetch).toHaveBeenCalledTimes(3);
+    });
+
+    it("should fetch again when the stream sets a record a fetch found", async () => {
+      const { lists, list, table, fetch, core } = await searching([rec("1", "ab")]);
+      core.records.push(rec("2", "ac"));
+      await lists.list({ order: byName }).retrieve();
+      table.mirrorSet("2", rec("2", "ac"));
+      await expect.poll(() => names(list.getCached())).toEqual(["ab", "ac"]);
+      await sleep.sleep(TimeSpan.milliseconds(DEFAULT_DEBOUNCE.milliseconds * 2));
+      expect(fetch).toHaveBeenCalledTimes(3);
     });
 
     it("should show a change to a member at once", async () => {

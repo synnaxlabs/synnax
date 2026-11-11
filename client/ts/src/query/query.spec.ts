@@ -2267,6 +2267,45 @@ describe("Answers", () => {
       expect(answers.getCached({ searchTerm: "x" })).toEqual([rec("a", 1)]);
     });
 
+    it("fetches once when its own fetch finds new records", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => {
+        table.ingest(rec("a", 1));
+        return ["a"];
+      });
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not refetch when another fetch finds new records", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => ["a"]);
+      table.set("a", rec("a", 1));
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      table.ingest([rec("b", 2), rec("c", 3)]);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("refetches when the stream sets a record another fetch found", async () => {
+      const table = newTable();
+      const fetch = vi.fn(async () => ["a"]);
+      table.set("a", rec("a", 1));
+      const answers = searchSpace(table, fetch);
+      answers.onChange({ searchTerm: "x" }, vi.fn());
+      await answers.retrieve({ searchTerm: "x" });
+      table.ingest(rec("b", 2));
+      table.mirrorSet("b", rec("b", 2));
+      await expect.poll(() => fetch.mock.calls.length).toBe(2);
+      await wait(150);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
     it("coalesces rapid table changes into a single refetch", async () => {
       const table = newTable();
       const fetch = vi.fn(async () => {
