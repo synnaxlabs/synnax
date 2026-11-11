@@ -100,3 +100,19 @@ var _ = Describe("AnalogWriteMigration", func() {
 		},
 	)
 })
+
+var _ = Describe("MigrateCounterReadConfig", func() {
+	It("Should keep every counter channel", func(ctx SpecContext) {
+		got := MustSucceed(v4.MigrateCounterReadConfig(ctx, v3.CounterReadConfig{
+			Channels: []v3.CIChannel{{Variant: v3.CIFrequencyChannel{
+				BaseCIChannel: v3.BaseCIChannel{Key: "ctr", Port: 1},
+				Divisor:       8,
+			}}},
+		}))
+		Expect(got.Channels).To(HaveLen(1))
+		ch := got.Channels[0].Variant.(v4.CIFrequencyChannel)
+		Expect(ch.Key).To(Equal("ctr"))
+		Expect(ch.Port).To(BeEquivalentTo(1))
+		Expect(ch.Divisor).To(Equal(uint32(8)))
+	})
+})
