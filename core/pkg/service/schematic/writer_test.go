@@ -72,7 +72,7 @@ var _ = Describe("Writer", func() {
 					Where(schematic.MatchKeys(s.Key)).
 					Entry(&res).
 					Exec(ctx, tx)).To(Succeed())
-				gauge, ok := res.Configs["g1"].Variant.(schematic.GaugeElementConfig)
+				gauge, ok := res.Configs["g1"].Variant.(schematic.GaugeNodeConfig)
 				Expect(ok).To(BeTrue())
 				Expect(gauge.Bounds).To(Equal(expected))
 			},
@@ -415,9 +415,11 @@ var _ = Describe("Writer", func() {
 						}),
 						schematic.NewAddEdgeAction(schematic.AddEdgePayload{
 							Edge: schematic.Edge{
-								Key:    "e1",
-								Source: schematic.Handle{Node: "n1"},
-								Target: schematic.Handle{Node: "n2"},
+								Key:         "e1",
+								Source:      schematic.Handle{Node: "n1"},
+								Target:      schematic.Handle{Node: "n2"},
+								Variant:     schematic.EdgeVariantPipe,
+								StrokeWidth: 2,
 							},
 						}),
 					}),
@@ -531,6 +533,8 @@ var _ = Describe("Writer", func() {
 									Node:  "valve",
 									Param: "in",
 								},
+								Variant:     schematic.EdgeVariantPipe,
+								StrokeWidth: 2,
 							}},
 						),
 						schematic.NewSetConfigAction(schematic.SetConfigPayload{

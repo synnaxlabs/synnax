@@ -61,21 +61,6 @@ Handle struct {
     @go marshal
 }
 
-Edge struct {
-    key    string {
-        @doc value "is the unique edge identifier within the schematic."
-    }
-    source Handle {
-        @doc value "is the source endpoint of the edge."
-    }
-    target Handle {
-        @doc value "is the target endpoint of the edge."
-    }
-
-    @doc value  "is a connection between two nodes in the schematic."
-    @go marshal
-}
-
 Segment struct {
     direction spatial.Direction {
         @doc value "is the axis along which the segment travels."
@@ -88,7 +73,45 @@ Segment struct {
     @go marshal
 }
 
-SegmentedEdgeConfig struct {
+EdgeVariant enum {
+    pipe      = "pipe" {
+        @doc value "draws a fluid pipe."
+    }
+    electric  = "electric" {
+        @doc value "draws an electrical wire."
+    }
+    secondary = "secondary" {
+        @doc value "draws a secondary line."
+    }
+    jacketed  = "jacketed" {
+        @doc value "draws a jacketed pipe."
+    }
+    hydraulic = "hydraulic" {
+        @doc value "draws a hydraulic line."
+    }
+    pneumatic = "pneumatic" {
+        @doc value "draws a pneumatic line."
+    }
+    data      = "data" {
+        @doc value "draws a data link."
+    }
+
+    @doc value "is the visual style of a schematic edge."
+}
+
+Edge struct {
+    key          string       {
+        @doc value "is the unique edge identifier within the schematic."
+    }
+    source       Handle       {
+        @doc value "is the source endpoint of the edge."
+    }
+    target       Handle       {
+        @doc value "is the target endpoint of the edge."
+    }
+    variant      EdgeVariant = EdgeVariantPipe {
+        @doc value "is the visual style of the edge."
+    }
     stroke_color color.Color? {
         @doc value "is the stroke color of the edge."
     }
@@ -104,23 +127,7 @@ SegmentedEdgeConfig struct {
         """
     }
 
-    @doc value  "is the configuration shared by every segmented edge variant."
-    @go marshal
-}
-
-EdgeConfig union on variant {
-    pipe      SegmentedEdgeConfig
-    electric  SegmentedEdgeConfig
-    secondary SegmentedEdgeConfig
-    jacketed  SegmentedEdgeConfig
-    hydraulic SegmentedEdgeConfig
-    pneumatic SegmentedEdgeConfig
-    data      SegmentedEdgeConfig
-
-    @doc value  """
-        is the per-edge configuration stored in the schematic configs map. The variant
-        selects the visual style of the connection.
-    """
+    @doc value  "is a connection between two nodes in the schematic."
     @go marshal
 }
 
@@ -907,20 +914,12 @@ NodeConfig union on variant {
     @go marshal
 }
 
-ElementConfig union on variant extends NodeConfig, EdgeConfig {
-    @doc value  """
-        is the per-element configuration stored in the schematic configs map: a node
-        config or an edge config, discriminated by variant.
-    """
-    @go marshal
-}
-
 Schematic struct {
     key     Key = create {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name    string                     {
+    name    string                  {
         @doc value         "is a human-readable name for the schematic."
         @index sorted
         @search
@@ -932,20 +931,20 @@ Schematic struct {
     edges   Edge[] = [] {
         @doc value "contains all connections between nodes."
     }
-    configs map<string, ElementConfig> = {} {
+    configs map<string, NodeConfig> = {} {
         @doc value        """
-            contains per-element configuration keyed by node or edge key. The variant of
-            each value selects the symbol or edge style it configures.
+            contains per-node configuration keyed by node key. The variant of each value
+            selects the symbol it configures.
         """
         @ts preserve_keys
     }
-    group   group.Key?                 {
+    group   group.Key?              {
         @doc value     "is the group the schematic sits in, if any."
         @group scope   project
         @ref kind      place
         @ref on_delete detach
     }
-    project project.Key?               {
+    project project.Key?            {
         @doc value     "is the project that holds the schematic."
         @ref kind      place
         @ref on_delete cascade
@@ -969,7 +968,7 @@ Schematic struct {
 
     action SetNode {
         node   Node
-        config ElementConfig?
+        config NodeConfig?
 
         @doc value """
             inserts the node if no node with the same key exists, otherwise replaces the
@@ -982,8 +981,8 @@ Schematic struct {
         key string
 
         @doc value """
-            removes the node, its config, and the edges that connect to it and their
-            configs. No-op when no node has the key.
+            removes the node, its config, and the edges that connect to it. No-op when
+            no node has the key.
         """
     }
 
@@ -999,44 +998,53 @@ Schematic struct {
     action RemoveEdge {
         key string
 
-        @doc value "removes the edge with the given key and its config, if present."
+        @doc value "removes the edge with the given key, if present."
+    }
+
+    action SetEdge {
+        edge Edge
+
+        @doc value """
+            inserts the edge if no edge with the same key exists, otherwise replaces the
+            existing edge in place. No-op when the source or target node does not exist.
+        """
     }
 
     action SetConfig {
         key    string
-        config ElementConfig
+        config NodeConfig
 
         @doc value """
-            replaces the config entry stored under the given node or edge key. No-op
-            when no node or edge has the key.
+            replaces the config entry stored under the given node key. No-op when no
+            node has the key.
         """
     }
 
     action Set = patch.Set {
         @doc value """
-            replaces the value at a path in the schematic's name or element configs.
-            No-op when no node or edge has the config's key.
+            replaces the value at a path in the schematic's name or node configs. No-op
+            when no node has the config's key.
         """
     }
 
     action Remove = patch.Remove {
         @doc value """
             removes an entry from a list or a field from an object in the schematic's
-            element configs. No-op when no node or edge has the config's key.
+            node configs. No-op when no node has the config's key.
         """
     }
 
     action Insert = patch.Insert {
         @doc value """
-            adds an entry to a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            adds an entry to a list in the schematic's node configs. No-op when no node
+            has the config's key.
         """
     }
 
     action Move = patch.Move {
         @doc value """
-            moves an entry in a list in the schematic's element configs. No-op when no
-            node or edge has the config's key.
+            moves an entry in a list in the schematic's node configs. No-op when no node
+            has the config's key.
         """
     }
 

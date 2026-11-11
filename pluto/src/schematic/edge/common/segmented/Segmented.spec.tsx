@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { act, render } from "@testing-library/react";
 import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { Profiler, type ReactElement } from "react";
@@ -43,6 +44,13 @@ const Line = ({
 
 const spec = Segmented.createSpec("electric", "Electric", Line);
 
+const EDGE = schematic.edgeZ.parse({
+  key: "e1",
+  source: { node: "a", param: "out" },
+  target: { node: "b", param: "in" },
+  variant: "electric",
+});
+
 const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
   onStore(useStoreApi());
   return null;
@@ -66,7 +74,7 @@ const renderEdge = (config: { strokeWidth?: number } = {}) => {
               sourceNode="a"
               targetNode="b"
               selected={false}
-              config={{ ...spec.defaultConfig(), ...config }}
+              edge={{ ...EDGE, ...config }}
               onChange={vi.fn()}
             />
           </Profiler>

@@ -20,12 +20,13 @@ import {
   removeEdge,
   removeNode,
   setConfig,
+  setEdge,
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
 import {
-  type ElementConfig,
-  elementConfigZ,
+  type NodeConfig,
+  nodeConfigZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
@@ -38,22 +39,18 @@ const hasNode = (state: Draft<Schematic>, key: string): boolean =>
 const hasEdge = (state: Draft<Schematic>, key: string): boolean =>
   state.edges.some((e) => e.key === key);
 
-// Only the key of a node or edge can name a config.
-const hasElement = (state: Draft<Schematic>, key: string): boolean =>
-  hasNode(state, key) || hasEdge(state, key);
-
-// An action on the config of a node or edge that does not exist does nothing.
+// An action on the config of a node that does not exist does nothing.
 const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult => {
   const path = patch.pathOf(action);
   if (path[0] !== CONFIGS_FIELD) return actions.applyPath(state, action, schematicZ);
-  if (path.length > 1 && !hasElement(state, path[1])) return actions.NO_OP_RESULT;
+  if (path.length > 1 && !hasNode(state, path[1])) return actions.NO_OP_RESULT;
   return actions.applyEntryPath(state, action, [CONFIGS_FIELD], schematicZ);
 };
 
 const snapshotConfig = (
   state: Draft<Schematic>,
   key: string,
-): ElementConfig | undefined => {
+): NodeConfig | undefined => {
   const config = state.configs[key];
   return config != null ? actions.snapshotDraft(config) : undefined;
 };
@@ -61,6 +58,7 @@ const snapshotConfig = (
 const isConfigEdit = (action: Action): boolean => {
   switch (action.type) {
     case "set_config":
+    case "set_edge":
       return true;
     case "set":
     case "remove":
@@ -126,12 +124,7 @@ const handlers: Handlers = {
       (e) => e.source.node === payload.key || e.target.node === payload.key,
     );
     for (const e of connected) {
-      const oldEdge = actions.snapshotDraft(e);
-      const oldEdgeConfig = snapshotConfig(state, e.key);
-      delete state.configs[e.key];
-      inverse.push(addEdge({ edge: oldEdge }));
-      if (oldEdgeConfig != null)
-        inverse.push(setConfig({ key: e.key, config: oldEdgeConfig }));
+      inverse.push(addEdge({ edge: actions.snapshotDraft(e) }));
       targets.push(e.key);
     }
     state.edges = state.edges.filter(
@@ -167,16 +160,24 @@ const handlers: Handlers = {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
     if (idx === -1) return actions.NO_OP_RESULT;
     const oldEdge = actions.snapshotDraft(state.edges[idx]);
-    const oldConfig = snapshotConfig(state, payload.key);
     state.edges.splice(idx, 1);
-    delete state.configs[payload.key];
-    const inverse: Action[] = [addEdge({ edge: oldEdge })];
-    if (oldConfig != null)
-      inverse.push(setConfig({ key: payload.key, config: oldConfig }));
-    return { inverse, targets: [payload.key] };
+    return { inverse: [addEdge({ edge: oldEdge })], targets: [payload.key] };
+  },
+  setEdge: (state, payload) => {
+    const { key, source, target } = payload.edge;
+    if (!hasNode(state, source.node) || !hasNode(state, target.node))
+      return actions.NO_OP_RESULT;
+    const idx = state.edges.findIndex((e) => e.key === key);
+    if (idx === -1) {
+      state.edges.push(payload.edge);
+      return { inverse: [removeEdge({ key })], targets: [key] };
+    }
+    const oldEdge = actions.snapshotDraft(state.edges[idx]);
+    state.edges[idx] = payload.edge;
+    return { inverse: [setEdge({ edge: oldEdge })], targets: [key] };
   },
   setConfig: (state, payload) => {
-    if (!hasElement(state, payload.key)) return actions.NO_OP_RESULT;
+    if (!hasNode(state, payload.key)) return actions.NO_OP_RESULT;
     const prev = snapshotConfig(state, payload.key);
     state.configs[payload.key] = payload.config;
     return {
@@ -190,19 +191,19 @@ const handlers: Handlers = {
 export const reduceAll = createReduceAll(handlers);
 
 export interface SetChangedArgs {
-  /** The key of the element. */
+  /** The key of the node. */
   key: string;
-  base: ElementConfig;
-  next: ElementConfig;
+  base: NodeConfig;
+  next: NodeConfig;
 }
 
 /**
- * Writes only the fields of an element's config that differ between base and next, so
- * a concurrent edit to another field of the element survives.
+ * Writes only the fields of a node's config that differ between base and next, so a
+ * concurrent edit to another field of the node survives.
  * @returns the actions to dispatch, with none when nothing differs.
  */
 export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
-  patch.diff(elementConfigZ, base, next).map((a) => patch.prefix(a, ["configs", key]));
+  patch.diff(nodeConfigZ, base, next).map((a) => patch.prefix(a, ["configs", key]));
 
 /**
  * Converts a path action from the camelCase form of the cached schematic into the
@@ -227,7 +228,7 @@ export const createOf = (action: Action) =>
 
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus config edits
+  // A drag dispatches a stream of `set_node_position` per frame, plus edge sets
   // synthesized by augmentWithEdgeSegments for any affected edges. Both shapes are part
   // of one user gesture and must coalesce together; classify them all as "move" so the
   // per-kind coalesce window collapses them into a single undoable.

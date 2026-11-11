@@ -29,7 +29,7 @@ import {
 } from "@/testutil";
 
 interface RenderNavigateParams {
-  configs?: Record<string, schematic.ElementConfig>;
+  configs?: Record<string, schematic.NodeConfig>;
   editable?: boolean;
 }
 
@@ -58,8 +58,8 @@ const renderNavigateHook = async ({
 const offPageConfig = (
   page: schematic.Page | undefined,
   overrides: Record<string, unknown> = {},
-): schematic.ElementConfig =>
-  schematic.offPageReferenceElementConfigZ.parse({
+): schematic.NodeConfig =>
+  schematic.offPageReferenceNodeConfigZ.parse({
     variant: "off_page_reference",
     label: { label: "Target Ref" },
     page,
@@ -187,7 +187,7 @@ describe("Schematic.useHandleNodeClickAction", () => {
     const control = await createSchematic({ name: uniqueName("control") });
     const { result, store } = await renderNavigateHook({
       configs: {
-        n1: schematic.valveElementConfigZ.parse({ variant: "valve" }),
+        n1: schematic.valveNodeConfigZ.parse({ variant: "valve" }),
         ctl: offPageConfig({ type: "schematic", key: control.key }),
       },
     });

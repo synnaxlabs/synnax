@@ -66,13 +66,14 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
         key: "e1",
         source: { node: "n1", param: "out" },
         target: { node: "n2", param: "in" },
+        variant: "hydraulic",
+        strokeWidth: 4,
       },
     ],
     configs: {
       n1: { variant: "tank", label: { label: "Pump" } },
       n2: { variant: "tank", label: { label: "Valve" } },
       n3: { variant: "tank", label: { label: "Tank" } },
-      e1: { variant: "pipe" },
     },
   });
 };
@@ -134,16 +135,21 @@ describe("schematic clipboard", () => {
         "n1",
         "n2",
       ]);
-      expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
+      expect(payload.edges).toEqual([
+        {
+          key: "e1",
+          source: { node: "n1", param: "out" },
+          target: { node: "n2", param: "in" },
+          variant: "hydraulic",
+          strokeWidth: 4,
+          segments: [],
+        },
+      ]);
       expect(payload.configs.n1).toMatchObject({
         variant: "tank",
         label: { label: "Pump" },
       });
-      expect(payload.configs.e1).toEqual({
-        variant: "pipe",
-        segments: [],
-        strokeWidth: 2,
-      });
+      expect(payload.configs.e1).toBeUndefined();
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
       expect(payload.anchor).toEqual({ x: 50, y: 50 });
       expect(event.preventDefault).toHaveBeenCalled();
@@ -367,7 +373,9 @@ describe("schematic clipboard", () => {
         .sort();
       expect(newPositions).toEqual(["150,150", "250,250"]);
 
-      expect(result.current.edges.filter((e) => e.key !== "e1")).toHaveLength(1);
+      const pastedEdges = result.current.edges.filter((e) => e.key !== "e1");
+      expect(pastedEdges).toHaveLength(1);
+      expect(pastedEdges[0]).toMatchObject({ variant: "hydraulic", strokeWidth: 4 });
 
       expect(onPaste).toHaveBeenCalledTimes(1);
       expect(onPaste.mock.calls[0][0] as string[]).toHaveLength(2);

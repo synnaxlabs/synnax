@@ -15,7 +15,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from synnax.schematic.types_gen import Edge, ElementConfig, Node, Schematic
+from synnax.schematic.types_gen import Edge, Node, NodeConfig, Schematic
 from x import patch, spatial
 
 
@@ -41,12 +41,12 @@ class SetNodePayload(BaseModel):
     """
 
     node: Node
-    config: ElementConfig | None = None
+    config: NodeConfig | None = None
 
 
 class RemoveNodePayload(BaseModel):
-    """Removes the node, its config, and the edges that connect to it and their configs.
-    No-op when no node has the key.
+    """Removes the node, its config, and the edges that connect to it. No-op when no
+    node has the key.
     """
 
     key: str
@@ -61,37 +61,45 @@ class AddEdgePayload(BaseModel):
 
 
 class RemoveEdgePayload(BaseModel):
-    """Removes the edge with the given key and its config, if present."""
+    """Removes the edge with the given key, if present."""
 
     key: str
+
+
+class SetEdgePayload(BaseModel):
+    """Inserts the edge if no edge with the same key exists, otherwise replaces the
+    existing edge in place. No-op when the source or target node does not exist.
+    """
+
+    edge: Edge
 
 
 class SetConfigPayload(BaseModel):
-    """Replaces the config entry stored under the given node or edge key. No-op when no
-    node or edge has the key.
+    """Replaces the config entry stored under the given node key. No-op when no node has
+    the key.
     """
 
     key: str
-    config: ElementConfig
+    config: NodeConfig
 
 
-# Replaces the value at a path in the schematic's name or element configs.
-# No-op when no node or edge has the config's key.
+# Replaces the value at a path in the schematic's name or node configs. No-op
+# when no node has the config's key.
 SetPayload = patch.Set
 
 
 # Removes an entry from a list or a field from an object in the schematic's
-# element configs. No-op when no node or edge has the config's key.
+# node configs. No-op when no node has the config's key.
 RemovePayload = patch.Remove
 
 
-# Adds an entry to a list in the schematic's element configs. No-op when no
-# node or edge has the config's key.
+# Adds an entry to a list in the schematic's node configs. No-op when no node
+# has the config's key.
 InsertPayload = patch.Insert
 
 
-# Moves an entry in a list in the schematic's element configs. No-op when no
-# node or edge has the config's key.
+# Moves an entry in a list in the schematic's node configs. No-op when no node
+# has the config's key.
 MovePayload = patch.Move
 
 
@@ -123,6 +131,11 @@ class AddEdgeAction(BaseModel):
 class RemoveEdgeAction(BaseModel):
     type: Literal["remove_edge"] = "remove_edge"
     remove_edge: RemoveEdgePayload
+
+
+class SetEdgeAction(BaseModel):
+    type: Literal["set_edge"] = "set_edge"
+    set_edge: SetEdgePayload
 
 
 class SetConfigAction(BaseModel):
@@ -158,6 +171,7 @@ Action = Annotated[
     | RemoveNodeAction
     | AddEdgeAction
     | RemoveEdgeAction
+    | SetEdgeAction
     | SetConfigAction
     | SetAction
     | RemoveAction
@@ -189,6 +203,10 @@ def add_edge(payload: AddEdgePayload) -> AddEdgeAction:
 
 def remove_edge(payload: RemoveEdgePayload) -> RemoveEdgeAction:
     return RemoveEdgeAction(remove_edge=payload)
+
+
+def set_edge(payload: SetEdgePayload) -> SetEdgeAction:
+    return SetEdgeAction(set_edge=payload)
 
 
 def set_config(payload: SetConfigPayload) -> SetConfigAction:

@@ -25,15 +25,12 @@ import (
 	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// migrateStored writes a v11 schematic holding cfg to an in-memory table, runs the v12
-// migration, and reads the migrated config back.
-func migrateStored(ctx SpecContext, cfg v10.ElementConfigVariant) v12.ElementConfig {
+// migrateStored writes old to an in-memory table, runs the v12 migration, and reads the
+// migrated schematic back.
+func migrateStored(ctx SpecContext, old v11.Schematic) v12.Schematic {
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
-	old := v11.Schematic{
-		Key:     uuid.New(),
-		Configs: map[string]v11.ElementConfig{"n1": {Variant: cfg}},
-	}
+	old.Key = uuid.New()
 	MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v11.Key, v11.Schematic]{DB: db}))
 	Expect(gorp.NewCreate[v11.Key, v11.Schematic]().
 		Entry(&old).Exec(ctx, db)).To(Succeed())
@@ -46,7 +43,7 @@ func migrateStored(ctx SpecContext, cfg v10.ElementConfigVariant) v12.ElementCon
 	Expect(gorp.NewRetrieve[v12.Key, v12.Schematic]().
 		Where(gorp.MatchKeys[v12.Key, v12.Schematic](old.Key)).
 		Entry(&got).Exec(ctx, db)).To(Succeed())
-	return got.Configs["n1"]
+	return got
 }
 
 var _ = Describe("MigrateNumericTelemConfig", func() {
@@ -81,7 +78,7 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		value := out.Configs["n1"].Variant.(v12.ValueElementConfig)
+		value := out.Configs["n1"].Variant.(v12.ValueNodeConfig)
 		Expect(value.Precision).To(HaveValue(BeZero()))
 	})
 
@@ -93,7 +90,7 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		gauge := out.Configs["n1"].Variant.(v12.GaugeElementConfig)
+		gauge := out.Configs["n1"].Variant.(v12.GaugeNodeConfig)
 		Expect(gauge.Precision).To(HaveValue(BeEquivalentTo(3)))
 	})
 
@@ -103,7 +100,7 @@ var _ = Describe("MigrateSchematic", func() {
 				"n1": {Variant: v10.TankElementConfig{Precision: 4.4}},
 			},
 		}))
-		tank := out.Configs["n1"].Variant.(v12.TankElementConfig)
+		tank := out.Configs["n1"].Variant.(v12.TankNodeConfig)
 		Expect(tank.Precision).To(HaveValue(BeEquivalentTo(4)))
 	})
 
@@ -117,7 +114,7 @@ var _ = Describe("MigrateSchematic", func() {
 				},
 			}},
 		}))
-		scale := out.Configs["n1"].Variant.(v12.ScaleElementConfig)
+		scale := out.Configs["n1"].Variant.(v12.ScaleNodeConfig)
 		Expect(scale.Precision).To(HaveValue(BeEquivalentTo(5)))
 	})
 
@@ -145,80 +142,119 @@ var _ = Describe("MigrateSchematic", func() {
 			v10.PolygonElementConfig{StrokeWidth: 1e9}, uint8(20)),
 	)
 
-	It("Should fill the default stroke width of an edge", func(ctx SpecContext) {
+	It("Should move the style of an edge onto the edge", func(ctx SpecContext) {
+		stroke := color.Color{R: 255, A: 1}
+		segments := []v11.Segment{{Length: 40}}
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Edges: []v11.Edge{{Key: "e1"}},
+			Configs: map[string]v11.ElementConfig{"e1": {
+				Variant: v10.HydraulicElementConfig{
+					SegmentedEdgeConfig: v10.SegmentedEdgeConfig{
+						StrokeColor: &stroke,
+						Segments:    segments,
+					},
+				},
+			}},
+		}))
+		Expect(out.Edges).To(HaveLen(1))
+		Expect(out.Edges[0].Variant).To(Equal(v12.EdgeVariantHydraulic))
+		Expect(out.Edges[0].StrokeColor).To(HaveValue(Equal(stroke)))
+		Expect(out.Edges[0].StrokeWidth).To(BeEquivalentTo(2))
+		Expect(out.Edges[0].Segments).To(Equal(segments))
+		Expect(out.Configs).To(BeEmpty())
+	})
+
+	It("Should give an edge with no config the defaults", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Edges: []v11.Edge{{Key: "e1"}},
+		}))
+		Expect(out.Edges).To(HaveLen(1))
+		Expect(out.Edges[0].Variant).To(Equal(v12.EdgeVariantPipe))
+		Expect(out.Edges[0].StrokeColor).To(BeNil())
+		Expect(out.Edges[0].StrokeWidth).To(BeEquivalentTo(2))
+		Expect(out.Edges[0].Segments).To(BeEmpty())
+	})
+
+	It("Should drop an edge config that names no edge", func(ctx SpecContext) {
 		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
 			Configs: map[string]v11.ElementConfig{
 				"e1": {Variant: v10.PipeElementConfig{}},
 			},
 		}))
-		Expect(out.Configs["e1"].Variant).To(
-			HaveField("StrokeWidth", BeEquivalentTo(2)),
-		)
+		Expect(out.Configs).To(BeEmpty())
+	})
+
+	It("Should keep a node config that names no node", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Configs: map[string]v11.ElementConfig{
+				"n1": {Variant: v10.BoxElementConfig{StrokeWidth: 3}},
+			},
+		}))
+		Expect(out.Configs["n1"].Variant).To(HaveField("StrokeWidth", Equal(uint8(3))))
+	})
+
+	It("Should keep a node config stored under an edge key", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Edges: []v11.Edge{{Key: "e1"}},
+			Configs: map[string]v11.ElementConfig{
+				"e1": {Variant: v10.CapElementConfig{}},
+			},
+		}))
+		Expect(out.Edges[0].Variant).To(Equal(v12.EdgeVariantPipe))
+		Expect(out.Configs["e1"].Variant).To(BeAssignableToTypeOf(v12.CapNodeConfig{}))
+	})
+
+	It("Should keep a config that names no variant", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateSchematic(ctx, v11.Schematic{
+			Configs: map[string]v11.ElementConfig{"n1": {}},
+		}))
+		Expect(out.Configs).To(HaveKeyWithValue("n1", v12.NodeConfig{}))
 	})
 })
 
-var _ = Describe("MigrateElementConfig", func() {
+var _ = Describe("MigrateNodeConfig", func() {
 	DescribeTable("Should round and clamp a symbol stroke width",
-		func(ctx SpecContext, old v10.ElementConfigVariant, want uint8) {
-			out := MustSucceed(v12.MigrateElementConfig(
+		func(ctx SpecContext, old v11.NodeConfigVariant, want uint8) {
+			out := MustSucceed(v12.MigrateNodeConfig(
 				ctx,
-				v11.ElementConfig{Variant: old},
+				v11.NodeConfig{Variant: old},
 			))
 			Expect(out.Variant).To(HaveField("StrokeWidth", Equal(want)))
 		},
-		Entry("box", v10.BoxElementConfig{StrokeWidth: 2.6}, uint8(3)),
-		Entry("box at 0", v10.BoxElementConfig{}, uint8(0)),
-		Entry("circle", v10.CircleElementConfig{StrokeWidth: 0.4}, uint8(1)),
-		Entry("line at 0", v10.LineElementConfig{}, uint8(1)),
-		Entry("box at NaN", v10.BoxElementConfig{StrokeWidth: math.NaN()}, uint8(0)),
-		Entry("line at NaN", v10.LineElementConfig{StrokeWidth: math.NaN()}, uint8(1)),
-		Entry("polygon", v10.PolygonElementConfig{StrokeWidth: 30}, uint8(20)),
+		Entry("box", v11.BoxNodeConfig{StrokeWidth: 2.6}, uint8(3)),
+		Entry("box at 0", v11.BoxNodeConfig{}, uint8(0)),
+		Entry("circle", v11.CircleNodeConfig{StrokeWidth: 0.4}, uint8(1)),
+		Entry("line at 0", v11.LineNodeConfig{}, uint8(1)),
+		Entry("box at NaN", v11.BoxNodeConfig{StrokeWidth: math.NaN()}, uint8(0)),
+		Entry("line at NaN", v11.LineNodeConfig{StrokeWidth: math.NaN()}, uint8(1)),
+		Entry("polygon", v11.PolygonNodeConfig{StrokeWidth: 30}, uint8(20)),
 	)
 
 	It("Should round the precision of a tank", func(ctx SpecContext) {
-		out := MustSucceed(v12.MigrateElementConfig(ctx, v11.ElementConfig{
-			Variant: v10.TankElementConfig{Precision: 2.6},
+		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+			Variant: v11.TankNodeConfig{Precision: 2.6},
 		}))
 		Expect(out.Variant).To(HaveField("Precision", HaveValue(BeEquivalentTo(3))))
 	})
 
 	It("Should keep the other fields of a symbol", func(ctx SpecContext) {
-		out := MustSucceed(v12.MigrateElementConfig(ctx, v11.ElementConfig{
-			Variant: v10.BoxElementConfig{BorderRadius: 7, StrokeWidth: 4},
+		out := MustSucceed(v12.MigrateNodeConfig(ctx, v11.NodeConfig{
+			Variant: v11.BoxNodeConfig{BorderRadius: 7, StrokeWidth: 4},
 		}))
-		box := out.Variant.(v12.BoxElementConfig)
+		box := out.Variant.(v12.BoxNodeConfig)
 		Expect(box.BorderRadius).To(BeEquivalentTo(7))
 		Expect(box.StrokeWidth).To(BeEquivalentTo(4))
-	})
-})
-
-var _ = Describe("MigrateSegmentedEdgeConfig", func() {
-	It("Should fill the default stroke width", func(ctx SpecContext) {
-		out := MustSucceed(v12.MigrateSegmentedEdgeConfig(
-			ctx,
-			v11.SegmentedEdgeConfig{},
-		))
-		Expect(out.StrokeWidth).To(BeEquivalentTo(2))
-	})
-
-	It("Should keep the stroke color and segments", func(ctx SpecContext) {
-		stroke := color.Color{R: 255, A: 1}
-		segments := []v11.Segment{{Length: 40}}
-		out := MustSucceed(v12.MigrateSegmentedEdgeConfig(
-			ctx,
-			v11.SegmentedEdgeConfig{StrokeColor: &stroke, Segments: segments},
-		))
-		Expect(out.StrokeColor).To(HaveValue(Equal(stroke)))
-		Expect(out.Segments).To(Equal(segments))
 	})
 })
 
 var _ = Describe("Stored migration", func() {
 	DescribeTable("Should keep a stroke width of 0 through storage and JSON",
 		func(ctx SpecContext, old v10.ElementConfigVariant) {
-			cfg := migrateStored(ctx, old)
+			cfg := migrateStored(ctx, v11.Schematic{
+				Configs: map[string]v11.ElementConfig{"n1": {Variant: old}},
+			}).Configs["n1"]
 			Expect(cfg.Variant).To(HaveField("StrokeWidth", BeZero()))
-			var decoded v12.ElementConfig
+			var decoded v12.NodeConfig
 			encoded := MustSucceed(json.Marshal(cfg))
 			Expect(json.Unmarshal(encoded, &decoded)).To(Succeed())
 			Expect(decoded.Variant).To(HaveField("StrokeWidth", BeZero()))
@@ -227,4 +263,17 @@ var _ = Describe("Stored migration", func() {
 		Entry("circle", v10.CircleElementConfig{}),
 		Entry("polygon", v10.PolygonElementConfig{}),
 	)
+
+	It("Should move a stored edge config onto its edge", func(ctx SpecContext) {
+		got := migrateStored(ctx, v11.Schematic{
+			Edges: []v11.Edge{{Key: "e1"}},
+			Configs: map[string]v11.ElementConfig{
+				"e1": {Variant: v10.DataElementConfig{}},
+			},
+		})
+		Expect(got.Edges).To(HaveLen(1))
+		Expect(got.Edges[0].Variant).To(Equal(v12.EdgeVariantData))
+		Expect(got.Edges[0].StrokeWidth).To(BeEquivalentTo(2))
+		Expect(got.Configs).To(BeEmpty())
+	})
 })

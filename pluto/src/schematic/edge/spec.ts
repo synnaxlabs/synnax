@@ -9,28 +9,22 @@
 
 import { type schematic } from "@synnaxlabs/client";
 import { type FC } from "react";
-import { type z } from "zod";
 
 import { type ColorFallbacks, type FormProps } from "@/schematic/node/spec";
 import { type Diagram } from "@/vis/diagram";
 
 export interface EdgeProps extends Diagram.EdgeProps {
-  onChange: (p: Partial<schematic.EdgeConfig>) => void;
-  config: schematic.EdgeConfig;
+  onChange: (p: Partial<schematic.Edge>) => void;
+  edge: schematic.Edge;
 }
 
 export type Edge = FC<EdgeProps>;
 
-export interface Spec<
-  Variant extends string = string,
-  P extends { variant: Variant } = { variant: Variant },
-> {
-  key: Variant;
+export interface Spec {
+  key: schematic.EdgeVariant;
   name: string;
-  configZ: z.ZodType<P>;
   Form: FC<FormProps>;
   Edge: Edge;
-  defaultConfig: () => P;
   /** Returns the full width the edge draws at a stroke width, extra lines included. */
   renderedWidth: (strokeWidth: number) => number;
   /** Overrides the default fallback of each color field it lists. */

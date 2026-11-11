@@ -9,7 +9,6 @@
 
 import "@/schematic/edge/jacketed/Jacketed.css";
 
-import { type schematic } from "@synnaxlabs/client";
 import { xy } from "@synnaxlabs/x";
 
 import { CSS } from "@/css";
@@ -27,36 +26,35 @@ const JACKET_GAP = 4;
 const renderedWidth = (strokeWidth: number): number => 2 * JACKET_GAP + 3 * strokeWidth;
 const JACKET_CLASS = CSS.B("schematic-edge-jacket");
 
-export const spec: Spec<"jacketed", schematic.JacketedEdgeConfig> =
-  Segmented.createSpec(
-    "jacketed",
-    "Jacketed",
-    ({ points, crossings, color, strokeWidth }) => {
-      const miters = xy.calculateMiters(points, JACKET_GAP + strokeWidth);
-      const snapMargin = strokeWidth - Base.DEFAULT_STROKE_WIDTH;
-      const above = points.map((p, i) => xy.translate(p, miters[i]));
-      const below = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
-      return (
-        <>
-          <Base.Base
-            path={Path.rounded(above, crossings, snapMargin)}
-            color={color}
-            strokeWidth={strokeWidth}
-            className={JACKET_CLASS}
-          />
-          <Base.Base
-            path={Path.rounded(points, crossings)}
-            color={color}
-            strokeWidth={strokeWidth}
-          />
-          <Base.Base
-            path={Path.rounded(below, crossings, snapMargin)}
-            color={color}
-            strokeWidth={strokeWidth}
-            className={JACKET_CLASS}
-          />
-        </>
-      );
-    },
-    renderedWidth,
-  );
+export const spec: Spec = Segmented.createSpec(
+  "jacketed",
+  "Jacketed",
+  ({ points, crossings, color, strokeWidth }) => {
+    const miters = xy.calculateMiters(points, JACKET_GAP + strokeWidth);
+    const snapMargin = strokeWidth - Base.DEFAULT_STROKE_WIDTH;
+    const above = points.map((p, i) => xy.translate(p, miters[i]));
+    const below = points.map((p, i) => xy.translate(p, xy.scale(miters[i], -1)));
+    return (
+      <>
+        <Base.Base
+          path={Path.rounded(above, crossings, snapMargin)}
+          color={color}
+          strokeWidth={strokeWidth}
+          className={JACKET_CLASS}
+        />
+        <Base.Base
+          path={Path.rounded(points, crossings)}
+          color={color}
+          strokeWidth={strokeWidth}
+        />
+        <Base.Base
+          path={Path.rounded(below, crossings, snapMargin)}
+          color={color}
+          strokeWidth={strokeWidth}
+          className={JACKET_CLASS}
+        />
+      </>
+    );
+  },
+  renderedWidth,
+);

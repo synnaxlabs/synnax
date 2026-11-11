@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { color, type direction, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -38,7 +37,7 @@ const DataSymbol = ({ position, strokeWidth }: SymbolProps): ReactElement => (
   />
 );
 
-export const spec: Spec<"data", schematic.DataEdgeConfig> = Segmented.createSpec(
+export const spec: Spec = Segmented.createSpec(
   "data",
   "Data",
   ({ points, crossings, color: colorVal, strokeWidth }) => (

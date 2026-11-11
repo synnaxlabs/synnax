@@ -29,9 +29,7 @@ def defaults_only(cls: type[BaseModel]) -> bool:
     return all(not f.is_required() for f in cls.model_fields.values())
 
 
-ELEMENT = TypeAdapter(schematic.ElementConfig)
 NODE = TypeAdapter(schematic.NodeConfig)
-EDGE = TypeAdapter(schematic.EdgeConfig)
 
 
 class TestSchematic:
@@ -61,13 +59,11 @@ class TestSchematic:
                 "configs": {
                     "valve": {"variant": "solenoid_valve"},
                     "tank": {"variant": "tank"},
-                    "pipe": {"variant": "pipe"},
                 },
             }
         )
-        assert isinstance(s.configs["valve"], schematic.SolenoidValveElementConfig)
-        assert isinstance(s.configs["tank"], schematic.TankElementConfig)
-        assert isinstance(s.configs["pipe"], schematic.PipeElementConfig)
+        assert isinstance(s.configs["valve"], schematic.SolenoidValveNodeConfig)
+        assert isinstance(s.configs["tank"], schematic.TankNodeConfig)
         assert schematic.Schematic.model_validate_json(s.model_dump_json()) == s
 
     def test_unknown_variant(self) -> None:
@@ -75,6 +71,13 @@ class TestSchematic:
         with pytest.raises(ValidationError):
             schematic.Schematic.model_validate(
                 {"name": "Tank", "configs": {"a": {"variant": "teleporter"}}}
+            )
+
+    def test_edge_config(self) -> None:
+        """Should reject an edge variant in the configs."""
+        with pytest.raises(ValidationError):
+            schematic.Schematic.model_validate(
+                {"name": "Tank", "configs": {"e": {"variant": "pipe"}}}
             )
 
     def test_hash(self) -> None:
@@ -90,39 +93,6 @@ class TestSchematic:
         assert id.key == str(key)
 
 
-class TestElementConfig:
-    @pytest.mark.parametrize(
-        "cls",
-        [c for c in variants(schematic.ElementConfig) if defaults_only(c)],
-        ids=lambda c: c.__name__,
-    )
-    def test_dispatch(self, cls: type[BaseModel]) -> None:
-        """Should select each element variant by its discriminator."""
-        variant = cls.model_fields["variant"].default
-        config = ELEMENT.validate_python({"variant": variant})
-        assert type(config) is cls
-        assert ELEMENT.validate_json(ELEMENT.dump_json(config)) == config
-
-    def test_custom_actuator(self) -> None:
-        """Should require the spec key of a custom actuator."""
-        config = ELEMENT.validate_python(
-            {"variant": "custom_actuator", "spec_key": "pump"}
-        )
-        assert isinstance(config, schematic.CustomActuatorElementConfig)
-        assert config.state_overrides == []
-        with pytest.raises(ValidationError):
-            ELEMENT.validate_python({"variant": "custom_actuator"})
-
-    def test_group_box(self) -> None:
-        """Should keep the members of a group box."""
-        config = ELEMENT.validate_python(
-            {"variant": "group_box", "members": ["a", "b"]}
-        )
-        assert isinstance(config, schematic.GroupBoxElementConfig)
-        assert config.members == ["a", "b"]
-        assert config.locked is False
-
-
 class TestNodeConfig:
     @pytest.mark.parametrize(
         "cls",
@@ -132,24 +102,68 @@ class TestNodeConfig:
     def test_dispatch(self, cls: type[BaseModel]) -> None:
         """Should select each node variant by its discriminator."""
         variant = cls.model_fields["variant"].default
-        assert type(NODE.validate_python({"variant": variant})) is cls
+        config = NODE.validate_python({"variant": variant})
+        assert type(config) is cls
+        assert NODE.validate_json(NODE.dump_json(config)) == config
 
-
-class TestEdgeConfig:
-    @pytest.mark.parametrize(
-        "cls", variants(schematic.EdgeConfig), ids=lambda c: c.__name__
-    )
-    def test_dispatch(self, cls: type[BaseModel]) -> None:
-        """Should select each edge variant by its discriminator."""
-        variant = cls.model_fields["variant"].default
-        assert type(EDGE.validate_python({"variant": variant})) is cls
-
-    def test_segments(self) -> None:
-        """Should keep the segments of a segmented edge."""
-        config = EDGE.validate_python(
-            {"variant": "pipe", "segments": [{"direction": "x", "length": 10}]}
+    def test_custom_actuator(self) -> None:
+        """Should require the spec key of a custom actuator."""
+        config = NODE.validate_python(
+            {"variant": "custom_actuator", "spec_key": "pump"}
         )
-        assert config.segments == [schematic.Segment(direction="x", length=10)]
+        assert isinstance(config, schematic.CustomActuatorNodeConfig)
+        assert config.state_overrides == []
+        with pytest.raises(ValidationError):
+            NODE.validate_python({"variant": "custom_actuator"})
+
+    def test_group_box(self) -> None:
+        """Should keep the members of a group box."""
+        config = NODE.validate_python({"variant": "group_box", "members": ["a", "b"]})
+        assert isinstance(config, schematic.GroupBoxNodeConfig)
+        assert config.members == ["a", "b"]
+        assert config.locked is False
+
+
+EDGE_HANDLES = {
+    "key": "e",
+    "source": {"node": "a", "param": "out"},
+    "target": {"node": "b", "param": "in"},
+}
+
+
+class TestEdge:
+    def test_defaults(self) -> None:
+        """Should draw an edge as a 2 pixel pipe by default."""
+        edge = schematic.Edge.model_validate(EDGE_HANDLES)
+        assert edge.variant == "pipe"
+        assert edge.stroke_color is None
+        assert edge.stroke_width == 2
+        assert edge.segments == []
+
+    def test_style(self) -> None:
+        """Should keep the variant, stroke width, and segments of an edge."""
+        edge = schematic.Edge.model_validate(
+            {
+                **EDGE_HANDLES,
+                "variant": "hydraulic",
+                "stroke_width": 6,
+                "segments": [{"direction": "x", "length": 10}],
+            }
+        )
+        assert edge.variant == "hydraulic"
+        assert edge.stroke_width == 6
+        assert edge.segments == [schematic.Segment(direction="x", length=10)]
+
+    @pytest.mark.parametrize("width", [0, 21])
+    def test_stroke_width_bounds(self, width: int) -> None:
+        """Should reject a stroke width outside 1 through 20."""
+        with pytest.raises(ValidationError):
+            schematic.Edge.model_validate({**EDGE_HANDLES, "stroke_width": width})
+
+    def test_unknown_variant(self) -> None:
+        """Should reject an unknown edge variant."""
+        with pytest.raises(ValidationError):
+            schematic.Edge.model_validate({**EDGE_HANDLES, "variant": "teleporter"})
 
 
 class TestSymbol:
@@ -200,9 +214,9 @@ class TestSymbol:
 
 class TestBorderRadius:
     def test_shorthand(self) -> None:
-        """Should expand a shorthand border radius on an element config."""
-        config = ELEMENT.validate_python({"variant": "cylinder", "border_radius": 4})
-        assert isinstance(config, schematic.CylinderElementConfig)
+        """Should expand a shorthand border radius on a node config."""
+        config = NODE.validate_python({"variant": "cylinder", "border_radius": 4})
+        assert isinstance(config, schematic.CylinderNodeConfig)
         assert config.border_radius is not None
         assert config.border_radius.top_left.x == 4
 
@@ -241,12 +255,14 @@ class TestClient:
                     key="e",
                     source=schematic.Handle(node="a", param="outlet"),
                     target=schematic.Handle(node="b", param="inlet"),
+                    variant="electric",
+                    stroke_width=4,
+                    segments=[schematic.Segment(direction="x", length=10)],
                 )
             ],
             configs={
-                "a": schematic.TextBoxElementConfig(value="Inlet"),
-                "b": schematic.TankElementConfig(),
-                "e": schematic.PipeElementConfig(),
+                "a": schematic.TextBoxNodeConfig(value="Inlet"),
+                "b": schematic.TankNodeConfig(),
             },
         )
         created = client.schematics.create(diagram)

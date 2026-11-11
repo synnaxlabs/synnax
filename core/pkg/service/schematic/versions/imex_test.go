@@ -28,9 +28,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		return MustSucceed(versions.DecodeImExEnvelope(ctx, LoadEnvelope(path)))
 	}
 
-	valveConfig := func(s versions.Schematic, node string) versions.ValveElementConfig {
+	valveConfig := func(s versions.Schematic, node string) versions.ValveNodeConfig {
 		GinkgoHelper()
-		cfg, ok := s.Configs[node].Variant.(versions.ValveElementConfig)
+		cfg, ok := s.Configs[node].Variant.(versions.ValveNodeConfig)
 		Expect(ok).To(BeTrue())
 		return cfg
 	}
@@ -41,11 +41,13 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
 		Expect(sch.Edges).To(Equal([]versions.Edge{{
-			Key:    "e1",
-			Source: versions.Handle{Node: "n1", Param: "out"},
-			Target: versions.Handle{Node: "n2", Param: "in"},
+			Key:         "e1",
+			Source:      versions.Handle{Node: "n1", Param: "out"},
+			Target:      versions.Handle{Node: "n2", Param: "in"},
+			Variant:     versions.EdgeVariantPipe,
+			StrokeWidth: 2,
 		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
 			Label: versions.LabelConfig{
 				Level:         "h5",
 				Orientation:   "top",
@@ -65,11 +67,13 @@ var _ = Describe("DecodeImExEnvelope", func() {
 			{Key: "n1", Position: spatial.XY{X: 1, Y: 2}, ZIndex: 4},
 		}))
 		Expect(sch.Edges).To(Equal([]versions.Edge{{
-			Key:    "e1",
-			Source: versions.Handle{Node: "n1", Param: "out"},
-			Target: versions.Handle{Node: "n2", Param: "in"},
+			Key:         "e1",
+			Source:      versions.Handle{Node: "n1", Param: "out"},
+			Target:      versions.Handle{Node: "n2", Param: "in"},
+			Variant:     versions.EdgeVariantPipe,
+			StrokeWidth: 2,
 		}}))
-		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveElementConfig{
+		Expect(valveConfig(sch, "n1")).To(Equal(versions.ValveNodeConfig{
 			Label: versions.LabelConfig{
 				Level:         "h5",
 				Orientation:   "top",
@@ -86,7 +90,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	DescribeTable("Should restate a legacy scale as a vertical bar without its gutter",
 		func(ctx SpecContext, path string) {
 			sch := decode(ctx, path)
-			cfg, ok := sch.Configs["s1"].Variant.(versions.ScaleElementConfig)
+			cfg, ok := sch.Configs["s1"].Variant.(versions.ScaleNodeConfig)
 			Expect(ok).To(BeTrue())
 			Expect(cfg.Orientation).To(BeEquivalentTo("top"))
 			Expect(cfg.Dimensions).To(Equal(spatial.Dimensions{Width: 34, Height: 160}))
@@ -179,9 +183,9 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		path string,
 	) {
 		sch := decode(ctx, path)
-		gauge := func(node string) versions.GaugeElementConfig {
+		gauge := func(node string) versions.GaugeNodeConfig {
 			GinkgoHelper()
-			cfg, ok := sch.Configs[node].Variant.(versions.GaugeElementConfig)
+			cfg, ok := sch.Configs[node].Variant.(versions.GaugeNodeConfig)
 			Expect(ok).To(BeTrue())
 			return cfg
 		}
@@ -200,13 +204,31 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		valve := valveConfig(sch, "v1")
 		Expect(valve.Scale).To(Equal(1.0))
 		Expect(valve.StalenessTimeout).To(BeZero())
-		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeElementConfig)
+		gauge, ok := sch.Configs["g1"].Variant.(versions.GaugeNodeConfig)
 		Expect(ok).To(BeTrue())
 		Expect(gauge.Bounds).To(Equal(spatial.Bounds{Lower: -10, Upper: 0}))
 	},
 		Entry("current version", "testdata/import_v10_zero_scale.json"),
 		Entry("older version", "testdata/import_v8_zero_scale.json"),
 	)
+
+	It("Should move the style of each edge onto the edge", func(ctx SpecContext) {
+		sch := decode(ctx, "testdata/import_v11_edges.json")
+		Expect(sch.Edges).To(HaveLen(2))
+		Expect(sch.Edges[0]).To(Equal(versions.Edge{
+			Key:         "e1",
+			Source:      versions.Handle{Node: "n1", Param: "out"},
+			Target:      versions.Handle{Node: "n2", Param: "in"},
+			Variant:     versions.EdgeVariantHydraulic,
+			StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
+			StrokeWidth: 2,
+			Segments:    []versions.Segment{{Direction: "x", Length: 40}},
+		}))
+		Expect(sch.Edges[1].Variant).To(Equal(versions.EdgeVariantPipe))
+		Expect(sch.Edges[1].StrokeWidth).To(BeEquivalentTo(2))
+		Expect(sch.Configs).To(HaveLen(1))
+		Expect(sch.Configs).To(HaveKey("n1"))
+	})
 
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v7.json").Key).To(Equal(uuid.Nil()))

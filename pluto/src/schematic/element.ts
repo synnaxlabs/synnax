@@ -7,17 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { schematic } from "@synnaxlabs/client";
+import { type schematic } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import { type color } from "@synnaxlabs/x";
 
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 
-export const elementConfigZ = schematic.elementConfigZ;
-export type ElementConfig = schematic.ElementConfig;
-
-export const ELEMENT_REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };
+const REGISTRY = { ...Node.REGISTRY, ...Edge.REGISTRY };
 
 const DEFAULT_COLOR_FALLBACKS: Required<Node.ColorFallbacks> = {
   fillColor: Node.Form.noFillFallback,
@@ -31,9 +28,7 @@ const DEFAULT_COLOR_FALLBACKS: Required<Node.ColorFallbacks> = {
  */
 export const colorFallback = (
   key: Node.ColorKey,
-  variant: schematic.ElementConfigType,
+  variant: schematic.NodeConfigType | schematic.EdgeVariant,
   theme: theme.Theme,
 ): color.Color =>
-  (ELEMENT_REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(
-    theme,
-  );
+  (REGISTRY[variant].colorFallbacks?.[key] ?? DEFAULT_COLOR_FALLBACKS[key])(theme);

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { color, type direction, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -78,5 +77,4 @@ const Line = ({
   );
 };
 
-export const spec: Spec<"hydraulic", schematic.HydraulicEdgeConfig> =
-  Segmented.createSpec("hydraulic", "Hydraulic", Line);
+export const spec: Spec = Segmented.createSpec("hydraulic", "Hydraulic", Line);

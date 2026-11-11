@@ -279,11 +279,11 @@ describe("Schematic", () => {
       const n = (key: string) => ({ key, position: { x: 0, y: 0 } });
       const group = (
         members: string[],
-        extra: Partial<schematic.GroupBoxElementConfig> = {},
-      ): schematic.ElementConfig =>
-        schematic.elementConfigZ.parse({ variant: "group_box", members, ...extra });
-      const tank = (label: string): schematic.ElementConfig =>
-        schematic.elementConfigZ.parse({ variant: "tank", label: { label } });
+        extra: Partial<schematic.GroupBoxNodeConfig> = {},
+      ): schematic.NodeConfig =>
+        schematic.nodeConfigZ.parse({ variant: "group_box", members, ...extra });
+      const tank = (label: string): schematic.NodeConfig =>
+        schematic.nodeConfigZ.parse({ variant: "tank", label: { label } });
       await client.schematics.dispatch(schem.key, [
         schematic.setNode({ node: n("n1"), config: tank("Pump") }),
         schematic.setNode({ node: n("n2"), config: tank("Tank") }),
@@ -338,11 +338,12 @@ describe("Schematic", () => {
         srcParam: string,
         tgtNode: string,
         tgtParam: string,
-      ) => ({
-        key,
-        source: { node: srcNode, param: srcParam },
-        target: { node: tgtNode, param: tgtParam },
-      });
+      ) =>
+        schematic.edgeZ.parse({
+          key,
+          source: { node: srcNode, param: srcParam },
+          target: { node: tgtNode, param: tgtParam },
+        });
       await client.schematics.dispatch(schem.key, [
         ...setNodes("a", "b", "c", "d"),
         schematic.addEdge({ edge: e("e1", "a", "o", "b", "i") }),
@@ -371,7 +372,6 @@ describe("Schematic", () => {
             target: { node: "b", param: "i" },
           },
         }),
-        schematic.setConfig({ key: "e1", config: { variant: "pipe" } }),
       ]);
       expect((await client.schematics.retrieve(schem.key)).edges).toHaveLength(1);
       await client.schematics.dispatch(schem.key, [
@@ -379,6 +379,25 @@ describe("Schematic", () => {
       ]);
       const res = await client.schematics.retrieve(schem.key);
       expect(res.edges).toEqual([]);
+    });
+
+    test("setEdge stores the style of an edge", async () => {
+      const { schem } = await newProjectSchematic(client);
+      const styled = schematic.edgeZ.parse({
+        key: "e1",
+        source: { node: "a", param: "o" },
+        target: { node: "b", param: "i" },
+        variant: "hydraulic",
+        strokeWidth: 6,
+        segments: [{ direction: "x", length: 40 }],
+      });
+      await client.schematics.dispatch(schem.key, [
+        ...setNodes("a", "b"),
+        schematic.addEdge({ edge: { ...styled, variant: "pipe" } }),
+        schematic.setEdge({ edge: styled }),
+      ]);
+      const res = await client.schematics.retrieve(schem.key);
+      expect(res.edges).toEqual([styled]);
       expect(res.configs).toEqual({});
     });
 
@@ -402,8 +421,8 @@ describe("Schematic", () => {
       });
     });
 
-    const tank = (extra: object = {}): schematic.ElementConfig =>
-      schematic.elementConfigZ.parse({ variant: "tank", ...extra });
+    const tank = (extra: object = {}): schematic.NodeConfig =>
+      schematic.nodeConfigZ.parse({ variant: "tank", ...extra });
 
     test("setChanged keeps a concurrent edit to another field", async () => {
       const { schem } = await newProjectSchematic(client);

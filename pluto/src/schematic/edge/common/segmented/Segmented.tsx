@@ -21,11 +21,6 @@ import { type Base } from "@/schematic/edge/common/base";
 import { Jumps } from "@/schematic/edge/common/jumps";
 import { type Path as EdgePath } from "@/schematic/edge/common/path";
 import {
-  type Config,
-  createConfigZ,
-  createDefaultConfig,
-} from "@/schematic/edge/common/segmented/config";
-import {
   build,
   dragSegment,
   extractMiddle,
@@ -64,7 +59,7 @@ const create = (Path: FC<PathProps>): Edge => {
     sourceNode,
     targetNode,
     selected = false,
-    config: { segments: middleSegments, strokeColor, strokeWidth },
+    edge: { segments: middleSegments, strokeColor, strokeWidth },
     onChange,
   }): ReactElement | null => {
     const flow = useReactFlow();
@@ -189,17 +184,15 @@ const calcMidPoints = (points: xy.XY[]): xy.XY[] =>
 
 const strokeOnly = (strokeWidth: number): number => strokeWidth;
 
-export const createSpec = <V extends schematic.EdgeConfigType>(
-  variant: V,
+export const createSpec = (
+  variant: schematic.EdgeVariant,
   name: string,
   path: FC<PathProps>,
   renderedWidth: (strokeWidth: number) => number = strokeOnly,
-): Spec<V, Config<V>> => ({
+): Spec => ({
   key: variant,
   name,
-  configZ: createConfigZ(variant),
   Edge: create(path),
   Form,
-  defaultConfig: () => createDefaultConfig(variant),
   renderedWidth,
 });

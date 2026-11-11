@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { schematic } from "@synnaxlabs/client";
 import { render } from "@testing-library/react";
 import { type Node, ReactFlowProvider } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
@@ -43,7 +44,13 @@ const renderEdge = (
   const spec = Edge.resolveSpec(variant);
   const jumps = Edge.Jumps.createStore();
   jumps.commit(new Map([["edge", crossings]]));
-  const defaults = spec.defaultConfig();
+  const edge = schematic.edgeZ.parse({
+    key: "edge",
+    source: { node: "a", param: "out" },
+    target: { node: "b", param: "in" },
+    variant,
+    strokeWidth,
+  });
   const { container } = render(
     <ReactFlowProvider defaultNodes={NODES}>
       <Edge.Jumps.Context value={jumps}>
@@ -55,7 +62,7 @@ const renderEdge = (
             sourceNode="a"
             targetNode="b"
             selected={false}
-            config={{ ...defaults, strokeWidth: strokeWidth ?? defaults.strokeWidth }}
+            edge={edge}
             onChange={vi.fn()}
           />
         </svg>
@@ -94,15 +101,6 @@ describe("edge registry", () => {
       expect(new Set(widths)).toEqual(new Set(["6"]));
     },
   );
-
-  it.each(VARIANTS)("should reject a %s stroke width out of bounds", (variant) => {
-    const spec = Edge.resolveSpec(variant);
-    [0, -8, 21].forEach((strokeWidth) =>
-      expect(
-        spec.configZ.safeParse({ ...spec.defaultConfig(), strokeWidth }).success,
-      ).toBe(false),
-    );
-  });
 
   it("should keep the jacket clear of a wide core line", () => {
     const paths = (strokeWidth: number) =>
