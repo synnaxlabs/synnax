@@ -252,6 +252,13 @@ var _ = Describe("Writer", func() {
 				"private_key_pem: must be empty for a file certificate",
 			),
 			Entry(
+				"an empty private key file",
+				"/c.pem",
+				new(""),
+				nil,
+				"private_key_file: required",
+			),
+			Entry(
 				"a private key file that is a path",
 				"/c.pem",
 				new("/etc/ssl/private/other.key"),
