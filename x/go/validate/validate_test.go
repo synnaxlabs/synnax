@@ -146,11 +146,8 @@ var _ = Describe("Validate", func() {
 			Expect(errors.CheapIs(v.Error(), validate.ErrValidation)).To(BeTrue())
 		})
 
-		DescribeTable("Should decode a failure with its exact text", func(
-			ctx SpecContext,
-			err error,
-		) {
-			decoded := errors.Decode(ctx, errors.Encode(ctx, err, false))
+		DescribeTable("Should decode a failure with its exact text", func(err error) {
+			decoded := errors.Decode(errors.Encode(err, false))
 			Expect(decoded).To(MatchError(validate.ErrValidation))
 			Expect(decoded.Error()).To(Equal(err.Error()))
 		},
