@@ -3783,6 +3783,41 @@ Node union on variant {
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
 			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
+
+		It(
+			"Should keep an array inside a map or a type argument",
+			func(ctx SpecContext) {
+				source := `
+				Box struct<T> {
+					value T
+				}
+
+				Config struct {
+					ports  map<string, uint16[]>
+					pairs  map<string, uint8[2]>
+					boxed  Box<string[]>
+				}
+			`
+				table, diag := Analyze(ctx, source, "test", loader)
+				Expect(diag.Ok()).To(BeTrue())
+				form := table.MustGet("test.Config").Form.(resolution.StructForm)
+
+				ports, _ := form.Field("ports")
+				Expect(ports.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(ports.Type.TypeArgs[1].ArraySize).To(BeNil())
+				Expect(ports.Type.TypeArgs[1].TypeArgs[0].Name).To(Equal("uint16"))
+
+				pairs, _ := form.Field("pairs")
+				Expect(pairs.Type.TypeArgs[1].Name).To(Equal("Array"))
+				Expect(
+					pairs.Type.TypeArgs[1].ArraySize,
+				).To(HaveValue(BeEquivalentTo(2)))
+
+				boxed, _ := form.Field("boxed")
+				Expect(boxed.Type.TypeArgs[0].Name).To(Equal("Array"))
+				Expect(boxed.Type.TypeArgs[0].TypeArgs[0].Name).To(Equal("string"))
+			},
+		)
 	})
 
 	Describe("Recursive Types", func() {
