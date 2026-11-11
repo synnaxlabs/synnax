@@ -12,6 +12,7 @@ package arc_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -36,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 func TestArc(t *testing.T) {
@@ -57,12 +59,13 @@ var (
 	testRack   *rack.Rack
 	imexSvc    *imex.Service
 	arcTable   *arc.Table
-	arcClock   = telem.Now
+	clock      *timetestutil.Clock
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node := testutil.NewNode(ctx)
+	clock = timetestutil.NewClock(time.Now())
 	db = node.DB
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db}))
 	MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -118,7 +121,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		TextSweepQuiescence: 5 * telem.Second,
 		TextSweepThreshold:  1,
 		TaskSyncDebounce:    5 * telem.Millisecond,
-		Now:                 func() telem.TimeStamp { return arcClock() },
+		Now: func() telem.TimeStamp {
+			return telem.NewTimeStamp(clock.Now())
+		},
 	}))
 })
 
