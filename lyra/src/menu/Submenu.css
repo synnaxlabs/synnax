@@ -14,9 +14,9 @@
     --pluto-bg: var(--pluto-fill-hover);
 }
 
-/* While the pointer travels toward an open submenu, the submenu items it crosses do not
+/* While the pointer travels toward an open submenu, the items it crosses do not
    light. */
-.lyra-btn.lyra-menu-item--submenu[data-aiming]:not([aria-expanded="true"]) {
+.lyra-btn.lyra-menu-item[data-aiming]:not([aria-expanded="true"]) {
     --pluto-hover-bg: transparent;
     --pluto-active-bg: transparent;
 }

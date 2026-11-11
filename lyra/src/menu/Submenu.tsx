@@ -55,9 +55,9 @@ export interface SubmenuProps extends Omit<
  * A submenu of a `Menu.Menu`: a {@link SubmenuTrigger} and the `Menu.Dialog` it opens
  * beside the menu. One submenu of a menu is open at a time. It opens 100 ms after the
  * pointer stops on its trigger, or at once on a click or ArrowRight. While the pointer
- * moves toward it, the submenu items it crosses do not light or open. ArrowLeft and
- * Escape close it. A `Select.Frame` in it can hold the trigger, with a `Select.Dialog`
- * on the menu surface.
+ * moves toward it, the items it crosses do not light or open. A rest on an item with no
+ * submenu closes it. ArrowLeft and Escape close it. A `Select.Frame` in it can hold the
+ * trigger, with a `Select.Dialog` on the menu surface.
  *
  * @example
  * <Menu.Submenu itemKey="stage">

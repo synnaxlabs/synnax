@@ -19,7 +19,7 @@ import {
 
 import { context } from "@/context";
 
-/** How long the pointer rests on an item before its submenu opens. */
+/** How long the pointer rests on an item before it opens or closes a submenu. */
 const REST_MS = 100;
 /** How long the pointer may travel toward an open submenu while it stays open. */
 const AIM_MS = 300;
@@ -30,7 +30,7 @@ const AIM_MIN_TRAVEL = 2;
 /** How far the pointer may drift up or down while it holds still. */
 const AIM_MAX_DRIFT = 3;
 
-/** Marks every submenu item while the pointer travels toward an open submenu. */
+/** Marks every item while the pointer travels toward an open submenu. */
 const AIMING_ATTRIBUTE = "data-aiming";
 
 interface Aim {
@@ -69,19 +69,24 @@ const transition = (prev: State, open: string | null): State => {
   return { open, swap: prev.open != null && open != null };
 };
 
-/** The handlers an item spreads to open its submenu. */
-export interface TriggerHandlers {
+/** The handlers a menu item spreads, so a rest on it closes an open submenu. */
+export interface ItemHandlers {
   ref: RefCallback<HTMLElement>;
-  onClick: () => void;
-  onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
   onPointerEnter: () => void;
   onPointerMove: (e: PointerEvent<HTMLElement>) => void;
   onPointerLeave: (e: PointerEvent<HTMLElement>) => void;
 }
 
+/** The handlers an item spreads to open its submenu. */
+export interface TriggerHandlers extends ItemHandlers {
+  onClick: () => void;
+  onKeyDown: (e: KeyboardEvent<HTMLElement>) => void;
+}
+
 /** Opens the submenus of one menu, one at a time. */
 export interface Controller extends State {
   setVisible: (key: string, next: xstate.SetArg<boolean>) => void;
+  item: () => ItemHandlers;
   trigger: (key: string) => TriggerHandlers;
   /** Holds the surface of the submenu with the key, which the pointer aims at. */
   surfaceRef: (key: string) => RefCallback<HTMLElement>;
@@ -92,23 +97,29 @@ export const [ControllerContext, useControllerContext] = context.create<Controll
   providerName: "Menu.Menu",
 });
 
+/** The item under the pointer. A plain item opens no submenu, so its key is null. */
+interface Hover {
+  key: string | null;
+}
+
 /**
- * Opens one submenu at a time. A rest on an item opens its submenu, and a path toward
- * the open submenu keeps it open. The aim lives outside React state, so the pointer
- * re-renders nothing while it moves.
+ * Opens one submenu at a time. A rest on an item opens its submenu, or closes the open
+ * one if the item has none, and a path toward the open submenu keeps it open. The aim
+ * lives outside React state, so the pointer re-renders nothing while it moves.
  */
 export const useSubmenus = (): Controller => {
   const [{ open, swap }, setState] = useState<State>(INITIAL_STATE);
   const restTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const aimTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const aim = useRef<Aim | null>(null);
+  const items = useRef(new Set<HTMLElement>());
   const triggers = useRef(new Map<string, HTMLElement>());
   const surfaces = useRef(new Map<string, HTMLElement>());
-  const hovered = useRef<string | null>(null);
+  const hovered = useRef<Hover | null>(null);
 
   const endAim = (): void => {
     aim.current = null;
-    triggers.current.forEach((el) => el.removeAttribute(AIMING_ATTRIBUTE));
+    items.current.forEach((el) => el.removeAttribute(AIMING_ATTRIBUTE));
   };
 
   useEffect(
@@ -150,13 +161,13 @@ export const useSubmenus = (): Controller => {
 
   const startAim = (next: Aim, key: string): void => {
     aim.current = next;
-    triggers.current.forEach((el) => el.setAttribute(AIMING_ATTRIBUTE, ""));
+    items.current.forEach((el) => el.setAttribute(AIMING_ATTRIBUTE, ""));
     clearTimeout(aimTimer.current);
     aimTimer.current = setTimeout(() => {
       if (aim.current == null) return;
       endAim();
       const rest = hovered.current;
-      if (rest != null && rest !== key) setOpen(rest);
+      if (rest != null && rest.key !== key) setOpen(rest.key);
     }, AIM_MS);
   };
 
@@ -168,23 +179,19 @@ export const useSubmenus = (): Controller => {
       return prev;
     });
 
-  const trigger = (key: string): TriggerHandlers => ({
+  const hover = (key: string | null): ItemHandlers => ({
     ref: (el) => {
-      if (el == null) triggers.current.delete(key);
-      else triggers.current.set(key, el);
-    },
-    onClick: () => {
-      clearTimeout(restTimer.current);
-      setOpen(key);
-    },
-    onKeyDown: (e) => {
-      if (e.key !== "ArrowRight") return;
-      e.preventDefault();
-      clearTimeout(restTimer.current);
-      setOpen(key);
+      if (el == null) return;
+      items.current.add(el);
+      if (key != null) triggers.current.set(key, el);
+      return () => {
+        items.current.delete(el);
+        if (key != null && triggers.current.get(key) === el)
+          triggers.current.delete(key);
+      };
     },
     onPointerEnter: () => {
-      hovered.current = key;
+      hovered.current = { key };
     },
     onPointerMove: (e) => {
       if (e.pointerType !== "mouse") return;
@@ -207,8 +214,8 @@ export const useSubmenus = (): Controller => {
     },
     onPointerLeave: (e) => {
       clearTimeout(restTimer.current);
-      if (hovered.current === key) hovered.current = null;
-      if (open !== key || e.pointerType !== "mouse") return;
+      if (hovered.current?.key === key) hovered.current = null;
+      if (key == null || open !== key || e.pointerType !== "mouse") return;
       const surface = surfaces.current.get(key)?.getBoundingClientRect();
       if (surface == null) return;
       const right = surface.left >= e.clientX;
@@ -232,6 +239,20 @@ export const useSubmenus = (): Controller => {
     },
   });
 
+  const trigger = (key: string): TriggerHandlers => ({
+    ...hover(key),
+    onClick: () => {
+      clearTimeout(restTimer.current);
+      setOpen(key);
+    },
+    onKeyDown: (e) => {
+      if (e.key !== "ArrowRight") return;
+      e.preventDefault();
+      clearTimeout(restTimer.current);
+      setOpen(key);
+    },
+  });
+
   const surfaceRef =
     (key: string): RefCallback<HTMLElement> =>
     (el) => {
@@ -239,5 +260,5 @@ export const useSubmenus = (): Controller => {
       else surfaces.current.set(key, el);
     };
 
-  return { open, swap, setVisible, trigger, surfaceRef };
+  return { open, swap, setVisible, item: () => hover(null), trigger, surfaceRef };
 };

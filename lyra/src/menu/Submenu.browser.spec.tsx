@@ -124,11 +124,18 @@ describe("Submenu", () => {
       const item = await renderProperties();
       await userEvent.click(item("Labels"));
       await userEvent.hover(item("Clear"));
-      expect(expanded(item("Labels"))).toBe("true");
       expect(computed(item("Labels"), "background-color")).toBe(resolve("transparent"));
       expect(computed(item("Clear"), "background-color")).toBe(
         resolve("var(--pluto-fill-hover)"),
       );
+    });
+
+    it("should close once the pointer rests on an item with no submenu", async () => {
+      const item = await renderProperties();
+      await userEvent.click(item("Labels"));
+      await userEvent.hover(item("Clear"));
+      await expect.poll(() => expanded(item("Labels"))).toBe("false");
+      expect(page.getByRole("menuitem", { name: "Labels one" }).query()).toBeNull();
     });
   });
 
@@ -156,14 +163,26 @@ describe("Submenu", () => {
   describe("aim", () => {
     const leaveToward = async (
       item: (name: string) => HTMLElement,
+      from: string = "Labels",
+      to: string = "Stage",
     ): Promise<{ x: number; y: number }> => {
-      await userEvent.click(item("Labels"));
-      await expect.poll(() => computed(surface("Labels"), "opacity")).toBe("1");
-      const stage = item("Stage").getBoundingClientRect();
-      const exit = { x: stage.right - 20, y: stage.top + 4 };
-      pointer("pointerout", item("Labels"), exit.x, exit.y, item("Stage"));
+      await userEvent.click(item(from));
+      await expect.poll(() => computed(surface(from), "opacity")).toBe("1");
+      const next = item(to).getBoundingClientRect();
+      const exit = { x: next.right - 20, y: next.top + 4 };
+      pointer("pointerout", item(from), exit.x, exit.y, item(to));
       return exit;
     };
+
+    it("should keep the open submenu while the pointer crosses an item with none", async () => {
+      const item = await renderProperties();
+      const exit = await leaveToward(item, "Owner", "Clear");
+      pointer("pointermove", item("Clear"), exit.x + 4, exit.y + 1);
+      expect(item("Clear").hasAttribute("data-aiming")).toBe(true);
+      await wait(200);
+      expect(expanded(item("Owner"))).toBe("true");
+      await expect.poll(() => expanded(item("Owner"))).toBe("false");
+    });
 
     it("should keep the open submenu while the pointer travels toward it", async () => {
       const item = await renderProperties();
