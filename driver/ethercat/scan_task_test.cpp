@@ -257,7 +257,7 @@ TEST_F(EtherCATScanTest, TestInterfaceCommandInitError) {
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to probe interface");
-    EXPECT_EQ(this->ctx->statuses.back().description, "no interface");
+    EXPECT_EQ(this->ctx->statuses.back().description, "No interface.");
 }
 
 /// @brief a scanner over a mock bus on eth0, for scan specs.
@@ -1292,7 +1292,10 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     EXPECT_TRUE(this->scanner->exec(cmd, task, this->ctx));
     ASSERT_FALSE(this->ctx->statuses.empty());
     EXPECT_EQ(this->ctx->statuses.back().message, "Failed to switch the device");
-    EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
+    EXPECT_EQ(
+        this->ctx->statuses.back().description,
+        "Device: This field is required."
+    );
 }
 
 /// @brief it should refuse to switch a device that is not on its network, and call the

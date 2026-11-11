@@ -703,7 +703,8 @@ TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {
     EXPECT_EQ(
         err.data,
         "Failed to read the calibration of channel " + data_ch.name +
-            ": failed to read 0x8040:15: Object does not exist in the object dictionary"
+            ": failed to read 0x8040:15: Object does not exist in the object "
+            "dictionary."
     );
 }
 

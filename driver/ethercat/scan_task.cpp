@@ -440,7 +440,7 @@ void Scanner::test_interface(const synnax::task::Command &cmd) const {
         VLOG(1) << SCAN_LOG_PREFIX << "test_interface failed for "
                 << args.interface << ": " << err.message();
         task_status.message = "Failed to probe interface";
-        task_status.description = err.data;
+        task_status.description = errors::sentence(err.data);
         this->ctx->set_status(task_status);
         return;
     }
@@ -469,7 +469,7 @@ void Scanner::set_standalone(const synnax::task::Command &cmd) const {
     };
     const auto fail = [&](const std::string &description) {
         task_status.message = "Failed to switch the device";
-        task_status.description = description;
+        task_status.description = errors::sentence(description);
         this->ctx->set_status(task_status);
     };
     if (!parser.ok()) {

@@ -25,6 +25,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/channel/channel.h"
 #include "driver/ethercat/engine/engine.h"
+#include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/slaves.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/transform/transform.h"
@@ -208,8 +209,10 @@ class ReadTaskSource final : public common::Source {
                     sub_indexes[i]
                 );
                 if (err) {
-                    err.data = "Failed to read the calibration of channel " +
-                               ch->ch.name + ": " + err.data;
+                    err.data = errors::sentence(
+                        "Failed to read the calibration of channel " + ch->ch.name +
+                        ": " + err.data
+                    );
                     return err;
                 }
                 values[i] = std::bit_cast<float>(bits);
