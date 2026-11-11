@@ -41,6 +41,7 @@ import {
   queryIconButton,
   renderSuspended,
   resolveFocusedTab,
+  selectRange,
   selectTestProject,
   type TestStore,
 } from "@/testutil";
@@ -258,7 +259,7 @@ describe("range/Explorer", () => {
       fireEvent.contextMenu(await revealRange(rng.name));
       fireEvent.click(await screen.findByText("Favorite"));
       await waitFor(() => {
-        const state = Session.Range.selectState(store.getState(), rng.key);
+        const state = selectRange(store.getState(), rng.key);
         expect(state?.variant).toBe("persisted");
       });
     });
@@ -293,7 +294,7 @@ describe("range/Explorer", () => {
       await screen.findByText(`Are you sure you want to delete ${rng.name}?`);
       fireEvent.click(findButton("Delete"));
       await waitFor(() =>
-        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined(),
+        expect(selectRange(store.getState(), rng.key)).toBeUndefined(),
       );
       await waitFor(async () => {
         await expect(client.ranges.retrieve(rng.key)).rejects.toSatisfy((e) =>
