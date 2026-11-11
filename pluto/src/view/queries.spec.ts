@@ -212,4 +212,22 @@ describe("View queries", () => {
       expect(retrieved.name).toEqual("renamed-view");
     });
   });
+  describe("useDispatch", () => {
+    it("should set the icon and color of a view", async () => {
+      const created = await client.views.create({ name: "styled-view", type: "range" });
+      const { result } = renderHook(() => View.useDispatch(), { wrapper });
+      await act(async () => {
+        await result.current.updateAsync({
+          key: created.key,
+          actions: [
+            view.set({ path: ["icon"], value: "Range" }),
+            view.set({ path: ["color"], value: "#FF0000" }),
+          ],
+        });
+      });
+      const retrieved = await createTestClient().views.retrieve(created.key);
+      expect(retrieved.icon).toEqual("Range");
+      expect(retrieved.color).toEqual([255, 0, 0, 1]);
+    });
+  });
 });
