@@ -256,6 +256,68 @@ var _ = Describe("Go Patch Plugin", func() {
 		)
 
 		It(
+			"Should decide a reset by the kind of the default",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+				import "schemas/x/patch"
+
+				@go output "core/pkg/service/source"
+
+				Source union on type {
+					internal {}
+					external {
+						port int32
+					}
+				}
+
+				Plain struct {
+					rate float64
+				}
+
+				Pair struct {
+					a Plain
+					b Plain
+				}
+
+				Doc struct {
+					source Source = internal {
+						@patch
+					}
+					rate float64 = 0.0 {
+						@patch
+					}
+					origin Plain = { rate = 2 } {
+						@patch
+					}
+					enabled bool = false {
+						@patch
+					}
+					tags string[] = [] {
+						@patch
+					}
+					pair Pair {
+						@patch
+					}
+
+					action Set extends patch.Set {}
+				}
+			`, "source", loader, p)
+				ExpectContent(resp, "patch.gen.go").
+					ToBeValidGoSource().
+					ToContain(
+						"return patch.Defaulted(&d.Source, c, func(def *Doc) {",
+						"return patch.Value(&d.Rate, c.Next())",
+						"return patch.Defaulted(&d.Origin, c, func(def *Doc) {",
+						"return patch.Value(&d.Enabled, c.Next())",
+					).
+					ToNotContain(
+						"patch.Defaulted(&d.Tags",
+						"patch.Defaulted(&d.Pair",
+					)
+			},
+		)
+
+		It(
 			"Should give a receiver that the cursor does not shadow",
 			func(ctx SpecContext) {
 				resp := MustGenerate(ctx, `

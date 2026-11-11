@@ -448,6 +448,24 @@ var _ = Describe("Patch", func() {
 			Expect(g.Upper).To(BeZero())
 		})
 
+		It("Should reject a path that goes into the field", func() {
+			g := doc()
+			into := patch.Set{Path: []string{"factor", "x"}, Value: 0.0}
+			Expect(partial(&g, into)).Error().To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should reject a removal with an unchecked guard", func() {
+			g := doc()
+			guarded := patch.Remove{
+				Key:    "factor",
+				Guards: []patch.Guard{{Path: []string{"factor"}, Value: "a"}},
+			}
+			Expect(partial(&g, guarded)).Error().To(MatchError(ContainSubstring(
+				"the guard names no union that the path goes into",
+			)))
+			Expect(g.Factor).To(Equal(3.0))
+		})
+
 		It("Should reject a removal from a strict document", func() {
 			g := doc()
 			c := MustSucceed(patch.Begin(patch.Remove{Key: "factor"}))
