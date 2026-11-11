@@ -25,11 +25,10 @@ const usage = `usage: pnpm mail <id>[@seconds[:x,y,width]]... [options]
 Makes the mail copies of the docs media that a release notes letter shows, as 2x JPEGs.
 A hero still becomes a window on the docs hero gradient: give its id alone. A video
 becomes a sharp shot of one frame: give the time of the frame, and optionally the region
-to show, in pixels of the 1920 px wide docs video (the whole frame by default). Shots
-render from the light capture in out/<id>/light, so run
-pnpm run batch <id> --force --keep-frames first. Uploads each copy to the docs CDN and
-writes its URL to the portal's letter images. Requires DO_SPACES_KEY and
-DO_SPACES_SECRET.
+to show, in pixels of the docs video (the whole frame by default). Shots render from
+the light capture in out/<id>/light, so run pnpm run batch <id> --force --keep-frames
+first. Uploads each copy to the docs CDN and writes its URL to the portal's letter
+images. Requires DO_SPACES_KEY and DO_SPACES_SECRET.
 Options:
   --dry-run   write the copies to out/mail/ without uploading`;
 
@@ -45,17 +44,17 @@ const ARG = /^([^@]+)(?:@(\d+(?:\.\d+)?)(?::(\d+),(\d+),(\d+))?)?$/;
 interface Copy {
   id: string;
   seconds: number | null;
-  region: Region;
+  region: Region | null;
 }
 
 const parseCopy = (arg: string): Copy => {
   const m = ARG.exec(arg);
   if (m == null) throw new Error(`${arg} is not <id>[@seconds[:x,y,width]]`);
-  const [, id, seconds, x = "0", y = "0", width = "1920"] = m;
+  const [, id, seconds, x, y, width] = m;
   return {
     id,
     seconds: seconds == null ? null : Number(seconds),
-    region: { x: Number(x), y: Number(y), width: Number(width) },
+    region: width == null ? null : { x: Number(x), y: Number(y), width: Number(width) },
   };
 };
 
@@ -95,7 +94,7 @@ const renderHeroes = async (entries: Entry[]): Promise<void> => {
 const renderShot = async (
   entry: Entry,
   seconds: number,
-  region: Region,
+  region: Region | null,
 ): Promise<void> => {
   if (entry.stills != null)
     throw new Error(`${entry.id} is a still. Give its id without a time`);

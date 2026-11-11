@@ -282,7 +282,7 @@ export const render = (
     <Page
       subject={letter.subject}
       preview={letter.opening[0]}
-      width={600}
+      width={HERO.width}
       padding="24px 12px 40px"
     >
       <Masthead letter={letter} origin={origin} hero={hero} />

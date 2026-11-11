@@ -22,7 +22,7 @@ import { stage } from "@/director/stage";
 import { type Edit, type Format, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { type FilmProps } from "@/remotion/Film";
-import { type HeroProps, type Region, type ShotProps } from "@/remotion/Mail";
+import { type HeroProps, type Region, SHOT, type ShotProps } from "@/remotion/Mail";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -344,15 +344,15 @@ export interface MailShot {
   target?: string;
   /** seconds is the time of the video frame to show. */
   seconds: number;
-  /** region is the box to show, in pixels of the rendered video. */
-  region: Region;
+  /** region is the box to show, in pixels of the rendered video. Null shows it all. */
+  region: Region | null;
   /** output is where the JPEG goes. */
   output: string;
 }
 
 /**
  * runMailShot renders a region of a captured video's frame as a 2x JPEG, from the
- * full-resolution capture. Throws when the time falls outside the video.
+ * full-resolution capture. Throws when the time or the region falls outside the video.
  */
 export const runMailShot = async (shot: MailShot): Promise<void> => {
   const timeline = await loadTimeline(shot.captureDir);
@@ -363,8 +363,19 @@ export const runMailShot = async (shot: MailShot): Promise<void> => {
       `${shot.seconds}s falls outside the capture's ${meta.frames / meta.fps}s`,
     );
   const width = outputWidth(timeline, shot.target);
+  const height = (width * meta.height) / meta.width;
+  const { x, y, width: w } = shot.region ?? { x: 0, y: 0, width };
+  if (
+    w <= 0 ||
+    x < 0 ||
+    y < 0 ||
+    x + w > width ||
+    y + (w * SHOT.height) / SHOT.width > height
+  )
+    throw new Error(
+      `region ${x},${y},${w} falls outside the ${width}x${Math.round(height)} video`,
+    );
   const k = nativeWidth(timeline) / width;
-  const { x, y, width: w } = shot.region;
   const inputProps: ShotProps = {
     meta,
     tracks: direct(timeline, width),

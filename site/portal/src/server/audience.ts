@@ -96,7 +96,8 @@ export interface Broadcast {
 export interface Broadcaster extends Audience {
   /**
    * send mails `broadcast` to everyone on the list. Throws, and sends nothing, when a
-   * broadcast of the same name was sent before.
+   * broadcast of the same name was sent before. Not safe to call concurrently: two
+   * overlapping sends of one name can both pass that check.
    */
   send: (broadcast: Broadcast) => Promise<void>;
 }
