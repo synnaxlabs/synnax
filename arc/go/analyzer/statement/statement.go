@@ -651,7 +651,7 @@ func isRangeCall(
 		return nil, false
 	}
 	calls := postfix.AllFunctionCallSuffix()
-	if len(calls) != 1 {
+	if len(calls) != 1 || len(postfix.AllIndexOrSlice()) > 0 {
 		return nil, false
 	}
 	return calls[0], true
