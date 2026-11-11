@@ -27,12 +27,19 @@ import (
 type shapes struct {
 	old, new *resolution.Table
 	visiting set.Set[string]
+	// covered holds every old type a comparison reached.
+	covered set.Set[string]
 	// oldParams and newParams are the type parameters of the types being compared.
 	oldParams, newParams []resolution.TypeParam
 }
 
 func newShapes(old, new *resolution.Table) shapes {
-	return shapes{old: old, new: new, visiting: make(set.Set[string])}
+	return shapes{
+		old:      old,
+		new:      new,
+		visiting: make(set.Set[string]),
+		covered:  make(set.Set[string]),
+	}
 }
 
 // typ returns why data that old wrote no longer decodes as new, or "" when it does. at
@@ -44,6 +51,7 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	}
 	s.visiting.Add(key)
 	defer s.visiting.Remove(key)
+	s.covered.Add(old.QualifiedName)
 	if reflect.TypeOf(old.Form) != reflect.TypeOf(new.Form) {
 		return fmt.Sprintf("%s: changes from %T to %T", at, old.Form, new.Form)
 	}
@@ -52,13 +60,25 @@ func (s shapes) typ(at string, old, new resolution.Type) string {
 	if len(s.oldParams) != len(s.newParams) {
 		return at + ": changes its type parameters"
 	}
+	// A reference that omits a defaulted argument stores the default.
+	for i, op := range s.oldParams {
+		np := s.newParams[i]
+		if op.Optional != np.Optional || op.HasDefault() != np.HasDefault() {
+			return at + ": changes the default of type parameter " + op.Name
+		}
+		if op.HasDefault() {
+			if reason := s.ref(at, *op.Default, *np.Default); reason != "" {
+				return reason
+			}
+		}
+	}
 	switch o := old.Form.(type) {
 	case resolution.StructForm:
 		return s.fields(at, old, new)
 	case resolution.EnumForm:
 		return enumMembers(at, o, new.Form.(resolution.EnumForm))
 	case resolution.UnionForm:
-		return s.union(at, o, new.Form.(resolution.UnionForm))
+		return s.union(at, old, new)
 	case resolution.AliasForm:
 		return s.ref(at, o.Target, new.Form.(resolution.AliasForm).Target)
 	case resolution.DistinctForm:
@@ -105,7 +125,9 @@ func (s shapes) fields(at string, old, new resolution.Type) string {
 	return ""
 }
 
-func (s shapes) union(at string, old, new resolution.UnionForm) string {
+func (s shapes) union(at string, oldType, newType resolution.Type) string {
+	old := oldType.Form.(resolution.UnionForm)
+	new := newType.Form.(resolution.UnionForm)
 	if old.Discriminator != new.Discriminator {
 		return at + ": changes its discriminator"
 	}
@@ -133,6 +155,21 @@ func (s shapes) union(at string, old, new resolution.UnionForm) string {
 		}
 		if ov.Inline != nv.Inline {
 			return variantAt + ": changes between inline and named"
+		}
+		// A variant can drop fields that the union's bases give it.
+		oldFields := fieldNames(storedFields(
+			resolution.UnifiedVariantFields(oldType, ov, s.old),
+		))
+		newFields := fieldNames(storedFields(
+			resolution.UnifiedVariantFields(newType, nv, s.new),
+		))
+		if !slices.Equal(oldFields, newFields) {
+			return fmt.Sprintf(
+				"%s: stored fields change from %v to %v",
+				variantAt,
+				oldFields,
+				newFields,
+			)
 		}
 		if reason := s.ref(variantAt, ov.Type, nv.Type); reason != "" {
 			return reason

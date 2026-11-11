@@ -93,8 +93,7 @@ func checkShipped(
 
 // compareStored checks each stored type of the surface in namespace ns: every type
 // with a codec or a migration. A stored type the surface no longer carries is allowed
-// only when another stored type that remains reaches it, since that type's comparison
-// then covers its shape.
+// only when the comparison of a stored type that remains reaches it.
 func compareStored(
 	old, now *resolution.Table, ns string, fail func(format string, args ...any),
 ) {
@@ -109,26 +108,21 @@ func compareStored(
 		roots,
 		func(a, b resolution.Type) int { return cmp.Compare(a.Name, b.Name) },
 	)
-	var kept []resolution.Type
-	for _, t := range roots {
-		if _, ok := now.Get(t.QualifiedName); ok {
-			kept = append(kept, t)
-		}
-	}
+	s := newShapes(old, now)
+	var removed []resolution.Type
 	for _, t := range roots {
 		n, ok := now.Get(t.QualifiedName)
 		if !ok {
-			if !slices.ContainsFunc(kept, func(k resolution.Type) bool {
-				return resolution.RefersTo(
-					resolution.TypeRef{Name: k.QualifiedName}, t.QualifiedName, old,
-				)
-			}) {
-				fail("removes %s", t.Name)
-			}
+			removed = append(removed, t)
 			continue
 		}
-		if reason := newShapes(old, now).typ(t.Name, t, n); reason != "" {
+		if reason := s.typ(t.Name, t, n); reason != "" {
 			fail("changes the stored shape of %s (%s)", t.Name, reason)
+		}
+	}
+	for _, t := range removed {
+		if !s.covered.Contains(t.QualifiedName) {
+			fail("removes %s", t.Name)
 		}
 	}
 }

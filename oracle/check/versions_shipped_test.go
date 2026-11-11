@@ -472,6 +472,102 @@ Channel union on type {
 			))
 		})
 
+		It("Should fail a union variant that drops a base field", func() {
+			write(releaseRoot, v0Path, `
+Base struct {
+    label  string
+    hidden bool
+}
+
+Channel union on type extends Base {
+    analog {
+        port string
+    }
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Base struct {
+    label  string
+    hidden bool
+}
+
+Channel union on type extends Base {
+    analog {
+        -hidden
+        port string
+    }
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(ConsistOf(shapeChange(
+				"Channel.analog",
+				"stored fields change from [label hidden port] to [label port]",
+			)))
+		})
+
+		It("Should fail a type parameter with a new default", func() {
+			write(releaseRoot, v0Path, `
+Bounds struct<T extends numeric = float64> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds
+
+    @go marshal
+}
+`)
+			write(root, v0Path, `
+Bounds struct<T extends numeric = float32> {
+    lower T
+}
+
+Channel struct {
+    bounds Bounds
+
+    @go marshal
+}
+`)
+			Expect(messages()).To(ConsistOf(
+				shapeChange("Channel.bounds", "changes from float64 to float32"),
+			))
+		})
+
+		It("Should fail a removed stored type that only an omitted field reaches",
+			func() {
+				write(releaseRoot, v0Path, `
+Status struct {
+    message string
+
+    @go marshal
+}
+
+Channel struct {
+    key    uuid @key
+    name   string = "a"
+    status Status? {
+        @go marshal omit
+    }
+
+    @go marshal
+}
+`)
+				write(root, v0Path, `
+Channel struct {
+    key  uuid @key
+    name string = "a"
+
+    @go marshal
+}
+`)
+				Expect(messages()).To(ConsistOf(
+					"schemas/synnax/channel v0 removes Status, which core/v0.60.1 shipped",
+				))
+			})
+
 		It("Should fail a stored field added to a shipped version file", func() {
 			write(root, v0Path, `
 Status struct {
