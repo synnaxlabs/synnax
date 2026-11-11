@@ -828,6 +828,13 @@ func (p *Plugin) resolveMapType(
 		)
 	}
 
+	for _, arg := range typeRef.TypeArgs[:2] {
+		if kind, _ := resolution.CollectionKind(arg, data.table); kind == "Array" {
+			return "", errors.New(
+				"protobuf map keys and values cannot be lists; wrap the list in a struct",
+			)
+		}
+	}
 	keyType, err := p.typeToProto(typeRef.TypeArgs[0], data)
 	if err != nil {
 		return "", errors.Wrap(err, "map key type")

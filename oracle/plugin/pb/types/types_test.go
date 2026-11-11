@@ -182,6 +182,20 @@ var _ = Describe("Plugin", func() {
 			)
 		})
 
+		It("Should fail on a list map value", func(ctx SpecContext) {
+			req := MustGenerateRequest(ctx, `
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					lines map<string, uint8[]>
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"protobuf map keys and values cannot be lists",
+			)))
+		})
+
 		It("Should fail when two generic uses share a message name", func(
 			ctx SpecContext,
 		) {
