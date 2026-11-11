@@ -11,6 +11,7 @@ import { type ReactElement } from "react";
 import { Composition } from "remotion";
 
 import { Film, type FilmProps } from "@/remotion/Film";
+import { HEIGHT, Mail, type MailProps, WIDTH } from "@/remotion/Mail";
 import { StudioVideo, type StudioVideoProps } from "@/remotion/StudioVideo";
 
 /** Placeholder metadata; the CLI overrides everything via calculateMetadata. */
@@ -45,6 +46,14 @@ const DEFAULT_FILM_PROPS: FilmProps = {
   events: [],
 };
 
+/** Placeholder mail copy; the CLI supplies the source via inputProps. */
+const DEFAULT_MAIL_PROPS: MailProps = {
+  source: "source.webp",
+  video: false,
+  frames: 1,
+  fps: 30,
+};
+
 export const Root = (): ReactElement => (
   <>
     <Composition
@@ -76,6 +85,20 @@ export const Root = (): ReactElement => (
         fps: props.plan.fps,
         width: props.plan.width,
         height: props.plan.height,
+        props,
+      })}
+    />
+    <Composition
+      id="mail"
+      component={Mail}
+      durationInFrames={1}
+      fps={30}
+      width={WIDTH}
+      height={HEIGHT}
+      defaultProps={DEFAULT_MAIL_PROPS}
+      calculateMetadata={({ props }) => ({
+        durationInFrames: props.frames,
+        fps: props.fps,
         props,
       })}
     />

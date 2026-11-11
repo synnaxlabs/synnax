@@ -87,6 +87,7 @@ pnpm run batch --list     # show what would run
 pnpm gallery              # write out/gallery.html for batch review
 pnpm run upload --dry-run # preview the CDN upload plan
 pnpm upload ranges        # push finals (needs DO_SPACES_KEY / DO_SPACES_SECRET)
+pnpm mail <id>@<seconds>  # make a release notes letter's mail copy of a video
 pnpm clean                # free disk: drop capture frames, keep videos
 pnpm run clean --videos   # also drop rendered videos and stamps
 pnpm run clean --all      # remove out/ entirely

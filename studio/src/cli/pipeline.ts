@@ -21,6 +21,7 @@ import { stage } from "@/director/stage";
 import { type Edit, type Format, type Overlays } from "@/film";
 import { type Core } from "@/fixtures/core";
 import { type FilmProps } from "@/remotion/Film";
+import { type MailProps } from "@/remotion/Mail";
 import { parse, type Timeline } from "@/timeline";
 
 export interface VideoScript {
@@ -304,3 +305,39 @@ export const runFilmStills = async (opts: FilmStillsOptions): Promise<string[]> 
   });
   return paths;
 };
+
+export interface MailCopy {
+  /** source is a still or a video in the bundle's public dir. */
+  source: string;
+  /** seconds is the time of the video frame to show, or null for a still. */
+  seconds: number | null;
+  /** output is where the JPEG goes. */
+  output: string;
+}
+
+const MAIL_FPS = 30;
+
+/** runMailCopies renders the mail copy of each source in `dir` as a 2x JPEG. */
+export const runMailCopies = async (dir: string, copies: MailCopy[]): Promise<void> =>
+  await withBundle(dir, async (serveUrl) => {
+    for (const { source, seconds, output } of copies) {
+      const frame = Math.round((seconds ?? 0) * MAIL_FPS);
+      const inputProps: MailProps = {
+        source,
+        video: seconds != null,
+        frames: frame + 1,
+        fps: MAIL_FPS,
+      };
+      const composition = await selectComposition({ serveUrl, id: "mail", inputProps });
+      await renderStill({
+        composition,
+        serveUrl,
+        frame,
+        output,
+        inputProps,
+        imageFormat: "jpeg",
+        jpegQuality: 85,
+        scale: 2,
+      });
+    }
+  });

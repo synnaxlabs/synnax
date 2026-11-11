@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CSSProperties, type ReactElement } from "react";
+import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Resend } from "resend";
 
@@ -48,7 +48,7 @@ export interface Rendered {
   html: string;
 }
 
-const COLOR = {
+export const COLOR = {
   // public/email/logo.png has this color baked in, so dark mode clients that darken
   // the page cannot hide the wordmark.
   page: "#f4f5f7",
@@ -65,33 +65,56 @@ const FONT =
   "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, " +
   "sans-serif";
 
-const TEXT: CSSProperties = {
+export const TEXT: CSSProperties = {
   margin: "0 0 16px",
   fontSize: 14,
   lineHeight: "22px",
   color: COLOR.text,
 };
 
-// Mail clients drop most CSS, so the layout is tables with inline styles.
-const Email = ({
-  notice,
-  origin,
-}: {
-  notice: Notice;
+const FOOTER: CSSProperties = { ...TEXT, margin: 0, fontSize: 12, color: COLOR.muted };
+
+/** HEADING styles the first heading of an email. */
+export const HEADING: CSSProperties = {
+  margin: "0 0 16px",
+  fontSize: 20,
+  lineHeight: "28px",
+  fontWeight: 600,
+  color: COLOR.heading,
+};
+
+export interface FrameProps {
+  subject: string;
+  /** preview is the line inboxes show after the subject. */
+  preview: string;
+  /** origin is the portal's URL, which the logo and the footer link point to. */
   origin: string;
-}): ReactElement => (
+  /** reason tells the reader why they get the email. */
+  reason: ReactNode;
+  children: ReactNode;
+}
+
+/**
+ * Frame lays out one email: the logo, a card that holds `children`, and a footer. Mail
+ * clients drop most CSS, so the layout is tables with inline styles.
+ */
+export const Frame = ({
+  subject,
+  preview,
+  origin,
+  reason,
+  children,
+}: FrameProps): ReactElement => (
   <html lang="en">
     <head>
       <meta httpEquiv="Content-Type" content="text/html; charset=UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <meta name="color-scheme" content="light" />
       <meta name="supported-color-schemes" content="light" />
-      <title>{notice.subject}</title>
+      <title>{subject}</title>
     </head>
     <body style={{ margin: 0, padding: 0, background: COLOR.page, fontFamily: FONT }}>
-      <div style={{ display: "none", maxHeight: 0, overflow: "hidden" }}>
-        {notice.paragraphs[0]}
-      </div>
+      <div style={{ display: "none", maxHeight: 0, overflow: "hidden" }}>{preview}</div>
       <table
         role="presentation"
         width="100%"
@@ -130,41 +153,13 @@ const Email = ({
                         borderRadius: 8,
                       }}
                     >
-                      <h1
-                        style={{
-                          margin: "0 0 16px",
-                          fontSize: 20,
-                          lineHeight: "28px",
-                          fontWeight: 600,
-                          color: COLOR.heading,
-                        }}
-                      >
-                        {notice.heading}
-                      </h1>
-                      {notice.paragraphs.map((p) => (
-                        <p key={p} style={TEXT}>
-                          {p}
-                        </p>
-                      ))}
-                      <Facts facts={notice.facts} />
-                      <Button action={notice.action} origin={origin} />
+                      {children}
                     </td>
                   </tr>
                   <tr>
                     <td style={{ padding: "24px 0 0" }}>
-                      <p
-                        style={{
-                          ...TEXT,
-                          margin: "0 0 4px",
-                          fontSize: 12,
-                          color: COLOR.muted,
-                        }}
-                      >
-                        {notice.reason}
-                      </p>
-                      <p
-                        style={{ ...TEXT, margin: 0, fontSize: 12, color: COLOR.muted }}
-                      >
+                      <p style={{ ...FOOTER, margin: "0 0 4px" }}>{reason}</p>
+                      <p style={FOOTER}>
                         Synnax Labs ·{" "}
                         <a href={origin} style={{ color: COLOR.muted }}>
                           {new URL(origin).host}
@@ -180,6 +175,30 @@ const Email = ({
       </table>
     </body>
   </html>
+);
+
+const Email = ({
+  notice,
+  origin,
+}: {
+  notice: Notice;
+  origin: string;
+}): ReactElement => (
+  <Frame
+    subject={notice.subject}
+    preview={notice.paragraphs[0]}
+    origin={origin}
+    reason={notice.reason}
+  >
+    <h1 style={HEADING}>{notice.heading}</h1>
+    {notice.paragraphs.map((p) => (
+      <p key={p} style={TEXT}>
+        {p}
+      </p>
+    ))}
+    <Facts facts={notice.facts} />
+    <Button label={notice.action.label} href={`${origin}${notice.action.href}`} />
+  </Frame>
 );
 
 const Facts = ({ facts }: { facts: Fact[] }): ReactElement => (
@@ -217,21 +236,22 @@ const Facts = ({ facts }: { facts: Fact[] }): ReactElement => (
   </table>
 );
 
-// Padding sits on the cell as well as the link, so Outlook, which ignores padding on
-// a link, still draws the whole button.
-const Button = ({
-  action,
-  origin,
-}: {
-  action: Action;
-  origin: string;
-}): ReactElement => (
+export interface ButtonProps {
+  label: string;
+  href: string;
+}
+
+/**
+ * Button is a link drawn as a button. Padding sits on the cell as well as the link, so
+ * Outlook, which ignores padding on a link, still draws the whole button.
+ */
+export const Button = ({ label, href }: ButtonProps): ReactElement => (
   <table role="presentation" cellPadding={0} cellSpacing={0}>
     <tbody>
       <tr>
         <td style={{ background: COLOR.primary, borderRadius: 6 }}>
           <a
-            href={`${origin}${action.href}`}
+            href={href}
             style={{
               display: "inline-block",
               padding: "10px 18px",
@@ -243,7 +263,7 @@ const Button = ({
               borderRadius: 6,
             }}
           >
-            {action.label}
+            {label}
           </a>
         </td>
       </tr>
