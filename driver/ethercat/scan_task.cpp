@@ -127,30 +127,54 @@ std::string only_reader(const slave::Properties &props) {
     return "";
 }
 
-/// @brief sets status to the warning for a slave with settings that sends data that
-/// only reader reads.
-void set_mode_status(
-    const std::string &reader,
-    const x::json::json &settings,
-    synnax::device::Status &status
-) {
-    status.variant = synnax::status::VARIANT_WARNING;
-    const auto mode = settings.find("mode");
-    if (mode != settings.end() && mode->at("switch").empty()) {
+/// @brief sets status to a warning when other software sets up the slave in a way that
+/// keeps Synnax from using it, or when Synnax is on the wrong bus of the slave. Returns
+/// whether it set one.
+bool set_setup_status(const slave::Properties &props, synnax::device::Status &status) {
+    const auto none = x::json::json::object();
+    const auto &mode = props.settings && props.settings->contains("mode")
+                         ? props.settings->at("mode")
+                         : none;
+    const auto bus = mode.value("bus", 0);
+    auto reader = only_reader(props);
+    const bool switched = !reader.empty() && mode.contains("switch") &&
+                          mode.at("switch").empty();
+    if (reader.empty()) reader = mode.value("only_read_by", "");
+    const auto shared_with = mode.value("shared_with", "");
+    if (switched) {
         status.message = "Waiting for a power restart";
         status.description = "The device runs Synnax only after a power restart. Until "
                              "then, it sends data that only " +
                              reader + " reads.";
-        return;
-    }
-    status.message = "Set up for " + reader;
-    status.description = "On this port, the device sends data that only " + reader +
-                         " reads. ";
-    status.description += mode == settings.end()
-                            ? "Connect"
-                            : "In the device settings, switch the device to Synnax "
-                              "only, or connect";
-    status.description += " Synnax to the port that " + reader + " does not use.";
+    } else if (!reader.empty()) {
+        status.message = "Set up for " + reader;
+        status.description = bus == 1 ? "On EtherCAT bus 1 IN, the device"
+                                      : "The device";
+        status.description += " sends data that only " + reader + " reads. ";
+        if (mode.empty())
+            status.description += "Connect Synnax to the bus that " + reader +
+                                  " does not use.";
+        else if (bus == 0)
+            status.description += "In Configure, switch the device to Synnax only.";
+        else
+            status.description += "In Configure, switch the device to Synnax only, or "
+                                  "connect Synnax to EtherCAT bus 2 IN.";
+    } else if (!shared_with.empty() && bus == 1) {
+        status.message = "Set up for " + shared_with;
+        status
+            .description = "The device runs in dual mode, and Synnax is on EtherCAT "
+                           "bus 1 IN, which " +
+                           shared_with +
+                           " uses. In Configure, switch the device to Synnax only, or "
+                           "connect Synnax to EtherCAT bus 2 IN.";
+    } else if (bus == 2 && !mode.value("shared", false)) {
+        status.message = "Connect Synnax to EtherCAT bus 1 IN";
+        status.description = "The device runs Synnax only, which uses EtherCAT bus 1 "
+                             "IN. Synnax is on bus 2 IN.";
+    } else
+        return false;
+    status.variant = synnax::status::VARIANT_WARNING;
+    return true;
 }
 
 /// @brief adds a failed settings read to the description of status as a warning.
@@ -306,10 +330,9 @@ std::pair<synnax::device::Device, bool> Scanner::create_slave_device(
         status.variant = synnax::status::VARIANT_DISABLED;
     } else if (live != health.end())
         set_live_status(*live, status);
-    else if (const auto reader = only_reader(props); !reader.empty()) {
-        set_mode_status(reader, props.settings.value(), status);
+    else if (set_setup_status(props, status))
         add_settings_error(sts.settings_error, status);
-    } else if (
+    else if (
         !sts.pdo_discovery_error.empty() && props.input_pdos.empty() &&
         props.output_pdos.empty()
     ) {

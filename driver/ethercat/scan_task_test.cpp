@@ -899,8 +899,9 @@ protected:
     std::unique_ptr<Scanner> scanner;
     std::mt19937 rng = random_generator("EtherCATScanModeTest");
 
-    /// @brief puts the slave on eth0. Only DewesoftX reads the entry at
-    /// only_read_index, and shared says whether DewesoftX also sets up the slave.
+    /// @brief puts the slave on eth0, on bus 1 of a slave with two buses. Only
+    /// DewesoftX reads the entry at only_read_index, and shared says whether DewesoftX
+    /// also sets up the slave.
     void start(const bool shared, const uint16_t only_read_index = 0x6000) {
         auto change = x::json::json::array();
         if (shared)
@@ -935,9 +936,19 @@ protected:
                    {"settings", x::json::json::array()},
                    {"requires", x::json::json::array()}}}},
                 {"mode",
-                 {{"value", shared ? 1 : 0}, {"shared", shared}, {"switch", change}}},
+                 {{"value", shared ? 1 : 0},
+                  {"shared", shared},
+                  {"bus", 1},
+                  {"switch", change}}},
             },
         };
+        if (shared) this->props.settings.value()["mode"]["shared_with"] = "DewesoftX";
+        this->serve();
+    }
+
+    /// @brief merges fields into the mode of the slave and serves it again.
+    void set_mode(const x::json::json &fields) {
+        this->props.settings.value()["mode"].merge_patch(fields);
         this->serve();
     }
 
@@ -1001,9 +1012,55 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "On this port, the device sends data that only DewesoftX reads. In the device "
-        "settings, switch the device to Synnax only, or connect Synnax to the port "
-        "that DewesoftX does not use."
+        "On EtherCAT bus 1 IN, the device sends data that only DewesoftX reads. In "
+        "Configure, switch the device to Synnax only, or connect Synnax to EtherCAT bus "
+        "2 IN."
+    );
+}
+
+/// @brief it should offer only the switch for a slave with one bus that sends data
+/// that only DewesoftX reads.
+TEST_F(EtherCATScanModeTest, OffersOnlyTheSwitchForASingleBusSlave) {
+    this->start(true, 0x6041);
+    this->set_mode(
+        {{"bus", nullptr}, {"shared_with", nullptr}, {"only_read_by", "DewesoftX"}}
+    );
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "The device sends data that only DewesoftX reads. In Configure, switch the "
+        "device to Synnax only."
+    );
+}
+
+/// @brief it should warn about a slave in dual mode when Synnax is on the bus of
+/// DewesoftX.
+TEST_F(EtherCATScanModeTest, WarnsAboutADualSlaveOnBus1) {
+    this->start(true, 0x6041);
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Set up for DewesoftX");
+    EXPECT_EQ(
+        status.description,
+        "The device runs in dual mode, and Synnax is on EtherCAT bus 1 IN, which "
+        "DewesoftX uses. In Configure, switch the device to Synnax only, or connect "
+        "Synnax to EtherCAT bus 2 IN."
+    );
+}
+
+/// @brief it should ask for bus 1 when a slave that runs Synnax only is on bus 2.
+TEST_F(EtherCATScanModeTest, AsksForBus1ForAStandaloneSlaveOnBus2) {
+    this->start(false, 0x6041);
+    this->set_mode({{"bus", 2}});
+    const auto status = this->scan_status();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Connect Synnax to EtherCAT bus 1 IN");
+    EXPECT_EQ(
+        status.description,
+        "The device runs Synnax only, which uses EtherCAT bus 1 IN. Synnax is on bus 2 "
+        "IN."
     );
 }
 
@@ -1022,7 +1079,7 @@ TEST_F(EtherCATScanModeTest, AsksForAPowerRestartOfASwitchedSlave) {
 }
 
 /// @brief it should not advise a switch for a slave whose mode the scan did not read.
-TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherPortWithoutAMode) {
+TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherBusWithoutAMode) {
     this->start(true);
     this->props.settings.value().erase("mode");
     this->serve();
@@ -1031,15 +1088,16 @@ TEST_F(EtherCATScanModeTest, AdvisesOnlyTheOtherPortWithoutAMode) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "On this port, the device sends data that only DewesoftX reads. Connect "
-        "Synnax to the port that DewesoftX does not use."
+        "The device sends data that only DewesoftX reads. Connect Synnax to the bus "
+        "that DewesoftX does not use."
     );
 }
 
-/// @brief it should not warn about a shared slave on the port that DewesoftX does not
-/// use.
-TEST_F(EtherCATScanModeTest, ShowsDiscoveryOnThePortThatDewesoftXDoesNotUse) {
+/// @brief it should not warn about a slave in dual mode on bus 2, the bus that
+/// DewesoftX does not use.
+TEST_F(EtherCATScanModeTest, ShowsDiscoveryOfADualSlaveOnBus2) {
     this->start(true, 0x6041);
+    this->set_mode({{"bus", 2}});
     const auto status = this->scan_status();
     EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(status.message, "Discovered (1 inputs, 0 outputs)");
@@ -1075,8 +1133,8 @@ TEST_F(EtherCATScanModeTest, AddsAFailedSettingsReadToTheSetupWarning) {
     EXPECT_EQ(status.message, "Set up for DewesoftX");
     EXPECT_EQ(
         status.description,
-        "On this port, the device sends data that only DewesoftX reads. Connect "
-        "Synnax to the port that DewesoftX does not use. Failed to read the settings: "
+        "The device sends data that only DewesoftX reads. Connect Synnax to the bus "
+        "that DewesoftX does not use. Failed to read the settings: "
         "failed to read 0x8020:09: Object does not exist in the object dictionary. The "
         "Driver tries again while no task uses the port."
     );

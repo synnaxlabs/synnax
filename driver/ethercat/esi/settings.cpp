@@ -120,6 +120,7 @@ x::json::json parameter(const x::json::json &item, const x::json::json &value) {
 /// @brief returns the mode that the card holds, as read_settings describes it.
 std::pair<x::json::json, x::errors::Error> read_mode(
     const x::json::json &mode,
+    const uint32_t revision,
     const std::vector<dc::OpMode> &op_modes,
     const coe::Read &read
 ) {
@@ -135,13 +136,19 @@ std::pair<x::json::json, x::errors::Error> read_mode(
         {"shared", false},
         {"switch", x::json::json::array()},
     };
+    if (mode.contains("second_bus"))
+        result["bus"] = (revision & mode["second_bus"].get<uint32_t>()) != 0 ? 2 : 1;
     const double value = held;
     const auto &values = mode["values"];
     const auto match = std::ranges::find_if(values, [value](const auto &v) {
         return v["value"].template get<double>() == value;
     });
     if (match != values.end()) {
-        result["shared"] = match->value("shared", false);
+        for (const auto *key: {"shared_with", "only_read_by"})
+            if (match->contains(key)) {
+                result["shared"] = true;
+                result[key] = (*match)[key];
+            }
         if (match->contains("op_mode")) {
             const auto &op = (*match)["op_mode"];
             const auto aa = op["assign_activate"].get<uint16_t>();
@@ -349,7 +356,7 @@ std::pair<std::optional<x::json::json>, x::errors::Error> read_settings(
         ends(err, read_channels((*it)["channels"], read, result["channels"])))
         return {std::nullopt, err};
     if (!it->contains("mode")) return {std::move(result), err};
-    auto [mode, mode_err] = read_mode((*it)["mode"], op_modes, read);
+    auto [mode, mode_err] = read_mode((*it)["mode"], revision, op_modes, read);
     if (ends(err, mode_err)) return {std::nullopt, err};
     if (!mode_err) result["mode"] = std::move(mode);
     return {std::move(result), err};
