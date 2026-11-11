@@ -235,7 +235,7 @@ var _ = Describe("FramerCodec", func() {
 			send(write(1 << 10))
 			Eventually(received).Should(Receive(BeNil()))
 			send(write(1<<10 + 1))
-			Eventually(received).Should(Receive(HaveOccurred()))
+			Eventually(received).Should(Receive(MatchError(freighter.ErrStreamClosed)))
 		})
 	})
 
