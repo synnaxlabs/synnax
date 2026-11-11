@@ -226,6 +226,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const before = deep.copy(dev.properties);
   const { channels } = dev.properties.write;
   let changed = false;
   const commandsToCreate: WriteChannel[] = [];
@@ -270,7 +271,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     changed = true;
   }
-  if (changed) await Device.setProperties(client, dev, SCHEMAS);
+  if (changed) await Device.setProperties(client, dev, before, SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,

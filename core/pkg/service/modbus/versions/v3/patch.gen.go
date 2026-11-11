@@ -26,9 +26,13 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "device":
 		return patch.Value(&rc.Device, c.Next())
 	case "channels":
@@ -48,6 +52,35 @@ func (rc *ReadConfig) HashContent(h *content.Hash) {
 	h.Len(len(rc.Channels))
 	for i0 := range rc.Channels {
 		rc.Channels[i0].HashContent(h)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteConfig) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.KeyedConfig.Key, c.Next())
+	case "auto_start":
+		return patch.Value(&wc.WriteConfig.PersistConfig.StartConfig.AutoStart, c.Next())
+	case "data_saving_disabled":
+		return patch.Value(&wc.WriteConfig.PersistConfig.DataSavingDisabled, c.Next())
+	case "device":
+		return patch.Value(&wc.WriteConfig.Device, c.Next())
+	case "channels":
+		return patch.List(&wc.Channels, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteConfig) HashContent(h *content.Hash) {
+	h.Bool(wc.WriteConfig.PersistConfig.StartConfig.AutoStart)
+	h.Bool(wc.WriteConfig.PersistConfig.DataSavingDisabled)
+	h.String(wc.WriteConfig.Device)
+	h.Len(len(wc.Channels))
+	for i0 := range wc.Channels {
+		wc.Channels[i0].HashContent(h)
 	}
 }
 
@@ -284,7 +317,9 @@ func (hrrc *HoldingRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&hrrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&hrrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&hrrc.RegisterValue.DataType, c.Next(), func(def *HoldingRegisterReadChannel) {
+			hrrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&hrrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
@@ -329,7 +364,9 @@ func (irrc *InputRegisterReadChannel) Patch(c patch.Cursor) error {
 	case "address":
 		return patch.Value(&irrc.BaseReadChannel.Address, c.Next())
 	case "data_type":
-		return patch.Value(&irrc.RegisterValue.DataType, c.Next())
+		return patch.Defaulted(&irrc.RegisterValue.DataType, c.Next(), func(def *InputRegisterReadChannel) {
+			irrc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
 	case "bytes_swapped":
 		return patch.OptionalValue(&irrc.RegisterValue.BytesSwapped, c.Next())
 	case "words_swapped":
@@ -490,4 +527,183 @@ func (irbrc *InputRegisterBitReadChannel) HashContent(h *content.Hash) {
 	h.Uint(uint64(irbrc.BaseReadChannel.Channel))
 	h.Uint(uint64(irbrc.BaseReadChannel.Address))
 	h.Uint(uint64(irbrc.RegisterBit.Bit))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (wc *WriteChannel) Patch(c patch.Cursor) error {
+	switch v := wc.Variant.(type) {
+	case CoilWriteChannel:
+		c, ok := c.Guard("type", "coil")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wc, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wc.Variant = v
+		return nil
+	case HoldingRegisterWriteChannel:
+		c, ok := c.Guard("type", "holding_register")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wc, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wc.Variant = v
+		return nil
+	case HoldingRegisterBitWriteChannel:
+		c, ok := c.Guard("type", "holding_register_bit")
+		if !ok {
+			return nil
+		}
+		if c.Segment() == "type" {
+			return patch.Discriminator(wc, c)
+		}
+		if err := v.Patch(c); err != nil {
+			return err
+		}
+		wc.Variant = v
+		return nil
+	default:
+		return patch.Absent(wc, c, "type")
+	}
+}
+
+// PatchKey returns the key that paths name the value by in a list.
+func (wc *WriteChannel) PatchKey() string {
+	switch v := wc.Variant.(type) {
+	case CoilWriteChannel:
+		return v.BaseWriteChannel.Key
+	case HoldingRegisterWriteChannel:
+		return v.BaseWriteChannel.Key
+	case HoldingRegisterBitWriteChannel:
+		return v.BaseWriteChannel.Key
+	}
+	return ""
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (wc *WriteChannel) HashContent(h *content.Hash) {
+	switch v := wc.Variant.(type) {
+	case CoilWriteChannel:
+		h.String("coil")
+		v.HashContent(h)
+	case HoldingRegisterWriteChannel:
+		h.String("holding_register")
+		v.HashContent(h)
+	case HoldingRegisterBitWriteChannel:
+		h.String("holding_register_bit")
+		v.HashContent(h)
+	default:
+		h.String("")
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (cwc *CoilWriteChannel) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&cwc.BaseWriteChannel.Key, c.Next())
+	case "name":
+		return patch.Value(&cwc.BaseWriteChannel.Name, c.Next())
+	case "disabled":
+		return patch.Value(&cwc.BaseWriteChannel.Disabled, c.Next())
+	case "channel":
+		return patch.Value(&cwc.BaseWriteChannel.Channel, c.Next())
+	case "address":
+		return patch.Value(&cwc.BaseWriteChannel.Address, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (cwc *CoilWriteChannel) HashContent(h *content.Hash) {
+	h.String(cwc.BaseWriteChannel.Name)
+	h.Bool(cwc.BaseWriteChannel.Disabled)
+	h.Uint(uint64(cwc.BaseWriteChannel.Channel))
+	h.Uint(uint64(cwc.BaseWriteChannel.Address))
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (hrwc *HoldingRegisterWriteChannel) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&hrwc.BaseWriteChannel.Key, c.Next())
+	case "name":
+		return patch.Value(&hrwc.BaseWriteChannel.Name, c.Next())
+	case "disabled":
+		return patch.Value(&hrwc.BaseWriteChannel.Disabled, c.Next())
+	case "channel":
+		return patch.Value(&hrwc.BaseWriteChannel.Channel, c.Next())
+	case "address":
+		return patch.Value(&hrwc.BaseWriteChannel.Address, c.Next())
+	case "data_type":
+		return patch.Defaulted(&hrwc.RegisterValue.DataType, c.Next(), func(def *HoldingRegisterWriteChannel) {
+			hrwc.RegisterValue.DataType = def.RegisterValue.DataType
+		})
+	case "bytes_swapped":
+		return patch.OptionalValue(&hrwc.RegisterValue.BytesSwapped, c.Next())
+	case "words_swapped":
+		return patch.OptionalValue(&hrwc.RegisterValue.WordsSwapped, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (hrwc *HoldingRegisterWriteChannel) HashContent(h *content.Hash) {
+	h.String(hrwc.BaseWriteChannel.Name)
+	h.Bool(hrwc.BaseWriteChannel.Disabled)
+	h.Uint(uint64(hrwc.BaseWriteChannel.Channel))
+	h.Uint(uint64(hrwc.BaseWriteChannel.Address))
+	h.String(string(hrwc.RegisterValue.DataType))
+	if hrwc.RegisterValue.BytesSwapped == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bool(*hrwc.RegisterValue.BytesSwapped)
+	}
+	if hrwc.RegisterValue.WordsSwapped == nil {
+		h.Bool(false)
+	} else {
+		h.Bool(true)
+		h.Bool(*hrwc.RegisterValue.WordsSwapped)
+	}
+}
+
+// Patch applies the path action at c, which is not done, to the value.
+func (hrbwc *HoldingRegisterBitWriteChannel) Patch(c patch.Cursor) error {
+	switch c.Segment() {
+	case "key":
+		return patch.Value(&hrbwc.BaseWriteChannel.Key, c.Next())
+	case "name":
+		return patch.Value(&hrbwc.BaseWriteChannel.Name, c.Next())
+	case "disabled":
+		return patch.Value(&hrbwc.BaseWriteChannel.Disabled, c.Next())
+	case "channel":
+		return patch.Value(&hrbwc.BaseWriteChannel.Channel, c.Next())
+	case "address":
+		return patch.Value(&hrbwc.BaseWriteChannel.Address, c.Next())
+	case "bit":
+		return patch.Value(&hrbwc.RegisterBit.Bit, c.Next())
+	default:
+		return c.UnknownField()
+	}
+}
+
+// HashContent writes the content of the value to h, without its keys.
+func (hrbwc *HoldingRegisterBitWriteChannel) HashContent(h *content.Hash) {
+	h.String(hrbwc.BaseWriteChannel.Name)
+	h.Bool(hrbwc.BaseWriteChannel.Disabled)
+	h.Uint(uint64(hrbwc.BaseWriteChannel.Channel))
+	h.Uint(uint64(hrbwc.BaseWriteChannel.Address))
+	h.Uint(uint64(hrbwc.RegisterBit.Bit))
 }

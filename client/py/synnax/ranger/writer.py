@@ -13,7 +13,6 @@ from alamos import NOOP, Instrumentation, trace
 from freighter import Empty, UnaryClient
 from synnax.ranger import actions_gen
 from synnax.ranger.types_gen import Key, Payload
-from synnax.telem import TimeStamp
 
 
 class _CreateRequest(BaseModel):
@@ -57,17 +56,7 @@ class Writer:
         req = _DeleteRequest(keys=keys)
         self._client.send("/range/delete", req, Empty)
 
-    @trace("debug", key="range.rename")
-    def rename(self, key: Key, name: str) -> None:
-        action = actions_gen.set(actions_gen.SetPayload(path=["name"], value=name))
-        req = _DispatchRequest(key=key, actions=[action])
-        self._client.send("/range/dispatch", req, Empty)
-
-    @trace("debug", key="range.set_end")
-    def set_end(self, key: Key, end: TimeStamp) -> None:
-        # A string holds every 64-bit timestamp exactly.
-        action = actions_gen.set(
-            actions_gen.SetPayload(path=["time_range", "end"], value=str(int(end)))
-        )
-        req = _DispatchRequest(key=key, actions=[action])
+    @trace("debug", key="range.dispatch")
+    def dispatch(self, key: Key, actions: list[actions_gen.Action]) -> None:
+        req = _DispatchRequest(key=key, actions=actions)
         self._client.send("/range/dispatch", req, Empty)

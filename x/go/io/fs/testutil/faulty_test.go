@@ -126,6 +126,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(fs.List("nested")).Error().To(MatchError(ErrFault))
 	})
 
+	It("Should fail Close on the paths it names and still close the file", func() {
+		fs, f := openWrapped()
+		other := MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR))
+		fs.SetOptions(WithFailClose("a.bin"))
+		Expect(f.Close()).To(MatchError(ErrFault))
+		Expect(other.Close()).To(Succeed())
+		Expect(fs.OpenFiles()).To(BeZero())
+	})
+
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()
 		DeferClose(f)

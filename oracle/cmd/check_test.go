@@ -10,10 +10,12 @@
 package cmd_test
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -107,9 +109,11 @@ var _ = Describe("check command flag paths", func() {
 
 	Describe("with a well-formed schema", func() {
 		BeforeEach(func() {
-			_, cleanup = setupMiniRepo(map[string]string{
+			var repoDir string
+			repoDir, cleanup = setupMiniRepo(map[string]string{
 				"user.oracle": "User struct {\n    key  uuid\n    name string\n}\n",
 			})
+			releaseMiniRepo(repoDir)
 		})
 
 		It("rejects an invalid --format value", func() {
@@ -167,6 +171,148 @@ var _ = Describe("check command flag paths", func() {
 				"--gates=analyze", "--warnings-as-errors",
 			)).To(ContainSubstring("1 gate(s) failed"))
 		})
+	})
+})
+
+var _ = Describe("check against the shipped release", func() {
+	const (
+		channel = `Channel struct {
+    name string
+
+    @go marshal
+}
+`
+		keyedChannel = `Channel struct {
+    name string
+    key  uint32
+
+    @go marshal
+}
+`
+		chainDir = "schemas/synnax/versions/channel"
+	)
+	var (
+		repoDir string
+		cleanup func()
+	)
+
+	AfterEach(func() { cleanup() })
+
+	git := func(args ...string) {
+		GinkgoHelper()
+		proc := exec.Command("git", append([]string{
+			"-c", "user.name=Test", "-c", "user.email=test@example.com",
+			"-c", "commit.gpgsign=false", "-c", "tag.gpgsign=false",
+			// Checkouts keep LF, as the Synnax repository's .gitattributes forces.
+			"-c", "core.autocrlf=false",
+		}, args...)...)
+		proc.Dir = repoDir
+		out, err := proc.CombinedOutput()
+		Expect(err).ToNot(HaveOccurred(), string(out))
+	}
+
+	// writeChain writes one version file per body and the live file that projects
+	// the last one.
+	writeChain := func(bodies ...string) {
+		GinkgoHelper()
+		for n, body := range bodies {
+			Expect(os.WriteFile(
+				filepath.Join(repoDir, chainDir, fmt.Sprintf("v%d.oracle", n)),
+				[]byte(body), 0o644,
+			)).To(Succeed())
+		}
+		header := fmt.Sprintf("// Copyright %d Test Inc.\n\n", time.Now().Year())
+		Expect(os.WriteFile(
+			filepath.Join(repoDir, "schemas", "synnax", "channel.oracle"),
+			[]byte(header+bodies[len(bodies)-1]), 0o644,
+		)).To(Succeed())
+	}
+
+	commit := func(bodies ...string) {
+		GinkgoHelper()
+		writeChain(bodies...)
+		git("add", "-A")
+		git("commit", "-q", "-m", "commit")
+	}
+
+	shipped := func(tag string) string {
+		return "schemas/synnax/channel v1 is gone, which " + tag + " shipped"
+	}
+
+	Describe("outside a Git repository", func() {
+		BeforeEach(func() {
+			repoDir, cleanup = setupMiniRepo(map[string]string{
+				"synnax/versions/channel/v0.oracle": channel,
+			})
+			writeChain(channel)
+		})
+
+		It("Should fail when it cannot list the release tags", func() {
+			Expect(
+				fail(1, "check", "--gates=versions"),
+			).To(And(
+				printOnce("list the Core release tags"),
+				ContainSubstring("not a git repository"),
+			))
+		})
+	})
+
+	Describe("in a Git repository", func() {
+		BeforeEach(func() {
+			repoDir, cleanup = setupMiniRepo(map[string]string{
+				"synnax/versions/channel/v0.oracle": channel,
+			})
+			Expect(os.RemoveAll(filepath.Join(repoDir, ".git"))).To(Succeed())
+			git("init", "-q", "-b", "main")
+			commit(channel)
+		})
+
+		It("Should fail when HEAD descends only from release candidates", func() {
+			git("tag", "core/v0.1.0-rc.1")
+			Expect(
+				fail(1, "check", "--gates=versions"),
+			).To(printOnce("HEAD descends from no stable Core release tag"))
+		})
+
+		It("Should fail a stored shape that changes after a release", func() {
+			git("tag", "core/v0.1.0")
+			succeed("check", "--gates=versions")
+			writeChain(keyedChannel)
+			Expect(failGate(check.FailureCodes["versions"], "--gates=versions")).To(
+				ContainSubstring("which core/v0.1.0 shipped"),
+			)
+		})
+
+		It("Should fail a release whose version files are all gone", func() {
+			git("tag", "core/v0.1.0")
+			Expect(os.RemoveAll(filepath.Join(repoDir, "schemas/synnax/versions"))).
+				To(Succeed())
+			Expect(failGate(check.FailureCodes["versions"], "--gates=versions")).To(
+				ContainSubstring("channel v0 is gone, which core/v0.1.0"),
+			)
+		})
+
+		It("Should compare main with the newest patch on its newest train", func() {
+			git("tag", "core/v0.1.0")
+			git("checkout", "-q", "-b", "release/core-0.1")
+			commit(channel, keyedChannel)
+			git("tag", "core/v0.1.1")
+			git("checkout", "-q", "main")
+			Expect(failGate(check.FailureCodes["versions"], "--gates=versions")).To(
+				ContainSubstring(shipped("core/v0.1.1")),
+			)
+		})
+
+		It("Should compare a release branch with the newest patch on its train",
+			func() {
+				git("tag", "core/v0.1.0")
+				git("branch", "release/core-0.1")
+				commit(channel, keyedChannel)
+				git("tag", "core/v0.2.0")
+				git("checkout", "-q", "release/core-0.1")
+				succeed("check", "--gates=versions")
+			},
+		)
 	})
 })
 

@@ -10,7 +10,7 @@
 import { bounds, type scale, TimeRange } from "@synnaxlabs/x";
 
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
-import { YAxis } from "@/lineplot/aether/YAxis";
+import { YAxis, type YAxisProps } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { type line } from "@/vis/line/aether";
 
@@ -51,14 +51,33 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
     props: Omit<AxisRenderProps, "canvases">,
     target: number,
   ): line.FindResult[] {
+    const p = this.yAxisProps(props);
+    return this.yAxes.map((el) => el.findByXValue(p, target)).flat();
+  }
+
+  /**
+   * @returns the point each line drew at its last render whose x is nearest target, a
+   * decimal position across the axis.
+   */
+  findDrawnByXDecimal(
+    props: Omit<AxisRenderProps, "canvases">,
+    target: number,
+  ): line.FindResult[] {
+    const p = this.yAxisProps(props);
+    const value = p.xDataToDecimalScale.reverse().pos(target);
+    return this.yAxes.map((el) => el.findDrawnByXValue(p, value)).flat();
+  }
+
+  private yAxisProps(
+    props: Omit<AxisRenderProps, "canvases">,
+  ): Omit<YAxisProps, "canvases"> {
     const [xDataToDecimalScale, xBounds, error] = this.dataToDecimalScale(
       props.hold,
       this.dataBounds.bind(this),
       props.viewport,
     );
     if (error != null) throw error;
-    const p = { ...props, xDataToDecimalScale, xBounds };
-    return this.yAxes.map((el) => el.findByXValue(p, target)).flat();
+    return { ...props, xDataToDecimalScale, xBounds };
   }
 
   private renderYAxes(
