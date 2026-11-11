@@ -1137,6 +1137,45 @@ Channel struct {
 		Expect(messages()).To(BeEmpty())
 	})
 
+	It("Should pass a base whose omitted type argument takes its default", func() {
+		const channel = `
+Bounds struct<T extends numeric = float64> {
+    lower T
+}
+
+Channel struct extends Bounds {
+    name string
+
+    @go marshal
+}
+`
+		write(releaseRoot, v0Path, channel)
+		write(root, v0Path, channel)
+		Expect(messages()).To(BeEmpty())
+	})
+
+	It("Should fail a base whose omitted type argument takes a new default", func() {
+		write(releaseRoot, v0Path, `
+Bounds struct<T extends numeric = float64> {
+    lower T
+}
+
+Channel struct extends Bounds {
+    @go marshal
+}
+`)
+		write(root, v0Path, `
+Bounds struct<T extends numeric = int32> {
+    lower T
+}
+
+Channel struct extends Bounds {
+    @go marshal
+}
+`)
+		Expect(messages()).To(ContainElement(ContainSubstring("Channel.lower")))
+	})
+
 	It("Should pass a recursive stored type that keeps its shape", func() {
 		const node = `
 Node struct {
