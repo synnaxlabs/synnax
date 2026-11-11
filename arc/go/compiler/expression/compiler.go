@@ -136,19 +136,32 @@ func compilePostfix(
 	ctx context.Context[parser.IPostfixExpressionContext],
 ) (types.Type, error) {
 	primary := ctx.AST.PrimaryExpression()
-	funcCalls := ctx.AST.AllFunctionCallSuffix()
-
-	head, tail := parser.PrimaryNameParts(primary)
-	if len(funcCalls) > 0 && parser.PrimaryName(primary) != "" {
-		return CompileCall(ctx, head, tail, symbol.CallArguments(funcCalls[0]))
+	ops := ctx.AST.GetChildren()[1:]
+	var (
+		currentType types.Type
+		err         error
+		call        parser.IFunctionCallSuffixContext
+		isCall      bool
+	)
+	if len(ops) > 0 {
+		call, isCall = ops[0].(parser.IFunctionCallSuffixContext)
 	}
-
-	currentType, err := compilePrimary(ctx.Child(primary))
+	if isCall && parser.PrimaryName(primary) != "" {
+		head, tail := parser.PrimaryNameParts(primary)
+		currentType, err = CompileCall(ctx, head, tail, symbol.CallArguments(call))
+		ops = ops[1:]
+	} else {
+		currentType, err = compilePrimary(ctx.Child(primary))
+	}
 	if err != nil {
 		return types.Type{}, err
 	}
 
-	for _, indexOrSlice := range ctx.AST.AllIndexOrSlice() {
+	for _, op := range ops {
+		indexOrSlice, ok := op.(parser.IIndexOrSliceContext)
+		if !ok {
+			return types.Type{}, errors.New("only a function name can be called")
+		}
 		currentType, err = compileIndexOrSlice(ctx, indexOrSlice, currentType)
 		if err != nil {
 			return types.Type{}, err

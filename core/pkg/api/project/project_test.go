@@ -196,6 +196,25 @@ var _ = Describe("Import", func() {
 		}()
 		Eventually(errs).Should(Receive(MatchError(validate.ErrValidation)))
 	})
+	It("Should migrate each member before it waits for the write lock", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		files := newBundle("Too new")
+		files["Metrics.json"] = []byte(
+			`{"version":99,"type":"log","name":"Metrics","channels":[]}`,
+		)
+		DeferCleanup(db.OpenTx().Close)
+		errs := make(chan error, 1)
+		go func() {
+			_, err := importBundle(importCtx(ctx, u), files)
+			errs <- err
+		}()
+		Eventually(errs).Should(Receive(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("newer than this Core supports")),
+		)))
+	})
 })
 
 var _ = Describe("Create", func() {

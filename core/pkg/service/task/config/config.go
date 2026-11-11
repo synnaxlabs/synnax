@@ -73,12 +73,17 @@ type Store interface {
 	// which must be the key of a task. It returns an error wrapping query.ErrNotFound
 	// when from does not exist.
 	Copy(ctx context.Context, tx gorp.Tx, from, to uuid.UUID) error
-	// Normalize converts a config blob at the given version to the current stored shape
-	// with defaults applied, and drops each target of the blob's references that does
-	// not exist in tx and that its reference can drop. It then reconciles the result
-	// with the resources in tx. A version that predates the type's ladder runs the
-	// type's legacy rewrite first. It returns a validation error when data does not
-	// decode at version or version is newer than the store's.
+	// Decode converts a config blob at the given version to the current stored shape
+	// with defaults applied. It reads no stored data. A version that predates the
+	// type's ladder runs the type's legacy rewrite first. It returns a validation error
+	// when data does not decode at version or version is newer than the store's.
+	Decode(
+		ctx context.Context,
+		version imex.Version,
+		data msgpack.EncodedJSON,
+	) (Decoded, error)
+	// Normalize decodes data as Decode does, then normalizes the result on tx as
+	// Decoded.Normalize does.
 	Normalize(
 		ctx context.Context,
 		tx gorp.Tx,
@@ -92,6 +97,21 @@ type Store interface {
 	// a target from a record, with the key of the record. An error from the hook fails
 	// the delete. Set it before the store serves deletes.
 	OnDetach(hook func(ctx context.Context, tx gorp.Tx, key uuid.UUID) error)
+}
+
+// Decoded is a config blob in the current stored shape that is not yet checked against
+// stored resources. Only a Store builds one.
+type Decoded struct {
+	normalize func(ctx context.Context, tx gorp.Tx) (msgpack.EncodedJSON, error)
+}
+
+// Normalize drops each target of the config's references that does not exist in tx and
+// that its reference can drop, then reconciles the config with the resources in tx.
+func (d Decoded) Normalize(
+	ctx context.Context,
+	tx gorp.Tx,
+) (msgpack.EncodedJSON, error) {
+	return d.normalize(ctx, tx)
 }
 
 // Record is a validated configuration record that is not written yet. Only a Store
@@ -421,13 +441,12 @@ func (s *Service[E]) Delete(
 	return nil
 }
 
-// Normalize implements Store.
-func (s *Service[E]) Normalize(
+// Decode implements Store.
+func (s *Service[E]) Decode(
 	ctx context.Context,
-	tx gorp.Tx,
 	version imex.Version,
 	data msgpack.EncodedJSON,
-) (msgpack.EncodedJSON, error) {
+) (Decoded, error) {
 	ladder := s.cfg.Ladder
 	if version < ladder.First || version <= s.cfg.LegacyVersion {
 		rewrite := legacy.Rewrite{}
@@ -436,33 +455,54 @@ func (s *Service[E]) Normalize(
 		}
 		if rewrite.Validate != nil {
 			if err := rewrite.Validate(data); err != nil {
-				return nil, errors.Wrapf(
+				return Decoded{}, errors.Wrapf(
 					validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 				)
 			}
 		}
 		data, version = rewrite.Apply(data), ladder.First
 	} else if version > ladder.Latest {
-		return nil, imex.NewErrUnsupportedVersion(s.cfg.Type, version, ladder.Latest)
+		return Decoded{}, imex.NewErrUnsupportedVersion(
+			s.cfg.Type, version, ladder.Latest,
+		)
 	}
 	e, err := ladder.Decode(ctx, version, data)
 	if err != nil {
-		return nil, errors.Wrapf(
+		return Decoded{}, errors.Wrapf(
 			validate.ErrValidation, "decoding %s config: %s", s.cfg.Type, err,
 		)
 	}
 	if s.cfg.ApplyEntryDefaults != nil {
 		s.cfg.ApplyEntryDefaults(&e)
 	}
-	if _, err := s.table.DropDangling(ctx, tx, &e); err != nil {
-		return nil, err
-	}
-	if s.cfg.ReconcileEntry != nil {
-		if err := s.cfg.ReconcileEntry(ctx, tx, &e); err != nil {
+	return Decoded{normalize: func(
+		ctx context.Context,
+		tx gorp.Tx,
+	) (msgpack.EncodedJSON, error) {
+		if _, err := s.table.DropDangling(ctx, tx, &e); err != nil {
 			return nil, err
 		}
+		if s.cfg.ReconcileEntry != nil {
+			if err := s.cfg.ReconcileEntry(ctx, tx, &e); err != nil {
+				return nil, err
+			}
+		}
+		return encode(e)
+	}}, nil
+}
+
+// Normalize implements Store.
+func (s *Service[E]) Normalize(
+	ctx context.Context,
+	tx gorp.Tx,
+	version imex.Version,
+	data msgpack.EncodedJSON,
+) (msgpack.EncodedJSON, error) {
+	d, err := s.Decode(ctx, version, data)
+	if err != nil {
+		return nil, err
 	}
-	return encode(e)
+	return d.Normalize(ctx, tx)
 }
 
 // Version implements Store.
