@@ -74,8 +74,9 @@ type (
 
 // Input is a certificate to create or replace.
 type Input struct {
-	// PrivateKeyPath is the path of the private key of a file certificate.
-	PrivateKeyPath *string `json:"private_key_path" msgpack:"private_key_path"`
+	// PrivateKeyFile is the name of the private key file of a file certificate, in the
+	// secrets folder of the rack.
+	PrivateKeyFile *string `json:"private_key_file" msgpack:"private_key_file"`
 	// Details describes the leaf of a file certificate, as the file browser read it.
 	Details *certificate.Details `json:"details" msgpack:"details"`
 	// Source is where the contents live: stored or file.
@@ -101,14 +102,14 @@ func (in Input) certificate() (Certificate, error) {
 	case secret.SourceStored:
 		const msg = "must be empty for a stored certificate"
 		v.Ternary("certificate_path", in.CertificatePath != "", msg)
-		v.Ternary("private_key_path", in.PrivateKeyPath != nil, msg)
+		v.Ternary("private_key_file", in.PrivateKeyFile != nil, msg)
 		c.Variant = certificate.StoredCertificate{Base: base, Pem: in.Pem}
 	case secret.SourceFile:
 		v.Ternary("pem", in.Pem != "", "must be empty for a file certificate")
 		c.Variant = certificate.FileCertificate{
 			Base:            base,
 			CertificatePath: in.CertificatePath,
-			PrivateKeyPath:  in.PrivateKeyPath,
+			PrivateKeyFile:  in.PrivateKeyFile,
 			Details:         in.Details,
 		}
 	default:

@@ -115,8 +115,11 @@ export const fileCertificateZ = baseZ.extend({
   source: z.literal("file"),
   /** certificatePath is the path of the certificate on the computer that uses it. */
   certificatePath: z.string(),
-  /** privateKeyPath is the path of the private key, when there is one. */
-  privateKeyPath: z.string().optional(),
+  /**
+   * privateKeyFile is the name of the private key file in the secrets folder of the
+   * rack, when there is one.
+   */
+  privateKeyFile: z.string().optional(),
   /** details describes the leaf, as the file browser read it. */
   details: detailsZ.optional(),
 });

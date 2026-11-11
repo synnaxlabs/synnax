@@ -111,13 +111,13 @@ describe("Certificate", () => {
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
-        privateKeyPath: "/etc/synnax/client.key",
+        privateKeyFile: "client.key",
       });
       expect(c).toMatchObject({
         name: "On disk",
         source: "file",
         certificatePath: "/etc/synnax/client.crt",
-        privateKeyPath: "/etc/synnax/client.key",
+        privateKeyFile: "client.key",
       });
     });
   });

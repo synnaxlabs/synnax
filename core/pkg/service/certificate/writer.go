@@ -89,6 +89,13 @@ func (w Writer) Set(ctx context.Context, c *Certificate, privateKey []byte) erro
 	case FileCertificate:
 		v := validate.New("certificate")
 		v.NotEmptyString("certificate_path", variant.CertificatePath)
+		if variant.PrivateKeyFile != nil {
+			v.Ternary(
+				"private_key_file",
+				!secret.IsFileName(*variant.PrivateKeyFile),
+				"must be a file name, not a path",
+			)
+		}
 		v.Ternary(
 			"private_key_pem",
 			len(privateKey) != 0,
