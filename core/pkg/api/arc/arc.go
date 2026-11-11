@@ -240,9 +240,9 @@ type (
 	}
 )
 
-// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction. An
-// unbind compiles nothing. It returns query.ErrNotFound when the arc to compile does
-// not exist.
+// PrepareUpdateTask compiles the arc of req before UpdateTask opens its transaction, as
+// channel.RetryChanged does. An unbind compiles nothing. It returns query.ErrNotFound
+// when the arc to compile does not exist.
 func (s *Service) PrepareUpdateTask(
 	ctx context.Context,
 	req UpdateTaskRequest,
@@ -250,7 +250,9 @@ func (s *Service) PrepareUpdateTask(
 	if req.Rack != nil && *req.Rack == 0 {
 		return arc.Build{}, nil
 	}
-	return s.internal.Build(ctx, req.Key)
+	return channel.RetryChanged(ctx, func() (arc.Build, error) {
+		return s.internal.Build(ctx, req.Key)
+	})
 }
 
 // UpdateTask creates, moves, or changes the arc's task with the compile from
@@ -445,30 +447,33 @@ func materialize(a Arc) Arc {
 	return a
 }
 
-// compile compiles the source of an automation into its program and leaves a module as
-// is. Returns an error if parsing, analysis, or compilation fails.
+// compile compiles the source of an automation into its program, as
+// channel.RetryChanged does, and leaves a module as is. Returns an error if parsing,
+// analysis, or compilation fails.
 func (s *Service) compile(ctx context.Context, a *Arc) error {
 	automation, ok := a.Variant.(arc.AutomationArc)
 	if !ok {
 		return nil
 	}
-	prog, err := channel.CompileConsistent(ctx, s.db, func(
-		snap gorp.Snapshot,
-		lookups *channel.Lookups,
-	) (arclang.Program, error) {
-		root := s.internal.NewRoot(snap, lookups)
-		switch src := automation.Source.Variant.(type) {
-		case arc.TextSource:
-			return s.compileText(ctx, src.Text, root)
-		case arc.GraphSource:
-			return arclang.CompileGraph(
-				ctx,
-				src.Graph,
-				root,
-				arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
-			)
-		}
-		return arclang.Program{}, nil
+	prog, err := channel.RetryChanged(ctx, func() (arclang.Program, error) {
+		return channel.CompileConsistent(ctx, s.db, func(
+			snap gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (arclang.Program, error) {
+			root := s.internal.NewRoot(snap, lookups)
+			switch src := automation.Source.Variant.(type) {
+			case arc.TextSource:
+				return s.compileText(ctx, src.Text, root)
+			case arc.GraphSource:
+				return arclang.CompileGraph(
+					ctx,
+					src.Graph,
+					root,
+					arclang.WithAllowDashedNames(s.internal.AllowDashedNames()),
+				)
+			}
+			return arclang.Program{}, nil
+		})
 	})
 	if err != nil {
 		return err

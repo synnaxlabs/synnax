@@ -209,7 +209,8 @@ type TaskUpdate struct {
 	// Performance sets how closely the task's runtime holds timer deadlines.
 	Performance *taskversions.Performance
 	// Build is the arc's compile from Service.Build. UpdateTask compiles the arc in its
-	// transaction instead when Build is zero or a write changed what Build read.
+	// transaction instead when Build is zero. When a write changed what Build read,
+	// UpdateTask still uses Build and schedules a resync that compiles it again.
 	Build Build
 }
 
@@ -290,19 +291,22 @@ func (w Writer) UpdateTask(
 	return written, nil
 }
 
-// current returns b when each lookup that b made gives the same answer in w.tx, and
-// otherwise builds the Arc with key in w.tx.
+// current returns b, or builds the Arc with key in w.tx when b is zero. When a lookup
+// that b made gives another answer in w.tx, current schedules a resync of the Arc.
 func (w Writer) current(ctx context.Context, b Build, key Key) (Build, error) {
-	if b.lookups != nil {
-		same, err := b.lookups.Unchanged(ctx, w.tx)
-		if err != nil {
-			return Build{}, err
-		}
-		if same {
-			return b, nil
-		}
+	if b.lookups == nil {
+		return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
 	}
-	return w.rebuild(ctx, w.tx, &channel.Lookups{}, key)
+	same, err := b.lookups.Unchanged(ctx, w.tx)
+	if err != nil {
+		return Build{}, err
+	}
+	// A compile here would hold the write lock. A channel change schedules no resync
+	// of its own.
+	if !same {
+		w.resyncs.Add(w.tx, key)
+	}
+	return b, nil
 }
 
 // hash returns the hash of a's compiled program in b and the hashes of its content. The
