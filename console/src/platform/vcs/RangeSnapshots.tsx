@@ -18,6 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
+import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useState } from "react";
@@ -103,14 +104,14 @@ const SnapshotItem = ({ snapshot }: ItemProps): ReactElement => {
         <Telem.Text.TimeSpanSince level="small" format="semantic" color={8}>
           {commit.time}
         </Telem.Text.TimeSpanSince>
-        <Dialog.Frame location={location.BOTTOM_RIGHT}>
+        {/* The menu renders in a portal, but its clicks still bubble to the item. */}
+        <Dialog.Frame location={location.BOTTOM_RIGHT} onClick={stopPropagation}>
           <Dialog.Trigger
             hideCaret
             variant="text"
             size="small"
             textColor={9}
             full={false}
-            onClick={(e) => e.stopPropagation()}
             aria-label={`Actions for snapshot ${short}`}
           >
             <Icon.KebabMenu />
