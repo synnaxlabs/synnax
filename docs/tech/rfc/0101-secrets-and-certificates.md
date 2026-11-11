@@ -221,15 +221,15 @@ A new integration, `file`, gives every rack one internal task, "File Browser", t
 nothing for the roots, the home folder, and the secrets folder when one is set. The
 reply gives each entry's name, kind, size, and modified time. For a certificate file it
 adds the subject, issuer, expiry, and fingerprints, which the Console saves with a file
-certificate so expiry warnings work for files too. At each connect, the reader compares
-the file's SHA-256 fingerprint with the saved one. When they differ, it saves the new
-details. A Core reader saves them in process. A rack calls `certificate/refresh`, which
-changes only the details. Like `secret/resolve`, it skips the write binder: the Core
-checks that the caller is the rack that the certificate names. So a replaced file gets
-new details at its next connect, and a typed path gets its first details there, with or
-without the file browser. For a key file it gives the name only. The whole disk is
-visible, as it is to a path typed by hand. A site that does not want browsing leaves
-`file` out of the Driver's integrations.
+certificate so expiry warnings work for files too. After a connect reads every file that
+a certificate names, the reader compares the SHA-256 fingerprint of the certificate file
+with the saved one. When they differ, it saves the new details. A Core reader saves them
+in process. A rack calls `certificate/refresh`, which changes only the details. Like
+`secret/resolve`, it skips the write binder: the Core checks that the caller is the rack
+that the certificate names. So a replaced file gets new details at its next connect, and
+a typed path gets its first details there, with or without the file browser. For a key
+file it gives the name only. The whole disk is visible, as it is to a path typed by
+hand. A site that does not want browsing leaves `file` out of the Driver's integrations.
 
 ### 3.6 Integrations
 
@@ -298,11 +298,13 @@ stored certificate. The certificate key is unique, so two old keys with the same
 name, such as the `own/private/private.pem` of two OPC UA PKI folders, get two names. No
 other record keeps the old path, so the migration writes the warning "Private key file
 renamed" under `certificate:<key>`, with the old path and the new name in the
-description. The expiry check writes no status for a certificate with no details, so the
-warning stays until an admin deletes it. Until an admin copies the key into the secrets
-folder under the new name, connect fails with an error that names the folder and the
-file. Kafka and MQTT have not shipped, so their fields change with no migration. The
-Core, the Driver, and the Console change in one release.
+description. Until an admin copies the key into the secrets folder under the new name,
+connect fails with an error that names the folder and the file. The reader saves details
+only after a connect that reads every file (§3.5), and the expiry check writes no status
+for a certificate with no details. So the warning stays until the key is in place, and
+the first expiry status after that replaces it. Kafka and MQTT have not shipped, so
+their fields change with no migration. The Core, the Driver, and the Console change in
+one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
