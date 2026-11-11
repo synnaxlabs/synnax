@@ -506,6 +506,12 @@ describe("AnalogRead ports", () => {
       "Minimum value",
     ],
     [
+      "the minimum of a reversed voltage outside every range",
+      { minVal: 20, maxVal: 5 },
+      "ai_voltage",
+      "Minimum value",
+    ],
+    [
       "the maximum of a current outside every range",
       { minVal: 0, maxVal: 0.5 },
       "ai_current",

@@ -130,7 +130,9 @@ const checkRange = (
 ): void => {
   const { minVal, maxVal, customScale } = channel;
   if (ranges.length === 0 || customScale.type !== "none") return;
-  if (ranges.some(({ lower, upper }) => lower <= minVal && maxVal <= upper)) return;
+  const lo = Math.min(minVal, maxVal);
+  const hi = Math.max(minVal, maxVal);
+  if (ranges.some(({ lower, upper }) => lower <= lo && hi <= upper)) return;
   const maxFits = ranges.some(({ lower, upper }) => lower <= maxVal && maxVal <= upper);
   report(
     [...path, maxFits ? "minVal" : "maxVal"],
