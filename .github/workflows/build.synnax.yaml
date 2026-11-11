@@ -1122,9 +1122,10 @@ jobs:
   docker:
     name: Build Docker image
     needs: [setup, build, republish]
+    # A release builds the image alone, with no platform, so build and republish skip.
     if:
-      inputs.docker && (needs.build.result == 'success' || needs.build.result ==
-      'skipped')
+      ${{ !cancelled() && inputs.docker && needs.setup.result == 'success' &&
+      !contains(needs.*.result, 'failure') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

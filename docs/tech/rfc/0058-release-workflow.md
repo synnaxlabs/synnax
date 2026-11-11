@@ -116,7 +116,8 @@ Assets per product:
   binaries, Windows installer, and Docker image (`next` for a pre-release, `latest` for
   a stable that no other stable Core tag outranks, so a hotfix on an old train never
   moves `latest` backwards). No workflow rebuilds another product. The notes name the
-  embedded versions.
+  embedded versions. The image pushes in its own job after the Core publishes, and no
+  job waits on it, so a failed push blocks only the image.
 
 Console and Driver release in parallel. The Core embeds them, so it waits for both and
 never runs after one fails. A failed product leaves no tag and the rest stand; rerun
