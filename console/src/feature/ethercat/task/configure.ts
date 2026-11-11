@@ -16,12 +16,13 @@ import {
   findInput,
   sameAddress,
 } from "@/feature/ethercat/device/settings";
-import { isShared, onlyReaderOf } from "@/feature/ethercat/device/setup";
+import { canSwitch, isShared, of, onlyReaderOf } from "@/feature/ethercat/device/setup";
 import {
   MAKE,
   SLAVE_MODEL,
   SLAVE_SCHEMAS,
   type SlaveDevice,
+  type SlaveProperties,
 } from "@/feature/ethercat/device/types";
 import {
   addressKey,
@@ -55,6 +56,14 @@ const entryWidth = (bitLength: number): number => {
   return 8;
 };
 
+/** @returns what the user must do before Synnax can read an entry of the slave. */
+const onlyReaderStep = (props: SlaveProperties): string => {
+  if (of(props).kind === "switched") return "Restart the power of the slave.";
+  return canSwitch(props)
+    ? "In Configure, switch the slave to Synnax."
+    : "Pick another entry.";
+};
+
 const validateEntries = <C extends Channel>(
   slave: SlaveDevice,
   channels: C[],
@@ -79,16 +88,11 @@ const validateEntries = <C extends Channel>(
             "Pick an entry.",
         );
       const reader = pdoType === "inputs" ? onlyReaderOf(slave.properties, ch) : null;
-      if (reader != null) {
-        const step =
-          slave.properties.settings?.mode?.onlyReadBy == null
-            ? "Pick another entry."
-            : "In Configure, switch the slave to Synnax.";
+      if (reader != null)
         throw new Error(
           `Entry ${address} on slave ${slave.name} sends data that only ${reader} ` +
-            `reads. ${step}`,
+            `reads. ${onlyReaderStep(slave.properties)}`,
         );
-      }
       const dataType = new DataType(ch.dataType);
       const width = entryWidth(entry.bitLength);
       if (

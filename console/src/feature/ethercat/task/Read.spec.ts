@@ -1582,26 +1582,34 @@ describe("Read", () => {
     });
   });
 
-  it("should reject a channel of an input that only DewesoftX reads", async () => {
-    const slave = await createSlaveDevice(client, testRack.key, {
-      identifier: createIdentifier(),
-      network: "eth0",
-      pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
-      settings: createDewesoftXSettings(true),
-    });
-    const { container, statuses } = await renderRead({
-      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY)],
-    });
-    await clickDeploy(container);
-    await awaitStatus(
-      statuses,
-      new RegExp(
-        `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
-          "reads\\. Pick another entry\\.$",
-      ),
-    );
-  });
+  it.each([
+    ["in DewesoftX mode", true, "In Configure, switch the slave to Synnax"],
+    ["switched but not restarted", false, "Restart the power of the slave"],
+  ])(
+    "should reject a channel of an input that only DewesoftX reads on a slave %s",
+    async (_, shared, step) => {
+      const slave = await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: { inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY], outputs: [] },
+        settings: createDewesoftXSettings(shared),
+      });
+      const { container, statuses } = await renderRead({
+        ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+        channels: [
+          EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_SAMPLE_ENTRY),
+        ],
+      });
+      await clickDeploy(container);
+      await awaitStatus(
+        statuses,
+        new RegExp(
+          `^Entry 0x6040:01 on slave ${slave.name} sends data that only DewesoftX ` +
+            `reads\\. ${step}\\.$`,
+        ),
+      );
+    },
+  );
 
   describe("a slave with the identifier of a deleted slave", () => {
     const deploySlave = async (
