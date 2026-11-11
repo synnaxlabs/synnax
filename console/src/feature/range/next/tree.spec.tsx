@@ -108,4 +108,18 @@ describe("range tree", () => {
     await act(async () => {});
     expect(Object.fromEntries(counts)).toEqual({ [b.key]: 1 });
   });
+
+  it("should mount an added range once and render no other item", async () => {
+    const { label, ranges } = await createRanges();
+    await renderTree(label, ranges);
+    const end = TimeStamp.now().sub(TimeSpan.days(1));
+    await client.ranges.create({
+      name: "d",
+      timeRange: new TimeRange(end.sub(TimeSpan.hours(1)), end),
+      labels: [label],
+    });
+    await screen.findByText("d");
+    await act(async () => {});
+    expect(Object.fromEntries(counts)).toEqual({});
+  });
 });
