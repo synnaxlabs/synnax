@@ -30,11 +30,15 @@ var MembersMigration = groupv1.NewMembersMigration(groupv1.MembersConfig[Key, Ch
 	ProjectOwned: false,
 })
 
-// IndexGroupMigration moves the index of each grouped calculated channel into the
-// group of that channel when the index has no group.
+// IndexGroupMigration moves the index that the Core created for each grouped
+// calculated channel into the group of that channel when the index has no group.
 var IndexGroupMigration = migrate.New("v61_calculated_index_group", migrateIndexGroups)
 
-func migrateIndexGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+func migrateIndexGroups(
+	ctx context.Context,
+	tx gorp.Tx,
+	_ alamos.Instrumentation,
+) error {
 	var calculated []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
@@ -44,22 +48,22 @@ func migrateIndexGroups(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentatio
 		Exec(ctx, tx); err != nil || len(calculated) == 0 {
 		return err
 	}
-	groups := make(map[Key]*groupv1.Key, len(calculated))
+	owners := make(map[Key]Channel, len(calculated))
 	for _, c := range calculated {
-		groups[c.Index()] = c.Group
+		owners[c.Index()] = c
 	}
 	var indexes []Channel
 	if err := gorp.NewRetrieve[Key, Channel]().
 		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			_, ok := groups[c.Key()]
-			return ok && c.Group == nil, nil
+			owner, ok := owners[c.Key()]
+			return ok && c.Group == nil && c.Name == owner.Name+"_time", nil
 		})).
 		Entries(&indexes).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
 	for i := range indexes {
-		indexes[i].Group = groups[indexes[i].Key()]
+		indexes[i].Group = owners[indexes[i].Key()].Group
 	}
 	return gorp.WrapWriter[Key, Channel](tx).Set(ctx, indexes...)
 }

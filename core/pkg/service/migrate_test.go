@@ -312,7 +312,10 @@ var _ = Describe("Metrics upgrade", func() {
 			records = append(records, rec)
 			id := resource.ID{Type: resource.TypeChannel, Key: ch.Key().String()}
 			resources = append(resources, ontology.Resource{ID: id})
-			edges = append(edges, parentOf(metricsID, id))
+			// 0.60 gave the index of a calculated metric no group edge.
+			if ch.Name != calcIdx.Name {
+				edges = append(edges, parentOf(metricsID, id))
+			}
 		}
 		Expect(gorp.WrapWriter[channelv0.Key, channelv0.Channel](legacyDB).
 			Set(ctx, records...)).To(Succeed())

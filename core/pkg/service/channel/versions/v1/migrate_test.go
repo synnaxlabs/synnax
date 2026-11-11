@@ -48,11 +48,16 @@ var _ = Describe("IndexGroupMigration", func() {
 		return ch.Group
 	}
 
-	It("Should move each ungrouped index into its calculated channel's group",
+	It("Should move each ungrouped calculated index into its channel's group",
 		func(ctx SpecContext) {
-			free := func(local, index v1.LocalKey, expr string, grp *uuid.UUID) v1.Channel {
+			free := func(
+				name string,
+				local, index v1.LocalKey,
+				expr string,
+				grp *uuid.UUID,
+			) v1.Channel {
 				return v1.Channel{
-					Name:        uuid.New().String(),
+					Name:        name,
 					Leaseholder: node.KeyFree,
 					LocalKey:    local,
 					LocalIndex:  index,
@@ -64,22 +69,27 @@ var _ = Describe("IndexGroupMigration", func() {
 			}
 			Expect(gorp.WrapWriter[v1.Key, v1.Channel](db).Set(
 				ctx,
-				free(1, 1, "", nil),
-				free(2, 1, "return a", &g),
-				free(3, 3, "", &user),
-				free(4, 3, "return b", &g),
-				free(5, 5, "", nil),
-				free(6, 5, "return c", nil),
+				free("a_time", 1, 1, "", nil),
+				free("a", 2, 1, "return x", &g),
+				free("b_time", 3, 3, "", &user),
+				free("b", 4, 3, "return y", &g),
+				free("c_time", 5, 5, "", nil),
+				free("c", 6, 5, "return z", nil),
+				free("shared", 7, 7, "", nil),
+				free("d", 8, 7, "return w", &g),
 			)).To(Succeed())
+			expectGroups := func() {
+				GinkgoHelper()
+				Expect(groupOf(ctx, 1)).To(HaveValue(Equal(g)))
+				Expect(groupOf(ctx, 3)).To(HaveValue(Equal(user)))
+				Expect(groupOf(ctx, 5)).To(BeNil())
+				Expect(groupOf(ctx, 7)).To(BeNil())
+			}
 			migrate(ctx, "first")
-			Expect(groupOf(ctx, 1)).To(HaveValue(Equal(g)))
-			Expect(groupOf(ctx, 3)).To(HaveValue(Equal(user)))
-			Expect(groupOf(ctx, 5)).To(BeNil())
+			expectGroups()
 			By("Changing nothing on a second run")
 			migrate(ctx, "second")
-			Expect(groupOf(ctx, 1)).To(HaveValue(Equal(g)))
-			Expect(groupOf(ctx, 3)).To(HaveValue(Equal(user)))
-			Expect(groupOf(ctx, 5)).To(BeNil())
+			expectGroups()
 		},
 	)
 })
