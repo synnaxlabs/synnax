@@ -133,8 +133,7 @@ func (s *Service) Stores() []config.Store {
 }
 
 // validateReadConfig skips the stream rate rule under array sampling, which reads at
-// the
-// sample rate alone.
+// the sample rate alone.
 func validateReadConfig(c *ReadConfig) error {
 	v := validate.New("opcua.ReadConfig")
 	v.Exec(c.Validate)
