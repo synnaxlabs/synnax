@@ -293,11 +293,13 @@ the Core needs them before it opens its database.
 v0.60.1 shipped the OPC UA, HTTP, and PagerDuty fields. At first start, each
 integration's Go service migrates its own records. Each password, token, API key, and
 routing key becomes a secret named "<device name> <field>". Each OPC UA path pair
-becomes a file certificate whose key file is the last part of the old key path, and each
-PEM pin a stored certificate. A key outside the secrets folder then fails at connect,
-with an error that names the folder, until an admin moves the key or sets the folder.
-Kafka and MQTT have not shipped, so their fields change with no migration. The Core, the
-Driver, and the Console change in one release.
+becomes a file certificate whose key file is `<certificate key>.pem`, and each PEM pin a
+stored certificate. The certificate key is unique, so two old keys with the same file
+name, such as the `own/private/private.pem` of two OPC UA PKI folders, get two names. A
+key that is not in the secrets folder fails at connect, with an error that names the
+folder and the file, until an admin copies the key there. Kafka and MQTT have not
+shipped, so their fields change with no migration. The Core, the Driver, and the Console
+change in one release.
 
 The TypeScript and Python clients get `secrets` and `certificates` from Oracle, and the
 C++ client gets `resolve` for the Driver. A script makes a secret with
@@ -382,7 +384,7 @@ the Driver change, so they are separate phases.
     certificate's key file follows the same rule: the reader signs with the key, so a
     key path would let a user connect as any system whose key the reader can open. The
     trade is real: an admin must set the folder on each rack before a file secret works,
-    and must move each OPC UA key into it.
+    and must copy each OPC UA key into it under its new name.
 
 ## 6 What this RFC does not cover
 
