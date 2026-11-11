@@ -394,6 +394,9 @@ var _ = Describe("Write task", func() {
 			Expect(stat.Description).To(ContainSubstring("timed out producing records"))
 			Expect(stat.Details.Running).To(BeFalse())
 			Expect(stat.Details.Cmd).To(Equal("cmd-3"))
+			Consistently(func() string { return taskStatus(ctx, t).Message }).
+				WithTimeout(250 * time.Millisecond).
+				Should(Equal("Failed to stop task"))
 		})
 
 		It("Should time out a stop without a status", func(ctx SpecContext) {
