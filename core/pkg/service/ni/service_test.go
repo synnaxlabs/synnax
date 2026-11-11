@@ -10,6 +10,7 @@
 package ni_test
 
 import (
+	"math"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -311,6 +312,35 @@ var _ = Describe("Service", func() {
 				}),
 			).Error().
 				To(MatchError(ContainSubstring("must be less than or equal to 31")))
+		})
+
+		DescribeTable("Should reject a frequency that is not positive",
+			func(ctx SpecContext, frequency float64, reason string) {
+				Expect(
+					svc.AnalogWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+						"channels": []any{map[string]any{
+							"type":      "ao_func_gen",
+							"frequency": frequency,
+						}},
+					}),
+				).Error().To(MatchError(ContainSubstring(reason)))
+			},
+			Entry("zero", 0.0, "must be greater than 0"),
+			Entry("negative", -5.0, "must be greater than 0"),
+			Entry("NaN", math.NaN(), "unsupported value: NaN"),
+		)
+
+		It("Should accept a positive function generator frequency", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				svc.AnalogWrite.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":      "ao_func_gen",
+						"frequency": 2.5,
+					}},
+				}),
+			).Error().ToNot(HaveOccurred())
 		})
 
 		It("Should reject a digital write line above 31", func(ctx SpecContext) {

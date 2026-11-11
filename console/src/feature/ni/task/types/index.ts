@@ -261,7 +261,9 @@ export const defaultAORange = (
   type === "ao_current" ? widest(hardware?.aoCurrentRanges ?? []) : undefined;
 
 export const createAOChannel = (type: AOChannelType = "ao_voltage"): AOChannel =>
-  ni.AO_CHANNEL_SCHEMAS[type].parse({ type });
+  ni.AO_CHANNEL_SCHEMAS[type].parse(
+    type === AO_FUNC_GEN_CHAN_TYPE ? { type, frequency: 1 } : { type },
+  );
 
 /**
  * Whether the hardware generates the channel's output from its config. The channel
@@ -358,13 +360,23 @@ export const COUNTER_READ_SCHEMAS = {
 
 export type CounterReadSchemas = typeof COUNTER_READ_SCHEMAS;
 
-export const analogWriteConfigZ = ni.analogWriteConfigZ;
+const aoChannelZ = z.discriminatedUnion("type", [
+  ni.aoCurrentChannelZ,
+  ni.aoFuncGenChannelZ.extend({
+    frequency: z.number().gt(0, "Frequency must be greater than 0 Hz"),
+  }),
+  ni.aoVoltageChannelZ,
+]);
 
-export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
+export const analogWriteConfigZ = ni.analogWriteConfigZ.extend({
+  channels: aoChannelZ.array().default(() => []),
+});
+
+export const deployAnalogWriteConfigZ = analogWriteConfigZ.extend({
   device: Task.deviceKeyZ,
   stateRate: deployStateRateZ,
   channels: z
-    .array(ni.aoChannelZ)
+    .array(aoChannelZ)
     .check(Task.validateWriteChannels)
     .check(Task.validateEnabledChannel),
 });
