@@ -246,7 +246,10 @@ var _ = Describe("check against the shipped release", func() {
 		It("Should fail when it cannot list the release tags", func() {
 			Expect(
 				fail(1, "check", "--gates=versions"),
-			).To(printOnce("list the Core release tags"))
+			).To(And(
+				printOnce("list the Core release tags"),
+				ContainSubstring("not a git repository"),
+			))
 		})
 	})
 

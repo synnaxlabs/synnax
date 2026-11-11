@@ -25,14 +25,26 @@ import (
 // candidate carries a suffix.
 var stableTagRe = regexp.MustCompile(`^core/v([0-9]+\.[0-9]+)\.[0-9]+$`)
 
+// runGit runs Git and returns its stdout. A failure carries Git's stderr.
+func runGit(ctx context.Context, args ...string) ([]byte, error) {
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(ctx, "git", args...)
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, errors.Wrap(err, strings.TrimSpace(stderr.String()))
+	}
+	return out, nil
+}
+
 // stableTags returns the stable Core release tags that match pattern, newest first.
 func stableTags(
 	ctx context.Context, repoRoot, pattern string, args ...string,
 ) ([]string, error) {
-	out, err := exec.CommandContext(ctx, "git", append(
+	out, err := runGit(ctx, append(
 		[]string{"-C", repoRoot, "tag", "--list", pattern, "--sort=-v:refname"},
 		args...,
-	)...).Output()
+	)...)
 	if err != nil {
 		return nil, errors.Wrap(err, "list the Core release tags")
 	}
@@ -74,9 +86,9 @@ func extractRelease(ctx context.Context, repoRoot string) (check.Release, error)
 	if err != nil {
 		return check.Release{}, err
 	}
-	archive, err := exec.CommandContext(
-		ctx, "git", "-C", repoRoot, "archive", "--format=tar", tag, "schemas",
-	).Output()
+	archive, err := runGit(
+		ctx, "-C", repoRoot, "archive", "--format=tar", tag, "schemas",
+	)
 	if err != nil {
 		return check.Release{}, errors.Wrapf(err, "archive the schemas of %s", tag)
 	}
