@@ -26,7 +26,7 @@ import {
   type HandlerResult,
   type Handlers,
 } from "@/ranger/actions.gen";
-import { type Payload } from "@/ranger/types.gen";
+import { type Key, keyZ, type Payload } from "@/ranger/types.gen";
 
 // The part of a range that path actions edit. It checks shape but not validity: the
 // Core validates, and a form holds an invalid value unsent while the cache shows it.
@@ -81,11 +81,16 @@ const applyPath = (state: Draft<Payload>, action: patch.Action): HandlerResult =
 
 const handlers: Handlers = {
   // A fetch can cache a label write that commits after the create, before the create
-  // echo arrives. The echo keeps the cached labels so it does not undo that write.
+  // echo arrives. The echo keeps the cached labels so it does not undo that write. It
+  // keeps hasChildren too, which a create always carries as false.
   create: (state, { range }) => {
     for (const key of Object.keys(state) as Array<keyof Payload>)
       if (!(key in range)) delete state[key];
-    Object.assign(state, { ...range, labels: state.labels });
+    Object.assign(state, {
+      ...range,
+      labels: state.labels,
+      hasChildren: state.hasChildren,
+    });
     return { inverse: [], targets: [range.key] };
   },
   ...actions.createPathHandlers(applyPath),
@@ -93,7 +98,8 @@ const handlers: Handlers = {
 
 /**
  * Applies actions to a range in order. Path actions edit only the range's name, time
- * range, color, labels, and parent. A create keeps the labels of the range.
+ * range, color, labels, and parent. A create keeps the labels and hasChildren of the
+ * range.
  * @throws {Error} if the range cannot hold an action, such as a set of its key.
  */
 export const reduceAll = createReduceAll(handlers);
@@ -127,3 +133,13 @@ export const encode = (state: Payload, action: Action): Action =>
 /** @returns the range that a create action carries, or undefined for other actions. */
 export const createOf = (action: Action): Payload | undefined =>
   action.type === "create" ? action.create.range : undefined;
+
+/**
+ * @returns the parent that a create or a set of the parent places a range under, or
+ * undefined for other actions.
+ */
+export const parentOf = (action: Action): Key | undefined => {
+  if (action.type === "create") return action.create.range.parent;
+  if (action.type !== "set" || action.set.path.join(".") !== "parent") return undefined;
+  return keyZ.optional().parse(action.set.value ?? undefined);
+};

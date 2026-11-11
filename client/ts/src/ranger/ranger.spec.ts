@@ -432,6 +432,51 @@ describe("range", () => {
     });
   });
 
+  describe("hasChildren", () => {
+    const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+
+    it("should mark a range that has a nested range", async () => {
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      const child = await client.ranges.create({
+        name: "Child",
+        timeRange,
+        parent: parent.key,
+      });
+      const stored = await createTestClient().ranges.retrieve([parent.key, child.key]);
+      expect(stored.map(({ name, hasChildren }) => [name, hasChildren])).toEqual(
+        expect.arrayContaining([
+          ["Parent", true],
+          ["Child", false],
+        ]),
+      );
+    });
+
+    it("should mark a cached range when another client creates a range in it", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      await waitForStreamLive(client.connection);
+      await remote.ranges.create({ name: "Created", timeRange, parent: parent.key });
+      await expect
+        .poll(() => expectLive(client.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+    });
+
+    it("should mark a cached range when another client moves a range into it", async () => {
+      const remote = createTestClient();
+      const parent = await client.ranges.create({ name: "Parent", timeRange });
+      const moved = await client.ranges.create({ name: "Moved", timeRange });
+      await remote.ranges.retrieve(moved.key);
+      await waitForStreamLive(client.connection);
+      await remote.ranges.dispatch(
+        moved.key,
+        ranger.set({ path: ["parent"], value: parent.key }),
+      );
+      await expect
+        .poll(() => expectLive(client.ranges.watch(parent.key).getCached()).hasChildren)
+        .toBe(true);
+    });
+  });
+
   describe("Alias", () => {
     describe("set + resolve", () => {
       it("should set and resolve an alias for the range", async () => {

@@ -171,6 +171,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
             color: r.color,
             labels: r.labels,
             timeRange: r.timeRange,
+            hasChildren: r.hasChildren,
             viewport: {
               lower: viewportScale.pos(Number(r.timeRange.start.valueOf())),
               upper: viewportScale.pos(Number(r.timeRange.end.valueOf())),
