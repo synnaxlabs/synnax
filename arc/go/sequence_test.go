@@ -5835,6 +5835,30 @@ var _ = Describe("Sequence", func() {
 			expectWaitOf(ctx, h, 20*telem.Millisecond)
 		})
 
+		It("Converts a literal to the unit of the variable it is written to", func(
+			ctx SpecContext,
+		) {
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    d := 1min
+				    stage write {
+				        120s -> d
+				        raw -> `+`f"d={d}"`+` -> log
+				    }
+				}
+				1 => main`, resolver, digests...)
+			defer h.Close(ctx)
+			var logged []string
+			for i := range 3 {
+				h.Ingest(100, telem.NewSeriesV[int64](1))
+				advance(h, ctx, telem.TimeSpan(i+1)*telem.Millisecond)
+				out, _ := h.Flush()
+				logged = append(logged, drainStrings(out, 101)...)
+			}
+			Expect(logged).To(ContainElement("d=2"))
+			Expect(logged).ToNot(ContainElement("d=120"))
+		})
+
 		It(
 			"Converts a variable to the unit of a function input",
 			func(ctx SpecContext) {

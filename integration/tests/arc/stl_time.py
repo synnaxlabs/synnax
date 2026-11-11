@@ -163,7 +163,7 @@ start_wait_seq_var_cmd => main_seq_var
 sequence main_reassign {
     hold := 60s
     stage shorten {
-        1s -> hold
+        1000ms -> hold
         hold < 60 => next
     }
     stage stage1 {

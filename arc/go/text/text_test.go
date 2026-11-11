@@ -498,6 +498,58 @@ var _ = Describe("Text", func() {
 			).To(ContainSubstring("expected i64 ns, got i64 psi"))
 		})
 
+		DescribeTable(
+			"Should convert a literal to the unit of the variable it is written to",
+			func(ctx SpecContext, declaration, write string, expected any) {
+				source := "sequence main {\n" + declaration + "\nstage s1 {\n" + write +
+					" -> d\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				value := MustBeOk(
+					findNodeByKey(inter.Nodes, "const_0").Inputs.Get("value"),
+				)
+				Expect(value.Value).To(Equal(expected))
+				register := MustBeOk(
+					findNodeByKey(
+						inter.Nodes,
+						"var_d_0",
+					).Outputs.Get(
+						ir.DefaultOutputParam,
+					),
+				)
+				Expect(register.Type.Unit.Name).To(Equal(value.Type.Unit.Name))
+			},
+			Entry("seconds into minutes", `d := 1min`, `120s`, telem.TimeSpan(2)),
+			Entry("minutes into seconds", `d := 30s`, `2min`, telem.TimeSpan(120)),
+			Entry("the same unit", `d := 1min`, `2min`, telem.TimeSpan(2)),
+			Entry("a typed variable", `d i64 min := 1min`, `120s`, telem.TimeSpan(2)),
+			Entry("no unit on the literal", `d := 1min`, `5`, int64(5)),
+			Entry("a pressure", `d := 1.0bar`, `200.0kPa`, 2.0),
+		)
+
+		DescribeTable("Should reject a literal that does not fit the variable",
+			func(ctx SpecContext, declaration, write, message string) {
+				source := "sequence main {\n" + declaration + "\nstage s1 {\n" + write +
+					" -> d\n}\n}"
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse())
+				Expect(diagnostics.String()).To(ContainSubstring(message))
+			},
+			Entry("a fraction of the unit", `d := 1min`, `20ms`, "fractional part"),
+			Entry("another dimension", `d := 1min`, `5psi`, "incompatible"),
+			Entry("a float into an integer", `d := 5`, `2.5`, "does not match"),
+		)
+
 		DescribeTable("Should reject a variable that does not convert to the input",
 			func(ctx SpecContext, source, message string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))

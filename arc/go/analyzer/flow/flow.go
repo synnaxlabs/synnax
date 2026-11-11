@@ -419,10 +419,15 @@ func analyzeIdentifier(
 		srcType, srcDesc := flowSourceType(ctx, prevNode)
 		chanValueType := sym.Type.Unwrap()
 		if srcType.IsValid() {
+			// A literal takes the type of the variable it is written to.
+			expected, actual := srcType, chanValueType
+			if sym.IsValueVariable() {
+				expected, actual = chanValueType, srcType
+			}
 			if err = atypes.Check(
 				ctx.Constraints,
-				srcType,
-				chanValueType,
+				expected,
+				actual,
 				ctx.AST,
 				"flow to channel sink",
 			); err != nil {
