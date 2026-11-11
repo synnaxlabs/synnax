@@ -333,7 +333,12 @@ export class Table<
 
   private applySet(key: Key, value: Value, discovered: boolean): void {
     this.entries.set(key, value);
-    this.meta.set(key, { touch: ++this.touchSeq, discovered });
+    const meta = this.meta.get(key);
+    if (meta == null) this.meta.set(key, { touch: ++this.touchSeq, discovered });
+    else {
+      meta.touch = ++this.touchSeq;
+      meta.discovered = discovered;
+    }
     for (const index of this.indexes) index.set(key, value);
   }
 
