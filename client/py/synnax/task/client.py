@@ -506,11 +506,11 @@ class Client:
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
         to the driver on the next start command. A task goes on the rack of the
-        devices that its config or its channels name, unless the caller sets another
-        rack than the one the cluster stores. A task that names no device keeps its
-        rack, or goes on the embedded rack when it has none. Configure creates a task
-        that does not exist yet, and sets the name, rack, and config of a task that
-        does.
+        devices that its config or its channels name, and moves when they move to
+        another rack. A rack that the caller sets instead stays on later configures.
+        A task that names no device keeps its rack, or goes on the embedded rack when
+        it has none. Configure creates a task that does not exist yet, and sets the
+        name, rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
@@ -522,9 +522,10 @@ class Client:
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
         stored = self.retrieve(keys=[pld.key])
-        # A rack that the cluster stored is not a choice of the caller.
-        chosen = pld.rack != 0 and not (stored and stored[0].rack == pld.rack)
-        if not chosen and (devices := _config_devices(pld.config)):
+        follows = pld.rack == 0 or (
+            bool(stored) and self._follows_devices(stored[0], pld.rack)
+        )
+        if follows and (devices := _config_devices(pld.config)):
             racks = {self._device_client.retrieve(key=d).rack for d in devices}
             if len(racks) > 1:
                 raise exceptions.ValidationError(
@@ -546,6 +547,15 @@ class Client:
         self._client.send("/task/dispatch", req, Empty)
         task.set_internal(self.retrieve(key=pld.key))
         return task
+
+    def _follows_devices(self, stored: Task, rack: rack_.Key) -> bool:
+        """Returns whether rack is the stored rack of a task and the rack of the
+        devices in its stored config, which means no caller set it."""
+        keys = _config_devices(stored.config)
+        if stored.rack != rack or not keys:
+            return False
+        devices = self._device_client.retrieve(keys=keys)
+        return {d.rack for d in devices} == {rack}
 
     def delete(self, keys: Key | Sequence[Key]) -> None:
         req = _DeleteRequest(keys=[keys] if isinstance(keys, UUID) else list(keys))

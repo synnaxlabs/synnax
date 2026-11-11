@@ -708,6 +708,37 @@ class TestTaskClient:
         )
         client.tasks.configure(tsk)
         assert tsk.rack == rack.key
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_keeps_rack_set_on_configured_task(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should keep a rack that the caller sets on a configured task over the rack
+        of its device, on later configures too."""
+        dev = client.devices.create(_device(client.racks.create(name="a").key))
+        rack = client.racks.create(name=str(uuid4()))
+        tsk = sy.Task(name="test", type="modbus_read", config={"device": dev.key})
+        client.tasks.configure(tsk)
+        tsk.rack = rack.key
+        client.tasks.configure(tsk)
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
+    def test_configure_keeps_rack_of_task_without_device(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should keep the rack of a configured task whose config names no device."""
+        rack = client.racks.create(name=str(uuid4()))
+        tsk = sy.Task(
+            name="test",
+            type="pagerduty_alert",
+            rack=rack.key,
+            config={"routing_key": "rk-r"},
+        )
+        client.tasks.configure(tsk)
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
     def test_configure_rejects_missing_device(self, client: sy.Synnax) -> None:
         """Should raise when the config names a device that does not exist."""
