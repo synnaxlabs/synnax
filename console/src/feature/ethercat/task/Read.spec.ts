@@ -1146,7 +1146,12 @@ describe("Read", () => {
     const slave = await createCalibratedSlave();
     const deployed = await deployRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
-      channels: [EtherCAT.Task.createSlaveReadChannel(slave, STRAIN_ENTRY)],
+      channels: [
+        {
+          ...EtherCAT.Task.createEntryReadChannel(slave.key, STRAIN_ENTRY),
+          calibrated: true,
+        },
+      ],
     });
     const created = await client.channels.retrieve(deployed.config.channels[0].channel);
     expect(created.dataType.toString()).toBe("float64");

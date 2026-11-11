@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, query } from "@synnaxlabs/client";
+import { type channel, type ethercat, query } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -33,13 +33,14 @@ import {
 import { PortLabel } from "@/feature/ethercat/task/PortLabel";
 import {
   bindReadChannel,
+  createEntryReadChannel,
   createReadChannel,
-  createSlaveReadChannel,
   type DataTypes,
   deployReadConfigZ,
   entryAt,
   type EntryReadChannel,
   hasEntry,
+  isCalibrated,
   mappedChannels,
   READ_SCHEMAS,
   READ_TYPE,
@@ -120,6 +121,15 @@ const channelDetails = Component.renderProp(ReadChannelDetails);
 const detailsTitle = Component.renderProp(ReadDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
+
+/** @returns a channel on the entry, calibrated when the Driver calibrates the entry. */
+const createSlaveReadChannel = (
+  { key, properties }: SlaveDevice,
+  entry: ethercat.PDOEntry,
+): EntryReadChannel => ({
+  ...createEntryReadChannel(key, entry),
+  calibrated: isCalibrated(properties, entry),
+});
 
 const ContextMenuItems = (props: Task.ContextMenuItemProps<ReadChannel>) => (
   <>

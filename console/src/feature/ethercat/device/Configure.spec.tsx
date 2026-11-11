@@ -33,7 +33,7 @@ import { fakePickedFile, interceptFilePicker, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-const onCreateTask = vi.fn();
+const onCreateReadTask = vi.fn();
 const onCreateWriteTask = vi.fn();
 const onBack = vi.fn();
 
@@ -42,7 +42,7 @@ const useConfigureWithActionsModal = Modals.create<Device.ConfigureModalParams>(
     <EtherCAT.Device.HARDWARE.Configure
       deviceKey={deviceKey}
       close={close}
-      onCreateTask={onCreateTask}
+      onCreateReadTask={onCreateReadTask}
       onCreateWriteTask={onCreateWriteTask}
       onBack={onBack}
     />
@@ -158,7 +158,7 @@ const retrieve = async (key: string) =>
 
 describe("EtherCAT.Device.HARDWARE.Configure", () => {
   beforeEach(() => {
-    onCreateTask.mockClear();
+    onCreateReadTask.mockClear();
     onCreateWriteTask.mockClear();
     onBack.mockClear();
   });
@@ -757,12 +757,19 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
 
     it("should show the value that the slave holds for a setting not set", async () => {
       const settings = createSettingsDescription();
-      settings.device[0].value = 12;
+      settings.device[0].value = 4;
       await setup({ settings, startupParameters: [SAMPLE_RATE] });
       fireEvent.click(screen.getByRole("button", { name: "Clear 1 kS/s" }));
       expect(screen.getByRole("button", { name: "Sample rate" }).textContent).toBe(
-        "1 kS/s",
+        "20 kS/s",
       );
+    });
+
+    it("should show the value that the slave holds for a number not set", async () => {
+      const settings = createSettingsDescription();
+      settings.device[0] = { ...settings.device[0], options: undefined, value: 250 };
+      await setup({ settings });
+      expect(cell("Sample rate").placeholder).toBe("250");
     });
 
     it("should prompt for a setting whose held value has no option", async () => {
@@ -869,12 +876,15 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(screen.queryByText("Switch to Synnax")).toBeNull();
     });
 
-    /** Opens a card that sends data only DewesoftX reads and clicks the switch. */
-    const clickSwitch = async (answer: Omit<CommandAnswer, "type"> = {}) => {
-      const slave = await setup({
+    /** Opens the card, by default one only DewesoftX can use, and clicks the switch. */
+    const clickSwitch = async (
+      answer: Omit<CommandAnswer, "type"> = {},
+      card: Pick<SetupArgs, "settings" | "inputs"> = {
         settings: createDewesoftXSettings(true),
         inputs: [STRAIN_ENTRY, STRAIN_SAMPLE_ENTRY],
-      });
+      },
+    ) => {
+      const slave = await setup(card);
       const rack = await client.racks.retrieve({ key: slave.rack });
       const scan = await rack.createTask({
         name: uniqueName("ecat_scan"),
@@ -922,19 +932,10 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
     });
 
     it("should ask for bus 1 and a power restart once a card on bus 2 switches", async () => {
-      const slave = await setup({
-        settings: createDewesoftXSettings(true, 2),
-        inputs: [STRAIN_ENTRY],
-      });
-      const rack = await client.racks.retrieve({ key: slave.rack });
-      const scan = await rack.createTask({
-        name: uniqueName("ecat_scan"),
-        type: EtherCAT.Task.SCAN_TYPE,
-        config: {},
-      });
-      const driver = await answerNextCommand(client, scan, { type: "set_standalone" });
-      fireEvent.click(findButton("Switch to Synnax"));
-      await driver.answered;
+      await clickSwitch(
+        {},
+        { settings: createDewesoftXSettings(true, 2), inputs: [STRAIN_ENTRY] },
+      );
       expect(await screen.findByText("Restart the power of the device")).toBeTruthy();
       expect(
         screen.getByText("First, connect Synnax to EtherCAT bus 1 IN."),
@@ -951,7 +952,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       });
       fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
       await save("Save and create read task");
-      await waitFor(() => expect(onCreateTask).toHaveBeenCalledWith(slave.key));
+      await waitFor(() => expect(onCreateReadTask).toHaveBeenCalledWith(slave.key));
       expect((await retrieve(slave.key)).configured).toBe(true);
     });
 
@@ -965,7 +966,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       fireEvent.change(identifierInput(), { target: { value: "slave_1" } });
       await save("Save and create write task");
       await waitFor(() => expect(onCreateWriteTask).toHaveBeenCalledWith(slave.key));
-      expect(onCreateTask).not.toHaveBeenCalled();
+      expect(onCreateReadTask).not.toHaveBeenCalled();
       expect((await retrieve(slave.key)).configured).toBe(true);
     });
 

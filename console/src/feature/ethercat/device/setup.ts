@@ -69,8 +69,8 @@ export const setUpBy = (props: SlaveProperties): string | null => {
 export const canSwitch = (props: SlaveProperties): boolean =>
   (props.settings?.mode?.switch.length ?? 0) > 0;
 
-/** @returns whether the scan can show that the slave still needs a power restart. */
-export const showsSwitch = (props: SlaveProperties): boolean =>
+/** @returns whether a scan can tell that a switch to Synnax took effect. */
+export const confirmsSwitch = (props: SlaveProperties): boolean =>
   markedEntries(props).length > 0;
 
 /** @returns how the scan found the slave set up. */

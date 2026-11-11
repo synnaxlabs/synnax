@@ -16,7 +16,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, type ReactNode, useState } from "react";
 
 import { useResultSlave, useSetStandalone } from "@/feature/ethercat/device/queries";
-import { canSwitch, of, showsSwitch } from "@/feature/ethercat/device/setup";
+import { canSwitch, confirmsSwitch, of } from "@/feature/ethercat/device/setup";
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 
 interface NoteBodyProps {
@@ -120,8 +120,8 @@ export interface SetupNoteProps {
 }
 
 /**
- * Says what keeps Synnax from using the slave, and offers the switch to Synnax only.
- * Renders nothing when Synnax alone sets up the slave.
+ * Says which software sets up the slave and what the user must do to use it with
+ * Synnax. Renders nothing when Synnax alone sets up the slave.
  */
 export const SetupNote = ({
   deviceKey,
@@ -132,7 +132,8 @@ export const SetupNote = ({
   if (slave == null) return null;
   const { properties } = slave;
   const setup = of(properties);
-  const restarting = switched && (setup.kind !== "synnax" || !showsSwitch(properties));
+  const restarting =
+    switched && (setup.kind !== "synnax" || !confirmsSwitch(properties));
   if (setup.kind === "switched" || restarting)
     return (
       <NoteBody

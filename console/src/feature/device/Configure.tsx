@@ -50,7 +50,7 @@ const createConfigure = ({
         deviceKey={deviceKey}
         close={close}
         onBack={onBack}
-        onCreateTask={(key) => {
+        onCreateReadTask={(key) => {
           createRead({ deviceKey: key });
           onTaskCreated?.();
         }}

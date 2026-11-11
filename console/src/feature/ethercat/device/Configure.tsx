@@ -319,7 +319,7 @@ export const Configure = ({
   deviceKey,
   close,
   onBack,
-  onCreateTask,
+  onCreateReadTask,
   onCreateWriteTask,
 }: Device.ConfigureProps): ReactElement => {
   const { form, saveAsync, variant } = useForm({
@@ -476,10 +476,10 @@ export const Configure = ({
           <Text.Text level="small" color={9}>
             Changes apply after every task on this network restarts.
           </Text.Text>
-          {onCreateTask != null && !opened.configured && pdos.inputs.length > 0 && (
+          {onCreateReadTask != null && !opened.configured && pdos.inputs.length > 0 && (
             <Button.Button
               status={status.keepVariants(variant, "loading")}
-              onClick={() => void save(onCreateTask)}
+              onClick={() => void save(onCreateReadTask)}
             >
               Save and create read task
             </Button.Button>

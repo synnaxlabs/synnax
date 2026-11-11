@@ -143,7 +143,6 @@ export const createSlaveChannels = async <C extends Channel>(
  * no entry, an entry its slave lacks, an input that only another program reads, or an
  * entry another channel uses.
  */
-
 export const retrieveAndValidateSlaves = async <C extends Channel>(
   client: Synnax,
   channels: C[],

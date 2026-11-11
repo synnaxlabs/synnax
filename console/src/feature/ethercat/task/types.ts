@@ -333,18 +333,6 @@ export const createEntryReadChannel = (
     dataType,
   });
 
-/**
- * @returns a read channel bound to the entry of the slave, calibrated when the Driver
- * calibrates the entry.
- */
-export const createSlaveReadChannel = (
-  { key, properties }: SlaveDevice,
-  entry: ethercat.PDOEntry,
-): EntryReadChannel => ({
-  ...createEntryReadChannel(key, entry),
-  calibrated: isCalibrated(properties, entry),
-});
-
 /** @returns a write channel bound to an entry of the slave with the given key. */
 export const createEntryWriteChannel = (
   device: string,

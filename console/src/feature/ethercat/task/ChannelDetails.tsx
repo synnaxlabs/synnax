@@ -68,7 +68,7 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  // A slave that DewesoftX only sets up still sends Synnax its data.
+  // Synnax reads the data of a slave that other software sets up, so it needs no note.
   const noted = slave != null && of(slave.properties).kind !== "shared";
   return (
     <PForm.Sections>
