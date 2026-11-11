@@ -239,10 +239,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -319,10 +322,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -601,10 +607,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
