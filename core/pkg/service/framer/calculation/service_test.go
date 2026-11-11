@@ -1594,6 +1594,45 @@ var _ = Describe("Calculation", Ordered, func() {
 			}, 2*retryDelay.Duration()).Should(Succeed())
 		})
 
+		Specify("Pending Request For A Deleted Channel", func(ctx SpecContext) {
+			const retryDelay = 500 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			changing := openChanging(ctx, retryDelay, &target, &changes, changed)
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).CreateMany(ctx, &bases)
+			})).To(Succeed())
+			calc := channel.Channel{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Create(ctx, &calc)
+			})).To(Succeed())
+			target.Store(uint32(calc.Key()))
+			changes.Store(10)
+			rm := changing.OpenRequestManager()
+			Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+			Expect(changed).To(Receive())
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				return channelSvc.NewWriter(tx).Delete(ctx, calc.Key(), false)
+			})).To(Succeed())
+			// The retry finds no channel, so it compiles nothing.
+			Consistently(changed, 3*retryDelay.Duration()).ShouldNot(Receive())
+			Expect(rm.Close(ctx)).To(Succeed())
+		})
+
 		Specify(
 			"Lookups Changed During A Pending Request And An Update",
 			func(ctx SpecContext) {

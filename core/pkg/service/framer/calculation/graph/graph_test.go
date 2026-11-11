@@ -1480,6 +1480,34 @@ var _ = Describe("Graph", func() {
 			},
 		)
 		It(
+			"Should change the DataType of a channel with no dependents",
+			func(ctx SpecContext) {
+				raw := channel.Channel{
+					Name:     "lone_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:       "lone_calc",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return lone_raw * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(g.Add(ctx, calc)).To(Succeed())
+				setExpression(ctx, &calc, "return f32(lone_raw)")
+				Expect(g.Update(ctx, calc)).To(Succeed())
+				flat := g.CalculateFlat()
+				Expect(flat).To(HaveLen(1))
+				Expect(flat[0].Channel.DataType).To(Equal(telem.Float32T))
+			},
+		)
+		It(
 			"Should leave the graph unchanged when an added dependency fails to compile",
 			func(ctx SpecContext) {
 				var failing channel.Key

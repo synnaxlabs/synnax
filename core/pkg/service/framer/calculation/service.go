@@ -258,14 +258,13 @@ func (s *Service) updateLocked(ctx context.Context, ch channel.Channel) {
 	}
 	err := s.updateCalculation(ctx, ch)
 	switch {
+	case err == nil:
+		s.acceptDefinition(ctx, ch.Key())
 	case errors.Is(err, channel.ErrLookupsChanged):
 		s.retries.Trigger(ch.Key())
 	// A cancelled compile says nothing about the definition of ch.
-	case err != nil && ctx.Err() != nil:
-	case err != nil:
+	case ctx.Err() == nil:
 		s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
-	default:
-		s.acceptDefinition(ctx, ch.Key())
 	}
 }
 
@@ -305,15 +304,10 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		Where(channel.MatchKeys(key)).
 		Entry(&ch).
 		Exec(ctx, s.cfg.DB)
-	if errors.Is(err, query.ErrNotFound) || errors.Is(err, context.Canceled) {
-		return
-	}
 	if err != nil {
-		s.cfg.L.Error(
-			"failed to retry calculation",
-			zap.Error(err),
-			zap.Stringer("channel", key),
-		)
+		if !errors.Is(err, query.ErrNotFound) && ctx.Err() == nil {
+			s.cfg.L.Error("failed to retry calculation", zap.Error(err))
+		}
 		return
 	}
 	if !ch.IsCalculated() {
@@ -334,11 +328,7 @@ func (s *Service) retry(ctx context.Context, key channel.Key) {
 		s.request(ctx, ch)
 	}
 	if err := s.start(ctx, running); err != nil {
-		s.cfg.L.Error(
-			"failed to start calculation",
-			zap.Error(err),
-			zap.Stringer("channel", key),
-		)
+		s.cfg.L.Error("failed to start calculation", zap.Error(err))
 	}
 }
 
