@@ -391,3 +391,42 @@ var _ = Describe("MembersMigration", func() {
 		},
 	)
 })
+
+var _ = Describe("TopParent", func() {
+	var (
+		r     = resource.ID{Type: resource.TypeRack, Key: "65537"}
+		outer = v1.Group{Key: uuid.New(), Parent: &r}
+		inner = v1.Group{Key: uuid.New(), Parent: new(groupID(outer.Key))}
+		byKey = map[string]v1.Group{
+			outer.Key.String(): outer,
+			inner.Key.String(): inner,
+		}
+	)
+
+	It("Should return the parent at the top of the chain", func() {
+		top, ok := v1.TopParent(inner, byKey)
+		Expect(ok).To(BeTrue())
+		Expect(top).To(Equal(r))
+	})
+
+	It("Should return false for a group with no parent", func() {
+		_, ok := v1.TopParent(v1.Group{Key: uuid.New()}, byKey)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false when a parent group does not exist", func() {
+		g := v1.Group{Key: uuid.New(), Parent: new(groupID(uuid.New()))}
+		_, ok := v1.TopParent(g, byKey)
+		Expect(ok).To(BeFalse())
+	})
+
+	It("Should return false for a cycle", func() {
+		a, b := uuid.New(), uuid.New()
+		cycle := map[string]v1.Group{
+			a.String(): {Key: a, Parent: new(groupID(b))},
+			b.String(): {Key: b, Parent: new(groupID(a))},
+		}
+		_, ok := v1.TopParent(cycle[a.String()], cycle)
+		Expect(ok).To(BeFalse())
+	})
+})

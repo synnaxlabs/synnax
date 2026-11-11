@@ -50,20 +50,20 @@ func narrowCount(old float64, lower uint32) uint32 {
 	return uint32(min(old, math.MaxUint32))
 }
 
-// narrowCountOrDefault is narrowCount, except that 0 stays 0 so that ApplyDefaults
-// fills the schema default, as it did at v2.
-func narrowCountOrDefault(old float64, lower uint32) uint32 {
+// narrowCountOrDefault is narrowCount, except that 0 becomes def, as v2 read an absent
+// count.
+func narrowCountOrDefault(old float64, lower, def uint32) uint32 {
 	if old == 0 {
-		return 0
+		return def
 	}
 	return narrowCount(old, lower)
 }
 
-// narrowDivisor clamps a divisor to at least 1. 0 stays 0 so that ApplyDefaults fills
-// the schema default, as it did at v2.
-func narrowDivisor(old int32) uint32 {
+// narrowDivisor clamps a divisor to at least 1. 0 becomes def, as v2 read an absent
+// divisor.
+func narrowDivisor(old int32, def uint32) uint32 {
 	if old == 0 {
-		return 0
+		return def
 	}
 	return uint32(max(old, 1))
 }
@@ -157,7 +157,7 @@ func MigrateCJC(ctx context.Context, old v2.CJC) (CJC, error) {
 
 // MigrateCIChannel lifts a v2 counter input channel to v3. A divisor or pulse count
 // below 1 becomes 1, a negative initial count becomes 0, and a fraction truncates. An
-// absent divisor or pulse count stays absent for ApplyDefaults to fill.
+// absent divisor or pulse count takes its schema default.
 func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) {
 	ch, err := autoMigrateCIChannel(ctx, old)
 	if err != nil {
@@ -165,24 +165,32 @@ func MigrateCIChannel(ctx context.Context, old v2.CIChannel) (CIChannel, error) 
 	}
 	switch o := old.Variant.(type) {
 	case v2.CIFrequencyChannel:
+		var def CIFrequencyChannel
+		def.SetDefaults()
 		n := ch.Variant.(CIFrequencyChannel)
-		n.Divisor = narrowDivisor(o.Divisor)
+		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
 		ch.Variant = n
 	case v2.CIPeriodChannel:
+		var def CIPeriodChannel
+		def.SetDefaults()
 		n := ch.Variant.(CIPeriodChannel)
-		n.Divisor = narrowDivisor(o.Divisor)
+		n.Divisor = narrowDivisor(o.Divisor, def.Divisor)
 		ch.Variant = n
 	case v2.CIEdgeCountChannel:
 		n := ch.Variant.(CIEdgeCountChannel)
 		n.InitialCount = narrowCount(o.InitialCount, 0)
 		ch.Variant = n
 	case v2.CIVelocityAngularChannel:
+		var def CIVelocityAngularChannel
+		def.SetDefaults()
 		n := ch.Variant.(CIVelocityAngularChannel)
-		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
 		ch.Variant = n
 	case v2.CIPositionAngularChannel:
+		var def CIPositionAngularChannel
+		def.SetDefaults()
 		n := ch.Variant.(CIPositionAngularChannel)
-		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1)
+		n.PulsesPerRev = narrowCountOrDefault(o.PulsesPerRev, 1, def.PulsesPerRev)
 		ch.Variant = n
 	}
 	return ch, nil

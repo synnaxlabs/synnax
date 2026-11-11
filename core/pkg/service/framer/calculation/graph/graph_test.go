@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -24,9 +25,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 var (
@@ -1408,6 +1413,172 @@ var _ = Describe("Graph", func() {
 				Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
 			},
 		)
+		It(
+			"Should leave the graph unchanged when a dependent fails to compile",
+			func(ctx SpecContext) {
+				var (
+					failing  channel.Key
+					compiled []channel.Key
+				)
+				g = MustSucceed(graph.New(graph.Config{
+					Channel: channelSvc,
+					DB:      db,
+					Compile: func(
+						ctx context.Context,
+						db *gorp.DB,
+						cfgs ...compiler.Config,
+					) (compiler.Module, error) {
+						compiled = append(compiled, cfgs[0].Channel.Key())
+						if cfgs[0].Channel.Key() == failing {
+							return compiler.Module{}, channel.ErrLookupsChanged
+						}
+						return compiler.Compile(ctx, db, cfgs...)
+					},
+				}))
+				raw := channel.Channel{
+					Name:     "rollback_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				parent := channel.Channel{
+					Name:       "rollback_parent",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return rollback_raw * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &parent)
+				})).To(Succeed())
+				child := channel.Channel{
+					Name:       "rollback_child",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return f64(rollback_parent) * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &child)
+				})).To(Succeed())
+				Expect(g.Add(ctx, child)).To(Succeed())
+				dataTypes := func() map[channel.Key]telem.DataType {
+					return lo.SliceToMap(
+						g.CalculateFlat(),
+						func(m compiler.Module) (channel.Key, telem.DataType) {
+							return m.Channel.Key(), m.Channel.DataType
+						},
+					)
+				}
+				before := dataTypes()
+
+				setExpression(ctx, &parent, "return f32(rollback_raw)")
+				failing = child.Key()
+				Expect(g.Update(ctx, parent)).
+					To(MatchError(channel.ErrLookupsChanged))
+				Expect(dataTypes()).To(Equal(before))
+
+				failing, compiled = 0, nil
+				Expect(g.Update(ctx, parent)).To(Succeed())
+				Expect(compiled).To(Equal([]channel.Key{parent.Key(), child.Key()}))
+				Expect(dataTypes()[parent.Key()]).To(Equal(telem.Float32T))
+			},
+		)
+		It(
+			"Should change the DataType of a channel with no dependents",
+			func(ctx SpecContext) {
+				raw := channel.Channel{
+					Name:     "lone_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				calc := channel.Channel{
+					Name:       "lone_calc",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return lone_raw * 2.0",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &calc)
+				})).To(Succeed())
+				Expect(g.Add(ctx, calc)).To(Succeed())
+				setExpression(ctx, &calc, "return f32(lone_raw)")
+				Expect(g.Update(ctx, calc)).To(Succeed())
+				flat := g.CalculateFlat()
+				Expect(flat).To(HaveLen(1))
+				Expect(flat[0].Channel.DataType).To(Equal(telem.Float32T))
+			},
+		)
+		It(
+			"Should leave the graph unchanged when an added dependency fails to compile",
+			func(ctx SpecContext) {
+				var failing channel.Key
+				g = MustSucceed(graph.New(graph.Config{
+					Channel: channelSvc,
+					DB:      db,
+					Compile: func(
+						ctx context.Context,
+						db *gorp.DB,
+						cfgs ...compiler.Config,
+					) (compiler.Module, error) {
+						if cfgs[0].Channel.Key() == failing {
+							return compiler.Module{}, channel.ErrLookupsChanged
+						}
+						return compiler.Compile(ctx, db, cfgs...)
+					},
+				}))
+				raw := channel.Channel{
+					Name:     "atomic_raw",
+					DataType: telem.Float64T,
+					Virtual:  true,
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &raw)
+				})).To(Succeed())
+				deps := []channel.Channel{
+					{
+						Name:       "atomic_a",
+						DataType:   telem.Float64T,
+						Virtual:    true,
+						Expression: "return atomic_raw * 2.0",
+					},
+					{
+						Name:       "atomic_b",
+						DataType:   telem.Float64T,
+						Virtual:    true,
+						Expression: "return atomic_raw * 3.0",
+					},
+				}
+				for i := range deps {
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						return channelSvc.NewWriter(tx).Create(ctx, &deps[i])
+					})).To(Succeed())
+				}
+				sum := channel.Channel{
+					Name:       "atomic_sum",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return atomic_a + atomic_b",
+				}
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					return channelSvc.NewWriter(tx).Create(ctx, &sum)
+				})).To(Succeed())
+
+				for _, dep := range deps {
+					failing = dep.Key()
+					Expect(g.Add(ctx, sum)).To(MatchError(channel.ErrLookupsChanged))
+					Expect(g.CalculatedKeys()).To(BeEmpty())
+				}
+				failing = 0
+				Expect(g.Add(ctx, sum)).To(Succeed())
+				Expect(g.CalculatedKeys()).To(HaveLen(3))
+				Expect(g.Remove(sum.Key())).To(BeTrue())
+				Expect(g.CalculatedKeys()).To(BeEmpty())
+			},
+		)
 		It("Should not cascade when DataType stays the same", func(ctx SpecContext) {
 			raw := channel.Channel{
 				Name:     "nocascade_raw",
@@ -1570,6 +1741,39 @@ var _ = Describe("Graph", func() {
 				).Error().
 					To(MatchError(ContainSubstring("bad_calc_update")))
 			},
+		)
+
+		DescribeTable(
+			"Should log a compile error that the caller does not retry",
+			func(ctx SpecContext, compileErr error, logged int) {
+				core, logs := observer.New(zapcore.ErrorLevel)
+				logger := MustSucceed(alamos.NewLogger(alamos.LoggerConfig{
+					ZapLogger: zap.New(core),
+				}))
+				g = MustSucceed(graph.New(graph.Config{
+					Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
+					Channel:         channelSvc,
+					DB:              db,
+					Compile: func(
+						context.Context,
+						*gorp.DB,
+						...compiler.Config,
+					) (compiler.Module, error) {
+						return compiler.Module{}, compileErr
+					},
+				}))
+				calc := channel.Channel{
+					Name:       "logged_calc",
+					DataType:   telem.Float64T,
+					Virtual:    true,
+					Expression: "return 1.0",
+				}
+				Expect(g.Add(ctx, calc)).To(MatchError(compileErr))
+				failures := logs.FilterMessage("failed to compile calculated channel")
+				Expect(failures.Len()).To(Equal(logged))
+			},
+			Entry("a compile failure", errors.New("bad expression"), 1),
+			Entry("changed lookups", channel.ErrLookupsChanged, 0),
 		)
 	})
 })

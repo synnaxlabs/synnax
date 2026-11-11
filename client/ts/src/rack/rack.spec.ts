@@ -43,6 +43,7 @@ describe("Rack", () => {
         description: "Rack is running",
         time: TimeStamp.now(),
         labels: [],
+        details: { running: true },
       };
       const r = await client.racks.create({
         name: "rack-with-status",

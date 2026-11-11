@@ -347,13 +347,20 @@ func (w *Writer) commit(
 	}
 	f := lo.Ternary(w.prevCommit.IsZero(), w.idx.insert, w.idx.update)
 
-	err := span.Error(f(ctx, ptr, shouldPersist))
+	write, err := f(ctx, ptr, shouldPersist)
 	if err != nil {
 		return span.Error(err)
 	}
+	// The index holds the pointer even when persisting it fails, so a retry updates it.
+	w.prevCommit = commitEnd
+	if shouldPersist {
+		if err := w.idx.run(write); err != nil {
+			return span.Error(err)
+		}
+	}
 
 	if switchingFile {
-		if err = w.switchFile(ctx); err != nil {
+		if err := w.switchFile(ctx); err != nil {
 			return span.Error(err)
 		}
 		w.Start = commitEnd
@@ -361,8 +368,6 @@ func (w *Writer) commit(
 		if w.OnRollover != nil {
 			w.OnRollover(commitEnd)
 		}
-	} else {
-		w.prevCommit = commitEnd
 	}
 
 	return nil
@@ -397,10 +402,7 @@ func (w *Writer) release() error {
 	defer w.onClose()
 	w.closed = true
 	if *w.EnableAutoCommit && w.AutoIndexPersistInterval > 0 {
-		w.idx.mu.Lock()
-		write := w.idx.indexPersist.prepare(w.idx.persistHead)
-		w.idx.mu.Unlock()
-		return write.run()
+		return w.idx.persist()
 	}
 	return nil
 }

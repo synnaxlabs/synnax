@@ -334,7 +334,7 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 		id := gorp.FormatKey(members[i].GorpKey())
 		g := memberGroups[id]
 		var top *resource.ID
-		if p, ok := topParent(g, byKey); ok {
+		if p, ok := TopParent(g, byKey); ok {
 			top = &p
 		}
 		if cfg.Holds != nil && !cfg.Holds(&members[i], top) {
@@ -367,8 +367,8 @@ func migrateMembers[K gorp.Key, E gorp.Entry[K]](
 	return gorp.WrapWriter[string, ontology.Relationship](tx).Set(ctx, owners...)
 }
 
-// topParent returns the parent of the group at the top of g's chain, if it has one.
-func topParent(g Group, byKey map[string]Group) (resource.ID, bool) {
+// TopParent returns the parent of the group at the top of g's chain, if it has one.
+func TopParent(g Group, byKey map[string]Group) (resource.ID, bool) {
 	visited := set.New[string]()
 	for g.Parent != nil {
 		if g.Parent.Type != resource.TypeGroup {

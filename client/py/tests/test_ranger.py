@@ -315,6 +315,100 @@ class TestRangeClient:
         with pytest.raises(sy.NotFoundError):
             client.ranges.set_end(uuid4(), sy.TimeStamp.now())
 
+    def test_set_time_range(self, client: sy.Synnax) -> None:
+        """Should set the start and end of a range to timestamps that a float cannot
+        hold exactly."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        tr = sy.TimeRange(
+            start=sy.TimeStamp(1_700_000_000_000_000_001),
+            end=sy.TimeStamp(1_700_000_000_000_000_003),
+        )
+        client.ranges.set_time_range(rng.key, tr)
+        assert client.ranges.retrieve(key=rng.key).time_range == tr
+
+    def test_set_time_range_rejects_start_after_end(self, client: sy.Synnax) -> None:
+        """Should reject a time range whose start is after its end."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        rng = client.ranges.create(name=random_name(), time_range=tr)
+        with pytest.raises(sy.ValidationError):
+            client.ranges.set_time_range(
+                rng.key, sy.TimeRange(start=tr.end, end=tr.start)
+            )
+        assert client.ranges.retrieve(key=rng.key).time_range == tr
+
+    def test_set_color(self, client: sy.Synnax) -> None:
+        """Should set the exact color, alpha included, of a range with no color."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        color = sy.Color(r=0, g=255, b=0, a=0.5)
+        client.ranges.set_color(rng.key, color)
+        assert client.ranges.retrieve(key=rng.key).color == color
+
+    def test_clear_color(self, client: sy.Synnax) -> None:
+        """Should clear the color of a range when the color is None."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color="#FF0000",
+        )
+        client.ranges.set_color(rng.key, None)
+        assert client.ranges.retrieve(key=rng.key).color is None
+
+    def test_set_parent(self, client: sy.Synnax) -> None:
+        """Should move a range under a range or a range key."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        first = client.ranges.create(name=random_name(), time_range=tr)
+        second = client.ranges.create(name=random_name(), time_range=tr)
+        child = client.ranges.create(name=random_name(), time_range=tr)
+        client.ranges.set_parent(child.key, first)
+        assert client.ranges.retrieve(key=child.key).parent == first.key
+        client.ranges.set_parent(child.key, second.key)
+        assert client.ranges.retrieve(key=child.key).parent == second.key
+        assert [c.key for c in second.children] == [child.key]
+        assert first.children == []
+
+    def test_clear_parent(self, client: sy.Synnax) -> None:
+        """Should make a range top-level when the parent is None."""
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        parent = client.ranges.create(name=random_name(), time_range=tr)
+        child = parent.create_child_range(name=random_name(), time_range=tr)
+        client.ranges.set_parent(child.key, None)
+        assert client.ranges.retrieve(key=child.key).parent is None
+        assert parent.children == []
+
+    def test_set_parent_rejects_itself(self, client: sy.Synnax) -> None:
+        """Should reject a range as its own parent."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ValidationError):
+            client.ranges.set_parent(rng.key, rng)
+        assert client.ranges.retrieve(key=rng.key).parent is None
+
+    def test_dispatch(self, client: sy.Synnax) -> None:
+        """Should apply each action of a dispatch to the range."""
+        rng = client.ranges.create(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
+            color="#FF0000",
+        )
+        client.ranges.dispatch(
+            rng.key,
+            [
+                sy.ranger.set(sy.ranger.SetPayload(path=["name"], value="Dispatched")),
+                sy.ranger.remove(sy.ranger.RemovePayload(key="color")),
+            ],
+        )
+        res = client.ranges.retrieve(key=rng.key)
+        assert res.name == "Dispatched"
+        assert res.color is None
+
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
         """Should reject creation of a range with an empty name (Pydantic
         min_length=1)

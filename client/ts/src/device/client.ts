@@ -173,7 +173,10 @@ export class Client extends query.Retriever<
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
-      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
+      fetch: async (keys) =>
+        (
+          await this.fetchThrough({ ...query.keysRequest(keys), includeStatus: true })
+        ).map(stripStatus),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     // Every write to a device reaches the client as actions.
@@ -183,6 +186,7 @@ export class Client extends query.Retriever<
         action.type === "set_rack" || actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       send: actions.sender(cfg.unary, "/device/dispatch", dispatchReqZ, dispatchResZ),
       reduce: reduceAll,
       createOf,
@@ -444,19 +448,11 @@ export class Client extends query.Retriever<
     );
   }
 
-  private async fetchSingle(q: SingleQuery): Promise<Device> {
-    // Status-bearing queries bypass the table, which never holds status.
-    if (q.includeStatus !== true) {
-      const devices = await this.store.retrieve([q.key]);
-      checkForMultipleOrNoResults(
-        "device",
-        { where: { key: { eq: q.key } } },
-        devices,
-        true,
-      );
-      return devices[0];
-    }
-    const devices = await this.fetchThrough(q);
+  private async fetchSingle(q: SingleQuery): Promise<Omit<Device, "status">> {
+    // The refresh covers a cached device whose status has not synced.
+    const devices = await this.store.retrieve([q.key], {
+      refresh: q.includeStatus === true,
+    });
     checkForMultipleOrNoResults(
       "device",
       { where: { key: { eq: q.key } } },

@@ -220,6 +220,24 @@ var _ = Describe("KV", Ordered, func() {
 			{Range: r.Key, Key: "key2", Value: "value2"},
 		}))
 	})
+	It("Should list only the pairs of the range", func(ctx SpecContext) {
+		tr := telem.TimeRange{
+			Start: telem.TimeStamp(5 * telem.Second),
+			End:   telem.TimeStamp(10 * telem.Second),
+		}
+		first := &ranger.Range{Name: "First", TimeRange: tr}
+		second := &ranger.Range{Name: "Second", TimeRange: tr}
+		w := rangerSvc.NewWriter(tx)
+		Expect(w.Create(ctx, first)).To(Succeed())
+		Expect(w.Create(ctx, second)).To(Succeed())
+		Expect(kvSvc.NewWriter(tx).SetMany(ctx, []kv.Pair{
+			{Range: first.Key, Key: "key", Value: "first"},
+			{Range: second.Key, Key: "key", Value: "second"},
+		})).To(Succeed())
+		Expect(kvSvc.NewReader(tx).List(ctx, first.Key)).To(Equal([]kv.Pair{
+			{Range: first.Key, Key: "key", Value: "first"},
+		}))
+	})
 })
 
 var _ = Describe("Dispatch", func() {
