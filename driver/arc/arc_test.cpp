@@ -898,6 +898,63 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     task->stop("test_stop", true);
 }
 
+/// @brief it should stop a program whose cycle uses its whole loop budget.
+TEST(ArcErrorHandling, LoopBudgetStopsProgram) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    synnax::arc::AutomationArc arc_prog{
+        {.name = make_unique_channel_name("loop_budget_test")}
+    };
+    arc_prog.source = synnax::arc::TextSource{
+        .text = ::arc::text::Text{
+            .raw = "func spin() {\n    for {}\n}\ninterval(period=10ms) -> spin()\n"
+        }
+    };
+    ASSERT_NIL(create_automation(client, arc_prog));
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_loop_budget_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_loop_budget_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {},
+                std::make_shared<std::vector<x::telem::Frame>>()
+            )
+        )
+    );
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            auto statuses = ctx->snapshot();
+            return find_status_by_variant(statuses, synnax::status::VARIANT_ERROR) !=
+                   nullptr;
+        }(),
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(50)
+    );
+    auto statuses = ctx->snapshot();
+    const auto *error_status = find_status_by_variant(
+        statuses,
+        synnax::status::VARIANT_ERROR
+    );
+    expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Program ran too long");
+    EXPECT_TRUE(error_status->description.starts_with("The spin node failed: "));
+    task->stop("test_stop", true);
+}
+
 TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
     auto client = std::make_shared<synnax::Synnax>(new_test_client());
 

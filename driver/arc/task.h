@@ -255,9 +255,12 @@ public:
         };
 
         const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            const auto *message = err.matches(::arc::runtime::errors::LOOP_BUDGET)
+                                    ? "Program ran too long"
+                                    : "Failed to run Arc program";
             {
                 std::lock_guard lock(task_ptr->state_mu);
-                task_ptr->state.send_error(err, "Failed to run Arc program");
+                task_ptr->state.send_error(err, message);
             }
             task_ptr->runtime->close_outputs();
         };
