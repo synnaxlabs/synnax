@@ -652,6 +652,22 @@ class TestTaskClient:
         client.tasks.configure(tsk)
         assert client.tasks.retrieve(key=tsk.key).rack == rack.key
 
+    def test_configure_moves_task_to_rack_of_new_channel_devices(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should move a configured task to the rack of the devices that its channels
+        name after a change."""
+        a = client.devices.create(_device(client.racks.create(name="a").key))
+        rack = client.racks.create(name=str(uuid4()))
+        b = client.devices.create(_device(rack.key))
+        tsk = sy.ni.AnalogReadTask(
+            name="test", device=a.key, channels=[_ai_channel(client, 0)]
+        )
+        client.tasks.configure(tsk)
+        tsk.config.channels[0].device = b.key
+        client.tasks.configure(tsk)
+        assert client.tasks.retrieve(key=tsk.key).rack == rack.key
+
     def test_configure_rejects_devices_on_different_racks(
         self, client: sy.Synnax
     ) -> None:

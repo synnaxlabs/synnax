@@ -505,10 +505,12 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task with no rack goes on the rack
-        of the devices that its config or its channels name, or on the embedded rack
-        when they name no device. Configure creates a task that does not exist yet,
-        and sets the name, rack, and config of a task that does.
+        to the driver on the next start command. A task goes on the rack of the
+        devices that its config or its channels name, unless the caller sets another
+        rack than the one the cluster stores. A task that names no device keeps its
+        rack, or goes on the embedded rack when it has none. Configure creates a task
+        that does not exist yet, and sets the name, rack, and config of a task that
+        does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
@@ -519,7 +521,10 @@ class Client:
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
-        if pld.rack == 0 and (devices := _config_devices(pld.config)):
+        stored = self.retrieve(keys=[pld.key])
+        # A rack that the cluster stored is not a choice of the caller.
+        chosen = pld.rack != 0 and not (stored and stored[0].rack == pld.rack)
+        if not chosen and (devices := _config_devices(pld.config)):
             racks = {self._device_client.retrieve(key=d).rack for d in devices}
             if len(racks) > 1:
                 raise exceptions.ValidationError(
@@ -528,7 +533,7 @@ class Client:
                 )
             pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
-        if not self.retrieve(keys=[pld.key]):
+        if not stored:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
             task.set_internal(self.sugar(created)[0])
             return task
