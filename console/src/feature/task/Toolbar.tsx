@@ -548,10 +548,8 @@ const ContextMenu = ({
       <Vcs.CommitMenuItem
         resources={selectedTasks.flatMap((t) => {
           const arcKey = arc.task.arcKeyOf(t);
-          const own = { id: task.resourceID(t.key), name: t.name };
-          return arcKey == null
-            ? [own]
-            : [own, { id: arc.resourceID(arcKey), name: t.name }];
+          const own = task.resourceID(t.key);
+          return arcKey == null ? [own] : [own, arc.resourceID(arcKey)];
         })}
       />
       <Menu.Divider />

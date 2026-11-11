@@ -139,14 +139,43 @@ func (t *tree) ids(o *tree) []resource.ID {
 // diff returns the resources that differ from base to t, sorted by type, name, and key.
 func (t *tree) diff(base *tree) []Change {
 	changes := make([]Change, 0)
+	folders := base.projectFolders()
+	maps.Copy(folders, t.projectFolders())
 	for _, id := range t.ids(base) {
 		if t.same(base, id) {
 			continue
 		}
-		changes = append(changes, t.change(base, id))
+		c := t.change(base, id)
+		c.Project = projectOf(folders, c.Path)
+		changes = append(changes, c)
 	}
 	sortChanges(changes)
 	return changes
+}
+
+// projectFolders maps the folder of each project in t, with a trailing slash, to the
+// ID of the project.
+func (t *tree) projectFolders() map[string]string {
+	folders := map[string]string{}
+	for id, it := range t.items {
+		if id.Type == resource.TypeProject {
+			folders[path.Dir(it.main())+"/"] = id.String()
+		}
+	}
+	return folders
+}
+
+// projectOf returns the ID of the project whose folder holds the file at p, or "".
+func projectOf(folders map[string]string, p string) string {
+	if !strings.HasPrefix(p, projectsRoot+"/") {
+		return ""
+	}
+	rest := strings.TrimPrefix(p, projectsRoot+"/")
+	folder, _, ok := strings.Cut(rest, "/")
+	if !ok {
+		return ""
+	}
+	return folders[projectsRoot+"/"+folder+"/"]
 }
 
 // change describes how the resource with id differs from base to t.

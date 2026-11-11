@@ -102,13 +102,48 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 }
 
 func (s *Service) enforce(ctx context.Context, action access.Action) error {
+	return s.enforceOn(ctx, action, []resource.ID{vcs.ResourceID})
+}
+
+func (s *Service) enforceOn(
+	ctx context.Context,
+	action access.Action,
+	objects []resource.ID,
+) error {
+	if len(objects) == 0 {
+		return nil
+	}
 	return s.cfg.DB.WithSnapshot(ctx, func(snap gorp.Snapshot) error {
 		return s.cfg.RBAC.NewEnforcer(snap).Enforce(ctx, access.Request{
 			Subject: auth.GetSubject(ctx),
 			Action:  action,
-			Objects: []resource.ID{vcs.ResourceID},
+			Objects: objects,
 		})
 	})
+}
+
+// enforceRetrieve checks that the subject can retrieve each resource of ids, or of
+// every uncommitted change when ids is empty. A commit or snapshot sends their files
+// to the remote.
+func (s *Service) enforceRetrieve(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		st, err := s.cfg.VCS.Status(ctx)
+		if err != nil {
+			return err
+		}
+		for _, c := range st.Changes {
+			ids = append(ids, c.Resource)
+		}
+	}
+	objects := make([]resource.ID, 0, len(ids))
+	for _, r := range ids {
+		id, err := resource.ParseID(r)
+		if err != nil {
+			return err
+		}
+		objects = append(objects, id)
+	}
+	return s.enforceOn(ctx, access.ActionRetrieve, objects)
 }
 
 // write runs apply in a transaction that checks access on each change, as bind.Write
@@ -297,12 +332,16 @@ func (s *Service) Fetch(ctx context.Context, _ FetchRequest) (vcs.Status, error)
 	return s.cfg.VCS.Fetch(ctx)
 }
 
-// Commit commits the selected changes. It needs update.
+// Commit commits the selected changes. It needs update, and retrieve on each resource
+// it commits.
 func (s *Service) Commit(
 	ctx context.Context,
 	req CommitRequest,
 ) (CommitResponse, error) {
 	if err := s.enforce(ctx, access.ActionUpdate); err != nil {
+		return CommitResponse{}, err
+	}
+	if err := s.enforceRetrieve(ctx, req.Resources); err != nil {
 		return CommitResponse{}, err
 	}
 	author, err := s.author(ctx)
@@ -358,9 +397,19 @@ func (s *Service) Apply(ctx context.Context, req ApplyRequest) (vcs.Inverse, err
 	return s.cfg.VCS.Apply(ctx, req.Target, req.Choices, s.write)
 }
 
-// Files returns the files of a resource in a revision. It needs retrieve.
+// Files returns the files of a resource in a revision. It needs retrieve, on the
+// resource too.
 func (s *Service) Files(ctx context.Context, req FilesRequest) (FilesResponse, error) {
+	if req.Resource == "" {
+		return FilesResponse{}, errors.Wrap(
+			validate.ErrValidation,
+			"files: a resource is required",
+		)
+	}
 	if err := s.enforce(ctx, access.ActionRetrieve); err != nil {
+		return FilesResponse{}, err
+	}
+	if err := s.enforceRetrieve(ctx, []string{req.Resource}); err != nil {
 		return FilesResponse{}, err
 	}
 	fs, err := s.cfg.VCS.Files(ctx, req.Rev, req.Resource)
@@ -421,12 +470,16 @@ func (s *Service) Compare(
 	return CompareResponse{Changes: changes}, err
 }
 
-// Snapshot tags the live configuration for a range. It needs create.
+// Snapshot tags the live configuration for a range. It needs create, and retrieve on
+// each uncommitted change.
 func (s *Service) Snapshot(
 	ctx context.Context,
 	req SnapshotRequest,
 ) (SnapshotResponse, error) {
 	if err := s.enforce(ctx, access.ActionCreate); err != nil {
+		return SnapshotResponse{}, err
+	}
+	if err := s.enforceRetrieve(ctx, nil); err != nil {
 		return SnapshotResponse{}, err
 	}
 	author, err := s.author(ctx)

@@ -18,6 +18,7 @@ const change = (resource: string, review?: vcs.Review): vcs.Change => ({
   name: resource,
   kind: "modified",
   path: `${resource}.json`,
+  project: "",
   digest: "",
   review,
 });
@@ -69,24 +70,18 @@ describe("selection", () => {
 });
 
 describe("changesOf", () => {
-  it("should take the changes inside a project by its folder", () => {
-    const inProject: vcs.Change = {
-      ...change("schematic:p"),
-      path: "projects/Wing/Schematic.json",
-    };
-    const other: vcs.Change = {
-      ...change("schematic:q"),
-      path: "projects/Fuselage/Schematic.json",
-    };
+  it("should take the changes of the resources inside a project", () => {
+    const inProject: vcs.Change = { ...change("schematic:p"), project: "project:wing" };
+    const other: vcs.Change = { ...change("schematic:q"), project: "project:wing-2" };
     const got = Vcs.changesOf(
       [inProject, other, TASK],
-      [{ id: { type: "project", key: "wing" }, name: "Wing" }],
+      [{ type: "project", key: "wing" }],
     );
     expect(got.map(({ resource }) => resource)).toEqual(["schematic:p"]);
   });
 
   it("should match a resource by its ID", () => {
-    const got = Vcs.changesOf(CHANGES, [{ id: { type: "task", key: "1" }, name: "T" }]);
+    const got = Vcs.changesOf(CHANGES, [{ type: "task", key: "1" }]);
     expect(got).toEqual([TASK]);
   });
 });

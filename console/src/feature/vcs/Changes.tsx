@@ -43,13 +43,6 @@ const INCOMING_PREFIX = "incoming:";
 
 const byName = (a: vcs.Change, b: vcs.Change): number => a.name.localeCompare(b.name);
 
-/** Returns the newest of the incoming commits, which the remote branch points at. */
-const newestCommit = (commits: vcs.Commit[]): vcs.Commit | undefined =>
-  commits.reduce<vcs.Commit | undefined>(
-    (newest, c) => (newest == null || c.time.after(newest.time) ? c : newest),
-    undefined,
-  );
-
 const useOpenChangeDiff = (): ((change: vcs.Change) => void) => {
   const open = Diff.useOpen();
   return ({ resource, type, name }) =>
@@ -372,13 +365,14 @@ const Incoming = ({ status, canUpdate }: IncomingProps): ReactElement | null => 
   const openDiff = Diff.useOpen();
   const shows = Diff.useShows();
   const { incoming, incomingChanges } = status;
-  const newest = newestCommit(incoming);
-  if (newest == null) return null;
+  // Incoming commits come newest first along the branch, so the first is its tip.
+  const [tip] = incoming;
+  if (tip == null) return null;
   const pull = () =>
     openPlan({
       target: { kind: "pull" },
       title: `Pull ${Vcs.count(incoming.length, "commit")}`,
-      after: newest.hash,
+      after: tip.hash,
       afterLabel: "Incoming",
     });
   return (
@@ -421,7 +415,7 @@ const Incoming = ({ status, canUpdate }: IncomingProps): ReactElement | null => 
             type={change.type}
             name={change.name}
             end={<Vcs.KindMarker kind={change.kind} />}
-            selected={shows(change.resource, vcs.HEAD, newest.hash)}
+            selected={shows(change.resource, vcs.HEAD, tip.hash)}
             onClick={() =>
               openDiff({
                 resource: change.resource,
@@ -429,7 +423,7 @@ const Incoming = ({ status, canUpdate }: IncomingProps): ReactElement | null => 
                 name: change.name,
                 before: vcs.HEAD,
                 beforeLabel: "Last commit",
-                after: newest.hash,
+                after: tip.hash,
                 afterLabel: "Incoming",
               })
             }

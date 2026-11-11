@@ -42,6 +42,14 @@ var (
 		validate.ErrValidation,
 		"every conflict needs a choice",
 	)
+	// ErrMoved is returned by Apply when the commit of a pull or load target is no
+	// longer the commit the plan reviewed.
+	ErrMoved = errors.Mark(
+		errors.New(
+			"The commits to apply changed after you reviewed them. Open the plan again.",
+		),
+		validate.ErrValidation,
+	)
 )
 
 // File is one file of a configuration in the repository.
@@ -97,6 +105,9 @@ type Change struct {
 	Kind ChangeKind `json:"kind" msgpack:"kind"`
 	// Path is the path of the main file of the resource.
 	Path string `json:"path" msgpack:"path"`
+	// Project is the ID of the project whose folder holds the resource, as
+	// "project:<key>", or empty for a resource outside every project.
+	Project string `json:"project" msgpack:"project"`
 	// Digest changes whenever the newer files of the resource change. It is empty for a
 	// deletion.
 	Digest string `json:"digest" msgpack:"digest"`
@@ -162,7 +173,8 @@ const (
 type Target struct {
 	// Kind selects the target.
 	Kind TargetKind `json:"kind" msgpack:"kind"`
-	// Commit is the commit to restore or load.
+	// Commit is the commit to restore. Plan sets it to the commit that a pull or load
+	// moves to, and Apply then refuses the target with ErrMoved once that moves.
 	Commit string `json:"commit,omitzero" msgpack:"commit,omitempty"`
 	// Configuration is the configuration to load.
 	Configuration string `json:"configuration,omitzero" msgpack:"configuration,omitempty"`

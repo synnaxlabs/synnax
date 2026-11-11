@@ -61,6 +61,8 @@ export const changeZ = z.object({
   name: z.string(),
   kind: changeKindZ,
   path: z.string(),
+  /** project is the ID of the project that holds the resource, or empty. */
+  project: z.string(),
   /** digest changes whenever the newer files of the resource change. */
   digest: z.string(),
   review: zod.nullToUndefined(reviewZ),

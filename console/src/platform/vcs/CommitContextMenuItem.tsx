@@ -14,12 +14,12 @@ import { Access } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { FLAGS } from "@/flags";
-import { changesOf, type Named } from "@/platform/vcs/changes";
+import { changesOf } from "@/platform/vcs/changes";
 import { useFocusCommit, usePolledStatus } from "@/platform/vcs/Provider";
 import { RESOURCE_ID } from "@/platform/vcs/resource";
 
 export interface CommitMenuItemProps {
-  resources: Named[];
+  resources: resource.ID[];
 }
 
 const Item = ({ resources }: CommitMenuItemProps): ReactElement | null => {
@@ -50,13 +50,11 @@ export const CommitMenuItem = (props: CommitMenuItemProps): ReactElement | null 
 /** The part of a tree context menu's props {@link CommitContextMenuItem} reads. */
 export interface CommitContextMenuItemProps {
   selection: { ids: resource.ID[] };
-  state: { getResource: (id: resource.ID) => { name: string } };
 }
 
 /** A {@link CommitMenuItem} for the selection of a tree context menu. */
 export const CommitContextMenuItem = ({
   selection: { ids },
-  state: { getResource },
 }: CommitContextMenuItemProps): ReactElement | null => (
-  <CommitMenuItem resources={ids.map((id) => ({ id, name: getResource(id).name }))} />
+  <CommitMenuItem resources={ids} />
 );

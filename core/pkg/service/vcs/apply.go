@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -402,7 +403,7 @@ func (a *applier) putArc(ctx context.Context, t *tree, id resource.ID) error {
 	if err != nil {
 		return err
 	}
-	src := string(t.raw[strings.TrimSuffix(t.items[id].main(), jsonExt)+arcExt])
+	src := string(t.raw[arcSource(t, id)])
 	w := a.s.cfg.Arc.NewWriter(a.tx)
 	dir := lo.FromPtrOr(f.Directory, a.root)
 	var existing arc.Arc
@@ -455,13 +456,84 @@ func (a *applier) putArc(ctx context.Context, t *tree, id resource.ID) error {
 			return err
 		}
 		if !same {
-			return errGraphEdit
+			if f.Mode != arc.ModeGraph || f.Graph == nil {
+				return errGraphEdit
+			}
+			graphActs, err := graphActions(existing, *f.Graph)
+			if err != nil {
+				return err
+			}
+			acts = append(acts, graphActs...)
 		}
 	}
 	if len(acts) == 0 {
 		return nil
 	}
 	return w.Apply(ctx, f.Key, acts...)
+}
+
+// graphActions returns the actions that rebuild the graph of the Arc a as next. It
+// returns errGraphEdit when the actions cannot give next, such as for new functions.
+func graphActions(a arc.Arc, next graph.Graph) ([]arc.Action, error) {
+	cur := a.Base().Source.Variant.(arc.GraphSource).Graph
+	acts := make([]arc.Action, 0, len(cur.Nodes)+2*len(next.Nodes)+len(next.Edges))
+	for _, n := range cur.Nodes {
+		acts = append(acts, arc.NewRemoveNodeAction(arc.RemoveNodePayload{Key: n.Key}))
+	}
+	for _, n := range next.Nodes {
+		acts = append(acts, arc.NewSetNodeAction(arc.SetNodePayload{Node: n}))
+		if in, ok := next.Inputs[n.Key]; ok {
+			acts = append(acts, arc.NewSetNodeInputsAction(
+				arc.SetNodeInputsPayload{Key: n.Key, Inputs: in},
+			))
+		}
+	}
+	for _, e := range next.Edges {
+		acts = append(acts, arc.NewAddEdgeAction(arc.AddEdgePayload{Edge: e}))
+	}
+	out, err := arc.Reduce(a, acts...)
+	if err != nil {
+		return nil, err
+	}
+	src, ok := out.Base().Source.Variant.(arc.GraphSource)
+	if !ok {
+		return nil, errGraphEdit
+	}
+	same, err := sameGraph(src, arcFile{Graph: &next})
+	if err != nil || !same {
+		return nil, errors.Combine(err, errGraphEdit)
+	}
+	return acts, nil
+}
+
+// sameProgram reports whether the Arc with id runs the same program in a and b: the
+// same source, mode, and graph. A rename or a move leaves the program the same.
+func sameProgram(a, b *tree, id resource.ID) (bool, error) {
+	if !bytes.Equal(a.raw[arcSource(a, id)], b.raw[arcSource(b, id)]) {
+		return false, nil
+	}
+	fa, err := decodeAs[arcFile](a, id)
+	if err != nil {
+		return false, err
+	}
+	fb, err := decodeAs[arcFile](b, id)
+	if err != nil {
+		return false, err
+	}
+	ga, err := encode(fa.Graph)
+	if err != nil {
+		return false, err
+	}
+	gb, err := encode(fb.Graph)
+	if err != nil {
+		return false, err
+	}
+	return fa.Mode == fb.Mode && bytes.Equal(ga, gb), nil
+}
+
+// arcSource returns the path of the source file of the Arc with id in t.
+func arcSource(t *tree, id resource.ID) string {
+	return strings.TrimSuffix(t.items[id].main(), jsonExt) + arcExt
 }
 
 func sameGraph(cur arc.GraphSource, f arcFile) (bool, error) {

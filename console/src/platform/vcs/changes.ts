@@ -11,22 +11,16 @@ import { type resource, type vcs } from "@synnaxlabs/client";
 
 import { idString } from "@/platform/vcs/resource";
 
-export interface Named {
-  id: resource.ID;
-  name: string;
-}
-
 /**
  * Returns the uncommitted changes of the given resources. A project also takes the
  * changes of everything inside it.
  */
-export const changesOf = (changes: vcs.Change[], resources: Named[]): vcs.Change[] => {
-  const ids = new Set(resources.map(({ id }) => idString(id)));
-  const prefixes = resources
-    .filter(({ id }) => id.type === "project")
-    .map(({ name }) => `projects/${name}/`);
+export const changesOf = (
+  changes: vcs.Change[],
+  resources: resource.ID[],
+): vcs.Change[] => {
+  const ids = new Set(resources.map(idString));
   return changes.filter(
-    ({ resource, path }) =>
-      ids.has(resource) || prefixes.some((prefix) => path.startsWith(prefix)),
+    ({ resource, project }) => ids.has(resource) || ids.has(project),
   );
 };

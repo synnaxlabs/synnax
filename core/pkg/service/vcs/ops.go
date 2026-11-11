@@ -431,6 +431,7 @@ func (s *Service) restartsOf(
 	live *tree,
 ) ([]PlanItem, error) {
 	items := make([]PlanItem, 0, len(steps))
+	from := make(map[resource.ID]*tree, len(steps))
 	for _, st := range steps {
 		if st.from == nil {
 			continue
@@ -438,13 +439,16 @@ func (s *Service) restartsOf(
 		if _, ok := live.items[st.id]; !ok {
 			continue
 		}
+		from[st.id] = st.from
 		items = append(items, PlanItem{
 			Resource: st.id.String(),
 			Type:     string(st.id.Type),
 			Kind:     PlanChange,
 		})
 	}
-	if err := s.markRunning(ctx, items); err != nil {
+	if err := s.markRunning(ctx, items, func(id resource.ID) (bool, error) {
+		return sameProgram(live, from[id], id)
+	}); err != nil {
 		return nil, err
 	}
 	return lo.Filter(items, func(it PlanItem, _ int) bool { return it.Restarts }), nil
@@ -454,19 +458,35 @@ func (s *Service) restartsOf(
 // names, through write, then tracks the configuration inv names. It undoes a Discard or
 // an Apply. It returns query.ErrNotFound when the configuration does not exist.
 func (s *Service) Write(ctx context.Context, inv Inverse, write Write) error {
-	t, err := treeOfFiles(inv.Files)
-	if err != nil {
-		return err
-	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if inv.Configuration != "" {
-		if err = validateName(inv.Configuration); err != nil {
+		if err := validateName(inv.Configuration); err != nil {
 			return err
 		}
-		if _, err = s.tip(inv.Configuration); err != nil {
+		if _, err := s.tip(inv.Configuration); err != nil {
 			return err
 		}
+	}
+	err := s.revert(ctx, inv, write)
+	if err != nil {
+		return err
+	}
+	if inv.Configuration != "" {
+		if err = s.track(inv.Configuration); err != nil {
+			return err
+		}
+	}
+	_, err = s.recompute(ctx)
+	return err
+}
+
+// revert puts the files of inv on the live configuration and removes the resources it
+// names, through write. The caller holds mu.
+func (s *Service) revert(ctx context.Context, inv Inverse, write Write) error {
+	t, err := treeOfFiles(inv.Files)
+	if err != nil {
+		return err
 	}
 	work, err := s.working(ctx)
 	if err != nil {
@@ -485,15 +505,7 @@ func (s *Service) Write(ctx context.Context, inv Inverse, write Write) error {
 			steps = append(steps, step{id: id})
 		}
 	}
-	if _, err = s.applySteps(ctx, steps, work, write); err != nil {
-		return err
-	}
-	if inv.Configuration != "" {
-		if err = s.track(inv.Configuration); err != nil {
-			return err
-		}
-	}
-	_, err = s.recompute(ctx)
+	_, err = s.applySteps(ctx, steps, work, write)
 	return err
 }
 

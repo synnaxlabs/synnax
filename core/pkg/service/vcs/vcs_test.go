@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
+	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
@@ -51,6 +52,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -239,6 +241,25 @@ var _ = Describe("VCS", func() {
 				}).Should(Succeed())
 			},
 		)
+
+		It("Should name the project that holds each change", func(ctx SpecContext) {
+			connect(ctx, "")
+			s := createSchematic(ctx, "Valves")
+			other := project.Project{Name: "Test Stand"}
+			tx(ctx, func(tx gorp.Tx) error {
+				return layer.Project.NewWriter(tx).Create(ctx, &other)
+			})
+			Eventually(func(g Gomega) {
+				projects := map[string]string{}
+				for _, c := range MustSucceed(svc.Status(ctx)).Changes {
+					projects[c.Resource] = c.Project
+				}
+				g.Expect(projects).To(Equal(map[string]string{
+					s.ResourceID().String():     proj.ResourceID().String(),
+					other.ResourceID().String(): other.ResourceID().String(),
+				}))
+			}).Should(Succeed())
+		})
 
 		It("Should change the digest of a change on each edit", func(ctx SpecContext) {
 			s := createSchematic(ctx, "A")
@@ -555,6 +576,43 @@ var _ = Describe("VCS", func() {
 		})
 	})
 
+	Describe("Graph Arc", func() {
+		It("Should discard an edit to the graph of an Arc", func(ctx SpecContext) {
+			flow := arc.Arc{Variant: arc.AutomationArc{Base: arc.Base{
+				Name: "Flow",
+				Source: arc.Source{Variant: arc.GraphSource{Graph: graph.Graph{
+					Nodes: graph.Nodes{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
+				}}},
+			}}}
+			tx(ctx, func(tx gorp.Tx) error {
+				return layer.Arc.NewWriter(tx).Create(ctx, &flow)
+			})
+			connect(ctx, "")
+			key := flow.Base().Key
+			tx(ctx, func(tx gorp.Tx) error {
+				return layer.Arc.NewWriter(tx).Apply(ctx, key, arc.NewSetNodeAction(
+					arc.SetNodePayload{
+						Node: graph.Node{Key: "n2", Position: spatial.XY{X: 5, Y: 5}},
+					},
+				))
+			})
+			Eventually(func(g Gomega) {
+				g.Expect(MustSucceed(svc.Status(ctx)).Changes).To(HaveLen(1))
+			}).Should(Succeed())
+			MustSucceed(svc.Discard(ctx, nil, svc.DefaultWrite))
+			var got arc.Arc
+			Expect(layer.Arc.NewRetrieve().
+				Where(arc.MatchKeys(key)).
+				Entry(&got).
+				Exec(ctx, db)).To(Succeed())
+			src := got.Base().Source.Variant.(arc.GraphSource)
+			Expect(src.Graph.Nodes).To(Equal(
+				graph.Nodes{{Key: "n1", Position: spatial.XY{X: 1, Y: 2}}},
+			))
+			Expect(MustSucceed(svc.Status(ctx)).Changes).To(BeEmpty())
+		})
+	})
+
 	Describe("Restore", func() {
 		It("Should restore a resource in place, with its key", func(ctx SpecContext) {
 			s := createSchematic(ctx, "Valves")
@@ -664,6 +722,38 @@ var _ = Describe("VCS", func() {
 				MustSucceed(
 					remote.Reference(plumbing.NewTagReferenceName(snap.Tag), true),
 				)
+			},
+		)
+
+		It(
+			"Should refuse a pull whose commits moved after the plan",
+			func(ctx SpecContext) {
+				createSchematic(ctx, "Valves")
+				createSchematic(ctx, "Pumps")
+				connect(ctx, remoteURL)
+				rename := func(from, to string) {
+					GinkgoHelper()
+					pushFromElsewhere(
+						"projects/Test Stand/"+from+".schematic.json",
+						"projects/Test Stand/"+to+".schematic.json",
+						func(b []byte) []byte {
+							return bytes.Replace(
+								b,
+								[]byte(`"`+from+`"`),
+								[]byte(`"`+to+`"`),
+								1,
+							)
+						},
+					)
+				}
+				rename("Valves", "Remote")
+				st := MustSucceed(svc.Fetch(ctx))
+				plan := MustSucceed(svc.Plan(ctx, vcs.Target{Kind: vcs.TargetPull}))
+				Expect(plan.Target.Commit).To(Equal(st.Incoming[0].Hash))
+				rename("Pumps", "Remote pumps")
+				MustSucceed(svc.Fetch(ctx))
+				Expect(svc.Apply(ctx, plan.Target, nil, svc.DefaultWrite)).
+					Error().To(MatchError(vcs.ErrMoved))
 			},
 		)
 

@@ -51,7 +51,7 @@ func (s *Service) Plan(ctx context.Context, target Target) (Plan, error) {
 // configuration to the remote, replays the commits that wait for a push, and pushes
 // them. A load tracks the loaded configuration, and its undo tracks the previous one
 // again. A restore leaves its changes uncommitted. It returns ErrUnresolvedConflict
-// when a conflict has no choice.
+// when a conflict has no choice, and ErrMoved when the target moved since the plan.
 func (s *Service) Apply(
 	ctx context.Context,
 	target Target,
@@ -103,7 +103,8 @@ func (s *Service) Apply(
 	}
 	if p.finish != nil {
 		if err = p.finish(ctx, incoming); err != nil {
-			return Inverse{}, err
+			// The repository did not follow the live configuration, so it goes back.
+			return Inverse{}, errors.Combine(err, s.revert(ctx, inv, write))
 		}
 	}
 	_, err = s.recompute(ctx)
@@ -141,7 +142,9 @@ func (s *Service) resolve(ctx context.Context, target Target) (*planned, error) 
 		return nil, err
 	}
 	sortItems(p.plan.Items)
-	return p, s.markRunning(ctx, p.plan.Items)
+	return p, s.markRunning(ctx, p.plan.Items, func(id resource.ID) (bool, error) {
+		return sameProgram(p.live, p.steps[id].from, id)
+	})
 }
 
 // add puts the item that moves the resource with id from live to dest in p. It adds
@@ -169,6 +172,16 @@ func (p *planned) add(id resource.ID, dest *tree, conflict bool) {
 	p.steps[id] = st
 }
 
+// pin sets the commit of the target to h, or returns ErrMoved when the target names
+// another commit.
+func (p *planned) pin(h plumbing.Hash) error {
+	if c := p.plan.Target.Commit; c != "" && c != h.String() {
+		return ErrMoved
+	}
+	p.plan.Target.Commit = h.String()
+	return nil
+}
+
 func sortItems(items []PlanItem) {
 	slices.SortFunc(items, func(a, b PlanItem) int {
 		return cmpStrings(a.Type, b.Type, a.Name, b.Name, a.Resource, b.Resource)
@@ -179,6 +192,9 @@ func (s *Service) resolvePull(p *planned) error {
 	conf := s.conn.Configuration
 	origin, ok, err := s.repo.ref(remoteRef(conf))
 	if err != nil || !ok {
+		return err
+	}
+	if err = p.pin(origin); err != nil {
 		return err
 	}
 	head, _, err := s.head()
@@ -308,6 +324,9 @@ func (s *Service) resolveLoad(p *planned) error {
 	if err != nil {
 		return err
 	}
+	if err = p.pin(tip); err != nil {
+		return err
+	}
 	dest, err := s.repo.readTree(tip)
 	if err != nil {
 		return err
@@ -343,8 +362,13 @@ func (s *Service) resolveLoad(p *planned) error {
 }
 
 // markRunning sets Running and Restarts on each task and Arc item. A running task
-// restarts when the plan changes it.
-func (s *Service) markRunning(ctx context.Context, items []PlanItem) error {
+// restarts when the plan changes it, and a running Arc when same reports that its
+// program changed.
+func (s *Service) markRunning(
+	ctx context.Context,
+	items []PlanItem,
+	same func(id resource.ID) (bool, error),
+) error {
 	for i := range items {
 		it := &items[i]
 		if it.Kind == PlanCreate {
@@ -377,6 +401,13 @@ func (s *Service) markRunning(ctx context.Context, items []PlanItem) error {
 		}
 		it.Running = len(running) > 0
 		it.Restarts = it.Running && it.Kind == PlanChange
+		if it.Restarts && id.Type == resource.TypeArc {
+			unchanged, err := same(id)
+			if err != nil {
+				return err
+			}
+			it.Restarts = !unchanged
+		}
 	}
 	return nil
 }
