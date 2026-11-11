@@ -732,7 +732,7 @@ TEST_F(EngineTest, UnmappedEntryIsRejected) {
         x::telem::Rate(100),
         1
     );
-    ASSERT_OCCURRED_AS(res.second, errors::PDO_MAPPING_ERROR);
+    ASSERT_OCCURRED_AS(res.second, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(res.second.data, "PDO 0x9999:01 is not in the process image of slave 0.");
     EXPECT_FALSE(this->engine->running());
 }
@@ -777,6 +777,38 @@ TEST_F(EngineTest, DisabledSlaveIsNotMapped) {
         this->engine->open_reader({on_slave(IN_I16, 1)}, x::telem::Rate(100), 1),
         errors::PDO_MAPPING_ERROR
     );
+}
+
+/// @brief it should tell the user to restart every task on the network when the running
+/// bus does not map an entry.
+TEST_F(EngineTest, EntryOffTheRunningImageAsksForARestartOfTheTasks) {
+    this->master->set_name("Ethernet 2");
+    this->master->add_slave(io_slave(1));
+    const auto disabled = std::make_shared<std::atomic<bool>>(true);
+    Config cfg;
+    cfg.slave_configs = [disabled] {
+        std::map<uint16_t, slave::Config> configs;
+        if (disabled->load()) configs[1] = {.enabled = false};
+        return std::pair{configs, x::errors::NIL};
+    };
+    this->engine = std::make_shared<Engine>(NPF_INTERFACE, this->master, cfg);
+    const auto reader = ASSERT_NIL_P(
+        this->engine->open_reader({IN_I16}, x::telem::Rate(100), 1)
+    );
+    disabled->store(false);
+    const auto [late, err] = this->engine->open_reader(
+        {on_slave(IN_I16, 1)},
+        x::telem::Rate(100),
+        1
+    );
+    ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
+    EXPECT_EQ(
+        err.data,
+        "PDO 0x6000:01 is not in the process image of slave 1. The process image does "
+        "not change while the network runs. Stop every task on Ethernet 2, then start "
+        "them again."
+    );
+    EXPECT_TRUE(this->engine->running());
 }
 
 /// @brief it should read the slave settings again each time the bus starts.

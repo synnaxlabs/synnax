@@ -38,6 +38,8 @@ const x::errors::Error PERMISSION_DENIED = INTERFACE_ERROR.sub("permission_denie
 const x::errors::Error SLAVE_CONFIG_ERROR = BASE_ERROR.sub("slave_config");
 /// @brief error returned when PDO mapping is invalid or fails.
 const x::errors::Error PDO_MAPPING_ERROR = BASE_ERROR.sub("pdo_mapping");
+/// @brief error returned when the process image does not hold a PDO entry.
+const x::errors::Error PDO_NOT_MAPPED = PDO_MAPPING_ERROR.sub("not_mapped");
 /// @brief error returned when master activation fails.
 const x::errors::Error ACTIVATION_ERROR = BASE_ERROR.sub("activation");
 /// @brief error returned when a slave rejects a startup parameter.

@@ -220,7 +220,7 @@ TEST(FindOffset, ReturnsMappingErrorForMissingEntry) {
     Offsets offsets;
     Entry entry{.slave_position = 1, .index = 0x6000, .sub_index = 1, .is_input = true};
     const auto err = find_offset(offsets, entry).second;
-    ASSERT_OCCURRED_AS(err, errors::PDO_MAPPING_ERROR);
+    ASSERT_OCCURRED_AS(err, errors::PDO_NOT_MAPPED);
     EXPECT_EQ(err.data, "PDO 0x6000:01 is not in the process image of slave 1.");
 }
 

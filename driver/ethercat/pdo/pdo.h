@@ -134,8 +134,8 @@ struct Properties {
 };
 
 /// @brief looks up the offset for a PDO entry in a precomputed offset map. Returns
-/// errors::PDO_MAPPING_ERROR when the map does not hold the entry or maps it with
-/// another bit length.
+/// errors::PDO_NOT_MAPPED when the map does not hold the entry, and
+/// errors::PDO_MAPPING_ERROR when it maps the entry with another bit length.
 inline std::pair<Offset, x::errors::Error>
 find_offset(const Offsets &offsets, const Entry &entry) {
     const Key key{entry.slave_position, entry.index, entry.sub_index, entry.is_input};
@@ -159,7 +159,7 @@ find_offset(const Offsets &offsets, const Entry &entry) {
     return {
         {},
         x::errors::Error(
-            errors::PDO_MAPPING_ERROR,
+            errors::PDO_NOT_MAPPED,
             std::format(
                 "PDO {} is not in the process image of slave {}.",
                 telem::format_index_sub_index(entry.index, entry.sub_index),
