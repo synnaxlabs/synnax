@@ -181,4 +181,12 @@ var _ = Describe("CompileCall", func() {
 			To(Equal(types.TimeStamp()))
 		Expect(FinalizeContext(ctx)).To(MatchOpcodes(OpCall, uint32(0)))
 	})
+
+	DescribeTable(
+		"Should reject a call on a value that is not a function name",
+		expectCompileError,
+		Entry("a literal", "2(3)", "only a function name can be called"),
+		Entry("an indexed value", "s[0](2)", "only a function name can be called"),
+		Entry("a parenthesized value", "(s)(2)", "only a function name can be called"),
+	)
 })

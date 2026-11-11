@@ -376,10 +376,28 @@ var _ = Describe("Type Inference", func() {
 				Expect(t.Kind).To(Equal(types.KindF64))
 			})
 
-			It("should handle series indexing", func(bCtx SpecContext) {
-				t := inferExprType(bCtx, testResolver, "data_series[0]")
-				Expect(t.Kind).To(Equal(types.KindI64))
-			})
+			DescribeTable(
+				"should apply each operation after the primary in order",
+				func(bCtx SpecContext, expr string, expected types.Type) {
+					testResolver = append(testResolver, symbol.Symbol{
+						Name: "series_func",
+						Kind: symbol.KindVariable,
+						Type: types.Function(types.FunctionProperties{
+							Outputs: types.Params{{Type: types.Series(types.I32())}},
+						}),
+					})
+					Expect(inferExprType(bCtx, testResolver, expr)).To(Equal(expected))
+				},
+				Entry("an index", "data_series[0]", types.I64()),
+				Entry("a slice", "data_series[1:]", types.Series(types.I64())),
+				Entry("an index after a call", "series_func()[0]", types.I32()),
+				Entry(
+					"a slice after a call",
+					"series_func()[1:]",
+					types.Series(types.I32()),
+				),
+				Entry("an index after a slice", "series_func()[1:][0]", types.I32()),
+			)
 
 			It("should handle function with no return type", func(bCtx SpecContext) {
 				testResolver = append(testResolver, symbol.Symbol{

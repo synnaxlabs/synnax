@@ -736,6 +736,96 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Decode", func() {
+		var (
+			decoding  *config.Service[arctask.Config]
+			reconcile func(context.Context, gorp.Tx, *arctask.Config) error
+		)
+		BeforeEach(func(ctx SpecContext) {
+			reconcile = func(context.Context, gorp.Tx, *arctask.Config) error {
+				Fail("ran the reconcile hook in Decode")
+				return nil
+			}
+			decoding = MustOpen(config.OpenService(
+				ctx,
+				config.ServiceConfig[arctask.Config]{
+					DB:                 DeferClose(gorp.Wrap(memkv.New())),
+					Type:               "decode_test",
+					Ladder:             arcversions.ConfigLadder,
+					LegacyVersion:      1,
+					SetEntryKey:        (*arctask.Config).SetKey,
+					PatchEntry:         (*arctask.Config).Patch,
+					HashEntry:          (*arctask.Config).HashContent,
+					ApplyEntryDefaults: (*arctask.Config).ApplyDefaults,
+					ReconcileEntry: func(
+						ctx context.Context,
+						tx gorp.Tx,
+						c *arctask.Config,
+					) error {
+						return reconcile(ctx, tx, c)
+					},
+					Legacy: &legacy.Rewrite{
+						Post: func(cfg msgpack.EncodedJSON) {
+							legacy.RenameKey(cfg, "module", "arc_key")
+						},
+						Validate: func(cfg msgpack.EncodedJSON) error {
+							if _, ok := cfg["broken"]; ok {
+								return errors.New("broken legacy config")
+							}
+							return nil
+						},
+					},
+				},
+			))
+		})
+
+		It("Should defer reconciliation to Normalize", func(ctx SpecContext) {
+			arcKey := uuid.New()
+			decoded := MustSucceed(decoding.Decode(ctx, 0, msgpack.EncodedJSON{
+				"module": arcKey.String(),
+			}))
+			reconcile = func(_ context.Context, _ gorp.Tx, c *arctask.Config) error {
+				c.Performance = arctask.PerformanceHigh
+				return nil
+			}
+			out := MustSucceed(decoded.Normalize(ctx, db))
+			Expect(out).To(HaveKeyWithValue("arc_key", arcKey.String()))
+			Expect(out).To(HaveKeyWithValue("performance", "high"))
+		})
+
+		It("Should reject a version above the ladder's latest", func(ctx SpecContext) {
+			Expect(decoding.Decode(
+				ctx, arcversions.Latest+1, msgpack.EncodedJSON{},
+			)).Error().To(MatchError(ContainSubstring(fmt.Sprintf(
+				"decode_test version %d is newer than this Core supports",
+				arcversions.Latest+1,
+			))))
+		})
+
+		It("Should reject a legacy config the rewrite does not accept", func(
+			ctx SpecContext,
+		) {
+			Expect(decoding.Decode(ctx, 0, msgpack.EncodedJSON{"broken": true})).
+				Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(
+					"decoding decode_test config: broken legacy config",
+				)),
+			))
+		})
+
+		It("Should reject data that does not decode at its version", func(
+			ctx SpecContext,
+		) {
+			Expect(decoding.Decode(
+				ctx, arcversions.Latest, msgpack.EncodedJSON{"arc_key": 12},
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("decoding decode_test config")),
+			))
+		})
+	})
+
 	Describe("Version", func() {
 		It("Should report the ladder's latest version", func() {
 			Expect(svc.Version()).To(Equal(arcversions.Latest))

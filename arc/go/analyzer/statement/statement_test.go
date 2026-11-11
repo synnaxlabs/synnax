@@ -3232,6 +3232,17 @@ var _ = Describe("Statement", func() {
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("range()"))
 			})
 
+			It("should reject an index after range", func(bCtx SpecContext) {
+				stmt := MustSucceed(
+					parser.ParseStatement(`for i := range(10)[1:] { x := i }`),
+				)
+				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
+				statement.Analyze(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).
+					To(Equal("undefined symbol: range"))
+			})
+
 			It("should reject range with float arguments", func(bCtx SpecContext) {
 				stmt := MustSucceed(
 					parser.ParseStatement(`for i := range(f64(3.14)) { x := i }`),

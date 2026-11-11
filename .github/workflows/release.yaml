@@ -10,10 +10,10 @@
 name: Release
 
 run-name:
-  ${{ format('Release{0}{1}{2}{3}{4} {5}{6}', inputs.console && ' Console' || '',
+  ${{ format('Release{0}{1}{2}{3}{4}{5} from {6}', inputs.console && ' Console' || '',
   inputs.driver && ' Driver' || '', inputs.core && ' Core' || '', inputs.typescript && '
-  TypeScript' || '', inputs.python && ' Python' || '', inputs.bump, inputs.prerelease &&
-  ' candidate' || '') }}
+  TypeScript' || '', inputs.python && ' Python' || '', inputs.prerelease && ' candidate'
+  || '', github.ref_name) }}
 
 on:
   workflow_dispatch:
@@ -31,20 +31,13 @@ on:
         type: boolean
         default: true
       typescript:
-        description: Publish the npm packages at the next ts/v* patch on the train
+        description: Publish the npm packages (from main, only with the Core)
         type: boolean
         default: true
       python:
-        description: Publish the PyPI packages at the next py/v* patch on the train
+        description: Publish the PyPI packages (from main, only with the Core)
         type: boolean
         default: true
-      bump:
-        description: Version bump for every selected product
-        type: choice
-        options:
-          - patch
-          - minor
-        default: patch
       prerelease:
         description: Tag release candidates (-rc.N)
         type: boolean
@@ -158,14 +151,6 @@ jobs:
           echo "no product selected; a candidate run never publishes packages" >&2
           exit 1
 
-      - name: Require a release branch for packages
-        if: >-
-          (inputs.typescript || inputs.python) && !inputs.prerelease && github.ref !=
-          'refs/heads/main' && !startsWith(github.ref, 'refs/heads/release/')
-        run: |
-          echo "packages publish only from main or a release/ branch" >&2
-          exit 1
-
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -177,8 +162,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: console
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Driver version
         id: driver
@@ -186,8 +171,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: driver
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
+          ref: ${{ github.ref_name }}
 
       - name: Resolve Core version
         id: core
@@ -195,40 +180,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: core
-          bump: ${{ inputs.bump }}
           prerelease: ${{ inputs.prerelease }}
-
-      # Packages publish on the Core's train, so every client works with a released
-      # Core: the minor this run releases for the Core, else the release branch's
-      # minor, else the newest Core minor reachable from here.
-      - name: Resolve package train
-        id: train
-        if: (inputs.typescript || inputs.python) && !inputs.prerelease
-        env:
-          CORE: ${{ steps.core.outputs.minor }}
-          REF: ${{ github.ref_name }}
-        run: |
-          minors() {
-            sed -nE 's#^core/v([0-9]+\.[0-9]+)\.[0-9]+$#\1#p' | sort -t. -k1,1n -k2,2n
-          }
-          train=$CORE
-          branch='^release/(console|core|driver)-([0-9]+\.[0-9]+)$'
-          if [ -z "$train" ] && [[ $REF =~ $branch ]]; then
-            train=${BASH_REMATCH[2]}
-          fi
-          if [ -z "$train" ]; then
-            train=$(git tag --list --merged HEAD 'core/v*' | minors | tail -n 1)
-          fi
-          if [ -z "$train" ]; then
-            echo "no core tag is reachable, so the package train is unknown" >&2
-            exit 1
-          fi
-          released=$(git tag --list "core/v$train.*" | minors)
-          if [ -z "$CORE" ] && [ -z "$released" ]; then
-            echo "no Core is released on $train, so no client may publish on it" >&2
-            exit 1
-          fi
-          echo "minor=$train" >> "$GITHUB_OUTPUT"
+          ref: ${{ github.ref_name }}
 
       - name: Resolve TypeScript version
         id: ts
@@ -236,8 +189,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: ts
-          bump: patch
-          train: ${{ steps.train.outputs.minor }}
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
 
       - name: Resolve Python version
         id: py
@@ -245,8 +198,8 @@ jobs:
         uses: ./.github/actions/resolve-version
         with:
           product: py
-          bump: patch
-          train: ${{ steps.train.outputs.minor }}
+          ref: ${{ github.ref_name }}
+          core: ${{ steps.core.outputs.version }}
 
       # The train rule: the Core embeds only releases on its own minor. Default to the
       # product this run releases, else the newest on the minor.
@@ -286,10 +239,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -366,10 +322,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
@@ -648,10 +607,13 @@ jobs:
     permissions:
       actions: read
       contents: write
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
 
       - name: Draft release
         uses: ./.github/actions/draft-release
