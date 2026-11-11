@@ -98,12 +98,12 @@ class TestCertificate:
             certificate.FileCertificate(
                 name="On disk",
                 certificate_path="/etc/synnax/client.crt",
-                private_key_path="/etc/synnax/client.key",
+                private_key_file="client.key",
             )
         )
         assert isinstance(c, certificate.FileCertificate)
         assert c.certificate_path == "/etc/synnax/client.crt"
-        assert c.private_key_path == "/etc/synnax/client.key"
+        assert c.private_key_file == "client.key"
 
     def test_retrieve(self, client: sy.Synnax) -> None:
         """Should retrieve a certificate by key."""
