@@ -377,6 +377,7 @@ var _ = Describe("Service", func() {
 			s := e.expiry(ctx, c.Base().Key)
 			Expect(s.Variant).To(Equal(status.VariantSuccess))
 			Expect(s.Message).To(Equal("Certificate valid"))
+			Expect(s.Description).To(Equal("The certificate does not expire."))
 		})
 		It(
 			"Should update the status on each check after it changes",
