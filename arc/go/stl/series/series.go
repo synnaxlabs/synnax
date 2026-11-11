@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -224,11 +225,10 @@ func NewHost(
 				return 0
 			}
 			density := int(ser.DataType.Density())
-			sliced := telem.Series{
+			return s.Store(telem.Series{
 				DataType: ser.DataType,
-				Data:     ser.Data[startIdx*density : endIdx*density],
-			}
-			return s.StoreView(sliced)
+				Data:     slices.Clone(ser.Data[startIdx*density : endIdx*density]),
+			})
 		}).Export("slice")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint32 {

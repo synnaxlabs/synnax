@@ -52,6 +52,15 @@ func slice_values() {
     slice_before_series_out = f64(len(s10))
     s11 := n[-1:-3]
     slice_crossed_out = f64(len(s11))
+
+    // ──── slice copy ────
+    parent := [1.0, 2.0, 3.0, 4.0]
+    part := parent[1:3]
+    part[0] = 9.0
+    slice_copy_part_out = part[0]
+    slice_copy_parent_out = parent[1]
+    parent[2] = 7.0
+    slice_copy_after_out = part[1]
 }
 
 start_series_slice_cmd -> slice_values()
@@ -81,12 +90,14 @@ BOUNDS = [
     Bound("slice_crossed_out", "len(n[-1:-3])", 0),
 ]
 
-OUTPUTS = TYPE_OUTPUTS + [b.channel for b in BOUNDS]
+COPY_OUTPUTS = ["slice_copy_part_out", "slice_copy_parent_out", "slice_copy_after_out"]
+
+OUTPUTS = TYPE_OUTPUTS + [b.channel for b in BOUNDS] + COPY_OUTPUTS
 
 
 class SeriesSlice(ArcCase):
-    """Test that a slice of a series is a series, and that its bounds count from the
-    end when negative and stop at the ends of the series."""
+    """Test that a slice of a series is a series with its own data, and that its bounds
+    count from the end when negative and stop at the ends of the series."""
 
     arc_source = ARC_SERIES_SLICE_SOURCE
     arc_name_prefix = "ArcSeriesSlice"
@@ -102,6 +113,7 @@ class SeriesSlice(ArcCase):
     def verify_sequence_execution(self) -> None:
         self._verify_slice_type()
         self._verify_slice_bounds()
+        self._verify_slice_copy()
 
     def _verify_slice_type(self) -> None:
         self.log("[untyped] Waiting for sub[0] == 2.5")
@@ -117,3 +129,13 @@ class SeriesSlice(ArcCase):
         for bound in BOUNDS:
             self.log(f"[{bound.expr}] Waiting for {bound.expected}")
             self.wait_for_eq(bound.channel, bound.expected)
+
+    def _verify_slice_copy(self) -> None:
+        self.log("[write to slice] Waiting for part[0] == 9.0")
+        self.wait_for_eq("slice_copy_part_out", 9.0)
+
+        self.log("[write to slice] Waiting for parent[1] == 2.0")
+        self.wait_for_eq("slice_copy_parent_out", 2.0)
+
+        self.log("[write to parent] Waiting for part[1] == 3.0")
+        self.wait_for_eq("slice_copy_after_out", 3.0)

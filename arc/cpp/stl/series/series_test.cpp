@@ -1445,6 +1445,40 @@ TEST(SeriesModule, SliceStartPastLengthGivesNoSeries) {
     EXPECT_TRUE(slice_of_four(f, 4, INT32_MAX).empty());
 }
 
+/// @brief it should give a slice its own data.
+TEST(SeriesModule, SliceHasItsOwnData) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h_r = f.get("create_empty_i32")
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
+                   .unwrap();
+    auto h = h_r[0].i32();
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h),
+                           wasmtime::Val(int32_t{1}),
+                           wasmtime::Val(int32_t{3})}
+                      )
+                      .unwrap();
+    auto sliced = result[0].i32();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(sliced),
+             wasmtime::Val(int32_t{0}),
+             wasmtime::Val(int32_t{9})}
+        )
+        .unwrap();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{2}), wasmtime::Val(int32_t{7})}
+        )
+        .unwrap();
+    EXPECT_EQ(f.state->get(h)->at<int32_t>(1), 0);
+    EXPECT_EQ(f.state->get(sliced)->at<int32_t>(1), 0);
+}
+
 TEST(SeriesModule, SliceStartGEEndReturnsZero) {
     Fixture f{std::string(MISC_WAT)};
     auto h_r = f.get("create_empty_i32")

@@ -1272,17 +1272,59 @@ var _ = Describe("Series", func() {
 	})
 
 	Describe("slice", func() {
-		It("Should slice a large series 100,000 times", func(ctx SpecContext) {
+		It("Should count the data of a slice toward MaxBytes", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_f64", testutil.U32(1<<17))
-			for range 100_000 {
-				callU32(
-					ctx,
-					"slice",
-					testutil.U32(h),
-					testutil.U32(0),
-					testutil.U32(1<<17),
-				)
-			}
+			Expect(func() {
+				for range series.MaxBytes >> 20 {
+					callU32(
+						ctx,
+						"slice",
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.U32(1<<17),
+					)
+				}
+			}).To(PanicWith(ContainSubstring(series.ErrLimit.Error())))
+		})
+
+		It("Should keep the parent on a write to a slice", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(rh),
+				testutil.U32(0),
+				testutil.U32(9),
+			)
+			parent := MustBeOk(ss.Get(h))
+			Expect(parent.ValueAt[int32](1)).To(BeZero())
+		})
+
+		It("Should keep a slice on a write to its parent", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(2),
+				testutil.U32(7),
+			)
+			sliced := MustBeOk(ss.Get(rh))
+			Expect(sliced.ValueAt[int32](1)).To(BeZero())
 		})
 
 		It("Should extract a subrange", func(ctx SpecContext) {
