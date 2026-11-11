@@ -232,9 +232,8 @@ describe("View", () => {
     const input = await openCreateModal();
     expect(input.value).toBe("");
     fireEvent.click(screen.getByLabelText("Change icon"));
-    await act(async () => {
-      fireEvent.click(await screen.findByLabelText("Valve"));
-    });
+    const valve = await screen.findByLabelText("Valve");
+    await act(async () => fireEvent.click(valve));
     const name = uniqueName("created");
     fireEvent.change(input, { target: { value: name } });
     fireEvent.click(getCreateButton());
