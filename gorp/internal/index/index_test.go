@@ -364,6 +364,8 @@ var _ = Describe("Index", func() {
 				func(lower, upper *index.Bound[int], expected []int) {
 					Expect(s.Range(nil, lower, upper)).To(ConsistOf(expected))
 					Expect(s.Count(lower, upper)).To(Equal(len(expected)))
+					Expect(s.Keep(nil, []int{6, 5, 4, 3, 2, 1}, lower, upper)).
+						To(ConsistOf(expected))
 				},
 				Entry("an inclusive range", bound(20, false), bound(40, false),
 					[]int{2, 3, 4}),
@@ -396,6 +398,8 @@ var _ = Describe("Index", func() {
 				s.StageDelete(txn, 3)
 				Expect(s.Range(txn, bound(20, false), nil)).To(ConsistOf(1, 2, 4, 5, 6))
 				Expect(s.Range(nil, bound(20, false), nil)).To(ConsistOf(2, 3, 4, 5))
+				Expect(s.Keep(txn, []int{1, 2, 3, 6, 7}, bound(20, false), nil)).
+					To(ConsistOf(1, 2, 6))
 			})
 
 			It("Should return the keys of a scope in its commit", func() {
@@ -407,6 +411,8 @@ var _ = Describe("Index", func() {
 				txn.committing = true
 				Expect(s.CommittingRange(bound(30, false), bound(40, false))).
 					To(ConsistOf(1))
+				Expect(s.Keep(nil, []int{1, 2, 3}, bound(30, false), bound(40, false))).
+					To(ConsistOf(1, 3))
 			})
 
 			It("Should return the load error", func() {

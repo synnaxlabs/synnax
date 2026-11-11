@@ -338,13 +338,23 @@ func (s *SortedIndex[K, E, V]) FilterRange(lower, upper *Bound[V]) Filter[K, E] 
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return index.InRange(s.extract(e), lower, upper), nil
 		},
-		span: func(ctx context.Context) (int, error) {
-			if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
-				return math.MaxInt, nil
-			} else if err != nil {
-				return 0, err
-			}
-			return s.store.Count(lower, upper), nil
+		span: &span[K]{
+			count: func(ctx context.Context) (int, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return math.MaxInt, nil
+				} else if err != nil {
+					return 0, err
+				}
+				return s.store.Count(lower, upper), nil
+			},
+			keep: func(ctx context.Context, snap Snapshot, keys []K) ([]K, error) {
+				if err := s.store.Wait(ctx); errors.Is(err, ErrIndexInvalid) {
+					return keys, nil
+				} else if err != nil {
+					return nil, err
+				}
+				return s.store.Keep(scopeOf(snap), keys, lower, upper), nil
+			},
 		},
 	}
 }

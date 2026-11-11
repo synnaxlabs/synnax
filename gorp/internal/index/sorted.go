@@ -220,6 +220,34 @@ func (s *Sorted[S, K, V]) Count(lower, upper *Bound[V]) int {
 	return hi - lo
 }
 
+// Keep returns each key of keys that Range or CommittingRange would return, in
+// O(len(keys)). It blocks until the bulk load finishes. The caller owns the returned
+// slice.
+func (s *Sorted[S, K, V]) Keep(scope S, keys []K, lower, upper *Bound[V]) []K {
+	committing := set.New(s.CommittingRange(lower, upper)...)
+	<-s.population.done
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	var state map[K]staged[V]
+	if d, ok := s.overlay.get(scope); ok {
+		state = d.state
+	}
+	kept := make([]K, 0, len(keys))
+	for _, k := range keys {
+		v, ok := s.reverse[k]
+		if st, in := state[k]; in {
+			ok = !st.deleted
+			if ok {
+				v = st.values[0]
+			}
+		}
+		if (ok && InRange(v, lower, upper)) || committing.Contains(k) {
+			kept = append(kept, k)
+		}
+	}
+	return kept
+}
+
 // Len returns the number of committed entries. It blocks until the bulk load finishes.
 func (s *Sorted[S, K, V]) Len() int {
 	<-s.population.done

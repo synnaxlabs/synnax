@@ -47,10 +47,18 @@ type Filter[K Key, E Entry[K]] struct {
 	// resolver-backed so the per-call eval can close over the
 	// materialized child without sharing mutable state across Execs.
 	resolve resolveFilter[K, E]
-	// span, if non-nil, estimates the number of keys resolve returns. A filter with a
-	// span has an eval that checks the same condition as its keys, so And can skip its
-	// resolve.
-	span func(ctx context.Context) (int, error)
+	// span, if non-nil, marks a filter whose keys are one range of a sorted index and
+	// whose eval checks the same range.
+	span *span[K]
+}
+
+// span reads one range of a sorted index.
+type span[K Key] struct {
+	// count returns the number of committed keys in the range.
+	count func(ctx context.Context) (int, error)
+	// keep returns each key of keys that lies in the range, with the changes of snap
+	// applied.
+	keep func(ctx context.Context, snap Snapshot, keys []K) ([]K, error)
 }
 
 // evalFunc is the signature of Filter.eval. Kept as a named alias so
@@ -192,8 +200,8 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 }
 
 // narrowSpans returns filters with the resolve of every child that has a span dropped,
-// except the child with the smallest span. The dropped children still check each entry
-// through their eval.
+// except the child with the smallest span. That child keeps only the keys that every
+// other span also holds.
 func narrowSpans[K Key, E Entry[K]](
 	ctx context.Context,
 	filters []Filter[K, E],
@@ -203,7 +211,7 @@ func narrowSpans[K Key, E Entry[K]](
 		if child.span == nil {
 			continue
 		}
-		n, err := child.span(ctx)
+		n, err := child.span.count(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -216,10 +224,29 @@ func narrowSpans[K Key, E Entry[K]](
 		return filters, nil
 	}
 	out := slices.Clone(filters)
+	others := make([]*span[K], 0, spanned-1)
 	for i := range out {
 		if out[i].span != nil && i != narrowest {
+			others = append(others, out[i].span)
 			out[i].resolve, out[i].span = nil, nil
 		}
+	}
+	resolve := out[narrowest].resolve
+	out[narrowest].resolve = func(
+		ctx context.Context,
+		snap Snapshot,
+	) (resolved[K, E], error) {
+		res, err := resolve(ctx, snap)
+		if err != nil || !res.keys.Bounded() {
+			return res, err
+		}
+		keys := res.keys.Keys()
+		for _, other := range others {
+			if keys, err = other.keep(ctx, snap, keys); err != nil {
+				return resolved[K, E]{}, err
+			}
+		}
+		return resolved[K, E]{keys: keyset.Hashed(keys)}, nil
 	}
 	return out, nil
 }
