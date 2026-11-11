@@ -827,7 +827,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
     });
 
-    it("should hide the settings of a card that DewesoftX sets up", async () => {
+    it("should hide the settings and startup parameters of a card that DewesoftX sets up", async () => {
       await setup({
         settings: createDewesoftXSettings(true, 2),
         inputs: [STRAIN_ENTRY],
@@ -837,6 +837,7 @@ describe("EtherCAT.Device.HARDWARE.Configure", () => {
         screen.getByText("Synnax reads its data, but cannot change its settings."),
       ).toBeTruthy();
       expect(screen.queryByRole("button", { name: "Sample rate" })).toBeNull();
+      expect(screen.queryByText("Startup parameters")).toBeNull();
       expect(findButton("Switch to Synnax")).toBeTruthy();
     });
 

@@ -307,9 +307,13 @@ export const Configure = ({
     Form.useFieldValue(OP_MODE_PATH, { ctx: form, optional: true }) ?? null;
   const setChoice = (next: OpModeChoice | null) =>
     form.set(OP_MODE_PATH, next ?? undefined);
-  const given =
-    Form.useFieldValue(path.properties.settings, { ctx: form, optional: true })?.mode
-      ?.opMode ?? null;
+  const settings = Form.useFieldValue(path.properties.settings, {
+    ctx: form,
+    optional: true,
+  });
+  const given = settings?.mode?.opMode ?? null;
+  // The Driver writes no startup parameters to a slave that other software sets up.
+  const shared = settings?.mode?.shared === true;
   const network = Form.useFieldValue(path.properties.network, { ctx: form });
   const pdos = Form.useFieldValue(path.properties.pdos, { ctx: form });
   // The IgH master runs no DC sync, so it does not run the choice of the catalog.
@@ -352,7 +356,12 @@ export const Configure = ({
   else if (choice == null) help = { text: autoDescription(modes, catalog) };
   else help = { text: describeMode(modes[choice.index]) };
   return (
-    <Modal.Frame className={CSS.BE("ethercat-configure", "frame")}>
+    <Modal.Frame
+      className={CSS.cls(
+        CSS.BE("ethercat-configure", "frame"),
+        !shared && CSS.M("wide"),
+      )}
+    >
       <Modal.Header icon={<Icon.Logo.EtherCAT />}>
         {[opened.name, "Configure"]}
       </Modal.Header>
@@ -435,12 +444,14 @@ export const Configure = ({
                 </Flex.Box>
               </Form.Section>
             </Form.Sections>
-            <Form.Sections>
-              <SlaveSettings />
-              <Form.Section title="Startup parameters">
-                <StartupParameters />
-              </Form.Section>
-            </Form.Sections>
+            {!shared && (
+              <Form.Sections>
+                <SlaveSettings />
+                <Form.Section title="Startup parameters">
+                  <StartupParameters />
+                </Form.Section>
+              </Form.Sections>
+            )}
           </div>
         </Form.Form>
       </Modal.Body>

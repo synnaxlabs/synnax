@@ -10,8 +10,12 @@
  */
 
 .console-ethercat-configure__frame {
-    width: 200rem;
+    width: 110rem;
     max-width: 94vw;
+
+    &.console--wide {
+        width: 200rem;
+    }
 }
 
 .console-ethercat-sync__cycle {
@@ -29,14 +33,15 @@
 
 .console-ethercat-configure__columns {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 10rem;
     align-items: start;
 }
 
 @media (max-width: 1100px) {
     .console-ethercat-configure__columns {
-        grid-template-columns: minmax(0, 1fr);
+        grid-auto-flow: row;
         gap: 5rem;
     }
 }
