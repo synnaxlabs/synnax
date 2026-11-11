@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// bufFormat is a Formatter that runs `buf format` over .proto content. Buf
+// bufFormat is a formatter that runs `buf format` over .proto content. Buf
 // has no stdin mode, so the content is written to a temp file, formatted,
 // and the formatted bytes captured from stdout. Single-file `buf format`
 // does not consult buf.yaml so the temp directory location does not affect

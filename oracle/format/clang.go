@@ -11,7 +11,7 @@ package format
 
 import "context"
 
-// clang is a Formatter that runs `clang-format` over its input via stdin.
+// clang is a formatter that runs `clang-format` over its input via stdin.
 // `--assume-filename=<absPath>` is passed so the tool can locate the
 // nearest .clang-format relative to the file's intended location.
 type clang struct{}
