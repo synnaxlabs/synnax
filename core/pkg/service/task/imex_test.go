@@ -273,7 +273,13 @@ var _ = Describe("ImEx", Ordered, func() {
 					Where(task.MatchKeys(uuid.MustParse(id.Key))).
 					Entry(&imported).
 					Exec(ctx, tx)).To(Succeed())
-				Expect(imported.Config).To(HaveKeyWithValue("routing_key", "rk-locked"))
+				routingKey := uuid.MustParse(imported.Config["routing_key"].(string))
+				var s secret.Secret
+				Expect(secretSvc.NewRetrieve().
+					Where(secret.MatchKeys(routingKey)).
+					Entry(&s).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(s.Base().Name).To(Equal("Locked PD Task routing key"))
 			},
 		)
 
