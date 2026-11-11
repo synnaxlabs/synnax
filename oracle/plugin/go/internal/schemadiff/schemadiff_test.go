@@ -597,3 +597,86 @@ var _ = Describe("PersistedFields", func() {
 		Expect(names).To(Equal([]string{"key", "name"}))
 	})
 })
+
+const retypedOld = `Circle struct {
+	radius float64
+}
+Small union on variant {
+	circle Circle
+}
+Shape union on variant extends Small {}
+Channel struct {
+	key uuid @key
+	shapes map<string, Shape>
+}
+`
+
+const retypedNew = `Circle struct {
+	radius uint8
+}
+Small union on variant {
+	circle Circle
+}
+Channel struct {
+	key uuid @key
+	shapes map<string, Small>
+}
+`
+
+var _ = Describe("Retyped", func() {
+	identity := func(s string) string { return s }
+	shapes := func(t resolution.Type) resolution.TypeRef {
+		GinkgoHelper()
+		form, ok := t.Form.(resolution.StructForm)
+		Expect(ok).To(BeTrue())
+		for _, f := range form.Fields {
+			if f.Name == "shapes" {
+				return f.Type
+			}
+		}
+		Fail("no shapes field")
+		return resolution.TypeRef{}
+	}
+	retyped := func(oldSrc, newSrc string) []resolution.Type {
+		GinkgoHelper()
+		a, b := analyzeSchema(oldSrc), analyzeSchema(newSrc)
+		return schemadiff.Retyped(
+			shapes(typeIn(a, "Channel")), shapes(typeIn(b, "Channel")), a, b, identity,
+		)
+	}
+
+	It("Should return the old type of the new name", func() {
+		got := retyped(retypedOld, retypedNew)
+		Expect(got).To(HaveLen(1))
+		Expect(got[0].QualifiedName).To(Equal("channel.Small"))
+	})
+
+	It("Should return nothing when the field keeps its type", func() {
+		Expect(retyped(retypedNew, retypedNew)).To(BeEmpty())
+	})
+
+	It(
+		"Should return nothing when the old version has no type of the new name",
+		func() {
+			Expect(retyped(`Circle struct {
+	radius float64
+}
+Channel struct {
+	key uuid @key
+	shapes map<string, Circle>
+}
+`, retypedNew)).To(BeEmpty())
+		},
+	)
+
+	It("Should diff the old type of a retyped field's new name", func() {
+		a, b := analyzeSchema(retypedOld), analyzeSchema(retypedNew)
+		result := schemadiff.SchemaDiff(
+			typeIn(a, "Channel"), typeIn(b, "Channel"), a, b, identity,
+		)
+		Expect(result).To(HaveKeyWithValue("channel.Circle", schemadiff.TypeDiff{
+			QualifiedName: "channel.Circle", Kind: schemadiff.TypeChanged,
+		}))
+		Expect(result).To(HaveKey("channel.Small"))
+	})
+})

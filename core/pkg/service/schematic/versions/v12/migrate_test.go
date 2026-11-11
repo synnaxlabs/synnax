@@ -212,6 +212,25 @@ var _ = Describe("MigrateSchematic", func() {
 	})
 })
 
+var _ = Describe("MigrateEdge", func() {
+	It("Should keep the handles and fill the default style", func(ctx SpecContext) {
+		source := v11.Handle{Node: "n1", Param: "out"}
+		target := v11.Handle{Node: "n2", Param: "in"}
+		e := MustSucceed(v12.MigrateEdge(ctx, v11.Edge{
+			Key:    "e1",
+			Source: source,
+			Target: target,
+		}))
+		Expect(e).To(Equal(v12.Edge{
+			Key:         "e1",
+			Source:      source,
+			Target:      target,
+			Variant:     v12.EdgeVariantPipe,
+			StrokeWidth: 2,
+		}))
+	})
+})
+
 var _ = Describe("MigrateNodeConfig", func() {
 	DescribeTable("Should round and clamp a symbol stroke width",
 		func(ctx SpecContext, old v11.NodeConfigVariant, want uint8) {
