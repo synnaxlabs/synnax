@@ -609,8 +609,8 @@ func typeDefBaseToPython(
 	}
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 	// Try to resolve another typedef
@@ -1628,23 +1628,23 @@ func sizedIntBounds(
 	return b, ok
 }
 
-// mapKeyToPython returns the Python type of a map key. A sized integer key carries
-// its range in its type, since the bounds of a field do not reach its dict keys.
-func mapKeyToPython(
+// boundedArgToPython returns the Python type of a map key or value. A sized integer
+// carries its range in its type, since the bounds of a field do not reach into a dict.
+func boundedArgToPython(
 	typeRef resolution.TypeRef,
 	table *resolution.Table,
 	data *templateData,
 ) string {
-	keyType := typeToPython(typeRef, table, data)
+	pyType := typeToPython(typeRef, table, data)
 	bounds, ok := sizedIntBounds(typeRef, table)
 	if !ok {
-		return keyType
+		return pyType
 	}
 	data.imports.addTyping("Annotated")
 	data.imports.addPydantic("Field")
 	return fmt.Sprintf(
 		"Annotated[%s, Field(ge=%s, le=%s)]",
-		keyType,
+		pyType,
 		bounds.min,
 		bounds.max,
 	)
@@ -1736,8 +1736,8 @@ func typeToPython(
 
 	// Handle Map type
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
-		keyType := mapKeyToPython(typeRef.TypeArgs[0], table, data)
-		valueType := typeToPython(typeRef.TypeArgs[1], table, data)
+		keyType := boundedArgToPython(typeRef.TypeArgs[0], table, data)
+		valueType := boundedArgToPython(typeRef.TypeArgs[1], table, data)
 		return fmt.Sprintf("dict[%s, %s]", keyType, valueType)
 	}
 
@@ -1841,8 +1841,8 @@ func typeRefToPythonAlias(
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) >= 2 {
 		return fmt.Sprintf(
 			"dict[%s, %s]",
-			mapKeyToPython(typeRef.TypeArgs[0], table, data),
-			typeToPython(typeRef.TypeArgs[1], table, data),
+			boundedArgToPython(typeRef.TypeArgs[0], table, data),
+			boundedArgToPython(typeRef.TypeArgs[1], table, data),
 		)
 	}
 	resolved, ok := typeRef.Resolve(table)
