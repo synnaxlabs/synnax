@@ -209,7 +209,9 @@ const CommitBox = ({ status, checked }: CommitBoxProps): ReactElement => {
   const [loading, setLoading] = useState<"commit" | "pullRequest" | null>(null);
   const trimmed = message.trim();
   const disabled = trimmed.length === 0 || checked.length === 0 || loading != null;
-  const github = status.remoteUrl.includes("github.com");
+  const github =
+    URL.canParse(status.remoteUrl) &&
+    new URL(status.remoteUrl).hostname === "github.com";
   const run = (pullRequest: boolean) => {
     if (disabled) return;
     handleError(
