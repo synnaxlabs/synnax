@@ -31,6 +31,10 @@ export interface ContextValue {
   editable: boolean;
   staticViews: view.Key[];
   getInitialView: () => view.View;
+  /** True when the search leads the views bar, over a filter bar. */
+  searchInViews: boolean;
+  /** The element {@link Search} renders into while the search leads the views bar. */
+  searchSlot: HTMLElement | null;
 }
 
 export const [Context, useContext] = context.create<ContextValue>({

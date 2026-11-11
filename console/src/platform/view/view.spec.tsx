@@ -14,7 +14,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Flux } from "@synnaxlabs/pluto";
 import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it } from "vitest";
 
@@ -59,8 +59,15 @@ const Inner = (): ReactElement => {
   );
 };
 
-const Harness = (): ReactElement => (
-  <View.Frame resourceType="range" icon="Range">
+interface HarnessProps extends Pick<View.FrameProps, "searchInViews"> {}
+
+const Harness = ({ searchInViews }: HarnessProps): ReactElement => (
+  <View.Frame
+    resourceType="range"
+    icon="Range"
+    alwaysEditable={searchInViews}
+    searchInViews={searchInViews}
+  >
     <Inner />
   </View.Frame>
 );
@@ -79,9 +86,20 @@ const createView = async () =>
     type: "range",
   });
 
-const renderHarness = async (as: Client = client): Promise<void> => {
+const renderHarness = async (
+  as: Client = client,
+  props: HarnessProps = {},
+): Promise<void> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
-  render(<Harness />, { wrapper });
+  render(<Harness {...props} />, { wrapper });
+};
+
+/** @returns the icon the tab of the named view draws. */
+const tabIcon = (name: string): SVGElement => {
+  const tab = screen.getAllByRole("tab").find((t) => t.textContent === name);
+  const svg = tab?.querySelector("svg");
+  if (svg == null) throw new Error(`tab for ${name} draws no icon`);
+  return svg;
 };
 
 describe("View", () => {
@@ -180,6 +198,69 @@ describe("View", () => {
     expect(await screen.findByText("Reload Console")).toBeTruthy();
     expect(screen.queryByText("Rename")).toBeNull();
     expect(screen.queryByText("Delete")).toBeNull();
+  });
+
+  it("creates a view with the name and icon picked in the create modal", async () => {
+    await renderHarness();
+    await enableEditing();
+    const add = await waitFor(() =>
+      getIconButton(getBySelector(document.body, ".console-controls"), "add"),
+    );
+    fireEvent.click(add);
+    const input = await screen.findByPlaceholderText<HTMLInputElement>("View name");
+    expect(input.value).toBe("");
+    const create = screen.getByRole("button", { name: /^Create/ });
+    expect(create.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(screen.getByLabelText("Change icon"));
+    await act(async () => {
+      fireEvent.click(await screen.findByLabelText("Valve"));
+    });
+    const name = uniqueName("created");
+    fireEvent.change(input, { target: { value: name } });
+    fireEvent.click(create);
+    await waitFor(() => expect(selectedViewName()).toBe(name));
+    expect(tabIcon(name).classList).toContain("lyra-icon--valve");
+    const stored = await client.views.retrieve({ where: { name: { eq: name } } });
+    expect(stored.map(({ icon }) => icon)).toEqual(["valve"]);
+  });
+
+  it("draws the explorer icon on a static tab and a view icon on a saved one", async () => {
+    const saved = await createView();
+    await renderHarness();
+    await screen.findByText(saved.name);
+    expect(tabIcon("All ranges").classList).toContain("lyra-icon--range");
+    expect(tabIcon(saved.name).classList).toContain("lyra-icon--view");
+  });
+
+  it("sets a saved view's icon from the change icon item", async () => {
+    const saved = await createView();
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText(saved.name));
+    fireEvent.click(await screen.findByText("Change icon"));
+    await screen.findByRole("dialog", { name: "View icon" });
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText("Valve"));
+    });
+    await waitFor(() =>
+      expect(tabIcon(saved.name).classList).toContain("lyra-icon--valve"),
+    );
+    expect((await client.views.retrieve(saved.key)).icon).toBe("valve");
+  });
+
+  it("withholds change icon from a static view's context menu", async () => {
+    await renderHarness();
+    fireEvent.contextMenu(await screen.findByText("All ranges"));
+    expect(await screen.findByText("Reload Console")).toBeTruthy();
+    expect(screen.queryByText("Change icon")).toBeNull();
+  });
+
+  it("leads the views with the search when the search sits in the views", async () => {
+    await renderHarness(client, { searchInViews: true });
+    const input = await screen.findByPlaceholderText("Search ranges...");
+    expect(input.closest(".console-view__search-slot")).not.toBeNull();
+    expect(screen.queryByLabelText("Enable editing")).toBeNull();
+    const views = getBySelector(document.body, ".console-view__views");
+    await waitFor(() => expect(queryIconButton(views, "add")).toBeTruthy());
   });
 
   it("reveals the filter menu contents when the filter trigger is opened", async () => {
