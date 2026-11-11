@@ -242,8 +242,3 @@ class Explorer(Surface):
         :param label_name: The name of the label to select.
         """
         self.views.select_filter("Labels", label_name)
-
-    def clear_label_filter(self) -> None:
-        """Remove the labels from the active filter with the remove button of their
-        chip."""
-        self.views.clear_filter("Labels")
