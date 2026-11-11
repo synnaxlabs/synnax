@@ -175,6 +175,13 @@ var _ = Describe("MigrateElementConfig", func() {
 		Entry("polygon", v10.PolygonElementConfig{StrokeWidth: 30}, uint8(20)),
 	)
 
+	It("Should round the precision of a tank", func(ctx SpecContext) {
+		out := MustSucceed(v12.MigrateElementConfig(ctx, v11.ElementConfig{
+			Variant: v10.TankElementConfig{Precision: 2.6},
+		}))
+		Expect(out.Variant).To(HaveField("Precision", HaveValue(BeEquivalentTo(3))))
+	})
+
 	It("Should keep the other fields of a symbol", func(ctx SpecContext) {
 		out := MustSucceed(v12.MigrateElementConfig(ctx, v11.ElementConfig{
 			Variant: v10.BoxElementConfig{BorderRadius: 7, StrokeWidth: 4},

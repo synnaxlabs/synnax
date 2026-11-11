@@ -18,28 +18,14 @@ import (
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 )
 
-// MigrateSchematic lifts a v11 schematic into v12. It keeps the precision of each
-// numeric symbol as a whole number.
+// MigrateSchematic lifts a v11 schematic into v12 through MigrateElementConfig.
 func MigrateSchematic(ctx context.Context, old v11.Schematic) (Schematic, error) {
-	out, err := autoMigrateSchematic(ctx, old)
-	if err != nil {
-		return Schematic{}, err
-	}
-	// A tank declares its numeric fields inline, so the generated copy skips the
-	// precision whose type changed.
-	for k, cfg := range old.Configs {
-		if o, ok := cfg.Variant.(v10.TankElementConfig); ok {
-			n := out.Configs[k].Variant.(TankElementConfig)
-			n.Precision = migratePrecision(o.Precision)
-			out.Configs[k] = ElementConfig{Variant: n}
-		}
-	}
-	return out, nil
+	return autoMigrateSchematic(ctx, old)
 }
 
 // MigrateElementConfig lifts a v11 element config into v12. A stroke width rounds to
 // whole pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel.
-// A NaN width counts as 0.
+// A NaN width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig.
 func MigrateElementConfig(
 	ctx context.Context,
 	old v11.ElementConfig,
@@ -64,6 +50,12 @@ func MigrateElementConfig(
 	case v10.PolygonElementConfig:
 		n := out.Variant.(PolygonElementConfig)
 		n.StrokeWidth = migrateStrokeWidth(o.StrokeWidth)
+		out.Variant = n
+	case v10.TankElementConfig:
+		// A tank declares its numeric fields inline, so the generated copy skips the
+		// precision whose type changed.
+		n := out.Variant.(TankElementConfig)
+		n.Precision = migratePrecision(o.Precision)
 		out.Variant = n
 	}
 	return out, nil
