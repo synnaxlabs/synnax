@@ -1349,7 +1349,6 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should keep a status it did not set when re-inspecting a valid channel",
 			func(ctx SpecContext) {
-				g := openGraph(ctx)
 				createDep(ctx, "st_keep_dep")
 				mid := channel.Channel{
 					Name: "st_keep_mid", DataType: telem.Int64T, Virtual: true,
@@ -1365,7 +1364,7 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				g := openGraph(ctx)
 
 				By("Reporting a runtime status the way the calculation framer does")
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
@@ -1400,6 +1399,7 @@ var _ = Describe("Graph", func() {
 		It(
 			"Should clear a runtime status when the expression changes",
 			func(ctx SpecContext) {
+				g := openGraph(ctx)
 				createDep(ctx, "st_expr_dep")
 				calc := channel.Channel{
 					Name: "st_expr", DataType: telem.Int64T, Virtual: true,
@@ -1408,10 +1408,7 @@ var _ = Describe("Graph", func() {
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return channelSvc.NewWriter(tx).Create(ctx, &calc)
 				})).To(Succeed())
-				// The Graph coalesces a create with a later update of the same
-				// channel. Opening it after the create makes it track the first
-				// expression, so it sees the edit.
-				g := openGraph(ctx)
+				eventuallyExpectNoStatus(ctx, calc.Key())
 
 				By("Reporting a runtime error the way the calculation framer does")
 				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
