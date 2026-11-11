@@ -288,8 +288,16 @@ var _ = Describe("Graph", func() {
 					}
 					return false
 				}
+				inIndex := func(node antlr.Tree) bool {
+					for ; node != nil; node = node.GetParent() {
+						if _, ok := node.(parser.IIndexOrSliceContext); ok {
+							return true
+						}
+					}
+					return false
+				}
 				for node, typ := range inter.TypeMap {
-					if _, ok := node.(parser.ILiteralContext); !ok {
+					if _, ok := node.(parser.ILiteralContext); !ok || inIndex(node) {
 						continue
 					}
 					expected := secondType

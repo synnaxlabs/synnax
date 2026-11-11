@@ -185,10 +185,14 @@ class TestArc:
             text=sy.Text(raw="export func f() i64 { return 1 }"),
         )
         assert isinstance(client.arcs.retrieve(key=created.key), sy.arc.Module)
-        retrieved = client.arcs.retrieve(key=created.key, include_status=True)
-        assert isinstance(retrieved, sy.arc.Module)
-        assert retrieved.status is not None
-        assert retrieved.status.message == "Compiled"
+
+        def compiled() -> None:
+            retrieved = client.arcs.retrieve(key=created.key, include_status=True)
+            assert isinstance(retrieved, sy.arc.Module)
+            assert retrieved.status is not None
+            assert retrieved.status.message == "Compiled"
+
+        assert_eventually(compiled)
 
     def test_retrieve_changes(self, client: sy.Synnax) -> None:
         """Should name an imported module that changed after the deploy."""

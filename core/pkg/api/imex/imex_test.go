@@ -40,11 +40,18 @@ func (*recordingImporter) Type() resource.Type {
 	return resource.TypeChannel
 }
 
-func (r *recordingImporter) Import(
-	_ context.Context, _ gorp.Tx, env imex.Envelope, opts imex.ImportOptions,
-) (resource.ID, error) {
-	r.opts = opts
-	return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
+func (r *recordingImporter) Decode(
+	_ context.Context,
+	env imex.Envelope,
+) (imex.Write, error) {
+	return func(
+		_ context.Context,
+		_ gorp.Tx,
+		opts imex.ImportOptions,
+	) (resource.ID, error) {
+		r.opts = opts
+		return resource.ID{Type: resource.TypeChannel, Key: env.Name}, nil
+	}, nil
 }
 
 // Match claims typeless envelopes carrying the legacy_marker key so specs can exercise

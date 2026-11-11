@@ -437,4 +437,58 @@ var _ = Describe("Service", func() {
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
 	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": sampleRate,
+				"stream_rate": streamRate,
+			})).Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+	)
+
+	DescribeTable("Should reject a write config whose state rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"state_rate": rate,
+			})).Error().To(MatchError(ContainSubstring("state_rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable("Should reject a write config whose execution rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Write.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"execution_rate": rate,
+			})).Error().To(MatchError(ContainSubstring("execution_rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
 })

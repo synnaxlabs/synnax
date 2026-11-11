@@ -199,6 +199,7 @@ x::errors::Error Master::initialize() {
         auto [settings, settings_err] = esi::read_settings(
             slave_info.vendor_id,
             slave_info.product_code,
+            slave_info.revision_number,
             result.properties.op_modes,
             sdo_reader(*this->api, this->ec_master, static_cast<uint16_t>(i))
         );

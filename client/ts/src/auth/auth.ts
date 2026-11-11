@@ -29,6 +29,7 @@ import {
   AuthError,
   ExpiredTokenError,
   InvalidTokenError,
+  MissingCredentialsError,
   SessionEndedError,
 } from "@/errors";
 import { resource } from "@/resource";
@@ -493,7 +494,9 @@ export class Client {
         u = res.user;
         owned = false;
       } else
-        throw new AuthError("no credentials, API key, token, or cookie to log in with");
+        throw new MissingCredentialsError(
+          "no credentials, API key, token, or cookie to log in with",
+        );
       if (generation !== this.generation) return null;
       this.authState = state;
       this.ownsSession = owned;
@@ -550,7 +553,21 @@ export class Client {
         return await next(reqCtx);
       } catch (err) {
         const parsed = errors.fromUnknown(err);
-        if (!RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
+        // the browser dropped the cookie, so the session is over
+        const cookieLost =
+          MissingCredentialsError.matches(parsed) &&
+          authState.authenticated &&
+          authState.token === "";
+        if (cookieLost && this.proof() == null) {
+          if (this.authState === authState) {
+            this.authState = { authenticated: false };
+            this.authenticating = undefined;
+          }
+          const ended = new SessionEndedError(parsed.message, { cause: parsed });
+          if (generation === this.generation) this.observer.onFailure?.(ended);
+          throw ended;
+        }
+        if (!cookieLost && !RETRY_ON.some((e) => e.matches(parsed))) throw parsed;
         if (retries < MAX_RETRIES) {
           // only the session this request carried is dead; a login that finished in
           // the meantime holds a different one

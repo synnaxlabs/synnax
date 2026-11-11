@@ -224,6 +224,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
 
   for (const plan of plans) {
     const { slave, channels } = plan;
+    const before = deep.copy(slave.properties);
     const nameOf = (ch: EntryReadChannel) => readChannelName(slave, ch, dataTypes);
     let modified = await checkOrCreateIndex(client, slave, READ_INDEX_OPTIONS);
     // A new index clears the read channels of the slave, so every channel is missing.
@@ -251,7 +252,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       created.forEach((c, i) => bindReadChannel(slave, toCreate[i], c.key, dataTypes));
     }
 
-    if (modified) await Device.setProperties(client, slave, SLAVE_SCHEMAS);
+    if (modified) await Device.setProperties(client, slave, before, SLAVE_SCHEMAS);
 
     channels.forEach((ch) => {
       ch.channel = readChannelOf(slave, ch, dataTypes);

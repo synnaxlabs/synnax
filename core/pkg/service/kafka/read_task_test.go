@@ -239,6 +239,43 @@ var _ = Describe("Read task", func() {
 		},
 	)
 
+	It("Should skip a later poll's record stamped by Kafka before the last stamp",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := uniqueTopic()
+			Expect(cluster.CreateTopic(topic, 2, nil)).To(Succeed())
+			partitioned := newKafkaClient(
+				kgo.RecordPartitioner(kgo.ManualPartitioner()),
+			)
+			produce := func(partition int32, ms int64, value float64) {
+				GinkgoHelper()
+				Expect(partitioned.ProduceSync(ctx, &kgo.Record{
+					Topic:     topic,
+					Partition: partition,
+					Value:     MustSucceed(json.Marshal(map[string]any{"v": value})),
+					Timestamp: time.UnixMilli(ms),
+				}).FirstErr()).To(Succeed())
+			}
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(unstampedFields(data)),
+			})
+			start(ctx, dt, t)
+			produce(0, 10_000, 1)
+			expectStored(ctx, data.Key(), 1)
+			produce(1, 9_000, 2)
+			Eventually(func() string { return taskStatus(ctx, t).Description }).
+				WithTimeout(15 * time.Second).
+				Should(ContainSubstring("is not after the last written"))
+			produce(1, 10_000, 3)
+			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 3}))
+			Expect(timestamps(stored(ctx, index.Key()))).
+				To(Equal([]telem.TimeStamp{10 * telem.SecondTS, 10*telem.SecondTS + 1}))
+		},
+	)
+
 	It("Should silently skip the replay of records stamped by Kafka",
 		func(ctx SpecContext) {
 			index, data := createIndexed(ctx, telem.Float64T)
