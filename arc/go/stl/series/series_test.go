@@ -1272,17 +1272,59 @@ var _ = Describe("Series", func() {
 	})
 
 	Describe("slice", func() {
-		It("Should slice a large series 100,000 times", func(ctx SpecContext) {
+		It("Should count the data of a slice toward MaxBytes", func(ctx SpecContext) {
 			h := callU32(ctx, "create_empty_f64", testutil.U32(1<<17))
-			for range 100_000 {
-				callU32(
-					ctx,
-					"slice",
-					testutil.U32(h),
-					testutil.U32(0),
-					testutil.U32(1<<17),
-				)
-			}
+			Expect(func() {
+				for range series.MaxBytes >> 20 {
+					callU32(
+						ctx,
+						"slice",
+						testutil.U32(h),
+						testutil.U32(0),
+						testutil.U32(1<<17),
+					)
+				}
+			}).To(PanicWith(ContainSubstring(series.ErrLimit.Error())))
+		})
+
+		It("Should keep the parent on a write to a slice", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(rh),
+				testutil.U32(0),
+				testutil.U32(9),
+			)
+			parent := MustBeOk(ss.Get(h))
+			Expect(parent.ValueAt[int32](1)).To(BeZero())
+		})
+
+		It("Should keep a slice on a write to its parent", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+			rh := callU32(
+				ctx,
+				"slice",
+				testutil.U32(h),
+				testutil.U32(1),
+				testutil.U32(3),
+			)
+			callU32(
+				ctx,
+				"set_element_i32",
+				testutil.U32(h),
+				testutil.U32(2),
+				testutil.U32(7),
+			)
+			sliced := MustBeOk(ss.Get(rh))
+			Expect(sliced.ValueAt[int32](1)).To(BeZero())
 		})
 
 		It("Should extract a subrange", func(ctx SpecContext) {
@@ -1354,5 +1396,44 @@ var _ = Describe("Series", func() {
 				),
 			).To(Equal(uint32(0)))
 		})
+
+		DescribeTable("Should count a negative bound from the end and stop at the ends",
+			func(ctx SpecContext, start, end int, expected []int32) {
+				h := callU32(ctx, "create_empty_i32", testutil.U32(4))
+				for i := range uint32(4) {
+					callU32(
+						ctx,
+						"set_element_i32",
+						testutil.U32(h),
+						testutil.U32(i),
+						testutil.U32((i+1)*10),
+					)
+				}
+				rh := callU32(
+					ctx,
+					"slice",
+					testutil.U32(h),
+					testutil.U32(uint32(int32(start))),
+					testutil.U32(uint32(int32(end))),
+				)
+				if len(expected) == 0 {
+					Expect(rh).To(BeZero())
+					return
+				}
+				ser := MustBeOk(ss.Get(rh))
+				Expect(ser.Len()).To(Equal(int64(len(expected))))
+				for i, v := range expected {
+					Expect(ser.ValueAt[int32](i)).To(Equal(v))
+				}
+			},
+			Entry("an open end", 2, math.MaxInt32, []int32{30, 40}),
+			Entry("an end past the length", 2, 10, []int32{30, 40}),
+			Entry("a negative end", 0, -1, []int32{10, 20, 30}),
+			Entry("a negative start", -2, math.MaxInt32, []int32{30, 40}),
+			Entry("two negative bounds", -3, -1, []int32{20, 30}),
+			Entry("a negative start before the series", -10, 2, []int32{10, 20}),
+			Entry("a negative end before the series", 0, -10, nil),
+			Entry("a start past the length", 4, math.MaxInt32, nil),
+		)
 	})
 })

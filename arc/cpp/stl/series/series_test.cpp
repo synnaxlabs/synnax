@@ -1386,21 +1386,107 @@ TEST(SeriesModule, SliceNullHandleReturnsZero) {
     EXPECT_EQ(result[0].i32(), 0);
 }
 
-TEST(SeriesModule, SliceOutOfBoundsReturnsZero) {
-    Fixture f{std::string(MISC_WAT)};
+/// @brief slices a series of 10, 20, 30, 40 from start to end and returns the values of
+/// the result. A zero handle gives no values.
+std::vector<int32_t> slice_of_four(Fixture &f, const int32_t start, const int32_t end) {
     auto h_r = f.get("create_empty_i32")
-                   .call(f.store, {wasmtime::Val(int32_t{3})})
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
                    .unwrap();
     auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
+    auto result = f.get("slice")
+                      .call(
+                          f.store,
+                          {wasmtime::Val(h), wasmtime::Val(start), wasmtime::Val(end)}
+                      )
+                      .unwrap();
+    std::vector<int32_t> values;
+    const auto *s = f.state->get(result[0].i32());
+    if (s == nullptr) return values;
+    for (size_t i = 0; i < s->size(); i++)
+        values.push_back(s->at<int32_t>(static_cast<int>(i)));
+    return values;
+}
+
+/// @brief it should stop a slice at the length for an open end or an end past it.
+TEST(SeriesModule, SliceEndPastLengthStopsAtLength) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, 2, INT32_MAX), (std::vector<int32_t>{30, 40}));
+    EXPECT_EQ(slice_of_four(f, 2, 10), (std::vector<int32_t>{30, 40}));
+}
+
+/// @brief it should count a negative slice bound from the end.
+TEST(SeriesModule, SliceNegativeBoundCountsFromTheEnd) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, 0, -1), (std::vector<int32_t>{10, 20, 30}));
+    EXPECT_EQ(slice_of_four(f, -2, INT32_MAX), (std::vector<int32_t>{30, 40}));
+    EXPECT_EQ(slice_of_four(f, -3, -1), (std::vector<int32_t>{20, 30}));
+}
+
+/// @brief it should stop a negative slice bound before the series at the start.
+TEST(SeriesModule, SliceNegativeBoundBeforeSeriesStopsAtStart) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_EQ(slice_of_four(f, -10, 2), (std::vector<int32_t>{10, 20}));
+    EXPECT_TRUE(slice_of_four(f, 0, -10).empty());
+}
+
+/// @brief it should give no series when the start is past the length.
+TEST(SeriesModule, SliceStartPastLengthGivesNoSeries) {
+    Fixture f{std::string(MISC_WAT)};
+    EXPECT_TRUE(slice_of_four(f, 4, INT32_MAX).empty());
+}
+
+/// @brief it should give a slice its own data.
+TEST(SeriesModule, SliceHasItsOwnData) {
+    Fixture f{std::string(MISC_WAT)};
+    auto h_r = f.get("create_empty_i32")
+                   .call(f.store, {wasmtime::Val(int32_t{4})})
+                   .unwrap();
+    auto h = h_r[0].i32();
+    for (int32_t i = 0; i < 4; i++) {
+        (void) f.get("set_element_i32")
+            .call(
+                f.store,
+                {wasmtime::Val(h),
+                 wasmtime::Val(i),
+                 wasmtime::Val(int32_t{(i + 1) * 10})}
+            )
+            .unwrap();
+    }
     auto result = f.get("slice")
                       .call(
                           f.store,
                           {wasmtime::Val(h),
-                           wasmtime::Val(int32_t{0}),
-                           wasmtime::Val(int32_t{10})}
+                           wasmtime::Val(int32_t{1}),
+                           wasmtime::Val(int32_t{3})}
                       )
                       .unwrap();
-    EXPECT_EQ(result[0].i32(), 0);
+    auto sliced = result[0].i32();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(sliced),
+             wasmtime::Val(int32_t{0}),
+             wasmtime::Val(int32_t{9})}
+        )
+        .unwrap();
+    (void) f.get("set_element_i32")
+        .call(
+            f.store,
+            {wasmtime::Val(h), wasmtime::Val(int32_t{2}), wasmtime::Val(int32_t{7})}
+        )
+        .unwrap();
+    EXPECT_EQ(f.state->get(h)->at<int32_t>(1), 20);
+    EXPECT_EQ(f.state->get(sliced)->at<int32_t>(1), 30);
 }
 
 TEST(SeriesModule, SliceStartGEEndReturnsZero) {

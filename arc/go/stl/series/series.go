@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -218,23 +219,16 @@ func NewHost(
 				return 0
 			}
 			length := int(ser.Len())
-			startIdx := int(start)
-			endIdx := int(end)
-			if endIdx < 0 || endIdx > length {
-				endIdx = length
-			}
-			if startIdx < 0 {
-				startIdx = 0
-			}
+			startIdx := sliceBound(start, length)
+			endIdx := sliceBound(end, length)
 			if startIdx >= endIdx {
 				return 0
 			}
 			density := int(ser.DataType.Density())
-			sliced := telem.Series{
+			return s.Store(telem.Series{
 				DataType: ser.DataType,
-				Data:     ser.Data[startIdx*density : endIdx*density],
-			}
-			return s.StoreView(sliced)
+				Data:     slices.Clone(ser.Data[startIdx*density : endIdx*density]),
+			})
 		}).Export("slice")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint32 {
@@ -262,6 +256,16 @@ func mustIndex(ser telem.Series, index uint32) int {
 		panic(fmt.Sprintf("index %d out of bounds for series of size %d", i, n))
 	}
 	return int(i)
+}
+
+// sliceBound returns bound as an offset into a series of length samples. A negative
+// bound counts from the end, and a bound outside the series stops at the nearer end.
+func sliceBound(bound uint32, length int) int {
+	b := int(int32(bound))
+	if b < 0 {
+		b += length
+	}
+	return min(max(b, 0), length)
 }
 
 // bindCreateEmpty registers create_empty_<suffix>, the allocator shared by

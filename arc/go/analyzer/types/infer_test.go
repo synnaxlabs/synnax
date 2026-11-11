@@ -399,6 +399,25 @@ var _ = Describe("Type Inference", func() {
 				Entry("an index after a slice", "series_func()[1:][0]", types.I32()),
 			)
 
+			DescribeTable("should give a slice the series type",
+				func(bCtx SpecContext, expr string) {
+					Expect(inferExprType(bCtx, testResolver, expr)).
+						To(Equal(types.Series(types.I64())))
+				},
+				Entry("both bounds", "data_series[1:3]"),
+				Entry("an open start", "data_series[:2]"),
+				Entry("an open end", "data_series[1:]"),
+				Entry("a slice of a slice", "data_series[1:3][0:1]"),
+			)
+
+			It(
+				"should give an index of a slice the element type",
+				func(bCtx SpecContext) {
+					t := inferExprType(bCtx, testResolver, "data_series[1:3][0]")
+					Expect(t).To(Equal(types.I64()))
+				},
+			)
+
 			It("should handle function with no return type", func(bCtx SpecContext) {
 				testResolver = append(testResolver, symbol.Symbol{
 					Name: "void_func",

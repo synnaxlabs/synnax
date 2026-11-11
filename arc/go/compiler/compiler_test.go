@@ -3088,6 +3088,43 @@ var _ = Describe("Compiler", func() {
 				t series f64 := s[1:4]
 				return t[0]
 			}`, 2.0),
+			Entry("series slice with an open end", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t := s[3:]
+				return t[1]
+			}`, 5.0),
+			Entry("series slice with an open start", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t := s[:2]
+				return f64(len(t)) + t[1]
+			}`, 4.0),
+			Entry("series slice with a negative end", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t := s[0:-1]
+				return f64(len(t)) + t[3]
+			}`, 8.0),
+			Entry("series slice with a negative start", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t := s[-2:]
+				return f64(len(t)) + t[0]
+			}`, 6.0),
+			Entry("series slice with a negative start and end", `{
+				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
+				t := s[-3:-1]
+				return f64(len(t)) + t[0]
+			}`, 5.0),
+			Entry("series slice keeps the parent on a write to the slice", `{
+				s := [1.0, 2.0, 3.0, 4.0]
+				t := s[1:3]
+				t[0] = 9.0
+				return t[0] * 10.0 + s[1]
+			}`, 92.0),
+			Entry("series slice keeps its data on a write to the parent", `{
+				s := [1.0, 2.0, 3.0, 4.0]
+				t := s[1:3]
+				s[2] = 7.0
+				return t[1]
+			}`, 3.0),
 
 			// Series negation
 			Entry("series negate f64", `{

@@ -10,6 +10,8 @@
 package expression
 
 import (
+	"math"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -390,7 +392,8 @@ func compileIndexOrSlice(
 			return types.Type{}, err
 		}
 	} else {
-		ctx.Writer.WriteI32Const(-1)
+		// The host stops an end past the length at the length.
+		ctx.Writer.WriteI32Const(math.MaxInt32)
 	}
 
 	ctx.Resolver.EmitSeriesSlice(ctx.Writer, ctx.WriterID)
