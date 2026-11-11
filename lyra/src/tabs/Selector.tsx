@@ -37,8 +37,10 @@ import { Triggers } from "@/triggers";
  * - `pill`: separated outlined rounded buttons.
  * - `chip`: separated outlined rounded tabs; only the selected one fills, with the same
  *   subtle fill as `default`.
+ * - `text`: borderless tabs as tall as the strip; only the selected one fills, with a
+ *   quiet outline.
  */
-export type Variant = "default" | "pill" | "chip";
+export type Variant = "default" | "pill" | "chip" | "text";
 
 /**
  * Where a tab's contents sit along the strip's main axis. Vertical strips always
@@ -67,6 +69,7 @@ const VARIANT_DEFAULTS: Record<Variant, VariantDefaults> = {
   default: { align: "center", sizing: "elastic" },
   pill: { align: "start", sizing: "fixed" },
   chip: { align: "start", sizing: "content" },
+  text: { align: "start", sizing: "content" },
 };
 
 interface ContextValue {
