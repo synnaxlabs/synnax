@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
-	"github.com/synnaxlabs/oracle/plugin/internal/arrays"
 	"github.com/synnaxlabs/oracle/plugin/internal/telem"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/plugin/py/keywords"
@@ -1033,8 +1032,9 @@ func requiredInPython(field resolution.Field, table *resolution.Table) bool {
 // defaults to. A fixed-size array has no empty value, so it has no factory.
 func emptyFactory(typeRef resolution.TypeRef, table *resolution.Table) (string, bool) {
 	kind, isCollection := resolution.CollectionKind(typeRef, table)
+	_, fixed := resolution.ArraySize(typeRef, table)
 	switch {
-	case !isCollection, kind == "Array" && arrays.Size(typeRef, table) != nil:
+	case !isCollection, fixed:
 		return "", false
 	case kind == "Array":
 		return "list", true
@@ -1289,7 +1289,7 @@ func collectValidation(
 		case resolution.ValueKindArray:
 			// Lists are mutable, so they must use default_factory, never default=.
 			// Tuples are immutable, so they take a plain default.
-			if arrays.Size(typeRef, table) != nil {
+			if _, fixed := resolution.ArraySize(typeRef, table); fixed {
 				constraints = append(
 					constraints,
 					"default="+pyDefaultLiteral(typeRef, *defaultVal, table, data),
@@ -1369,7 +1369,7 @@ func pyDefaultLiteral(
 		for _, el := range val.Elements {
 			parts = append(parts, pyDefaultLiteral(elem, el, table, data))
 		}
-		if arrays.Size(typeRef, table) == nil {
+		if _, fixed := resolution.ArraySize(typeRef, table); !fixed {
 			return "[" + strings.Join(parts, ", ") + "]"
 		}
 		if len(parts) == 1 {

@@ -250,6 +250,79 @@ var _ = Describe("CollectionKind", func() {
 	)
 })
 
+var _ = Describe("ArraySize", func() {
+	var table *resolution.Table
+	sized := func(n int64) resolution.TypeRef {
+		return resolution.TypeRef{Name: "Array", ArraySize: &n}
+	}
+	ref := func(name string) resolution.TypeRef { return resolution.TypeRef{Name: name} }
+	param := func(tp *resolution.TypeParam) resolution.TypeRef {
+		return resolution.TypeRef{Name: "T", TypeParam: tp}
+	}
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		add := func(name string, form resolution.TypeForm) {
+			GinkgoHelper()
+			Expect(table.Add(resolution.Type{
+				Name:          name,
+				QualifiedName: "t." + name,
+				Namespace:     "t",
+				Form:          form,
+			})).To(Succeed())
+		}
+		add("Pair", resolution.AliasForm{Target: sized(2)})
+		add("Quad", resolution.DistinctForm{Base: sized(4)})
+		add("QuadAlias", resolution.AliasForm{Target: ref("t.Quad")})
+		add("List", resolution.AliasForm{Target: ref("Array")})
+		add("CycleA", resolution.AliasForm{Target: ref("t.CycleB")})
+		add("CycleB", resolution.AliasForm{Target: ref("t.CycleA")})
+	})
+
+	DescribeTable(
+		"Should return the size of a fixed-size array",
+		func(makeRef func() resolution.TypeRef, want int64) {
+			Expect(MustBeOk(resolution.ArraySize(makeRef(), table))).To(Equal(want))
+		},
+		Entry("direct", func() resolution.TypeRef { return sized(3) }, int64(3)),
+		Entry("alias", func() resolution.TypeRef { return ref("t.Pair") }, int64(2)),
+		Entry("distinct", func() resolution.TypeRef { return ref("t.Quad") }, int64(4)),
+		Entry(
+			"alias of a distinct",
+			func() resolution.TypeRef { return ref("t.QuadAlias") },
+			int64(4),
+		),
+		Entry("type param constraint", func() resolution.TypeRef {
+			c := sized(2)
+			return param(&resolution.TypeParam{Constraint: &c})
+		}, int64(2)),
+		Entry("type param default", func() resolution.TypeRef {
+			d := ref("t.Pair")
+			return param(&resolution.TypeParam{Default: &d})
+		}, int64(2)),
+	)
+
+	DescribeTable(
+		"Should return false for a type that is not a fixed-size array",
+		func(makeRef func() resolution.TypeRef) {
+			_, ok := resolution.ArraySize(makeRef(), table)
+			Expect(ok).To(BeFalse())
+		},
+		Entry("dynamic array", func() resolution.TypeRef { return ref("Array") }),
+		Entry("alias of a dynamic array", func() resolution.TypeRef {
+			return ref("t.List")
+		}),
+		Entry("primitive", func() resolution.TypeRef { return ref("string") }),
+		Entry("unresolved name", func() resolution.TypeRef { return ref("t.Missing") }),
+		Entry("bare type param", func() resolution.TypeRef {
+			return param(&resolution.TypeParam{})
+		}),
+		Entry("cyclic alias chain", func() resolution.TypeRef {
+			return ref("t.CycleA")
+		}),
+	)
+})
+
 var _ = Describe("Dealias", func() {
 	var table *resolution.Table
 	ref := func(name string, args ...resolution.TypeRef) resolution.TypeRef {
