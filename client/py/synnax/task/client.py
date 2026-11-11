@@ -28,7 +28,7 @@ from pydantic_core import to_jsonable_python
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
-from synnax import device as device_, framer, rack as rack_, ranger
+from synnax import device as device_, exceptions, framer, rack as rack_, ranger
 from synnax.resource import ID
 from synnax.status import VARIANT_ERROR, VARIANT_LOADING
 from synnax.task import actions_gen
@@ -278,6 +278,15 @@ class Task:
                             timer = Timer()
 
 
+def _config_devices(config: Mapping[str, Any]) -> list[str]:
+    """Returns the keys of the devices that a config or its channels name."""
+    channels = config.get("channels")
+    named = [config.get("device")]
+    if isinstance(channels, list):
+        named.extend(ch.get("device") for ch in channels if isinstance(ch, dict))
+    return list(dict.fromkeys(d for d in named if isinstance(d, str) and d))
+
+
 def _raise_if_rack_down(sample: object, rack_id: ID) -> None:
     """Raises a status of the rack as an error when it reports that the Driver of the
     rack is down. A down Driver never replies, so the status ends the wait.
@@ -496,24 +505,32 @@ class Client:
 
     def configure(self, task: P) -> P:
         """Saves the task's configuration to the cluster. The config is deployed
-        to the driver on the next start command. A task with no rack goes on the rack
-        of the device that its config names, or on the embedded rack when it names no
-        device. Configure creates a task that does not exist yet, and sets the name,
+        to the driver on the next start command. A task that names devices, in its
+        config or its channels, goes on their rack, whatever rack it holds. A task
+        that names no device goes on its rack, or on the embedded rack when it has
+        none. Configure creates a task that does not exist yet, and sets the name,
         rack, and config of a task that does.
 
         :param task: The task to save.
         :returns: The saved task with its key and rack populated.
         :raises NotFoundError: If the config names a device that does not exist.
-        :raises ValidationError: If the task exists and the config has a field that
-            its type does not declare, or the task is a snapshot.
+        :raises ValidationError: If the devices are on different racks, if the task
+            exists and the config has a field that its type does not declare, or if
+            the task is a snapshot.
         """
         task.update_device_properties(self._device_client)
         pld = task.to_payload()
-        device = pld.config.get("device")
-        if pld.rack == 0 and isinstance(device, str) and device:
-            pld.rack = self._device_client.retrieve(key=device).rack
+        stored = self.retrieve(keys=[pld.key])
+        if devices := _config_devices(pld.config):
+            racks = {self._device_client.retrieve(key=d).rack for d in devices}
+            if len(racks) > 1:
+                raise exceptions.ValidationError(
+                    f"The devices {devices} of task {pld.name} must be on one rack, "
+                    f"but they are on the racks {sorted(racks)}"
+                )
+            pld.rack = racks.pop()
         pld = self.maybe_assign_def_rack(pld)
-        if not self.retrieve(keys=[pld.key]):
+        if not stored:
             created = self._exec_create(_CreateRequest(tasks=[pld]))
             task.set_internal(self.sugar(created)[0])
             return task
