@@ -16,11 +16,15 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 )
 
 const indexFile = "index" + extension
+
+// errUncovered is returned by a partial write that queued behind a write that failed.
+var errUncovered = errors.New("an earlier write of the index failed")
 
 type indexPersist struct {
 	p   *pointerPersist
@@ -99,7 +103,7 @@ func (w preparedWrite) run() (err error) {
 	// A write failed after the last full rewrite this one follows, so a partial write
 	// cannot restore the pointers that write left out. The next prepare rewrites them.
 	if w.start > 0 && w.p.uncovered(w.rewritten) {
-		return ErrIndexWriteFailed
+		return errUncovered
 	}
 	if err := w.p.Truncate(int64(w.count) * pointerByteSize); err != nil {
 		return err

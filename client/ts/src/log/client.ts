@@ -102,6 +102,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Lo
       listed: (action) => actions.changesField(action, LIST_FIELDS),
       onError: cache.onError,
       onEpoch: (callback) => cache.onEpoch(callback),
+      onStreamDown: (callback) => cache.onStreamDown(callback),
       reduce: reduceAll,
       send: actions.sender(cfg.unary, "/log/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,

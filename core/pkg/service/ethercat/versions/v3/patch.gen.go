@@ -26,9 +26,13 @@ func (rc *ReadConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&rc.ReadConfig.PersistConfig.DataSavingDisabled, c.Next())
 	case "sample_rate":
-		return patch.Value(&rc.ReadConfig.SampleRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.SampleRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.SampleRate = def.ReadConfig.SampleRate
+		})
 	case "stream_rate":
-		return patch.Value(&rc.ReadConfig.StreamRate, c.Next())
+		return patch.Defaulted(&rc.ReadConfig.StreamRate, c.Next(), func(def *ReadConfig) {
+			rc.ReadConfig.StreamRate = def.ReadConfig.StreamRate
+		})
 	case "channels":
 		return patch.List(&rc.Channels, c.Next())
 	case "startup_parameters":
@@ -82,9 +86,13 @@ func (wc *WriteConfig) Patch(c patch.Cursor) error {
 	case "data_saving_disabled":
 		return patch.Value(&wc.PersistConfig.DataSavingDisabled, c.Next())
 	case "state_rate":
-		return patch.Value(&wc.StateRate, c.Next())
+		return patch.Defaulted(&wc.StateRate, c.Next(), func(def *WriteConfig) {
+			wc.StateRate = def.StateRate
+		})
 	case "execution_rate":
-		return patch.Value(&wc.ExecutionRate, c.Next())
+		return patch.Defaulted(&wc.ExecutionRate, c.Next(), func(def *WriteConfig) {
+			wc.ExecutionRate = def.ExecutionRate
+		})
 	case "channels":
 		return patch.List(&wc.Channels, c.Next())
 	default:
@@ -184,7 +192,9 @@ func (erc *EntryReadChannel) Patch(c patch.Cursor) error {
 		return patch.Value(&erc.DataType, c.Next())
 	case "scale":
 		if c = c.Next(); c.Done() {
-			return patch.Value(&erc.Scale, c)
+			return patch.Defaulted(&erc.Scale, c, func(def *EntryReadChannel) {
+				erc.Scale = def.Scale
+			})
 		}
 		return erc.Scale.Patch(c)
 	default:

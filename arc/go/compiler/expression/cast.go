@@ -10,6 +10,8 @@
 package expression
 
 import (
+	"math"
+
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
@@ -105,6 +107,9 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 		toWasm   = wasm.ConvertType(to)
 	)
 	if fromWasm == toWasm {
+		if !fitsIn(from, to) {
+			ctx.Writer.WriteNarrow(to)
+		}
 		return nil
 	}
 	var (
@@ -170,6 +175,52 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 			opCode = wasm.OpF32DemoteF64
 		}
 	}
+	if lower, upper, ok := narrowBounds(to); ok && from.IsFloat() {
+		if fromWasm == wasm.F32 {
+			ctx.Writer.WriteF32Const(float32(upper))
+			ctx.Writer.WriteOpcode(wasm.OpF32Min)
+			ctx.Writer.WriteF32Const(float32(lower))
+			ctx.Writer.WriteOpcode(wasm.OpF32Max)
+		} else {
+			ctx.Writer.WriteF64Const(upper)
+			ctx.Writer.WriteOpcode(wasm.OpF64Min)
+			ctx.Writer.WriteF64Const(lower)
+			ctx.Writer.WriteOpcode(wasm.OpF64Max)
+		}
+		ctx.Writer.WriteOpcode(opCode)
+		return nil
+	}
 	ctx.Writer.WriteOpcode(opCode)
+	ctx.Writer.WriteNarrow(to)
 	return nil
+}
+
+// narrowBounds returns the range of an 8-bit or 16-bit integer type.
+func narrowBounds(t types.Type) (lower, upper float64, ok bool) {
+	switch t.Kind {
+	case types.KindU8:
+		return 0, math.MaxUint8, true
+	case types.KindU16:
+		return 0, math.MaxUint16, true
+	case types.KindI8:
+		return math.MinInt8, math.MaxInt8, true
+	case types.KindI16:
+		return math.MinInt16, math.MaxInt16, true
+	default:
+		return 0, 0, false
+	}
+}
+
+// fitsIn reports whether to holds every value of from.
+func fitsIn(from, to types.Type) bool {
+	switch from.Kind {
+	case to.Kind, types.KindBool:
+		return true
+	case types.KindU8:
+		return to.Kind == types.KindU16 || to.Kind == types.KindI16
+	case types.KindI8:
+		return to.Kind == types.KindI16
+	default:
+		return false
+	}
 }

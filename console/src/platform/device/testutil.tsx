@@ -44,11 +44,12 @@ export interface CreateTestDeviceOptions extends Partial<
 
 const reportRackRunning = async (client: Synnax, r: rack.Rack): Promise<void> => {
   await client.statuses.set(
-    status.create({
+    status.create<typeof rack.statusDetailsZ>({
       owner: rack.resourceID(r.key),
       name: r.name,
       variant: "success",
       message: "Driver is running",
+      details: { running: true },
     }),
   );
 };
