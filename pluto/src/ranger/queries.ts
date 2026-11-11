@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { label, ranger } from "@synnaxlabs/client";
-import { deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
+import { color, deep, type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -257,6 +257,25 @@ export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangePara
     await client.ranges.dispatch(
       key,
       ranger.set({ path: ["timeRange"], value: timeRange }),
+    );
+    return data;
+  },
+});
+
+export interface SetColorParams {
+  key: ranger.Key;
+  /** The color of the range. Undefined clears it. */
+  color?: color.Color;
+}
+
+export const { useUpdate: useSetColor } = Flux.createUpdate<SetColorParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, color: value } = data;
+    await client.ranges.dispatch(
+      key,
+      ranger.set({ path: ["color"], value: value == null ? null : color.hex(value) }),
     );
     return data;
   },

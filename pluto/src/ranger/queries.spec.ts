@@ -182,6 +182,39 @@ describe("queries", () => {
     });
   });
 
+  describe("useSetColor", () => {
+    it("should set the color of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "set_color_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      const { result } = renderHook(() => Ranger.useSetColor(), { wrapper });
+      await act(async () => {
+        expect(
+          await result.current.updateAsync({
+            key: rng.key,
+            color: color.construct("#ff0000"),
+          }),
+        ).toBe(true);
+      });
+      const { color: stored } = await client.ranges.retrieve(rng.key);
+      expect(stored == null ? undefined : color.hex(stored)).toEqual("#ff0000");
+    });
+
+    it("should clear the color of a range", async () => {
+      const rng = await client.ranges.create({
+        name: "clear_color_hook",
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        color: "#00ff00",
+      });
+      const { result } = renderHook(() => Ranger.useSetColor(), { wrapper });
+      await act(async () => {
+        expect(await result.current.updateAsync({ key: rng.key })).toBe(true);
+      });
+      expect((await client.ranges.retrieve(rng.key)).color).toBeUndefined();
+    });
+  });
+
   describe("useUpdateKV", () => {
     it("should set a pair on the range", async () => {
       const rng = await client.ranges.create({

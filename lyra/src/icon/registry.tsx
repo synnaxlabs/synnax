@@ -76,6 +76,7 @@ import {
   IoTime,
 } from "react-icons/io5";
 import {
+  LuChartNoAxesGantt,
   LuFileBadge,
   LuLock,
   LuLockOpen,
@@ -524,6 +525,7 @@ export const RotateAroundCenter = {
 export const Text = wrapSVGIcon(MdTextFields, "text");
 export const Value = wrapSVGIcon(GoNumber, "value");
 export const Calendar = wrapSVGIcon(MdCalendarToday, "calendar");
+export const Timeline = wrapSVGIcon(LuChartNoAxesGantt, "timeline");
 export const Release = wrapSVGIcon(MdNewReleases, "release");
 export const OpenExternal = wrapSVGIcon(MdArrowOutward, "open-external");
 export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
