@@ -231,7 +231,7 @@ func newTask(ctx context.Context, typ string, cfg any) task.Task {
 	if cfg != nil {
 		v := reflect.New(reflect.TypeOf(cfg))
 		v.Elem().Set(reflect.ValueOf(cfg))
-		if d, ok := v.Interface().(interface{ ApplyDefaults() }); ok {
+		if d, ok := reflect.TypeAssert[interface{ ApplyDefaults() }](v); ok {
 			d.ApplyDefaults()
 			cfg = v.Elem().Interface()
 		}
