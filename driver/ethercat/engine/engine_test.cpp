@@ -1275,8 +1275,14 @@ TEST_F(EngineTest, ReaderOnASlaveThatRefusedDCSyncGetsAdvice) {
         res.second.data,
         "Slave 1 (Slave1) is not on the network: it refused SAFE-OP: Invalid DC SYNC "
         "configuration. Fix the device, then stop every task on the network to try it "
-        "again. " +
-            std::string(slave::DC_SYNC_ADVICE)
+        "again. A slave that reports \"Invalid DC SYNC configuration\" expects a "
+        "synchronization mode that the Driver did not set up. Right-click the device, "
+        "select Configure, and set its mode. With no mode set, the Driver uses the "
+        "mode that the catalog gives for the slave, else SM sync when the slave lists "
+        "an SM mode, and its first DC mode when it lists only DC modes. If the slave "
+        "does not list the mode it expects, Configure can switch some devices to "
+        "Synnax only. For other devices, change the mode with the configuration tool "
+        "of the vendor."
     );
     ASSERT_OCCURRED_AS_P(std::move(res), errors::STATE_CHANGE_REFUSED);
 }
