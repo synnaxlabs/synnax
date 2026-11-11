@@ -55,7 +55,7 @@ var _ = Describe("CompileConsistent", func() {
 		Expect(checks).To(Equal(1))
 	})
 
-	It("Should compile inside a snapshot after three changed tries", func(
+	It("Should fail after five changed tries with no lock held", func(
 		ctx SpecContext,
 	) {
 		var snaps []gorp.Snapshot
@@ -68,9 +68,28 @@ var _ = Describe("CompileConsistent", func() {
 				return false, nil
 			})
 			return len(snaps), nil
-		})).To(Equal(4))
-		Expect(snaps[:3]).To(HaveEach(BeIdenticalTo(db)))
-		Expect(snaps[3]).ToNot(BeIdenticalTo(db))
+		})).Error().To(MatchError(channel.ErrLookupsChanged))
+		Expect(snaps).To(HaveLen(5))
+		Expect(snaps).To(HaveEach(BeIdenticalTo(db)))
+	})
+
+	It("Should stop waiting between tries when the context is cancelled", func(
+		ctx SpecContext,
+	) {
+		cancelCtx, cancel := context.WithCancel(ctx)
+		var compiles int
+		Expect(channel.CompileConsistent(cancelCtx, db, func(
+			_ gorp.Snapshot,
+			lookups *channel.Lookups,
+		) (int, error) {
+			compiles++
+			cancel()
+			lookups.Record(func(context.Context, gorp.Snapshot) (bool, error) {
+				return false, nil
+			})
+			return 42, nil
+		})).Error().To(MatchError(context.Canceled))
+		Expect(compiles).To(Equal(1))
 	})
 
 	It("Should return the error of a check", func(ctx SpecContext) {

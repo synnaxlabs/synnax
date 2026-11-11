@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"slices"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -47,6 +49,7 @@ var _ = Describe("Calculation", Ordered, func() {
 		statusSvc    *status.Service
 		channelSvc   *channel.Service
 		channelGraph *calcgraph.Graph
+		writerSvc    *writer.Service
 	)
 	open := func(
 		ctx context.Context,
@@ -133,7 +136,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			HostKey: dist.Identity.HostKey,
 			Status:  statusSvc,
 		}))
-		writerSvc := MustSucceed(writer.NewService(writer.ServiceConfig{
+		writerSvc = MustSucceed(writer.NewService(writer.ServiceConfig{
 			DB:      dist.DB,
 			Framer:  dist.Framer,
 			Channel: channelSvc,
@@ -1529,6 +1532,106 @@ var _ = Describe("Calculation", Ordered, func() {
 			}, 5*time.Second).Should(Succeed())
 
 			Consistently(sOutlet.Outlet(), 10*time.Millisecond).ShouldNot(Receive())
+		})
+
+		Specify("Lookups Changed During Each Compile", func(ctx SpecContext) {
+			const retryDelay = 300 * telem.Millisecond
+			var (
+				target  atomic.Uint32
+				changes atomic.Int32
+				changed = make(chan struct{}, 10)
+			)
+			// The compile of target reports a change of its lookups while changes
+			// is positive.
+			retrying := MustOpen(calculation.OpenService(ctx, calculation.ServiceConfig{
+				DB:           dist.DB,
+				Framer:       dist.Framer,
+				Writer:       writerSvc,
+				Channel:      channelSvc,
+				ChannelGraph: channelGraph,
+				RetryDelay:   retryDelay,
+				Compile: func(
+					ctx context.Context,
+					db *gorp.DB,
+					cfgs ...compiler.Config,
+				) (compiler.Module, error) {
+					if uint32(cfgs[0].Channel.Key()) == target.Load() &&
+						changes.Add(-1) >= 0 {
+						changed <- struct{}{}
+						return compiler.Module{}, channel.ErrLookupsChanged
+					}
+					return compiler.Compile(ctx, db, cfgs...)
+				},
+			}))
+			previous := c
+			c = retrying
+			DeferCleanup(func() { c = previous })
+			bases := []channel.Channel{{
+				Name:     UniqueChannelName(),
+				DataType: telem.Int64T,
+				Virtual:  true,
+			}}
+			calcs := []channel.Channel{{
+				Name:        UniqueChannelName(),
+				DataType:    telem.Int64T,
+				Virtual:     true,
+				Leaseholder: node.KeyFree,
+				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
+			}}
+			w, sOutlet, cancel := open(
+				ctx,
+				nil,
+				&bases,
+				&calcs,
+				channel.KeysFromChannels,
+			)
+			defer cancel()
+			baseCh := bases[0]
+			calcCh := calcs[0]
+			Expect(
+				w.Write(frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2))),
+			).To(BeTrue())
+			var res framer.StreamerResponse
+			Eventually(sOutlet.Outlet(), 1*time.Second).Should(Receive(&res))
+			Expect(res.Frame.Get(calcCh.Key()).Series[0]).
+				To(telem.MatchSeriesDataV[int64](2, 4))
+
+			target.Store(uint32(calcCh.Key()))
+			changes.Store(3)
+			Expect(dist.DB.WithTx(ctx, func(tx gorp.Tx) error {
+				_, err := channelSvc.NewWriter(tx).Apply(
+					ctx,
+					calcCh.Key(),
+					channel.NewSetAction(channel.SetPayload{
+						Path:  []string{"expression"},
+						Value: fmt.Sprintf("return %s * 3", baseCh.Name),
+					}),
+				)
+				return err
+			})).To(Succeed())
+			Eventually(changed).Should(Receive())
+			// A request takes the lock of the service, so it returns well before the
+			// retry when the wait holds no lock.
+			rm := retrying.OpenRequestManager()
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(rm.Close(ctx)).To(Succeed())
+			})
+			start := time.Now()
+			Expect(rm.Set(ctx, channel.Keys{baseCh.Key()})).To(Succeed())
+			Expect(time.Since(start)).To(BeNumerically("<", retryDelay.Duration()/2))
+
+			Eventually(func(g Gomega) {
+				Expect(
+					w.Write(
+						frame.NewUnary(baseCh.Key(), telem.NewSeriesV[int64](1, 2)),
+					),
+				).To(BeTrue())
+				g.Eventually(sOutlet.Outlet(), 200*time.Millisecond).
+					Should(Receive(&res))
+				g.Expect(res.Frame.Get(calcCh.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](3, 6))
+			}, 5*time.Second).Should(Succeed())
+			Expect(changes.Load()).To(BeNumerically("<", 0))
 		})
 
 		Specify("Modified Expression, New Dependencies", func(ctx SpecContext) {

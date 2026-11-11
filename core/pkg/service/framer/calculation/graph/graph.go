@@ -40,6 +40,10 @@ type Config struct {
 	//
 	// [REQUIRED]
 	DB *gorp.DB
+	// Compile compiles a calculated channel. It is injectable for testing.
+	//
+	// [OPTIONAL] - defaults to compiler.Compile.
+	Compile func(context.Context, *gorp.DB, ...compiler.Config) (compiler.Module, error)
 	// Instrumentation is for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - defaults to noop instrumentation.
@@ -52,6 +56,7 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
 }
 
@@ -94,7 +99,7 @@ type Graph struct {
 
 // New creates a new Graph with the provided configuration.
 func New(cfgs ...Config) (*Graph, error) {
-	cfg, err := config.New(Config{}, cfgs...)
+	cfg, err := config.New(Config{Compile: compiler.Compile}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +635,7 @@ func (g *Graph) compile(
 	ctx context.Context,
 	ch channel.Channel,
 ) (compiler.Module, error) {
-	return compiler.Compile(ctx, g.cfg.DB, compiler.Config{
+	return g.cfg.Compile(ctx, g.cfg.DB, compiler.Config{
 		ChannelService: g.cfg.Channel,
 		Channel:        ch,
 	})

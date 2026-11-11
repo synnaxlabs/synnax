@@ -12,8 +12,10 @@ package channel
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // Lookups records the lookups that one compile makes, so that CompileConsistent can run
@@ -44,20 +46,40 @@ func (l *Lookups) Unchanged(ctx context.Context, snap gorp.Snapshot) (bool, erro
 	return true, nil
 }
 
-// compileTries is the number of compiles that CompileConsistent runs with no snapshot.
-const compileTries = 3
+const (
+	// compileTries is the number of compiles that CompileConsistent runs.
+	compileTries = 5
+	// firstBackoff is the wait after the first changed try. It doubles after each.
+	firstBackoff = 10 * time.Millisecond
+)
+
+// ErrLookupsChanged is returned by CompileConsistent when a write changed what each of
+// its compiles read.
+var ErrLookupsChanged = errors.New(
+	"channels or modules changed during each compile; try again",
+)
 
 // CompileConsistent returns the result of compile, which reads through snap and records
-// each lookup it makes in lookups. It first passes db, so a long compile delays no
-// write, and then runs the lookups again in one short snapshot. A changed answer means
-// that a write committed during the compile, so it compiles again. After three changed
-// tries, it compiles inside a snapshot, so compile must not write.
+// each lookup it makes in lookups. It passes db, so a long compile delays no write, and
+// then runs the lookups again in one short snapshot. A changed answer means that a
+// write committed during the compile, so it waits and compiles again. After five
+// changed tries, it returns ErrLookupsChanged.
 func CompileConsistent[T any](
 	ctx context.Context,
 	db *gorp.DB,
 	compile func(snap gorp.Snapshot, lookups *Lookups) (T, error),
 ) (T, error) {
-	for range compileTries {
+	var zero T
+	backoff := firstBackoff
+	for try := range compileTries {
+		if try > 0 {
+			select {
+			case <-ctx.Done():
+				return zero, ctx.Err()
+			case <-time.After(backoff):
+			}
+			backoff *= 2
+		}
 		lookups := &Lookups{}
 		res, err := compile(db, lookups)
 		var unchanged bool
@@ -65,17 +87,11 @@ func CompileConsistent[T any](
 			unchanged, err = lookups.Unchanged(ctx, snap)
 			return err
 		}); checkErr != nil {
-			var zero T
 			return zero, checkErr
 		}
 		if unchanged {
 			return res, err
 		}
 	}
-	var res T
-	err := db.WithSnapshot(ctx, func(snap gorp.Snapshot) (err error) {
-		res, err = compile(snap, &Lookups{})
-		return err
-	})
-	return res, err
+	return zero, ErrLookupsChanged
 }

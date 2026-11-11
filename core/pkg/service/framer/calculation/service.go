@@ -26,9 +26,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/debounce"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -66,6 +68,15 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	ChannelGraph *channelgraph.Graph
+	// RetryDelay is the wait before the service compiles a changed calculation again
+	// when the channels it reads changed during each compile.
+	//
+	// [OPTIONAL] - Defaults to 100 milliseconds.
+	RetryDelay telem.TimeSpan
+	// Compile compiles a calculated channel. It is injectable for testing.
+	//
+	// [OPTIONAL] - Defaults to compiler.Compile.
+	Compile func(context.Context, *gorp.DB, ...compiler.Config) (compiler.Module, error)
 	// Instrumentation is used for logging, tracing, and metrics.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -82,6 +93,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("writer", c.Writer)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("channel_graph", c.ChannelGraph)
+	v.Positive("retry_delay", c.RetryDelay)
 	return v.Error()
 }
 
@@ -93,13 +105,18 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Writer = override.Nil(c.Writer, other.Writer)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.ChannelGraph = override.Nil(c.ChannelGraph, other.ChannelGraph)
+	c.RetryDelay = override.Numeric(c.RetryDelay, other.RetryDelay)
+	c.Compile = override.Nil(c.Compile, other.Compile)
 	return c
 }
 
 type Service struct {
 	disconnectFromChannelChanges observe.Disconnect
 	cfg                          ServiceConfig
-	mu                           struct {
+	// retries compiles a changed calculation again after the channels it reads changed
+	// during each compile.
+	retries *debounce.Keyed[channel.Key]
+	mu      struct {
 		graph  *graph.Graph
 		groups map[int]*group
 		sync.Mutex
@@ -109,7 +126,10 @@ type Service struct {
 // OpenService opens the service with the provided configuration. The service must be
 // closed when it is no longer needed.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(
+		ServiceConfig{RetryDelay: 100 * telem.Millisecond},
+		cfgs...,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -117,12 +137,20 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		Instrumentation: cfg.Child("calculation.graph"),
 		Channel:         cfg.Channel,
 		DB:              cfg.DB,
+		Compile:         cfg.Compile,
 	})
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Service{cfg: cfg}
+	if s.retries, err = debounce.NewKeyed(debounce.KeyedConfig[channel.Key]{
+		Delay:    cfg.RetryDelay.Duration(),
+		MaxDelay: cfg.RetryDelay.Duration() * 4,
+		Callback: s.retry,
+	}); err != nil {
+		return nil, err
+	}
 	s.mu.graph = g
 	s.mu.groups = make(map[int]*group)
 	s.disconnectFromChannelChanges = cfg.ChannelGraph.Observe().OnChange(s.handleChange)
@@ -202,23 +230,56 @@ func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
 
 func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
 	for cg := range reader {
-		ch := cg.Value
 		// Don't stop calculating if the channel is deleted. The calculation will be
 		// automatically shut down when it is no longer needed.
-		if cg.Kind == gorp.ChangeDelete || !ch.IsCalculated() {
+		if cg.Kind == gorp.ChangeDelete || !cg.Value.IsCalculated() {
 			continue
 		}
-		s.mu.Lock()
-		if !s.mu.graph.Contains(cg.Key) {
-			s.mu.Unlock()
-			continue
-		}
-		if err := s.updateCalculation(ctx, ch); err != nil {
-			s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
-		} else {
-			s.acceptDefinition(ctx, ch.Key())
-		}
-		s.mu.Unlock()
+		s.update(ctx, cg.Value)
+	}
+}
+
+// update compiles ch again when the service calculates it. When the channels that ch
+// reads changed during each compile, update keeps the running calculation and
+// schedules a retry.
+func (s *Service) update(ctx context.Context, ch channel.Channel) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.mu.graph.Contains(ch.Key()) {
+		return
+	}
+	err := s.updateCalculation(ctx, ch)
+	switch {
+	case errors.Is(err, channel.ErrLookupsChanged):
+		s.retries.Trigger(ch.Key())
+	case err != nil:
+		s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
+	default:
+		s.acceptDefinition(ctx, ch.Key())
+	}
+}
+
+// retry runs update on the stored definition of the channel with key. It runs on the
+// retry debouncer, so the service holds no lock while a retry waits.
+func (s *Service) retry(ctx context.Context, key channel.Key) {
+	var ch channel.Channel
+	err := s.cfg.Channel.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Entry(&ch).
+		Exec(ctx, s.cfg.DB)
+	if errors.Is(err, query.ErrNotFound) || errors.Is(err, context.Canceled) {
+		return
+	}
+	if err != nil {
+		s.cfg.L.Error(
+			"failed to retry calculation",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+		return
+	}
+	if ch.IsCalculated() {
+		s.update(ctx, ch)
 	}
 }
 
@@ -345,10 +406,11 @@ func (s *Service) Close() error {
 	// Disconnect from channel changes FIRST to prevent new change events This must be
 	// done outside the lock to avoid deadlock with handleChange
 	s.disconnectFromChannelChanges()
+	retryErr := s.retries.Close()
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	var err error
+	err := retryErr
 	for _, g := range s.mu.groups {
 		err = errors.Join(err, g.Close())
 	}
