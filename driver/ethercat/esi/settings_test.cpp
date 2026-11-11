@@ -322,8 +322,8 @@ TEST(ReadSettings, Puts6xSTGOnTheBusOfItsRevision) {
     }
 }
 
-/// @brief it should name DewesoftX as the only reader of a card with one bus in the
-/// DC buffered mode of DewesoftX.
+/// @brief it should name DewesoftX as the only reader of a card with one bus in the DC
+/// buffered mode of DewesoftX.
 TEST(ReadSettings, NamesDewesoftXAsTheOnlyReaderOfASingleBusCard) {
     const auto buffered = testutil::read_of({{{0x8020, 7}, 1}, {{0x8020, 2}, 0}});
     const auto [settings, err] = read_settings(

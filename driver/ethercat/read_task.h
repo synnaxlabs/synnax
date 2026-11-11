@@ -193,6 +193,36 @@ class ReadTaskSource final : public common::Source {
     /// @brief the bus cycle time of each sample in the latest read.
     x::telem::Series times;
 
+    /// @brief reads the gain and offset of each calibrated channel from its slave on
+    /// the running bus.
+    x::errors::Error calibrate() {
+        for (const auto &ch: this->cfg.channels) {
+            if (!ch->calibration) continue;
+            const auto &c = *ch->calibration;
+            std::array<float, 2> values{};
+            const std::array sub_indexes{c.gain_sub_index, c.offset_sub_index};
+            for (size_t i = 0; i < values.size(); i++) {
+                auto [bits, err] = this->engine->read(
+                    ch->entry.slave_position,
+                    c.index,
+                    sub_indexes[i]
+                );
+                if (err) {
+                    err.data = "Failed to read the calibration of channel " +
+                               ch->ch.name + ": " + err.data;
+                    return err;
+                }
+                values[i] = std::bit_cast<float>(bits);
+            }
+            const auto [slope, offset] = c.line(values[0], values[1]);
+            this->calibrations.add(
+                ch->ch.key,
+                transform::UnaryLinearScale(slope, offset, ch->ch.data_type)
+            );
+        }
+        return x::errors::NIL;
+    }
+
 public:
     explicit ReadTaskSource(std::shared_ptr<engine::Engine> eng, ReadTaskConfig cfg):
         cfg(std::move(cfg)),
@@ -221,36 +251,6 @@ public:
         if (auto calibration_err = this->calibrate()) {
             this->reader.reset();
             return calibration_err;
-        }
-        return x::errors::NIL;
-    }
-
-    /// @brief reads the gain and offset of each calibrated channel from its slave on
-    /// the running bus.
-    x::errors::Error calibrate() {
-        for (const auto &ch: this->cfg.channels) {
-            if (!ch->calibration) continue;
-            const auto &c = *ch->calibration;
-            std::array<float, 2> values{};
-            const std::array sub_indexes{c.gain_sub_index, c.offset_sub_index};
-            for (size_t i = 0; i < values.size(); i++) {
-                auto [bits, err] = this->engine->read(
-                    ch->entry.slave_position,
-                    c.index,
-                    sub_indexes[i]
-                );
-                if (err) {
-                    err.data = "Failed to read the calibration of channel " +
-                               ch->ch.name + ": " + err.data;
-                    return err;
-                }
-                values[i] = std::bit_cast<float>(bits);
-            }
-            const auto [slope, offset] = c.line(values[0], values[1]);
-            this->calibrations.add(
-                ch->ch.key,
-                transform::UnaryLinearScale(slope, offset, ch->ch.data_type)
-            );
         }
         return x::errors::NIL;
     }

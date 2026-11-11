@@ -260,9 +260,10 @@ TEST(Input, TakesTheCalibrationOfTheCatalogForIntegerSamples) {
     const auto ch = input(slave, parser);
     ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
     ASSERT_TRUE(ch->calibration.has_value());
-    EXPECT_EQ(ch->calibration->index, 0x8040);
-    EXPECT_EQ(ch->calibration->gain_sub_index, 0x15);
-    EXPECT_EQ(ch->calibration->offset_sub_index, 0x14);
+    const auto &calibration = ch->calibration.value();
+    EXPECT_EQ(calibration.index, 0x8040);
+    EXPECT_EQ(calibration.gain_sub_index, 0x15);
+    EXPECT_EQ(calibration.offset_sub_index, 0x14);
     EXPECT_EQ(ch->entry.data_type, x::telem::INT32_T);
 }
 

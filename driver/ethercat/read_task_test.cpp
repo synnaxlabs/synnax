@@ -660,6 +660,35 @@ TEST_F(EtherCATReadTest, SourceAppliesTheCalibrationOfTheSlave) {
     ASSERT_NIL(source.stop());
 }
 
+/// @brief it should apply the scale of a calibrated channel to the physical values.
+TEST_F(EtherCATReadTest, SourceScalesACalibratedChannelAfterItsCalibration) {
+    this->calibrate_slave();
+    this->mock_master->set_object(1, 0x8040, 0x15, std::bit_cast<uint32_t>(2.0F));
+    this->mock_master->set_object(1, 0x8040, 0x14, std::bit_cast<uint32_t>(0.5F));
+    const auto data_ch = this->create_data_channel("sensor", x::telem::FLOAT64_T);
+    auto cfg = this->create_sensor_config(data_ch);
+    cfg["channels"][0]["scale"] = {{"type", "linear"}, {"slope", 10}, {"offset", 1}};
+    auto parser = x::json::Parser(cfg);
+    ReadTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+    auto source = ReadTaskSource(this->engine, std::move(task_cfg));
+    ASSERT_NIL(source.start());
+    this->mock_master->set_input<int32_t>(2, -100);
+    x::breaker::Breaker brk;
+    brk.start();
+    ASSERT_EVENTUALLY_EQ(
+        [&] {
+            x::telem::Frame frame;
+            source.read(brk, frame);
+            if (frame.empty()) return 0.0;
+            return frame.series->at(0).at<double>(0);
+        }(),
+        -1994.0
+    );
+    brk.stop();
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should fail to start, naming the channel, when it cannot read the
 /// calibration from the slave.
 TEST_F(EtherCATReadTest, StartFailsWhenTheCalibrationCannotBeRead) {

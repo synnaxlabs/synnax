@@ -24,6 +24,7 @@
 #include "x/cpp/loop/testutil/testutil.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ethercat/coe/coe.h"
 #include "driver/ethercat/errors/errors.h"
 #include "driver/ethercat/esi/known_devices.h"
 #include "driver/ethercat/esi/settings.h"
@@ -2945,6 +2946,26 @@ TEST_F(SOEMMasterTest, WriteReturnsTheRejectionWithoutFaultingTheSlave) {
     ASSERT_EQ(health.size(), 1);
     EXPECT_FALSE(health[0].faulted);
     EXPECT_TRUE(health[0].startup_error.empty());
+}
+
+/// @brief it should read the value that a slave on the running bus holds in an object.
+TEST_F(SOEMMasterTest, ReadReturnsTheValueOfAnObjectOnTheRunningBus) {
+    this->initialize_with_slave();
+    this->activate_master();
+    this->mock->slave_infos[0].sdo_objects[{0x8040, 0x15}] = 0x40000000;
+    EXPECT_EQ(ASSERT_NIL_P(this->master->read(1, 0x8040, 0x15)), 0x40000000);
+}
+
+/// @brief it should return the abort of a read of an object that the slave does not
+/// have.
+TEST_F(SOEMMasterTest, ReadReturnsTheAbortOfAMissingObject) {
+    this->initialize_with_slave();
+    const auto [value, err] = this->master->read(1, 0x8040, 0x15);
+    ASSERT_OCCURRED_AS(err, coe::OBJECT_MISSING);
+    EXPECT_EQ(
+        err.data,
+        "failed to read 0x8040:15: Object does not exist in the object dictionary"
+    );
 }
 
 /// @brief it should hold a slave in PRE-OP and report the failure when a startup

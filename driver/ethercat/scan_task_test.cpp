@@ -367,9 +367,7 @@ protected:
 /// @brief it should not report the filter of an adapter with no devices while another
 /// adapter shows devices.
 TEST_F(EtherCATScanFilterTest, IgnoresTheFilterOfAnAdapterWithNoDevices) {
-    const auto [devices, err] = this->scanner->scan({});
-    ASSERT_NIL(err);
-    EXPECT_EQ(devices.size(), 1);
+    EXPECT_EQ(ASSERT_NIL_P(this->scanner->scan({})).size(), 1);
 }
 
 /// @brief it should report the filter of an adapter that the Core holds devices from.
@@ -1130,8 +1128,8 @@ TEST_F(EtherCATScanModeTest, WarnsAboutASlaveSetUpForAnotherProgram) {
     );
 }
 
-/// @brief it should offer only the switch for a slave with one bus that sends data
-/// that only DewesoftX reads.
+/// @brief it should offer only the switch for a slave with one bus that sends data that
+/// only DewesoftX reads.
 TEST_F(EtherCATScanModeTest, OffersOnlyTheSwitchForASingleBusSlave) {
     this->start(true, 0x6041);
     this->set_mode(
@@ -1297,8 +1295,8 @@ TEST_F(EtherCATScanModeTest, SetStandaloneReportsAMissingDevice) {
     EXPECT_EQ(this->ctx->statuses.back().description, "device: This field is required");
 }
 
-/// @brief it should refuse to switch a device that is not on its network, and call
-/// the network by the name of its master.
+/// @brief it should refuse to switch a device that is not on its network, and call the
+/// network by the name of its master.
 TEST_F(EtherCATScanModeTest, SetStandaloneRefusesADeviceOffTheNetwork) {
     this->start(true);
     this->master->set_name("Ethernet 2");

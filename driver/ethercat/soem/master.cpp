@@ -124,7 +124,7 @@ uint32_t pop_sdo_abort(
 }
 
 /// @brief returns errors::REPLIES_BLOCKED when a filter on the adapter of iface blocks
-/// the replies, else errors::NO_SLAVES_FOUND. Messages call iface name.
+/// the replies, else errors::NO_SLAVES_FOUND. The message calls the adapter name.
 x::errors::Error
 no_slaves_error(API &api, const std::string &iface, const std::string &name) {
     const auto found = "No EtherCAT slaves found on " + name + ". ";

@@ -196,9 +196,9 @@ class Engine {
     [[nodiscard]] x::errors::Error
     start_locked(uint64_t mhz, std::map<uint16_t, slave::Config> configs);
     void stop_locked();
-    /// @brief returns err, the error of the last pass of a failed start, as a
-    /// sentence, then a sentence for each slave in left_out. The error ends with each
-    /// distinct advice of the refusals in refused and left_out.
+    /// @brief returns err, the error of the last pass of a failed start, as a sentence,
+    /// then a sentence for each slave in left_out. The error ends with each distinct
+    /// advice of the refusals in refused and left_out.
     static x::errors::Error start_error(
         x::errors::Error err,
         const std::map<uint16_t, slave::Refusal> &refused,
