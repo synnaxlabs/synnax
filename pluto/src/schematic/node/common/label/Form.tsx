@@ -15,11 +15,7 @@ import { type deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import {
-  type Config,
-  NO_WRAP,
-  WRAP_WIDTH_BOUNDS,
-} from "@/schematic/node/common/label/Label";
+import { type Config, WRAP_WIDTH_BOUNDS } from "@/schematic/node/common/label/Label";
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 const MULTILINE_INPUT_FIELD_PROPS: Partial<Input.TextProps> = {
@@ -44,10 +40,9 @@ const WrapWidthField = ({ path }: { path: deep.Target<number> }): ReactElement =
       <Input.Numeric
         value={value}
         onChange={(v) => set(path, v)}
-        emptyValue={NO_WRAP}
-        placeholder="No wrapping"
         endContent="px"
         bounds={WRAP_WIDTH_BOUNDS}
+        integer
         dragScale={WRAP_WIDTH_DRAG_SCALE}
       />
     </Input.Item>

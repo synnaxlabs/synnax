@@ -41,8 +41,8 @@ describe("Label.configZ", () => {
     expect(Label.configZ.parse({}).maxInlineSize).toBe(Label.DEFAULT_MAX_INLINE_SIZE);
   });
 
-  it("should keep a wrap width of 0", () => {
-    expect(Label.configZ.parse({ maxInlineSize: 0 }).maxInlineSize).toBe(0);
+  it("should reject a fractional wrap width", () => {
+    expect(() => Label.configZ.parse({ maxInlineSize: 80.5 })).toThrow();
   });
 
   it("should reject non-numeric maxInlineSize", () => {

@@ -680,7 +680,7 @@ describe("Schematic toolbar Properties", () => {
       expect(getInputByItemLabel(result.container, "Wrap width").value).toBe("150");
     });
 
-    it("stops the wrapping of every selected symbol when cleared", async () => {
+    it("keeps the wrap width of every selected symbol when cleared", async () => {
       const { key, result } = await renderProperties({
         nodeKeys: ["n1", "n2"],
         createConfig: () =>
@@ -693,11 +693,12 @@ describe("Schematic toolbar Properties", () => {
       const input = getInputByItemLabel(result.container, "Wrap width");
       fireEvent.change(input, { target: { value: "" } });
       fireEvent.blur(input);
-      await expect
-        .poll(async () => (await retrieveConfig(key, "n1")).label)
-        .toMatchObject({ maxInlineSize: 0 });
+      await expect.poll(() => input.value).toBe("80");
+      expect((await retrieveConfig(key, "n1")).label).toMatchObject({
+        maxInlineSize: 80,
+      });
       expect((await retrieveConfig(key, "n2")).label).toMatchObject({
-        maxInlineSize: 0,
+        maxInlineSize: 80,
       });
     });
 

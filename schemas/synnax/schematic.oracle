@@ -198,11 +198,8 @@ LabelConfig struct {
     direction       spatial.Direction = spatial.DirectionX {
         @doc value "is the axis along which the label text flows."
     }
-    max_inline_size float64 = 150 {
-        @doc value """
-            is the maximum inline size of the label in pixels before wrapping. 0 means
-            no wrapping.
-        """
+    max_inline_size uint16 = 150 {
+        @doc value "is the maximum inline size of the label in pixels before wrapping."
     }
     align           FlexAlignment = FlexAlignmentCenter {
         @doc value "is the alignment of the label text within its box."
@@ -676,6 +673,9 @@ NodeConfig union on variant {
         }
         size         ComponentSize = ComponentSizeMedium {
             @doc value "is the rendered size preset of the indicator."
+        }
+        level        text.Level = text.LevelH4 {
+            @doc value "is the typography level of the indicator text."
         }
 
         @doc value "is the configuration for multi-state indicator symbols."

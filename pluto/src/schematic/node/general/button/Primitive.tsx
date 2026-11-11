@@ -60,8 +60,7 @@ export const Button = ({
   const style: CSSProperties = {
     [Primitive.SYMBOL_COLOR]: symbolColor,
     textAlign: label == null ? undefined : Label.TEXT_ALIGNS[label.align],
-    maxInlineSize:
-      label == null ? undefined : Label.resolveMaxInlineSize(label.maxInlineSize),
+    maxInlineSize: label?.maxInlineSize,
   };
   // The activation delay gates Base.Button's onClick, so single-shot actuation
   // (fire's release write, pulse's press write) routes through it. An undelayed

@@ -1099,13 +1099,6 @@ var _ = Describe("Payload decoding", func() {
 		Expect(cfg.Label.MaxInlineSize).To(BeEquivalentTo(150))
 	})
 
-	It("Should keep a wrap width of 0", func() {
-		a := decode(`{"type": "set_config", "set_config": {"key": "b1",
-			"config": {"variant": "button", "label": {"max_inline_size": 0}}}}`)
-		cfg := a.SetConfig.Config.Variant.(schematic.ButtonNodeConfig)
-		Expect(cfg.Label.MaxInlineSize).To(BeZero())
-	})
-
 	It("Should keep an empty string the payload carries", func() {
 		a := decode(`{"type": "set_config", "set_config": {"key": "v1",
 			"config": {"variant": "value", "units": ""}}}`)

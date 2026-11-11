@@ -85,11 +85,6 @@ describe("button symbol", () => {
       const { container } = render(<Button label={parseLabel({})} />);
       expect(getButton(container).style.maxInlineSize).toBe("150px");
     });
-
-    it("should leave the button uncapped at a wrap width of 0", () => {
-      const { container } = render(<Button label={parseLabel({ maxInlineSize: 0 })} />);
-      expect(getButton(container).style.maxInlineSize).toBe("");
-    });
   });
 
   describe("handler routing", () => {

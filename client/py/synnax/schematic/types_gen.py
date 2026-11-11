@@ -143,7 +143,7 @@ class LabelConfig(BaseModel):
         orientation: Is the placement of the label relative to the symbol.
         direction: Is the axis along which the label text flows.
         max_inline_size: Is the maximum inline size of the label in pixels before
-            wrapping. 0 means no wrapping.
+            wrapping.
         align: Is the alignment of the label text within its box.
     """
 
@@ -151,7 +151,7 @@ class LabelConfig(BaseModel):
     level: text.Level = "h5"
     orientation: spatial.Location = "top"
     direction: spatial.Direction = "x"
-    max_inline_size: float = 150
+    max_inline_size: int = Field(default=150, ge=0, le=65535)
     align: FlexAlignment = "center"
 
 
@@ -723,6 +723,7 @@ class StateIndicatorNodeConfig(LabeledConfig, StalenessConfig):
     inline_size: float = 100
     options: list[StateMapping] = Field(default_factory=list)
     size: ComponentSize = "medium"
+    level: text.Level = "h4"
 
 
 class StringDisplayNodeConfig(LabeledConfig, StalenessConfig):

@@ -23,18 +23,8 @@ export type Config = schematic.LabelConfig;
 /** The default wrap width of a label in pixels. */
 export const DEFAULT_MAX_INLINE_SIZE = 150;
 
-/** The stored wrap width of a label that does not wrap. */
-export const NO_WRAP = 0;
-
-/** The bounds of a stored wrap width. */
-export const WRAP_WIDTH_BOUNDS: bounds.Bounds = { lower: NO_WRAP, upper: Infinity };
-
-/**
- * @param size - The stored wrap width.
- * @returns the CSS max-inline-size of a label: undefined when it does not wrap.
- */
-export const resolveMaxInlineSize = (size: number): number | undefined =>
-  size === NO_WRAP ? undefined : size;
+/** The bounds of a stored wrap width in pixels. */
+export const WRAP_WIDTH_BOUNDS: bounds.Bounds = { lower: 1, upper: 65535 };
 
 /** The CSS text-align of each label alignment. Stretch sets none. */
 export const TEXT_ALIGNS: Record<schematic.FlexAlignment, CSSProperties["textAlign"]> =
@@ -56,7 +46,7 @@ const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps
     onChange?.({ label: { ...config, label: value } });
   const style = {
     textAlign: TEXT_ALIGNS[align],
-    maxInlineSize: resolveMaxInlineSize(maxInlineSize),
+    maxInlineSize,
     ...baseStyle,
   };
   return (

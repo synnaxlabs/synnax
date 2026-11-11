@@ -580,10 +580,9 @@ const MultiConfig = ({
                 Schematic.Node.Label.DEFAULT_MAX_INLINE_SIZE
               }
               onChange={(v) => handleLabelProp("maxInlineSize", v)}
-              emptyValue={Schematic.Node.Label.NO_WRAP}
-              placeholder="No wrapping"
               endContent="px"
               bounds={Schematic.Node.Label.WRAP_WIDTH_BOUNDS}
+              integer
             />
           </Input.Item>
           <Input.Item label="Size">

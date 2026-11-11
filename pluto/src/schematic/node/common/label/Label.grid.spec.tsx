@@ -129,15 +129,6 @@ describe("Label.Label as GridItem", () => {
       expect((labelEl(container) as HTMLElement).style.maxInlineSize).toBe("150px");
     });
 
-    it("should not cap a label at a wrap width of 0", () => {
-      const { container } = render(
-        <Wrap>
-          <Label.Label config={cfg({ label: "X", maxInlineSize: 0 })} />
-        </Wrap>,
-      );
-      expect((labelEl(container) as HTMLElement).style.maxInlineSize).toBe("");
-    });
-
     it("should apply the direction modifier class when direction is set", () => {
       const { container } = render(
         <Wrap>

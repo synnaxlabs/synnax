@@ -106,10 +106,9 @@ export const labelConfigZ = z.object({
   /** direction is the axis along which the label text flows. */
   direction: spatial.directionZ.default("x"),
   /**
-   * maxInlineSize is the maximum inline size of the label in pixels before wrapping. 0
-   * means no wrapping.
+   * maxInlineSize is the maximum inline size of the label in pixels before wrapping.
    */
-  maxInlineSize: z.number().default(150),
+  maxInlineSize: zod.uint16.default(150),
   /** align is the alignment of the label text within its box. */
   align: flexAlignmentZ.default("center"),
 });
@@ -771,6 +770,8 @@ export const stateIndicatorNodeConfigZ = labeledConfigZ
     options: stateMappingZ.array().default(() => []),
     /** size is the rendered size preset of the indicator. */
     size: componentSizeZ.default("medium"),
+    /** level is the typography level of the indicator text. */
+    level: text.levelZ.default("h4"),
   });
 export interface StateIndicatorNodeConfig extends z.infer<
   typeof stateIndicatorNodeConfigZ

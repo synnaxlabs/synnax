@@ -76,9 +76,13 @@ ComponentSize = v9.ComponentSize
 
 ButtonMode = v9.ButtonMode
 
-LabelConfig = v9.LabelConfig
+LabelConfig struct extends v9.LabelConfig {
+    max_inline_size uint16 = 150 {
+        @doc value "is the maximum inline size of the label in pixels before wrapping."
+    }
+}
 
-LabeledConfig = v9.LabeledConfig
+LabeledConfig struct extends v9.LabeledConfig {}
 
 ScaledConfig = v9.ScaledConfig
 
@@ -95,13 +99,13 @@ NumericTelemConfig struct extends v9.NumericTelemConfig {
 
 ControlStateConfig = v9.ControlStateConfig
 
-ToggleConfig = v9.ToggleConfig
+ToggleConfig struct extends v9.ToggleConfig {}
 
-StaticSymbolConfig = v9.StaticSymbolConfig
+StaticSymbolConfig struct extends v9.StaticSymbolConfig {}
 
-ToggleSymbolConfig = v9.ToggleSymbolConfig
+ToggleSymbolConfig struct extends v9.ToggleSymbolConfig {}
 
-DummyToggleSymbolConfig = v9.DummyToggleSymbolConfig
+DummyToggleSymbolConfig struct extends v9.DummyToggleSymbolConfig {}
 
 ScaleIndicatorConfig struct extends v9.ScaleIndicatorConfig {}
 
@@ -153,6 +157,12 @@ NodeConfig union on variant extends v10.NodeConfig {
         size
         level text.Level = text.LevelH4 {
             @doc value "is the typography level of the setpoint text."
+        }
+    }
+    state_indicator {
+        size
+        level text.Level = text.LevelH4 {
+            @doc value "is the typography level of the indicator text."
         }
     }
 }

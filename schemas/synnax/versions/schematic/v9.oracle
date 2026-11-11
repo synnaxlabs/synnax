@@ -135,8 +135,7 @@ LabelConfig struct {
     }
     max_inline_size float64 = 150 {
         @doc value """
-            is the maximum inline size of the label in pixels before wrapping. 0 means
-            no wrapping.
+            is the maximum inline size of the label in pixels before wrapping.
         """
     }
     align           FlexAlignment = FlexAlignmentCenter {

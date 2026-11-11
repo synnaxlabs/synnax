@@ -46,12 +46,6 @@ describe("button symbol layout", () => {
     expect(el.getBoundingClientRect().width).toBeLessThanOrEqual(150);
   });
 
-  it("should keep a long label on one line at a wrap width of 0", async () => {
-    const el = await renderButton({ label: LONG, maxInlineSize: 0 });
-    expect(lineCount(el)).toBe(1);
-    expect(el.getBoundingClientRect().width).toBeGreaterThan(150);
-  });
-
   it("should wrap a long label at a chosen wrap width", async () => {
     const el = await renderButton({ label: LONG, maxInlineSize: 100 });
     expect(lineCount(el)).toBeGreaterThan(1);

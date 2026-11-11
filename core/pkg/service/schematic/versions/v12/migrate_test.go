@@ -174,7 +174,7 @@ var _ = Describe("MigrateSchematic", func() {
 	)
 
 
-	It("Should set a saved button's level and stop its wrapping", func(
+	It("Should set a saved button's level and keep its wrap width", func(
 		ctx SpecContext,
 	) {
 		Expect(migrateConfig(ctx, msgpack.EncodedJSON{
@@ -183,7 +183,7 @@ var _ = Describe("MigrateSchematic", func() {
 			"label":   map[string]any{"max_inline_size": 80.0},
 		})).To(SatisfyAll(
 			HaveField("Level", Equal(text.LevelH5)),
-			HaveField("LabeledConfig.Label.MaxInlineSize", BeZero()),
+			HaveField("LabeledConfig.Label.MaxInlineSize", BeEquivalentTo(80)),
 		))
 	})
 
@@ -201,35 +201,38 @@ var _ = Describe("MigrateSchematic", func() {
 		))
 	})
 
-	DescribeTable("Should stop the wrapping of a saved button",
-		func(ctx SpecContext, label map[string]any) {
-			button := migrateConfig(ctx, msgpack.EncodedJSON{
-				"variant": "button",
+	DescribeTable("Should keep the wrap width of a saved symbol",
+		func(ctx SpecContext, variant string, label map[string]any, width uint16) {
+			Expect(migrateConfig(ctx, msgpack.EncodedJSON{
+				"variant": variant,
 				"label":   label,
-			}).(v12.ButtonNodeConfig)
-			Expect(button.Label.MaxInlineSize).To(BeZero())
-			Expect(button.Label.Label).To(Equal("Open"))
+			})).To(SatisfyAll(
+				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
+				HaveField("LabeledConfig.Label.Label", Equal("P1")),
+			))
 		},
-		Entry("with the default", map[string]any{"label": "Open"}),
-		Entry("with a chosen width", map[string]any{
-			"label":           "Open",
-			"max_inline_size": 80.0,
-		}),
+		Entry("a button with the default", "button",
+			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a button with a chosen width", "button",
+			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
+		Entry("a value with the default", "value",
+			map[string]any{"label": "P1"}, uint16(150)),
+		Entry("a value with a chosen width", "value",
+			map[string]any{"label": "P1", "max_inline_size": 80.0}, uint16(80)),
 	)
 
-	DescribeTable("Should keep the wrap width of a symbol that is not a button",
-		func(ctx SpecContext, label map[string]any, width float64) {
-			value := migrateConfig(ctx, msgpack.EncodedJSON{
-				"variant": "value",
-				"label":   label,
-			}).(v12.ValueNodeConfig)
-			Expect(value.Label.MaxInlineSize).To(BeEquivalentTo(width))
+	DescribeTable("Should keep the rendered text size of a saved state indicator",
+		func(ctx SpecContext, size string, level text.Level) {
+			Expect(migrateConfig(ctx, msgpack.EncodedJSON{
+				"variant": "state_indicator",
+				"size":    size,
+			})).To(HaveField("Level", Equal(level)))
 		},
-		Entry("with the default", map[string]any{"label": "P1"}, 150.0),
-		Entry("with a chosen width", map[string]any{
-			"label":           "P1",
-			"max_inline_size": 80.0,
-		}, 80.0),
+		Entry("tiny", "tiny", text.LevelSmall),
+		Entry("small", "small", text.LevelH5),
+		Entry("medium", "medium", text.LevelH4),
+		Entry("large", "large", text.LevelH3),
+		Entry("huge", "huge", text.LevelH2),
 	)
 
 	DescribeTable("Should keep the rendered text size of a saved symbol",
@@ -367,6 +370,31 @@ var _ = Describe("MigrateEdge", func() {
 	})
 })
 
+var _ = Describe("MigrateLabelConfig", func() {
+	DescribeTable("Should round and clamp the wrap width", func(
+		ctx SpecContext,
+		in float64,
+		out uint16,
+	) {
+		cfg := MustSucceed(v12.MigrateLabelConfig(
+			ctx,
+			v11.LabelConfig{Label: "P1", MaxInlineSize: in},
+		))
+		Expect(cfg.MaxInlineSize).To(Equal(out))
+		Expect(cfg.Label).To(Equal("P1"))
+	},
+		Entry("whole", 80.0, uint16(80)),
+		Entry("round up", 80.6, uint16(81)),
+		Entry("round down", 80.4, uint16(80)),
+		Entry("below 1", 0.3, uint16(1)),
+		Entry("negative", -20.0, uint16(1)),
+		Entry("too large", 1e9, uint16(65535)),
+		Entry("infinite", math.Inf(1), uint16(65535)),
+		Entry("zero", 0.0, uint16(150)),
+		Entry("NaN", math.NaN(), uint16(150)),
+	)
+})
+
 var _ = Describe("MigrateNodeConfig", func() {
 	DescribeTable("Should round and clamp a symbol stroke width",
 		func(ctx SpecContext, old v11.NodeConfigVariant, want uint8) {
@@ -392,8 +420,9 @@ var _ = Describe("MigrateNodeConfig", func() {
 		Expect(out.Variant).To(HaveField("Precision", HaveValue(BeEquivalentTo(3))))
 	})
 
-	DescribeTable("Should keep the wrap width of a labeled symbol",
-		func(ctx SpecContext, label msgpack.EncodedJSON, width float64) {
+	DescribeTable(
+		"Should keep the wrap width of a labeled symbol",
+		func(ctx SpecContext, label msgpack.EncodedJSON, width uint16) {
 			out := MustSucceed(v12.MigrateNodeConfig(ctx, storedNode(msgpack.EncodedJSON{
 				"variant": "value",
 				"label":   label,
@@ -402,8 +431,12 @@ var _ = Describe("MigrateNodeConfig", func() {
 				HaveField("LabeledConfig.Label.MaxInlineSize", Equal(width)),
 			)
 		},
-		Entry("absent", msgpack.EncodedJSON{"label": "P1"}, 150.0),
-		Entry("0", msgpack.EncodedJSON{"label": "P1", "max_inline_size": 0.0}, 0.0),
+		Entry("absent", msgpack.EncodedJSON{"label": "P1"}, uint16(150)),
+		Entry(
+			"0",
+			msgpack.EncodedJSON{"label": "P1", "max_inline_size": 0.0},
+			uint16(150),
+		),
 	)
 
 	It("Should keep the other fields of a symbol", func(ctx SpecContext) {
@@ -429,26 +462,6 @@ var _ = Describe("Stored migration", func() {
 		Entry("box", v10.BoxElementConfig{}),
 		Entry("circle", v10.CircleElementConfig{}),
 		Entry("polygon", v10.PolygonElementConfig{}),
-	)
-
-	DescribeTable("Should keep a wrap width of 0 through storage and JSON",
-		func(ctx SpecContext, raw msgpack.EncodedJSON) {
-			cfg := migrateStoredConfig(ctx, stored(raw).Variant)
-			wrap := HaveField("LabeledConfig.Label.MaxInlineSize", BeZero())
-			Expect(cfg.Variant).To(wrap)
-			var decoded v12.NodeConfig
-			encoded := MustSucceed(json.Marshal(cfg))
-			Expect(json.Unmarshal(encoded, &decoded)).To(Succeed())
-			Expect(decoded.Variant).To(wrap)
-		},
-		Entry("a button with a wrap width", msgpack.EncodedJSON{
-			"variant": "button",
-			"label":   map[string]any{"label": "Open", "max_inline_size": 80.0},
-		}),
-		Entry("a value that does not wrap", msgpack.EncodedJSON{
-			"variant": "value",
-			"label":   map[string]any{"label": "P1", "max_inline_size": 0.0},
-		}),
 	)
 
 	It("Should move a stored edge config onto its edge", func(ctx SpecContext) {

@@ -129,7 +129,7 @@ describe("Schematic.Node.createConfig", () => {
     expect(config.stateOverrides).toEqual([]);
   });
 
-  it.each(["button", "input", "setpoint"] as const)(
+  it.each(["button", "input", "setpoint", "state_indicator"] as const)(
     "should start a new %s on the medium text level",
     (variant) => expect(createConfig({ variant }).level).toBe(SIZE_LEVELS.medium),
   );

@@ -119,9 +119,7 @@ func nodeConfig(cfg v11.ElementConfig) (v11.NodeConfig, error) {
 // MigrateNodeConfig lifts a v11 node config into v12. A stroke width rounds to whole
 // pixels up to 20. A width above 0, and every line width, keeps at least 1 pixel. A NaN
 // width counts as 0. A tank's precision migrates as in MigrateNumericTelemConfig. A
-// button, input, select, or setpoint keeps its rendered text size. A button takes a
-// label wrap width of 0, because a button rendered without wrapping whatever width it
-// stored.
+// button, input, select, setpoint, or state indicator keeps its rendered text size.
 func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, error) {
 	out, err := autoMigrateNodeConfig(ctx, old)
 	if err != nil {
@@ -134,7 +132,6 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 		out.Variant = n
 	case v11.ButtonNodeConfig:
 		n := out.Variant.(ButtonNodeConfig)
-		n.Label.MaxInlineSize = 0
 		n.Level = renderedLevel(o.Size)
 		if o.Level != nil && o.Level.IsValid() {
 			n.Level = *o.Level
@@ -163,6 +160,10 @@ func MigrateNodeConfig(ctx context.Context, old v11.NodeConfig) (NodeConfig, err
 	case v11.SetpointNodeConfig:
 		n := out.Variant.(SetpointNodeConfig)
 		n.Level = renderedLevel(o.Size)
+		out.Variant = n
+	case v11.StateIndicatorNodeConfig:
+		n := out.Variant.(StateIndicatorNodeConfig)
+		n.Level = indicatorLevel(o.Size)
 		out.Variant = n
 	case v11.TankNodeConfig:
 		// A tank declares its numeric fields inline, so the generated copy skips the
@@ -210,6 +211,42 @@ func migrateStrokeWidth(w float64) uint8 {
 	return uint8(min(max(math.Round(w), 1), 20))
 }
 
+// MigrateLabeledConfig lifts a v11 labeled config into v12.
+func MigrateLabeledConfig(
+	ctx context.Context,
+	old v11.LabeledConfig,
+) (LabeledConfig, error) {
+	return autoMigrateLabeledConfig(ctx, old)
+}
+
+// MigrateToggleConfig lifts a v11 toggle config into v12.
+func MigrateToggleConfig(
+	ctx context.Context,
+	old v11.ToggleConfig,
+) (ToggleConfig, error) {
+	return autoMigrateToggleConfig(ctx, old)
+}
+
+// MigrateLabelConfig lifts a v11 label config into v12. It rounds the wrap width to
+// whole pixels and clamps it to 1 through 65535. A NaN or 0 width becomes 150.
+func MigrateLabelConfig(ctx context.Context, old v11.LabelConfig) (LabelConfig, error) {
+	cfg, err := autoMigrateLabelConfig(ctx, old)
+	if err != nil {
+		return LabelConfig{}, err
+	}
+	cfg.MaxInlineSize = migrateMaxInlineSize(old.MaxInlineSize)
+	return cfg, nil
+}
+
+const defaultMaxInlineSize = 150
+
+func migrateMaxInlineSize(w float64) uint16 {
+	if math.IsNaN(w) || w == 0 {
+		return defaultMaxInlineSize
+	}
+	return uint16(min(max(math.Round(w), 1), math.MaxUint16))
+}
+
 // renderedLevel returns the text level a v11 symbol of the given size rendered at when
 // it stored none.
 func renderedLevel(size ComponentSize) text.Level {
@@ -224,5 +261,22 @@ func renderedLevel(size ComponentSize) text.Level {
 		return text.LevelH2
 	default:
 		return text.LevelP
+	}
+}
+
+// indicatorLevel returns the text level a v11 state indicator of the given size
+// rendered at.
+func indicatorLevel(size ComponentSize) text.Level {
+	switch size {
+	case ComponentSizeTiny:
+		return text.LevelSmall
+	case ComponentSizeSmall:
+		return text.LevelH5
+	case ComponentSizeLarge:
+		return text.LevelH3
+	case ComponentSizeHuge:
+		return text.LevelH2
+	default:
+		return text.LevelH4
 	}
 }
