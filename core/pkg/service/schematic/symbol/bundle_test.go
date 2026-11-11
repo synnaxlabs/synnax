@@ -10,7 +10,6 @@
 package symbol_test
 
 import (
-	"context"
 	"encoding/json/v2"
 	"io"
 	"maps"
@@ -26,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/encoding"
 	xjson "github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/zip"
@@ -49,18 +49,18 @@ func (e failEncoder) refuses(value any) bool {
 	return isManifest == e.onManifest
 }
 
-func (e failEncoder) Encode(ctx context.Context, value any) ([]byte, error) {
+func (e failEncoder) Encode(value any) ([]byte, error) {
 	if e.refuses(value) {
 		return nil, errEncode
 	}
-	return xjson.Codec.Encode(ctx, value)
+	return xjson.Codec.Encode(value)
 }
 
-func (e failEncoder) EncodeStream(ctx context.Context, w io.Writer, value any) error {
+func (e failEncoder) EncodeStream(w io.Writer, value any) error {
 	if e.refuses(value) {
 		return errEncode
 	}
-	return xjson.Codec.EncodeStream(ctx, w, value)
+	return xjson.Codec.EncodeStream(w, value)
 }
 
 func (failEncoder) Extension() string { return xjson.Codec.Extension() }
@@ -91,11 +91,11 @@ var _ = Describe("ExportGroup", func() {
 	}
 	createSymbol := func(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 		GinkgoHelper()
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name:  name,
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &g.Key,
-		}
+		})
 		Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 			return svc.NewWriter(tx).Create(ctx, &sym)
 		})).To(Succeed())
@@ -140,7 +140,7 @@ var _ = Describe("ExportGroup", func() {
 		sym := createSymbol(ctx, g, "Inlet")
 		env := MustSucceed(svc.Export(ctx, db, symbol.ResourceID(sym.Key)))
 		Expect(exportFiles(ctx, g.Key)["Inlet.json"]).
-			To(MatchJSON(MustSucceed(xjson.Codec.Encode(ctx, env))))
+			To(MatchJSON(MustSucceed(xjson.Codec.Encode(env))))
 	})
 	It("Should report every exported symbol as a member", func(ctx SpecContext) {
 		g := createRoot(ctx, "Valves")
@@ -303,11 +303,11 @@ var _ = Describe("ImportGroup", func() {
 				return groupSvc.NewWriter(tx).Delete(ctx, src.Key)
 			})).To(Succeed())
 		})
-		sym := symbol.Symbol{
+		sym := defaults.Fill(symbol.Symbol{
 			Name:  "Inlet",
 			Data:  symbol.Spec{SVG: "<svg/>", Variant: "valve"},
 			Group: &src.Key,
-		}
+		})
 		Expect(svc.NewWriter(tx).Create(ctx, &sym)).To(Succeed())
 		DeferCleanup(func(ctx SpecContext) {
 			Expect(db.WithTx(ctx, func(tx gorp.Tx) error {

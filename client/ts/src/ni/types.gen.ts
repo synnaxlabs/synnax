@@ -396,14 +396,6 @@ export const baseAOChannelZ = z.object({
   key: z.string().default(id.create),
   /** disabled is true when the channel is excluded from the task. */
   disabled: z.boolean().default(false),
-  /** cmdChannel is the Synnax channel commands are read from. */
-  cmdChannel: channel.keyZ.default(0),
-  /** stateChannel is the Synnax channel the output state is written to. */
-  stateChannel: channel.keyZ.default(0),
-  /** cmdChannelName is the human-readable name of the command channel. */
-  cmdChannelName: z.string().default(""),
-  /** stateChannelName is the human-readable name of the state channel. */
-  stateChannelName: z.string().default(""),
   /** port is the physical port the channel writes to. */
   port: z.uint32().default(0),
 });
@@ -518,6 +510,22 @@ export const digitalPortZ = z.object({
   output: z.boolean().default(false),
 });
 export interface DigitalPort extends z.infer<typeof digitalPortZ> {}
+
+/**
+ * CommandedAOChannel carries the command and state channels of a commanded analog
+ * output.
+ */
+export const commandedAOChannelZ = z.object({
+  /** cmdChannel is the Synnax channel commands are read from. */
+  cmdChannel: channel.keyZ.default(0),
+  /** stateChannel is the Synnax channel the output state is written to. */
+  stateChannel: channel.keyZ.default(0),
+  /** cmdChannelName is the human-readable name of the command channel. */
+  cmdChannelName: z.string().default(""),
+  /** stateChannelName is the human-readable name of the state channel. */
+  stateChannelName: z.string().default(""),
+});
+export interface CommandedAOChannel extends z.infer<typeof commandedAOChannelZ> {}
 
 /** BuiltInCJC reads the reference temperature from the device's own sensor. */
 export const builtInCJCZ = z.object({
@@ -1701,12 +1709,15 @@ export const CI_CHANNEL_SCHEMAS: {
 export const aoCurrentChannelZ = baseAOChannelZ
   .extend(minMaxValZ.shape)
   .extend(customScaleZ.shape)
+  .extend(commandedAOChannelZ.shape)
   .extend({
     type: z.literal("ao_current"),
   });
 export interface AOCurrentChannel extends z.infer<typeof aoCurrentChannelZ> {}
 
-/** AOFuncGenChannel drives a function-generator output. */
+/**
+ * AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
+ */
 export const aoFuncGenChannelZ = baseAOChannelZ.extend({
   type: z.literal("ao_func_gen"),
   /** waveType selects the waveform to generate. */
@@ -1724,6 +1735,7 @@ export interface AOFuncGenChannel extends z.infer<typeof aoFuncGenChannelZ> {}
 export const aoVoltageChannelZ = baseAOChannelZ
   .extend(minMaxValZ.shape)
   .extend(customScaleZ.shape)
+  .extend(commandedAOChannelZ.shape)
   .extend({
     type: z.literal("ao_voltage"),
   });

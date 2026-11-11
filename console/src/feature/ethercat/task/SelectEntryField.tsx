@@ -25,7 +25,7 @@ import {
   getUnresolvedMessage,
   hasEntry,
   type PDOType,
-  uniqueEntries,
+  usableEntries,
 } from "@/feature/ethercat/task/types";
 
 export interface SelectEntryFieldProps {
@@ -43,7 +43,7 @@ export const SelectEntryField = ({
   const { data: slave } = useResultSlave(
     primitive.isZero(ch.device) ? null : { key: ch.device },
   );
-  const entries = uniqueEntries(slave?.properties.pdos[pdoType] ?? []);
+  const entries = slave == null ? [] : usableEntries(slave.properties, pdoType);
   const emptyContent = primitive.isZero(ch.device)
     ? "Select a slave device first."
     : `This slave has no ${DIRECTIONS[pdoType]} entries. Scan the network again.`;

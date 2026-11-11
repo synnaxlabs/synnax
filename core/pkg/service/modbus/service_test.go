@@ -185,6 +185,85 @@ var _ = Describe("Service", func() {
 				"holding_register_bit",
 			),
 		)
+
+		DescribeTable("Should refuse a register value the Driver cannot read",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				channelType string,
+				dataType string,
+				msg string,
+			) {
+				Expect(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{map[string]any{
+						"type":          channelType,
+						"key":           "chan-1",
+						"data_type":     dataType,
+						"string_length": 4,
+					}},
+				})).Error().To(MatchError(
+					HaveSuffix("channels.0.data_type: " + msg),
+				))
+			},
+			Entry(
+				"0.60 holding register string read",
+				func() config.Store { return svc.Read },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string; read a string with a "+
+					"register string channel",
+			),
+			Entry(
+				"0.60 input register string read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"string",
+				"must be a numeric data type, not string; read a string with a "+
+					"register string channel",
+			),
+			Entry(
+				"holding register string write",
+				func() config.Store { return svc.Write },
+				"holding_register",
+				"string",
+				"must be a numeric data type, not string",
+			),
+			Entry(
+				"timestamp read",
+				func() config.Store { return svc.Read },
+				"input_register",
+				"timestamp",
+				"must be a numeric data type, not timestamp",
+			),
+		)
+
+		DescribeTable("Should accept every numeric register value type",
+			func(ctx SpecContext, store func() config.Store, dataType string) {
+				MustSucceed(store().Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+					"channels": []any{register(map[string]any{"data_type": dataType})},
+				}))
+			},
+			Entry("int8 read", func() config.Store { return svc.Read }, "int8"),
+			Entry("uint8 read", func() config.Store { return svc.Read }, "uint8"),
+			Entry("int16 read", func() config.Store { return svc.Read }, "int16"),
+			Entry("uint16 read", func() config.Store { return svc.Read }, "uint16"),
+			Entry("int32 read", func() config.Store { return svc.Read }, "int32"),
+			Entry("uint32 read", func() config.Store { return svc.Read }, "uint32"),
+			Entry("int64 read", func() config.Store { return svc.Read }, "int64"),
+			Entry("uint64 read", func() config.Store { return svc.Read }, "uint64"),
+			Entry("float32 read", func() config.Store { return svc.Read }, "float32"),
+			Entry("float64 read", func() config.Store { return svc.Read }, "float64"),
+			Entry("int8 write", func() config.Store { return svc.Write }, "int8"),
+			Entry("uint8 write", func() config.Store { return svc.Write }, "uint8"),
+			Entry("int16 write", func() config.Store { return svc.Write }, "int16"),
+			Entry("uint16 write", func() config.Store { return svc.Write }, "uint16"),
+			Entry("int32 write", func() config.Store { return svc.Write }, "int32"),
+			Entry("uint32 write", func() config.Store { return svc.Write }, "uint32"),
+			Entry("int64 write", func() config.Store { return svc.Write }, "int64"),
+			Entry("uint64 write", func() config.Store { return svc.Write }, "uint64"),
+			Entry("float32 write", func() config.Store { return svc.Write }, "float32"),
+			Entry("float64 write", func() config.Store { return svc.Write }, "float64"),
+		)
 	})
 
 	Describe("Byte and word order", func() {
@@ -404,4 +483,49 @@ var _ = Describe("Service", func() {
 			},
 		)
 	})
+
+	DescribeTable("Should reject a scan config whose rate is not positive",
+		func(ctx SpecContext, rate float64) {
+			Expect(svc.Scan.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"rate": rate,
+			})).Error().To(MatchError(ContainSubstring("rate: must be greater than 0")))
+		},
+		Entry("zero", 0.0),
+		Entry("negative", -1.0),
+	)
+
+	DescribeTable(
+		"Should reject a read config with an invalid rate",
+		func(ctx SpecContext, sampleRate, streamRate float64, msg string) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": sampleRate,
+				"stream_rate": streamRate,
+			})).Error().To(MatchError(ContainSubstring(msg)))
+		},
+		Entry("zero sample rate", 0.0, 0.0, "sample_rate: must be greater than 0"),
+		Entry(
+			"negative sample rate",
+			-1.0,
+			-2.0,
+			"sample_rate: must be greater than 0",
+		),
+		Entry("zero stream rate", 10.0, 0.0, "stream_rate: must be greater than 0"),
+		Entry(
+			"negative stream rate",
+			10.0,
+			-1.0,
+			"stream_rate: must be greater than 0",
+		),
+	)
+
+	// The Console saves each field edit, so a draft can hold a stream rate above its
+	// sample rate. The Driver refuses it on start.
+	It("Should store a read config whose stream rate is above its sample rate",
+		func(ctx SpecContext) {
+			Expect(svc.Read.Prepare(ctx, db, uuid.New(), msgpack.EncodedJSON{
+				"sample_rate": 10.0,
+				"stream_rate": 20.0,
+			})).Error().ToNot(HaveOccurred())
+		},
+	)
 })

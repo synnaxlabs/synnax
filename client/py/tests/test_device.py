@@ -442,6 +442,40 @@ class TestDeviceGroup:
 
 
 @pytest.mark.device
+class TestDeviceDispatch:
+    def test_set(self, client: sy.Synnax) -> None:
+        """Should apply each set of a dispatch to the device."""
+        dev = client.devices.create(basic_device(client.racks.create(name="a").key, 1))
+        client.devices.dispatch(
+            dev.key,
+            [
+                sy.device.set(sy.device.SetPayload(path=["configured"], value=True)),
+                sy.device.set(
+                    sy.device.SetPayload(path=["properties"], value={"foo": "baz"})
+                ),
+            ],
+        )
+        res = client.devices.retrieve(key=dev.key)
+        assert res.configured
+        assert res.properties == {"foo": "baz"}
+
+    def test_set_rack(self, client: sy.Synnax) -> None:
+        """Should move a device under a parent on another rack."""
+        dev = client.devices.create(basic_device(client.racks.create(name="a").key, 1))
+        other = client.racks.create(name="b")
+        chassis = client.devices.create(basic_device(other.key, 2))
+        client.devices.dispatch(
+            dev.key,
+            sy.device.set_rack(
+                sy.device.SetRackPayload(rack=other.key, parent=chassis.key)
+            ),
+        )
+        res = client.devices.retrieve(key=dev.key)
+        assert res.rack == other.key
+        assert res.parent == chassis.key
+
+
+@pytest.mark.device
 class TestEnsureObject:
     """Tests for walking and creating nested device property objects."""
 

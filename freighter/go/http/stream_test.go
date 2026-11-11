@@ -23,6 +23,7 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -137,6 +138,50 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 			Eventually(received).Should(Receive(MatchError(freighter.ErrStreamClosed)))
 			Expect(stream.CloseSend()).To(Succeed())
 		})
+	})
+
+	Describe("WithAdditionalCodec", func() {
+		// Serves its own app: shutting down the shared one would strand later specs.
+		It(
+			"should construct the codec with a live context that ends when the app stops",
+			func(ctx SpecContext) {
+				const contentType = "application/x-test"
+				codecCtx := make(chan context.Context, 1)
+				router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
+					StreamWriteDeadline: testutil.WriteDeadline,
+				}))
+				ownServer := router.NewStreamServer[testutil.Request, testutil.Response](
+					"/",
+					fhttp.WithAdditionalCodec(
+						contentType,
+						func(ctx context.Context) encoding.Codec {
+							codecCtx <- ctx
+							return json.Codec
+						},
+					),
+				)
+				ownServer.BindHandler(func(
+					_ context.Context,
+					stream freighter.ServerStream[testutil.Request, testutil.Response],
+				) error {
+					_, err := stream.Receive()
+					return err
+				})
+				ownApp, ownAddr := serveRouter(router)
+				headers := http.Header{}
+				headers.Set(fiber.HeaderContentType, contentType)
+				conn, res := MustSucceed2((&ws.Dialer{}).DialContext(
+					ctx, "ws://"+ownAddr.String()+"/", headers,
+				))
+				Expect(res.Body.Close()).To(Succeed())
+				var got context.Context
+				Eventually(codecCtx).Should(Receive(&got))
+				Expect(got.Err()).ToNot(HaveOccurred())
+				Expect(conn.Close()).To(Succeed())
+				Expect(ownApp.Shutdown()).To(Succeed())
+				Eventually(got.Done()).Should(BeClosed())
+			},
+		)
 	})
 
 	Describe("Shutdown", func() {

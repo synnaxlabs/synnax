@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
 	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/defaults"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -34,7 +35,7 @@ var _ = Describe("Writer", func() {
 	Describe("Create", func() {
 		It("Should create a Log", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project: &proj.Key,
 				Name:    "test",
 				Channels: []log.ChannelEntry{
@@ -43,16 +44,27 @@ var _ = Describe("Writer", func() {
 						Color:   MustSucceed(color.FromHex("#ff0000")),
 					},
 				},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(l.Key).ToNot(Equal(uuid.Nil()))
 		})
 
 		It(
+			"Should reject an explicit zero in a defaulted field and not fill it",
+			func(ctx SpecContext) {
+				tx := DeferClose(db.OpenTx())
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "zero"})
+				l.TimeZone = ""
+				Expect(svc.NewWriter(tx).Create(ctx, &l)).
+					To(MatchError(ContainSubstring("invalid time_zone: ")))
+			},
+		)
+
+		It(
 			"Should return a validation error when the name is empty",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
-				l := log.Log{Project: &proj.Key}
+				l := defaults.Fill(log.Log{Project: &proj.Key})
 				Expect(svc.NewWriter(tx).Create(ctx, &l)).
 					To(MatchError(ContainSubstring("name: required")))
 			},
@@ -61,11 +73,11 @@ var _ = Describe("Writer", func() {
 		DescribeTable("Should return a validation error for an out-of-range precision",
 			func(ctx SpecContext, precision uint8, msg string) {
 				tx := DeferClose(db.OpenTx())
-				l := log.Log{
+				l := defaults.Fill(log.Log{
 					Project:  &proj.Key,
 					Name:     "test",
 					Channels: []log.ChannelEntry{{Channel: ch5, Precision: &precision}},
-				}
+				})
 				Expect(svc.NewWriter(tx).Create(ctx, &l)).
 					To(MatchError(ContainSubstring(msg)))
 			},
@@ -74,33 +86,33 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject a channel of 0", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project:  &proj.Key,
 				Name:     "test",
 				Channels: []log.ChannelEntry{{}},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).
 				To(MatchError(ContainSubstring("channels.0.channel")))
 		})
 
 		It("Should reject two entries for one channel", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project:  &proj.Key,
 				Name:     "test",
 				Channels: []log.ChannelEntry{{Channel: 5}, {Channel: 5}},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).
 				To(MatchError(ContainSubstring("channels.1.channel")))
 		})
 
 		It("Should keep a channel precision of 0", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			l := log.Log{
+			l := defaults.Fill(log.Log{
 				Project:  &proj.Key,
 				Name:     "test",
 				Channels: []log.ChannelEntry{{Channel: ch5, Precision: new(uint8(0))}},
-			}
+			})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			var res log.Log
 			Expect(svc.NewRetrieve().
@@ -114,7 +126,7 @@ var _ = Describe("Writer", func() {
 			"Should reject a log with neither a project nor a range",
 			func(ctx SpecContext) {
 				tx := DeferClose(db.OpenTx())
-				l := log.Log{Name: "orphan"}
+				l := defaults.Fill(log.Log{Name: "orphan"})
 				Expect(
 					svc.NewWriter(tx).Create(ctx, &l),
 				).To(MatchError(ContainSubstring(
@@ -126,7 +138,7 @@ var _ = Describe("Writer", func() {
 		It("Should reject a log whose project does not exist", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			missing := uuid.New()
-			l := log.Log{Name: "dangling", Project: &missing}
+			l := defaults.Fill(log.Log{Name: "dangling", Project: &missing})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(MatchError(
 				ContainSubstring(
 					"project: project " + missing.String() + " does not exist",
@@ -134,23 +146,24 @@ var _ = Describe("Writer", func() {
 			))
 		})
 
-		It(
-			"Should update the existing log when called with an existing key",
-			func(ctx SpecContext) {
-				tx := DeferClose(db.OpenTx())
-				key := uuid.New()
-				first := log.Log{Project: &proj.Key, Key: key, Name: "first"}
-				Expect(svc.NewWriter(tx).Create(ctx, &first)).To(Succeed())
-				second := log.Log{Project: &proj.Key, Key: key, Name: "second"}
-				Expect(svc.NewWriter(tx).Create(ctx, &second)).To(Succeed())
-				var res log.Log
-				Expect(svc.NewRetrieve().
-					Where(log.MatchKeys(key)).
-					Entry(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res.Name).To(Equal("second"))
-			},
-		)
+		It("Should refuse a log whose key exists", func(ctx SpecContext) {
+			tx := DeferClose(db.OpenTx())
+			stored := defaults.Fill(log.Log{Project: &proj.Key, Name: "first"})
+			Expect(svc.NewWriter(tx).Create(ctx, &stored)).To(Succeed())
+			again := defaults.Fill(
+				log.Log{Project: &proj.Key, Key: stored.Key, Name: "second"},
+			)
+			Expect(svc.NewWriter(tx).Create(ctx, &again)).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("log %s already exists", stored.Key)),
+			))
+			var res log.Log
+			Expect(svc.NewRetrieve().
+				Where(log.MatchKeys(stored.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal(stored))
+		})
 
 		It(
 			"Should broadcast the create with the writer's dispatch key after commit",
@@ -158,7 +171,7 @@ var _ = Describe("Writer", func() {
 				tx := DeferClose(db.OpenTx())
 				rec := &Recorder[log.Key, log.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
-				v := log.Log{Project: &proj.Key, Name: "broadcast"}
+				v := defaults.Fill(log.Log{Project: &proj.Key, Name: "broadcast"})
 				Expect(
 					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, &v),
 				).To(Succeed())
@@ -179,7 +192,7 @@ var _ = Describe("Writer", func() {
 				rec := &Recorder[log.Key, log.Action]{}
 				DeferCleanup(svc.OnAction(rec.Record))
 				uncommitted := db.OpenTx()
-				v := log.Log{Project: &proj.Key, Name: "discarded"}
+				v := defaults.Fill(log.Log{Project: &proj.Key, Name: "discarded"})
 				Expect(
 					svc.NewWriter(uncommitted).Create(ctx, &v),
 				).To(Succeed())
@@ -191,10 +204,10 @@ var _ = Describe("Writer", func() {
 	Describe("CreateMany", func() {
 		It("Should create multiple logs", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			logs := []log.Log{
+			logs := defaults.Fill([]log.Log{
 				{Name: "log-1", Project: &proj.Key},
 				{Name: "log-2", Project: &proj.Key},
-			}
+			})
 			Expect(svc.NewWriter(tx).CreateMany(ctx, &logs)).To(Succeed())
 
 			var retrieved []log.Log
@@ -205,14 +218,15 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved).To(HaveLen(2))
 		})
 	})
-	Describe("SetProject", func() {
-		It("Should move the logs into the project", func(ctx SpecContext) {
+	Describe("Apply of a project move", func() {
+		It("Should move the log into the project", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
 			dest := project.Project{Name: "destination"}
 			Expect(projectSvc.NewWriter(tx).Create(ctx, &dest)).To(Succeed())
-			v := log.Log{Project: &proj.Key, Name: "moved"}
+			v := defaults.Fill(log.Log{Project: &proj.Key, Name: "moved"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, dest.Key, v.Key)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(dest.Key))).
+				To(BeEmpty())
 			var res log.Log
 			Expect(svc.NewRetrieve().
 				Where(log.MatchKeys(v.Key)).
@@ -223,10 +237,10 @@ var _ = Describe("Writer", func() {
 
 		It("Should reject a project that does not exist", func(ctx SpecContext) {
 			tx := DeferClose(db.OpenTx())
-			v := log.Log{Project: &proj.Key, Name: "stuck"}
+			v := defaults.Fill(log.Log{Project: &proj.Key, Name: "stuck"})
 			Expect(svc.NewWriter(tx).Create(ctx, &v)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetProject(ctx, uuid.New(), v.Key)).
-				To(MatchError(ContainSubstring("does not exist")))
+			Expect(svc.NewWriter(tx).Apply(ctx, v.Key, setProject(uuid.New()))).
+				Error().To(MatchError(ContainSubstring("does not exist")))
 		})
 	})
 
@@ -234,7 +248,7 @@ var _ = Describe("Writer", func() {
 		var tx gorp.Tx
 		BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 		It("Should delete a Log so it is no longer retrievable", func(ctx SpecContext) {
-			l := log.Log{Project: &proj.Key, Name: "to-delete"}
+			l := defaults.Fill(log.Log{Project: &proj.Key, Name: "to-delete"})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
@@ -244,7 +258,7 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should leave a deleted log out of its resources", func(ctx SpecContext) {
-			l := log.Log{Project: &proj.Key, Name: "to-delete-resource"}
+			l := defaults.Fill(log.Log{Project: &proj.Key, Name: "to-delete-resource"})
 			Expect(svc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
 			Expect(svc.Resources().Retrieve(ctx, tx, []resource.ID{l.ResourceID()})).
@@ -252,8 +266,8 @@ var _ = Describe("Writer", func() {
 		})
 
 		It("Should delete multiple logs in one call", func(ctx SpecContext) {
-			a := log.Log{Project: &proj.Key, Name: "a"}
-			b := log.Log{Project: &proj.Key, Name: "b"}
+			a := defaults.Fill(log.Log{Project: &proj.Key, Name: "a"})
+			b := defaults.Fill(log.Log{Project: &proj.Key, Name: "b"})
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &b)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key, b.Key)).To(Succeed())
@@ -287,17 +301,19 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should reject a create without changing the log it names",
 			func(ctx SpecContext) {
-				target := log.Log{Project: &proj.Key, Name: "target"}
+				target := defaults.Fill(log.Log{Project: &proj.Key, Name: "target"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &target)
 				})).To(Succeed())
-				other := log.Log{Project: &proj.Key, Name: "other"}
+				other := defaults.Fill(log.Log{Project: &proj.Key, Name: "other"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &other)
 				})).To(Succeed())
 				Expect(dispatch(ctx, target.Key, "d1", []log.Action{
 					log.NewCreateAction(log.CreatePayload{
-						Log: log.Log{Key: other.Key, Name: "overwritten"},
+						Log: defaults.Fill(
+							log.Log{Key: other.Key, Name: "overwritten"},
+						),
 					}),
 				})).To(SatisfyAll(
 					MatchError(validate.ErrValidation),
@@ -311,7 +327,7 @@ var _ = Describe("Writer", func() {
 
 		Describe("per-action semantics", func() {
 			It("Should apply a set of the name", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "original"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "original"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -324,7 +340,7 @@ var _ = Describe("Writer", func() {
 			})
 
 			It("Should reject an empty name", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "original"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "original"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -337,7 +353,7 @@ var _ = Describe("Writer", func() {
 			DescribeTable(
 				"Should reject a path action that does not set the name",
 				func(ctx SpecContext, action log.Action, msg string) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -380,7 +396,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should append a default channel entry via AddChannel",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -403,7 +419,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should treat a duplicate AddChannel as a no-op", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -415,7 +431,7 @@ var _ = Describe("Writer", func() {
 			})
 
 			It("Should drop an entry via RemoveChannel", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -432,7 +448,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should insert then replace an entry via SetChannelEntry",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -453,11 +469,11 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should set per-field config via the fine-grained channel setters",
 				func(ctx SpecContext) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: ch5}},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -509,11 +525,11 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should treat a fine-grained channel setter as a no-op when the channel is absent",
 				func(ctx SpecContext) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: ch1}},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -529,13 +545,13 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should clear a channel precision", func(ctx SpecContext) {
-				l := log.Log{
+				l := defaults.Fill(log.Log{
 					Project: &proj.Key,
 					Name:    "test",
 					Channels: []log.ChannelEntry{
 						{Channel: ch5, Precision: new(uint8(2))},
 					},
-				}
+				})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -549,11 +565,11 @@ var _ = Describe("Writer", func() {
 
 			DescribeTable("Should reject an out-of-range channel precision",
 				func(ctx SpecContext, precision uint8) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: ch5}},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -570,7 +586,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should repoint a channel in place via SwapChannel, keeping position and config",
 				func(ctx SpecContext) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project: &proj.Key,
 						Name:    "test",
 						Channels: []log.ChannelEntry{
@@ -578,7 +594,7 @@ var _ = Describe("Writer", func() {
 							{Channel: ch2, Alias: "kept", Precision: new(uint8(3))},
 							{Channel: ch4},
 						},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -598,11 +614,11 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should treat SwapChannel as a no-op when the from channel is absent",
 				func(ctx SpecContext) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project:  &proj.Key,
 						Name:     "test",
 						Channels: []log.ChannelEntry{{Channel: ch1}},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -620,14 +636,14 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should treat SwapChannel as a no-op when the to channel has an entry",
 				func(ctx SpecContext) {
-					l := log.Log{
+					l := defaults.Fill(log.Log{
 						Project: &proj.Key,
 						Name:    "test",
 						Channels: []log.ChannelEntry{
 							{Channel: ch1, Alias: "one"},
 							{Channel: ch2, Alias: "two"},
 						},
-					}
+					})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -643,7 +659,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should set the timestamp precision via SetTimestampPrecision",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -660,7 +676,7 @@ var _ = Describe("Writer", func() {
 
 			DescribeTable("Should reject an out-of-range timestamp precision",
 				func(ctx SpecContext, precision uint8) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -676,7 +692,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should reject an action with no payload", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -688,7 +704,7 @@ var _ = Describe("Writer", func() {
 
 			DescribeTable("Should reject an action that leaves the log invalid",
 				func(ctx SpecContext, act func() log.Action, path string) {
-					l := log.Log{Project: &proj.Key, Name: "test"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -740,7 +756,7 @@ var _ = Describe("Writer", func() {
 			)
 
 			It("Should set the time zone via SetTimeZone", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -754,7 +770,7 @@ var _ = Describe("Writer", func() {
 			})
 
 			It("Should reject an invalid time zone", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -764,7 +780,7 @@ var _ = Describe("Writer", func() {
 			})
 
 			It("Should toggle the display flags", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -786,7 +802,7 @@ var _ = Describe("Writer", func() {
 
 		Describe("atomicity and broadcast", func() {
 			It("Should apply a multi-action batch atomically", func(ctx SpecContext) {
-				l := log.Log{Project: &proj.Key, Name: "test"}
+				l := defaults.Fill(log.Log{Project: &proj.Key, Name: "test"})
 				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 					return svc.NewWriter(tx).Create(ctx, &l)
 				})).To(Succeed())
@@ -808,7 +824,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should not apply any action when one in the batch is rejected",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "before"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "before"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -829,7 +845,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should notify subscribers with the dispatched ScopedAction on success",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "observed"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "observed"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -858,7 +874,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should assign strictly monotonic Seq across successive dispatches",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "seq"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "seq"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())
@@ -881,7 +897,7 @@ var _ = Describe("Writer", func() {
 			It(
 				"Should not notify subscribers when Reduce rejects the action",
 				func(ctx SpecContext) {
-					l := log.Log{Project: &proj.Key, Name: "rejected"}
+					l := defaults.Fill(log.Log{Project: &proj.Key, Name: "rejected"})
 					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 						return svc.NewWriter(tx).Create(ctx, &l)
 					})).To(Succeed())

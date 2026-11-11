@@ -53,6 +53,8 @@ func NewAlignmentCounter() *AlignmentCounter {
 
 type DB struct {
 	shutdown io.Closer
+	// removals tracks the background removals of deleted channel data.
+	removals sync.WaitGroup
 	*options
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
@@ -169,5 +171,6 @@ func (db *DB) Close() error {
 	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
+	db.removals.Wait()
 	return err
 }

@@ -4,9 +4,12 @@ title: "Snapshot tasks and schematics"
 description:
   "Attach a read-only copy of a task or a schematic to a range to keep its
   configuration."
+clients: ["python", "typescript"]
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
 import { Video } from "@/components/media/Media";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -50,19 +53,57 @@ the [range overview](/reference/ranges/find#range-overview) and go to **Snapshot
   You cannot edit or control a schematic snapshot.
 - Click the delete icon of a snapshot, then confirm, to delete it.
 
-Deleting a range does not delete its snapshots, and you can no longer open them in the
-Console. Delete the snapshots of a range before you delete the range.
+Deleting a range also deletes its snapshots.
 
 <Divider.Divider x />
 
 ## Snapshots in code
 
-The Python client lists the task snapshots of a range:
+A script takes a snapshot at a set point in a test, such as when a sequence starts. Copy
+a task or a schematic with `snapshot` set and the key of a range. To list the snapshots
+of a range, retrieve the tasks and the schematics that the range owns.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
 
 ```python
 rng = client.ranges.retrieve(name="Oct 10 Burst Test")
-for task in rng.snapshots():
-    print(task.name)
+
+# Take a snapshot of a task and of a schematic
+client.tasks.copy(task.key, "Press task (Snapshot)", snapshot=True, range_key=rng.key)
+client.schematics.copy(
+    schematic.key, name="Press schematic (Snapshot)", snapshot=True, range=rng.key
+)
+
+# List the snapshots of the range
+tasks = client.tasks.retrieve(ranges=[rng.key])
+schematics = client.schematics.retrieve(ranges=[rng.key])
 ```
 
-The client libraries cannot take a snapshot.
+`rng.snapshots()` is a short form that returns the task snapshots of the range.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const rng = await client.ranges.retrieve("Oct 10 Burst Test");
+
+// Take a snapshot of a task and of a schematic
+await client.tasks.copy(task.key, "Press task (Snapshot)", true, rng.key);
+await client.schematics.copy({
+  key: schematic.key,
+  name: "Press schematic (Snapshot)",
+  snapshot: true,
+  range: rng.key,
+});
+
+// List the snapshots of the range
+const tasks = await client.tasks.retrieve({ ranges: [rng.key] });
+const schematics = await client.schematics.retrieve({ ranges: [rng.key] });
+```
+
+  </Fragment>
+
+</Client.Tabs>

@@ -34,6 +34,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/resource"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -57,6 +58,7 @@ var (
 	arcSvc     *arc.Service
 	channelSvc *channel.Service
 	taskSvc    *task.Service
+	statusSvc  *status.Service
 	apiSvc     *apiarc.Service
 	// The routes, bound as the API layer binds them.
 	create     freighter.UnaryHandler[apiarc.CreateRequest, apiarc.CreateResponse]
@@ -70,13 +72,11 @@ var (
 		apiarc.CreateDirectoryRequest,
 		apiarc.CreateDirectoryResponse,
 	]
-	renameDirectory   freighter.UnaryHandler[apiarc.RenameDirectoryRequest, struct{}]
 	dispatchDirectory freighter.UnaryHandler[
 		apiarc.DispatchDirectoryRequest,
 		struct{},
 	]
 	deleteDirectory freighter.UnaryHandler[apiarc.DeleteDirectoryRequest, struct{}]
-	move            freighter.UnaryHandler[apiarc.MoveRequest, struct{}]
 	retrieve        freighter.UnaryHandler[
 		apiarc.RetrieveRequest,
 		apiarc.RetrieveResponse,
@@ -103,6 +103,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	taskSvc = svc.Task
 	channelSvc = svc.Channel
 	arcSvc = svc.Arc
+	statusSvc = svc.Status
 	apiChannelSvc := MustSucceed(apichannel.NewService(apichannel.ServiceConfig{
 		DB:      db,
 		RBAC:    rbacSvc,
@@ -116,22 +117,20 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Held: apiauth.HeldTables(),
 	}))
 	apiSvc = MustSucceed(apiarc.NewService(apiarc.ServiceConfig{
-		DB:            db,
-		Arc:           arcSvc,
-		Status:        svc.Status,
-		RBAC:          rbacSvc,
-		RenameChannel: bind.Write(binder, apiChannelSvc.Rename),
-		Stopper:       svc.TaskStopper,
+		DB:              db,
+		Arc:             arcSvc,
+		Status:          statusSvc,
+		RBAC:            rbacSvc,
+		DispatchChannel: bind.Write(binder, apiChannelSvc.Dispatch),
+		Stopper:         svc.TaskStopper,
 	}))
 	create = bind.Write(binder, apiSvc.Create)
 	del = bind.WritePrepared(binder, apiSvc.PrepareDelete, apiSvc.Delete)
 	dispatch = bind.Write(binder, apiSvc.Dispatch)
-	updateTask = bind.Write(binder, apiSvc.UpdateTask)
+	updateTask = bind.WritePrepared(binder, apiSvc.PrepareUpdateTask, apiSvc.UpdateTask)
 	createDirectory = bind.Write(binder, apiSvc.CreateDirectory)
-	renameDirectory = bind.Write(binder, apiSvc.RenameDirectory)
 	dispatchDirectory = bind.Write(binder, apiSvc.DispatchDirectory)
 	deleteDirectory = bind.Write(binder, apiSvc.DeleteDirectory)
-	move = bind.Write(binder, apiSvc.Move)
 	retrieve = apiSvc.Compiled(bind.Read(binder, apiSvc.Retrieve))
 	retrieveDirectories = bind.Read(binder, apiSvc.RetrieveDirectories)
 	var r directory.Directory

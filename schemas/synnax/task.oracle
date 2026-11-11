@@ -126,25 +126,17 @@ Task struct<
 
         @doc value """
             replaces the task with the given created state. Emitted by the Core when a
-            task is created or overwritten whole; clients never dispatch it.
+            task is created; clients never dispatch it.
         """
     }
 
-    action Set extends patch.Set {
-        @doc value "replaces the value at a path in the task."
-    }
+    action Set = patch.Set
 
-    action Remove extends patch.Remove {
-        @doc value "removes an entry from a list or a field from an object in the task."
-    }
+    action Remove = patch.Remove
 
-    action Insert extends patch.Insert {
-        @doc value "adds an entry to a list in the task."
-    }
+    action Insert = patch.Insert
 
-    action Move extends patch.Move {
-        @doc value "moves an entry in a list in the task."
-    }
+    action Move = patch.Move
 
     @create
     @doc value               """
@@ -243,8 +235,9 @@ PersistConfig struct extends StartConfig {
 
 ReadConfig struct extends PersistConfig {
     sample_rate telem.Rate = 10 {
-        @doc value "is the per-channel hardware sample rate, in Hertz."
-        @ts type   "number"
+        @doc value   "is the per-channel hardware sample rate, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     stream_rate telem.Rate = 5 {
         @doc value "is the rate at which samples are streamed to Synnax, in Hertz."
@@ -268,8 +261,9 @@ WriteConfig struct extends PersistConfig {
 
 ScanConfig struct extends KeyedConfig {
     rate     telem.Rate = 0.2 {
-        @doc value "is the rate at which the scan runs, in Hertz."
-        @ts type   "number"
+        @doc value   "is the rate at which the scan runs, in Hertz."
+        @ts type     "number"
+        @validate gt 0
     }
     disabled bool = false {
         @doc value "is true when scanning is paused."

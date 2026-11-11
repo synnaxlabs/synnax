@@ -10,7 +10,6 @@
 package encoding
 
 import (
-	"context"
 	"io"
 	"reflect"
 
@@ -20,19 +19,19 @@ import (
 // Decoder decodes values from binary.
 type Decoder interface {
 	// Decode decodes data into a pointer value.
-	Decode(context.Context, []byte, any) error
+	Decode([]byte, any) error
 	// DecodeStream decodes data from the given reader into a pointer value.
-	DecodeStream(context.Context, io.Reader, any) error
+	DecodeStream(io.Reader, any) error
 }
 
 // Encoder encodes values into binary.
 type Encoder interface {
 	// Encode encodes the value into binary. It returns the encoded value along with any
 	// errors encountered.
-	Encode(context.Context, any) ([]byte, error)
+	Encode(any) ([]byte, error)
 	// EncodeStream encodes the value into binary and writes it to the given writer. It
 	// returns any errors encountered.
-	EncodeStream(context.Context, io.Writer, any) error
+	EncodeStream(io.Writer, any) error
 }
 
 // FileEncoder is an Encoder that names the files its output belongs in, so a caller

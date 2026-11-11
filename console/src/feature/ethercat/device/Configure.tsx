@@ -23,6 +23,8 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { deep, strings, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
+import { SetupNote } from "@/feature/ethercat/device/SetupNote";
+import { SlaveSettings } from "@/feature/ethercat/device/SlaveSettings";
 import { StartupParameters } from "@/feature/ethercat/device/StartupParameters";
 import {
   autoIndex,
@@ -55,6 +57,9 @@ const STALE = -2;
 
 const BADGE_CLASS = CSS.BE("ethercat-sync", "badge");
 
+/** The start of the name of a network that the IgH master runs. */
+const IGH_PREFIX = "igh:";
+
 const APPLY_NOTE =
   "A change applies the next time the network starts, after every task on it stops.";
 
@@ -62,10 +67,15 @@ const STALE_ERROR =
   "The device no longer lists this mode, so the network fails to start. Pick a mode.";
 
 /** Says which mode auto runs on the device, and why. */
-const autoDescription = (modes: OpMode[]): string => {
-  const auto = autoIndex(modes);
+const autoDescription = (modes: OpMode[], catalog: OpModeChoice | null): string => {
+  const auto = autoIndex(modes, catalog);
   if (auto == null)
     return "The Driver uses SM sync, because the device lists no modes.";
+  if (catalog != null)
+    return (
+      `The Driver uses ${modeName(modes[auto], auto)}, because the setup of the ` +
+      "device needs it. Best for most needs."
+    );
   if (isSM(modes[auto]))
     return "The Driver uses SM sync, because the device lists it. Best for most needs.";
   return (
@@ -82,6 +92,8 @@ const staleLabel = ({ index, assignActivate }: OpModeChoice): string =>
 
 interface ModeSelectProps {
   modes: OpMode[];
+  /** The choice that the catalog of the device gives, or null for none. */
+  catalog: OpModeChoice | null;
   value: OpModeChoice | null;
   stale: boolean;
   onChange: (choice: OpModeChoice | null) => void;
@@ -89,11 +101,12 @@ interface ModeSelectProps {
 
 const ModeSelect = ({
   modes,
+  catalog,
   value: choice,
   stale,
   onChange,
 }: ModeSelectProps): ReactElement => {
-  const auto = autoIndex(modes);
+  const auto = autoIndex(modes, catalog);
   const autoName = auto == null ? "SM" : modeName(modes[auto], auto);
   let value = AUTO;
   if (stale) value = STALE;
@@ -132,7 +145,9 @@ const ModeSelect = ({
               {autoName}
               <Input.AutoBadge className={BADGE_CLASS} />
             </Text.Text>
-            <Select.ItemDescription>{autoDescription(modes)}</Select.ItemDescription>
+            <Select.ItemDescription>
+              {autoDescription(modes, catalog)}
+            </Select.ItemDescription>
           </Select.Item>
         </Flex.Box>
       }
@@ -204,18 +219,19 @@ const CycleField = ({
 };
 
 /**
- * Sets a cycle on the choice. A cycle typed in auto chooses the mode that auto runs, at
- * the index.
+ * Sets a cycle on the choice. A cycle typed in auto chooses what auto runs: the choice
+ * of the catalog, else the mode at the index.
  */
 const withCycle = (
   modes: OpMode[],
   choice: OpModeChoice | null,
+  auto: OpModeChoice | null,
   index: number,
   key: "sync0Cycle" | "sync1Cycle",
   ns: number,
 ): OpModeChoice | null => {
   if (choice == null && ns === 0) return null;
-  return { ...(choice ?? choose(modes, index)), [key]: ns };
+  return { ...(choice ?? auto ?? choose(modes, index)), [key]: ns };
 };
 
 interface HelpProps {
@@ -266,8 +282,8 @@ const NAME_INPUT_PROPS = {
 } as const;
 
 /**
- * The form that sets the name, identifier, sync mode, and startup parameters of one
- * EtherCAT slave.
+ * The form that sets the name, identifier, sync mode, settings, and startup parameters
+ * of one EtherCAT slave.
  */
 export const Configure = ({
   deviceKey,
@@ -290,14 +306,25 @@ export const Configure = ({
     Form.useFieldValue(OP_MODE_PATH, { ctx: form, optional: true }) ?? null;
   const setChoice = (next: OpModeChoice | null) =>
     form.set(OP_MODE_PATH, next ?? undefined);
+  const given =
+    Form.useFieldValue(path.properties.settings, { ctx: form, optional: true })?.mode
+      ?.opMode ?? null;
+  const network = Form.useFieldValue(path.properties.network, { ctx: form });
+  // The IgH master runs no DC sync, so it does not run the choice of the catalog.
+  const catalog =
+    given != null && !isStale(modes, given) && !network.startsWith(IGH_PREFIX)
+      ? given
+      : null;
   const { capture } = Analytics.use();
   const stale = choice != null && isStale(modes, choice);
-  const index = choice == null ? autoIndex(modes) : choice.index;
+  const index = choice == null ? autoIndex(modes, catalog) : choice.index;
+  // What the Driver runs: the choice, else the choice of the catalog.
+  const effective = choice ?? catalog;
   let mode: OpMode | null = null;
   if (!stale && index != null && takesCycles(modes[index])) mode = modes[index];
-  const sync0Problem = mode == null ? null : sync0Error(mode, choice);
+  const sync0Problem = mode == null ? null : sync0Error(mode, effective);
   const sync1Problem =
-    mode == null || sync0Problem != null ? null : sync1Error(mode, choice);
+    mode == null || sync0Problem != null ? null : sync1Error(mode, effective);
   const cycleProblem = sync0Problem ?? sync1Problem;
   // Auto fails the start too, but Save must still remove the choice.
   const severity: Problem = choice == null ? "warning" : "error";
@@ -319,8 +346,8 @@ export const Configure = ({
   let help: HelpProps;
   if (stale) help = { text: STALE_ERROR, problem: "error" };
   else if (cycleProblem != null) help = { text: cycleProblem, problem: severity };
-  else if (mode != null) help = { text: describeTicks(mode, choice) };
-  else if (choice == null) help = { text: autoDescription(modes) };
+  else if (mode != null) help = { text: describeTicks(mode, effective) };
+  else if (choice == null) help = { text: autoDescription(modes, catalog) };
   else help = { text: describeMode(modes[choice.index]) };
   return (
     <Modal.Frame className={CSS.BE("ethercat-configure", "frame")}>
@@ -335,6 +362,7 @@ export const Configure = ({
             padHelpText={false}
             inputProps={NAME_INPUT_PROPS}
           />
+          <SetupNote deviceKey={deviceKey} />
           <Form.Sections>
             <Form.Section title="General">
               <Form.TextField
@@ -366,6 +394,7 @@ export const Configure = ({
               <Input.Item label="Mode" padHelpText={false}>
                 <ModeSelect
                   modes={modes}
+                  catalog={catalog}
                   value={choice}
                   stale={stale}
                   onChange={setChoice}
@@ -378,7 +407,9 @@ export const Configure = ({
                     value={choice == null ? 0 : choice.sync0Cycle}
                     problem={sync0Problem == null ? undefined : severity}
                     onChange={(ns) =>
-                      setChoice(withCycle(modes, choice, index, "sync0Cycle", ns))
+                      setChoice(
+                        withCycle(modes, choice, catalog, index, "sync0Cycle", ns),
+                      )
                     }
                   />
                   <CycleField
@@ -386,7 +417,9 @@ export const Configure = ({
                     value={choice == null ? 0 : choice.sync1Cycle}
                     problem={sync1Problem == null ? undefined : severity}
                     onChange={(ns) =>
-                      setChoice(withCycle(modes, choice, index, "sync1Cycle", ns))
+                      setChoice(
+                        withCycle(modes, choice, catalog, index, "sync1Cycle", ns),
+                      )
                     }
                   />
                 </Flex.Box>
@@ -398,6 +431,7 @@ export const Configure = ({
                 </Text.Text>
               </Flex.Box>
             </Form.Section>
+            <SlaveSettings />
             <Form.Section title="Startup parameters">
               <StartupParameters />
             </Form.Section>

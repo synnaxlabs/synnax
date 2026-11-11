@@ -66,7 +66,7 @@ func OpenIdentity(
 		return Identity{}, err
 	}
 	var r record
-	err = identityCodec.Decode(ctx, b, &r)
+	err = identityCodec.Decode(b, &r)
 	if err = errors.Combine(err, closer.Close()); err != nil {
 		return Identity{}, errors.Wrap(err, "failed to decode the identity of the Core")
 	}
@@ -79,7 +79,7 @@ func createIdentity(
 	host address.Address,
 ) (Identity, error) {
 	id := Identity{Key: uuid.New(), HostKey: node.KeyBootstrapper}
-	b, err := identityCodec.Encode(ctx, record{
+	b, err := identityCodec.Encode(record{
 		Nodes: map[node.Key]recordNode{
 			id.HostKey: {Address: host, Key: id.HostKey},
 		},

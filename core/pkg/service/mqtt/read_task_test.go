@@ -733,6 +733,26 @@ var _ = Describe("Read task", func() {
 							"pointer"
 				},
 			),
+			Entry("an enum value that does not fit the channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.Int8T)
+					f := field("v", data[0], "")
+					f["enum_values"] = []any{
+						map[string]any{"label": "BIG", "value": 200},
+					}
+					return readConfig(dev, plainEntry("plant/x", f)),
+						`enum label "BIG": 200 is out of range for int8`
+				},
+			),
+			Entry("an enum value on a string channel",
+				func(ctx context.Context) (msgpack.EncodedJSON, string) {
+					_, data := createIndexed(ctx, telem.StringT)
+					f := field("v", data[0], "")
+					f["enum_values"] = []any{map[string]any{"label": "ON", "value": 1}}
+					return readConfig(dev, plainEntry("plant/x", f)),
+						`enum label "ON": a float64 value does not convert to string`
+				},
+			),
 			Entry("fields of one topic on different indexes",
 				func(ctx context.Context) (msgpack.EncodedJSON, string) {
 					_, a := createIndexed(ctx, telem.Float64T)

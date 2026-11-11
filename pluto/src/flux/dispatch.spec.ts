@@ -48,6 +48,7 @@ const createHarness = (send: SendFn): Harness => {
     store: docs,
     onError,
     onEpoch: () => destructor.NOOP,
+    onStreamDown: () => destructor.NOOP,
     reduce: schematic.reduceAll,
     kindOf: schematic.kindOf,
     send: async (_, actions) => {

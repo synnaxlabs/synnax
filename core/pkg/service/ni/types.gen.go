@@ -12,10 +12,14 @@
 package ni
 
 import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	vmsgpack "github.com/vmihailenco/msgpack/v5"
+	"reflect"
 	"strconv"
 )
 
@@ -851,7 +855,8 @@ type AOChannelType = versions.AOChannelType
 const (
 	// AOCurrentChannelType drives a current output.
 	AOCurrentChannelType AOChannelType = versions.AOCurrentChannelType
-	// AOFuncGenChannelType drives a function-generator output.
+	// AOFuncGenChannelType generates a waveform from task start to task stop, with no
+	// commands.
 	AOFuncGenChannelType AOChannelType = versions.AOFuncGenChannelType
 	// AOVoltageChannelType drives a voltage output.
 	AOVoltageChannelType AOChannelType = versions.AOVoltageChannelType
@@ -860,7 +865,7 @@ const (
 // AOCurrentChannel drives a current output.
 type AOCurrentChannel = versions.AOCurrentChannel
 
-// AOFuncGenChannel drives a function-generator output.
+// AOFuncGenChannel generates a waveform from task start to task stop, with no commands.
 type AOFuncGenChannel = versions.AOFuncGenChannel
 
 // AOVoltageChannel drives a voltage output.
@@ -910,6 +915,10 @@ const (
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 
+// CommandedAOChannel carries the command and state channels of a commanded analog
+// output.
+type CommandedAOChannel = versions.CommandedAOChannel
+
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
@@ -933,6 +942,30 @@ func (a *AnalogInputPort) ApplyDefaults() {
 	if a.DefaultTerminalConfig == "" {
 		a.DefaultTerminalConfig = TerminalConfigCfgDefault
 	}
+}
+
+// SetDefaults sets every field that has a schema default to that default.
+func (a *AnalogInputPort) SetDefaults() {
+	a.DefaultTerminalConfig = TerminalConfigCfgDefault
+}
+
+// UnmarshalJSONFrom decodes the input over the value. A zero value first takes the
+// schema defaults, so an omitted member takes its default and a zero stays.
+func (a *AnalogInputPort) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return json.UnmarshalDecode(dec, (*plain)(a))
+}
+
+// DecodeMsgpack decodes the input over the value, as UnmarshalJSONFrom does.
+func (a *AnalogInputPort) DecodeMsgpack(dec *vmsgpack.Decoder) error {
+	type plain AnalogInputPort
+	if reflect.ValueOf(*a).IsZero() {
+		a.SetDefaults()
+	}
+	return dec.Decode((*plain)(a))
 }
 
 // Validate returns an error wrapping validate.ErrValidation if any field violates its

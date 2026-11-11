@@ -13,12 +13,12 @@ package channel
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/x/compare"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -191,10 +191,11 @@ func MatchNames(vals ...Name) Filter {
 		for i, v := range vals {
 			keys[i] = compare.TextKey(string(v))
 		}
+		want := set.New(vals...)
 		return gorp.And(
 			r.indexes.name.Filter(keys...),
 			gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-				return slices.Contains(vals, e.Name), nil
+				return want.Contains(e.Name), nil
 			}),
 		)
 	}
@@ -205,8 +206,9 @@ func MatchNames(vals ...Name) Filter {
 // provided values.
 func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.Leaseholder), nil
+			return want.Contains(e.Leaseholder), nil
 		})
 	}
 }
@@ -216,8 +218,9 @@ func MatchLeaseholders(vals ...node.Key) Filter {
 // provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
 	return func(Retrieve) gorp.Filter[Key, Channel] {
+		want := set.New(vals...)
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
-			return slices.Contains(vals, e.DataType), nil
+			return want.Contains(e.DataType), nil
 		})
 	}
 }

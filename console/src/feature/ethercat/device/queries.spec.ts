@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type rack as clientRack, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -15,10 +16,17 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
+  CONTROL_ENTRY,
   createSlaveDevice as createSlave,
   STATUS_ENTRY,
 } from "@/feature/ethercat/testutil";
-import { createAsyncSynnaxWrapper } from "@/testutil";
+import { Device } from "@/platform/device";
+import {
+  answerCommand,
+  type CommandAnswer,
+  reportTaskRunning,
+} from "@/platform/task/testutil";
+import { createAsyncSynnaxWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -66,10 +74,7 @@ describe("useResultSlave", () => {
     await waitFor(() => expect(result.current?.name).toEqual("Original Name"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        name: "Updated Name",
-      });
+      await client.devices.rename(dev.key, "Updated Name");
     });
 
     await waitFor(() => {
@@ -229,10 +234,12 @@ describe("useCommonNetwork", () => {
     await waitFor(() => expect(result.current).toEqual("original-network"));
 
     await act(async () => {
-      await client.devices.create({
-        ...dev,
-        properties: { ...dev.properties, network: "updated-network" },
-      });
+      await Device.setProperties(
+        client,
+        { key: dev.key, properties: { ...dev.properties, network: "updated-network" } },
+        dev.properties,
+        EtherCAT.Device.SLAVE_SCHEMAS,
+      );
     });
 
     await waitFor(() => expect(result.current).toEqual("updated-network"));
@@ -351,57 +358,167 @@ describe("useToggleEnabled", () => {
     expect(updated2.properties.enabled).toBe(true);
   });
 
-  it("should hand the updated devices to afterSuccess", async () => {
+  it("should keep the other properties of the slave", async () => {
     const dev = await createSlaveDevice(rack.key, {
-      name: "After Success Device",
-      network: "eth0",
+      name: "Kept Properties Device",
+      network: "eth1",
+      position: 3,
       enabled: true,
     });
-    let updated: EtherCAT.Device.SlaveDevice[] = [];
 
-    const { result } = renderHook(
-      () =>
-        EtherCAT.Device.useToggleEnabled({
-          afterSuccess: ({ data }) => {
-            updated = data;
-          },
-        }),
-      { wrapper },
-    );
+    const { result } = renderHook(() => EtherCAT.Device.useToggleEnabled(), {
+      wrapper,
+    });
 
     await act(async () => {
       await result.current.updateAsync({ keys: dev.key });
     });
 
-    expect(updated.map(({ key }) => key)).toEqual([dev.key]);
-    expect(updated[0].properties.enabled).toBe(false);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties).toMatchObject({
+      enabled: false,
+      network: "eth1",
+      position: 3,
+    });
+  });
+});
+
+describe("useSetStandalone", () => {
+  const createReadTask = async (r: clientRack.Rack, device: string) =>
+    await r.createTask({
+      name: uniqueName("ecat_read"),
+      type: EtherCAT.Task.READ_TYPE,
+      config: EtherCAT.Task.READ_SCHEMAS.config.parse({
+        channels: [EtherCAT.Task.createEntryReadChannel(device, STATUS_ENTRY)],
+      }),
+    });
+
+  /**
+   * Answers each command sent to the tasks as a Driver does, with the answer that
+   * answers holds for its type. Resolves with the commands once it answers one of the
+   * type last.
+   */
+  const answerCommandsUntil = async (
+    tasks: task.Task[],
+    last: string,
+    answers: Record<string, Omit<CommandAnswer, "type">> = {},
+  ): Promise<{ answered: Promise<task.Command[]> }> => {
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    const answer = async (): Promise<task.Command[]> => {
+      const commands: task.Command[] = [];
+      try {
+        for (;;) {
+          const frame = await streamer.read();
+          for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
+            const cmd = task.commandZ.parse(sample);
+            const tsk = tasks.find((t) => t.key === cmd.task);
+            if (tsk == null) continue;
+            commands.push(cmd);
+            await answerCommand(client, tsk, cmd, answers[cmd.type]);
+            if (cmd.type === last) return commands;
+          }
+        }
+      } finally {
+        streamer.close();
+      }
+    };
+    return { answered: answer() };
+  };
+
+  it("should stop the running tasks on the network of the slave, then switch it", async () => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const neighbor = await createSlaveDevice(r.key, { network: "eth0" });
+    const elsewhere = await createSlaveDevice(r.key, { network: "eth1" });
+    const readHere = await createReadTask(r, neighbor.key);
+    const writeHere = await r.createTask({
+      name: uniqueName("ecat_write"),
+      type: EtherCAT.Task.WRITE_TYPE,
+      config: EtherCAT.Task.WRITE_SCHEMAS.config.parse({
+        channels: [EtherCAT.Task.createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+      }),
+    });
+    const readElsewhere = await createReadTask(r, elsewhere.key);
+    const stoppedHere = await createReadTask(r, neighbor.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
+    });
+    for (const tsk of [readHere, writeHere, readElsewhere])
+      await reportTaskRunning(client, tsk);
+    const driver = await answerCommandsUntil(
+      [readHere, writeHere, readElsewhere, stoppedHere, scan],
+      "set_standalone",
+    );
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    await act(async () => {
+      await result.current.updateAsync({ slave });
+    });
+    const commands = await driver.answered;
+    const stopped = commands.filter((c) => c.type === "stop").map((c) => c.task);
+    expect(stopped.sort()).toEqual([readHere.key, writeHere.key].sort());
+    expect(commands).toHaveLength(3);
+    expect(commands[2]).toMatchObject({
+      task: scan.key,
+      type: "set_standalone",
+      args: { device: slave.key },
+    });
   });
 
-  it("should run afterOptimistic before the write commits", async () => {
-    const dev = await createSlaveDevice(rack.key, {
-      name: "Optimistic Toggle Device",
-      network: "eth0",
-      enabled: true,
+  /**
+   * Runs a read task on the network of a slave, then switches the slave while the
+   * Driver gives answers. Resolves with the commands in the order they arrive.
+   */
+  const switchWithAnswers = async (
+    answers: Record<string, Omit<CommandAnswer, "type">>,
+  ): Promise<{ commands: string[]; switched: boolean }> => {
+    const r = await client.racks.create({ name: uniqueName("ecat_rack") });
+    const slave = await createSlaveDevice(r.key, { network: "eth0" });
+    const read = await createReadTask(r, slave.key);
+    const scan = await r.createTask({
+      name: uniqueName("ecat_scan"),
+      type: EtherCAT.Task.SCAN_TYPE,
+      config: {},
     });
-    const order: string[] = [];
-
-    const { result } = renderHook(
-      () =>
-        EtherCAT.Device.useToggleEnabled({
-          afterOptimistic: ({ data }) => {
-            order.push(`optimistic:${data[0].properties.enabled}`);
-          },
-          afterSuccess: () => {
-            order.push("success");
-          },
-        }),
-      { wrapper },
-    );
-
+    await reportTaskRunning(client, read);
+    const driver = await answerCommandsUntil([read, scan], "start", answers);
+    const { result } = renderHook(() => EtherCAT.Device.useSetStandalone(), {
+      wrapper,
+    });
+    let switched = true;
     await act(async () => {
-      await result.current.updateAsync({ keys: dev.key });
+      switched = await result.current.updateAsync({ slave });
     });
+    const names = new Map([
+      [read.key, "read"],
+      [scan.key, "scan"],
+    ]);
+    const commands = (await driver.answered).map(
+      (c) => `${names.get(c.task)} ${c.type}`,
+    );
+    return { commands, switched };
+  };
 
-    expect(order).toEqual(["optimistic:false", "success"]);
+  it("should start the stopped tasks again when the switch fails", async () => {
+    const result = await switchWithAnswers({
+      set_standalone: { variant: "error", message: "Slave 3 refused the switch" },
+    });
+    expect(result).toEqual({
+      commands: ["read stop", "scan set_standalone", "read start"],
+      switched: false,
+    });
+  });
+
+  it("should start the tasks again when a stop fails", async () => {
+    const result = await switchWithAnswers({
+      stop: { variant: "error", message: "Failed to stop" },
+    });
+    expect(result).toEqual({ commands: ["read stop", "read start"], switched: false });
   });
 });

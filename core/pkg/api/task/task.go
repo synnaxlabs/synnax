@@ -119,7 +119,8 @@ type (
 	}
 )
 
-// Create creates or updates the tasks. An existing snapshot keeps its range.
+// Create creates the tasks. It returns an error wrapping validate.ErrValidation when a
+// task with the key of one exists.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -207,28 +208,6 @@ func (s *Service) Retrieve(
 		}
 	}
 	return res, nil
-}
-
-// RenameRequest names the task to rename and the name to give it.
-type RenameRequest struct {
-	// Name is the new name. It must not be empty.
-	Name string `json:"name" msgpack:"name"`
-	// Key selects the task to rename.
-	Key task.Key `json:"key" msgpack:"key"`
-}
-
-// Rename renames the task and its status.
-func (s *Service) Rename(
-	ctx context.Context,
-	tx gorp.Tx,
-	req RenameRequest,
-) (struct{}, error) {
-	_, err := s.task.NewWriter(tx).Apply(
-		ctx,
-		req.Key,
-		task.NewSetAction(task.SetPayload{Path: []string{"name"}, Value: req.Name}),
-	)
-	return struct{}{}, err
 }
 
 type DeleteRequest struct {

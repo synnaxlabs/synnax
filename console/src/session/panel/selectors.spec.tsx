@@ -644,9 +644,11 @@ describe("panel selectors", () => {
     // siblings lose their selection, and only then does the window overlay.
     it("should focus the tab against its live leaf and overlay the window", async () => {
       const client = createTestClient();
+      // Another spec creates a panel under PANEL.
+      const key = uuid.create();
       const { Wrapper, store } = await setup({ client });
       const doc = panel.panelZ.parse({
-        key: PANEL,
+        key,
         name: "panel",
         root: {
           variant: "leaf",
@@ -657,17 +659,17 @@ describe("panel selectors", () => {
         },
       });
       await client.panels.create({ ...doc, project: await createPanelProject(client) });
-      await client.panels.retrieve(PANEL);
-      const { result } = renderHook(() => Panel.useStartOverlaying(PANEL), {
+      await client.panels.retrieve(key);
+      const { result } = renderHook(() => Panel.useStartOverlaying(key), {
         wrapper: Wrapper,
       });
       act(() => {
-        selectTab(store, PANEL, OTHER_TAB);
+        selectTab(store, key, OTHER_TAB);
       });
       act(() => {
         result.current(TAB);
       });
-      expect(Panel.selectSelectedTabs(store.getState(), PANEL)).toEqual([TAB]);
+      expect(Panel.selectSelectedTabs(store.getState(), key)).toEqual([TAB]);
       expect(Panel.selectActiveWindow(store.getState())?.state.isOverlaid).toBe(true);
     });
 

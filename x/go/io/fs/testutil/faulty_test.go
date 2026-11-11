@@ -126,6 +126,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(fs.List("nested")).Error().To(MatchError(ErrFault))
 	})
 
+	It("Should fail Close on the paths it names and still close the file", func() {
+		fs, f := openWrapped()
+		other := MustSucceed(fs.Open("b.bin", os.O_CREATE|os.O_RDWR))
+		fs.SetOptions(WithFailClose("a.bin"))
+		Expect(f.Close()).To(MatchError(ErrFault))
+		Expect(other.Close()).To(Succeed())
+		Expect(fs.OpenFiles()).To(BeZero())
+	})
+
 	It("Should fail an operation on every path when the failure names none", func() {
 		fs, f := openWrapped()
 		DeferClose(f)
@@ -149,6 +158,15 @@ var _ = Describe("FaultyFS", func() {
 		Expect(f.Write([]byte("more"))).To(Equal(4))
 		Expect(ran).To(BeTrue())
 		Expect(f.Close()).To(Succeed())
+	})
+
+	It("Should make a removal wait for the function given to WithBeforeRemove", func() {
+		fs, f := openWrapped()
+		Expect(f.Close()).To(Succeed())
+		var ran bool
+		fs.SetOptions(WithBeforeRemove(func() { ran = true }))
+		Expect(fs.Remove("a.bin")).To(Succeed())
+		Expect(ran).To(BeTrue())
 	})
 
 	It("Should stop failing once its options are cleared", func() {

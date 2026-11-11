@@ -231,7 +231,7 @@ const getInitialValues: Task.GetInitialValues<EdgeSchemas> = ({
 
 const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({ key: config.device, schemas: SCHEMAS });
-  const saved = deep.copy(dev.properties);
+  const before = deep.copy(dev.properties);
   const { group, edgeNode } = config;
   try {
     for (const tag of config.tags) {
@@ -253,7 +253,7 @@ const onConfigure: Task.OnConfigure<EdgeSchemas["config"]> = async (client, conf
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
+    await PlatformDevice.setProperties(client, dev, before, SCHEMAS);
   }
   return [config, dev.rack];
 };

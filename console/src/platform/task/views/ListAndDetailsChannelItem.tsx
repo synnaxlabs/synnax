@@ -46,9 +46,12 @@ export interface ListAndDetailsChannelItemProps<
   portMaxChars: number;
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
-  channel: channel.Key;
+  /** The Synnax channel the item names. Absent when the channel type has none. */
+  channel?: channel.Key;
   /** The name deploying the task gives the channel, shown while it has none. */
   defaultName?: string;
+  /** Ends the name in the form, as deploying the task ends it. */
+  suffix?: string;
   stateChannel?: channel.Key;
   /** The name deploying the task gives the state channel. */
   stateDefaultName?: string;
@@ -82,6 +85,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   hasTareButton,
   channel,
   defaultName,
+  suffix,
   icon,
   stateChannel,
   stateDefaultName,
@@ -122,7 +126,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
             })}
           </Tooltip.Dialog>
         )}
-        {hasStateChannel ? (
+        {channel == null ? null : hasStateChannel ? (
           <Flex.Box direction="y" gap="small">
             <WriteChannelNames
               stateNamePath={item.stateChannelName}
@@ -140,6 +144,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
             {...channelNameProps}
             channel={channel}
             defaultName={defaultName}
+            suffix={suffix}
             skipped={skipped}
             namePath={item.name}
             id={getChannelNameID(itemKey)}
@@ -148,7 +153,10 @@ export const ListAndDetailsChannelItem = <K extends string>({
       </Flex.Box>
       <Flex.Box x align="center" gap="tiny">
         {hasTareButton && (
-          <TareButton disabled={!canTare} onTare={() => onTare?.(channel)} />
+          <TareButton
+            disabled={!canTare}
+            onTare={() => channel != null && onTare?.(channel)}
+          />
         )}
         <EnabledCheckbox path={item.disabled} />
       </Flex.Box>

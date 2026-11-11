@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/timer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -58,7 +57,9 @@ type FactoryConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// GetProgram retrieves an automation with its compiled Program by key.
+	// GetProgram retrieves an automation with its compiled Program by key. A configure
+	// calls it again, as channel.RetryChanged does, when it returns
+	// channel.ErrLookupsChanged.
 	//
 	// [REQUIRED]
 	GetProgram GetProgramFunc
@@ -68,7 +69,7 @@ type FactoryConfig struct {
 	Ranger *ranger.Service
 	// Now returns the wall clock each task's runtime stamps its cycles from.
 	//
-	// [OPTIONAL] - Defaults to timer.Wall, which is precise on Windows too.
+	// [OPTIONAL] - Defaults to telem.Now.
 	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
@@ -76,7 +77,7 @@ type FactoryConfig struct {
 var (
 	_                    config.Config[FactoryConfig] = FactoryConfig{}
 	DefaultFactoryConfig                              = FactoryConfig{
-		Now: func() telem.TimeStamp { return telem.NewTimeStamp(timer.Wall()) },
+		Now: telem.Now,
 	}
 )
 
@@ -139,7 +140,9 @@ func (f *factory) ConfigureTask(
 		f.reporter.Report(ctx, t, cmdKey, false, err)
 		return nil, err
 	}
-	prog, err := f.cfg.GetProgram(ctx, cfg.ArcKey)
+	prog, err := channel.RetryChanged(ctx, func() (arc.AutomationArc, error) {
+		return f.cfg.GetProgram(ctx, cfg.ArcKey)
+	})
 	if err != nil {
 		f.reporter.Report(ctx, t, cmdKey, cfg.AutoStart, err)
 		return nil, err

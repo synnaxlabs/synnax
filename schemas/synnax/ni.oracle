@@ -1504,30 +1504,14 @@ WaveType enum {
 }
 
 BaseAOChannel struct {
-    key                string = create {
+    key      string = create {
         @doc value "uniquely identifies the channel within the task."
         @key
     }
-    disabled           bool = false {
+    disabled bool = false {
         @doc value "is true when the channel is excluded from the task."
     }
-    cmd_channel        channel.Key = 0 {
-        @doc value     "is the Synnax channel commands are read from."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    state_channel      channel.Key = 0 {
-        @doc value     "is the Synnax channel the output state is written to."
-        @ref kind      use
-        @ref on_delete restrict
-    }
-    cmd_channel_name   string = "" {
-        @doc value "is the human-readable name of the command channel."
-    }
-    state_channel_name string = "" {
-        @doc value "is the human-readable name of the state channel."
-    }
-    port               uint32 = 0 {
+    port     uint32 = 0 {
         @doc value "is the physical port the channel writes to."
     }
 
@@ -1536,7 +1520,7 @@ BaseAOChannel struct {
 }
 
 AOChannel union on type extends BaseAOChannel {
-    ao_current extends MinMaxVal, CustomScale {
+    ao_current extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a current output."
     }
     ao_func_gen {
@@ -1553,9 +1537,11 @@ AOChannel union on type extends BaseAOChannel {
             @doc value "is the waveform DC offset."
         }
 
-        @doc value "drives a function-generator output."
+        @doc value """
+            generates a waveform from task start to task stop, with no commands.
+        """
     }
-    ao_voltage extends MinMaxVal, CustomScale {
+    ao_voltage extends MinMaxVal, CustomScale, CommandedAOChannel {
         @doc value "drives a voltage output."
     }
 
@@ -1662,8 +1648,11 @@ CounterReadConfig struct extends task.ReadConfig {
 
 WriteConfig struct extends task.WriteConfig {
     state_rate telem.Rate = 10 {
-        @doc value "is the rate at which output state is reported to Synnax, in Hertz."
-        @ts type   "number"
+        @doc value   """
+            is the rate at which output state is reported to Synnax, in Hertz.
+        """
+        @ts type     "number"
+        @validate gt 0
     }
 
     @doc value  "carries the configuration fields shared by NI write tasks."
@@ -1875,4 +1864,26 @@ Hardware struct {
         is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
         device. The Driver stores it in the device properties under hardware.
     """
+}
+
+CommandedAOChannel struct {
+    cmd_channel        channel.Key = 0 {
+        @doc value     "is the Synnax channel commands are read from."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    state_channel      channel.Key = 0 {
+        @doc value     "is the Synnax channel the output state is written to."
+        @ref kind      use
+        @ref on_delete restrict
+    }
+    cmd_channel_name   string = "" {
+        @doc value "is the human-readable name of the command channel."
+    }
+    state_channel_name string = "" {
+        @doc value "is the human-readable name of the state channel."
+    }
+
+    @doc value  "carries the command and state channels of a commanded analog output."
+    @go marshal
 }

@@ -169,9 +169,16 @@ a key is saved, the Driver ignores a username and password and logs a warning.
   the computer.
 </Field.Item>
 
+<Field.Item name="clock_skew_threshold" default="1000000000">
+  The difference between the clock of the computer and the clock of the Core, in
+  nanoseconds, above which the rack status shows the warning [Clock out of sync with the
+  Core](/reference/enterprise/troubleshooting#clock-out-of-sync-with-the-core). In the
+  configuration file, it goes in `connection`.
+</Field.Item>
+
 <Field.Item name="op_timeout" default="60">
   The number of seconds after which a task operation that has not finished, such as a
-  start, gives the task the error `operation timed out`.
+  start, gives the task the error "Failed to complete task operation".
 </Field.Item>
 
 <Field.Item name="poll_interval" default="1">
@@ -188,7 +195,9 @@ a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Field.Item name="integrations" default="all">
   The device integrations to run: `arc`, `ethercat`, `http`, `labjack`, `modbus`, `ni`,
-  and `opc`. NI Linux RT has no `modbus`.
+  and `opc`. The default is every integration that the Driver for your platform has.
+  Linux has no `labjack`, macOS has no `ni`, and NI Linux RT has no `labjack` or
+  `modbus`.
 </Field.Item>
 
 </Field.List>
