@@ -350,20 +350,21 @@ export class Client extends query.Retriever<
         return created == null ? undefined : this.sugarOne(created);
       },
     });
-    cache.listen(dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ));
+    const listener = dispatcher.listener(ACTION_CHANNEL_NAME, scopedActionZ);
     // The Core derives hasChildren only on read, so a range that a create or a move
     // places under a parent marks the parent here. The parent keeps the mark after its
     // last child leaves.
     cache.listen({
-      channel: ACTION_CHANNEL_NAME,
-      schema: scopedActionZ,
-      onChange: (frames) =>
+      ...listener,
+      onChange: (frames) => {
+        listener.onChange(frames);
         frames.forEach(({ actions }) =>
           actions.forEach((action) => {
             const parent = parentOf(action);
             if (parent != null) this.markParent(parent);
           }),
-        ),
+        );
+      },
     });
     const single = cache.queries<Key, Range, Key, Range>({
       name: "range",
